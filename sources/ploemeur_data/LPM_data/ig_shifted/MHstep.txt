@@ -1,0 +1,3 @@
+mu,0.15,year
+sigma,0.075,year
+shift,0.075,year

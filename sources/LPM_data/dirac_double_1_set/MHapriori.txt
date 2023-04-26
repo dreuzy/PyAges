@@ -1,0 +1,2 @@
+mufree,uniform,0,70,year
+rate,uniform,0,1,-

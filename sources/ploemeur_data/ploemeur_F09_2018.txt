@@ -1,0 +1,4 @@
+element	concentration	error	unit	date
+cfc11	206.765923846716	0.0	pptv	2018.9
+cfc12	545.415730299343	0.0	pptv	2018.9
+cfc113	56.2944984580156	0.0	pptv	2018.9

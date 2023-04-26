@@ -1,0 +1,4 @@
+Sigmoidal Recharge
+t0(years)	1980	
+trans(years)	5
+cmax(mg/l)	60

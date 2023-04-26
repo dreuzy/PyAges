@@ -1,0 +1,7 @@
+date	0    2010.975342
+1    2010.975342
+2    2010.975342
+Name: date, dtype: float64
+lpm	dirac_double
+tracers	cfc11	cfc12	cfc113
+resolution	2000

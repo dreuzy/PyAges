@@ -1,0 +1,2 @@
+tmin,uniform,0,100,year
+delta,uniform,0,100,year

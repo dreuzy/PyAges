@@ -1,0 +1,3 @@
+mu,uniform,0,100,year
+scale,uniform,0,30,year
+shift,uniform,0,30,year

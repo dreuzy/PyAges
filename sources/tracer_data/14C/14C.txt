@@ -1,0 +1,5 @@
+recharge_constant,100,--
+datemin,-1000,year
+datemax,2021,year
+decay characteristic time,573,years
+unit,0,pCm%

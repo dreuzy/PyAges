@@ -1,0 +1,4 @@
+rate,0.05,-
+mu1,2,year
+mu2,10,year
+shift,10,year

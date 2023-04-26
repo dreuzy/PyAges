@@ -1,0 +1,1 @@
+mu,normal,50,4,year

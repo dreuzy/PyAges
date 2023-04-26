@@ -1,0 +1,3 @@
+mu,2,year
+scale,2,year
+shift,2,year
