@@ -127,7 +127,7 @@ class ConvolutionTracers:
         return units        
 
     
-    def convolution(self,lpm,return_type="array",prepare=False): 
+    def convolution(self,lpm,return_type="array",prepare=False,opt=False): 
         """ 
         Convolution between a lpm and the tracers at given date 
         
@@ -144,7 +144,7 @@ class ConvolutionTracers:
         # Performs convolution 
         conc=[]; date_vec=[]
         for t in self.elements:
-            conc.append(t.convolution(lpm,prepare=prepare))
+            conc.append(t.convolution(lpm,prepare=prepare,opt=opt))
             date_vec.append(t.get_date())
         # Translates in the required format
         if return_type=="array":

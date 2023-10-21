@@ -122,7 +122,7 @@ class CalibrationBasis(CalibrationExploration):
         # Modification of parameters in lpm
         self.lpm.set_param_from_array(param)
         # Concentration computed (this function without dataframe for performance issues)
-        model_c = self.tracers.convolution(self.lpm,prepare=True)
+        model_c = self.tracers.convolution(self.lpm,prepare=True,opt=True)
         # Squared difference
         #JRBUG
         if any(data_error==0):         
@@ -185,6 +185,7 @@ class CalibrationBasis(CalibrationExploration):
         if self.method != "Simplex" : 
             lpm_results.write_dist(os.path.join(self.display_options.directory,"lpm_dist_calibrated.txt"))
             lpm_results.write_stats(os.path.join(self.display_options.directory,"lpm_stats_calibrated.txt"))
+            lpm_results.computes_and_writes_dist_params(os.path.join(self.display_options.directory,"lpm_param_dist_calibrated.txt"))
         # Writes "best" lpm
         # [exist,lpm]=lpm_results.get_best_lpm()
         # if exist: lpm.write(os.path.join(self.display_options.directory,"lpm_calibrated.txt"),open_file=True)

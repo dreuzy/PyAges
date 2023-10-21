@@ -277,7 +277,7 @@ def appli_ploemeur_results_comparison():
     # dir_ploemeurs.append(os.path.join(gp.ROOT_DIRECTORY_RESULTS,"ploemeur_all"))
     for dir_ploemeur in dir_ploemeurs: 
         date_sims=os.listdir(dir_ploemeur)
-        distributions = ["exp_shifted","exp","dirac_double","dirac","ig","ig_shifted"]
+        distributions = ["exp_shifted_old","exp_shifted_young","exp_shifted","exp","dirac_double","dirac","ig","ig_shifted"]
         for date_sim in date_sims:
             for distribution in distributions:
                 load_and_display(date_sim,distribution,dir_ploemeur)

@@ -209,6 +209,12 @@ class Tracer:
         return np.mean(self.get_concentration(t,date-t))        
 
 
+    def max_value(self): 
+        """ Max value of chronicle concentrations
+        """
+        return max(self.__recharge_chronicle_file.iloc[:,1])
+
+
     def display(self,display_options):
         """ Display chemical element
         """

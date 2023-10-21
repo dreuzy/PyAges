@@ -189,6 +189,16 @@ class LPM(abc.ABC):
         return lpm_temp.get_parameters_to_array()
         
     
+    def param_names(self):
+        """
+        Returns param names
+        """
+        names=[]
+        for pname in self.p: 
+            names.append(pname)
+        return names
+    
+    
     def lpm_parameter_file(self,file_name): 
         """ 
         Directory + File where the lpm parameters are defined

@@ -13,6 +13,8 @@ from LPM.LPM_dirac_double import LPM_dirac_double          # LPM dirac double
 from LPM.LPM_dirac_double_1_set import LPM_dirac_double_1_set          # LPM dirac double
 from LPM.LPM_exp import LPM_exp                            # LPM exponential
 from LPM.LPM_exp_shifted import LPM_exp_shifted            # LPM shifted exponential
+from LPM.LPM_exp_shifted_young import LPM_exp_shifted_young            # LPM shifted exponential
+from LPM.LPM_exp_shifted_old import LPM_exp_shifted_old            # LPM shifted exponential
 from LPM.LPM_uniform import LPM_uniform                    # LPM uniform
 from LPM.LPM_ig import LPM_ig                              # LPM inverse gaussian
 from LPM.LPM_ig_shifted import LPM_ig_shifted              # LPM inverse gaussian shifted
@@ -42,6 +44,10 @@ def LPM_generate(lpm_type,directory_lpm=gp.directory_lpm_data):
         lpm = LPM_exp(directory_lpm=directory_lpm)
     elif(lpm_type=='exp_shifted'): 
         lpm = LPM_exp_shifted(directory_lpm=directory_lpm)
+    elif(lpm_type=='exp_shifted_young'): 
+        lpm = LPM_exp_shifted_young(directory_lpm=directory_lpm)
+    elif(lpm_type=='exp_shifted_old'): 
+        lpm = LPM_exp_shifted_old(directory_lpm=directory_lpm)
     elif(lpm_type=='mix_exp_shifted'): 
         lpm = LPM_mix_exp_shifted(directory_lpm=directory_lpm)
     elif(lpm_type=='dirac'): 

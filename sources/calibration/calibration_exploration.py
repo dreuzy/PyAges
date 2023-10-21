@@ -312,7 +312,9 @@ class ParamSysSampling:
                             xlabel=self.__pnames[0],lpm_results=lpm_results)
         elif self.__np == 2 : 
             # 2D colormap
-            if(lpm_name=="exp_shifted" or lpm_name=="uniform" or lpm_name=="dirac_double_1_set"): 
+            if(lpm_name=="exp_shifted" or lpm_name=="exp_shifted_young" or \
+               lpm_name=="exp_shifted_old" or lpm_name=="uniform" or \
+               lpm_name=="dirac_double_1_set"): 
                 index0=0; index1=1; 
             else: 
                 index0=1; index1=0; 
@@ -441,7 +443,7 @@ class CalibrationExploration:
         for i in range(len(params)):
             # Modification of parameters in lpm & convlution computation
             self.__lpm.set_param_from_array(params[i])
-            data[i,:] = self.__tracers.convolution(self.__lpm,prepare=True)
+            data[i,:] = self.__tracers.convolution(self.__lpm,prepare=True,opt=True)
         # Stores results in a dataframe
         self.__concentrations = pd.DataFrame(data=data,columns=tracer_names_elts)
         

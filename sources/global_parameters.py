@@ -20,7 +20,8 @@ ROOT_DIRECTORY_RESULTS="D:\\results\\PyAge\\"
 
 # Root Directory of Application
 ##Sarah
-ROOT_DIRECTORY_SRC="D:\\codes-github-public\\trac-2-age\\python\\sources\\"
+ROOT_DIRECTORY_SRC="D:\\codes\\pyage\\sources\\"
+#ROOT_DIRECTORY_SRC="D:\\codes-github-public\\trac-2-age\\python\\sources\\"
 #ROOT_DIRECTORY_SRC="C:\\Users\\Chinita\\Documents\\GitHub\\trac-2-age\\python"
 
 # Directory of chemical data

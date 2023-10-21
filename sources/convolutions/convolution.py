@@ -12,6 +12,7 @@ import pandas as pd                  # DataFrame
 import sys                           # sys: abort code
 from scipy import interpolate        # Interpolation function 
 from scipy import integrate          # Interpolation function 
+import copy
 
 import tools.figures_additional as figadd
 import global_parameters as gp       # Global variables
@@ -118,7 +119,8 @@ class Convolution(tracer.Tracer):
         """
         if lpm.name =="exp": 
             maxdate=self.__date 
-        elif lpm.name == "exp_shifted" or lpm.name == "mix_exp_shifted":
+        elif lpm.name == "exp_shifted" or lpm.name=="exp_shifted_young" or \
+             lpm.name=="exp_shifted_old" or lpm.name == "mix_exp_shifted":
             maxdate=self.__date-lpm.p["shift"]
         mindate=self.datemin
         if maxdate<mindate : 
@@ -134,7 +136,7 @@ class Convolution(tracer.Tracer):
         """ Specific convolution for dirac distributions
             Refined discretization close to discontinuity
         """
-        if lpm.name == "dirac" or lpm.name == "mix_exp_shifted":
+        if lpm.name == "dirac" or lpm.name == "mix_exp_shifted" :
             # Specific case for which convolution is determined by picking up a value in the chronicle
             time = lpm.get_dirac_time()
             convol = self.get_concentration(self.__date-time,time)
@@ -160,12 +162,14 @@ class Convolution(tracer.Tracer):
         if lpm_type != "dirac" and lpm_type != "dirac_double" and \
            lpm_type != "dirac_double_1_set" and \
            lpm_type != "exp" and lpm_type != "exp_shifted" and \
+           lpm_type != "exp_shifted_young" and \
+           lpm_type != "exp_shifted_old" and \
            lpm_type != "mix_exp_shifted":
             self.__convolution_classic_prepare(lpm_type)
             self.__prepare = True
             
     
-    def convolution(self,lpm,prepare=False): 
+    def convolution(self,lpm,prepare=False,reg=False,opt=False): 
         """ 
         Driving convolution function between a lpm and a tracer
         
@@ -181,7 +185,8 @@ class Convolution(tracer.Tracer):
         if lpm.name == "dirac" or lpm.name == "dirac_double" or lpm.name == "dirac_double_1_set": 
             # Specific case for which convolution is determined by picking up a value in the chronicle
             convol = self.__convolution_dirac(lpm)
-        elif lpm.name == "exp" or lpm.name == "exp_shifted":
+        elif lpm.name == "exp" or lpm.name == "exp_shifted" or \
+             lpm.name == "exp_shifted_young" or lpm.name == "exp_shifted_old" :
             # Requires an adapted discretization close to the discontinuity
             convol = self.__convolution_exp(lpm)
         elif lpm.name == "mix_exp_shifted":
@@ -195,6 +200,25 @@ class Convolution(tracer.Tracer):
             if self.__prepare == False : 
                 self.__convolution_classic_prepare(lpm)
             convol=self.__convolution_classic_perform(lpm)
+        
+        if opt == True and reg == False and ( lpm.name[-5:]=='young' or lpm.name[-3:]=='old'): 
+            # Young: Requires a location larger than the tracer maximum (CFCs, for example)
+            # Light Shift of distribution upwards
+            lpm2=copy.deepcopy(lpm); lpm2.shift_upward()
+            # Recomputes convolution with this shift upward
+            convol2 = self.convolution(lpm2,prepare,reg=True)
+            # concentration should be lesser than the previous one, otherwise, 
+            #   distribution is not on the right side and concentration is modified 
+            #   to yield a high convolution product to lead the objective function to the right position
+            if lpm.name[-5:]=='young' and convol2<convol : 
+                # When distribution is shifted upwards (in time), distribution is aging
+                # To get young ages only, 
+                convol=200*self.max_value()-convol
+            if lpm.name[-3:]=='old' and convol2>convol : 
+                # When distribution is shifted upwards (in time), distribution is aging
+                # To get young ages only, 
+                convol=200*self.max_value()-convol
+
         return convol
 
 
@@ -214,4 +238,3 @@ class Convolution(tracer.Tracer):
         df.columns=['date','concentration']
         df['element']=self.get_name()
         return df
-        

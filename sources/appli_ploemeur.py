@@ -11,7 +11,7 @@ import math
 import numpy as np
 import sys        
 import os   
-import time as time    
+import time as time
 import multiprocessing as mp                                  
 
 import convolutions.concentrations as concentrations        # List of chemical concentrations
@@ -196,13 +196,13 @@ class ploemeur_one_date:
         
         # ---------------- METROPOLIS HASTINGS --------------------
         # Method and Parameters  
-        self.calstrat[0] = cMH.CalibrationMetropolisHastings(nstep=100000,prior=False,likelyhood=True,
+        self.calstrat[0] = cMH.CalibrationMetropolisHastings(nstep=10000,prior=False,likelyhood=True,
                                                              monitor=True,display_traj=True) # JR: 250000
         # self.calstrat[1].MH_step.define_by_prop(0.005)
         self.calstrat[0].MH_step.define_by_value()
                 
         # ---------------- CALIBRATION ANALYSIS --------------------
-        self.__nmodels = 5000 # 10000
+        self.__nmodels = 500 # 10000
         
         # ---- DISPLAY OPTIONS + ROOT OUTPUT DIRECTORY ------------
         # Output options
@@ -325,8 +325,8 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted"])
-        # lpm_types.append(["exp_shifted"])
-        lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+        lpm_types.append(["exp_shifted_old","exp_shifted_young","exp_shifted"])
+        # lpm_types.append(["exp_shifted","exp_shifted_young","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     if "MF4" in well_select : 
         wells.append("MF4")
@@ -362,7 +362,7 @@ def perform(pod,i):
 
 def appli_ploemeur(well_select, file_root_root="ploemeur_", option="all", error=0.15):
     # Main analysis option 
-    parallel=True
+    parallel=False
     
     wells,datess,errors,lpm_types = selector(well_select,error=error)
     file_root=file_root_root+str(error)+option
@@ -405,17 +405,22 @@ def appli_ploemeur(well_select, file_root_root="ploemeur_", option="all", error=
     
     
 if __name__ == "__main__":  
+    
+    # well_select = ["F09"]
+    # appli_ploemeur(well_select, file_root_root="ploemeur_10_10_", option="suc", error=0.15)
+    # appli_ploemeur(well_select, file_root_root="ploemeur_10_10_", option="all", error=0.15)
+    
+    # sys.exit()
+    
     # well_select = ["F34","PE","MF1","MF4","F38b","F11","F09"]
-    well_select = ["F11","F09","F34","PE","MF1","MF4","F38b"]
-    # well_select = ["F38b"]
-    appli_ploemeur(well_select, file_root_root="ploemeur_09_2_", option="suc", error=0.15)
-    appli_ploemeur(well_select, file_root_root="ploemeur_09_2_", option="all", error=0.15)
-    appli_ploemeur(well_select, file_root_root="ploemeur_09_2_", option="suc", error=0.20)
-    appli_ploemeur(well_select, file_root_root="ploemeur_09_2_", option="all", error=0.20)
-    appli_ploemeur(well_select, file_root_root="ploemeur_09_2_", option="suc", error=0.25)
-    appli_ploemeur(well_select, file_root_root="ploemeur_09_2_", option="all", error=0.25)
-    appli_ploemeur(well_select, file_root_root="ploemeur_09_2_", option="suc", error=0.30)
-    appli_ploemeur(well_select, file_root_root="ploemeur_09_2_", option="all", error=0.30)
+    # well_select = ["F09","F11","F34","PE","MF1","MF4","F38b"]
+    well_select = ["F09"]
+    folder = "ploemeur_10_13_"
+    # errors=[0.15,0.2,0.25,0.3]
+    errors=[0.15]
+    for error in errors: 
+        appli_ploemeur(well_select, file_root_root=folder, option="suc", error=error)
+        appli_ploemeur(well_select, file_root_root=folder, option="all", error=error)
     
     
     

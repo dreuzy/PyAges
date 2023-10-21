@@ -13,8 +13,11 @@ import pandas as pd                     # Tables-Arrays
 
 import global_parameters as gp
 import tools.figures_additional as figadd
+import tools.dist_hist as dist_hist
 
 from IPython.display import display
+
+
 
 
 class LPMDist:
@@ -386,4 +389,25 @@ class LPMDist:
             file name in which distribution is stored
         """  
         self.get_stats().to_csv(file,sep='\t')
+        
+        
+    def computes_and_writes_dist_params(self,file): 
+        """
+        Computes and writes the multidimensional distribution formed by the parameters 
+        It is obtained as an histograme and output as a fully functional distribution 
+        from which probabilities can be dervived. 
+        
+        Such a distribution might be used as prior for the Metropholis Hastings algorithm, for example
+
+        Arguments
+        ---------
+        file: str
+        """
+        values = self.__dist.to_numpy()[:,0:len(self.__lpm_template.p)]
+        lpm = self.__lpm_template
+        names = self.__lpm_template.param_names()
+        if values.shape[1] != len(names) : 
+            print("Pb in computes_and_writes_dist_params")
+        dh = dist_hist.dist_hist(names,values)
+
         
