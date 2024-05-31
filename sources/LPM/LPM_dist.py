@@ -80,8 +80,11 @@ class LPMDist:
             row['param_in_bounds']=[param_in_bounds]
         if concentrations != None :
             for elt, i in zip(self.__c_names, range(len(concentrations))):
-                row[elt]=[concentrations[i]]
-        self.__dist = pd.concat([self.__dist,pd.DataFrame.from_dict(row,orient='columns')])
+                row[elt]=[concentrations[i]] 
+        if self.__dist.empty: 
+            self.__dist = pd.DataFrame.from_dict(row,orient='columns')
+        else:
+            self.__dist = pd.concat([self.__dist,pd.DataFrame.from_dict(row,orient='columns')]) 
 
 
     def dist_append_array(self,params,obj_function=-1,param_in_bounds=None,concentrations=None):
@@ -113,7 +116,12 @@ class LPMDist:
             the other instance of the class to concatenate
         """
         #concat self.__dist=self.__dist.append(other.__dist,ignore_index=True)
-        self.__dist=pd.concat([self.__dist,other.__dist],ignore_index=True)
+        if self.__dist.empty: 
+            self.__dist = other.__dist
+        else:
+            self.__dist=pd.concat([self.__dist,other.__dist],ignore_index=True)
+
+        
         
     
     def get_selection(self,lpm_number=10,array_resolution=1000):
@@ -225,11 +233,11 @@ class LPMDist:
             figadd.figure_init(xlab=key,ylab="Count",figname=self.__lpm_template.name)
             binwidth = self.__lpm_template.get_param_range(key)/100
             # First histogram
-            plt.hist(self.__dist[key].tolist(), density=True, bins=np.arange(self.__lpm_template.get_p_min(key), self.__lpm_template.get_p_max(key) + binwidth, binwidth), histtype='barstacked',label=self_method)
+            plt.hist(self.__dist[key].tolist(), density=True, bins=np.arange(min(max(self.__dist[key].tolist())/2,self.__lpm_template.get_p_min(key)), self.__lpm_template.get_p_max(key) + binwidth, binwidth), histtype='barstacked',label=self_method)
             # Second histogram
             if lpm_reference != None : plt.axvline( lpm_reference.p[key], c='k', linewidth=2.0, label="reference")
             # Vertical line at the place of the reference model
-            if lpm_2nd != None : plt.hist(lpm_2nd.__dist[key], density=True, bins=np.arange(self.__lpm_template.get_p_min(key), self.__lpm_template.get_p_max(key) + binwidth, binwidth), histtype='barstacked',label=lpm_2nd_method)            
+            if lpm_2nd != None : plt.hist(lpm_2nd.__dist[key], density=True, bins=np.arange(min(max(self.__dist[key].tolist())/2,self.__lpm_template.get_p_min(key)), self.__lpm_template.get_p_max(key) + binwidth, binwidth), histtype='barstacked',label=lpm_2nd_method)            
             plt.xlim(self.__lpm_template.get_p_min(key),self.__lpm_template.get_p_max(key))
             plt.legend()
             if directory != None : figadd.figure_close(filename=os.path.join(directory,'comp_'+key))

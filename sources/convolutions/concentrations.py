@@ -139,7 +139,7 @@ class Concentrations:
             fraction: float
                 fraction of the mean value to define the error
         """
-        self.cv.iloc[:,gp.ERROR] = fraction * self.cv.values[:,gp.CONCENTRATION]
+        self.cv.iloc[:,gp.ERROR] = np.float64(fraction * self.cv.values[:,gp.CONCENTRATION])
 
 
     def __unit_definition(self):

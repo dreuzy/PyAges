@@ -196,7 +196,7 @@ class ploemeur_one_date:
         
         # ---------------- METROPOLIS HASTINGS --------------------
         # Method and Parameters  
-        self.calstrat[0] = cMH.CalibrationMetropolisHastings(nstep=10000,prior=False,likelyhood=True,
+        self.calstrat[0] = cMH.CalibrationMetropolisHastings(nstep=20000,prior=False,likelyhood=True,
                                                              monitor=True,display_traj=True) # JR: 250000
         # self.calstrat[1].MH_step.define_by_prop(0.005)
         self.calstrat[0].MH_step.define_by_value()
@@ -289,68 +289,67 @@ def selector(well_select,error=0.03):
     # datess.append("2005_2020")
     # errors.append(0.03)
     
+    if "F09" in well_select : 
+        wells.append("F09")
+        datess.append("2005_2021")
+        errors.append(error)
+        # lpm_types.append(["dirac_double_1_set"])
+        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted_old","exp_shifted_young","exp_shifted"])
+        # lpm_types.append(["exp_shifted","exp_shifted_young","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])    
         
     if "F34" in well_select : 
         wells.append("F34")
         datess.append("2004_2015")
         errors.append(error)
-        lpm_types.append(["exp_shifted"])#,"ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])#,"ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
        
     if "F11" in well_select : 
         wells.append("F11")
         datess.append("2004_2021")
         errors.append(error)
-        # lpm_types.append(["dirac_double_1_set"])
-        lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     if "F38" in well_select : 
         wells.append("F38")
         datess.append("2006_2020")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        # lpm_types.append(["exp_shifted","ig_shifted"])
-        lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
 
     if "F38b" in well_select : 
         wells.append("F38b")
         datess.append("2006_2011")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        # lpm_types.append(["exp_shifted","ig_shifted"])
-        lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        
-    if "F09" in well_select : 
-        wells.append("F09")
-        datess.append("2005_2021")
-        errors.append(error)
-        # lpm_types.append(["dirac_double_1_set"])
-        # lpm_types.append(["exp_shifted","ig_shifted"])
-        lpm_types.append(["exp_shifted_old","exp_shifted_young","exp_shifted"])
-        # lpm_types.append(["exp_shifted","exp_shifted_young","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        
+        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+                
     if "MF4" in well_select : 
         wells.append("MF4")
         datess.append("2006_2017")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        # lpm_types.append(["exp_shifted","ig_shifted"])
-        lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     if "PE" in well_select : 
         wells.append("PE")
         datess.append("2005_2020")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        # lpm_types.append(["exp_shifted","ig_shifted"])
-        lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     if "MF1" in well_select : 
         wells.append("MF1")
         datess.append("2004_2020")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        # lpm_types.append(["exp_shifted","ig_shifted"])
-        lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     return wells,datess,errors,lpm_types
 
@@ -362,7 +361,7 @@ def perform(pod,i):
 
 def appli_ploemeur(well_select, file_root_root="ploemeur_", option="all", error=0.15):
     # Main analysis option 
-    parallel=False
+    parallel=True
     
     wells,datess,errors,lpm_types = selector(well_select,error=error)
     file_root=file_root_root+str(error)+option
@@ -386,7 +385,7 @@ def appli_ploemeur(well_select, file_root_root="ploemeur_", option="all", error=
         if parallel == True: 
             # Perform parallel
             st=time.time()
-            pool = mp.Pool(14)
+            pool = mp.Pool(6)
             for i in range(len(pod)): 
                 pool.apply_async(perform, args=(pod,i))
             pool.close()
@@ -413,14 +412,15 @@ if __name__ == "__main__":
     # sys.exit()
     
     # well_select = ["F34","PE","MF1","MF4","F38b","F11","F09"]
-    # well_select = ["F09","F11","F34","PE","MF1","MF4","F38b"]
-    well_select = ["F09"]
-    folder = "ploemeur_10_13_"
+    well_select = ["F09","F11","F34","PE","MF1","MF4","F38b"]
+    # well_select = ["F09"]
+    folder = "ploemeur_05_27_"
     # errors=[0.15,0.2,0.25,0.3]
-    errors=[0.15]
+    # errors=[0.15,0.25,0.05]
+    errors=[0.05]
     for error in errors: 
-        appli_ploemeur(well_select, file_root_root=folder, option="suc", error=error)
         appli_ploemeur(well_select, file_root_root=folder, option="all", error=error)
+        appli_ploemeur(well_select, file_root_root=folder, option="suc", error=error)
     
     
     

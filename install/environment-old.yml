@@ -189,4 +189,3 @@ dependencies:
   - zeromq=4.3.3=ha925a31_3
   - zipp=3.5.0=pyhd3eb1b0_0
   - zlib=1.2.11=h62dcd97_4
-prefix: C:\Users\dreuzy\anaconda3\envs\pyage

@@ -1,0 +1,13 @@
+name: pyage
+channels:
+  - defaults
+dependencies:
+  - python
+  - pandas
+  - matplotlib
+  - scipy
+  - numpy
+  - spyder
+  - ipython
+  - jupyter
+  

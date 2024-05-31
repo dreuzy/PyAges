@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib        as mpl
 import os
 from pylab import *
+import math
 
 
 def figure_init(xlab=None,ylab=None,figname=None):
@@ -95,7 +96,7 @@ def hist_scatter(histo=False,histox=None,histoy=None,histolegend="",scatter=Fals
     if miniy != maxiy: 
         plt.ylim(miniy,maxiy)
     # Figure Management
-    plt.legend()
+    # plt.legend()
     if directory != None : 
         figure_close(filename=os.path.join(directory,file))
 

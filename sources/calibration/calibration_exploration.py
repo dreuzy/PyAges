@@ -535,7 +535,7 @@ class CalibrationExploration:
             print("Pb in objective_function_build Arrays of different sizes"); sys.exit()
         # Computes objective function from previously computed concentrations
         ojf=0
-        for colmod, idat in zip(dfmodel.iteritems(), range(dfdata.shape[0])):
+        for colmod, idat in zip(dfmodel.transpose().iterrows(), range(dfdata.shape[0])):
             # Checks element consistency
             if colmod[0] != dfdata.loc[idat]['element'] : 
                 print("Pb in objective_function_build Different element names"); sys.exit()

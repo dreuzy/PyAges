@@ -171,7 +171,7 @@ def display_all(dists,param_names,well_dates,option,distribution,dir_root):
                 k = 0
                 for pa in param_names :
                     if option == "distribution":
-                        aa = np.histogram(dist[pa], bins=50, range=None, normed=None, weights=None, density=True)
+                        aa = np.histogram(dist[pa], bins=50, range=None, weights=None, density=True)
                         val_p=aa[0]
                         val_x=edges_to_nodes(aa[1])
                         axs[gi[pa],gj[pa]].plot(val_x,val_p,label=well_dates[kd])
@@ -180,7 +180,7 @@ def display_all(dists,param_names,well_dates,option,distribution,dir_root):
                         index_std = dist.loc[dist.iloc[:,0] == 'std'].index.tolist()[0]
                         mean=dist[pa][index_mean]
                         std=dist[pa][index_std]
-                        aa = np.histogram(dist[pa], bins=50, range=None, normed=None, weights=None, density=True)
+                        aa = np.histogram(dist[pa], bins=50, range=None, weights=None, density=True)
                         axs[gi[pa],gj[pa]].errorbar(year,mean,std,label=well_dates[kd],fmt="o")
                         axs[gi[pa],gj[pa]].grid(color='k', linestyle='-', linewidth=0.5)
                         #axs[gi[pa],gj[pa]].set_yscale("log")
@@ -188,7 +188,7 @@ def display_all(dists,param_names,well_dates,option,distribution,dir_root):
                 # val = dist['obj_function'] #objective_function_norm(dist['obj_function'],(len(dist.columns)-len(param_names)-2))
                 # Objective function 
                 if option == "distribution":
-                    aa = np.histogram(dist['obj_function'], bins=100, range=None, normed=None, weights=None, density=True)
+                    aa = np.histogram(dist['obj_function'], bins=100, range=None, weights=None, density=True)
                     val_x=edges_to_nodes(aa[1])
                     val_p=aa[0]
                     axs[gi['objfunc'],gj['objfunc']].plot(val_x,val_p,label=well_dates[kd])
