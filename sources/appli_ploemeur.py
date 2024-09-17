@@ -59,7 +59,7 @@ class SimulationStrategy:
     def __init__(self):
         self.breakups=[2012]
         self.errors=[0.15,0.25,0.05]
-        self.well_select = ["F34","PE","MF1","MF4","F38b","F11","F09"]
+        self.well_select = ["F34","PE","MF1","MF4","F38b","F11","F09","PZ2","PSR1"]
         self.folder = "ploemeur_apriori_test"
         self.parallel=False
         self.explo_res=200
@@ -479,7 +479,7 @@ def selector(well_select,error=0.03):
     
     if "F09" in well_select : 
         wells.append("F09")
-        datess.append("2005_2021")
+        datess.append("2005_2024")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
         lpm_types.append(["exp_shifted"])
@@ -494,7 +494,7 @@ def selector(well_select,error=0.03):
        
     if "F11" in well_select : 
         wells.append("F11")
-        datess.append("2004_2021")
+        datess.append("2004_2024")
         errors.append(error)
         lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
@@ -538,6 +538,21 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["dirac_double_1_set"])
         lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+
+    if "PZ2" in well_select : 
+        wells.append("PZ2")
+        datess.append("2009_2024")
+        errors.append(error)
+        # lpm_types.append(["dirac_double_1_set"])
+        lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+
+    if "PSR1" in well_select : 
+        wells.append("PSR1")
+        datess.append("2009_2024")
+        errors.append(error)
+        # lpm_types.append(["dirac_double_1_set"])
+        lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+
         
     return wells,datess,errors,lpm_types
     
