@@ -194,22 +194,23 @@ class Prior() :
     def load(self,lpm): 
         """ Loads a priori of the parameter distribution 
         """
-        if self.typ == "parametric": 
-            # Loads file in which the bounds of the parameters are stored
-            temp = pd.read_csv(lpm.lpm_parameter_file("MHapriori.txt"),header=None)
-            # A priori distribution for each of the parameters
-            for i in range(len(temp.values[:,0])):
-                self.MHapriori_dist[temp.values[i,0]] = temp.values[i,1]
-                self.MHapriori_para[temp.values[i,0]] = []
-                self.MHapriori_para[temp.values[i,0]].append(temp.values[i,2])  
-                self.MHapriori_para[temp.values[i,0]].append(temp.values[i,3])   
-        elif self.typ == "empirical": 
-            self.MHapriori_para={}
-            for param in lpm.param_names(): 
-                file = self.prior_file + "_" + param + ".txt"
-                self.MHapriori_para[param] = pd.DataFrame.to_numpy(pd.read_csv(file, sep='\t'))
-        else:
-            print("option non reconnue ", self.typ)
+        if self.option == True: 
+            if self.typ == "parametric": 
+                # Loads file in which the bounds of the parameters are stored
+                temp = pd.read_csv(lpm.lpm_parameter_file("MHapriori.txt"),header=None)
+                # A priori distribution for each of the parameters
+                for i in range(len(temp.values[:,0])):
+                    self.MHapriori_dist[temp.values[i,0]] = temp.values[i,1]
+                    self.MHapriori_para[temp.values[i,0]] = []
+                    self.MHapriori_para[temp.values[i,0]].append(temp.values[i,2])  
+                    self.MHapriori_para[temp.values[i,0]].append(temp.values[i,3])   
+            elif self.typ == "empirical": 
+                self.MHapriori_para={}
+                for param in lpm.param_names(): 
+                    file = self.prior_file + "_" + param + ".txt"
+                    self.MHapriori_para[param] = pd.DataFrame.to_numpy(pd.read_csv(file, sep='\t'))
+            else:
+                print("option non reconnue ", self.typ)
         
     
     def evaluate(self,lpm,params):

@@ -57,27 +57,31 @@ class SimulationStrategy:
     """
     
     def __init__(self):
+        self.options =    ["span","suc_prior","suc","all"]
+        self.prior  =     [False, True, False, False]
+        self.likelyhood = [True,  False, True, True]
         self.breakups=[2012]
         self.errors=[0.15,0.25,0.05]
         self.well_select = ["F34","PE","MF1","MF4","F38b","F11","F09","PZ2","PSR1"]
         self.folder = "ploemeur_apriori_test"
         self.parallel=False
         self.explo_res=200
-        self.MH_nsteps=2000
+        self.MH_nsteps=1000000
         
         
     def test_F09(self): 
         self.options =    ["suc_prior"]
         self.prior  =     [True]
         self.likelyhood = [False]
-        # self.options =    ["span","suc_prior"]
-        # self.prior  =     [False, True]
-        # self.likelyhood = [True,  True]
+        self.options =    ["span","suc_prior","suc","all"]
+        self.prior  =     [False, True, False, False]
+        self.likelyhood = [True,  False, True, True]
         self.breakups=[2012]
         self.folder = "ploemeur_apriori_test"
         self.errors=[0.2]
         self.well_select = ["F09"]
-        self.MH_nsteps=2000
+        self.MH_nsteps=200000
+        self.parallel=False
         
         
     def execute(self): 
@@ -179,7 +183,7 @@ def ploemeur_data_selection(well,dates,start,end):
     cdata=appli_ploemeur_tools.ploemoeur_concentrations_ori(well,dates)
     df = cdata.cv
     # Selects concentrations within the given age range
-    dfselec = df.loc[(df['date'] >= start) & (df['date'] <= end)]
+    dfselec = df.loc[(df['date'] >= start) & (df['date'] <= (end+1))]
     # Writes data in a file 
     file_out = well + "_" + str(start) + "_" + str(int(max(dfselec['date']))) 
     dfselec.to_csv(os.path.join(directory,file_out),sep='\t', index = False)
@@ -408,7 +412,7 @@ class ploemeur_one_date:
         ct.display_concentration_chronicles(cdata,lpm_results,calstrat.method,self.display)
         # Distribution of parameters and concentrations
         lpm_results.display_parameters_dist(self_method=calstrat.method,directory=display_options_case.directory)
-        if calstrat.method == "Metropolis_Hastings": 
+        if calstrat.method == "Metropolis_Hastings" and calstrat.prior.option == True: 
             lpm_results.display_parameters_dist_comp_apriori(directory=display_options_case.directory,prior=calstrat.prior)
         lpm_results.display_concentrations_dist(self_method=calstrat.method,concentrations_reference=cdata,directory=display_options_case.directory)
         return lpm_results
@@ -564,7 +568,7 @@ if __name__ == "__main__":
     simulstart=SimulationStrategy()
     
     # Type of simlation 
-    simulstart.test_F09()
+    # simulstart.test_F09()
     
     # Execution of simulation
     simulstart.execute()

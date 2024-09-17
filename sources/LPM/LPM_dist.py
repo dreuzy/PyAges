@@ -290,10 +290,13 @@ class LPMDist:
             figadd.figure_init(xlab=key,ylab="Count",figname=self.__lpm_template.name)
             binwidth = self.__lpm_template.get_param_range(key)/100
             # First histogram
-            plt.hist(self.__dist[key].tolist(), density=True, bins=np.arange(min(max(self.__dist[key].tolist())/2,self.__lpm_template.get_p_min(key)), self.__lpm_template.get_p_max(key) + binwidth, binwidth), histtype='barstacked',label="MH")
+            temp=plt.hist(self.__dist[key].tolist(), density=True, bins=np.arange(min(max(self.__dist[key].tolist())/2,self.__lpm_template.get_p_min(key)), self.__lpm_template.get_p_max(key) + binwidth, binwidth), histtype='barstacked',label="MH")
             # Second histogram for a priori
-            aa=self.__dist[key].tolist()
-            plt.plot(prior.MHapriori_para[key][:,0],prior.MHapriori_para[key][:,1])
+            rescaling=(prior.MHapriori_para[key][2,0]-prior.MHapriori_para[key][2-1,0])/(temp[1][2]-temp[1][2-1])
+            rescaling = 1 / rescaling
+            rescaling = np.mean(temp[0]!=0)/np.mean(prior.MHapriori_para[key][:,1]!=0)
+            rescaling = np.mean(temp[0][temp[0][:]!=0]) / np.mean(prior.MHapriori_para[key][prior.MHapriori_para[key][:,1]!=0,1])
+            plt.plot(prior.MHapriori_para[key][:,0],prior.MHapriori_para[key][:,1]*rescaling)
             if lpm_reference != None : plt.axvline( lpm_reference.p[key], c='k', linewidth=2.0, label="reference")
             # Vertical line at the place of the reference model
             if lpm_2nd != None : plt.hist(lpm_2nd.__dist[key], density=True, bins=np.arange(min(max(self.__dist[key].tolist())/2,self.__lpm_template.get_p_min(key)), self.__lpm_template.get_p_max(key) + binwidth, binwidth), histtype='barstacked',label=lpm_2nd_method)            

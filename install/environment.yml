@@ -10,5 +10,7 @@ dependencies:
   - spyder
   - ipython
   - jupyter
-  - empiricaldist
+  - pip
+  - pip: 
+    - empiricaldist
   
