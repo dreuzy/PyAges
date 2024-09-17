@@ -11,7 +11,7 @@ import pandas as pd
 import global_parameters as gp
 import ploemeur.appli_ploemeur_tools as appli_ploemeur_tools 
 
-wells=["F34","MF4","F38b","F13","F11","F38","F22","PE","MF1","F28","F09"]
+wells=["F34","MF4","F38b","F13","F11","F38","F22","PE","MF1","F28","F09","PZ2","PSR1"]
 # wells=["F11"]
 
 for well in wells: 
@@ -51,7 +51,8 @@ for well in wells:
                 #     error = 0.6 * tracer_val[j]
                 # else: 
                 #     error = 0.03 * tracer_val[j]
-                conc=conc.append({'element': tracer_temp[j],'concentration':tracer_val[j],'error':error,'unit':0,'date':datef}, ignore_index=True)
+                conc=pd.concat([conc if not conc.empty else None,pd.DataFrame({'element': tracer_temp[j],'concentration':tracer_val[j],\
+                                                   'error':error,'unit':0,'date':datef},index=[0])], ignore_index=True)
         k=k+1
     
     conc.to_csv(os.path.join(directory,"ori_ploemeur_"+well+"_"+str(int(min(tracer_dates)))+"_"+str(int(max(tracer_dates)))+".txt"),sep='\t', index = False)
