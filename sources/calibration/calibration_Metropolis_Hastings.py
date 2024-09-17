@@ -29,6 +29,19 @@ def gauss(x, x0, sigma):
     return  num / den
 
 
+def moments_histo(hist): 
+    n=len(hist[:,0])
+    sum0=sum1=sum2=0
+    for i in range(n): 
+        sum0=sum0+hist[i,1]
+        sum1=sum1+hist[i,0]*hist[i,1]
+        sum2=sum2+hist[i,0]**2*hist[i,1]
+    sum1=sum1/sum0
+    sum2=sum2/sum0-sum1**2
+    return sum1,sum2
+
+
+
 class MH_Trajectory: 
     """ 
         Trajectory of optimization function
@@ -84,6 +97,12 @@ class MH_Trajectory:
             print('%.4f' % temp_mean, '%.4f' % np.sqrt(temp_var), '<> & \u03C3 of', t)
         
         
+    def resize(self, n): 
+        """
+        """
+        self.path.drop(self.path.tail(self.path.shape[0]-n).index, inplace = True)
+        
+        
     def plot(self,directory_name):
         """ Graphical Representation of Trajectory
         """
@@ -98,32 +117,6 @@ class MH_Trajectory:
                 fig.savefig(os.path.join(directory_name,'MH_trajectory_'+t))
                 plt.close(fig)
 
-
-    def validation_MH_prior(self,MHapriori_dist,MHapriori_para,lpm): 
-        """ A posteriori distribution should give values of cocnentration in the expected range
-            With expected variance
-        """
-        MH_difference = copy.deepcopy(MHapriori_para)
-        columns = list(self.path)
-        for key in lpm.p.keys():
-            temp = self.path.iloc[:][key]
-            temp_mean = np.nanmean(self.path.iloc[:][key].to_numpy(),dtype='float')
-            temp_var = np.nanvar(self.path.iloc[:][key].to_numpy(),dtype='float')
-            # print('%.4f' % temp_mean, '%.4f' % np.sqrt(temp_var), '<> & \u03C3 of', key, 'computed')
-            # print('%.4f' % MHapriori_para[key][0], '%.4f' % MHapriori_para[key][1], '<> & \u03C3 of', key, 'target')
-            apriori_mean = 0
-            apriori_std = 0
-            if MHapriori_dist[key] == 'normal':
-                apriori_mean = MHapriori_para[key][0]
-                apriori_std = MHapriori_para[key][1]
-            elif MHapriori_dist[key] == 'uniform':
-                apriori_mean = (MHapriori_para[key][0] + MHapriori_para[key][1]) / 2
-                apriori_std = (MHapriori_para[key][1] - MHapriori_para[key][0]) / np.sqrt(12)
-                
-            MH_difference[key][0] = 100 * (1-temp_mean/apriori_mean)
-            MH_difference[key][1] = 100 * (1-np.sqrt(temp_var)/apriori_std)
-            print('\nCheck MH prior distribution\n')
-            print('%.4f' % MH_difference[key][0], '%.4f' % MH_difference[key][1], ' Diff-Percent <> & \u03C3 of', key)
             
 
 class MH_step: 
@@ -171,6 +164,129 @@ class MH_step:
             data['MH_delta_'+param] = self.value[param]
 
 
+class Prior() :
+    """ 
+    prior distribution of the Bayesian identification method 
+    prior can be 
+        - a parametric distribution 
+        - an empirical distribution 
+        
+    Attributes, private
+    -------------------
+        __option: bool
+            False : no prior
+            True : prior
+        __typ: string
+            "parametric": parametric distribution 
+            "empirical": empirical distribution (defined by an histogram)
+    """
+    def __init__(self, option=True, typ="parametric", prior_file = ""):
+        """ Constructor of prior
+        """
+        # Parameters
+        self.option = option
+        self.typ = typ
+        self.prior_file = prior_file
+        self.MHapriori_dist = {}
+        self.MHapriori_para = {}        
+
+
+    def load(self,lpm): 
+        """ Loads a priori of the parameter distribution 
+        """
+        if self.typ == "parametric": 
+            # Loads file in which the bounds of the parameters are stored
+            temp = pd.read_csv(lpm.lpm_parameter_file("MHapriori.txt"),header=None)
+            # A priori distribution for each of the parameters
+            for i in range(len(temp.values[:,0])):
+                self.MHapriori_dist[temp.values[i,0]] = temp.values[i,1]
+                self.MHapriori_para[temp.values[i,0]] = []
+                self.MHapriori_para[temp.values[i,0]].append(temp.values[i,2])  
+                self.MHapriori_para[temp.values[i,0]].append(temp.values[i,3])   
+        elif self.typ == "empirical": 
+            self.MHapriori_para={}
+            for param in lpm.param_names(): 
+                file = self.prior_file + "_" + param + ".txt"
+                self.MHapriori_para[param] = pd.DataFrame.to_numpy(pd.read_csv(file, sep='\t'))
+        else:
+            print("option non reconnue ", self.typ)
+        
+    
+    def evaluate(self,lpm,params):
+        """ Posterior distribution 
+            Metropolis_Hastings
+            May be specific to the distribution type, explaining why it is in LPM class or its daughter classes
+            In Massoudieh [2012], errors on the data are assumed to be lognormally distributed (not the case here, while also possible)
+        """
+        proba = 1
+        if self.typ == "parametric": 
+            ikey = 0
+            for key in lpm.p.keys(): 
+                if self.MHapriori_dist[key] == 'normal': 
+                    proba = proba * gauss(params[ikey], self.MHapriori_para[key][0], self.MHapriori_para[key][1])
+                elif self.MHapriori_dist[key] == 'uniform':
+                    if(params[ikey] > self.MHapriori_para[key][0] and params[ikey] < self.MHapriori_para[key][1]):
+                        proba = proba / np.abs(self.MHapriori_para[key][1] - self.MHapriori_para[key][0])
+                    else : 
+                        proba = 0 
+                elif self.MHapriori_dist[key] == 'lognormal':
+                    print('No lognormal distribution for errors\nOption could be straightforwardly developped!')
+                else : 
+                    print('Problem in .prior.eval of lpm, option ', self.MHapriori_dist[key], 'not defined')
+                    sys.exit()
+                ikey = ikey + 1
+        elif self.typ == "empirical": 
+            ikey=0
+            for key, param in zip (lpm.p.keys(), lpm.param_names()): 
+                if params[ikey] < self.MHapriori_para[param][:,0][0] : 
+                    proba = 0 
+                elif params[ikey] > self.MHapriori_para[param][:,0][-1] : 
+                    proba = 0
+                else :
+                    proba = proba * self.MHapriori_para[param][np.argsort(abs(self.MHapriori_para[param][:,0]-params[ikey]))[0]][1]
+                ikey=ikey+1
+        else:
+            print("option non reconnue ", self.typ)
+        # To avoid any issue by taking the next log of the probability 
+        if proba == 0 : 
+            proba = 1e-300
+        return proba
+    
+    
+    def validation_MH_prior(self,path,lpm): 
+        """ A posteriori distribution should give values of cocnentration in the expected range
+            With expected variance
+        """
+        # Mean and Variance of sampled distribution
+        apriori_sampled={}
+        for key in lpm.p.keys():
+            apriori_sampled[key]=[np.nanmean(path.iloc[:][key].to_numpy(),dtype='float'), \
+                                   np.nanvar(path.iloc[:][key].to_numpy(),dtype='float')]
+        
+        # Mean and Variance of theory
+        apriori_theory=copy.deepcopy(apriori_sampled)
+        if self.typ == "parametric": 
+            for key in lpm.p.keys():
+                # print('%.4f' % temp_mean, '%.4f' % np.sqrt(temp_var), '<> & \u03C3 of', key, 'computed')
+                # print('%.4f' % MHapriori_para[key][0], '%.4f' % MHapriori_para[key][1], '<> & \u03C3 of', key, 'target')
+                if self.MHapriori_dist[key] == 'normal':
+                    apriori_theory[key]=[self.MHapriori_para[key][0],\
+                                         self.MHapriori_para[key][1]**2]
+                elif self.MHapriori_dist[key] == 'uniform':
+                    apriori_theory[key]=[(self.MHapriori_para[key][0] + self.MHapriori_para[key][1]) / 2 \
+                                         ((self.MHapriori_para[key][1] - self.MHapriori_para[key][0]) / np.sqrt(12))**2]
+                
+        elif self.typ == "empirical": 
+            for key in lpm.p.keys():
+                apriori_theory[key] = moments_histo(self.MHapriori_para[key])
+                
+        MH_difference=copy.deepcopy(apriori_sampled)
+        for key in lpm.p.keys():
+            MH_difference[key][0] = 100 * (1-apriori_sampled[key][0]/apriori_theory[key][0])
+            MH_difference[key][1] = 100 * (1-apriori_sampled[key][1]/apriori_theory[key][1])
+            print('\nCheck MH prior distribution\n')
+            print('%.4f' % MH_difference[key][0], '%.4f' % MH_difference[key][1], ' Diff-Percent <> & \u03C3 of', key)
+
 
 class CalibrationMetropolisHastings(calbas.CalibrationBasis) : 
     """ 
@@ -209,8 +325,6 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
         __burn_in: float
             Fraction of the nstep used for the burn-in phase 
             Number of burn in steps = burn_in * nstep
-        __prior_option: bool
-            Should prior be included in the calibration 
         __likelyhood_option: bool
             Should likelyhood be included in the calibration 
         __seed: int
@@ -231,7 +345,7 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
             
     """   
     
-    def __init__(self,nstep=10000,burn_in=0.2,nskip=10,prior=True,likelyhood=True,monitor=True,display_traj=False,display_text=False):
+    def __init__(self,nstep=10000,burn_in=0.2,nskip=10,prior_option=True,prior_typ="parametric",likelyhood=True,monitor=True,display_traj=False,display_text=False,prior_file=""):
         """ Constructor: definition of  MH parameters 
         """
         # Parameters
@@ -242,14 +356,12 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
         self.__traj_monitor = monitor
         self.__traj_display = display_traj
         self.__traj_text = display_text
-        self.__prior_option = prior
         self.__likelyhood_option = likelyhood 
         self.__seed = 12345
         # MH step = delta * Delta (parameter bounds)
         self.MH_step = MH_step()
         # A priori distributions
-        self.MHapriori_dist = {}
-        self.MHapriori_para = {}        
+        self.prior = Prior(option=prior_option,typ=prior_typ,prior_file=prior_file)
         # Results
         self.__success_rate = 0
         self.time_perform = 0 
@@ -267,46 +379,6 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
         """
         super(CalibrationMetropolisHastings,self).__dict__.update(calib_basis.__dict__)
     
-    
-    def __prior_load(self,lpm): 
-        """ Loads a priori of the parameter distribution 
-        """
-        # Loads file in which the bounds of the parameters are stored
-        temp = pd.read_csv(lpm.lpm_parameter_file("MHapriori.txt"),header=None)
-        # A priori distribution for each of the parameters
-        for i in range(len(temp.values[:,0])):
-            self.MHapriori_dist[temp.values[i,0]] = temp.values[i,1]
-            self.MHapriori_para[temp.values[i,0]] = []
-            self.MHapriori_para[temp.values[i,0]].append(temp.values[i,2])  
-            self.MHapriori_para[temp.values[i,0]].append(temp.values[i,3])   
-    
-    
-    def __prior_eval(self,lpm,params):
-        """ Posterior distribution 
-            Metropolis_Hastings
-            May be specific to the distribution type, explaining why it is in LPM class or its daughter classes
-            In Massoudieh [2012], errors on the data are assumed to be lognormally distributed (not the case here, while also possible)
-        """
-        proba = 1
-        ikey = 0
-        for key in lpm.p.keys(): 
-            if self.MHapriori_dist[key] == 'normal': 
-                proba = proba * gauss(params[ikey], self.MHapriori_para[key][0], self.MHapriori_para[key][1])
-            elif self.MHapriori_dist[key] == 'uniform':
-                if(params[ikey] > self.MHapriori_para[key][0] and params[ikey] < self.MHapriori_para[key][1]):
-                    proba = proba / np.abs(self.MHapriori_para[key][1] - self.MHapriori_para[key][0])
-                else : 
-                    proba = 0 
-            elif self.MHapriori_dist[key] == 'lognormal':
-                print('No lognormal distribution for errors\nOption could be straightforwardly developped!')
-            else : 
-                print('Problem in __prior_eval of lpm, option ', self.MHapriori_dist[key], 'not defined')
-                sys.exit()
-            ikey = ikey + 1
-        # To avoid any issue by taking the next log of the probability 
-        if proba == 0 : 
-            proba = 1e-300
-        return proba
     
     
     def __param_inc(self, p0, lpm, rng):
@@ -338,31 +410,45 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
             log_proba = log_proba - 0.5 * objfunc #1
         else :
             objfunc = 0; conc = [1]
-        if(self.__prior_option):
-            log_proba = log_proba + np.log(self.__prior_eval(self.lpm,params)) 
+        if(self.prior.option):
+            log_proba = log_proba + np.log(self.prior.evaluate(self.lpm,params)) 
         return log_proba, objfunc, conc
 
     
     def __prepare_storage(self): 
         """ 
-        Prepares array for storage of results
+        Prepares array for storage of results (optimization of performances)
         
         Returns 
         -------
         sto: np.array
             with the required shape for the storage
         """
+        # Number of lines that should be stored
         line=0
         for i in range(self.__nstep):        
             if i > self.__burn_in * self.__nstep and i % self.__nskip == 0:
                 line = line + 1
-        column = len(self.lpm.p) + 1 + len(self.cdata.names_dates()) + 1
-        return np.zeros((line,column),dtype=float)
+        # Number and name of columns that should be stored
+        if(self.__likelyhood_option): 
+            column = len(self.lpm.p) + 1 + len(self.cdata.names_dates()) + 1
+            column_names = self.lpm.get_param_names() + \
+                                ['obj_function'] + \
+                                self.cdata.names_dates() + \
+                                ['param_in_bounds']
+        else:
+            column = len(self.lpm.p) + 3
+            column_names = self.lpm.get_param_names() + \
+                                ['obj_function'] + \
+                                ['conc'] + \
+                                ['param_in_bounds']
+        # Creation of table
+        return np.zeros((line,column),dtype=float),column_names
     
     
     def perform(self):
         """
-        Metropolis_Hastinvs Monte-Carlo Markov Chain Algorithm (MH MCMC)
+        Metropolis_Hastings Monte-Carlo Markov Chain Algorithm (MH MCMC)
             Main function
             Monitor run time necessary
         
@@ -379,7 +465,7 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
 
         # --------------- PREPARATION PHASE ------------------------
         # Forces monitoring to true for the test of the algorithm on the sole prior
-        if self.__likelyhood_option == False and self.__prior_option == True : 
+        if self.__likelyhood_option == False and self.prior.option == True : 
             self.__traj_monitor = True
         # Initialization of random number generator
         rng = np.random.default_rng(self.__seed)
@@ -392,9 +478,9 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
         if self.__traj_monitor : 
             traj = MH_Trajectory(self.lpm.p.keys(),self.__nstep)  
         # Loads a priori for the distribution of parameters
-        self.__prior_load(self.lpm)
+        self.prior.load(self.lpm)
         # Initialization of results structure 
-        array_results = self.__prepare_storage()
+        array_results,array_col_names = self.__prepare_storage()
         
         # --------------- INITIALIZATION PHASE ----------------------
         # Initialization of calibration parameters with default parameters of distribution 
@@ -426,6 +512,7 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
                 log_p = log_pn   
                 obj_func = obj_func_n
                 conc = conc_n
+                # print(nsuccess, params[0],params[1],log_p)
                 nsuccess=nsuccess+1
             if i > self.__burn_in * self.__nstep and i % self.__nskip == 0:
                 # Storage : everything relative to params and not params !!! (sources of errors to take params_n)
@@ -445,27 +532,43 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
         # Results consolidation
         self.__success_rate=nsuccess/self.__nstep
         lpm_results = LPM_dist.LPMDist(self.lpm,c_names=self.cdata.names_dates())
-        lpm_results.fill_np_array(array_results,self.lpm.get_param_names() + \
-                                                ['obj_function'] + \
-                                                self.cdata.names_dates() + \
-                                                ['param_in_bounds'])
+        lpm_results.fill_np_array(array_results,array_col_names)
 
         # Adds statistical characteritics to the stored distributions
         lpm_results=lpm_results.stats_distribution()
             
         # Displays Trajectory
         if self.__traj_monitor : 
+            traj.resize(n)
             if self.__traj_display : 
                 traj.plot(self.display.directory)
             if self.__traj_text : 
                 traj.check()
             
-        # Checks algorithm with prior distribution 
-        if self.__likelyhood_option == False and self.__prior_option == True : 
-            traj.validation_MH_prior(self.MHapriori_dist,self.MHapriori_para,self.lpm)
+        # Checks algorithm with prior distribution and no likelyhood
+        if self.__likelyhood_option == False and self.prior.option == True : 
+            self.prior.validation_MH_prior(traj.path,self.lpm)
     
         return lpm_results
     
+    
+    def write_posterior(self,lpm_results,file): 
+        """
+        Saves prior to specific file 
+
+        Parameters
+        ----------
+        lpm_results : LPM_dist
+            Distributions of calibrated lpms
+        file : string
+            Current Root file where all results are commonly stored 
+            Posterior will be stored in another folder common to all posteriors 
+            In shuch a folder, it will be easy to get the distributions and all them for other simulations as a prior
+        """
+        uu=[i for i in range(len(file)) if file.startswith('\\', i)]
+        folder_root=self.display_options.directory[:uu[-4]]
+
+        
     
     def write_parameters(self,file_name):
         """ 
@@ -475,7 +578,7 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
         data['method']=self.method
         data['nstep'] = self.__nstep
         data['burn-in'] = self.__burn_in
-        data['prior_option'] = self.__prior_option
+        data['prior_option'] = self.prior.option
         data['likelyhood_option'] = self.__likelyhood_option
         self.MH_step.save_param(data)
         data['seed'] = self.__seed

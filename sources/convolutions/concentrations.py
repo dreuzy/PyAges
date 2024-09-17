@@ -54,7 +54,7 @@ class Concentrations:
         Computes sqrt of quadratic mean differnces of self.cv and c2.cv    
       
     """
-    def __init__(self,file_load=False,file_name="",dataframe_load=False,dataframe_concentration=0):
+    def __init__(self,file_load=False,file_name="",dataframe_load=False,dataframe_concentration=pd.DataFrame()):
         """
         Constructor
         
@@ -139,6 +139,7 @@ class Concentrations:
             fraction: float
                 fraction of the mean value to define the error
         """
+        self.cv = self.cv.astype({'error':float})
         self.cv.iloc[:,gp.ERROR] = np.float64(fraction * self.cv.values[:,gp.CONCENTRATION])
 
 
@@ -164,7 +165,7 @@ class Concentrations:
                 error = 1
         if error :
             print("critical error in the definition of concentrations")
-            sys.exit()
+            # sys.exit()
         # Ensures that columns are in the right order
         self.cv = self.cv[gp.REFERENCE_COLUMNS]
 

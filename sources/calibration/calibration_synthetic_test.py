@@ -119,8 +119,7 @@ class CalibrationSyntheticTest:
         if i == 0:
             self.store = pd.DataFrame(data)
         else:
-            temp = pd.DataFrame(data)
-            self.store = self.store.append(temp)    
+            self.store=pd.concat([self.store,pd.DataFrame(data)])   
     
         
     def get_directory(self): 

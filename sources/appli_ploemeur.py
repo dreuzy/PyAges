@@ -12,7 +12,8 @@ import numpy as np
 import sys        
 import os   
 import time as time
-import multiprocessing as mp                                  
+import multiprocessing as mp        
+import pandas as pd                          
 
 import convolutions.concentrations as concentrations        # List of chemical concentrations
 import global_parameters as gp
@@ -26,6 +27,126 @@ import calibration.calibration_Metropolis_Hastings as cMH
 
 import ploemeur.appli_ploemeur_tools as appli_ploemeur_tools
 import appli_ploemeur_results_comparison as aprc
+
+
+# Proxy function for parallel simulation 
+def perform(pod,i): 
+    pod[i].perform()
+
+
+class SimulationStrategy: 
+    """
+    Strategy of Simulation including parameterization and execution
+    options : list of strings
+        Type of simulation that should be performed     
+        option == "all" : analysis of all years cumulatively between start and end
+        option == "suc" : analysis of all years successively (independently)
+        option == "span" : analysis of all years spanning the largest range of years and accounting for breakups 
+    breakups : list of floats
+        breakup years which "span" option should consider
+    prior : list of bool
+        As many as options     
+    likelyhood : list of bool
+        As many as options     
+    errors : list of float
+        List of errors that should be investigated
+    well_select : list of strings
+        List of wells on which the analysis should be performed
+    folder : string
+        root folder in which results should be stored
+    """
+    
+    def __init__(self):
+        self.breakups=[2012]
+        self.errors=[0.15,0.25,0.05]
+        self.well_select = ["F34","PE","MF1","MF4","F38b","F11","F09"]
+        self.folder = "ploemeur_apriori_test"
+        self.parallel=False
+        self.explo_res=200
+        self.MH_nsteps=2000
+        
+        
+    def test_F09(self): 
+        self.options =    ["suc_prior"]
+        self.prior  =     [True]
+        self.likelyhood = [False]
+        # self.options =    ["span","suc_prior"]
+        # self.prior  =     [False, True]
+        # self.likelyhood = [True,  True]
+        self.breakups=[2012]
+        self.folder = "ploemeur_apriori_test"
+        self.errors=[0.2]
+        self.well_select = ["F09"]
+        self.MH_nsteps=2000
+        
+        
+    def execute(self): 
+        """ 
+        Execution over all combinations listed previously on 
+            - errors
+            - options
+            - wells
+        """
+        for error in self.errors: 
+            for option, prior, likelyhood in zip (self.options, self.prior, self.likelyhood): 
+                # Gets the right combination of wells, dates, errors and lpm_types
+                wells,datess,errors,lpm_types = selector(self.well_select,error=error)
+                file_root=self.folder + str(error) + option
+                
+                # Loop on the wells
+                for k in range(len(wells)):
+                    self.__execute_parallel(wells[k], datess[k], lpm_types[k], \
+                                            file_root, option, error, prior, likelyhood)
+
+
+    def __execute_parallel(self, well, dates, lpm_types, file_root, option, error, prior, likelyhood):
+        """
+        Parallelizable Execution over all combibations of 
+            - dates 
+            - lpms 
+        """
+        
+        # Creates and Returns list of files according to option "all" or "suc"
+        files=files_years(well,dates,option,self.breakups)
+        if option == "suc_prior":
+            prior_corresp=correspondance_matrix(well,dates,option,self.breakups)
+        # New results folder for this well (with date and time)
+        [dir_out,dir_root,date_file]=appli_ploemeur_tools.ploemeur_results_folder(file_root)
+        
+        # Preprocess
+        # Loop on LPM models 
+        pod=[]
+        for lpm in lpm_types: 
+            # Loop on the dates
+            for well_date in files: 
+                if option == "suc_prior":
+                    temp_file = calbas.file_prior_posterior(prior_corresp[well_date], error, lpm)
+                    temp_folder = calbas.folder_prior_posterior(dir_out,stageup=-2)
+                    prior_file = os.path.join(temp_folder,temp_file)
+                else: 
+                    prior_file = ""
+                pod.append(ploemeur_one_date(dir_out,well_date,error,lpm,self.explo_res,self.MH_nsteps,prior,likelyhood,prior_file=prior_file))
+        
+        # Process
+        st=time.time()
+        if self.parallel == True: 
+            # Perform parallel
+            pool = mp.Pool(6)
+            for i in range(len(pod)): 
+                pool.apply_async(perform, args=(pod,i))
+            pool.close()
+            pool.join()
+        else: 
+            # Perform sequential
+            for i in range(len(pod)): 
+                # pod[i].perform_method_comparison()
+                pod[i].perform()
+        print('time=',time.time()-st)
+            
+        # PostProcess: concatenation of results from the different dates and lpms
+        for lpm in lpm_types: 
+            aprc.load_and_display(date_file,lpm,dir_root)
+
 
 
 def ploemeur_data_selection(well,dates,start,end):
@@ -65,80 +186,45 @@ def ploemeur_data_selection(well,dates,start,end):
     return file_out
 
 
-def ploemeur_data_years(well,dates): 
-    """ 
-    Returns list of years of the data 
-    
-    Parameters
-    ----------
-    well: str
-        well name
-    dates: str
-        Min_Max years in the format: 2005_2020
-        
-    Returns
-    -------
-    years: array of int
-        List of years of the data, eg: 
-            [2005, 2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
-        
+def periods_years(well,dates,option,breakups=[]): 
+    """
+    Sampling years avialble for this well
+    # years: array of int, List of years
+    #        ex. [2005, 2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
     """
     cdata=appli_ploemeur_tools.ploemoeur_concentrations_ori(well,dates)
-    date=cdata.cv['date']
-    return sorted(functools.reduce(lambda l, x: l.append(int(x)) or l if int(x) not in l else l, date, []))
-
+    sampling_years=sorted(functools.reduce(lambda l, x: l.append(int(x)) or l if int(x) not in l else l, cdata.cv['date'], []))
     
-def successive_years(date):
-    """ 
-    Gets successive year intervals from the date
-    
-    Parameters
-    ----------
-    date: array of int
-        List of years
-        [2005, 2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
-        
-    Returns
-    -------
-    start, end: arrays of int
-        Go by pairs start[i],end[i], eg: 
-        start: [2005, 2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019]
-        end:   [2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
-        
-    """
     start=[];end=[]
-    for i in range(len(date)-1):
-        start.append(date[i])  
-        end.append(date[i+1])   
-    return start,end
+    if option == "span": 
+        # start: [2005,2005,2012]
+        # end:   [2020,2012,2020]
+        start.append(sampling_years[0])
+        end.append(sampling_years[-1])
+        for breakyear in breakups: 
+            if breakyear > sampling_years[0] and breakyear < sampling_years[-1]: 
+                start = start + [sampling_years[0],breakyear]
+                end = end + [breakyear,sampling_years[-1]]      
+    else: 
+        for i in range(len(sampling_years)-1):
+            if option=="suc" or option=="suc_prior" :
+                # start: [2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005]
+                # end:   [2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
+                start.append(sampling_years[i])  
+                end.append(sampling_years[i+1])   
+            elif(option=="all"): 
+                # start: [2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005]
+                # end:   [2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
+                start.append(sampling_years[0])  
+                end.append(sampling_years[i+1])
+            else: 
+                print("option not well defined ", option)
+
+    return start,end,sampling_years
 
 
-def all_years_from_start(date):
-    """ 
-    Gets all year intervals from the first year
-    
-    Parameters
-    ----------
-    date: array of int
-        List of years
-        [2005, 2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
-        
-    Returns
-    -------
-    start, end: arrays of int
-        Go by pairs start[i],end[i], eg: 
-        start: [2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005]
-        end:   [2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
-        
-    """
-    start=[];end=[]
-    for i in range(len(date)-1):
-        start.append(date[0])  
-        end.append(date[i+1])   
-    return start,end
 
-
-def files_years(well,dates,option): 
+def files_years(well,dates,option,breakups=[]): 
     """
     Creates and Returns list of files according to option "all" or "suc"
     
@@ -147,6 +233,9 @@ def files_years(well,dates,option):
     option: str
         option=="all": all years from start to end of dates
         option=="suc": one year independently of the other years
+        option=="span": only the span of years between ending and intermediary years  
+    breakups: list of int
+        years of breakup at which hydrological regimes have changed (objectivally), eg. drastic changes of pumping rates
     
     Returns
     -------
@@ -155,26 +244,91 @@ def files_years(well,dates,option):
         ['F09_2005_2005', 'F09_2005_2006', 'F09_2005_2007', 'F09_2005_2010', 'F09_2005_2013', 'F09_2005_2014', 'F09_2005_2015', 'F09_2005_2016', 'F09_2005_2017', 'F09_2005_2018', 'F09_2005_2019']
         
     """
-    
-    # Sampling years avialble for this well
-    years=ploemeur_data_years(well,dates)
-    if(option=="suc"):
-        [start,end]=successive_years(years)
-    else: 
-        [start,end]=all_years_from_start(years)
+
+    start,end=periods_years(well,dates,option,breakups)[0:2]
+
     # Corresponding file names for each pair of years
+    # all: ['F09_2005_2005', 'F09_2005_2006', 'F09_2005_2007', 'F09_2005_2010', 'F09_2005_2013', 'F09_2005_2014', 'F09_2005_2015', 'F09_2005_2016', 'F09_2005_2017', 'F09_2005_2018', 'F09_2005_2019']
+    # suc: ['F09_2005_2005', 'F09_2006_2006', 'F09_2007_2007', 'F09_2010_2010', 'F09_2013_2013', 'F09_2014_2014', 'F09_2015_2015', 'F09_2016_2016', 'F09_2017_2017', 'F09_2018_2018', 'F09_2019_2019']
     files=[]
     for k in range(len(start)):
         files.append(ploemeur_data_selection(well,dates,start[k],end[k]))
     return files
 
 
+def correspondance_matrix(well,dates,option,breakups=[]): 
+    """
+    Correspondance matrix between
+        - single years
+        - multiple years that should give the a priori for the single years
+    Assumes that breakups is of size 1 and only 1!!!
+    Returns
+    -------
+    dataframe such as :         
+            file_current     file_prior
+        0  F09_2005_2005  F09_2005_2010
+        0  F09_2006_2006  F09_2005_2010
+        0  F09_2007_2007  F09_2005_2010
+        0  F09_2010_2010  F09_2005_2010
+        0  F09_2013_2013  F09_2012_2020
+        0  F09_2014_2014  F09_2012_2020
+        0  F09_2015_2015  F09_2012_2020
+        0  F09_2016_2016  F09_2012_2020
+        0  F09_2017_2017  F09_2012_2020
+        0  F09_2018_2018  F09_2012_2020
+        0  F09_2019_2019  F09_2012_2020
+        0  F09_2020_2020  F09_2012_2020
+    """
+    # Successive years start, end and files
+    start_suc,end_suc,sampling_years_suc=periods_years(well,dates,"suc",breakups)
+    files_suc = files_years(well,dates,"suc",breakups)
+    # Prior year span start, end and files
+    start_prior,end_prior,sampling_years_prior=periods_years(well,dates,"span",breakups)
+    files_prior = files_years(well,dates,"span",breakups)
+    # df: correspondance matrix 
+    dic = {}
+    for file, start, end in zip (files_suc, start_suc, end_suc):
+        if start < breakups[0] : 
+            temp = files_prior[1]
+        else : 
+            temp = files_prior[2]
+        dic[file]=temp
+        
+    return dic
+
         
 class ploemeur_one_date:
     """ 
-    Interpretation of concentrations at one date on ploemeur site
+    ELEMENTARY interpretation of concentrations for
+        - one well    
+        - one range of date
+        - one error value 
+        - one lpm type
+    
+    Attributes, public
+    -------------------
+        directory_ploemeur: str
+            directory of Ploemeur data
+        file_ploemeur: str
+            File of Ploemeur data
+        error_concentrations: float
+            Level of concentration erros (as percentage)
+        LPM_type: str
+            Type of LPM that should be used
+        directory_lpm: str 
+            Directory of LPM data  
+        display: instance of display_options class
+            All display parameters (and there is a number of them!)
+    
+    Attributes, private
+    -------------------
+        calstrat_MH: CalibrationMetropolisHastings
+            Instance of calibration class, contains the parameters of the calibration method
+        calstrat_FUQ: CalibrationMetropolisHastings
+            Instance of calibration class, contains the parameters of the calibration method
+
     """
-    def __init__(self,directory_results,well_date="F11_2010",error_concentrations=0.06,lpm_type="ig"):
+    def __init__(self,directory_results,well_date,error_concentrations,lpm_type,explo_res,MH_nsteps,prior,likelyhood,prior_file=""):
         """ 
         """
         # ---------------- CONCENTRATIONS DATA ------------------
@@ -186,23 +340,23 @@ class ploemeur_one_date:
         # ---------------- LPM MODEL -----------------------------
         self.lpm_type = lpm_type
         self.directory_lpm = os.path.join(self.directory_ploemeur,"LPM_data")
-        # Resolution of objective function / concentration pattern
-        self.resolution = 200  # 2000
-        
-        self.calstrat=[None]*2
-        # ---------------- FORWARD UNCERTAINTY QUANTIFICATION -----------------------------
-        self.calstrat[1] = csimp.CalibrationSimplex("forward_uncertainty_quantification",
-                                                    init_multiples_n=2,fuq_n=2) #JR: 5,50
-        
+
         # ---------------- METROPOLIS HASTINGS --------------------
         # Method and Parameters  
-        self.calstrat[0] = cMH.CalibrationMetropolisHastings(nstep=20000,prior=False,likelyhood=True,
-                                                             monitor=True,display_traj=True) # JR: 250000
+        self.calstrat_MH = cMH.CalibrationMetropolisHastings(nstep=MH_nsteps,prior_option=prior,likelyhood=likelyhood,
+                                                             monitor=True,display_traj=True,prior_typ="empirical",prior_file=prior_file) # JR: 250000
         # self.calstrat[1].MH_step.define_by_prop(0.005)
-        self.calstrat[0].MH_step.define_by_value()
+        self.calstrat_MH.MH_step.define_by_value()
+        # self.calstrat_MH.set_nmodels(explo_res)
+
+        
+        # ---------------- FORWARD UNCERTAINTY QUANTIFICATION -----------------------------
+        self.calstrat_FUQ = csimp.CalibrationSimplex("forward_uncertainty_quantification",
+                                                    init_multiples_n=2,fuq_n=2) #JR: 5,50
+        
                 
         # ---------------- CALIBRATION ANALYSIS --------------------
-        self.__nmodels = 500 # 10000
+        self.__nmodels = explo_res
         
         # ---- DISPLAY OPTIONS + ROOT OUTPUT DIRECTORY ------------
         # Output options
@@ -211,15 +365,17 @@ class ploemeur_one_date:
         self.display.figure = True
         self.display.figure_close = True
         self.display.figure_save = True    
-        directory_results = gp.results_directory(directory_results,well_date)
-        self.display.directory = gp.results_directory(directory_results,lpm_type)
+        self.display.directory = gp.results_directory(gp.results_directory(directory_results,well_date),lpm_type)
 
 
-    def perform(self): 
-        """ peforms interpration 
+    def concentration_preparation(self): 
         """
-        
-        # ---------------- CONCENTRATIONS------------------------
+        Concentrations 
+        - Loading
+        - Error affectation (relative error)
+        - Display
+        - Write to root results directory
+        """
         # Data Loading
         cdata=co.Concentrations(file_load=True, file_name=os.path.join(self.directory_ploemeur,self.file_ploemeur))
         # Adds some percentage of uncertainty to the data
@@ -228,31 +384,63 @@ class ploemeur_one_date:
         cdata.display(self.display)
         # Copy results to root directory
         cdata.cv.to_csv(os.path.join(self.display.directory,"concentrations.txt"),sep='\t') 
+        return cdata
+    
+    
+    def calibration(self,cdata,calstrat): 
+        """
+        calibration with the method calstrat (either MH or FUQ)
+        """
+        # display_options to be used for this case with specific directory  (no change in generic display_options)
+        display_options_case = copy.deepcopy(self.display)
+        display_options_case.directory = gp.results_directory(self.display.directory,calstrat.method)
+        # Calibration preparation and analysis
+        # calstrat.set_nmodels(10)
+        calib_basis=calbas.CalibrationBasis(cdata,self.lpm_type,display_options=display_options_case,nmodels=self.__nmodels)
+        calstrat.update_calibbasis(calib_basis)
+        # Calibration performs
+        lpm_results=calstrat.perform()
+        # Stores/Writes Results
+        calstrat.write_calibrated_lpm(lpm_results,file_prior=calbas.file_prior_posterior(self.file_ploemeur,self.error_concentrations,self.lpm_type))
+        # Calibration analysis
+        calstrat.analysis_calibration(lpm_results)
+        # Chronicles of tracers with data 
+        ct.display_concentration_chronicles(cdata,lpm_results,calstrat.method,self.display)
+        # Distribution of parameters and concentrations
+        lpm_results.display_parameters_dist(self_method=calstrat.method,directory=display_options_case.directory)
+        if calstrat.method == "Metropolis_Hastings": 
+            lpm_results.display_parameters_dist_comp_apriori(directory=display_options_case.directory,prior=calstrat.prior)
+        lpm_results.display_concentrations_dist(self_method=calstrat.method,concentrations_reference=cdata,directory=display_options_case.directory)
+        return lpm_results
+        
+        
+
+    def perform(self): 
+        """ 
+        peforms interpretation with Metropolis Hastings
+        """
+        # ---------------- CONCENTRATIONS------------------------
+        cdata = self.concentration_preparation()
+        # ---------------- CALIBRATION with MH -----------------
+        self.calibration(cdata,self.calstrat_MH)
+
+
+    def perform_method_comparison(self): 
+        """ 
+        peforms interpretation 
+        """
+        
+        # ---------------- CONCENTRATIONS------------------------
+        cdata = self.concentration_preparation()
         
         # ---------------- CALIBRATION --------------------------
         lpm_results=[None]*2
-        for i in range(len(self.calstrat)):
-            # display_options to be used for this case with specific directory  (no change in generic display_options)
-            display_options_case = copy.deepcopy(self.display)
-            display_options_case.directory = gp.results_directory(self.display.directory,self.calstrat[i].method)
-            # Calibration preparation and analysis
-            calib_basis=calbas.CalibrationBasis(cdata,self.lpm_type,display_options=display_options_case,nmodels=self.__nmodels)
-            self.calstrat[i].update_calibbasis(calib_basis)
-            # Calibration performs
-            lpm_results[i]=self.calstrat[i].perform()
-            # Stores/Writes Results
-            self.calstrat[i].write_calibrated_lpm(lpm_results[i])
-            # Calibration analysis
-            self.calstrat[i].analysis_calibration(lpm_results[i])
-            # Chronicles of tracers with data 
-            ct.display_concentration_chronicles(cdata,lpm_results[i],self.calstrat[i].method,self.display)
-            # Distribution of parameters and concentrations
-            lpm_results[i].display_parameters_dist(self_method=self.calstrat[i].method,directory=display_options_case.directory)
-            lpm_results[i].display_concentrations_dist(self_method=self.calstrat[i].method,concentrations_reference=cdata,directory=display_options_case.directory)
+        lpm_results[0]=self.calibration(cdata,self.calstrat_MH)
+        lpm_results[1]=self.calibration(cdata,self.calstrat_FUQ)
         
         # ---------------- SYNTHETIC FIGURES --------------------
-        lpm_results[0].display_parameters_dist(self_method=self.calstrat[0].method,lpm_reference=None,lpm_2nd=lpm_results[1],lpm_2nd_method=self.calstrat[1].method,directory=self.display.directory)
-        lpm_results[0].display_concentrations_dist(self_method=self.calstrat[0].method,concentrations_reference=cdata,lpm_2nd=lpm_results[1],lpm_2nd_method=self.calstrat[1].method,directory=self.display.directory)
+        lpm_results[0].display_parameters_dist(self_method=self.calstrat_MH.method,lpm_reference=None,lpm_2nd=lpm_results[1],lpm_2nd_method=self.calstrat_FUQ.method,directory=self.display.directory)
+        lpm_results[0].display_concentrations_dist(self_method=self.calstrat_MH.method,concentrations_reference=cdata,lpm_2nd=lpm_results[1],lpm_2nd_method=self.calstrat_FUQ.method,directory=self.display.directory)
         
 
 # ----------------------------------------------
@@ -294,7 +482,7 @@ def selector(well_select,error=0.03):
         datess.append("2005_2021")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        lpm_types.append(["exp_shifted"])
         # lpm_types.append(["exp_shifted_old","exp_shifted_young","exp_shifted"])
         # lpm_types.append(["exp_shifted","exp_shifted_young","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])    
         
@@ -352,75 +540,19 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     return wells,datess,errors,lpm_types
-
-
-def perform(pod,i): 
-    pod[i].perform()
     
-    
-
-def appli_ploemeur(well_select, file_root_root="ploemeur_", option="all", error=0.15):
-    # Main analysis option 
-    parallel=True
-    
-    wells,datess,errors,lpm_types = selector(well_select,error=error)
-    file_root=file_root_root+str(error)+option
-    
-    # Loop on the wells
-    for k in range(len(wells)):
-        # Creates and Returns list of files according to option "all" or "suc"
-        files=files_years(wells[k],datess[k],option)
-        # New results folder for this well (with date and time)
-        [dir_out,dir_root,date_file]=appli_ploemeur_tools.ploemeur_results_folder(file_root)
-        
-        # Preprocess
-        # Loop on LPM models 
-        pod=[]
-        for lpm in lpm_types[k]: 
-            # Loop on the dates
-            for fn in files: 
-                pod.append(ploemeur_one_date(dir_out,well_date=fn,error_concentrations=errors[k],lpm_type=lpm))
-        
-        # Process
-        if parallel == True: 
-            # Perform parallel
-            st=time.time()
-            pool = mp.Pool(6)
-            for i in range(len(pod)): 
-                pool.apply_async(perform, args=(pod,i))
-            pool.close()
-            pool.join()
-            print('time parallel=',time.time()-st)
-        else: 
-            # Perform sequential
-            st=time.time()
-            for i in range(len(pod)): 
-                pod[i].perform()
-            print('time sequential=',time.time()-st)
-            
-        # PostProcess
-        for lpm in lpm_types[k]: 
-            aprc.load_and_display(date_file,lpm,dir_root)
     
     
 if __name__ == "__main__":  
     
-    # well_select = ["F09"]
-    # appli_ploemeur(well_select, file_root_root="ploemeur_10_10_", option="suc", error=0.15)
-    # appli_ploemeur(well_select, file_root_root="ploemeur_10_10_", option="all", error=0.15)
+    # Initialization 
+    simulstart=SimulationStrategy()
     
-    # sys.exit()
+    # Type of simlation 
+    simulstart.test_F09()
     
-    # well_select = ["F34","PE","MF1","MF4","F38b","F11","F09"]
-    well_select = ["F09","F11","F34","PE","MF1","MF4","F38b"]
-    # well_select = ["F09"]
-    folder = "ploemeur_05_27_"
-    # errors=[0.15,0.2,0.25,0.3]
-    # errors=[0.15,0.25,0.05]
-    errors=[0.05]
-    for error in errors: 
-        appli_ploemeur(well_select, file_root_root=folder, option="all", error=error)
-        appli_ploemeur(well_select, file_root_root=folder, option="suc", error=error)
+    # Execution of simulation
+    simulstart.execute()
     
     
     

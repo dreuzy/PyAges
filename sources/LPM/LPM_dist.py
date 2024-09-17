@@ -280,6 +280,28 @@ class LPMDist:
                                     file='comp2D_'+names[i]+'_'+names[i1])
 
 
+    def display_parameters_dist_comp_apriori(self,lpm_reference=None,bins=30,lpm_2nd=None,lpm_2nd_method="",directory=None,display_text=False,prior="") :
+        """ 
+        Display distribution of parameters of the lpm
+        """
+        # Shows histogram of the parameters
+        if display_text : print("\033[1m"+"DISTRIBTUTION OF PARAMETERS"+"\033[0m")
+        for key in self.__lpm_template.p:
+            figadd.figure_init(xlab=key,ylab="Count",figname=self.__lpm_template.name)
+            binwidth = self.__lpm_template.get_param_range(key)/100
+            # First histogram
+            plt.hist(self.__dist[key].tolist(), density=True, bins=np.arange(min(max(self.__dist[key].tolist())/2,self.__lpm_template.get_p_min(key)), self.__lpm_template.get_p_max(key) + binwidth, binwidth), histtype='barstacked',label="MH")
+            # Second histogram for a priori
+            aa=self.__dist[key].tolist()
+            plt.plot(prior.MHapriori_para[key][:,0],prior.MHapriori_para[key][:,1])
+            if lpm_reference != None : plt.axvline( lpm_reference.p[key], c='k', linewidth=2.0, label="reference")
+            # Vertical line at the place of the reference model
+            if lpm_2nd != None : plt.hist(lpm_2nd.__dist[key], density=True, bins=np.arange(min(max(self.__dist[key].tolist())/2,self.__lpm_template.get_p_min(key)), self.__lpm_template.get_p_max(key) + binwidth, binwidth), histtype='barstacked',label=lpm_2nd_method)            
+            plt.xlim(self.__lpm_template.get_p_min(key),self.__lpm_template.get_p_max(key))
+            plt.legend()
+            if directory != None : figadd.figure_close(filename=os.path.join(directory,'comp_apriori'+key))        
+
+
     def display_concentrations_dist(self,self_method="",concentrations_reference=None,lpm_2nd=None,lpm_2nd_method="",directory=None) :
         """ 
         Displays concentrations
@@ -313,17 +335,20 @@ class LPMDist:
                 histoy=lpm_2nd.__dist[self.__c_names[i1]]
             # Scatter
             scatter=True
-            scatterx=self.__dist[self.__c_names[i]]
-            scattery=self.__dist[self.__c_names[i1]]
-            # Reference
-            if concentrations_reference == None : 
-                refx=None
-                refy=None
-            else: 
-                refx=concentrations_reference.cv['concentration'][i]
-                refy=concentrations_reference.cv['concentration'][i1]
-            # Main function 
-            figadd.hist_scatter(histo=histo,histox=histox,histoy=histoy,histolegend=lpm_2nd_method,
+            uu=self.__dist
+            vv=self.__c_names[i]
+            if self.__c_names[i] in self.__dist : 
+                scatterx=self.__dist[self.__c_names[i]]
+                scattery=self.__dist[self.__c_names[i1]]
+                # Reference
+                if concentrations_reference == None : 
+                    refx=None
+                    refy=None
+                else: 
+                    refx=concentrations_reference.cv['concentration'][i]
+                    refy=concentrations_reference.cv['concentration'][i1]
+                # Main function 
+                figadd.hist_scatter(histo=histo,histox=histox,histoy=histoy,histolegend=lpm_2nd_method,
                                 scatter=scatter,scatterx=scatterx,scattery=scattery,scatterlegend=self_method,
                                 refx=refx,refy=refy,reflegend="reference",
                                 namex=self.__c_names[i],namey=self.__c_names[i1],namefig=self.__lpm_template.name,
@@ -358,6 +383,19 @@ class LPMDist:
         """     
         self.__dist.to_csv(file,sep='\t')
 
+
+    def write_histograms(self,file): 
+        """
+        Writes for each of the parameters the histogram
+        """
+        nb_bins = 100
+        for key in self.__lpm_template.p : 
+            uu = self.__dist.loc[:,key]
+            hist, bins = np.histogram(self.__dist.loc[:,key], bins=nb_bins, density='True')
+            # hist_dataframe = pd.DataFrame(columns = self.__lpm_template.get_param_names() + ['obj_function'] + c_names)
+            pd.DataFrame({'val': bins[:-1],'hist': hist}).to_csv(file[:-4]+'_'+key+file[-4:],sep='\t',index=False)
+
+        
         
     def get_stats(self):
         """ 

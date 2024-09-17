@@ -126,6 +126,11 @@ class ParamSysSampling:
         return n
     
     
+    def set_nmodels(self,nmodels): 
+        """ sets nmodels (private) from outside the class """
+        self.__nmodels = nmodels
+    
+    
     def __write(self): 
         """ Displays sampled parameters in the different dimensions
         """
@@ -559,6 +564,11 @@ class CalibrationExploration:
                                                name_fig='objfun_of_' + self.lpm.name, 
                                                lpm_name = self.lpm.name,
                                                lpm_results=lpm_results)
+
+
+    def set_nmodels(self,nmodels): 
+        """ sets nmodels (private) from outside the class """
+        self.__psystsampling.set_nmodels(nmodels)
 
 
     def analysis_reach_conc(self): 

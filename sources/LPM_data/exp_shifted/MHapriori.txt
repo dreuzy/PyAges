@@ -1,2 +1,2 @@
-mu,uniform,0,100,year
-shift,uniform,0,100,year
+mu,normal,25,5,year
+shift,normal,10,2,year
