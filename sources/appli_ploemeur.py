@@ -57,16 +57,25 @@ class SimulationStrategy:
     """
     
     def __init__(self):
-        self.options =    ["span","suc_prior","suc","all"]
-        self.prior  =     [False, True, False, False]
-        self.likelyhood = [True,  False, True, True]
+        # self.options =    ["span_prior","suc_prior","suc","all"]
+        # self.prior  =     [True, True, False, False]
+        # self.likelyhood = [True, True, True,  True]
+
+        self.options =    ["span","span_prior","suc_prior","suc","all"]
+        self.prior  =     [False, True, True, False, False]
+        self.likelyhood = [True,  True, True, True,  True]
+
+        # self.options =    ["suc","all"]
+        # self.prior  =     [False, False]
+        # self.likelyhood = [True, True]
+
         self.breakups=[2012]
-        self.errors=[0.15,0.25,0.05]
+        self.errors=[0.05]#,0.15,0.25,0.05]
         self.well_select = ["F34","PE","MF1","MF4","F38b","F11","F09","PZ2","PSR1"]
-        self.folder = "ploemeur_apriori_test"
+        self.folder = "ploemeur_apriori_"
         self.parallel=False
-        self.explo_res=200
-        self.MH_nsteps=1000000
+        self.explo_res=2000
+        self.MH_nsteps=200000
         
         
     def test_F09(self): 
@@ -78,7 +87,7 @@ class SimulationStrategy:
         self.likelyhood = [True,  False, True, True]
         self.breakups=[2012]
         self.folder = "ploemeur_apriori_test"
-        self.errors=[0.2]
+        self.errors=[0.05]
         self.well_select = ["F09"]
         self.MH_nsteps=200000
         self.parallel=False
@@ -112,7 +121,7 @@ class SimulationStrategy:
         
         # Creates and Returns list of files according to option "all" or "suc"
         files=files_years(well,dates,option,self.breakups)
-        if option == "suc_prior":
+        if option == "suc_prior" or option == "span_prior":
             prior_corresp=correspondance_matrix(well,dates,option,self.breakups)
         # New results folder for this well (with date and time)
         [dir_out,dir_root,date_file]=appli_ploemeur_tools.ploemeur_results_folder(file_root)
@@ -123,7 +132,7 @@ class SimulationStrategy:
         for lpm in lpm_types: 
             # Loop on the dates
             for well_date in files: 
-                if option == "suc_prior":
+                if option == "suc_prior" or option == "span_prior":
                     temp_file = calbas.file_prior_posterior(prior_corresp[well_date], error, lpm)
                     temp_folder = calbas.folder_prior_posterior(dir_out,stageup=-2)
                     prior_file = os.path.join(temp_folder,temp_file)
@@ -200,11 +209,12 @@ def periods_years(well,dates,option,breakups=[]):
     sampling_years=sorted(functools.reduce(lambda l, x: l.append(int(x)) or l if int(x) not in l else l, cdata.cv['date'], []))
     
     start=[];end=[]
-    if option == "span": 
+    if option == "span" or option =="span_prior": 
         # start: [2005,2005,2012]
         # end:   [2020,2012,2020]
-        start.append(sampling_years[0])
-        end.append(sampling_years[-1])
+        if option == "span" : 
+            start.append(sampling_years[0])
+            end.append(sampling_years[-1])
         for breakyear in breakups: 
             if breakyear > sampling_years[0] and breakyear < sampling_years[-1]: 
                 start = start + [sampling_years[0],breakyear]
@@ -284,18 +294,28 @@ def correspondance_matrix(well,dates,option,breakups=[]):
         0  F09_2020_2020  F09_2012_2020
     """
     # Successive years start, end and files
-    start_suc,end_suc,sampling_years_suc=periods_years(well,dates,"suc",breakups)
-    files_suc = files_years(well,dates,"suc",breakups)
+    if option == "span_prior": 
+        start_suc,end_suc,sampling_years_suc=periods_years(well,dates,"span_prior",breakups)
+        files_suc = files_years(well,dates,"span_prior",breakups)
+    else : 
+        start_suc,end_suc,sampling_years_suc=periods_years(well,dates,"suc",breakups)
+        files_suc = files_years(well,dates,"suc",breakups)
     # Prior year span start, end and files
     start_prior,end_prior,sampling_years_prior=periods_years(well,dates,"span",breakups)
     files_prior = files_years(well,dates,"span",breakups)
     # df: correspondance matrix 
     dic = {}
     for file, start, end in zip (files_suc, start_suc, end_suc):
-        if start < breakups[0] : 
-            temp = files_prior[1]
-        else : 
-            temp = files_prior[2]
+        if option == "span_prior": 
+            temp = files_prior[0]
+        elif option == "suc_prior": 
+            if len(files_prior) != 3: 
+                temp=files_prior[0]
+            else: 
+                if start < breakups[0] : 
+                    temp = files_prior[1]
+                else : 
+                    temp = files_prior[2]
         dic[file]=temp
         
     return dic
@@ -494,13 +514,16 @@ def selector(well_select,error=0.03):
         wells.append("F34")
         datess.append("2004_2015")
         errors.append(error)
-        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])#,"ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
        
     if "F11" in well_select : 
         wells.append("F11")
         datess.append("2004_2024")
         errors.append(error)
-        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     if "F38" in well_select : 
@@ -508,7 +531,9 @@ def selector(well_select,error=0.03):
         datess.append("2006_2020")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
 
     if "F38b" in well_select : 
@@ -516,7 +541,9 @@ def selector(well_select,error=0.03):
         datess.append("2006_2011")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
                 
     if "MF4" in well_select : 
@@ -524,7 +551,9 @@ def selector(well_select,error=0.03):
         datess.append("2006_2017")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     if "PE" in well_select : 
@@ -532,7 +561,9 @@ def selector(well_select,error=0.03):
         datess.append("2005_2020")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     if "MF1" in well_select : 
@@ -540,7 +571,9 @@ def selector(well_select,error=0.03):
         datess.append("2004_2020")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
+        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
 
     if "PZ2" in well_select : 
@@ -548,14 +581,18 @@ def selector(well_select,error=0.03):
         datess.append("2009_2024")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
 
     if "PSR1" in well_select : 
         wells.append("PSR1")
         datess.append("2009_2024")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
+        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
 
         
     return wells,datess,errors,lpm_types
