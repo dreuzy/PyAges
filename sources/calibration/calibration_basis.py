@@ -15,15 +15,23 @@ import convolutions.convolution_tracers as convolution_tracers
 import convolutions.concentrations as co 
 
 
-def folder_prior_posterior(file,stageup=-5): 
+def folder_prior_posterior(file,stageup=-5,folder_prior=""): 
     """ folder in which posteriors will be stored to use after as priors"""
     temp=[i for i in range(len(file)) if file.startswith('\\', i)]
     folder_root=file[:temp[stageup]]
+    
     folder_root = os.path.join(folder_root,"prior_distributions")
     isExist = os.path.exists(folder_root)
     if not isExist:
         # Create a new directory because it does not exist
         os.makedirs(folder_root)
+    
+    folder_root = os.path.join(folder_root,folder_prior)    
+    isExist = os.path.exists(folder_root)
+    if not isExist:
+        # Create a new directory because it does not exist
+        os.makedirs(folder_root)
+    
     return folder_root
 
 
@@ -189,7 +197,7 @@ class CalibrationBasis(CalibrationExploration):
                 lpm_results.display_parameters_dist(self_method=self.method,lpm_reference=lpm_reference,bins=100,directory=self.display_options.directory)
 
 
-    def write_calibrated_lpm(self,lpm_results,file_prior="none"): 
+    def write_calibrated_lpm(self,lpm_results,file_prior="none",folder_prior=""): 
         """ 
         Writes the calibrated lpms
         """ 
@@ -203,7 +211,7 @@ class CalibrationBasis(CalibrationExploration):
             lpm_results.write_stats(os.path.join(self.display_options.directory,"lpm_stats_calibrated.txt"))
             lpm_results.computes_and_writes_dist_params(os.path.join(self.display_options.directory,"lpm_param_dist_calibrated.txt"))
         if self.method == "Metropolis_Hastings" : 
-            lpm_results.write_histograms(os.path.join(folder_prior_posterior(self.display_options.directory,stageup=-5),file_prior+".txt"))
+            lpm_results.write_histograms(os.path.join(folder_prior_posterior(self.display_options.directory,stageup=-5,folder_prior=folder_prior),file_prior+".txt"))
         # Writes "best" lpm
         # [exist,lpm]=lpm_results.get_best_lpm()
         # if exist: lpm.write(os.path.join(self.display_options.directory,"lpm_calibrated.txt"),open_file=True)

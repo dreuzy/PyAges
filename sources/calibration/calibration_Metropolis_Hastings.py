@@ -12,7 +12,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd                                     
-import sys as sys  
+import sys as sys 
+from scipy.stats import norm 
+import time
 
 from calibration.calibration_exploration import objective_function_norm
 import calibration.calibration_basis as calbas
@@ -207,8 +209,27 @@ class Prior() :
             elif self.typ == "empirical": 
                 self.MHapriori_para={}
                 for param in lpm.param_names(): 
-                    file = self.prior_file + "_" + param + ".txt"
-                    self.MHapriori_para[param] = pd.DataFrame.to_numpy(pd.read_csv(file, sep='\t'))
+                    # Loaded histogram
+                    self.MHapriori_para[param] = pd.DataFrame.to_numpy(pd.read_csv(self.prior_file + "_" + param + ".txt", sep='\t'))
+                    histo_x = self.MHapriori_para[param][:,0]
+                    histo_y = self.MHapriori_para[param][:,1]
+                    # pdf Gaussians centered on loaded histogram
+                    pdf_x = np.linspace(lpm.get_p_min(param),lpm.get_p_max(param),101)
+                    scale = lpm.get_param_range(param)/50
+                    pdf_p=[]
+                    for x in pdf_x: 
+                        val = 0
+                        for mu, amplitude in zip(histo_x,histo_y): 
+                            val = val + 2 * amplitude * norm.pdf(x,mu,scale)
+                        pdf_p.append(val)
+                    self.MHapriori_para[param] = np.column_stack((pdf_x,pdf_p))
+                    
+                    # plt.figure()
+                    # plt.plot(pdf_x,pdf_p)
+                    # plt.plot(histo_x,histo_y)
+                    # plt.xscale("log")
+                    # plt.yscale("log")
+                    # plt.show()
             else:
                 print("option non reconnue ", self.typ)
         
@@ -464,6 +485,8 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
             lpm Parameters, objective function and concentration solutions
         """   
 
+        start = time.time()
+        
         # --------------- PREPARATION PHASE ------------------------
         # Forces monitoring to true for the test of the algorithm on the sole prior
         if self.__likelyhood_option == False and self.prior.option == True : 
@@ -549,6 +572,9 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
         # Checks algorithm with prior distribution and no likelyhood
         if self.__likelyhood_option == False and self.prior.option == True : 
             self.prior.validation_MH_prior(traj.path,self.lpm)
+            
+        end = time.time()
+        self.time_perform = end - start
     
         return lpm_results
     

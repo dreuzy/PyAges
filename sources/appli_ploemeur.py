@@ -61,21 +61,53 @@ class SimulationStrategy:
         # self.prior  =     [True, True, False, False]
         # self.likelyhood = [True, True, True,  True]
 
-        self.options =    ["span","span_prior","suc_prior","suc","all"]
-        self.prior  =     [False, True, True, False, False]
-        self.likelyhood = [True,  True, True, True,  True]
-
-        # self.options =    ["suc","all"]
-        # self.prior  =     [False, False]
+        # self.options =    ["span_prior","suc_prior"]
+        # self.errors=[0.3]#,0.15,0.25,0.05]
         # self.likelyhood = [True, True]
+        # self.prior  =     [True, True]
+        # self.prior_folder = ["span","span_prior"]
+        # self.folder = "ploemeur_apriori_double_"
+
+        self.errors=[0.2,0.3]#,0.15,0.25,0.05]
+
+        # apriori_type = "none"
+        apriori_type = "single"
+        # apriori_type = "double"
+        
+        if apriori_type == "none" :
+            self.options =    ["suc"]
+            self.prior  =     [False]
+            self.likelyhood = [True]
+            self.prior_folder = [""]
+            self.folder = "ploemeur_"
+            
+        if apriori_type == "single" :
+            self.options =    ["span","suc_prior"]
+            self.prior  =     [False, True]
+            self.likelyhood = [True,  True]
+            self.prior_folder = ["","span"]
+            self.folder = "ploemeur_apriori_simple_"
+
+        if apriori_type == "double" :
+            self.options =    ["span","span_prior","suc_prior"]
+            self.likelyhood = [True, True, True]
+            self.prior  =     [False, True, True]
+            self.prior_folder = ["","span","span_prior"]
+            self.folder = "ploemeur_apriori_double_"
+        
+        # self.options =    ["suc","all"]
+        # self.errors=[0.3]#,0.15,0.25,0.05]
+        # self.prior  =     [False, False]
+        # self.likelyhood = [True,  True]
+        # self.prior_folder = ["",""]
+        # self.folder = "ploemeur_"
+
 
         self.breakups=[2012]
-        self.errors=[0.05]#,0.15,0.25,0.05]
         self.well_select = ["F34","PE","MF1","MF4","F38b","F11","F09","PZ2","PSR1"]
-        self.folder = "ploemeur_apriori_"
-        self.parallel=False
-        self.explo_res=2000
-        self.MH_nsteps=200000
+        self.parallel=False#JRJR
+        self.explo_res=int(2000/10)#JRJR
+        self.MH_nsteps=int(200000/100)#JRJR
         
         
     def test_F09(self): 
@@ -101,7 +133,7 @@ class SimulationStrategy:
             - wells
         """
         for error in self.errors: 
-            for option, prior, likelyhood in zip (self.options, self.prior, self.likelyhood): 
+            for option, prior, likelyhood, prior_folder in zip (self.options, self.prior, self.likelyhood, self.prior_folder): 
                 # Gets the right combination of wells, dates, errors and lpm_types
                 wells,datess,errors,lpm_types = selector(self.well_select,error=error)
                 file_root=self.folder + str(error) + option
@@ -109,10 +141,10 @@ class SimulationStrategy:
                 # Loop on the wells
                 for k in range(len(wells)):
                     self.__execute_parallel(wells[k], datess[k], lpm_types[k], \
-                                            file_root, option, error, prior, likelyhood)
+                                            file_root, option, error, prior, likelyhood, prior_folder)
 
 
-    def __execute_parallel(self, well, dates, lpm_types, file_root, option, error, prior, likelyhood):
+    def __execute_parallel(self, well, dates, lpm_types, file_root, option, error, prior, likelyhood, prior_folder):
         """
         Parallelizable Execution over all combibations of 
             - dates 
@@ -128,32 +160,31 @@ class SimulationStrategy:
         
         # Preprocess
         # Loop on LPM models 
-        pod=[]
+        pod_parallel=[]
         for lpm in lpm_types: 
             # Loop on the dates
             for well_date in files: 
                 if option == "suc_prior" or option == "span_prior":
                     temp_file = calbas.file_prior_posterior(prior_corresp[well_date], error, lpm)
-                    temp_folder = calbas.folder_prior_posterior(dir_out,stageup=-2)
+                    temp_folder = calbas.folder_prior_posterior(dir_out,stageup=-2,folder_prior=prior_folder)
                     prior_file = os.path.join(temp_folder,temp_file)
                 else: 
                     prior_file = ""
-                pod.append(ploemeur_one_date(dir_out,well_date,error,lpm,self.explo_res,self.MH_nsteps,prior,likelyhood,prior_file=prior_file))
+                pod = ploemeur_one_date(dir_out,well_date,error,lpm,self.explo_res,self.MH_nsteps,prior,likelyhood,prior_file=prior_file,option=option)
+                if self.parallel == True: 
+                    pod_parallel.append(pod)
+                else:
+                    pod.perform()
         
         # Process
         st=time.time()
         if self.parallel == True: 
             # Perform parallel
             pool = mp.Pool(6)
-            for i in range(len(pod)): 
-                pool.apply_async(perform, args=(pod,i))
+            for i in range(len(pod_parallel)): 
+                pool.apply_async(perform, args=(pod_parallel,i))
             pool.close()
             pool.join()
-        else: 
-            # Perform sequential
-            for i in range(len(pod)): 
-                # pod[i].perform_method_comparison()
-                pod[i].perform()
         print('time=',time.time()-st)
             
         # PostProcess: concatenation of results from the different dates and lpms
@@ -218,7 +249,10 @@ def periods_years(well,dates,option,breakups=[]):
         for breakyear in breakups: 
             if breakyear > sampling_years[0] and breakyear < sampling_years[-1]: 
                 start = start + [sampling_years[0],breakyear]
-                end = end + [breakyear,sampling_years[-1]]      
+                end = end + [breakyear,sampling_years[-1]]    
+        if len(start)==0:
+            start.append(sampling_years[0])
+            end.append(sampling_years[-1])
     else: 
         for i in range(len(sampling_years)-1):
             if option=="suc" or option=="suc_prior" :
@@ -352,9 +386,10 @@ class ploemeur_one_date:
             Instance of calibration class, contains the parameters of the calibration method
 
     """
-    def __init__(self,directory_results,well_date,error_concentrations,lpm_type,explo_res,MH_nsteps,prior,likelyhood,prior_file=""):
+    def __init__(self,directory_results,well_date,error_concentrations,lpm_type,explo_res,MH_nsteps,prior,likelyhood,prior_file="",option=""):
         """ 
         """
+        self.option=option
         # ---------------- CONCENTRATIONS DATA ------------------
         # Concentration data 
         self.directory_ploemeur = appli_ploemeur_tools.ploemeur_data_folder()
@@ -425,7 +460,7 @@ class ploemeur_one_date:
         # Calibration performs
         lpm_results=calstrat.perform()
         # Stores/Writes Results
-        calstrat.write_calibrated_lpm(lpm_results,file_prior=calbas.file_prior_posterior(self.file_ploemeur,self.error_concentrations,self.lpm_type))
+        calstrat.write_calibrated_lpm(lpm_results,file_prior=calbas.file_prior_posterior(self.file_ploemeur,self.error_concentrations,self.lpm_type),folder_prior=self.option)
         # Calibration analysis
         calstrat.analysis_calibration(lpm_results)
         # Chronicles of tracers with data 
@@ -435,6 +470,7 @@ class ploemeur_one_date:
         if calstrat.method == "Metropolis_Hastings" and calstrat.prior.option == True: 
             lpm_results.display_parameters_dist_comp_apriori(directory=display_options_case.directory,prior=calstrat.prior)
         lpm_results.display_concentrations_dist(self_method=calstrat.method,concentrations_reference=cdata,directory=display_options_case.directory)
+        
         return lpm_results
         
         
@@ -506,7 +542,8 @@ def selector(well_select,error=0.03):
         datess.append("2005_2024")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted"])
+        lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted_old","exp_shifted_young","exp_shifted"])
         # lpm_types.append(["exp_shifted","exp_shifted_young","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])    
         
@@ -514,7 +551,8 @@ def selector(well_select,error=0.03):
         wells.append("F34")
         datess.append("2004_2015")
         errors.append(error)
-        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted"])
+        lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
        
     if "F11" in well_select : 
@@ -523,7 +561,8 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted"])
+        lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     if "F38" in well_select : 
@@ -533,7 +572,8 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted"])
+        lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
 
     if "F38b" in well_select : 
@@ -543,7 +583,8 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted"])
+        lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
                 
     if "MF4" in well_select : 
@@ -553,7 +594,8 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted"])
+        lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     if "PE" in well_select : 
@@ -563,7 +605,8 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted"])
+        lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         
     if "MF1" in well_select : 
@@ -573,7 +616,8 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted"])
+        lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
 
     if "PZ2" in well_select : 
@@ -582,7 +626,8 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted"])
+        lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
 
     if "PSR1" in well_select : 
@@ -591,7 +636,8 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        lpm_types.append(["exp_shifted"])
+        # lpm_types.append(["exp_shifted"])
+        lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
 
         
