@@ -423,7 +423,7 @@ class CalibrationExploration:
         self.__date = date
         # Sets concentrations data
         self.__cdata = cdata
-        # Sets Display options
+        # Sets display options
         self.display = display_options
         # Range of parameters
         pmin,pmax=self.__lpm.get_param_interval()
@@ -577,7 +577,8 @@ class CalibrationExploration:
         # Computes concentrations on the grid of parameter sets
         self.compute_concentrations()
         # Displays concenrations in 2D plots
-        self.display_concentrations_with_data()
+        if self.reachconc : 
+            self.display_concentrations_with_data()
 
 
     def analysis_calibration(self,lpm_results=None): 
@@ -610,6 +611,6 @@ def test_reachconc(lpm,tracer_names,display_options,nmodels=1000,date=2010):
     display_options_cr=copy.deepcopy(display_options)
     display_options_cr.directory_results = gp.results_directory(display_options.directory, "reach" + name_tracers + "_" + lpm)
     # Reachable concentrations per se
-    cr = CalibrationExploration( lpm, tracer_names, date=[date]*len(tracer_names), nmodels=nmodels, display_options=display_options_cr)
+    cr = CalibrationExploration( lpm, tracer_names, date=[date]*len(tracer_names), nmodels=nmodels, display_options=display_options_cr, reachconc=True)
     cr.compute_concentrations()
     cr.analysis_reach_conc()
