@@ -343,6 +343,8 @@ class ploemeur_one_date:
             Directory of LPM data  
         display: instance of display_options class
             All display parameters (and there is a number of them!)
+        display_reachconc: bool
+            Displays or not reachable concentrations
     
     Attributes, private
     -------------------
@@ -390,6 +392,7 @@ class ploemeur_one_date:
         self.display.figure_close = True
         self.display.figure_save = True    
         self.display.directory = gp.results_directory(gp.results_directory(directory_results,well_date),lpm_type)
+        self.display_reachconc = False
 
 
     def concentration_preparation(self): 
@@ -434,7 +437,8 @@ class ploemeur_one_date:
         lpm_results.display_parameters_dist(self_method=calstrat.method,directory=display_options_case.directory)
         if calstrat.method == "Metropolis_Hastings" and calstrat.prior.option == True: 
             lpm_results.display_parameters_dist_comp_apriori(directory=display_options_case.directory,prior=calstrat.prior)
-        lpm_results.display_concentrations_dist(self_method=calstrat.method,concentrations_reference=cdata,directory=display_options_case.directory)
+        if self.display_reachconc == False: 
+            lpm_results.display_concentrations_dist(self_method=calstrat.method,concentrations_reference=cdata,directory=display_options_case.directory)
         return lpm_results
         
         
