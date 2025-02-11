@@ -425,6 +425,8 @@ class CalibrationExploration:
         self.__cdata = cdata
         # Sets display options
         self.display = display_options
+        # Should concentrations be displayed
+        self.display_reachconc = reachconc
         # Range of parameters
         pmin,pmax=self.__lpm.get_param_interval()
         # List of parameter sets
@@ -577,7 +579,7 @@ class CalibrationExploration:
         # Computes concentrations on the grid of parameter sets
         self.compute_concentrations()
         # Displays concenrations in 2D plots
-        if self.reachconc : 
+        if self.display_reachconc : 
             self.display_concentrations_with_data()
 
 
@@ -593,7 +595,8 @@ class CalibrationExploration:
         # Computes concentrations on the grid of parameter sets
         self.compute_concentrations()
         # Displays concenrations in 2D plots
-        self.display_concentrations_with_data()
+        if self.display_reachconc : 
+            self.display_concentrations_with_data()
         # Computes Objective Function 
         self.objective_function_build()
         # Displays Objective Function in 2D plots

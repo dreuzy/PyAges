@@ -425,7 +425,7 @@ class ploemeur_one_date:
         self.display.figure_close = True
         self.display.figure_save = True    
         self.display.directory = gp.results_directory(gp.results_directory(directory_results,well_date),lpm_type)
-
+        self.display_reachconc = False
 
     def concentration_preparation(self): 
         """
@@ -455,7 +455,7 @@ class ploemeur_one_date:
         display_options_case.directory = gp.results_directory(self.display.directory,calstrat.method)
         # Calibration preparation and analysis
         # calstrat.set_nmodels(10)
-        calib_basis=calbas.CalibrationBasis(cdata,self.lpm_type,display_options=display_options_case,nmodels=self.__nmodels)
+        calib_basis=calbas.CalibrationBasis(cdata,self.lpm_type,display_options=display_options_case,nmodels=self.__nmodels,reachconc=self.display_reachconc)
         calstrat.update_calibbasis(calib_basis)
         # Calibration performs
         lpm_results=calstrat.perform()
@@ -466,10 +466,12 @@ class ploemeur_one_date:
         # Chronicles of tracers with data 
         ct.display_concentration_chronicles(cdata,lpm_results,calstrat.method,self.display)
         # Distribution of parameters and concentrations
-        lpm_results.display_parameters_dist(self_method=calstrat.method,directory=display_options_case.directory)
+        if self.display_reachconc == True : 
+            lpm_results.display_parameters_dist(self_method=calstrat.method,directory=display_options_case.directory)
         if calstrat.method == "Metropolis_Hastings" and calstrat.prior.option == True: 
             lpm_results.display_parameters_dist_comp_apriori(directory=display_options_case.directory,prior=calstrat.prior)
-        lpm_results.display_concentrations_dist(self_method=calstrat.method,concentrations_reference=cdata,directory=display_options_case.directory)
+        if self.display_reachconc == True : 
+            lpm_results.display_concentrations_dist(self_method=calstrat.method,concentrations_reference=cdata,directory=display_options_case.directory)
         
         return lpm_results
         
