@@ -9,6 +9,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 
 import tools.figures_additional as figadd
 import convolutions.convolution_tracers as convolution_tracers
@@ -68,6 +69,25 @@ class ConcentrationTime:
         """ computes and displays the models """
         # Loads the tracers
         # 
+       
+    def save_to_file(self, filename):
+        """
+          Sauvegarde les concentrations self.cv dans un fichier unique,
+          avec la colonne 'date' commune et une colonne par traceur.
+        """
+      
+        # Construire une table avec toutes les colonnes alignées sur 'date'
+        merged = None
+        for tracer, df in self.cv.items():
+            # On garde uniquement 'date' et 'concentration'
+            temp = df[['date', 'concentration']].rename(columns={'concentration': tracer})
+            if merged is None:
+                merged = temp
+            else:
+                merged = pd.merge(merged, temp, on="date", how="outer")
+      
+        # Sauvegarde en TSV (tab-separated)
+        merged.to_csv(filename, sep="\t", index=False, encoding="utf-8")
         
         
 def display_concentration_times(dir_names,lpm,display): 
@@ -146,7 +166,61 @@ def display_concentration_times(dir_names,lpm,display):
                 lpm_statistics.to_csv(os.path.join(dn,method,"distributions_stats.txt"),sep='\t')
 
 
-def display_concentration_chronicles(craw,lpm_results,method,display):
+def to_cv_dict(concentrations):
+    """
+    Normalise 'concentrations' en dict {tracer: DataFrame(date, concentration, element)}.
+    - Si c'est déjà un dict: on le renvoie tel quel.
+    - Si c'est un DataFrame 'long' avec une colonne 'element': on split par traceur.
+    """
+    if isinstance(concentrations, dict):
+        return concentrations
+    if isinstance(concentrations, pd.DataFrame):
+        if not {"date", "concentration", "element"}.issubset(concentrations.columns):
+            raise ValueError("Le DataFrame doit contenir les colonnes 'date', 'concentration', 'element'.")
+        cv = {}
+        for t, grp in concentrations.groupby("element"):
+            cv[t] = grp[["date", "concentration", "element"]].reset_index(drop=True)
+        return cv
+    raise TypeError("Format de 'concentrations' non supporté (dict attendu ou DataFrame avec 'element').")
+
+
+def merge_model_into_table(merged, cv_dict, model_id):
+    """
+    Fusionne les concentrations d'un modèle dans un tableau large.
+    - merged: DataFrame existant (ou None la première fois), contenant 'date' + colonnes *_<id précédents>
+    - cv_dict: dict {tracer: df(date, concentration, element)} pour le modèle courant
+    - model_id: entier (1,2,3,...) suffixé aux noms de colonnes, ex: cfc11_9
+    Retourne le DataFrame fusionné.
+    """
+    # Commencer à partir d'un DF vide avec 'date' si nécessaire
+    if merged is None:
+        # Prendre la 1ère série comme base « date »
+        first_df = next(iter(cv_dict.values()))
+        merged = first_df[["date"]].drop_duplicates().sort_values("date").reset_index(drop=True)
+
+    # Ajouter toutes les colonnes tracer_modelid
+    for tracer, df in cv_dict.items():
+        temp = (
+            df[["date", "concentration"]]
+            .rename(columns={"concentration": f"{tracer}_{model_id}"})
+        )
+        merged = pd.merge(merged, temp, on="date", how="outer")
+
+    # Trier par date (au cas où)
+    merged = merged.sort_values("date").reset_index(drop=True)
+    return merged
+
+
+def save_concentrations_table(merged, filepath):
+    """
+    Sauvegarde le tableau large 'merged' en TSV (une seule fois).
+    """
+    filepath = Path(filepath)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    merged.to_csv(filepath, sep="\t", index=False, encoding="utf-8")
+
+
+def display_concentration_chronicles(craw,lpm_results,method,display,lpm_number):
     """
     Displays the tracer concentration chronicle convolved with the lpm solutions
         craw -> tracers 
@@ -179,18 +253,49 @@ def display_concentration_chronicles(craw,lpm_results,method,display):
     #tracers.display(display)         
        
     # LPM selection
-    [lpm_list, pdf, lpm_statistics]=lpm_results.get_selection(lpm_number=10,array_resolution=1000)
+    [lpm_list, pdf, lpm_statistics]=lpm_results.get_selection(lpm_number=lpm_number,array_resolution=1000)
     
-    # Displays chronicles Loop over the selected lpms 
-    for lpm in lpm_list:
-        # Convolution of LPM with tracer chronicles on the 1960,max(date range) #JR1: 1960?
-        concentrations=tracers.convolution_date_range(lpm,1960,max(craw.cv['date']))
+    # merged_all_models accumulera toutes les colonnes des différents modèles
+    merged_all_models = None
+    
+    for i, lpm in enumerate(lpm_list, start=1):
+        # Convolutions → sorties « au début de la boucle »
+        concentrations = tracers.convolution_date_range(lpm, 1960, max(craw.cv["date"]))
         # Initialization of ConcentrationTime
         conc_model=ConcentrationTime(cv=concentrations)
         # Displays modeled concentrations 
         conc_model.display(fig,axs,graph_type="line")
+    
+        # Normaliser en dict {traceur: df(date, concentration, element)}
+        cv_dict = to_cv_dict(concentrations)
+    
+        # (optionnel) affichage des courbes du modèle i, si tu en as besoin
+        # plot_model(cv_dict, model_id=i)  # <-- fonction à toi, hors de la classe, si désiré
+    
+        # Accumuler dans le tableau large
+        merged_all_models = merge_model_into_table(merged_all_models, cv_dict, model_id=i)
+    
     # Finalization of figure
     display.figure_close_fx(os.path.join(method,"concentration_times"))
+    
+    # 👉 Une fois la boucle terminée, on écrit un seul fichier avec TOUTES les colonnes
+    outfile = os.path.join(display.directory, method, "concentrations_all_models.txt")
+    save_concentrations_table(merged_all_models, outfile)
+    print(f"✅ Concentrations de {len(lpm_list)} modèles écrites dans : {outfile}")
+    
+    
+    # # Displays chronicles Loop over the selected lpms 
+    # for i, lpm in enumerate(lpm_list, start=1):
+    #     # Convolution of LPM with tracer chronicles on the 1960,max(date range) #JR1: 1960?
+    #     concentrations=tracers.convolution_date_range(lpm,1960,max(craw.cv['date']))
+    #     # Initialization of ConcentrationTime
+    #     conc_model=ConcentrationTime(cv=concentrations)
+    #     # Displays modeled concentrations 
+    #     conc_model.display(fig,axs,graph_type="line")
+    #     filename = f"concentrations_export_{i}.txt"
+    #     conc_model.save_to_file(os.path.join(display.directory,method,f"conc_{i}.txt"))
+    # # Finalization of figure
+    # display.figure_close_fx(os.path.join(method,"concentration_times"))
 
     # Displays pdfs. Loop over the selected lpms 
     figadd.figure_init(figname="pdfs")

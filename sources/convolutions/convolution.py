@@ -108,7 +108,7 @@ class Convolution(tracer.Tracer):
     def __convolution_classic_perform(self,lpm): 
         """ Performs convolution when it is prepared
         """
-        convol=-integrate.simps(self.__prepare_conc * lpm.pdf(self.__prepare_times), self.__prepare_times, even='first')
+        convol=-integrate.simpson(self.__prepare_conc * lpm.pdf(self.__prepare_times), x = self.__prepare_times)
         return convol
      
         
@@ -128,7 +128,7 @@ class Convolution(tracer.Tracer):
         else: 
             sampling = (np.arange(0,1,1/gp.RESOLUTION_CONVOLUTION))**4       
             t2 = maxdate - (maxdate-mindate) * sampling
-            convol=-integrate.simps(self.get_concentration(t2,self.__date-t2) * lpm.pdf(self.__date-t2),t2,even='first')
+            convol=-integrate.simpson(self.get_concentration(t2,self.__date-t2) * lpm.pdf(self.__date-t2),x=t2)
         return convol
     
     

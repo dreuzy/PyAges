@@ -124,7 +124,7 @@ class LPMDist:
         
         
     
-    def get_selection(self,lpm_number=10,array_resolution=1000):
+    def get_selection(self,lpm_number,array_resolution=1000):
         """
         Gets selection of lpm from results
 

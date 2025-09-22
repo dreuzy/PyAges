@@ -189,7 +189,7 @@ class TestIntegration:
         
         print('\nCALIBRATION ON SYNTETIC CASES: METROPOLIS-HASTINGS')
         for lpm in lpm_list:  
-            calib_MH = cMH.CalibrationMetropolisHastings(nstep=20000,prior_option=True,prior_typ="parametric",likelyhood=True,monitor=False) 
+            calib_MH = cMH.CalibrationMetropolisHastings(nstep=20000,prior_option=True,prior_typ="parametric",likelyhood=True,lpm_number=10,monitor=False) 
             calib = cst.CalibrationSyntheticTest(calib_strategy=calib_MH,ncase=4,error=0.03,tracer_names=tracer_names,
                                                  date=date,lpm_type=lpm,display_options=self.display,nmodels=50000)
             calib.perform_ncase()

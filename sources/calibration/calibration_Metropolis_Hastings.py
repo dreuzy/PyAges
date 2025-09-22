@@ -367,7 +367,7 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
             
     """   
     
-    def __init__(self,nstep=10000,burn_in=0.2,nskip=10,prior_option=True,prior_typ="parametric",likelyhood=True,monitor=True,display_traj=False,display_text=False,prior_file=""):
+    def __init__(self,nstep=10000,burn_in=0.2,nskip=10,prior_option=True,prior_typ="parametric",likelyhood=True,monitor=True,display_traj=False,display_text=False,prior_file="",lpm_number=10):
         """ Constructor: definition of  MH parameters 
         """
         # Parameters
@@ -387,6 +387,7 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
         # Results
         self.__success_rate = 0
         self.time_perform = 0 
+        self.lpm_number = lpm_number
     
     
     def update_calibbasis(self,calib_basis): 
@@ -643,7 +644,7 @@ def test_calibration_MH_prior(display_options):
     print('\nVALIDATION OF METROPOLIS-HASTINGS ON PRIOR ONLY')
     models_calib = ['exp','uniform','dirac','gamma','ig']
     for lpm in models_calib:  
-        calib_MH = CalibrationMetropolisHastings(nstep=10000,prior=True,likelyhood=False,
+        calib_MH = CalibrationMetropolisHastings(nstep=10000,prior=True,likelyhood=False, lpm_number=10,
                                                  monitor=True,display_traj=True)
         calib = cst.CalibrationSyntheticTest(calib_strategy=calib_MH,ncase=1,error=0.0,tracer_names=["cfc11"],
                                                  date=2000,lpm_type=lpm,display_options=display)

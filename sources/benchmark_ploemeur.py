@@ -52,7 +52,7 @@ def benchmark_ploemeur():
     
     # ---------------- METROPOLIS HASTINGS --------------------
     # Method and Parameters  
-    calstrat[1] = cMH.CalibrationMetropolisHastings(nstep=2500,prior=False,likelyhood=True,
+    calstrat[1] = cMH.CalibrationMetropolisHastings(nstep=2500,prior=False,likelyhood=True, lpm_number=10,
                                                          monitor=True,display_traj=True) # JR: 250000
     # calstrat[1].MH_step.define_by_prop(0.005)
     calstrat[1].MH_step.define_by_value()
