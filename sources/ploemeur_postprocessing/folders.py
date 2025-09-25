@@ -140,27 +140,101 @@ def afficher_noms_repertoires(df):
         print(nom)
 
 
-def trouver_all_plage(df):
+def trouver_chemin_specifique(
+    df, 
+    base_type="suc", 
+    prior="prior", 
+    mode="double", 
+    annee_debut=2007, 
+    annee_fin=2010, 
+    afficher=False
+):
     """
-    Trouve les lignes du DataFrame pour lesquelles
-    la durée (annee_fin - annee_debut) est maximale.
-    Retourne un sous-DataFrame.
-    """
-    # Ajouter une colonne durée
-    df["duree"] = df["annee_fin"] - df["annee_debut"]
-
-    # Trouver la durée max
-    max_duree = df["duree"].max()
-
-    # Filtrer les lignes
-    df_all = df[df["duree"] == max_duree]
+    Trouve les lignes du DataFrame correspondant à des critères précis :
+      - base_type (ex: 'suc' ou 'span')
+      - prior (ex: 'prior' ou '')
+      - mode (ex: 'simple', 'double' ou '')
+      - annee_debut et annee_fin
     
-    print(f"\nDurée maximale : {max_duree} ans")
-    print("\n=== Répertoires avec la durée maximale ===")
-    afficher_dataframe_aligne(df_all)
+    Retourne un sous-DataFrame contenant uniquement les lignes correspondantes.
+    
+    Paramètres
+    ----------
+    df : DataFrame
+        Le DataFrame contenant les chemins.
+    base_type : str
+        Type de base ('suc' ou 'span').
+    prior : str
+        Indique si 'prior' doit être présent ('prior' ou '').
+    mode : str
+        Mode ('simple', 'double' ou '').
+    annee_debut : int
+        Année de début.
+    annee_fin : int
+        Année de fin.
+    afficher : bool, optionnel (par défaut False)
+        Si True, affiche le résultat avec `afficher_dataframe_aligne`.
+    """
+    masque = (
+        (df["base_type"] == base_type) &
+        (df["prior"] == prior) &
+        (df["mode"] == mode) &
+        (df["annee_debut"] == annee_debut) &
+        (df["annee_fin"] == annee_fin)
+    )
+    
+    result = df[masque]
+    
+    if afficher:
+        print("\n=== Répertoires correspondant aux critères ===")
+        afficher_dataframe_aligne(result)
+    
+    return result
 
-    print(f"\nDurée maximale : {max_duree} ans")
-    return df_all
+def trouver_repertoires_df(df, criteres=None, duree_max=False, afficher=False):
+    """
+    Filtre un DataFrame de répertoires selon des critères précis
+    ou selon la durée maximale (annee_fin - annee_debut).
+
+    Paramètres
+    ----------
+    df : DataFrame
+        Le DataFrame contenant les chemins.
+    criteres : dict, optionnel
+        Dictionnaire {colonne: valeur} pour filtrer (ex: {"base_type": "suc", "mode": "double"}).
+        Ignoré si duree_max=True.
+    duree_max : bool, optionnel
+        Si True, retourne uniquement les lignes dont la durée est maximale.
+    afficher : bool, optionnel
+        Si True, affiche le résultat avec `afficher_dataframe_aligne`.
+
+    Retour
+    ------
+    DataFrame filtré
+    """
+    result = df.copy()
+
+    if duree_max:
+        result["duree"] = result["annee_fin"] - result["annee_debut"]
+        max_duree = result["duree"].max()
+        result = result[result["duree"] == max_duree]
+
+        if afficher:
+            print(f"\nDurée maximale : {max_duree} ans")
+            print("\n=== Répertoires avec la durée maximale ===")
+            afficher_dataframe_aligne(result)
+
+    elif criteres:
+        masque = pd.Series(True, index=result.index)
+        for col, val in criteres.items():
+            masque &= result[col] == val
+        result = result[masque]
+
+        if afficher:
+            print("\n=== Répertoires correspondant aux critères ===")
+            afficher_dataframe_aligne(result)
+
+    return result
 
 
 def charger_lpm_dist(dossier_cible):
@@ -179,25 +253,42 @@ def charger_lpm_dist(dossier_cible):
     return df
 
 
-# ================== MAIN ==================
-if __name__ == "__main__":
-    dossier = Path(r"C:\results\pyage\2025, février, v2")
+def trouver_sauf_annees(
+    df,
+    base_type="suc",
+    prior="prior",
+    submode="double",
+    afficher=False
+):
+    """
+    Trouve les lignes du DataFrame correspondant à des critères donnés,
+    en ignorant les valeurs de 'annee_debut' et 'annee_fin'.
+    
+    Paramètres
+    ----------
+    df : DataFrame
+        Le DataFrame contenant les chemins et caractéristiques.
+    base_type, prior, submode : str
+        Critères de filtrage (ex: 'suc', 'prior', 'double').
+    afficher : bool, optionnel
+        Si True, affiche les résultats avec afficher_dataframe_aligne().
+    
+    Retour
+    ------
+    DataFrame
+        Sous-ensemble de df contenant les lignes correspondant aux critères
+        (quel que soit annee_debut et annee_fin).
+    """
+    masque = (
+        (df["base_type"] == base_type) &
+        (df["prior"] == prior) &
+        (df["mode"] == submode)
+    )
 
-    print("=== Racine commune des sous-répertoires immédiats ===")
-    racine, suffixes = racine_et_suffixes(dossier)
-    print("Chaîne racine commune :", repr(racine))
-    print("Suffixes :", suffixes)
+    result = df[masque]
 
-    print("\n=== Recherche récursive (motifs F11 + exp_shifted) ===")
-    puits = "F11"
-    distribution = "exp_shifted"
-    motifs = [puits, distribution]
-    matches = trouver_repertoires(dossier, motifs)
+    if afficher:
+        print("\n=== Répertoires correspondant aux critères (sauf années) ===")
+        afficher_dataframe_aligne(result)
 
-    for rep in matches:
-        print(" ", rep)
-
-    df = construire_dataframe(matches)
-
-    print("\n=== Tableau structuré ===")
-    afficher_dataframe_aligne(df)
+    return result
