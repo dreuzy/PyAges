@@ -15,14 +15,14 @@ import time as time
 
 # Root Directory of Results
 ##Sarah
-# ROOT_DIRECTORY_RESULTS="D:\\results\\PyAge\\"
-ROOT_DIRECTORY_RESULTS="C:\\results\\PyAge\\"
+ROOT_DIRECTORY_RESULTS="D:\\results\\PyAge\\"
+# ROOT_DIRECTORY_RESULTS="C:\\results\\PyAge\\"
 #ROOT_DIRECTORY_RESULTS="C:\\Users\\Chinita\\Documents\\GitHub\\trac-2-age\\python\\results"
 
 # Root Directory of Application
 ##Sarah
-# ROOT_DIRECTORY_SRC="D:\\codes\\pyage\\sources\\"
-ROOT_DIRECTORY_SRC="C:\\codes\\pyage\\sources\\"
+ROOT_DIRECTORY_SRC="D:\\codes\\pyage\\sources\\"
+# ROOT_DIRECTORY_SRC="C:\\codes\\pyage\\sources\\"
 #ROOT_DIRECTORY_SRC="D:\\codes-github-public\\trac-2-age\\python\\sources\\"
 #ROOT_DIRECTORY_SRC="C:\\Users\\Chinita\\Documents\\GitHub\\trac-2-age\\python"
 

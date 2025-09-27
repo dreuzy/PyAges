@@ -291,7 +291,7 @@ if __name__ == "__main__":
     # =======================
 
     # --- Données sources ---
-    dossier = Path(r"C:\results\pyage\2025, septembre, small")
+    dossier = Path(r"2025-09-24, err02")
     puits = "F11"
     distribution = "exp_shifted"
 
