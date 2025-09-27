@@ -9,69 +9,62 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import sys
-import time
-from pathlib import Path
+import sys as sys
+import time as time
 
-# -------------------------------------------------------
-# Root directories
-# -------------------------------------------------------
 
-ROOT_DIRECTORY_RESULTS = next(
-    (p for p in [Path("D:/results/PyAge"), Path("C:/results/PyAge")] if p.exists()),
-    None
-)
+# Root Directory of Results
+##Sarah
+ROOT_DIRECTORY_RESULTS="D:\\results\\PyAge\\"
+# ROOT_DIRECTORY_RESULTS="C:\\results\\PyAge\\"
+#ROOT_DIRECTORY_RESULTS="C:\\Users\\Chinita\\Documents\\GitHub\\trac-2-age\\python\\results"
 
-ROOT_DIRECTORY_SRC = next(
-    (p for p in [Path("D:/codes/pyage/sources"), Path("C:/codes/pyage/sources")] if p.exists()),
-    None
-)
+# Root Directory of Application
+##Sarah
+ROOT_DIRECTORY_SRC="D:\\codes\\pyage\\sources\\"
+# ROOT_DIRECTORY_SRC="C:\\codes\\pyage\\sources\\"
+#ROOT_DIRECTORY_SRC="D:\\codes-github-public\\trac-2-age\\python\\sources\\"
+#ROOT_DIRECTORY_SRC="C:\\Users\\Chinita\\Documents\\GitHub\\trac-2-age\\python"
 
-if ROOT_DIRECTORY_RESULTS is None:
-    raise FileNotFoundError("No ROOT_DIRECTORY_RESULTS found")
-if ROOT_DIRECTORY_SRC is None:
-    raise FileNotFoundError("No ROOT_DIRECTORY_SRC found")
+# Directory of chemical data
+DIRECTORY_TRACER_DATA =  ROOT_DIRECTORY_SRC + "tracer_data\\"
 
-# -------------------------------------------------------
-# Sub-directories (same variable names as before)
-# -------------------------------------------------------
+# Directory of test data
+DIRECTORY_TEST = ROOT_DIRECTORY_SRC + "tests_data\\"
 
-DIRECTORY_TRACER_DATA = ROOT_DIRECTORY_SRC / "tracer_data"
-DIRECTORY_TEST = ROOT_DIRECTORY_SRC / "tests_data"
-directory_lpm_data = ROOT_DIRECTORY_SRC / "LPM_data"   # ⚡ garde le nom exact
+# Defaut Directory of lpm data
+directory_lpm_data = ROOT_DIRECTORY_SRC + "LPM_data\\"
 
-# -------------------------------------------------------
-# Global parameters
-# -------------------------------------------------------
-
+# Resolution of the quadrature for the evaluation of the convolution
 RESOLUTION_CONVOLUTION = 200
 
-REFERENCE_COLUMNS = ["element", "concentration", "error", "unit", "date"]
+# Reference organization of columns
+REFERENCE_COLUMNS = ["element","concentration","error","unit","date"]
 CONCENTRATION = REFERENCE_COLUMNS.index("concentration")
 ERROR = REFERENCE_COLUMNS.index("error")
 
-# -------------------------------------------------------
-# Utility functions
-# -------------------------------------------------------
-
-def results_directory(directory, sub_directory):
-    path = Path(directory) / sub_directory
-    path.mkdir(parents=True, exist_ok=True)
+def results_directory(directory,sub_directory):
+    # Sub-directory
+    path = os.path.join(directory,sub_directory)
+    if os.path.exists(path) == False :
+        os.mkdir(path)
     return path
 
 def name_dhms():
     now = datetime.now()
-    return now.strftime("%Y_%m_%d-%H_%M_%S")
+    dt_string = now.strftime("%Y_%m_%d-%H_%M_%S")
+    return dt_string
 
-def results_directory_dhms(sub_directory, directory=ROOT_DIRECTORY_RESULTS):
-    base = results_directory(directory, sub_directory)
-    return results_directory(base, sub_directory)
-
-# -------------------------------------------------------
-# Classes
-# -------------------------------------------------------
+def results_directory_dhms(sub_directory,directory=ROOT_DIRECTORY_RESULTS):
+    # Sub-directory
+    path = results_directory(directory,sub_directory)
+    # Sub-directory with date and time
+    return results_directory(path,sub_directory)
 
 class display_options:
+    """
+    Display options for the tests
+    """
     def __init__(self):
         self.text = False
         self.figure = False
@@ -79,45 +72,50 @@ class display_options:
         self.figure_save = False
         self.directory = None
 
-    def figure_close_fx(self, filename):
-        if self.figure_save and self.directory is not None:
-            plt.savefig(Path(self.directory) / filename, dpi=300)
+    def figure_close_fx(self,filename):
+        if self.figure_save :
+            plt.savefig(os.path.join(self.directory,filename),dpi=300)
         if self.figure_close:
             plt.close()
 
-def arange_n(pmin, pmax, n):
-    return pmin + (pmax - pmin) * np.arange(0, n + 1) / n
+def arange_n(pmin,pmax,n):
+    """ arange function for regular sampling between pmin and mpax with n elements (including pmin & pmax)
+    """
+    return pmin + (pmax - pmin) * np.arange(0,n+1) / n
+
 
 class simulation_time:
-    def __init__(self, nsim=1):
-        self.simul_total = nsim
-        self.time_start = 0
-        self.time_inter_start = 0
-        self.time_inter_end = 0
-        self.simul_current = 0
+    """
+    Elapsed and remaining times of simulation
+    JR 06/08: classe à revoir, effective?
+    """
+    def __init__(self,nsim=1):
+        self.simul_total=nsim
+        self.time_start=0
+        self.time_inter_start=0
+        self.time_inter_end=0
+        self.simul_current=0
         self.init_yes = False
 
-    def initialize(self, nb):
-        if not self.init_yes:
-            self.time_start = time.time()
-            self.time_inter_start = time.time()
-            self.simul_total = nb * self.simul_total
+    def initialize(self,nb):
+        if self.init_yes == False:
+            self.time_start=time.time()
+            self.time_inter_start=time.time()
+            self.simul_total=nb * self.simul_total
             self.init_yes = True
 
-    def actualize(self, nb=1):
-        self.time_inter_end = time.time()
-        self.simul_current += nb
-        print("time elapsed =", (self.time_inter_end - self.time_start) / 3600, "hours")
-        print(
-            "time remaining =",
-            (self.time_inter_end - self.time_start)
-            * (self.simul_total / self.simul_current - 1)
-            / 3600,
-            "hours",
-        )
+    def actualize(self,nb=1):
+        self.time_inter_end=time.time()
+        self.simul_current=self.simul_current+nb
+        print('time elapsed = ', (self.time_inter_end - self.time_start)/3600, " heures")
+        print('time remaining = ', (self.time_inter_end - self.time_start) * (self.simul_total/self.simul_current-1) / 3600, " heures")
+
 
 def setup_path():
-    """Adds to sys.path the source directory and its subdirectories."""
-    for dir_path in ROOT_DIRECTORY_SRC.iterdir():
-        if dir_path.is_dir():
-            sys.path.insert(0, str(dir_path))
+    """ Adds to path source directory and sub directories """
+    pypath = ROOT_DIRECTORY_SRC
+
+    for dir_name in os.listdir(pypath):
+        dir_path = os.path.join(pypath, dir_name)
+        if os.path.isdir(dir_path):
+            sys.path.insert(0, dir_path)

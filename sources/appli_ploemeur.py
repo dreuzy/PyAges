@@ -108,8 +108,9 @@ class SimulationStrategy:
         self.breakups=[2012]
         # self.well_select = ["F34","PE","MF1","MF4","F38b","F38","F11","F09","PZ2","PSR1"]
         self.well_select = ["F11","F09","F34","PE","MF1","MF4","F38","F38b"]
-        self.parallel=False#JRJR
-        self.explo_res=int(2000/100)#JRJR
+        self.parallel=True#JRJR
+        self.proc_nb=12
+        self.explo_res=int(2000/10)#JRJR
         self.MH_nsteps=int(200000/100)#JRJR
         self.lpm_number=max(min(int(self.MH_nsteps/10),5000),10)
         
@@ -127,6 +128,7 @@ class SimulationStrategy:
         self.well_select = ["F09"]
         self.MH_nsteps=200000
         self.parallel=False
+        self.proc_nb=12
         
         
     def execute(self): 
@@ -184,7 +186,7 @@ class SimulationStrategy:
         st=time.time()
         if self.parallel == True: 
             # Perform parallel
-            pool = mp.Pool(6)
+            pool = mp.Pool(self.proc_nb)
             for i in range(len(pod_parallel)): 
                 pool.apply_async(perform, args=(pod_parallel,i))
             pool.close()
