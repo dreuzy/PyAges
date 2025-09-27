@@ -2,6 +2,48 @@ import os
 from pathlib import Path
 import re
 import pandas as pd
+import imageio.v2 as imageio
+
+
+def make_video_from_figures(result_dir, output_name="video.mp4", fps=1, format="FFMPEG"):
+    """
+    Assemble toutes les images PNG de result_dir en une vidéo.
+    Chaque image reste affichée 1s (fps=1).
+    """
+    result_dir = Path(result_dir)
+    images = sorted(result_dir.glob("figure_*.png"))  # toutes les figures
+
+    if not images:
+        print("⚠️ Aucun fichier figure_*.png trouvé")
+        return None
+
+    out_path = result_dir / output_name
+    with imageio.get_writer(
+        out_path,
+        fps=fps,
+        format=format,
+        codec="libx264",              # encodeur vidéo standard
+        ffmpeg_log_level="quiet"      # supprime les warnings ffmpeg
+    ) as writer:
+        for img in images:
+            writer.append_data(imageio.imread(img))
+
+    # print(f"Vidéo créée : {out_path}")
+    return out_path
+
+
+def make_subdirs(root, *subdirs):
+    """
+    Crée une arborescence de sous-dossiers sous root.
+    
+    Exemple:
+        make_subdirs("C:/tmp", "puits", "distribution", "postproc", "dossier")
+        -> C:/tmp/puits/distribution/postproc/dossier
+    """
+    root = Path(root)
+    path = root.joinpath(*subdirs)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def racine_et_suffixes(base_dir):
@@ -61,7 +103,7 @@ def parser_chemin(chemin):
     puits = m_puits.group(1) if m_puits else ""
 
     # Années
-    m_annees = re.search(r"F\d+_(\d{4})_(\d{4})", chemin)
+    m_annees = re.search(r"(?:F\d+|PE)_(\d{4})_(\d{4})", chemin)
     annee_debut, annee_fin = (int(m_annees.group(1)), int(m_annees.group(2))) if m_annees else (None, None)
 
     # Distribution

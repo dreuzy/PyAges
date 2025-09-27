@@ -3,7 +3,9 @@ from pathlib import Path
 import re
 import pandas as pd
 import matplotlib.pyplot as plt
+import multiprocessing as mp
 
+import global_parameters as gp
 import ploemeur_postprocessing.folders as fold
 import ploemeur_postprocessing.concentrations_obs as cobs
 import ploemeur_postprocessing.concentrations_mod as cmod
@@ -18,12 +20,14 @@ def tracer_concentrations(
     gaz_prior=None,
     n_curves=5,
     prior_years=None,
-    df_conc_red=None   # <-- option pour superposer des points rouges
+    df_conc_red=None,   # <-- option pour superposer des points rouges
+    result_dir=None
 ):
     """
     Trace les concentrations expérimentales (points noirs), 
     l’enveloppe des modèles calibrés (gris) 
     et éventuellement des modèles prior (rouge).
+    Sauvegarde aussi la figure dans result_dir si fourni.
     """
     traceurs = df_conc_all["element"].unique()
 
@@ -54,7 +58,7 @@ def tracer_concentrations(
             for col in cols:
                 ax.plot(df_prior.index, df_prior[col], lw=1, alpha=0.8, color="red")
 
-        # Points noirs (calibrés, durée max)
+        # Points noirs
         data = df_conc_all[df_conc_all["element"] == traceur]
         ax.errorbar(
             data["date"],
@@ -85,9 +89,7 @@ def tracer_concentrations(
         ax.set_xlabel("Date", fontsize=fontsize_labels)
         ax.set_ylabel(f"{traceur} (pptv)", fontsize=fontsize_labels)
         ax.set_ylim(bottom=0)
-
-        # Axe X : de 2000 à max_date + 2.5 ans
-        ax.set_xlim(left=2000, right=max_date + 2.5)
+        ax.set_xlim(left=1960, right=max_date + 2.5)
 
         yticks = ax.get_yticks()
         ax.set_yticks(yticks[::2])
@@ -109,9 +111,24 @@ def tracer_concentrations(
             ax.legend(handles=handles, loc="upper left", fontsize=fontsize_labels, frameon=False)
 
     plt.tight_layout()
+
+    # --- Sauvegarde optionnelle ---
+    if result_dir is not None:
+        result_dir = Path(result_dir)
+        result_dir.mkdir(parents=True, exist_ok=True)
+
+        # Cherche un index libre (figure_001.png, figure_002.png, …)
+        idx = 1
+        while (result_dir / f"figure_{idx:03d}.png").exists():
+            idx += 1
+
+        out_file = result_dir / f"figure_{idx:03d}.png"
+        fig.savefig(out_file, dpi=300)
+        # print(f"Figure sauvegardée : {out_file}")
+        
+        # 🔥 Créer la vidéo avec toutes les figures sauvegardées
+
     plt.show()
-
-
 
 
 
@@ -192,74 +209,6 @@ def lister_plages_annees(df_subset):
     return plages
 
 
-def traiter_un_repertoire(
-    df,
-    row=None,
-    n_curves=20,
-    fontsize_labels=16,
-    fontsize_ticks=12,
-    layout="colonne",
-    prior_global=False,
-    annee_debut_prior=None,
-    annee_fin_prior=None,
-):
-    """
-    Charge et trace les données pour un répertoire (row) ou pour un prior global.
-
-    Paramètres
-    ----------
-    df : DataFrame
-        DataFrame complet des répertoires.
-    row : Series, optionnel
-        Ligne du DataFrame pour un répertoire spécifique.
-        Ignoré si prior_global=True.
-    n_curves : int
-        Nombre de courbes rouges (prior) à tracer (sauf prior_global).
-    fontsize_labels, fontsize_ticks : int
-        Tailles de police pour labels et ticks.
-    layout : str
-        "colonne" ou "ligne".
-    prior_global : bool
-        Si True → trace uniquement les calibrations globales
-                   (sans prior rouge, sans points rouges).
-    annee_debut_prior, annee_fin_prior : int
-        Années utilisées si prior_global=True.
-    """
-
-    # Chargement des modèles calibrés (durée max global)
-    df_conc_all, df_mod_all, gaz_mod_all = charger_donnees(df, mode="calib")
-
-    if prior_global:
-        # On ne trace QUE les calibrés, les points restent noirs
-        prior_years = (annee_debut_prior, annee_fin_prior)
-        gaz_prior_all = None
-        df_conc = None  # pas de points rouges
-
-    else:
-        # Cas d'un répertoire spécifique → on ajoute le prior rouge
-        dossier_cible = row["chemin"]
-        prior_years = (row["annee_debut"], row["annee_fin"])
-        df_conc = cobs.charger_concentrations(dossier_cible)
-
-        try:
-            df_prior_all, gaz_prior_all = cmod.charger_concentrations(dossier_cible)
-        except Exception:
-            gaz_prior_all = None
-
-    # Tracé
-    tracer_concentrations(
-        df_conc_all,          # observations calibrées globales (points noirs)
-        gaz_mod_all,
-        fontsize_labels=fontsize_labels,
-        fontsize_ticks=fontsize_ticks,
-        layout=layout,
-        gaz_prior=gaz_prior_all,  # prior rouge seulement si row
-        n_curves=n_curves,
-        prior_years=prior_years,
-        df_conc=df_conc          # points rouges seulement si row
-    )
-
-
 def map_conditionnement(base_type, prior_flag, submode):
     """
     Mappe une combinaison (base_type, prior_flag, submode) vers
@@ -277,68 +226,33 @@ def map_conditionnement(base_type, prior_flag, submode):
     return mapping.get((base_type, prior_flag, submode), (base_type, prior_flag, submode))
 
 
-
-
-# ======================================================================
-# === MAIN =============================================================
-# ======================================================================
-# ======================================================================
-# === MAIN =============================================================
-# ======================================================================
-if __name__ == "__main__":
-    # =======================
-    # PARAMÈTRES À CONFIGURER
-    # =======================
-
-    # --- Données sources ---
-    dossier = Path(r"2025-09-24, err02")
-    puits = "F11"
-    distribution = "exp_shifted"
-
-    # --- Recherche subset et prior ---
-    base_type = "suc"
-    prior_flag = "prior"
-    submode = "double"
-    
-    # Application du mapping conditionnel avec les variables définies
+def analyser_puits_distribution(
+    dossier, puits, distribution,
+    base_type="suc", prior_flag="prior", submode="double",
+    tracer_global=True, tracer_subset=True,
+    layout="colonne", n_curves=20,
+    fontsize_labels=16, fontsize_ticks=12
+):
+    """
+    Pipeline complet pour un puits + une distribution.
+    """
+    # Application du mapping conditionnel
     base_type_cond, prior_flag_cond, submode_cond = map_conditionnement(
         base_type, prior_flag, submode
     )
 
-    # --- Options de tracé ---
-    layout = "colonne"       # "ligne" ou "colonne"
-    n_curves = 20            # nombre max de courbes rouges (None = toutes)
-    fontsize_labels = 16
-    fontsize_ticks = 12
-
-    # --- Activation des cas ---
-    tracer_global = True     # tracer le cas global (points noirs + gris)
-    tracer_subset = True     # tracer les répertoires subset (rouge)
-
-    # =======================
-    # RECHERCHE DES RÉPERTOIRES
-    # =======================
+    # Recherche des répertoires
     folders = fold.trouver_repertoires(dossier, [puits, distribution])
     df = fold.construire_dataframe(folders)
 
-    # Données calibrées globales (durée max)
+    # Données calibrées globales
     df_conc_all, df_mod_all, gaz_mod_all = charger_donnees(df, mode="calib")
 
-    # base_type_cond, prior_flag_cond, submode_cond = map_conditionnement(base_type, prior_flag, submode)
-    # df_mod_al2, gaz_mod_all2 = charger_donnees(
-    #     df,
-    #     mode=prior_flag_cond,
-    #     base_type=base_type_cond,
-    #     prior=prior_flag,
-    #     submode=submode_cond,
-    #     annee_debut=None,   # optionnel
-    #     annee_fin=None      # optionnel
-    # )
-    
+    # Répertoire de sortie
+    result_dir = fold.make_subdirs(dossier, "postproc", puits, distribution)
+    # print("Chemin final :", result_dir)
 
-    # =======================
     # CAS 1 : GLOBAL
-    # =======================
     if tracer_global:
         df_prior_all, gaz_prior_all = charger_donnees(
             df,
@@ -346,25 +260,21 @@ if __name__ == "__main__":
             base_type=base_type,
             prior=prior_flag,
             submode=submode,
-            annee_debut=None,   # optionnel
-            annee_fin=None      # optionnel
         )
 
         tracer_concentrations(
-            df_conc_all,         # points noirs
-            gaz_mod_all,         # enveloppe grise
+            df_conc_all, gaz_mod_all,
             fontsize_labels=fontsize_labels,
             fontsize_ticks=fontsize_ticks,
             layout=layout,
-            gaz_prior=None,   # prior global
+            gaz_prior=None,   # prior global désactivé
             n_curves=n_curves,
-            prior_years=None,          # pas d’années affichées
-            df_conc_red=None           # pas de points rouges
+            prior_years=None,
+            df_conc_red=None,
+            result_dir=result_dir
         )
 
-    # =======================
     # CAS 2 : SUBSET
-    # =======================
     if tracer_subset:
         df_subset = fold.trouver_sauf_annees(
             df,
@@ -378,26 +288,91 @@ if __name__ == "__main__":
             dossier_cible = row["chemin"]
             prior_years = (row["annee_debut"], row["annee_fin"])
             
-            print(dossier_cible)
+            # print("Subset :", dossier_cible)
 
-            # Points expérimentaux spécifiques → rouge
+            # Points expérimentaux spécifiques (rouge)
             df_conc_red = cobs.charger_concentrations(dossier_cible)
 
-            # Modèles prior spécifiques → courbes rouges
+            # Modèles prior spécifiques (rouge)
             try:
                 df_prior_all, gaz_prior_all = cmod.charger_concentrations(dossier_cible)
             except Exception:
                 df_prior_all, gaz_prior_all = None, None
 
             tracer_concentrations(
-                df_conc_all,          # points noirs (global)
-                gaz_mod_all,          # enveloppe grise (global)
+                df_conc_all, gaz_mod_all,
                 fontsize_labels=fontsize_labels,
                 fontsize_ticks=fontsize_ticks,
                 layout=layout,
-                gaz_prior=gaz_prior_all,   # courbes rouges
+                gaz_prior=gaz_prior_all,
                 n_curves=n_curves,
-                prior_years=prior_years,   # années affichées
-                df_conc_red=df_conc_red    # points rouges
+                prior_years=prior_years,
+                df_conc_red=df_conc_red,
+                result_dir=result_dir
             )
+
+    # Vidéo finale
+    fold.make_video_from_figures(result_dir, "concentrations_video.mp4", fps=1)
+
+
+# ======================
+# MAIN
+# ======================
+
+def run_case(args):
+    dossier, puits, distribution, base_type, prior_flag, submode = args
+    print(f"=== Analyse {puits} | {distribution} ===")
+    return analyser_puits_distribution(
+        dossier, puits, distribution,
+        base_type=base_type,
+        prior_flag=prior_flag,
+        submode=submode,
+        tracer_global=True,
+        tracer_subset=True,
+        layout="colonne",
+        n_curves=20,
+        fontsize_labels=16,
+        fontsize_ticks=12
+    )
+
+
+
+if __name__ == "__main__":
+    # --- Données sources : plusieurs dossiers racines ---
+    dossiers_list = [
+        Path(r"2025-09-24, err03"),
+        Path(r"2025-09-24, err02"),
+        Path(r"2025-09-24, err02, new")
+    ]
+    dossiers_list = [gp.ROOT_DIRECTORY_RESULTS / d for d in dossiers_list]
+
+    # --- Listes de cas à traiter ---
+    puits_list = ["PE", "F11", "F09", "F34", "MF1", "MF4", "F38"]
+    distributions_list = ["exp_shifted", "ig_shifted", "ig"]
+
+    # --- Options globales ---
+    base_type = "suc"
+    prior_flag = "prior"
+    submode = "double"
+
+    # --- Paramètre global ---
+    use_multiprocessing = True   # ⬅️ change à False pour exécution séquentielle
+
+    # Générer toutes les combinaisons (dossier, puits, distribution)
+    combos = [
+        (dossier, puits, distribution, base_type, prior_flag, submode)
+        for dossier in dossiers_list
+        for puits in puits_list
+        for distribution in distributions_list
+    ]
+
+    if use_multiprocessing:
+        n_cores = mp.cpu_count()
+        print(f"Utilisation de {n_cores} cœurs en parallèle")
+        with mp.Pool(processes=n_cores) as pool:
+            pool.map(run_case, combos)
+    else:
+        print("Exécution séquentielle")
+        for args in combos:
+            run_case(args)
 
