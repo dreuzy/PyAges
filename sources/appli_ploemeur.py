@@ -72,8 +72,8 @@ class SimulationStrategy:
         self.errors=[0.3]#,0.15,0.25,0.05]
 
         # apriori_type = "none"
-        # apriori_type = "single"
-        apriori_type = "double"
+        apriori_type = "single"
+        # apriori_type = "double"
         # apriori_type = "double_suc_prior"
         
         if apriori_type == "none" :
@@ -84,8 +84,7 @@ class SimulationStrategy:
             self.folder = "ploemeur_"
             
         if apriori_type == "single" :
-            self.options =    ["span"]
-            # self.options =    ["span","suc_prior"]
+            self.options =    ["span","suc_prior"]
             self.prior  =     [False, True]
             self.likelyhood = [True,  True]
             self.prior_folder = ["","span"]
@@ -116,10 +115,10 @@ class SimulationStrategy:
         # self.well_select = ["F34","PE","MF1","MF4","F38b","F38","F11","F09","PZ2","PSR1"]
         # self.well_select = ["F11","F09","F34","PE","MF1","MF4","F38","F38b"]
         self.well_select = ["F11","F09"]
-        self.parallel=True#JRJR
+        self.parallel=False#JRJR
         self.proc_nb=mp.cpu_count()
-        self.explo_res=int(2000/1)#JRJR
-        self.MH_nsteps=int(200000/10)#JRJR
+        self.explo_res=int(2000/100)#JRJR
+        self.MH_nsteps=int(200000/1000)#JRJR
         self.lpm_number=max(min(int(self.MH_nsteps/10),5000),10)
         
         
