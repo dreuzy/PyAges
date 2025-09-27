@@ -69,11 +69,12 @@ class SimulationStrategy:
         # self.folder = "ploemeur_apriori_double_"
 
         # self.errors=[0.2,0.3]#,0.15,0.25,0.05]
-        self.errors=[0.2]#,0.15,0.25,0.05]
+        self.errors=[0.3]#,0.15,0.25,0.05]
 
         # apriori_type = "none"
         # apriori_type = "single"
         apriori_type = "double"
+        # apriori_type = "double_suc_prior"
         
         if apriori_type == "none" :
             self.options =    ["suc"]
@@ -97,6 +98,12 @@ class SimulationStrategy:
             self.prior_folder = ["","span","span_prior"]
             self.folder = "ploemeur_apriori_double_"
         
+        if apriori_type == "double_suc_prior" :
+            self.options =    ["suc_prior"]
+            self.likelyhood = [True]
+            self.prior  =     [True]
+            self.prior_folder = ["span_prior"]
+            self.folder = "ploemeur_apriori_double_"
         # self.options =    ["suc","all"]
         # self.errors=[0.3]#,0.15,0.25,0.05]
         # self.prior  =     [False, False]
@@ -107,7 +114,8 @@ class SimulationStrategy:
 
         self.breakups=[2012]
         # self.well_select = ["F34","PE","MF1","MF4","F38b","F38","F11","F09","PZ2","PSR1"]
-        self.well_select = ["F11","F09","F34","PE","MF1","MF4","F38","F38b"]
+        # self.well_select = ["F11","F09","F34","PE","MF1","MF4","F38","F38b"]
+        self.well_select = ["F11","F09"]
         self.parallel=True#JRJR
         self.proc_nb=mp.cpu_count()
         self.explo_res=int(2000/1)#JRJR
@@ -553,7 +561,8 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["exp_shifted"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        lpm_types.append(["exp_shifted","ig_shifted"])
         
     if "F34" in well_select : 
         wells.append("F34")
@@ -570,10 +579,10 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        # lpm_types.append(["exp_shifted"])
+        lpm_types.append(["exp_shifted","ig_shifted"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
         
     if "F38" in well_select : 
         wells.append("F38")

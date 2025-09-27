@@ -16,6 +16,7 @@ import sys as sys
 from scipy.stats import norm 
 import time
 from pathlib import Path
+from scipy.interpolate import interp1d
 
 from calibration.calibration_exploration import objective_function_norm
 import calibration.calibration_basis as calbas
@@ -24,6 +25,66 @@ import LPM.LPM_dist as LPM_dist
 import global_parameters as gp                              
 
 
+def make_prior_expo(x_data, y_data, xmin=0, xmax=70, n_points=2000,
+                    decay_left=10.0, decay_right=10.0, normalize=True):
+    """
+    Crée une distribution continue à partir d'un histogramme discret
+    avec interpolation linéaire et prolongement exponentiel aux bornes.
+
+    Parameters
+    ----------
+    x_data : array-like
+        Positions des points de l'histogramme.
+    y_data : array-like
+        Valeurs correspondantes (hauteurs de l'histogramme).
+    xmin : float, optional
+        Borne minimale de la grille (default = 0).
+    xmax : float, optional
+        Borne maximale de la grille (default = 70).
+    n_points : int, optional
+        Nombre de points de la grille continue (default = 2000).
+    decay_left : float, optional
+        Taux de décroissance exponentielle côté gauche (default = 10.0).
+    decay_right : float, optional
+        Taux de décroissance exponentielle côté droit (default = 10.0).
+    normalize : bool, optional
+        Si True, normalise la densité pour que l'aire = 1.
+
+    Returns
+    -------
+    x_cont : ndarray
+        Grille régulière entre xmin et xmax.
+    y_cont : ndarray
+        Valeurs de la densité continue sur la grille.
+    """
+    x_data = np.asarray(x_data)
+    y_data = np.asarray(y_data)
+
+    # interpolation linéaire
+    interp_fun = interp1d(x_data, y_data, kind="linear",
+                          bounds_error=False, fill_value=0)
+
+    # grille continue
+    x_cont = np.linspace(xmin, xmax, n_points)
+    y_interp = interp_fun(x_cont)
+
+    # prolongement exponentiel
+    y_cont = y_interp.copy()
+    left_mask = x_cont < x_data.min()
+    right_mask = x_cont > x_data.max()
+
+    if y_data[0] > 0:
+        y_cont[left_mask] = y_data[0] * np.exp(-decay_left * (x_data[0] - x_cont[left_mask]))
+    if y_data[-1] > 0:
+        y_cont[right_mask] = y_data[-1] * np.exp(-decay_right * (x_cont[right_mask] - x_data[-1]))
+
+    # normalisation
+    if normalize:
+        area = np.trapz(y_cont, x_cont)
+        if area > 0:
+            y_cont /= area
+
+    return x_cont, y_cont
 
 def gauss(x, x0, sigma):
     """ Classical Gaussian function """
@@ -193,6 +254,77 @@ class Prior() :
         self.MHapriori_dist = {}
         self.MHapriori_para = {}        
 
+    def param_init(self,lpm): 
+        
+        strategy = "map"
+        
+        rng = np.random.default_rng()
+    
+        params0 = []
+    
+        for key in lpm.p.keys():
+            pmin = lpm.get_p_min(key)
+            pmax = lpm.get_p_max(key)
+    
+            if self.typ == "parametric":
+                dist = self.MHapriori_dist[key]
+                mu_or_a = self.MHapriori_para[key][0]
+                sig_or_b = self.MHapriori_para[key][1]
+    
+                if dist == "normal":
+                    if strategy == "map":
+                        x = mu_or_a  # mode = mu
+                    else:  # "sample"
+                        x = (rng.normal(mu_or_a, sig_or_b)
+                             if hasattr(rng, "normal") else np.random.normal(mu_or_a, sig_or_b))
+                    # clamp dans les bornes
+                    x = float(np.clip(x, pmin, pmax))
+    
+                elif dist == "uniform":
+                    a, b = mu_or_a, sig_or_b
+                    if strategy == "map":
+                        x = 0.5 * (a + b)  # milieu
+                    else:
+                        # uniform
+                        if hasattr(rng, "uniform"):
+                            x = rng.uniform(a, b)
+                        else:
+                            x = a + (b - a) * rng.random()
+                    x = float(np.clip(x, pmin, pmax))
+    
+                else:
+                    # autres dists non gérées -> fallback au milieu des bornes
+                    x = 0.5 * (pmin + pmax)
+    
+            elif self.typ == "empirical":
+                # self.MHapriori_para[key] : array Nx2 [x, pdf]
+                arr = self.MHapriori_para[key]
+                xs, ps = arr[:, 0], arr[:, 1]
+                # si tout nul, fallback
+                if np.all((ps <= 0) | ~np.isfinite(ps)):
+                    x = 0.5 * (pmin + pmax)
+                else:
+                    if strategy == "map":
+                        x = float(xs[np.argmax(ps)])
+                    else:  # "sample" par inversion de la CDF discrète
+                        cdf = np.cumsum(0.5 * (ps[:-1] + ps[1:]) * (xs[1:] - xs[:-1]))
+                        # normalise et reconstitue CDF sur xs
+                        cdf = np.concatenate([[0.0], cdf])
+                        if cdf[-1] > 0:
+                            cdf /= cdf[-1]
+                            u = rng.random() if hasattr(rng, "random") else np.random.random()
+                            x = float(np.interp(u, cdf, xs))
+                        else:
+                            x = float(xs[np.argmax(ps)])
+                x = float(np.clip(x, pmin, pmax))
+    
+            else:
+                # prior non reconnu -> fallback
+                x = 0.5 * (pmin + pmax)
+
+            params0.append(x)        
+        
+        lpm.set_param_from_array(params0)
 
     def load(self,lpm): 
         """ Loads a priori of the parameter distribution 
@@ -214,23 +346,15 @@ class Prior() :
                     self.MHapriori_para[param] = pd.DataFrame.to_numpy(pd.read_csv(self.prior_file + "_" + param + ".txt", sep='\t'))
                     histo_x = self.MHapriori_para[param][:,0]
                     histo_y = self.MHapriori_para[param][:,1]
-                    # pdf Gaussians centered on loaded histogram
-                    pdf_x = np.linspace(lpm.get_p_min(param),lpm.get_p_max(param),101)
-                    scale = lpm.get_param_range(param)/50
-                    pdf_p=[]
-                    for x in pdf_x: 
-                        val = 0
-                        for mu, amplitude in zip(histo_x,histo_y): 
-                            val = val + 2 * amplitude * norm.pdf(x,mu,scale)
-                        pdf_p.append(val)
+
+                    decay = 500. / abs(lpm.get_p_min(param)-lpm.get_p_max(param))
+                    pdf_x, pdf_p = make_prior_expo(histo_x, histo_y,
+                                                   xmin=lpm.get_p_min(param), xmax=lpm.get_p_max(param),
+                                                   n_points=101,
+                                                   decay_left=decay, decay_right=decay)
+
                     self.MHapriori_para[param] = np.column_stack((pdf_x,pdf_p))
-                    
-                    # plt.figure()
-                    # plt.plot(pdf_x,pdf_p)
-                    # plt.plot(histo_x,histo_y)
-                    # plt.xscale("log")
-                    # plt.yscale("log")
-                    # plt.show()
+
             else:
                 print("option non reconnue ", self.typ)
         
@@ -271,7 +395,7 @@ class Prior() :
         else:
             print("option non reconnue ", self.typ)
         # To avoid any issue by taking the next log of the probability 
-        if proba == 0 : 
+        if proba <= 1e-300 : 
             proba = 1e-300
         return proba
     
@@ -510,7 +634,10 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
         
         # --------------- INITIALIZATION PHASE ----------------------
         # Initialization of calibration parameters with default parameters of distribution 
-        self.lpm.param_init()
+        if(self.prior.option): 
+            self.prior.param_init(self.lpm)
+        else: 
+            self.lpm.param_init()
         # Gets parameters in an array (compulsory for performance of the loop)
         params = self.lpm.get_parameters_to_array()
         # Value of the posterior distribution for initial set of parameters
