@@ -281,7 +281,7 @@ def display_concentration_chronicles(craw,lpm_results,method,display,span_or_suc
     # 👉 Une fois la boucle terminée, on écrit un seul fichier avec TOUTES les colonnes
     outfile = os.path.join(display.directory, method, "concentrations_all_models.txt")
     save_concentrations_table(merged_all_models, outfile)
-    print(f"✅ Concentrations de {len(lpm_list)} modèles écrites dans : {outfile}")
+    # print(f"✅ Concentrations de {len(lpm_list)} modèles écrites dans : {outfile}")
     
     
     # # Displays chronicles Loop over the selected lpms 

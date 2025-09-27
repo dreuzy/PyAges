@@ -45,11 +45,22 @@ class LPM_ig(LPM):
         return invgauss.cdf(t, self.p['mu'], 0, self.p['sigma'])
     
     
-    def cdf_inv(self,p):
-        """ Inverse of the Cumulative Density Function, t=cdf^-1(p)
-        """
-        return invgauss.ppf(p,self.p['mu'],scale=self.p['sigma'])
+    def cdf_inv(self, p):
+        """Inverse of the Cumulative Density Function, t = cdf^-1(p).
+        
+        Parameters
+        ----------
+        p : float or array-like
+            Probability value(s) between 0 and 1.
     
+        Returns
+        -------
+        float or ndarray
+            Quantile(s) of the inverse Gaussian distribution.
+        """
+        eps = 1e-12  # marge de sécurité
+        p_safe = np.clip(p, eps, 1 - eps)
+        return invgauss.ppf(p_safe, self.p['mu'], scale=self.p['sigma'])
     
     def mean(self):
         """ 
