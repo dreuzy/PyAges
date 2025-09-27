@@ -138,7 +138,7 @@ def display_concentration_times(dir_names,lpm,display):
                 # Loop on the lpm_number models 
                 for i in range(1,lpm_number+1):
                     # Selects line and updates lpm parameters accordingly 
-                    [test,line]=lpm.load_lpm_from_dist(dist,option="random",rng=rng)
+                    [test,line]=lpm.load_lpm_from_dist(dist,option="random_line",rng=rng)
                     if test == True : 
                         # Convolution of LPM with tracer chronicles on the 1960,max(date range)
                         concentrations=tracers.convolution_date_range(lpm,1960,max(craw.cv['date']))
@@ -220,7 +220,7 @@ def save_concentrations_table(merged, filepath):
     merged.to_csv(filepath, sep="\t", index=False, encoding="utf-8")
 
 
-def display_concentration_chronicles(craw,lpm_results,method,display,lpm_number):
+def display_concentration_chronicles(craw,lpm_results,method,display,span_or_suc,lpm_number):
     """
     Displays the tracer concentration chronicle convolved with the lpm solutions
         craw -> tracers 
@@ -253,7 +253,7 @@ def display_concentration_chronicles(craw,lpm_results,method,display,lpm_number)
     #tracers.display(display)         
        
     # LPM selection
-    [lpm_list, pdf, lpm_statistics]=lpm_results.get_selection(lpm_number=lpm_number,array_resolution=1000)
+    [lpm_list, pdf, lpm_statistics]=lpm_results.get_selection(lpm_number=lpm_number,span_or_suc=span_or_suc,array_resolution=1000)
     
     # merged_all_models accumulera toutes les colonnes des différents modèles
     merged_all_models = None

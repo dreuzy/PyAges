@@ -108,7 +108,7 @@ class SimulationStrategy:
         self.breakups=[2012]
         # self.well_select = ["F34","PE","MF1","MF4","F38b","F38","F11","F09","PZ2","PSR1"]
         self.well_select = ["F11","F09","F34","PE","MF1","MF4","F38","F38b"]
-        self.parallel=True#JRJR
+        self.parallel=False#JRJR
         self.explo_res=int(2000/100)#JRJR
         self.MH_nsteps=int(200000/100)#JRJR
         self.lpm_number=max(min(int(self.MH_nsteps/10),5000),10)
@@ -468,7 +468,7 @@ class ploemeur_one_date:
         # Calibration analysis
         calstrat.analysis_calibration(lpm_results)
         # Chronicles of tracers with data 
-        ct.display_concentration_chronicles(cdata,lpm_results,calstrat.method,self.display,lpm_number=self.calstrat_MH.lpm_number)
+        ct.display_concentration_chronicles(cdata,lpm_results,calstrat.method,self.display, span_or_suc = self.option, lpm_number=self.calstrat_MH.lpm_number)
         # Distribution of parameters and concentrations
         if self.display_reachconc == True : 
             lpm_results.display_parameters_dist(self_method=calstrat.method,directory=display_options_case.directory)

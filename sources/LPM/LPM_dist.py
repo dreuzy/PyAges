@@ -124,7 +124,7 @@ class LPMDist:
         
         
     
-    def get_selection(self,lpm_number,array_resolution=1000):
+    def get_selection(self,lpm_number,span_or_suc,array_resolution=1000):
         """
         Gets selection of lpm from results
 
@@ -158,7 +158,11 @@ class LPMDist:
         # Loop on the lpm_number models 
         for i in range(1,lpm_number+1):
             # Selects line and updates lpm parameters accordingly 
-            [test,line]=self.__lpm_template.load_lpm_from_dist(self.__dist,option="random",rng=rng)
+            if "span" in span_or_suc:
+                option = "random_each"
+            else : 
+                option = "random_line"
+            [test,line]=self.__lpm_template.load_lpm_from_dist(self.__dist,option=option,rng=rng)
             if test == True : 
                 lpm_list.append(copy.deepcopy(self.__lpm_template))
                 # Computes and stores pdfs

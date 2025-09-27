@@ -572,42 +572,68 @@ class LPM(abc.ABC):
         if open_file == True: file.close()
                  
 
-    def load_lpm_from_dist(self,dist,option="line",rng="",line_no=0):
+    def load_lpm_from_dist(self, dist, option="line", rng=None, line_no=0):
         """ 
-        Loads random parameter values from distribution file 
-
+        Loads parameter values from distribution file 
+    
         Arguments
         ---------
-        dist : pandas dataframe
+        dist : pandas.DataFrame
             distribution of parameter values
         option : str
-            "random", choice of a random line
-            any other str, first line 
+            - "random_line" : all parameters from the same random line
+            - "line"        : all parameters from the specified line (line_no)
+            - "random_each" : each parameter from its own random line
+            - otherwise     : all parameters from first line
+        rng : numpy.random.Generator or similar (optional)
+            random number generator, must have .integers or .random methods
+        line_no : int
+            index of the line to use if option == "line"
         
         Returns
         -------
         bool
             instantiation success
-        line
-            corresponding line of the file
-        
+        dict
+            dictionary of (param -> line index used)
         """
-        if len(dist.index)==0: 
-            return [False,0]
-        else: 
-            # Choice of line of file
-            if option == "random": 
-                line = int(rng.random()*len(dist.index))
-            elif option == "line":
-                line = line_no
-            else: 
-                line = 1
-            if line > len(dist.index) :
-                line = len(dist.index)
-            # Instantiates parameter values
-            for key in self.p.keys(): 
-                self.p[key]=dist[key][line]
-            return [True,line]
+        if len(dist.index) == 0: 
+            return [False, {}]
+    
+        if rng is None:
+            rng = np.random
+    
+        chosen_lines = {}
+    
+        if option == "random":
+            # Un seul tirage de ligne, commun à tous les paramètres
+            line = rng.randint(len(dist.index))
+            for key in self.p.keys():
+                self.p[key] = dist[key].iloc[line]
+                chosen_lines[key] = line
+    
+        elif option == "line":
+            # Tous les paramètres sur la ligne demandée
+            if line_no >= len(dist.index):
+                line_no = len(dist.index) - 1
+            for key in self.p.keys():
+                self.p[key] = dist[key].iloc[line_no]
+                chosen_lines[key] = line_no
+    
+        elif option == "random_each":
+            # Chaque paramètre tire sa propre ligne
+            for key in self.p.keys():
+                line = rng.randint(len(dist.index))
+                self.p[key] = dist[key].iloc[line]
+                chosen_lines[key] = line
+    
+        else:
+            # Tous les paramètres sur la première ligne
+            for key in self.p.keys():
+                self.p[key] = dist[key].iloc[0]
+                chosen_lines[key] = 0
+    
+        return [True, chosen_lines]
         
         
     def moments_name(self):
