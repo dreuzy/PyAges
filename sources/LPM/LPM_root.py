@@ -607,7 +607,7 @@ class LPM(abc.ABC):
     
         if option == "random":
             # Un seul tirage de ligne, commun à tous les paramètres
-            line = rng.randint(len(dist.index))
+            line = rng.integers(len(dist.index)) if hasattr(rng, "integers") else rng.randint(len(dist.index))
             for key in self.p.keys():
                 self.p[key] = dist[key].iloc[line]
                 chosen_lines[key] = line
@@ -623,7 +623,7 @@ class LPM(abc.ABC):
         elif option == "random_each":
             # Chaque paramètre tire sa propre ligne
             for key in self.p.keys():
-                line = rng.randint(len(dist.index))
+                line = rng.integers(len(dist.index)) if hasattr(rng, "integers") else rng.randint(len(dist.index))
                 self.p[key] = dist[key].iloc[line]
                 chosen_lines[key] = line
     

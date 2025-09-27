@@ -76,7 +76,7 @@ class Tracer:
         self.__name = name
         
         # Loads file to get the main tracer characteristics
-        table = pd.read_csv( dir_tracer + name + "\\" + name + ".txt",header=None)
+        table = pd.read_csv(dir_tracer / name / f"{name}.txt", header=None)
         
         # Sets characteristics of tracers from loaded file
         self.__recharge_constant = 0
@@ -117,7 +117,7 @@ class Tracer:
         
         # Loads recharge chronicle 
         if(self.__recharge_chronicle):
-            self.__recharge_chronicle_file = pd.read_table(dir_tracer + name + "\\recharge.txt",header=0)
+            self.__recharge_chronicle_file = pd.read_table(dir_tracer / name / "recharge.txt", header=0)
             # Creation of interpolation function for the input chronicle
             self.__recharge_chronicle_interp = interpolate.interp1d(self.__recharge_chronicle_file.iloc[:,0], self.__recharge_chronicle_file.iloc[:,1],kind="linear")
             # min and max date of input chronicle

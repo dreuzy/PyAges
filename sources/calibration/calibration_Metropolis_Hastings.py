@@ -15,6 +15,7 @@ import pandas as pd
 import sys as sys 
 from scipy.stats import norm 
 import time
+from pathlib import Path
 
 from calibration.calibration_exploration import objective_function_norm
 import calibration.calibration_basis as calbas
@@ -580,21 +581,39 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
         return lpm_results
     
     
-    def write_posterior(self,lpm_results,file): 
+    
+    def write_posterior(self, lpm_results, file): 
         """
-        Saves prior to specific file 
-
+        Saves posterior to a specific folder.
+    
         Parameters
         ----------
         lpm_results : LPM_dist
-            Distributions of calibrated lpms
-        file : string
-            Current Root file where all results are commonly stored 
-            Posterior will be stored in another folder common to all posteriors 
-            In shuch a folder, it will be easy to get the distributions and all them for other simulations as a prior
+            Distributions of calibrated LPMs.
+        file : str or Path
+            Current root file where all results are commonly stored.
+            Posterior will be stored in another folder common to all posteriors.
         """
-        uu=[i for i in range(len(file)) if file.startswith('\\', i)]
-        folder_root=self.display_options.directory[:uu[-4]]
+        file_path = Path(file).resolve()
+    
+        # on remonte 4 niveaux (équivalent à uu[-4] dans ton ancien code)
+        try:
+            folder_root = file_path.parents[3]  # parents[0]=parent, parents[3]=4ème niveau
+        except IndexError:
+            raise ValueError(f"Impossible to go 4 levels up from {file_path}")
+    
+        # exemple d’utilisation avec ton objet (si tu sauvegardes quelque chose dedans)
+        self.display_options.directory = folder_root
+    
+        # À ce stade, tu pourrais par exemple définir un dossier posterior
+        posterior_dir = folder_root / "posterior_distributions"
+        posterior_dir.mkdir(parents=True, exist_ok=True)
+    
+        # → ici tu écris les résultats
+        # Exemple : lpm_results.save(posterior_dir / "posterior.txt")
+        # ou pandas.DataFrame(lpm_results).to_csv(posterior_dir / "posterior.csv")
+    
+        return posterior_dir
 
         
     

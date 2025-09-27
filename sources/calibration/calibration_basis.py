@@ -14,23 +14,42 @@ import LPM.LPM_generate as LPM_generate
 import convolutions.convolution_tracers as convolution_tracers      
 import convolutions.concentrations as co 
 
+from pathlib import Path
 
-def folder_prior_posterior(file,stageup=-5,folder_prior=""): 
-    """ folder in which posteriors will be stored to use after as priors"""
-    temp=[i for i in range(len(file)) if file.startswith('\\', i)]
-    folder_root=file[:temp[stageup]]
+def folder_prior_posterior(file, stageup=-5, folder_prior=""): 
+    """Folder in which posteriors will be stored to use later as priors.
+
+    Parameters
+    ----------
+    file : str or Path
+        Path of a file or directory used as reference.
+    stageup : int
+        Index relative to the parent parts (default = -5).
+        Example: -1 = parent, -2 = grand-parent, etc.
+    folder_prior : str
+        Subfolder name for the prior distributions.
+
+    Returns
+    -------
+    Path
+        Path to the created folder.
+    """
+    file_path = Path(file).resolve()
     
-    folder_root = os.path.join(folder_root,"prior_distributions")
-    isExist = os.path.exists(folder_root)
-    if not isExist:
-        # Create a new directory because it does not exist
-        os.makedirs(folder_root)
+    # on remonte de |stageup| niveaux
+    try:
+        folder_root = file_path.parents[abs(stageup) - 1]
+    except IndexError:
+        raise ValueError(f"stageup={stageup} remonte trop haut pour {file_path}")
     
-    folder_root = os.path.join(folder_root,folder_prior)    
-    isExist = os.path.exists(folder_root)
-    if not isExist:
-        # Create a new directory because it does not exist
-        os.makedirs(folder_root)
+    # sous-dossier prior_distributions
+    folder_root = folder_root / "prior_distributions"
+    folder_root.mkdir(parents=True, exist_ok=True)
+
+    # sous-dossier optionnel folder_prior
+    if folder_prior:
+        folder_root = folder_root / folder_prior
+        folder_root.mkdir(parents=True, exist_ok=True)
     
     return folder_root
 
