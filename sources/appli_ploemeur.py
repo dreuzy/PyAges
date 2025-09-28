@@ -69,7 +69,7 @@ class SimulationStrategy:
         # self.folder = "ploemeur_apriori_double_"
 
         # self.errors=[0.2,0.3]#,0.15,0.25,0.05]
-        self.errors=[0.3]#,0.15,0.25,0.05]
+        self.errors=[0.3,0.2,0.4]#,0.15,0.25,0.05]
 
         # apriori_type = "none"
         apriori_type = "single"
@@ -117,8 +117,8 @@ class SimulationStrategy:
         self.well_select = ["F11","F09"]
         self.parallel=False#JRJR
         self.proc_nb=mp.cpu_count()
-        self.explo_res=int(2000/100)#JRJR
-        self.MH_nsteps=int(200000/1000)#JRJR
+        self.explo_res=int(2000/10)#JRJR
+        self.MH_nsteps=int(200000/10)#JRJR
         self.lpm_number=max(min(int(self.MH_nsteps/10),5000),10)
         
         
@@ -561,7 +561,7 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         # lpm_types.append(["exp_shifted","ig_shifted","ig"])
-        lpm_types.append(["exp_shifted","ig_shifted"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig"])
         
     if "F34" in well_select : 
         wells.append("F34")
@@ -578,7 +578,7 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        lpm_types.append(["exp_shifted","ig_shifted"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         # lpm_types.append(["exp_shifted","ig_shifted","ig"])
