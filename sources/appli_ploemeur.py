@@ -118,10 +118,10 @@ class SimulationStrategy:
         # self.well_select = ["F11","F09","F34","PE","MF1","MF4","F38","F38b"]
         self.well_select = ["F11","F09"]
         self.parallel=True#JRJR
-        self.proc_nb=int(mp.cpu_count())
-        self.explo_res=int(2000/10)#JRJR
+        self.proc_nb=2#int(mp.cpu_count())
+        self.explo_res=int(2000/1)#JRJR
         self.MH_nsteps=int(200000/10)#JRJR
-        self.lpm_number=max(min(int(self.MH_nsteps/10),5000),10)
+        self.lpm_number=max(min(int(self.MH_nsteps/50),500),10)
         
         
     def test_F09(self): 

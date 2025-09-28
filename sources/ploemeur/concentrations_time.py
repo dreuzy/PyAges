@@ -47,7 +47,7 @@ class ConcentrationTime:
                 ax.scatter(date, conc, label=temp)
             else: 
                 ax.plot(date, conc, label=temp)
-            ax.legend()
+            # ax.legend()
     
         fig.suptitle("Tracer", fontsize=16, y=1.02)
 
@@ -115,11 +115,11 @@ def display_concentration_times(dir_names, lpm, display):
             ncols = 2
             nrows = int(np.ceil(n_tracers / ncols))
 
-            fig, axs = plt.subplots(nrows, ncols, figsize=(6*ncols, 4*nrows))
-            axs = np.atleast_1d(axs).flatten()
+            # fig, axs = plt.subplots(nrows, ncols, figsize=(6*ncols, 4*nrows))
+            # axs = np.atleast_1d(axs).flatten()
 
             # --- Scatter plots of measured data ---
-            conc_data.display(fig, axs, graph_type="scatter")
+            # conc_data.display(fig, axs, graph_type="scatter")
 
             # --- Convolution tracers ---
             tracers = convolution_tracers.ConvolutionTracers(
@@ -150,7 +150,7 @@ def display_concentration_times(dir_names, lpm, display):
 
                 concentrations = tracers.convolution_date_range(lpm, 1960, max(craw.cv["date"]))
                 conc_model = ConcentrationTime(cv=concentrations)
-                conc_model.display(fig, axs, graph_type="line")
+                # conc_model.display(fig, axs, graph_type="line")
 
                 # Store PDFs
                 pdf_array[i, :] = lpm.pdf(pdf_t)
@@ -160,13 +160,11 @@ def display_concentration_times(dir_names, lpm, display):
                 lpm_statistics.iloc[i-1] = lpm.moments()
 
             # --- Finalize figure ---
-            fig.suptitle(f"Concentration Times – {method}", fontsize=16)
-            fig.tight_layout()
-
-            if display.figure_save:
-                plt.savefig(os.path.join(dn, method, "concentration_times.png"), dpi=300)
-            if display.figure_close:
-                plt.close(fig)
+            # fig.suptitle(f"Concentration Times – {method}", fontsize=16)
+            
+            # plt.savefig(os.path.join(dn,method,"concentration_times"),dpi=300)
+            # plt.close(fig)
+            # display.save_and_close(fig, "concentration_times.png", method=method, dpi=300)
 
             # --- Save PDFs & stats ---
             df = pd.DataFrame(pdf_array.T, columns=aa)
@@ -277,11 +275,15 @@ def display_concentration_chronicles(craw, lpm_results, method, display, span_or
         # Convolution
         concentrations = tracers.convolution_date_range(lpm, 1960, max(craw.cv["date"]))
         conc_model = ConcentrationTime(cv=concentrations)
-        conc_model.display(fig, axs, graph_type="line")
-        
+    
+        # 👉 Affichage seulement une fois sur 5
+        if i % 5 == 0:
+            conc_model.display(fig, axs, graph_type="line")
+    
         # Conversion et accumulation
         cv_dict = to_cv_dict(concentrations)
         merged_all_models = merge_model_into_table(merged_all_models, cv_dict, model_id=i)
+
     
     # Finalisation → sauvegarde + fermeture via display_options
     display.save_and_close(fig, filename=os.path.join(method, "concentration_times.png"))
@@ -289,16 +291,16 @@ def display_concentration_chronicles(craw, lpm_results, method, display, span_or
     # Sauvegarde des données fusionnées
     outfile_data = os.path.join(display.directory, method, "concentrations_all_models.txt")
     save_concentrations_table(merged_all_models, outfile_data)
-    if display.text:
-        print(f"✅ Concentrations de {len(lpm_list)} modèles écrites dans : {outfile_data}")
+    # if display.text:
+    #     print(f"✅ Concentrations de {len(lpm_list)} modèles écrites dans : {outfile_data}")
     
     # --- PDFs ---
-    fig, ax = figadd.figure_init(figname="pdfs")
-    for key in pdf.keys():
-        if key != "t":
-            ax.plot(pdf["t"], pdf[key], label=key)
+    # fig, ax = figadd.figure_init(figname="pdfs")
+    # for key in pdf.keys():
+    #     if key != "t":
+    #         ax.plot(pdf["t"], pdf[key], label=key)
     
-    display.save_and_close(fig, ax=ax, filename=os.path.join(method, "pdfs.png"))
+    # display.save_and_close(fig, ax=ax, filename=os.path.join(method, "pdfs.png"))
     
     # Sauvegarde distributions
     pdf.to_csv(os.path.join(display.directory, method, "distributions.txt"), sep='\t')

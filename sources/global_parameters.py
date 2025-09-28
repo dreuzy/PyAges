@@ -90,22 +90,42 @@ class display_options:
         self.figure_save = False
         self.directory = None
 
-    def save_and_close(self, fig, filename, method="", dpi=300, ax=None):
+    def save_and_close(self, fig, filename, method="", dpi=300, ax=None, with_legend=False):
         """
         Sauvegarde et ferme une figure matplotlib, avec gestion robuste
         des warnings liés à tight_layout et legend(loc="best").
+    
+        Parameters
+        ----------
+        fig : matplotlib.figure.Figure
+            Figure à sauvegarder
+        filename : str
+            Nom du fichier (ex: "plot.png")
+        method : str, optional
+            Sous-dossier (ex: "Metropolis_Hastings")
+        dpi : int, optional
+            Résolution de l'image (default=300)
+        ax : matplotlib.axes.Axes, optional
+            Axe sur lequel placer la légende
+        with_legend : bool, optional
+            Si False, ne pas afficher la légende (default=True)
         """
         filepath = Path(self.directory) / method / filename
         filepath.parent.mkdir(parents=True, exist_ok=True)
-
-        # Gestion de la légende si un axe est fourni
+    
+        # Gestion de la légende
         if ax is not None:
-            try:
-                ax.legend(loc="best", fontsize=8)
-            except Exception:
-                # fallback si beaucoup de données
-                ax.legend(loc="upper right", fontsize=8)
-
+            if with_legend:
+                try:
+                    ax.legend(loc="best", fontsize=8)
+                except Exception:
+                    ax.legend(loc="upper right", fontsize=8)
+            else:
+                # Supprimer toute légende existante
+                leg = ax.get_legend()
+                if leg is not None:
+                    leg.remove()
+    
         # Application de tight_layout avec fallback
         try:
             with warnings.catch_warnings(record=True) as wlist:
@@ -113,18 +133,17 @@ class display_options:
                 fig.tight_layout()
                 for w in wlist:
                     if "Tight layout not applied" in str(w.message):
-                        # fallback : ajustement manuel
                         fig.subplots_adjust(top=0.9, bottom=0.1, hspace=0.4)
         except Exception:
             fig.subplots_adjust(top=0.9, bottom=0.1, hspace=0.4)
-
+    
         # Sauvegarde robuste
         try:
             fig.savefig(filepath, dpi=dpi)
-            print(f"✅ Figure sauvegardée : {filepath}")
+            # print(f"✅ Figure sauvegardée : {filepath}")
         except Exception as e:
             print(f"❌ Erreur lors de la sauvegarde : {e}")
-
+    
         # Fermeture mémoire
         if self.figure_close:
             plt.close(fig)
