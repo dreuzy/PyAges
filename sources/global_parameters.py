@@ -76,6 +76,11 @@ def results_directory_dhms(sub_directory, directory=ROOT_DIRECTORY_RESULTS):
 # Classes
 # -------------------------------------------------------
 
+
+import warnings
+from pathlib import Path
+import matplotlib.pyplot as plt
+
 class display_options:
     """Display options for the tests."""
     def __init__(self):
@@ -85,11 +90,51 @@ class display_options:
         self.figure_save = False
         self.directory = None
 
+    def save_and_close(self, fig, filename, method="", dpi=300, ax=None):
+        """
+        Sauvegarde et ferme une figure matplotlib, avec gestion robuste
+        des warnings liés à tight_layout et legend(loc="best").
+        """
+        filepath = Path(self.directory) / method / filename
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        # Gestion de la légende si un axe est fourni
+        if ax is not None:
+            try:
+                ax.legend(loc="best", fontsize=8)
+            except Exception:
+                # fallback si beaucoup de données
+                ax.legend(loc="upper right", fontsize=8)
+
+        # Application de tight_layout avec fallback
+        try:
+            with warnings.catch_warnings(record=True) as wlist:
+                warnings.simplefilter("always")
+                fig.tight_layout()
+                for w in wlist:
+                    if "Tight layout not applied" in str(w.message):
+                        # fallback : ajustement manuel
+                        fig.subplots_adjust(top=0.9, bottom=0.1, hspace=0.4)
+        except Exception:
+            fig.subplots_adjust(top=0.9, bottom=0.1, hspace=0.4)
+
+        # Sauvegarde robuste
+        try:
+            fig.savefig(filepath, dpi=dpi)
+            print(f"✅ Figure sauvegardée : {filepath}")
+        except Exception as e:
+            print(f"❌ Erreur lors de la sauvegarde : {e}")
+
+        # Fermeture mémoire
+        if self.figure_close:
+            plt.close(fig)
+
+
     def figure_close_fx(self, filename):
         if self.figure_save and self.directory is not None:
             plt.savefig(Path(self.directory) / filename, dpi=300)
         if self.figure_close:
-            plt.close()
+            plt.close("all")
 
 def arange_n(pmin, pmax, n):
     """Regular sampling between pmin and pmax with n elements (including endpoints)."""

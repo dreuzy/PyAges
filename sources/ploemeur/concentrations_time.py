@@ -35,27 +35,22 @@ class ConcentrationTime:
         else : 
             self.cv=cv
         
-    def display(self,fig,axs,graph_type="scatter"): 
-        """ 
-        Displays concentrations 
-        """
-        gi={}; gj={}
-        k=0
-        for temp in self.cv :
-            if(k<2): gi[temp] = k%2; gj[temp]=0
-            else: gi[temp]=(k-2)%2; gj[temp]=1
-            axs[gi[temp],gj[temp]].set_title(temp)
-            date=self.cv[temp]['date']
-            conc=self.cv[temp]['concentration']
+    def display(self, fig, axs, graph_type="scatter"): 
+        """Displays concentrations on given axes"""
+        axs = axs.flatten()  # simplifie l'indexation
+        for k, temp in enumerate(self.cv):
+            ax = axs[k]
+            ax.set_title(temp)
+            date = self.cv[temp]["date"]
+            conc = self.cv[temp]["concentration"]
             if graph_type == "scatter": 
-                axs[gi[temp],gj[temp]].scatter(date,conc,label=temp)
-            else : 
-                axs[gi[temp],gj[temp]].plot(date,conc,label=temp)
-            k=k+1
-        fig.suptitle('Tracer')
-        # figManager = plt.get_current_fig_manager()
-        # figManager.window.showMaximized()
-        
+                ax.scatter(date, conc, label=temp)
+            else: 
+                ax.plot(date, conc, label=temp)
+            ax.legend()
+    
+        fig.suptitle("Tracer", fontsize=16, y=1.02)
+
         
     def build(self):
         """ Builds concentrations as a function of time """
@@ -90,80 +85,93 @@ class ConcentrationTime:
         merged.to_csv(filename, sep="\t", index=False, encoding="utf-8")
         
         
-def display_concentration_times(dir_names,lpm,display): 
+def display_concentration_times(dir_names, lpm, display): 
     """
-    Diplays concentrations with time for each of the cases of dir_names 
+    Displays concentrations with time for each case in dir_names.
     
-    Arguments 
-    ---------
-    dir_names: array of str
-        List of directory names 
-    lpm: LPM
-        Template LPM structure 
-    display: ?? #JR
+    Parameters
+    ----------
+    dir_names : list of str
+        List of directory names.
+    lpm : LPM
+        Template LPM structure.
+    display : display_options
+        Controls figure save/close behavior.
     """
-    
-    # Loop over folders 
-    for dn in dir_names :
-        # Loop over the methods
-        methods=["Metropolis_Hastings","forward_uncertainty_quantification"]
-        for method in methods: 
-            file=os.path.join(dn,method,"lpm_dist_calibrated.txt")
-            # print(dn,'\t',method)
-            # print(file)
-            if os.path.exists(file): 
-                # Initialization of figure 
-                fig, axs = plt.subplots(2,2) #len(param_names))
+    methods = ["Metropolis_Hastings", "forward_uncertainty_quantification"]
 
-                # Concentrations Data; craw: raw data; conc_data: organized data 
-                craw=c.Concentrations(file_load=True, file_name=os.path.join(dn,"concentrations.txt"))
-                conc_data=ConcentrationTime(craw=craw)
-                conc_data.display(fig,axs,graph_type="scatter")
-                tracers = convolution_tracers.ConvolutionTracers(names=craw.cv['element'].unique(),date=max(craw.cv['date'])) 
+    for dn in dir_names:
+        for method in methods:
+            file = os.path.join(dn, method, "lpm_dist_calibrated.txt")
+            if not os.path.exists(file):
+                continue
 
-                #tracers.display(display)                
-                # LPM Distribution of solution sets of parameters 
-                dist=pd.read_table(file,header=0)                
-                rng = np.random.default_rng(12345)
-                array_resolution=1000
-                lpm_number=10
-                # Storage Structures for the lpm_number selected models 
-                pdf_t=gp.arange_n(0,70,array_resolution-1) # Between 0 and 70 years
-                # Storage strucutre of the pdfs
-                pdf_array=np.empty((lpm_number+1,array_resolution))
-                pdf_array[0,:]=pdf_t
-                aa=[]; aa.append('t')
-                # Storage strucutre of the pdf statistics
-                lpm_statistics = pd.DataFrame(index=range(lpm_number),columns=lpm.moments_name())
-                # Loop on the lpm_number models 
-                for i in range(1,lpm_number+1):
-                    # Selects line and updates lpm parameters accordingly 
-                    [test,line]=lpm.load_lpm_from_dist(dist,option="random_line",rng=rng)
-                    if test == True : 
-                        # Convolution of LPM with tracer chronicles on the 1960,max(date range)
-                        concentrations=tracers.convolution_date_range(lpm,1960,max(craw.cv['date']))
-                        # Initialization of ConcentrationTime
-                        conc_model=ConcentrationTime(cv=concentrations)
-                        # Displays modeled concentrations 
-                        conc_model.display(fig,axs,graph_type="line")
-                        # Computes and stores pdfs
-                        pdf_val=lpm.pdf(pdf_t)
-                        pdf_array[i,:]=pdf_val
-                        aa.append('p'+str(line))
-                        # Computes and sores moments
-                        lpm_statistics.iloc[i-1] = lpm.moments()
-                    else: 
-                        aa.append('p')
-                if display.figure_save :
-                    plt.savefig(os.path.join(dn,method,"concentration_times"),dpi=300)
-                if display.figure_close:
-                    plt.close()
+            # --- Load concentration data ---
+            craw = c.Concentrations(file_load=True, 
+                                    file_name=os.path.join(dn, "concentrations.txt"))
+            conc_data = ConcentrationTime(craw=craw)
 
-                # Outputs of pdfs and moments 
-                df=pd.DataFrame(pdf_array.T)
-                df.columns=aa
-                df.to_csv(os.path.join(dn,method,"distributions.txt"),sep='\t')
-                lpm_statistics.to_csv(os.path.join(dn,method,"distributions_stats.txt"),sep='\t')
+            n_tracers = len(craw.cv["element"].unique())
+            ncols = 2
+            nrows = int(np.ceil(n_tracers / ncols))
+
+            fig, axs = plt.subplots(nrows, ncols, figsize=(6*ncols, 4*nrows))
+            axs = np.atleast_1d(axs).flatten()
+
+            # --- Scatter plots of measured data ---
+            conc_data.display(fig, axs, graph_type="scatter")
+
+            # --- Convolution tracers ---
+            tracers = convolution_tracers.ConvolutionTracers(
+                names=craw.cv["element"].unique(),
+                date=max(craw.cv["date"])
+            )
+
+            # --- Load distribution of parameters ---
+            dist = pd.read_table(file, header=0)
+            rng = np.random.default_rng(12345)
+            array_resolution = 1000
+            lpm_number = 10
+
+            pdf_t = gp.arange_n(0, 70, array_resolution - 1)
+            pdf_array = np.empty((lpm_number + 1, array_resolution))
+            pdf_array[0, :] = pdf_t
+            aa = ["t"]
+
+            lpm_statistics = pd.DataFrame(index=range(lpm_number),
+                                          columns=lpm.moments_name())
+
+            # --- Loop on models ---
+            for i in range(1, lpm_number + 1):
+                test, line = lpm.load_lpm_from_dist(dist, option="random_line", rng=rng)
+                if not test:
+                    aa.append("p")
+                    continue
+
+                concentrations = tracers.convolution_date_range(lpm, 1960, max(craw.cv["date"]))
+                conc_model = ConcentrationTime(cv=concentrations)
+                conc_model.display(fig, axs, graph_type="line")
+
+                # Store PDFs
+                pdf_array[i, :] = lpm.pdf(pdf_t)
+                aa.append(f"p{line}")
+
+                # Store moments
+                lpm_statistics.iloc[i-1] = lpm.moments()
+
+            # --- Finalize figure ---
+            fig.suptitle(f"Concentration Times – {method}", fontsize=16)
+            fig.tight_layout()
+
+            if display.figure_save:
+                plt.savefig(os.path.join(dn, method, "concentration_times.png"), dpi=300)
+            if display.figure_close:
+                plt.close(fig)
+
+            # --- Save PDFs & stats ---
+            df = pd.DataFrame(pdf_array.T, columns=aa)
+            df.to_csv(os.path.join(dn, method, "distributions.txt"), sep="\t", index=False)
+            lpm_statistics.to_csv(os.path.join(dn, method, "distributions_stats.txt"), sep="\t", index=False)
 
 
 def to_cv_dict(concentrations):
@@ -220,7 +228,7 @@ def save_concentrations_table(merged, filepath):
     merged.to_csv(filepath, sep="\t", index=False, encoding="utf-8")
 
 
-def display_concentration_chronicles(craw,lpm_results,method,display,span_or_suc,lpm_number):
+def display_concentration_chronicles(craw, lpm_results, method, display, span_or_suc, lpm_number):
     """
     Displays the tracer concentration chronicle convolved with the lpm solutions
         craw -> tracers 
@@ -242,74 +250,59 @@ def display_concentration_chronicles(craw,lpm_results,method,display,span_or_suc
     1 figure by tracer 
     As many figures as tracers
     """
+    # Figure initialization : 2x2 subplots
+    fig, axs = plt.subplots(2, 2, figsize=(10, 8))
     
-    # Figure initialization
-    fig, axs = plt.subplots(2,2) #len(param_names))
-
-    # Concentrations Data; craw: raw data; conc_data: organized data 
-    conc_data=ConcentrationTime(craw=craw)
-    conc_data.display(fig,axs,graph_type="scatter")
-    tracers = convolution_tracers.ConvolutionTracers(names=craw.cv['element'].unique(),date=max(craw.cv['date'])) 
-    #tracers.display(display)         
-       
+    # Concentrations Data
+    conc_data = ConcentrationTime(craw=craw)
+    conc_data.display(fig, axs, graph_type="scatter")
+    
+    # Tracers
+    tracers = convolution_tracers.ConvolutionTracers(
+        names=craw.cv["element"].unique(),
+        date=max(craw.cv["date"])
+    )
+    
     # LPM selection
-    [lpm_list, pdf, lpm_statistics]=lpm_results.get_selection(lpm_number=lpm_number,span_or_suc=span_or_suc,array_resolution=1000)
+    lpm_list, pdf, lpm_statistics = lpm_results.get_selection(
+        lpm_number=lpm_number,
+        span_or_suc=span_or_suc,
+        array_resolution=1000
+    )
     
     # merged_all_models accumulera toutes les colonnes des différents modèles
     merged_all_models = None
     
     for i, lpm in enumerate(lpm_list, start=1):
-        # Convolutions → sorties « au début de la boucle »
+        # Convolution
         concentrations = tracers.convolution_date_range(lpm, 1960, max(craw.cv["date"]))
-        # Initialization of ConcentrationTime
-        conc_model=ConcentrationTime(cv=concentrations)
-        # Displays modeled concentrations 
-        conc_model.display(fig,axs,graph_type="line")
-    
-        # Normaliser en dict {traceur: df(date, concentration, element)}
+        conc_model = ConcentrationTime(cv=concentrations)
+        conc_model.display(fig, axs, graph_type="line")
+        
+        # Conversion et accumulation
         cv_dict = to_cv_dict(concentrations)
-    
-        # (optionnel) affichage des courbes du modèle i, si tu en as besoin
-        # plot_model(cv_dict, model_id=i)  # <-- fonction à toi, hors de la classe, si désiré
-    
-        # Accumuler dans le tableau large
         merged_all_models = merge_model_into_table(merged_all_models, cv_dict, model_id=i)
     
-    # Finalization of figure
-    display.figure_close_fx(os.path.join(method,"concentration_times"))
+    # Finalisation → sauvegarde + fermeture via display_options
+    display.save_and_close(fig, filename=os.path.join(method, "concentration_times.png"))
     
-    # 👉 Une fois la boucle terminée, on écrit un seul fichier avec TOUTES les colonnes
-    outfile = os.path.join(display.directory, method, "concentrations_all_models.txt")
-    save_concentrations_table(merged_all_models, outfile)
-    # print(f"✅ Concentrations de {len(lpm_list)} modèles écrites dans : {outfile}")
+    # Sauvegarde des données fusionnées
+    outfile_data = os.path.join(display.directory, method, "concentrations_all_models.txt")
+    save_concentrations_table(merged_all_models, outfile_data)
+    if display.text:
+        print(f"✅ Concentrations de {len(lpm_list)} modèles écrites dans : {outfile_data}")
     
-    
-    # # Displays chronicles Loop over the selected lpms 
-    # for i, lpm in enumerate(lpm_list, start=1):
-    #     # Convolution of LPM with tracer chronicles on the 1960,max(date range) #JR1: 1960?
-    #     concentrations=tracers.convolution_date_range(lpm,1960,max(craw.cv['date']))
-    #     # Initialization of ConcentrationTime
-    #     conc_model=ConcentrationTime(cv=concentrations)
-    #     # Displays modeled concentrations 
-    #     conc_model.display(fig,axs,graph_type="line")
-    #     filename = f"concentrations_export_{i}.txt"
-    #     conc_model.save_to_file(os.path.join(display.directory,method,f"conc_{i}.txt"))
-    # # Finalization of figure
-    # display.figure_close_fx(os.path.join(method,"concentration_times"))
-
-    # Displays pdfs. Loop over the selected lpms 
-    figadd.figure_init(figname="pdfs")
+    # --- PDFs ---
+    fig, ax = figadd.figure_init(figname="pdfs")
     for key in pdf.keys():
-        # Convolution of LPM with tracer chronicles on the 1960,max(date range) #JR1: 1960?
-        if key != 't': plt.plot(pdf['t'],pdf[key],label=key)
-        # Initialization of ConcentrationTime
-    # Finalization of figure
-    display.figure_close_fx(os.path.join(method,"pdfs"))
-
-    # Outputs
-    pdf.to_csv(os.path.join(display.directory,method,"distributions.txt"),sep='\t')
-    lpm_statistics.to_csv(os.path.join(display.directory,method,"distributions_stats.txt"),sep='\t')
-
+        if key != "t":
+            ax.plot(pdf["t"], pdf[key], label=key)
+    
+    display.save_and_close(fig, ax=ax, filename=os.path.join(method, "pdfs.png"))
+    
+    # Sauvegarde distributions
+    pdf.to_csv(os.path.join(display.directory, method, "distributions.txt"), sep='\t')
+    lpm_statistics.to_csv(os.path.join(display.directory, method, "distributions_stats.txt"), sep='\t')
 
 
 def test():

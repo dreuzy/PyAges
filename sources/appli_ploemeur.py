@@ -13,7 +13,9 @@ import sys
 import os   
 import time as time
 import multiprocessing as mp        
-import pandas as pd                          
+import pandas as pd          
+
+import tracemalloc                
 
 import convolutions.concentrations as concentrations        # List of chemical concentrations
 import global_parameters as gp
@@ -69,10 +71,10 @@ class SimulationStrategy:
         # self.folder = "ploemeur_apriori_double_"
 
         # self.errors=[0.2,0.3]#,0.15,0.25,0.05]
-        self.errors=[0.3]#,0.15,0.25,0.05]
+        self.errors=[0.3,0.2,0.4]#,0.15,0.25,0.05]
 
-        # apriori_type = "none"
-        apriori_type = "single"
+        apriori_type = "none"
+        # apriori_type = "single"
         # apriori_type = "double"
         # apriori_type = "double_suc_prior"
         
@@ -115,10 +117,10 @@ class SimulationStrategy:
         # self.well_select = ["F34","PE","MF1","MF4","F38b","F38","F11","F09","PZ2","PSR1"]
         # self.well_select = ["F11","F09","F34","PE","MF1","MF4","F38","F38b"]
         self.well_select = ["F11","F09"]
-        self.parallel=False#JRJR
-        self.proc_nb=mp.cpu_count()
-        self.explo_res=int(2000/100)#JRJR
-        self.MH_nsteps=int(200000/1000)#JRJR
+        self.parallel=True#JRJR
+        self.proc_nb=int(mp.cpu_count())
+        self.explo_res=int(2000/10)#JRJR
+        self.MH_nsteps=int(200000/10)#JRJR
         self.lpm_number=max(min(int(self.MH_nsteps/10),5000),10)
         
         
@@ -459,33 +461,29 @@ class ploemeur_one_date:
         return cdata
     
     
-    def calibration(self,cdata,calstrat): 
-        """
-        calibration with the method calstrat (either MH or FUQ)
-        """
-        # display_options to be used for this case with specific directory  (no change in generic display_options)
+    def calibration(self, cdata, calstrat):
+        """ calibration with the method calstrat (either MH or FUQ) """
+    
+        # Préparer display_options
         display_options_case = copy.deepcopy(self.display)
-        display_options_case.directory = gp.results_directory(self.display.directory,calstrat.method)
-        # Calibration preparation and analysis
-        # calstrat.set_nmodels(10)
-        calib_basis=calbas.CalibrationBasis(cdata,self.lpm_type,display_options=display_options_case,nmodels=self.__nmodels,reachconc=self.display_reachconc)
+        display_options_case.directory = gp.results_directory(self.display.directory, calstrat.method)
+    
+        # Calibration
+        calib_basis = calbas.CalibrationBasis(cdata, self.lpm_type, display_options=display_options_case, nmodels=self.__nmodels, reachconc=self.display_reachconc)
         calstrat.update_calibbasis(calib_basis)
-        # Calibration performs
-        lpm_results=calstrat.perform()
-        # Stores/Writes Results
-        calstrat.write_calibrated_lpm(lpm_results,file_prior=calbas.file_prior_posterior(self.file_ploemeur,self.error_concentrations,self.lpm_type),folder_prior=self.option)
-        # Calibration analysis
+        lpm_results = calstrat.perform()
+        calstrat.write_calibrated_lpm(lpm_results, file_prior=calbas.file_prior_posterior(self.file_ploemeur, self.error_concentrations, self.lpm_type), folder_prior=self.option)
         calstrat.analysis_calibration(lpm_results)
-        # Chronicles of tracers with data 
-        ct.display_concentration_chronicles(cdata,lpm_results,calstrat.method,self.display, span_or_suc = self.option, lpm_number=self.calstrat_MH.lpm_number)
-        # Distribution of parameters and concentrations
-        if self.display_reachconc == True : 
-            lpm_results.display_parameters_dist(self_method=calstrat.method,directory=display_options_case.directory)
-        if calstrat.method == "Metropolis_Hastings" and calstrat.prior.option == True: 
-            lpm_results.display_parameters_dist_comp_apriori(directory=display_options_case.directory,prior=calstrat.prior)
-        if self.display_reachconc == True : 
-            lpm_results.display_concentrations_dist(self_method=calstrat.method,concentrations_reference=cdata,directory=display_options_case.directory)
-        
+    
+        # Tracers + distributions
+        ct.display_concentration_chronicles(cdata, lpm_results, calstrat.method, self.display, span_or_suc=self.option, lpm_number=self.calstrat_MH.lpm_number)
+        if self.display_reachconc: 
+            lpm_results.display_parameters_dist(self_method=calstrat.method, directory=display_options_case.directory)
+        if calstrat.method == "Metropolis_Hastings" and calstrat.prior.option: 
+            lpm_results.display_parameters_dist_comp_apriori(directory=display_options_case.directory, prior=calstrat.prior)
+        if self.display_reachconc: 
+            lpm_results.display_concentrations_dist(self_method=calstrat.method, concentrations_reference=cdata, directory=display_options_case.directory)
+    
         return lpm_results
         
         
@@ -561,7 +559,7 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         # lpm_types.append(["exp_shifted","ig_shifted","ig"])
-        lpm_types.append(["exp_shifted","ig_shifted"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig"])
         
     if "F34" in well_select : 
         wells.append("F34")
@@ -578,7 +576,7 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
         # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        lpm_types.append(["exp_shifted","ig_shifted"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         # lpm_types.append(["exp_shifted","ig_shifted","ig"])

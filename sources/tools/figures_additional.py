@@ -11,29 +11,22 @@ from pylab import *
 import math
 
 
-def figure_init(xlab=None,ylab=None,figname=None):
-    """ defines figure style to be applied to all callign figures"""
-    plt.figure()#(figsize=(4,4))
-    plt.xlabel(xlab,fontsize=16,fontweight='bold')
-    plt.ylabel(ylab,fontsize=14,fontweight='bold')
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.grid(True)
-    plt.title(figname,fontsize=22,fontweight='bold')
-    
-    ax = gca()
-    # ax.axhline(linewidth=4, color="k") 
-    # ax.axvline(linewidth=4, color="k")   
-            
-    # fontsize = 14
-    # ax.xaxis.set_tick_params(width=3)
-    # ax.yaxis.set_tick_params(width=3)
-    # for tick in ax.xaxis.get_major_ticks():
-    #     tick.label1.set_fontsize(fontsize)
-    #     # tick.label1.set_fontweight('bold')
-    # for tick in ax.yaxis.get_major_ticks():
-    #     tick.label1.set_fontsize(fontsize)
-    #     # tick.label1.set_fontweight('bold')
+def figure_init(xlab=None, ylab=None, figname=None, figsize=(6, 4)):
+    """
+    Initialise une figure et un axe avec un style homogène.
+    Retourne fig, ax pour un usage orienté objet.
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+
+    ax.set_xlabel(xlab, fontsize=16, fontweight='bold')
+    ax.set_ylabel(ylab, fontsize=14, fontweight='bold')
+    ax.tick_params(axis='x', labelsize=14)
+    ax.tick_params(axis='y', labelsize=14)
+    ax.grid(True)
+    ax.set_title(figname, fontsize=22, fontweight='bold')
+
+    return fig, ax
+
     
 def figure_close(filename=None):
     """ defines figure style to be applied to all callign figures"""

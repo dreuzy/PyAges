@@ -347,8 +347,10 @@ if __name__ == "__main__":
     dossiers_list = [gp.ROOT_DIRECTORY_RESULTS / d for d in dossiers_list]
 
     # --- Listes de cas à traiter ---
-    puits_list = ["PE", "F11", "F09", "F34", "MF1", "MF4", "F38"]
-    distributions_list = ["exp_shifted", "ig_shifted", "ig"]
+    # puits_list = ["PE", "F11", "F09", "F34", "MF1", "MF4", "F38"]
+    # distributions_list = ["exp_shifted", "ig_shifted", "ig"]
+    puits_list = ["F11", "F09"]
+    distributions_list = ["exp_shifted", "ig_shifted"]
 
     # --- Options globales ---
     base_type = "suc"
