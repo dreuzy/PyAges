@@ -76,31 +76,35 @@ def corresp_folder_suc(base_path, distribution=None):
 
 
 
-def make_video_from_figures(result_dir, output_name="video.mp4", fps=1, format="FFMPEG"):
+def make_video_from_figures(fichiers, output_name="video.mp4", fps=1, format="FFMPEG"):
     """
-    Assemble toutes les images PNG de result_dir en une vidéo.
+    Assemble les images listées dans `fichiers` en une vidéo.
     Chaque image reste affichée 1s (fps=1).
     """
-    result_dir = Path(result_dir)
-    images = sorted(result_dir.glob("figure_*.png"))  # toutes les figures
-
-    if not images:
-        print("⚠️ Aucun fichier figure_*.png trouvé")
+    if not fichiers:
+        print("⚠️ Aucun fichier image fourni")
         return None
 
+    # On déduit le dossier de sortie depuis le premier fichier
+    result_dir = Path(fichiers[0]).parent
     out_path = result_dir / output_name
+
     with imageio.get_writer(
         out_path,
         fps=fps,
         format=format,
-        codec="libx264",              # encodeur vidéo standard
-        ffmpeg_log_level="quiet"      # supprime les warnings ffmpeg
+        codec="libx264",
+        ffmpeg_log_level="quiet"
     ) as writer:
-        for img in images:
-            writer.append_data(imageio.imread(img))
+        for img_path in fichiers:
+            img_path = Path(img_path)
+            if img_path.is_file():
+                writer.append_data(imageio.imread(img_path))
+            else:
+                print(f"⚠️ Fichier introuvable : {img_path}")
 
-    # print(f"Vidéo créée : {out_path}")
     return out_path
+
 
 
 def make_subdirs(root, *subdirs):
