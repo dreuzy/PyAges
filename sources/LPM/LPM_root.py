@@ -605,7 +605,7 @@ class LPM(abc.ABC):
     
         chosen_lines = {}
     
-        if option == "random":
+        if option == "random_line":
             # Un seul tirage de ligne, commun à tous les paramètres
             line = rng.integers(len(dist.index)) if hasattr(rng, "integers") else rng.randint(len(dist.index))
             for key in self.p.keys():

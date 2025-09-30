@@ -4,11 +4,96 @@ import re
 import pandas as pd
 import matplotlib.pyplot as plt
 import multiprocessing as mp
+import numpy as np
 
 import global_parameters as gp
 import ploemeur_postprocessing.folders as fold
 import ploemeur_postprocessing.concentrations_obs as cobs
 import ploemeur_postprocessing.concentrations_mod as cmod
+
+from tracer.tracer_root import Tracer  # <-- ta classe Tracer
+
+
+
+
+def tracer_stat(df_stats, df_stat_prior, distribution):
+    """
+    Affiche :
+    - une bande horizontale correspondant à la médiane ± écart-type
+      en utilisant uniquement la ligne d'index 1 de df_stats ("Full Chronicle"),
+    - les points issus de df_stat_prior ("In Chronicle") avec médiane ± écart-type en rouge.
+
+    Paramètres
+    ----------
+    df_stats : DataFrame
+        Doit contenir les colonnes 'date', 'median_mean' et 'median_std'.
+    df_stat_prior : DataFrame
+        Doit contenir aussi les colonnes 'date', 'median_mean' et 'median_std'.
+    distribution : str
+        Nom de la distribution ("exp_shift", "ig", "ig_shifted").
+    """
+    # Extraire uniquement la ligne 1 de df_stats
+    ligne = df_stats.iloc[1]
+
+    # Valeurs pour la ligne 1
+    median = ligne["median_mean"]
+    std = ligne["median_std"]
+
+    # Conversion des colonnes date en datetime
+    df_stats = df_stats.copy()
+    df_stats["date"] = pd.to_datetime(df_stats["date"].astype(int), format="%Y")
+
+    df_stat_prior = df_stat_prior.copy()
+    df_stat_prior["date"] = pd.to_datetime(df_stat_prior["date"].astype(int), format="%Y")
+
+    # --- Bornes temporelles pour les gammes d'années ---
+    year_min_full = df_stats["date"].dt.year.min()
+    year_max_full = df_stats["date"].dt.year.max()
+
+    # Axe des dates pour la bande
+    date_min = min(df_stats["date"].min(), df_stat_prior["date"].min())
+    date_max = max(df_stats["date"].max(), df_stat_prior["date"].max())
+    dates = [date_min, date_max]
+
+    # Mapping pour les titres
+    titles_map = {
+        "exp_shift": "Shifted exponential",
+        "ig": "Inverse Gaussian",
+        "ig_shifted": "Shifted inverse Gaussian",
+    }
+    titre = titles_map.get(distribution, distribution)
+
+    plt.figure(figsize=(10, 4))
+
+    # Bande ± écart-type en gris ("Full Chronicle")
+    plt.fill_between(
+        dates,
+        [median - std, median - std],
+        [median + std, median + std],
+        color="grey",
+        alpha=0.3
+    )
+
+    # Ligne médiane en gris plus fine (sans légende)
+    plt.plot(dates, [median, median], color="grey", linewidth=1)
+
+    # Points rouges = "In Chronicle"
+    plt.errorbar(
+        df_stat_prior["date"],
+        df_stat_prior["median_mean"],
+        yerr=df_stat_prior["median_std"],
+        fmt="o",
+        color="red",
+        ecolor="red",
+        elinewidth=1,
+        capsize=3
+    )
+
+    # --- Légende ---
+    handles = [
+        plt.Rectangle((0, 0), 1, 1, color="grey", alpha=0.3,
+                      label=f"Full chronicle ({year_min_full}–{year_max_full})"),
+        plt.
 
 
 def tracer_concentrations(
@@ -21,13 +106,17 @@ def tracer_concentrations(
     n_curves=5,
     prior_years=None,
     df_conc_red=None,   # <-- option pour superposer des points rouges
-    result_dir=None
+    result_dir=None,
+    gaz_suc=None,
+    with_atm_ref=False,   # <-- par défaut désactivé
+    puits=None
 ):
     """
-    Trace les concentrations expérimentales (points noirs), 
-    l’enveloppe des modèles calibrés (gris) 
-    et éventuellement des modèles prior (rouge).
-    Sauvegarde aussi la figure dans result_dir si fourni.
+    Trace les concentrations expérimentales (points noirs),
+    l’enveloppe des modèles calibrés (gris, full chronicle),
+    les modèles insérés dans la chronique (rouge),
+    éventuellement les modèles indépendants (bleu),
+    et optionnellement les chroniques atmosphériques CFC (pointillés noirs).
     """
     traceurs = df_conc_all["element"].unique()
 
@@ -40,15 +129,64 @@ def tracer_concentrations(
     if len(traceurs) == 1:
         axes = [axes]
 
+    # --- indice du graphe où placer la légende ---
+    mid_idx = len(axes) // 2
+
     # Date max dans toutes les sources
     max_date = max([df_conc_all["date"].max()] + [df.index.max() for df in gaz_mod.values()])
 
+    # --- Charger les chroniques atmosphériques des CFCs (uniquement si demandé) ---
+    chroniques_ref = {}
+    if with_atm_ref:
+        tracer_dir = Path(r"D:\codes\pyage\sources\tracer_data")
+        for name in ["cfc11", "cfc12", "cfc113"]:
+            try:
+                tr = Tracer(tracer_dir, name=name)
+                date = np.linspace(tr.datemin, tr.datemax, 1000)
+                time = tr.datemax - date
+                conc = tr.get_concentration(date, time)
+                chroniques_ref[name.upper()] = (date, conc)
+            except Exception as e:
+                print(f"⚠️ Impossible de charger la chronique {name}: {e}")
+
+    # petit helper pour formater l’année/les années
+    def _fmt_years_tuple(yrs, fallback_min=None, fallback_max=None):
+        if yrs is not None:
+            debut, fin = yrs
+            try:
+                debut_i = int(debut)
+                fin_i = int(fin)
+                return f"({debut_i})" if debut_i == fin_i else f"({debut_i}–{fin_i})"
+            except Exception:
+                pass
+        # fallback (si prior_years absent)
+        if fallback_min is not None and fallback_max is not None:
+            try:
+                fmin = int(fallback_min)
+                fmax = int(fallback_max)
+                return f"({fmin})" if fmin == fmax else f"({fmin}–{fmax})"
+            except Exception:
+                pass
+        return ""
+
     for i, (ax, traceur) in enumerate(zip(axes, traceurs)):
-        # Enveloppe gris des calibrés
+        # Enveloppe gris des calibrés (full chronicle)
         if traceur in gaz_mod:
             cmod.tracer_enveloppe(ax, gaz_mod[traceur], traceur, color="#606060", alpha=0.5)
 
-        # Courbes prior rouges
+        # Courbes SUC = modèles insérés dans la chronique (rouge)
+        df_suc = None
+        if gaz_suc is not None and traceur in gaz_suc:
+            df_suc = gaz_suc[traceur]
+            cols = df_suc.columns
+            if n_curves is not None and n_curves < len(cols):
+                step = max(1, len(cols) // n_curves)
+                cols = cols[::step]
+            for col in cols:
+                ax.plot(df_suc.index, df_suc[col], lw=1, alpha=0.8, color="red")
+
+        # Courbes prior = modèles indépendants (bleu)
+        df_prior = None
         if gaz_prior is not None and traceur in gaz_prior:
             df_prior = gaz_prior[traceur]
             cols = df_prior.columns
@@ -56,34 +194,29 @@ def tracer_concentrations(
                 step = max(1, len(cols) // n_curves)
                 cols = cols[::step]
             for col in cols:
-                ax.plot(df_prior.index, df_prior[col], lw=1, alpha=0.8, color="red")
+                ax.plot(df_prior.index, df_prior[col], lw=1, alpha=0.8, color="blue")
 
-        # Points noirs
+        # Points noirs = data
         data = df_conc_all[df_conc_all["element"] == traceur]
         ax.errorbar(
-            data["date"],
-            data["concentration"],
+            data["date"], data["concentration"],
             yerr=0.2 * data["concentration"],
-            fmt="o",
-            capsize=3,
-            color="black",
-            markersize=5,
-            zorder=5,
+            fmt="o", capsize=3, color="black", markersize=5, zorder=5,
         )
 
-        # Points rouges (prior, si dispo)
+        # Points rouges supplémentaires (si dispo)
         if df_conc_red is not None:
             data_red = df_conc_red[df_conc_red["element"] == traceur]
             ax.errorbar(
-                data_red["date"],
-                data_red["concentration"],
+                data_red["date"], data_red["concentration"],
                 yerr=0.2 * data_red["concentration"],
-                fmt="o",
-                capsize=3,
-                color="red",
-                markersize=5,
-                zorder=10,
+                fmt="o", capsize=3, color="red", markersize=5, zorder=10,
             )
+
+        # --- Ajouter les chroniques CFC en pointillés noirs (si activé) ---
+        if with_atm_ref and traceur.upper() in chroniques_ref:
+            date_ref, conc_ref = chroniques_ref[traceur.upper()]
+            ax.plot(date_ref, conc_ref, "k--", lw=1.2, alpha=0.8, label=f"{traceur} atm.")
 
         # Axes
         ax.set_xlabel("Date", fontsize=fontsize_labels)
@@ -95,19 +228,41 @@ def tracer_concentrations(
         ax.set_yticks(yticks[::2])
         ax.tick_params(axis="both", labelsize=fontsize_ticks)
 
-        # Légende
-        if i == 0:
+        # --- Légende sur le graphe du milieu ---
+        if i == mid_idx:
             handles = [
                 plt.Line2D([0], [0], color="black", marker="o", linestyle="None", label="Data"),
-                plt.Rectangle((0, 0), 1, 1, color="darkgrey", alpha=0.9, label="Calibrated models\n(2004–2024)"),
             ]
-            if gaz_prior is not None:
-                if prior_years is not None:
-                    debut, fin = prior_years
-                    label_prior = f"Prior models\n({debut}–{fin})"
-                else:
-                    label_prior = "Prior models"
-                handles.append(plt.Line2D([0], [0], color="red", lw=1, label=label_prior))
+            data_min, data_max = int(data["date"].min()), int(data["date"].max())
+            handles.append(
+                plt.Rectangle((0, 0), 1, 1, color="darkgrey", alpha=0.9,
+                              label=f"Full chronicle ({data_min}–{data_max})")
+            )
+
+            # In chronicle (rouge) → dates exactes = prior_years si fourni, sinon fallback
+            if df_suc is not None:
+                label_years = _fmt_years_tuple(
+                    prior_years,
+                    fallback_min=(int(df_suc.index.min()) if df_suc is not None else None),
+                    fallback_max=(int(df_suc.index.max()) if df_suc is not None else None),
+                )
+                handles.append(plt.Line2D([0], [0], color="blue", lw=1,
+                                          label=f"In chronicle {label_years}".strip()))
+
+            # Independent (bleu) → dates exactes = prior_years si fourni, sinon fallback
+            if df_prior is not None:
+                label_years = _fmt_years_tuple(
+                    prior_years,
+                    fallback_min=(int(df_prior.index.min()) if df_prior is not None else None),
+                    fallback_max=(int(df_prior.index.max()) if df_prior is not None else None),
+                )
+                handles.append(plt.Line2D([0], [0], color="red", lw=1,
+                                          label=f"Independent {label_years}".strip()))
+
+            # Référence atmosphérique optionnelle
+            if with_atm_ref and traceur.upper() in chroniques_ref:
+                handles.append(plt.Line2D([0], [0], color="black", ls="--", lw=1.2, label="Atmospheric ref."))
+
             ax.legend(handles=handles, loc="upper left", fontsize=fontsize_labels, frameon=False)
 
     plt.tight_layout()
@@ -117,18 +272,16 @@ def tracer_concentrations(
         result_dir = Path(result_dir)
         result_dir.mkdir(parents=True, exist_ok=True)
 
-        # Cherche un index libre (figure_001.png, figure_002.png, …)
         idx = 1
         while (result_dir / f"figure_{idx:03d}.png").exists():
             idx += 1
 
         out_file = result_dir / f"figure_{idx:03d}.png"
         fig.savefig(out_file, dpi=300)
-        # print(f"Figure sauvegardée : {out_file}")
-        
-        # 🔥 Créer la vidéo avec toutes les figures sauvegardées
 
     plt.show()
+
+
 
 
 
@@ -195,6 +348,76 @@ def charger_donnees(
         raise ValueError("mode doit être 'calib' ou 'prior'")
 
 
+
+def charger_statistiques(
+    df,
+    distribution,
+    mode="calib",
+    base_type=None,
+    prior=None,
+    submode=None,
+    annee_debut=None,
+    annee_fin=None
+):
+    """
+    Charge les statistiques (quantiles) associées à une distribution.
+
+    Paramètres
+    ----------
+    df : DataFrame
+        DataFrame des répertoires construits par fold.construire_dataframe.
+    distribution : str
+        Nom de la distribution (utilisé pour retrouver le fichier
+        "<distribution>_stats_quantiles.txt").
+    mode : {"calib", "prior"}
+        - "calib" → répertoire avec durée max
+        - "prior" → répertoire filtré par critères
+    base_type, prior, submode, annee_debut, annee_fin : str ou int
+        Critères utilisés uniquement si mode="prior".
+
+    Retour
+    ------
+    DataFrame :
+        Contenu du fichier de statistiques quantiles.
+    """
+    if mode == "calib":
+        df_all = fold.trouver_repertoires_df(df, duree_max=True, afficher=False)
+        dossier_cible = df_all.iloc[0]["chemin"]
+
+    elif mode == "prior":
+        criteres = {
+            "base_type": base_type,
+            "prior": prior,
+            "mode": submode,
+        }
+        if annee_debut is not None:
+            criteres["annee_debut"] = annee_debut
+        if annee_fin is not None:
+            criteres["annee_fin"] = annee_fin
+
+        df_year_prior = fold.trouver_repertoires_df(df, criteres=criteres, afficher=False)
+        dossier_cible = df_year_prior.iloc[0]["chemin"]
+
+    else:
+        raise ValueError("mode doit être 'calib' ou 'prior'")
+
+    # Remonter deux niveaux au-dessus
+    dossier_parent = os.path.dirname(os.path.dirname(dossier_cible))
+
+    # Construire le chemin vers le fichier
+    fichier_stats = os.path.join(dossier_parent, distribution + "_stats_quantiles.txt")
+
+    # Charger en DataFrame
+    if not os.path.exists(fichier_stats):
+        raise FileNotFoundError(f"Fichier introuvable : {fichier_stats}")
+
+    # Pandas sait gérer automatiquement le séparateur si on met sep=None + engine="python"
+    df_stats = pd.read_csv(fichier_stats, sep=None, engine="python")
+    return df_stats
+
+    
+
+
 def lister_plages_annees(df_subset):
     """
     Affiche et retourne la liste des couples (annee_debut, annee_fin)
@@ -247,6 +470,8 @@ def analyser_puits_distribution(
 
     # Données calibrées globales
     df_conc_all, df_mod_all, gaz_mod_all = charger_donnees(df, mode="calib")
+    
+    df_stat_all = charger_statistiques(df,distribution, mode="calib")
 
     # Répertoire de sortie
     result_dir = fold.make_subdirs(dossier, "postproc", puits, distribution)
@@ -271,8 +496,21 @@ def analyser_puits_distribution(
             n_curves=n_curves,
             prior_years=None,
             df_conc_red=None,
-            result_dir=result_dir
+            result_dir=result_dir, 
+            puits=puits
         )
+        
+        
+        df_stat_prior = charger_statistiques(
+            df,
+            distribution=distribution,
+            mode="prior",
+            base_type=base_type,
+            prior=prior_flag,
+            submode=submode,
+        )
+        
+        tracer_stat(df_stat_all,df_stat_prior,distribution)
 
     # CAS 2 : SUBSET
     if tracer_subset:
@@ -299,6 +537,16 @@ def analyser_puits_distribution(
             except Exception:
                 df_prior_all, gaz_prior_all = None, None
 
+            # Modèles suc simples
+            [exist_suc, dossier_suc] = fold.corresp_folder_suc(dossier_cible,distribution)
+            
+            df_suc, gaz_suc = (None, None)
+            if exist_suc>=0:
+                try:
+                    df_suc, gaz_suc = cmod.charger_concentrations(dossier_suc)
+                except Exception as e:
+                    print(f"⚠️ Erreur lors du chargement des concentrations depuis {dossier_cible} : {e}")
+
             tracer_concentrations(
                 df_conc_all, gaz_mod_all,
                 fontsize_labels=fontsize_labels,
@@ -308,7 +556,9 @@ def analyser_puits_distribution(
                 n_curves=n_curves,
                 prior_years=prior_years,
                 df_conc_red=df_conc_red,
-                result_dir=result_dir
+                result_dir=result_dir, 
+                gaz_suc=gaz_suc, 
+                puits=puits
             )
 
     # Vidéo finale
@@ -340,17 +590,17 @@ def run_case(args):
 if __name__ == "__main__":
     # --- Données sources : plusieurs dossiers racines ---
     dossiers_list = [
-        Path(r"2025-09-24, err03"),
-        Path(r"2025-09-24, err02"),
-        Path(r"2025-09-24, err02, new")
+        Path(r"2025-09-28, err03"),
+        Path(r"2025-09-28, err02"),
+        Path(r"2025-09-28, err04")
     ]
     dossiers_list = [gp.ROOT_DIRECTORY_RESULTS / d for d in dossiers_list]
 
     # --- Listes de cas à traiter ---
     # puits_list = ["PE", "F11", "F09", "F34", "MF1", "MF4", "F38"]
     # distributions_list = ["exp_shifted", "ig_shifted", "ig"]
-    puits_list = ["F11", "F09"]
-    distributions_list = ["exp_shifted", "ig_shifted"]
+    puits_list = ["F09","F11"]
+    distributions_list = ["exp_shifted", "ig_shifted","ig"]
 
     # --- Options globales ---
     base_type = "suc"
@@ -358,7 +608,7 @@ if __name__ == "__main__":
     submode = "double"
 
     # --- Paramètre global ---
-    use_multiprocessing = True   # ⬅️ change à False pour exécution séquentielle
+    use_multiprocessing = False   # ⬅️ change à False pour exécution séquentielle
 
     # Générer toutes les combinaisons (dossier, puits, distribution)
     combos = [

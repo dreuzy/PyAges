@@ -12,8 +12,9 @@ import pandas as pd                  # DataFrame
 import sys                           # sys: abort code
 from scipy import interpolate        # Interpolation function 
 from scipy import integrate          # Interpolation function 
+from pathlib import Path
 
-import tools.figures_additional as figadd
+
 
    
 class Tracer: 
@@ -215,22 +216,81 @@ class Tracer:
         return max(self.__recharge_chronicle_file.iloc[:,1])
 
 
-    def display(self,display_options):
-        """ Display chemical element
-        """
-        if display_options.text : print("chemical:", self.__name)
+    def display(self, display_options):
+        """ Display chemical element """
+        if display_options.text:
+            print("chemical:", self.__name)
+
         # plotting the input chronicle
-        if self.__recharge_chronicle == True : 
-            self.__recharge_chronicle_file.plot(x=self.__recharge_chronicle_file.columns[0],y=self.__recharge_chronicle_file.columns[1],title="input chronicle (recharge) for " + self.__name)
-            display_options.figure_close_fx(self.__name+"_recharge")
+        if self.__recharge_chronicle is True:
+            self.__recharge_chronicle_file.plot(
+                x=self.__recharge_chronicle_file.columns[0],
+                y=self.__recharge_chronicle_file.columns[1],
+                title="input chronicle (recharge) for " + self.__name
+            )
+            display_options.figure_close_fx(self.__name + "_recharge")
+
         # extracting the data
-        date = np.linspace(self.datemin,self.datemax,1000)
+        date = np.linspace(self.datemin, self.datemax, 1000)
         time = self.datemax - date
         c = self.get_concentration(date, time)
+
+        # --- Remplacement de figure_init(...) par son contenu ---
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.set_xlabel("date", fontsize=16, fontweight="bold")
+        ax.set_ylabel("concentrations", fontsize=14, fontweight="bold")
+        ax.tick_params(axis="x", labelsize=14)
+        ax.tick_params(axis="y", labelsize=14)
+        ax.grid(True)
+        ax.set_title(self.__name, fontsize=22, fontweight="bold")
+
         # plot of the data
-        figadd.figure_init(xlab='date',ylab='concentrations',figname=self.__name)
-        plt.plot(date, c, 'r', label=self.__name)
-        display_options.figure_close_fx(self.__name+"_chronicle")
+        ax.plot(date, c, "r", label=self.__name)
+
+        display_options.figure_close_fx(self.__name + "_chronicle")
+
 
         
+# ------------------------------------------------------
+# Classe minimale pour gérer les options d'affichage
+# ------------------------------------------------------
+class DisplayOptions:
+    def __init__(self):
+        self.text = True
+        self.figure_save = False
+        self.figure_close = True
+        self.directory = Path("figures_out")
+        self.directory.mkdir(exist_ok=True)
 
+    def figure_close_fx(self, filename):
+        """Sauvegarde, affichage et/ou fermeture de la figure"""
+        filepath = self.directory / f"{filename}.png"
+        if self.figure_save:
+            plt.savefig(filepath, dpi=150)
+            print(f"✅ Figure sauvegardée : {filepath}")
+
+        # Toujours afficher à l'écran
+        plt.show()
+
+        # Ensuite fermer si demandé
+        if self.figure_close:
+            plt.close()
+
+# ------------------------------------------------------
+# Main
+# ------------------------------------------------------
+def main():
+    tracer_dir = Path(r"D:\codes\pyage\sources\tracer_data")
+
+    # Liste des traceurs disponibles
+    tracer_names = ["cfc11", "cfc12", "cfc113"]
+
+    display_options = DisplayOptions()
+
+    for name in tracer_names:
+        print(f"\n--- Chargement du traceur {name} ---")
+        tracer = Tracer(tracer_dir, name=name)
+        tracer.display(display_options)
+
+if __name__ == "__main__":
+    main()

@@ -5,6 +5,77 @@ import pandas as pd
 import imageio.v2 as imageio
 
 
+
+def corresp_folder_suc(base_path, distribution=None):
+    """
+    Corrige le chemin cible en supprimant '_apriori_double' et '_prior'
+    et renvoie le chemin du sous-dossier avec puits horodaté et distribution.
+
+    Retourne (status, path):
+      0 = trouvé normalement (unique ou sélection claire)
+      1 = plusieurs résultats, distribution préférée (shifted vs non-shifted) choisie
+      2 = plusieurs résultats, préférence introuvable, premier pris
+     -1 = aucun résultat trouvé
+    """
+    base_path = Path(base_path)
+
+    # Morceaux du chemin d'entrée
+    dist_in = (distribution or base_path.name)   # p.ex. "ig" ou "ig_shifted"
+    base = dist_in.replace("_shifted", "")       # base "ig"
+    dist_shifted = f"{base}_shifted"             # "ig_shifted"
+    dist_plain = base                            # "ig"
+
+    puits_horodate = base_path.parent.name       # "F11_2004_2005"
+    run_dir = base_path.parent.parent.name       # "2025_09_28-18_15_17"
+    scenario_dir = base_path.parents[2].name     # "ploemeur_apriori_double_0.3suc_prior"
+    root_dir = base_path.parents[3]              # "D:/results/PyAge/2025-09-28, err03"
+
+    # Nom de scénario nettoyé
+    scenario_clean = scenario_dir.replace("_apriori_double", "").replace("_prior", "")
+
+    # On se limite au run courant pour éviter les collisions entre runs
+    search_root = root_dir / scenario_clean / run_dir
+
+    # On cherche tous les dossiers qui contiennent *exactement* le puits horodaté
+    # (fonction supposée faire une correspondance exacte sur les parties de chemin)
+    folders = trouver_repertoires(root_dir / scenario_clean, [puits_horodate])
+
+    if not folders:
+        print(f"❌ Aucun dossier trouvé pour {puits_horodate} dans {search_root}")
+        return -1, None
+
+    # Convertir en Path et ne garder que les dossiers au niveau distribution (dernier segment)
+    candidates = [Path(f) for f in folders if Path(f).name in {dist_shifted, dist_plain}]
+
+    # S’il n’y a pas de candidats stricts, on garde tous les folders trouvés (fallback)
+    if not candidates:
+        # Fallback: tout ce qui matche le puits dans ce run, on choisit le premier
+        # print(f"⚠️ Aucun dossier {dist_plain} ou {dist_shifted} trouvé sous {puits_horodate}.")
+        # print("→ Utilisation du premier candidat :", folders[0])
+        return 2, Path(folders[0])
+
+    # Préférence : shifted > plain
+    exact_shifted = [p for p in candidates if p.name == dist_shifted]
+    if exact_shifted:
+        if len(candidates) > 1:
+            # print(f"ℹ️ Plusieurs dossiers trouvés, préférence pour '{dist_shifted}': {exact_shifted[0]}")
+            return 1, exact_shifted[0]
+        return 0, exact_shifted[0]
+
+    exact_plain = [p for p in candidates if p.name == dist_plain]
+    if exact_plain:
+        if len(candidates) > 1:
+            print(f"ℹ️ Plusieurs dossiers trouvés, préférence pour '{dist_plain}': {exact_plain[0]}")
+            return 1, exact_plain[0]
+        return 0, exact_plain[0]
+
+    # Dernier fallback: premier candidat
+    print("⚠️ Préférences introuvables, utilisation du premier candidat :", candidates[0])
+    return 2, candidates[0]
+
+
+
+
 def make_video_from_figures(result_dir, output_name="video.mp4", fps=1, format="FFMPEG"):
     """
     Assemble toutes les images PNG de result_dir en une vidéo.
