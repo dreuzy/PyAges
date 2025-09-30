@@ -14,9 +14,11 @@ import ploemeur_postprocessing.concentrations_mod as cmod
 from tracer.tracer_root import Tracer  # <-- ta classe Tracer
 
 
+import matplotlib.pyplot as plt
+import pandas as pd
 
 
-def tracer_stat(df_stats, df_stat_prior, distribution):
+def tracer_stat(df_stats, df_stat_prior, distribution, save_path=None):
     """
     Affiche :
     - une bande horizontale correspondant à la médiane ± écart-type
@@ -31,31 +33,28 @@ def tracer_stat(df_stats, df_stat_prior, distribution):
         Doit contenir aussi les colonnes 'date', 'median_mean' et 'median_std'.
     distribution : str
         Nom de la distribution ("exp_shift", "ig", "ig_shifted").
+    save_path : str ou Path, optionnel
+        Si renseigné, chemin complet où sauvegarder la figure (ex: "resultats/figure1.png").
     """
     # Extraire uniquement la ligne 1 de df_stats
     ligne = df_stats.iloc[1]
-
-    # Valeurs pour la ligne 1
     median = ligne["median_mean"]
     std = ligne["median_std"]
 
     # Conversion des colonnes date en datetime
     df_stats = df_stats.copy()
     df_stats["date"] = pd.to_datetime(df_stats["date"].astype(int), format="%Y")
-
     df_stat_prior = df_stat_prior.copy()
     df_stat_prior["date"] = pd.to_datetime(df_stat_prior["date"].astype(int), format="%Y")
 
-    # --- Bornes temporelles pour les gammes d'années ---
+    # Bornes temporelles
     year_min_full = df_stats["date"].dt.year.min()
     year_max_full = df_stats["date"].dt.year.max()
-
-    # Axe des dates pour la bande
     date_min = min(df_stats["date"].min(), df_stat_prior["date"].min())
     date_max = max(df_stats["date"].max(), df_stat_prior["date"].max())
     dates = [date_min, date_max]
 
-    # Mapping pour les titres
+    # Mapping titres
     titles_map = {
         "exp_shift": "Shifted exponential",
         "ig": "Inverse Gaussian",
@@ -63,37 +62,39 @@ def tracer_stat(df_stats, df_stat_prior, distribution):
     }
     titre = titles_map.get(distribution, distribution)
 
-    plt.figure(figsize=(10, 4))
+    fig = plt.figure(figsize=(10, 4))
 
-    # Bande ± écart-type en gris ("Full Chronicle")
-    plt.fill_between(
-        dates,
-        [median - std, median - std],
-        [median + std, median + std],
-        color="grey",
-        alpha=0.3
-    )
-
-    # Ligne médiane en gris plus fine (sans légende)
+    # Bande ± écart-type
+    plt.fill_between(dates, [median - std, median - std], [median + std, median + std],
+                     color="grey", alpha=0.3)
     plt.plot(dates, [median, median], color="grey", linewidth=1)
 
     # Points rouges = "In Chronicle"
-    plt.errorbar(
-        df_stat_prior["date"],
-        df_stat_prior["median_mean"],
-        yerr=df_stat_prior["median_std"],
-        fmt="o",
-        color="red",
-        ecolor="red",
-        elinewidth=1,
-        capsize=3
-    )
+    plt.errorbar(df_stat_prior["date"], df_stat_prior["median_mean"],
+                 yerr=df_stat_prior["median_std"],
+                 fmt="o", color="red", ecolor="red", elinewidth=1, capsize=3)
 
-    # --- Légende ---
+    # Légende
     handles = [
         plt.Rectangle((0, 0), 1, 1, color="grey", alpha=0.3,
                       label=f"Full chronicle ({year_min_full}–{year_max_full})"),
-        plt.
+        plt.Line2D([0], [0], color="red", marker="o", linestyle="None", label="In chronicle"),
+    ]
+    plt.xlabel("Date", fontsize=14)
+    plt.ylabel("Median", fontsize=14)
+    plt.title(titre, fontsize=16, fontweight="bold")
+    plt.legend(handles=handles, loc="upper left", frameon=False, fontsize=14)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.grid(True)
+    plt.tight_layout()
+
+    # Sauvegarde éventuelle
+    if save_path is not None:
+        fig.savefig(save_path, dpi=300)
+        print(f"✅ Figure sauvegardée : {save_path}")
+
+    plt.show()
 
 
 def tracer_concentrations(
@@ -510,7 +511,7 @@ def analyser_puits_distribution(
             submode=submode,
         )
         
-        tracer_stat(df_stat_all,df_stat_prior,distribution)
+        tracer_stat(df_stat_all,df_stat_prior,distribution,save_path=result_dir)
 
     # CAS 2 : SUBSET
     if tracer_subset:
