@@ -12,9 +12,17 @@ import ploemeur_postprocessing.concentrations_obs as cobs
 import ploemeur_postprocessing.concentrations_mod as cmod
 
 from tracer.tracer_root import Tracer  # <-- ta classe Tracer
-
-
 from appli_ploemeur_postprocessing_stat import generer_toutes_les_figures
+
+# ✅ Styles globaux pour les figures (présentation/papier)
+plt.rcParams.update({
+    "figure.figsize": (12, 6),   # Taille par défaut des figures
+    "axes.titlesize": 20,        # Taille des titres (plt.title ou ax.set_title)
+    "axes.labelsize": 18,        # Taille des labels X/Y
+    "xtick.labelsize": 16,       # Taille des ticks en X
+    "ytick.labelsize": 16,       # Taille des ticks en Y
+    "legend.fontsize": 16,       # Taille des légendes
+})
 
 def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=None):
     """
@@ -53,22 +61,38 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
     }
     titre = titles_map.get(distribution, distribution)
 
-    fig = plt.figure(figsize=(10, 4))
+    fig = plt.figure(figsize=(14, 6))
 
     # Bande ± écart-type
     plt.fill_between(dates, [median - std, median - std], [median + std, median + std],
                      color="grey", alpha=0.3)
-    plt.plot(dates, [median, median], color="grey", linewidth=1)
+    plt.plot(dates, [median, median], color="grey", linewidth=2)
 
     # Points rouges = "In Chronicle"
-    plt.errorbar(df_stat_prior["date"], df_stat_prior["median_mean"],
-                 yerr=df_stat_prior["median_std"],
-                 fmt="o", color="red", ecolor="red", elinewidth=1, capsize=3)
+    plt.errorbar(
+        df_stat_prior["date"],
+        df_stat_prior["median_mean"],
+        yerr=df_stat_prior["median_std"],
+        fmt="o",
+        color="red",
+        ecolor="red",
+        elinewidth=2,
+        capsize=5,
+        markersize=10
+    )
 
     # Points bleus = df_suc
-    plt.errorbar(df_suc["date"], df_suc["median_mean"],
-                 yerr=df_suc["median_std"],
-                 fmt="o", color="blue", ecolor="blue", elinewidth=1, capsize=3)
+    plt.errorbar(
+        df_suc["date"],
+        df_suc["median_mean"],
+        yerr=df_suc["median_std"],
+        fmt="o",
+        color="blue",
+        ecolor="blue",
+        elinewidth=2,
+        capsize=5,
+        markersize=10
+    )
 
     # Légende mise à jour
     handles = [
@@ -77,13 +101,11 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
         plt.Line2D([0], [0], color="red", marker="o", linestyle="None", label="In chronicle"),
         plt.Line2D([0], [0], color="blue", marker="o", linestyle="None", label="Independent"),
     ]
-    plt.xlabel("Date", fontsize=14)
-    plt.ylabel("Median", fontsize=14)
-    plt.title(f"{titre} - {puits}", fontsize=16, fontweight="bold")
-    plt.legend(handles=handles, loc="upper left", frameon=False, fontsize=14)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.grid(True)
+    plt.xlabel("Date")
+    plt.ylabel("Median years")
+    plt.title(f"{titre} - {puits}", fontweight="bold", fontsize=18)
+    plt.legend(handles=handles, loc="upper left", frameon=False)
+    plt.grid(True, alpha=0.4)
     plt.tight_layout()
 
     # Sauvegarde éventuelle
@@ -93,13 +115,11 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
     plt.show()
 
 
-
-
 def tracer_concentrations(
     df_conc_all,
     gaz_mod,
-    fontsize_labels=14,
-    fontsize_ticks=12,
+    fontsize_labels=16,
+    fontsize_ticks=14,
     layout="colonne",
     gaz_prior=None,
     n_curves=5,
@@ -111,14 +131,6 @@ def tracer_concentrations(
     distribution=None,
     puits=None
 ):
-    """
-    Trace les concentrations expérimentales (points noirs),
-    l’enveloppe des modèles calibrés (gris, full chronicle),
-    les modèles insérés dans la chronique (rouge),
-    éventuellement les modèles indépendants (bleu),
-    et optionnellement les chroniques atmosphériques CFC (pointillés noirs).
-    """
-
     # ✅ Mapping du titre comme dans tracer_stat
     titles_map = {
         "exp_shifted": "Shifted Exponential",
@@ -132,23 +144,21 @@ def tracer_concentrations(
     # Layout
     if layout == "ligne":
         fig, axes = plt.subplots(1, len(traceurs), figsize=(6 * len(traceurs), 5), sharey=False)
-    else:  # colonne
+    else:
         fig, axes = plt.subplots(len(traceurs), 1, figsize=(8, 4 * len(traceurs)), sharex=True)
 
-    # ✅ Ajout du titre global
+    # ✅ Titre global
     if distribution is not None and puits is not None:
-        fig.suptitle(f"{titre} - {puits}", fontsize=16, fontweight="bold")
+        fig.suptitle(f"{titre} - {puits}", fontweight="bold", fontsize=18)
 
     if len(traceurs) == 1:
         axes = [axes]
 
-    # --- indice du graphe où placer la légende ---
     mid_idx = len(axes) // 2
 
-    # Date max dans toutes les sources
     max_date = max([df_conc_all["date"].max()] + [df.index.max() for df in gaz_mod.values()])
 
-    # --- Charger les chroniques atmosphériques des CFCs (uniquement si demandé) ---
+    # Optionnel : références atmosphériques
     chroniques_ref = {}
     if with_atm_ref:
         tracer_dir = Path(r"D:\codes\pyage\sources\tracer_data")
@@ -162,7 +172,6 @@ def tracer_concentrations(
             except Exception as e:
                 print(f"⚠️ Impossible de charger la chronique {name}: {e}")
 
-    # petit helper pour formater l’année/les années
     def _fmt_years_tuple(yrs, fallback_min=None, fallback_max=None):
         if yrs is not None:
             debut, fin = yrs
@@ -182,9 +191,11 @@ def tracer_concentrations(
         return ""
 
     for i, (ax, traceur) in enumerate(zip(axes, traceurs)):
+        # Enveloppe calibrée
         if traceur in gaz_mod:
             cmod.tracer_enveloppe(ax, gaz_mod[traceur], traceur, color="#606060", alpha=0.5)
 
+        # SUC (rouge)
         df_suc = None
         if gaz_suc is not None and traceur in gaz_suc:
             df_suc = gaz_suc[traceur]
@@ -193,8 +204,9 @@ def tracer_concentrations(
                 step = max(1, len(cols) // n_curves)
                 cols = cols[::step]
             for col in cols:
-                ax.plot(df_suc.index, df_suc[col], lw=1, alpha=0.8, color="red")
+                ax.plot(df_suc.index, df_suc[col], lw=1.5, alpha=0.8, color="red")
 
+        # PRIOR (bleu)
         df_prior = None
         if gaz_prior is not None and traceur in gaz_prior:
             df_prior = gaz_prior[traceur]
@@ -203,44 +215,49 @@ def tracer_concentrations(
                 step = max(1, len(cols) // n_curves)
                 cols = cols[::step]
             for col in cols:
-                ax.plot(df_prior.index, df_prior[col], lw=1, alpha=0.8, color="blue")
+                ax.plot(df_prior.index, df_prior[col], lw=1.5, alpha=0.8, color="blue")
 
+        # Données expérimentales (noir)
         data = df_conc_all[df_conc_all["element"] == traceur]
         ax.errorbar(
             data["date"], data["concentration"],
             yerr=0.2 * data["concentration"],
-            fmt="o", capsize=3, color="black", markersize=5, zorder=5,
+            fmt="o", capsize=4, color="black", markersize=10, zorder=5,
         )
 
+        # Points rouges spécifiques
         if df_conc_red is not None:
             data_red = df_conc_red[df_conc_red["element"] == traceur]
             ax.errorbar(
                 data_red["date"], data_red["concentration"],
                 yerr=0.2 * data_red["concentration"],
-                fmt="o", capsize=3, color="red", markersize=5, zorder=10,
+                fmt="o", capsize=4, color="red", markersize=10, zorder=10,
             )
 
+        # Références atmosphériques
         if with_atm_ref and traceur.upper() in chroniques_ref:
             date_ref, conc_ref = chroniques_ref[traceur.upper()]
-            ax.plot(date_ref, conc_ref, "k--", lw=1.2, alpha=0.8, label=f"{traceur} atm.")
+            ax.plot(date_ref, conc_ref, "k--", lw=1.5, alpha=0.8, label=f"{traceur} atm.")
 
-        ax.set_xlabel("Date", fontsize=fontsize_labels)
-        ax.set_ylabel(f"{traceur} (pptv)", fontsize=fontsize_labels)
-        ax.set_ylim(bottom=0)
+        ax.set_xlabel("Date")
+        ax.set_ylabel(f"{traceur} (pptv)")
+        ax.xaxis.set_major_locator(plt.MaxNLocator(6))
+        ax.yaxis.set_major_locator(plt.MaxNLocator(4))
         ax.set_xlim(left=1960, right=max_date + 2.5)
+        ax.xaxis.set_major_locator(plt.MaxNLocator(6))
+        ax.tick_params(axis="both")
 
-        yticks = ax.get_yticks()
-        ax.set_yticks(yticks[::2])
-        ax.tick_params(axis="both", labelsize=fontsize_ticks)
-
+        # ✅ LÉGENDE restaurée
         if i == mid_idx:
             handles = [
                 plt.Line2D([0], [0], color="black", marker="o", linestyle="None", label="Data"),
             ]
             data_min, data_max = int(data["date"].min()), int(data["date"].max())
             handles.append(
-                plt.Rectangle((0, 0), 1, 1, color="darkgrey", alpha=0.9,
-                              label=f"Full chronicle ({data_min}–{data_max})")
+                plt.Rectangle(
+                    (0, 0), 1, 1, color="darkgrey", alpha=0.9,
+                    label=f"Full chronicle ({data_min}–{data_max})"
+                )
             )
 
             if df_suc is not None:
@@ -262,29 +279,29 @@ def tracer_concentrations(
                                           label=f"Independent {label_years}".strip()))
 
             if with_atm_ref and traceur.upper() in chroniques_ref:
-                handles.append(plt.Line2D([0], [0], color="black", ls="--", lw=1.2, label="Atmospheric ref."))
+                handles.append(plt.Line2D([0], [0], color="black", ls="--", lw=1.2,
+                                          label="Atmospheric ref."))
 
-            ax.legend(handles=handles, loc="upper left", fontsize=fontsize_labels, frameon=False)
-   
+            ax.legend(handles=handles, loc="upper left", frameon=False)
+
     plt.tight_layout()
 
+    # ✅ SAUVEGARDE + RETOUR
     saved_file = None
     if result_dir is not None:
         result_dir = Path(result_dir)
         result_dir.mkdir(parents=True, exist_ok=True)
-    
+
         idx = 1
         while (result_dir / f"figure_{idx:03d}.png").exists():
             idx += 1
-    
+
         out_file = result_dir / f"figure_{idx:03d}.png"
         fig.savefig(out_file, dpi=300)
         saved_file = out_file
-    
-    plt.show()
-    
-    return saved_file
 
+    plt.show()
+    return saved_file
 
 
 # ======================================================================
@@ -641,7 +658,7 @@ if __name__ == "__main__":
     submode = "double"
 
     # --- Paramètre global ---
-    use_multiprocessing = True
+    use_multiprocessing = False
 
     # ✅ Générer toutes les combinaisons AVEC l'erreur
     combos = [
