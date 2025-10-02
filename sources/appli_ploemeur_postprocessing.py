@@ -24,6 +24,130 @@ plt.rcParams.update({
     "legend.fontsize": 16,       # Taille des légendes
 })
 
+def tracer_points_seuls(
+    df_conc_all,
+    layout="colonne",
+    distribution=None,
+    puits=None,
+    fontsize_labels=16,
+    fontsize_ticks=14,
+    result_dir=None,
+    with_atm_ref=False   # ✅ activation optionnelle des courbes CFC
+):
+    from tracer.tracer_root import Tracer
+    import numpy as np
+
+    # ✅ Mapping du titre
+    titles_map = {
+        "exp_shifted": "Shifted Exponential",
+        "ig": "Inverse Gaussian",
+        "ig_shifted": "Shifted Inverse Gaussian",
+    }
+    titre = titles_map.get(distribution, distribution)
+
+    traceurs = df_conc_all["element"].unique()
+
+    # ✅ Layout
+    if layout == "ligne":
+        fig, axes = plt.subplots(1, len(traceurs), figsize=(6 * len(traceurs), 5), sharey=False)
+    else:
+        fig, axes = plt.subplots(len(traceurs), 1, figsize=(8, 4 * len(traceurs)), sharex=True)
+
+    # ✅ Titre global
+    if distribution is not None and puits is not None:
+        fig.suptitle(f"{titre} - {puits}", fontweight="bold", fontsize=18)
+
+    if len(traceurs) == 1:
+        axes = [axes]
+
+    # ✅ Charger les chroniques CFC si demandé
+    chroniques_ref = {}
+    if with_atm_ref:
+        tracer_dir = Path(r"C:\codes\pyage\sources\tracer_data")  # adapte si besoin
+        for name in ["cfc11", "cfc12", "cfc113"]:
+            try:
+                tr = Tracer(tracer_dir, name=name)
+                date = np.linspace(tr.datemin, tr.datemax, 1000)
+                time = tr.datemax - date
+                conc = tr.get_concentration(date, time)
+                chroniques_ref[name.upper()] = (date, conc)
+            except Exception as e:
+                print(f"⚠️ Impossible de charger la chronique {name}: {e}")
+
+    # ✅ Mapping pour faire correspondre traceurs ↔ CFC
+    name_map = {
+        "F11": "CFC11",
+        "CFC-11": "CFC11",
+        "CFC11": "CFC11",
+        "F12": "CFC12",
+        "CFC-12": "CFC12",
+        "CFC12": "CFC12",
+        "CFC113": "CFC113",
+        "F113": "CFC113",
+    }
+    
+
+    for ax, traceur in zip(axes, traceurs):
+        # ✅ Points expérimentaux
+        data = df_conc_all[df_conc_all["element"] == traceur]
+        ax.errorbar(
+            data["date"], data["concentration"],
+            yerr=0.2 * data["concentration"],
+            fmt="o", capsize=4, color="black", markersize=7, zorder=5,
+            label="Ploemeur data"   # ✅ AJOUT ICI
+        )
+        
+        # ✅ 👉 Ici on impose le début à 1960
+        ax.set_xlim(left=1940)
+
+        # ✅ Affichage de la chronique CFC correspondante
+        if with_atm_ref:
+            nom_traceur = traceur.upper()
+            nom_ref = name_map.get(nom_traceur)
+            if nom_ref and nom_ref in chroniques_ref:
+                date_ref, conc_ref = chroniques_ref[nom_ref]
+                ax.plot(
+                    date_ref,
+                    conc_ref,
+                    "k--",
+                    lw=1.5,
+                    alpha=0.8,
+                    label=f"{nom_ref} atm."
+                )
+
+        # ✅ Mise en forme
+        ax.set_xlabel("Date", fontsize=fontsize_labels)
+        ax.set_ylabel(f"{traceur} (pptv)", fontsize=fontsize_labels)
+        ax.tick_params(axis="both", labelsize=fontsize_ticks)
+        ax.xaxis.set_major_locator(plt.MaxNLocator(6))
+        ax.yaxis.set_major_locator(plt.MaxNLocator(4))
+        ax.grid(True, alpha=0.4)
+
+        # ✅ Légende seulement si ref tracée
+        if with_atm_ref and nom_ref and nom_ref in chroniques_ref:
+            ax.legend(frameon=False)
+
+    plt.tight_layout()
+
+    # ✅ Sauvegarde
+    saved_file = None
+    if result_dir is not None:
+        result_dir = Path(result_dir)
+        result_dir.mkdir(parents=True, exist_ok=True)
+
+        idx = 1
+        while (result_dir / f"points_seuls_{idx:03d}.png").exists():
+            idx += 1
+
+        out_file = result_dir / f"points_seuls_{idx:03d}.png"
+        fig.savefig(out_file, dpi=300)
+        saved_file = out_file
+
+    plt.show()
+    return saved_file
+
+
+
 def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=None):
     """
     Affiche :
@@ -320,16 +444,6 @@ def charger_donnees(
     """
     Charge les données (calibrées ou prior) selon le mode choisi.
 
-    Paramètres
-    ----------
-    df : DataFrame
-        DataFrame des répertoires construits par fold.construire_dataframe.
-    mode : {"calib", "prior"}
-        - "calib" → répertoire avec durée max
-        - "prior" → répertoire filtré par critères
-    base_type, prior, submode, annee_debut, annee_fin : str ou int
-        Critères utilisés uniquement si mode="prior".
-
     Retour
     ------
     tuple :
@@ -338,6 +452,13 @@ def charger_donnees(
     """
     if mode == "calib":
         df_all = fold.trouver_repertoires_df(df, duree_max=True, afficher=False)
+
+        if df_all is None or df_all.empty:
+            raise ValueError(
+                "❌ Aucun répertoire trouvé pour le mode 'calib'.\n"
+                f"DataFrame fourni :\n{df}"
+            )
+
         dossier_cible = df_all.iloc[0]["chemin"]
 
         df_conc = cobs.charger_concentrations(dossier_cible)
@@ -351,13 +472,20 @@ def charger_donnees(
             "prior": prior,
             "mode": submode,
         }
-        # Ajouter les années seulement si elles sont fournies
         if annee_debut is not None:
             criteres["annee_debut"] = annee_debut
         if annee_fin is not None:
             criteres["annee_fin"] = annee_fin
 
         df_year_prior = fold.trouver_repertoires_df(df, criteres=criteres, afficher=False)
+
+        if df_year_prior is None or df_year_prior.empty:
+            raise ValueError(
+                "❌ Aucun répertoire trouvé pour le mode 'prior' "
+                f"avec critères={criteres}.\n"
+                f"DataFrame fourni :\n{df}"
+            )
+
         dossier_cible = df_year_prior.iloc[0]["chemin"]
 
         df_mod, gaz_mod = cmod.charger_concentrations(dossier_cible)
@@ -474,7 +602,7 @@ def analyser_puits_distribution(
     dossier, puits, distribution,
     base_type="suc", prior_flag="prior", submode="double",
     tracer_global=True, tracer_subset=True,
-    layout="colonne", n_curves=20,
+    layout="ligne", n_curves=20,
     fontsize_labels=16, fontsize_ticks=12
 ):
     """
@@ -507,6 +635,15 @@ def analyser_puits_distribution(
             base_type=base_type,
             prior=prior_flag,
             submode=submode,
+        )
+        
+        fichier = tracer_points_seuls(
+            df_conc_all=df_conc_all,
+            layout="ligne",
+            distribution=distribution,
+            puits=puits,
+            result_dir=result_dir,
+            with_atm_ref=True   # ✅ active les références atmosphériques
         )
 
         fichier = tracer_concentrations(
@@ -649,6 +786,7 @@ if __name__ == "__main__":
 
     # --- Listes de cas à traiter ---
     puits_list = ["F09", "F11"]
+    # puits_list = ["F11","F09","F38","F38b","F34","PE","MF4","PZ2","PSR1"]
     # distributions_list = ["exp_shifted", "ig_shifted", "ig"]
     distributions_list = ["exp_shifted", "ig_shifted"]
 
@@ -658,7 +796,7 @@ if __name__ == "__main__":
     submode = "double"
 
     # --- Paramètre global ---
-    use_multiprocessing = False
+    use_multiprocessing = True
 
     # ✅ Générer toutes les combinaisons AVEC l'erreur
     combos = [
@@ -706,7 +844,7 @@ if __name__ == "__main__":
         df_global = pd.concat(df_global, ignore_index=True)
         
         # ✅ Sauvegarde dans un fichier CSV
-        output_file = gp.ROOT_DIRECTORY_RESULTS / "resultats_global.csv"
+        output_file = gp.ROOT_DIRECTORY_RESULTS / "resultats_global_toto.csv"
         df_global.to_csv(output_file, index=False)
         print(f"\n✅ DataFrame global sauvegardé dans : {output_file}")
 
