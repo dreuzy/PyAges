@@ -277,7 +277,7 @@ def display_concentration_chronicles(craw, lpm_results, method, display, span_or
         conc_model = ConcentrationTime(cv=concentrations)
     
         # 👉 Affichage seulement une fois sur 5
-        if i % 5 == 0:
+        if i % 50 == 0:
             conc_model.display(fig, axs, graph_type="line")
     
         # Conversion et accumulation

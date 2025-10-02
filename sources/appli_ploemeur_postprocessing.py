@@ -643,12 +643,18 @@ if __name__ == "__main__":
         (Path(r"2025-09-28, err04"), 0.4)
     ]
     dossiers_list = [
+        (Path(r"2025-10-01, err03"), 0.3),
+        (Path(r"2025-10-01, err02"), 0.2),
+        (Path(r"2025-10-01, err04"), 0.4)
+    ]
+    dossiers_list = [
         (gp.ROOT_DIRECTORY_RESULTS / d, erreur)
         for (d, erreur) in dossiers_list
     ]
 
     # --- Listes de cas à traiter ---
     puits_list = ["F09", "F11"]
+    puits_list = ["F11","F09","F34","PE","MF1","MF4","F38"]#,"PZ2","PSR1"]
     # distributions_list = ["exp_shifted", "ig_shifted", "ig"]
     distributions_list = ["exp_shifted", "ig_shifted"]
 
@@ -706,7 +712,7 @@ if __name__ == "__main__":
         df_global = pd.concat(df_global, ignore_index=True)
         
         # ✅ Sauvegarde dans un fichier CSV
-        output_file = gp.ROOT_DIRECTORY_RESULTS / "resultats_global.csv"
+        output_file = gp.ROOT_DIRECTORY_RESULTS / "resultats_global_large.csv"
         df_global.to_csv(output_file, index=False)
         print(f"\n✅ DataFrame global sauvegardé dans : {output_file}")
 
