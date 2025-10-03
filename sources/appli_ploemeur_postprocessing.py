@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 import numpy as np
+import warnings
 
 import global_parameters as gp
 import ploemeur_postprocessing.folders as fold
@@ -24,7 +25,8 @@ plt.rcParams.update({
     "legend.fontsize": 16,       # Taille des légendes
 })
 
-def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=None):
+
+def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=None, use_multiprocessing=False):
     """
     Affiche :
     - une bande horizontale correspondant à la médiane ± écart-type
@@ -33,10 +35,34 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
     - les points issus de df_suc avec médiane ± écart-type en bleu.
     """
 
-    # Extraire uniquement la ligne 1 de df_stats
-    ligne = df_stats.iloc[1]
+    # Vérifier le nombre de lignes
+    n_lignes = len(df_stats)
+    
+    if n_lignes == 0 or n_lignes > 4:
+        raise ValueError(
+            f"❌ ERREUR dans tracer_stat : df_stats contient {n_lignes} lignes, "
+            "attendu entre 1 et 4.\n"
+            f"- distribution : {distribution}\n"
+            f"- puits        : {puits}\n"
+            f"- shape        : {df_stats.shape if df_stats is not None else 'None'}\n"
+            f"- colonnes     : {None if df_stats is None else list(df_stats.columns)}\n"
+            f"- aperçu       :\n{None if df_stats is None else df_stats.head()}\n"
+        )
+    
+    elif n_lignes >= 2:
+        ligne = df_stats.iloc[1]   # ✅ 2ème ligne
+    else:
+        warnings.warn(
+            f"⚠️ df_stats ne contient qu'une seule ligne, "
+            f"on utilise la première (puits={puits}, distribution={distribution}).",
+            UserWarning
+        )
+        ligne = df_stats.iloc[0]
+    
     median = ligne["median_mean"]
     std = ligne["median_std"]
+    
+    # ... reste du code pour le tracé ...
 
     # Conversion des colonnes date en datetime
     df_stats = df_stats.copy()
@@ -128,7 +154,9 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
     if save_path is not None:
         fig.savefig(save_path, dpi=300)
 
-    plt.show()
+    if use_multiprocessing==False: 
+        plt.show()
+    plt.close(fig) 
 
 
 def tracer_concentrations(
@@ -145,7 +173,8 @@ def tracer_concentrations(
     gaz_suc=None,
     with_atm_ref=False,
     distribution=None,
-    puits=None
+    puits=None,
+    use_multiprocessing=False
 ):
     # ✅ Mapping du titre comme dans tracer_stat
     titles_map = {
@@ -316,13 +345,16 @@ def tracer_concentrations(
         fig.savefig(out_file, dpi=300)
         saved_file = out_file
 
-    plt.show()
+    if use_multiprocessing == False: 
+        plt.show()
+    plt.close(fig) 
     return saved_file
 
 
 # ======================================================================
 # === Fonctions utilitaires pour charger les données ===================
 # ======================================================================
+
 
 def charger_donnees(
     df,
@@ -331,10 +363,12 @@ def charger_donnees(
     prior=None,
     submode=None,
     annee_debut=None,
-    annee_fin=None
+    annee_fin=None,
+    distribution=None
 ):
     """
-    Charge les données (calibrées ou prior) selon le mode choisi.
+    Charge les données (calibrées ou prior) selon le mode choisi
+    et ajoute le chargement des paramètres de simulation.
 
     Paramètres
     ----------
@@ -343,23 +377,47 @@ def charger_donnees(
     mode : {"calib", "prior"}
         - "calib" → répertoire avec durée max
         - "prior" → répertoire filtré par critères
-    base_type, prior, submode, annee_debut, annee_fin : str ou int
-        Critères utilisés uniquement si mode="prior".
+    distribution : str, optionnel
+        Nom de la distribution (utile pour localiser le sous-dossier Metropolis_Hastings).
 
     Retour
     ------
     tuple :
-        - Si mode="calib" → (df_conc, df_mod, gaz_mod)
-        - Si mode="prior" → (df_mod, gaz_mod)
+        - Si mode="calib" → (df_conc, df_mod, gaz_mod, simul_param)
+        - Si mode="prior" → (df_mod, gaz_mod, simul_param)
     """
+    if df is None or df.empty:
+        raise ValueError(
+            "⚠️ ERREUR : le DataFrame fourni à charger_donnees est vide.\n"
+            f"  - mode        : {mode}\n"
+            f"  - base_type   : {base_type}\n"
+            f"  - prior       : {prior}\n"
+            f"  - submode     : {submode}\n"
+            f"  - annee_debut : {annee_debut}\n"
+            f"  - annee_fin   : {annee_fin}\n"
+            f"  - distribution: {distribution}\n"
+        )
+
     if mode == "calib":
         df_all = fold.trouver_repertoires_df(df, duree_max=True, afficher=False)
+        if df_all.empty:
+            raise ValueError(
+                f"⚠️ Aucun répertoire trouvé en mode 'calib'. "
+                f"DataFrame initial contenait {len(df)} lignes."
+            )
         dossier_cible = df_all.iloc[0]["chemin"]
 
+        # Charger données principales
         df_conc = cobs.charger_concentrations(dossier_cible)
         df_mod, gaz_mod = cmod.charger_concentrations(dossier_cible)
 
-        return df_conc, df_mod, gaz_mod
+        # Charger paramètres de simulation
+        mh_dir = os.path.join(dossier_cible, "Metropolis_Hastings")
+        param_file = os.path.join(mh_dir, "parameters_calibration.txt")
+        result_file = os.path.join(mh_dir, "results_calibration.txt")
+        simul_param = fold.charger_plusieurs_kv_df(param_file, result_file)
+
+        return df_conc, df_mod, gaz_mod, simul_param
 
     elif mode == "prior":
         criteres = {
@@ -367,21 +425,32 @@ def charger_donnees(
             "prior": prior,
             "mode": submode,
         }
-        # Ajouter les années seulement si elles sont fournies
         if annee_debut is not None:
             criteres["annee_debut"] = annee_debut
         if annee_fin is not None:
             criteres["annee_fin"] = annee_fin
 
         df_year_prior = fold.trouver_repertoires_df(df, criteres=criteres, afficher=False)
+        if df_year_prior.empty:
+            raise ValueError(
+                f"⚠️ Aucun répertoire trouvé en mode 'prior' avec critères : {criteres}. "
+                f"DataFrame initial contenait {len(df)} lignes."
+            )
         dossier_cible = df_year_prior.iloc[0]["chemin"]
 
+        # Charger données principales
         df_mod, gaz_mod = cmod.charger_concentrations(dossier_cible)
-        return df_mod, gaz_mod
+
+        # Charger paramètres de simulation
+        mh_dir = os.path.join(dossier_cible, "Metropolis_Hastings")
+        param_file = os.path.join(mh_dir, "parameters_calibration.txt")
+        result_file = os.path.join(mh_dir, "results_calibration.txt")
+        simul_param = fold.charger_plusieurs_kv_df(param_file, result_file)
+
+        return df_mod, gaz_mod, simul_param
 
     else:
         raise ValueError("mode doit être 'calib' ou 'prior'")
-
 
 
 def charger_statistiques(
@@ -405,9 +474,10 @@ def charger_statistiques(
     distribution : str
         Nom de la distribution (utilisé pour retrouver le fichier
         "<distribution>_stats_quantiles.txt").
-    mode : {"calib", "prior"}
+    mode : {"calib", "prior", "suc"}
         - "calib" → répertoire avec durée max
         - "prior" → répertoire filtré par critères
+        - "suc"   → répertoire fourni explicitement
     base_type, prior, submode, annee_debut, annee_fin : str ou int
         Critères utilisés uniquement si mode="prior".
 
@@ -416,8 +486,33 @@ def charger_statistiques(
     DataFrame :
         Contenu du fichier de statistiques quantiles.
     """
+    # ✅ Vérification du DataFrame en entrée (sauf si mode="suc")
+    if mode != "suc" and (df is None or df.empty):
+        # Forcer pandas à tout afficher dans les messages d’erreur
+        pd.set_option("display.max_rows", None)
+        pd.set_option("display.max_columns", None)
+        pd.set_option("display.width", None)
+        pd.set_option("display.max_colwidth", None)
+        raise ValueError(
+            "⚠️ ERREUR : le DataFrame fourni à charger_statistiques est vide.\n"
+            "Détails des paramètres d'entrée :\n"
+            f"  - mode        : {mode}\n"
+            f"  - distribution: {distribution}\n"
+            f"  - base_type   : {base_type}\n"
+            f"  - prior       : {prior}\n"
+            f"  - submode     : {submode}\n"
+            f"  - annee_debut : {annee_debut}\n"
+            f"  - annee_fin   : {annee_fin}\n"
+            f"  - dossier     : {dossier}\n"
+        )
+
     if mode == "calib":
         df_all = fold.trouver_repertoires_df(df, duree_max=True, afficher=False)
+        if df_all.empty:
+            raise ValueError(
+                f"⚠️ Aucun répertoire trouvé en mode 'calib'.\n"
+                f"DataFrame initial contenait {len(df)} lignes."
+            )
         dossier_cible = df_all.iloc[0]["chemin"]
 
     elif mode == "prior":
@@ -432,11 +527,20 @@ def charger_statistiques(
             criteres["annee_fin"] = annee_fin
 
         df_year_prior = fold.trouver_repertoires_df(df, criteres=criteres, afficher=False)
+        if df_year_prior.empty:
+            raise ValueError(
+                f"⚠️ Aucun répertoire trouvé en mode 'prior' avec les critères : {criteres}\n"
+                f"DataFrame initial contenait {len(df)} lignes."
+            )
         dossier_cible = df_year_prior.iloc[0]["chemin"]
-    elif mode =="suc": 
+
+    elif mode == "suc":
+        if dossier is None:
+            raise ValueError("⚠️ En mode 'suc', le paramètre 'dossier' doit être fourni.")
         dossier_cible = dossier
+
     else:
-        raise ValueError("mode doit être 'calib' ou 'prior'")
+        raise ValueError("mode doit être 'calib', 'prior' ou 'suc'")
 
     # Remonter deux niveaux au-dessus
     dossier_parent = os.path.dirname(os.path.dirname(dossier_cible))
@@ -444,15 +548,25 @@ def charger_statistiques(
     # Construire le chemin vers le fichier
     fichier_stats = os.path.join(dossier_parent, distribution + "_stats_quantiles.txt")
 
-    # Charger en DataFrame
+    # Vérifier existence du fichier
     if not os.path.exists(fichier_stats):
-        raise FileNotFoundError(f"Fichier introuvable : {fichier_stats}")
+        raise FileNotFoundError(
+            f"⚠️ Fichier introuvable : {fichier_stats}\n"
+            f"(répertoire cible : {dossier_cible})"
+        )
 
-    # Pandas sait gérer automatiquement le séparateur si on met sep=None + engine="python"
+    # Charger en DataFrame
     df_stats = pd.read_csv(fichier_stats, sep=None, engine="python")
+
+    # Vérifier si vide
+    if df_stats.empty:
+        raise ValueError(
+            f"⚠️ Le fichier de statistiques {fichier_stats} est vide."
+        )
+
+
     return df_stats
 
-    
 
 
 def lister_plages_annees(df_subset):
@@ -491,10 +605,13 @@ def analyser_puits_distribution(
     base_type="suc", prior_flag="prior", submode="double",
     tracer_global=True, tracer_subset=True,
     layout="colonne", n_curves=20,
-    fontsize_labels=16, fontsize_ticks=12
+    fontsize_labels=16, fontsize_ticks=12, use_multiprocessing=False
 ):
     """
     Pipeline complet pour un puits + une distribution.
+    Retourne :
+      - un DataFrame concaténé regroupant uniquement les statistiques "all" et "prior"
+        (les "suc" sont tracées mais non sauvegardées dans le concat final).
     """
     # Application du mapping conditionnel
     base_type_cond, prior_flag_cond, submode_cond = map_conditionnement(
@@ -506,66 +623,70 @@ def analyser_puits_distribution(
     df = fold.construire_dataframe(folders)
 
     # Données calibrées globales
-    df_conc_all, df_mod_all, gaz_mod_all = charger_donnees(df, mode="calib")
+    df_conc_all, df_mod_all, gaz_mod_all, simul_param_all = charger_donnees(df, mode="calib")
     df_stat_all = charger_statistiques(df, distribution, mode="calib")
 
-    # Répertoire de sortie
     result_dir = fold.make_subdirs(dossier, "postproc", puits, distribution)
 
-    # ✅ Liste des figures sauvegardées
     fichiers_video = []
+    df_concat_list = []
 
-    # CAS 1 : GLOBAL
+    # --- CASE ALL ---
+    if df_stat_all is not None and not df_stat_all.empty:
+        df_tmp = df_stat_all.copy()
+        df_tmp["type"] = "all"
+        if simul_param_all is not None and not simul_param_all.empty:
+            for col in simul_param_all.columns:
+                df_tmp[col] = simul_param_all.iloc[0][col]
+        df_concat_list.append(df_tmp)
+
+    # --- CASE GLOBAL PRIOR ---
+    df_stat_prior = None
     if tracer_global:
-        df_prior_all, gaz_prior_all = charger_donnees(
-            df,
-            mode="prior",
-            base_type=base_type,
-            prior=prior_flag,
-            submode=submode,
+        df_prior_all, gaz_prior_all, simul_param_prior = charger_donnees(
+            df, mode="prior", base_type=base_type, prior=prior_flag, submode=submode
         )
 
         fichier = tracer_concentrations(
             df_conc_all, gaz_mod_all,
-            fontsize_labels=fontsize_labels,
-            fontsize_ticks=fontsize_ticks,
-            layout=layout,
-            gaz_prior=None,   # prior global désactivé
-            n_curves=n_curves,
-            prior_years=None,
-            df_conc_red=None,
-            result_dir=result_dir, 
-            distribution=distribution,
-            puits=puits
+            fontsize_labels=fontsize_labels, fontsize_ticks=fontsize_ticks,
+            layout=layout, gaz_prior=None, n_curves=n_curves,
+            prior_years=None, df_conc_red=None,
+            result_dir=result_dir, distribution=distribution, puits=puits,
+            use_multiprocessing=use_multiprocessing
         )
-
         if fichier:
             fichiers_video.append(str(fichier))
 
         df_stat_prior = charger_statistiques(
-            df,
-            distribution=distribution,
-            mode="prior",
-            base_type=base_type,
-            prior=prior_flag,
-            submode=submode,
+            df, distribution=distribution, mode="prior",
+            base_type=base_type, prior=prior_flag, submode=submode
         )
-        
-    # CAS 2 : SUBSET
+
+        if df_stat_prior is not None and not df_stat_prior.empty:
+            df_tmp = df_stat_prior.copy()
+            df_tmp["type"] = "prior"
+            if simul_param_prior is not None and not simul_param_prior.empty:
+                for col in simul_param_prior.columns:
+                    df_tmp[col] = simul_param_prior.iloc[0][col]
+            df_concat_list.append(df_tmp)
+
+    # --- CASE SUBSET ---
     if tracer_subset:
         df_subset = fold.trouver_sauf_annees(
-            df,
-            base_type=base_type,
-            prior=prior_flag,
-            submode=submode,
-            afficher=False
+            df, base_type=base_type, prior=prior_flag, submode=submode, afficher=False
         )
+
+        df_stat_suc_all = []
 
         for _, row in df_subset.iterrows():
             dossier_cible = row["chemin"]
             prior_years = (row["annee_debut"], row["annee_fin"])
-
             df_conc_red = cobs.charger_concentrations(dossier_cible)
+
+            param_file = os.path.join(dossier_cible, "Metropolis_Hastings", "parameters_calibration.txt")
+            result_file = os.path.join(dossier_cible, "Metropolis_Hastings", "results_calibration.txt")
+            simul_param = fold.charger_plusieurs_kv_df(param_file, result_file)
 
             try:
                 df_prior_all, gaz_prior_all = cmod.charger_concentrations(dossier_cible)
@@ -580,50 +701,53 @@ def analyser_puits_distribution(
                 except Exception as e:
                     print(f"⚠️ Erreur chargement concentrations depuis {dossier_cible} : {e}")
 
+            # Tracé
             fichier = tracer_concentrations(
                 df_conc_all, gaz_mod_all,
-                fontsize_labels=fontsize_labels,
-                fontsize_ticks=fontsize_ticks,
-                layout=layout,
-                gaz_prior=gaz_prior_all,
-                n_curves=n_curves,
-                prior_years=prior_years,
-                df_conc_red=df_conc_red,
-                result_dir=result_dir, 
-                gaz_suc=gaz_suc, 
-                distribution=distribution,
-                puits=puits
+                fontsize_labels=fontsize_labels, fontsize_ticks=fontsize_ticks,
+                layout=layout, gaz_prior=gaz_prior_all, n_curves=n_curves,
+                prior_years=prior_years, df_conc_red=df_conc_red,
+                result_dir=result_dir, gaz_suc=gaz_suc,
+                distribution=distribution, puits=puits,
+                use_multiprocessing=use_multiprocessing
             )
-
             if fichier:
                 fichiers_video.append(str(fichier))
 
-        df_stat_suc = charger_statistiques(
-            df_subset,
-            distribution=distribution,
-            mode="suc",
-            base_type=base_type,
-            prior=prior_flag,
-            submode=submode,
-            dossier=dossier_suc
-        )
-        
+            # Stats suc uniquement pour tracer_stat (⚠️ pas ajouté dans df_concat_list)
+            df_stat_suc_local = charger_statistiques(
+                pd.DataFrame([row]),
+                distribution=distribution,
+                mode="suc",
+                base_type=base_type,
+                prior=prior_flag,
+                submode=submode,
+                dossier=dossier_suc
+            )
+            if df_stat_suc_local is not None and not df_stat_suc_local.empty:
+                df_stat_suc_local["type"] = "suc"
+                df_stat_suc_all.append(df_stat_suc_local)
+
+        df_stat_suc = pd.concat(df_stat_suc_all, ignore_index=True) if df_stat_suc_all else None
+
         tracer_stat(
             df_stat_all, df_stat_prior, df_stat_suc,
-            distribution, puits, save_path=result_dir
+            distribution, puits, save_path=result_dir,
+            use_multiprocessing=use_multiprocessing
         )
 
-    # ✅ Appel vidéo avec la liste de fichiers
     if fichiers_video:
-        fold.make_video_from_figures(
-            fichiers_video,
-            "concentrations_video.mp4",
-            fps=1
-        )
+        fold.make_video_from_figures(fichiers_video, "concentrations_video.mp4", fps=1)
     else:
         print("⚠️ Aucun fichier généré, pas de vidéo.")
-    
-    return df_stat_prior
+
+    df_concat = None
+    if df_concat_list:
+        df_concat = pd.concat(df_concat_list, ignore_index=True)
+
+    return df_concat
+
+
 
 
 # ======================
@@ -631,7 +755,7 @@ def analyser_puits_distribution(
 # ======================
 
 def run_case(args):
-    dossier, puits, distribution, base_type, prior_flag, submode, erreur = args
+    dossier, puits, distribution, base_type, prior_flag, submode, erreur, use_multiprocessing = args
     print(f"=== Analyse {puits} | {distribution} | erreur={erreur} ===")
     
     df_res = analyser_puits_distribution(
@@ -644,7 +768,8 @@ def run_case(args):
         layout="ligne",
         n_curves=20,
         fontsize_labels=16,
-        fontsize_ticks=12
+        fontsize_ticks=12,
+        use_multiprocessing=use_multiprocessing
     )
 
     # ✅ La clé contient désormais aussi "erreur"
@@ -653,7 +778,6 @@ def run_case(args):
 
 def format_err(val: float) -> str:
     n = round(val * 100)
-
     if n % 10 == 0:  # multiple de 0.1
         return f"err{n // 10:02d}"  # 2 chiffres
     else:
@@ -661,41 +785,56 @@ def format_err(val: float) -> str:
 
 
 if __name__ == "__main__":
-    # --- Données sources AVEC erreurs associées ---
-    
-    # --- Option 1 ---
-    # Pour la date du 2025-09-28: simulations raisonnables
-    # valeurs = [0.3, 0.2, 0.4]  # ordre spécifique
-    # date = "2025-09-28"
-    
-    # --- Option 2 ---
-    # Pour la date du 2025-10-01: simulations longues /5
-    valeurs = [0.2, 0.3, 0.4]
-    date = "2025-10-01"
-    
-    # --- Option 3 ---
-    # Pour la date du 2025-10-02
-    valeurs = [0.1, 0.2, 0.3, 0.4]
-    date = "2025-10-02"
-    
+
+    # ===========================================
+    # 🔽 CHOISIR LE CAS À TESTER ICI 🔽
+    option_case = 4  # ← mettre 1, 2 ou 3
+    # ===========================================
+
+    if option_case == 1:
+        # --- Option 1 ---
+        # Pour la date du 2025-09-28: simulations raisonnables (20 000)
+        valeurs = [0.2, 0.3, 0.4]  # ordre spécifique
+        date = "2025-09-28"
+        puits_list = ["F11","F09","F34","PE","MF1","MF4","F38"]
+        distributions_list = ["exp_shifted", "ig", "ig_shifted"]
+
+    elif option_case == 2:
+        # --- Option 2 ---
+        # Pour la date du 2025-10-01: simulations longues /5
+        valeurs = [0.2, 0.3, 0.4]
+        date = "2025-10-01"
+        puits_list = ["F11","F09","F34","PE","MF1","MF4","F38"]
+        distributions_list = ["exp_shifted", "ig_shifted"]
+
+    elif option_case == 3:
+        # --- Option 3 ---
+        # Pour la date du 2025-10-02
+        valeurs = [0.1, 0.2, 0.3, 0.4]
+        date = "2025-10-02"
+        puits_list = ["F11","F09","F34","PE","MF1","MF4","F38b","F38","PZ2","PSR1"]
+        distributions_list = ["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"]
+
+    elif option_case == 4:
+        # --- Option 3 ---
+        # Pour la date du 2025-10-02
+        valeurs = [0.4]
+        date = "2025-10-02"
+        puits_list = ["PSR1"]
+        distributions_list = ["exp_shifted"]
+
+    else:
+        raise ValueError(f"Option inconnue : {option_case}")
+
     # Génération automatique des chemins
     dossiers_list = [
         (gp.ROOT_DIRECTORY_RESULTS / Path(f"{date}, {format_err(val)}"), val)
         for val in valeurs
     ]
     
-    # Affichage
     print("📂 Liste des dossiers générés :")
     for dossier, val in dossiers_list:
         print(f" - {dossier} (val={val})")
-
-    # --- Listes de cas à traiter ---
-    # puits_list = ["F09", "F11"]
-    # puits_list = ["F11","F09","F34","PE","MF1","MF4","F38"]#,"PZ2","PSR1"]
-    puits_list = ["F11","F09","F34","PE","MF1","MF4","F38b","F38","PZ2","PSR1"]
-    # distributions_list = ["exp_shifted", "ig_shifted", "ig"]
-    # distributions_list = ["exp_shifted", "ig_shifted"]
-    distributions_list = ["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"]
 
     # --- Options globales ---
     base_type = "suc"
@@ -703,17 +842,16 @@ if __name__ == "__main__":
     submode = "double"
 
     # --- Paramètre global ---
-    use_multiprocessing = True
+    use_multiprocessing = False
 
     # ✅ Générer toutes les combinaisons AVEC l'erreur
     combos = [
-        (dossier, puits, distribution, base_type, prior_flag, submode, erreur)
+        (dossier, puits, distribution, base_type, prior_flag, submode, erreur, use_multiprocessing)
         for (dossier, erreur) in dossiers_list
         for puits in puits_list
         for distribution in distributions_list
     ]
 
-    # ✅ Lancement des traitements
     print("Exécution séquentielle" if not use_multiprocessing else "Exécution parallèle")
     
     if use_multiprocessing:
@@ -722,22 +860,15 @@ if __name__ == "__main__":
         with mp.Pool(processes=n_cores) as pool:
             results_list = pool.map(run_case, combos)
     else:
-        results_list = []
-        for args in combos:
-            result = run_case(args)
-            results_list.append(result)
+        results_list = [run_case(args) for args in combos]
 
-    # ✅ Stockage final dans un dictionnaire clé → DataFrame
+    # ✅ Stockage séparé dans deux dictionnaires
     resultats_df = {
         (puits, distribution, erreur): df
         for (puits, distribution, erreur), df in results_list
     }
 
-    print("\n✅ Résultats enregistrés :")
-    for key in resultats_df:
-        print(f" - {key}")
-
-    # ✅ Concaténation dans un grand dataframe (avec clef en colonnes)
+    # ✅ Concaténation DataFrames statistiques
     df_global = []
     for (puits, distribution, erreur), df in resultats_df.items():
         if df is not None and not df.empty:
@@ -749,20 +880,15 @@ if __name__ == "__main__":
 
     if df_global:
         df_global = pd.concat(df_global, ignore_index=True)
-        
-        # ✅ Sauvegarde dans un fichier CSV
-        
         output_file = gp.ROOT_DIRECTORY_RESULTS / f"{date}_resultats_global_large.csv"
-
         df_global.to_csv(output_file, index=False)
-        print(f"\n✅ DataFrame global sauvegardé dans : {output_file}")
-
-        # ✅ Relecture pour vérification
         df_test = pd.read_csv(output_file)
-        print(f"✅ Test de lecture réussi : {df_test.shape[0]} lignes chargées")
-
+        print(f"✅ Stats sauvegardées : {df_test.shape[0]} lignes")
     else:
-        print("\n⚠️ Aucun DataFrame valide à concaténer.")
+        print("\n⚠️ Aucun DataFrame valide à concaténer (stats).")
+
+
         
-    generer_toutes_les_figures(output_file,date)
+    # Génération des figures finales
+    generer_toutes_les_figures(output_file, date)
 

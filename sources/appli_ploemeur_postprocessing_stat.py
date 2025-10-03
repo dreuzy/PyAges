@@ -42,10 +42,13 @@ def visualiser_results_global(
     # Vérification des colonnes attendues
     colonnes_requises = {
         colonne_date, colonne_mediane, colonne_std,
-        "puits", "distribution", "erreur"
+        "puits", "distribution", "erreur", "prior_option"
     }
     if not colonnes_requises.issubset(df.columns):
         raise ValueError(f"Le DataFrame doit contenir au moins : {colonnes_requises}")
+
+    # ✅ Filtrer sur prior_option == True
+    filtered_df = df[df["prior_option"] == True].copy()
 
     # Identifier le paramètre laissé variable
     params = {"puits": puits, "distribution": distribution, "erreur": erreur}
@@ -57,13 +60,12 @@ def visualiser_results_global(
     param_variable = unset_params[0]
 
     # Filtrer selon les paramètres fixés
-    filtered_df = df.copy()
     for k, v in params.items():
         if v is not None:
             filtered_df = filtered_df[filtered_df[k] == v]
 
     if filtered_df.empty:
-        print("⚠️ Aucun résultat trouvé pour ces filtres.")
+        # print("⚠️ Aucun résultat trouvé pour ces filtres.")
         return
 
     # Traduction des distributions
@@ -92,6 +94,8 @@ def visualiser_results_global(
         "F38": "orange",
         "MF4": "purple",
         "PE": "brown",
+        "PZ2": "pink",
+        "PSR1": "cyan",
     }
     use_puits_colors = (param_variable == "puits")
 
@@ -143,10 +147,6 @@ def visualiser_results_global(
     plt.xlabel(colonne_date)
     plt.ylabel("Median")
 
-    # ✅ Axe X
-    x_data = filtered_df[colonne_date]
-    
-    
     # =========================================================
     # ✅ Axe Y : 3 à 4 ticks, entiers ou multiples de 2.5,
     #            sans valeurs négatives, marges automatiques
@@ -154,35 +154,27 @@ def visualiser_results_global(
     y_data = filtered_df[colonne_mediane]
     y_min_raw, y_max_raw = y_data.min(), y_data.max()
     
-    # Cas où toutes les valeurs sont identiques
     if y_min_raw == y_max_raw:
         base = y_min_raw
         ticks = [base, base + 2.5, base + 5]
-        ticks = [t for t in ticks if t >= 0]  # ✅ garder uniquement ≥ 0
+        ticks = [t for t in ticks if t >= 0]
         plt.yticks(ticks)
     else:
         range_y = y_max_raw - y_min_raw
         margin = 0.1 * range_y
-    
         y_min_adj = y_min_raw - margin
         y_max_adj = y_max_raw + margin
-    
-        # Arrondir les bornes affichées
         y_min_tick = np.floor(y_min_adj)
         y_max_tick = np.ceil(y_max_adj)
-    
         max_ticks = 4
         min_ticks = 3
-    
-        # 1️⃣ Essai avec step = 5
+
         step_y = 5
         ticks = list(np.arange(
             np.floor(y_min_tick / step_y) * step_y,
             np.ceil(y_max_tick / step_y) * step_y + step_y,
             step_y
         ))
-    
-        # 2️⃣ Si moins de 3 ticks → step = 2.5
         if len(ticks) < min_ticks:
             step_y = 2.5
             ticks = list(np.arange(
@@ -190,28 +182,17 @@ def visualiser_results_global(
                 np.ceil(y_max_tick / step_y) * step_y + step_y,
                 step_y
             ))
-    
-        # 3️⃣ Limiter à 4 ticks max
         if len(ticks) > max_ticks:
             indices = np.linspace(0, len(ticks) - 1, max_ticks).astype(int)
             ticks = [ticks[i] for i in indices]
-    
-        # ✅ supprimer toute valeur négative
         ticks = [t for t in ticks if t >= 0]
-    
-        # ✅ arrondir proprement
         ticks = [round(t, 2) for t in ticks]
-    
         plt.yticks(ticks)
 
-    
     # =========================================================
-    # ✅ Axe X : de 2004 à 2024 avec un pas de 5 ans
+    # ✅ Axe X : ticks 2005, 2010, 2015, 2020
     # =========================================================
-    xmin, xmax = 2004, 2026
-    plt.xlim(xmin, xmax)
-    
-    # ✅ Ticks uniquement à 2005, 2010, 2015, 2020
+    plt.xlim(2004, 2026)
     xticks = [year for year in range(2005, 2026) if year % 5 == 0]
     plt.xticks(xticks)
 
@@ -219,7 +200,6 @@ def visualiser_results_global(
     plt.grid(True, alpha=0.4)
     plt.tight_layout()
 
-    # ✅ Sauvegarde ou affichage (suffix inclus)
     if save_dir is not None:
         save_dir = Path(save_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
@@ -231,10 +211,8 @@ def visualiser_results_global(
         )
         filepath = save_dir / filename
         plt.savefig(filepath, dpi=300)
-        # print(f"✅ Figure sauvegardée : {filepath}")
     else:
         plt.show()
-
 
 
 def generer_toutes_les_figures(csv_path,date):
@@ -245,7 +223,7 @@ def generer_toutes_les_figures(csv_path,date):
     df_test = pd.read_csv(csv_path)
 
     # 2) Répertoire de sauvegarde des figures
-    output_dir = Path(gp.ROOT_DIRECTORY_RESULTS) / f"{date}_plots_globaux.csv"
+    output_dir = Path(gp.ROOT_DIRECTORY_RESULTS) / f"{date}_plots_globaux"
     output_dir.mkdir(exist_ok=True, parents=True)
 
     # 3) Lister les valeurs uniques
@@ -302,7 +280,7 @@ def generer_toutes_les_figures(csv_path,date):
                 df_subset = df_test[df_test["puits"].isin(puits_group)]
                 
                 if df_subset.empty:
-                    print(f"⚠️ Aucun résultat trouvé pour {label} (distribution={d}, erreur={e})")
+                    # print(f"⚠️ Aucun résultat trouvé pour {label} (distribution={d}, erreur={e})")
                     continue
     
                 # ✅ Appel normal, mais sur df_subset et avec suffix explicite
