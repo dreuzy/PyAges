@@ -159,7 +159,16 @@ def trouver_repertoires(base_dir, motifs):
                 if not chemin_str.endswith("Metropolis_Hastings"):
                     resultats.add(chemin_str)
 
-    return sorted(resultats)
+    resultats = sorted(resultats)
+
+    if not resultats:
+        raise FileNotFoundError(
+            f"⚠️  Aucun répertoire trouvé.\n"
+            f"Base_dir : {base_dir}\n"
+            f"Motifs   : {motifs}"
+        )
+
+    return resultats
 
 
 def parser_chemin(chemin):
@@ -219,7 +228,15 @@ def parser_chemin(chemin):
 
 def construire_dataframe(chemins):
     data = [parser_chemin(c) for c in chemins]
-    return pd.DataFrame(data)
+    df = pd.DataFrame(data)
+    
+    if df.empty:
+        raise ValueError(
+            f"⚠️  Sécurité : le DataFrame construit est vide !\n"
+            f"Chemins analysés : {chemins}"
+        )
+    
+    return df
 
 
 def afficher_dataframe_aligne(df):
@@ -308,6 +325,7 @@ def trouver_chemin_specifique(
     
     return result
 
+
 def trouver_repertoires_df(df, criteres=None, duree_max=False, afficher=False):
     """
     Filtre un DataFrame de répertoires selon des critères précis
@@ -351,7 +369,16 @@ def trouver_repertoires_df(df, criteres=None, duree_max=False, afficher=False):
             print("\n=== Répertoires correspondant aux critères ===")
             afficher_dataframe_aligne(result)
 
+    # 🚨 Contrôle d'erreur si vide
+    if result.empty:
+        raise ValueError(
+            f"⚠️  Aucun répertoire trouvé dans le DataFrame.\n"
+            f"Critères  : {criteres}\n"
+            f"Duree_max : {duree_max}"
+        )
+
     return result
+
 
 
 def charger_lpm_dist(dossier_cible):

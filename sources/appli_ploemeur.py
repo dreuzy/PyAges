@@ -58,7 +58,7 @@ class SimulationStrategy:
         root folder in which results should be stored
     """
     
-    def __init__(self):
+    def __init__(self, apriori_type = None):
         # self.options =    ["span_prior","suc_prior","suc","all"]
         # self.prior  =     [True, True, False, False]
         # self.likelyhood = [True, True, True,  True]
@@ -71,13 +71,14 @@ class SimulationStrategy:
         # self.folder = "ploemeur_apriori_double_"
 
         # self.errors=[0.2,0.3]#,0.15,0.25,0.05]
-        self.errors=[0.3,0.2,0.4]#,0.15,0.25,0.05]
-        self.errors=[0.4]#,0.15,0.25,0.05]
+        self.errors=[0.1,0.2,0.3,0.4]#,0.15,0.25,0.05]
+        # self.errors=[0.4]#,0.15,0.25,0.05]
 
-        apriori_type = "none"
-        # apriori_type = "single"
-        # apriori_type = "double"
-        # apriori_type = "double_suc_prior"
+        if(apriori_type == None):
+            apriori_type = "none"
+            # apriori_type = "single"
+            apriori_type = "double"
+            # apriori_type = "double_suc_prior"
         
         if apriori_type == "none" :
             self.options =    ["suc"]
@@ -119,11 +120,11 @@ class SimulationStrategy:
         # self.well_select = ["F11","F09","F34","PE","MF1","MF4","F38","F38b"]
         # self.well_select = ["F34","PE","MF1","MF4","F38","F38b","PZ2","PSR1"]
         # self.well_select = ["F11","F09"]
-        self.well_select = ["PZ2","PSR1"]
+        # self.well_select = ["PZ2","PSR1"]
         self.parallel=True#JRJR
         self.proc_nb=int(mp.cpu_count())
-        self.explo_res=int(2000/1)#JRJR
-        self.MH_nsteps=int(200000/5)#JRJR
+        self.explo_res=int(2000/100)#JRJR
+        self.MH_nsteps=int(200000/100)#JRJR
         self.lpm_number=max(min(int(self.MH_nsteps/50),5000),10)
         
         
@@ -562,7 +563,8 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         # lpm_types.append(["exp_shifted","ig_shifted","ig"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
         
     if "F34" in well_select : 
         wells.append("F34")
@@ -571,15 +573,16 @@ def selector(well_select,error=0.03):
         # lpm_types.append(["exp_shifted"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
        
     if "F11" in well_select : 
         wells.append("F11")
         datess.append("2004_2024")
         errors.append(error)
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
-        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
         # lpm_types.append(["exp_shifted","ig_shifted","ig"])
@@ -590,11 +593,11 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
-        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
         # lpm_types.append(["exp_shifted"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
 
     if "F38b" in well_select : 
         wells.append("F38b")
@@ -602,11 +605,11 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
-        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
         # lpm_types.append(["exp_shifted"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
                 
     if "MF4" in well_select : 
         wells.append("MF4")
@@ -614,11 +617,11 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
-        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
         # lpm_types.append(["exp_shifted"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
         
     if "PE" in well_select : 
         wells.append("PE")
@@ -626,11 +629,11 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
-        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
         # lpm_types.append(["exp_shifted"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
         
     if "MF1" in well_select : 
         wells.append("MF1")
@@ -638,22 +641,22 @@ def selector(well_select,error=0.03):
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
         # lpm_types.append(["exp_shifted_young","exp_shifted","exp_shifted_old"])
-        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
         # lpm_types.append(["exp_shifted"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
 
     if "PZ2" in well_select : 
         wells.append("PZ2")
         datess.append("2009_2024")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
         # lpm_types.append(["exp_shifted"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
 
 
     if "PSR1" in well_select : 
@@ -661,11 +664,11 @@ def selector(well_select,error=0.03):
         datess.append("2009_2024")
         errors.append(error)
         # lpm_types.append(["dirac_double_1_set"])
-        # lpm_types.append(["exp_shifted","exp_shifted_old","exp_shifted_young","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
+        lpm_types.append(["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"])
         # lpm_types.append(["exp_shifted"])
         # lpm_types.append(["gamma","uniform","exp_shifted","ig_shifted","ig","dirac_double_1_set"])
         # lpm_types.append(["exp_shifted","ig_shifted","dirac_double_1_set"])#,"gamma","uniform"])
-        lpm_types.append(["exp_shifted","ig_shifted","ig"])
+        # lpm_types.append(["exp_shifted","ig_shifted","ig"])
 
         
     return wells,datess,errors,lpm_types
@@ -673,50 +676,18 @@ def selector(well_select,error=0.03):
     
     
 if __name__ == "__main__":  
+    # Liste des types d'apriori
+    apriori_types = ["double", "none", "single"]
     
-    # Initialization 
-    simulstart=SimulationStrategy()
-    
-    # Type of simlation 
-    # simulstart.test_F09()
-    
-    # Execution of simulation
-    simulstart.execute()
-    
-    
-    
-    
-# # Step 1: Redefine, to accept `i`, the iteration number
-# def howmany_within_range2(row, minimum, maximum):
-#     """Returns how many numbers lie within `maximum` and `minimum` in a given `row`"""
-#     count = 0
-#     for n in row:
-#         print(os.getpid(),n,row)
-#         if minimum <= n <= maximum:
-#             count = count + 1
-#     time.sleep(1)
-    
-        # # Prepare data
-        # np.random.RandomState(100)
-        # arr = np.random.randint(0, 10, size=[6, 3])
-        # data = arr.tolist()
-        # data[:5]
-        # print(data)
-
-        # pool = mp.Pool(2)
+    for apriori in apriori_types:
+        simulstart = SimulationStrategy(apriori_type=apriori)
         
-        # # Step 3: Use loop to parallelize
-        # for row in data:
-        #     pool.apply_async(howmany_within_range2, args=(row, 4, 8))
+        # Execution de la simulation
+        simulstart.execute()
     
-    
-        # # Step 4: Close Pool and let all the processes complete    
-        # pool.close()
-        # pool.join()  # postpones the execution of next line of code until all processes in the queue are done.
 
-
-    
-    
+    # Si tu veux appeler test_F09(), décommente la ligne suivante
+    # simulstart.test_F09()    
     
     
     

@@ -96,10 +96,26 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
 
     # Légende mise à jour
     handles = [
-        plt.Rectangle((0, 0), 1, 1, color="grey", alpha=0.3,
-                      label=f"Full chronicle ({year_min_full}–{year_max_full})"),
-        plt.Line2D([0], [0], color="red", marker="o", linestyle="None", label="In chronicle"),
-        plt.Line2D([0], [0], color="blue", marker="o", linestyle="None", label="Independent"),
+        plt.Rectangle(
+            (0, 0), 1, 1,
+            color="grey",
+            alpha=0.3,
+            label=f"p$_{{series}}$"
+        ),
+        plt.Line2D(
+            [0], [0],
+            color="red",
+            marker="o",
+            linestyle="None",
+            label="p$_{constrained}$"
+        ),
+        plt.Line2D(
+            [0], [0],
+            color="blue",
+            marker="o",
+            linestyle="None",
+            label="p$_{independent}$"
+        ),
     ]
     plt.xlabel("Date")
     plt.ylabel("Median years")
@@ -256,7 +272,7 @@ def tracer_concentrations(
             handles.append(
                 plt.Rectangle(
                     (0, 0), 1, 1, color="darkgrey", alpha=0.9,
-                    label=f"Full chronicle ({data_min}–{data_max})"
+                    label=f"p$_{{series}}$ ${{{data_min}–{data_max}}}$"
                 )
             )
 
@@ -267,7 +283,7 @@ def tracer_concentrations(
                     fallback_max=(int(df_suc.index.max()) if df_suc is not None else None),
                 )
                 handles.append(plt.Line2D([0], [0], color="blue", lw=1,
-                                          label=f"In chronicle {label_years}".strip()))
+                                          label=f"p$_{{constrained}}$ {label_years}".strip()))
 
             if df_prior is not None:
                 label_years = _fmt_years_tuple(
@@ -276,7 +292,7 @@ def tracer_concentrations(
                     fallback_max=(int(df_prior.index.max()) if df_prior is not None else None),
                 )
                 handles.append(plt.Line2D([0], [0], color="red", lw=1,
-                                          label=f"Independent {label_years}".strip()))
+                                          label=f"p$_{{independent}}$ {label_years}".strip()))
 
             if with_atm_ref and traceur.upper() in chroniques_ref:
                 handles.append(plt.Line2D([0], [0], color="black", ls="--", lw=1.2,
@@ -635,28 +651,51 @@ def run_case(args):
     return (puits, distribution, erreur), df_res
 
 
+def format_err(val: float) -> str:
+    n = round(val * 100)
+
+    if n % 10 == 0:  # multiple de 0.1
+        return f"err{n // 10:02d}"  # 2 chiffres
+    else:
+        return f"err{n:03d}"        # 3 chiffres
+
+
 if __name__ == "__main__":
     # --- Données sources AVEC erreurs associées ---
+    
+    # --- Option 1 ---
+    # Pour la date du 2025-09-28: simulations raisonnables
+    # valeurs = [0.3, 0.2, 0.4]  # ordre spécifique
+    # date = "2025-09-28"
+    
+    # --- Option 2 ---
+    # Pour la date du 2025-10-01: simulations longues /5
+    valeurs = [0.2, 0.3, 0.4]
+    date = "2025-10-01"
+    
+    # --- Option 3 ---
+    # Pour la date du 2025-10-02
+    valeurs = [0.1, 0.2, 0.3, 0.4]
+    date = "2025-10-02"
+    
+    # Génération automatique des chemins
     dossiers_list = [
-        (Path(r"2025-09-28, err03"), 0.3),
-        (Path(r"2025-09-28, err02"), 0.2),
-        (Path(r"2025-09-28, err04"), 0.4)
+        (gp.ROOT_DIRECTORY_RESULTS / Path(f"{date}, {format_err(val)}"), val)
+        for val in valeurs
     ]
-    dossiers_list = [
-        (Path(r"2025-10-01, err03"), 0.3),
-        (Path(r"2025-10-01, err02"), 0.2),
-        (Path(r"2025-10-01, err04"), 0.4)
-    ]
-    dossiers_list = [
-        (gp.ROOT_DIRECTORY_RESULTS / d, erreur)
-        for (d, erreur) in dossiers_list
-    ]
+    
+    # Affichage
+    print("📂 Liste des dossiers générés :")
+    for dossier, val in dossiers_list:
+        print(f" - {dossier} (val={val})")
 
     # --- Listes de cas à traiter ---
-    puits_list = ["F09", "F11"]
-    puits_list = ["F11","F09","F34","PE","MF1","MF4","F38"]#,"PZ2","PSR1"]
+    # puits_list = ["F09", "F11"]
+    # puits_list = ["F11","F09","F34","PE","MF1","MF4","F38"]#,"PZ2","PSR1"]
+    puits_list = ["F11","F09","F34","PE","MF1","MF4","F38b","F38","PZ2","PSR1"]
     # distributions_list = ["exp_shifted", "ig_shifted", "ig"]
-    distributions_list = ["exp_shifted", "ig_shifted"]
+    # distributions_list = ["exp_shifted", "ig_shifted"]
+    distributions_list = ["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"]
 
     # --- Options globales ---
     base_type = "suc"
@@ -664,7 +703,7 @@ if __name__ == "__main__":
     submode = "double"
 
     # --- Paramètre global ---
-    use_multiprocessing = False
+    use_multiprocessing = True
 
     # ✅ Générer toutes les combinaisons AVEC l'erreur
     combos = [
@@ -712,7 +751,9 @@ if __name__ == "__main__":
         df_global = pd.concat(df_global, ignore_index=True)
         
         # ✅ Sauvegarde dans un fichier CSV
-        output_file = gp.ROOT_DIRECTORY_RESULTS / "resultats_global_large.csv"
+        
+        output_file = gp.ROOT_DIRECTORY_RESULTS / f"{date}_resultats_global_large.csv"
+
         df_global.to_csv(output_file, index=False)
         print(f"\n✅ DataFrame global sauvegardé dans : {output_file}")
 
@@ -723,5 +764,5 @@ if __name__ == "__main__":
     else:
         print("\n⚠️ Aucun DataFrame valide à concaténer.")
         
-    generer_toutes_les_figures()
+    generer_toutes_les_figures(output_file,date)
 

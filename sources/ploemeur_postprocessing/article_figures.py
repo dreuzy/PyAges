@@ -42,7 +42,16 @@ def trouver_repertoires(base_dir, motifs):
                 if not chemin_str.endswith("Metropolis_Hastings"):
                     resultats.add(chemin_str)
 
-    return sorted(resultats)
+    resultats = sorted(resultats)
+
+    if not resultats:
+        raise FileNotFoundError(
+            f"⚠️  Aucun répertoire trouvé.\n"
+            f"Base_dir : {base_dir}\n"
+            f"Motifs   : {motifs}"
+        )
+
+    return resultats
 
 
 def parser_chemin(chemin):

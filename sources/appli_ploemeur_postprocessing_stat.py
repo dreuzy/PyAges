@@ -237,16 +237,15 @@ def visualiser_results_global(
 
 
 
-def generer_toutes_les_figures():
+def generer_toutes_les_figures(csv_path,date):
     # 1) Lecture du fichier global
-    csv_path = Path(gp.ROOT_DIRECTORY_RESULTS) / "resultats_global_large.csv"
     if not csv_path.exists():
         raise FileNotFoundError(f"Le fichier {csv_path} est introuvable.")
     
     df_test = pd.read_csv(csv_path)
 
     # 2) Répertoire de sauvegarde des figures
-    output_dir = Path(gp.ROOT_DIRECTORY_RESULTS) / "plots_globales_large"
+    output_dir = Path(gp.ROOT_DIRECTORY_RESULTS) / f"{date}_plots_globaux.csv"
     output_dir.mkdir(exist_ok=True, parents=True)
 
     # 3) Lister les valeurs uniques
@@ -291,7 +290,8 @@ def generer_toutes_les_figures():
     groupes_puits = [
         (["F09", "F34"], "F09_F34"),
         (["F11", "F38", "MF1"], "F11_F38_MF1"),
-        (["MF4", "PE"], "MF4_PE")
+        (["MF4", "PE"], "MF4_PE"),
+        (["PZ2","PSR1"], "PZ2_PSR1") 
     ]
     
     for d in dist_vals:           # distribution fixée
