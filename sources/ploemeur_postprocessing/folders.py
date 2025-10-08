@@ -85,7 +85,10 @@ def corresp_folder_suc(base_path, distribution=None):
     root_dir = base_path.parents[3]              # "D:/results/PyAge/2025-09-28, err03"
 
     # Nom de scénario nettoyé
-    scenario_clean = scenario_dir.replace("_apriori_double", "").replace("_prior", "")
+    if "_apriori_double" in scenario_dir:
+        scenario_clean = scenario_dir.replace("_apriori_double", "").replace("_prior", "")
+    elif "_apriori_simple" in scenario_dir:
+        scenario_clean = scenario_dir.replace("_apriori_simple", "").replace("_prior", "")
 
     # On se limite au run courant pour éviter les collisions entre runs
     search_root = root_dir / scenario_clean / run_dir

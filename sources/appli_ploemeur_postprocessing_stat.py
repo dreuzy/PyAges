@@ -2,25 +2,49 @@ import os
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
+import random
 
 import global_parameters as gp
 import ploemeur_postprocessing.folders as fold
 import ploemeur_postprocessing.concentrations_obs as cobs
 import ploemeur_postprocessing.concentrations_mod as cmod
+from matplotlib.ticker import MaxNLocator
+from matplotlib.dates import DateFormatter
 
 import numpy as np
 
 
+def build_output_filepath( date, result_scope, submode, extension="csv"):
+    """
+    Construit le chemin complet du fichier de sortie avec les conventions standardisées.
+
+    Paramètres
+    ----------
+    gp : module ou objet contenant ROOT_DIRECTORY_RESULTS
+    date : str, par ex. "2025-10-02"
+    result_scope : str, par ex. "ploemeur_es"
+    submode : str, par ex. "double"
+    extension : str, par défaut "csv"
+
+    Retour
+    ------
+    pathlib.Path
+        Chemin complet du fichier
+    """
+    return gp.ROOT_DIRECTORY_RESULTS / f"{date}_resultats_global_{result_scope}_{submode}.{extension}"
+
+
+
 # ✅ Styles globaux pour les figures (présentation/papier)
 plt.rcParams.update({
-    "figure.figsize": (12, 6),   # Taille par défaut des figures
-    "axes.titlesize": 22,        # Taille des titres (plt.title ou ax.set_title)
-    "axes.labelsize": 20,        # Taille des labels X/Y
-    "xtick.labelsize": 18,       # Taille des ticks en X
-    "ytick.labelsize": 18,       # Taille des ticks en Y
-    "legend.fontsize": 18,       # Taille des légendes
+    "figure.figsize": (12, 6),    # Taille par défaut des figures
+    "figure.titlesize": 28,       # ✅ Taille du titre principal (plt.suptitle)
+    "axes.titlesize": 26,         # Taille des titres locaux (plt.title ou ax.set_title)
+    "axes.labelsize": 20,         # Taille des labels X/Y
+    "xtick.labelsize": 18,        # Taille des ticks en X
+    "ytick.labelsize": 18,        # Taille des ticks en Y
+    "legend.fontsize": 20,        # Taille des légendes
 })
-
 
 def visualiser_results_global(
     df,
@@ -97,6 +121,21 @@ def visualiser_results_global(
         "PZ2": "pink",
         "PSR1": "cyan",
     }
+    couleurs_distributions = {
+        "exp_shifted": "red",
+        "ig_shifted": "green",
+        "ig": "blue",
+        "dirac_double_1_set": "black",
+        "gamma": "orange",
+        "uniform": "purple",
+        "exp": "brown",
+    }
+    couleurs_erreur = {
+        0.1: "black",
+        0.2: "red",
+        0.3: "blue",
+        0.4: "green",
+    }
     use_puits_colors = (param_variable == "puits")
 
     plt.figure()
@@ -114,22 +153,28 @@ def visualiser_results_global(
         else:
             val_label = val
 
-        # ✅ Couleur : si puits varie, on affecte la couleur associée
-        if use_puits_colors:
-            color = couleurs_puits.get(str(val), None)  # None => couleur par défaut si inconnu
+        # ✅ Gestion des couleurs
+        if param_variable == "puits":
+            # Cas où les puits varient → couleur selon le dictionnaire
+            color = couleurs_puits.get(str(val), None)
+        elif param_variable == "distribution":
+            color = couleurs_distributions.get(str(val), None)
+        elif param_variable == "erreur":
+            color = couleurs_erreur.get(str(val), None)
         else:
-            color = None
+            color = random.choice(["black", "red", "blue", "green", "orange", "purple", "brown", "cyan", "pink"])
             
         plt.errorbar(
             df_sub[colonne_date],
             df_sub[colonne_mediane],
             yerr=df_sub[colonne_std],
             fmt='o--',          # ⬅ points + ligne en dash
-            markersize=10,      # ⬅ points plus gros
+            markersize=15,      # ⬅ points plus gros
             capsize=5,
-            elinewidth=2,
-            linewidth=1.5,      # ⬅ épaisseur de la ligne
-            label=f"{legend_label_name}={val_label}",
+            elinewidth=3,
+            linewidth=2.5,      # ⬅ épaisseur de la ligne
+            # label=f"{legend_label_name}={val_label}",
+            label=f"{val_label}",
             color=color
         )
 
@@ -146,6 +191,11 @@ def visualiser_results_global(
     plt.title(titre_final)
     plt.xlabel(colonne_date)
     plt.ylabel("Median")
+    
+    plt.xlabel(colonne_date,fontsize=plt.rcParams["axes.titlesize"]+10)
+    plt.ylabel("Median (years)",fontsize=plt.rcParams["axes.titlesize"]+10)
+    plt.title(titre_final, fontweight="bold",fontsize=plt.rcParams["figure.titlesize"]+4)
+
 
     # =========================================================
     # ✅ Axe Y : 3 à 4 ticks, entiers ou multiples de 2.5,
@@ -196,9 +246,33 @@ def visualiser_results_global(
     xticks = [year for year in range(2005, 2026) if year % 5 == 0]
     plt.xticks(xticks)
 
-    plt.legend()
+
+    # ✅ Récupération de l'axe courant
+    ax = plt.gca()
+
+    # ✅ Rendre les axes (spines) deux fois plus épais
+    for spine in ax.spines.values():
+        spine.set_linewidth(2)    
+
+    
     plt.grid(True, alpha=0.4)
+    ax = plt.gca()
+    for spine in ax.spines.values():
+        spine.set_linewidth(3)  # tu peux mettre 3 ou 4 si tu veux encore plus épais
+
+    ax.tick_params(axis="both", labelsize=plt.rcParams["xtick.labelsize"]+10)
+    # Axe Y : max 4 ticks
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+    
+    plt.legend(
+        loc="best",
+        frameon=False,
+        fontsize=plt.rcParams["legend.fontsize"]+10,
+        markerscale=1.0   # ✅ Agrandit les symboles dans la légende
+    )
+    
     plt.tight_layout()
+
 
     if save_dir is not None:
         save_dir = Path(save_dir)
@@ -215,7 +289,7 @@ def visualiser_results_global(
         plt.show()
 
 
-def generer_toutes_les_figures(csv_path,date):
+def generer_toutes_les_figures(csv_path,date,result_scope,submode):
     # 1) Lecture du fichier global
     if not csv_path.exists():
         raise FileNotFoundError(f"Le fichier {csv_path} est introuvable.")
@@ -223,7 +297,7 @@ def generer_toutes_les_figures(csv_path,date):
     df_test = pd.read_csv(csv_path)
 
     # 2) Répertoire de sauvegarde des figures
-    output_dir = Path(gp.ROOT_DIRECTORY_RESULTS) / f"{date}_plots_globaux"
+    output_dir = build_output_filepath( date, result_scope, submode, extension="")
     output_dir.mkdir(exist_ok=True, parents=True)
 
     # 3) Lister les valeurs uniques
@@ -267,8 +341,10 @@ def generer_toutes_les_figures(csv_path,date):
             
     groupes_puits = [
         (["F09", "F34"], "F09_F34"),
-        (["F11", "F38", "MF1"], "F11_F38_MF1"),
-        (["MF4", "PE"], "MF4_PE"),
+        # (["F11", "F38", "MF1"], "F11_F38_MF1"),
+        # (["MF4", "PE"], "MF4_PE"),
+        (["F11", "F38", "MF1", "MF4", "PE"], "F11_F38_MF1_MF4_PE"),
+        # (["MF4", "PE"], "MF4_PE"),
         (["PZ2","PSR1"], "PZ2_PSR1") 
     ]
     
@@ -300,4 +376,5 @@ def generer_toutes_les_figures(csv_path,date):
 #            EXECUTION DIRECTE
 # -------------------------------------------
 if __name__ == "__main__":
-    generer_toutes_les_figures()
+    generer_toutes_les_figures(Path(r"D:\results\PyAge\2025-10-02_resultats_global_ploemeur_es_double"), "2025-10-02", "ploemeur_es","double")
+

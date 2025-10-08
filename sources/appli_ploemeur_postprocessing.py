@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import multiprocessing as mp
 import numpy as np
 import warnings
+from matplotlib.ticker import MaxNLocator
+from matplotlib.dates import DateFormatter
 
 import global_parameters as gp
 import ploemeur_postprocessing.folders as fold
@@ -13,16 +15,17 @@ import ploemeur_postprocessing.concentrations_obs as cobs
 import ploemeur_postprocessing.concentrations_mod as cmod
 
 from tracer.tracer_root import Tracer  # <-- ta classe Tracer
-from appli_ploemeur_postprocessing_stat import generer_toutes_les_figures
+from appli_ploemeur_postprocessing_stat import generer_toutes_les_figures, build_output_filepath
 
 # ✅ Styles globaux pour les figures (présentation/papier)
 plt.rcParams.update({
-    "figure.figsize": (12, 6),   # Taille par défaut des figures
-    "axes.titlesize": 20,        # Taille des titres (plt.title ou ax.set_title)
-    "axes.labelsize": 18,        # Taille des labels X/Y
-    "xtick.labelsize": 16,       # Taille des ticks en X
-    "ytick.labelsize": 16,       # Taille des ticks en Y
-    "legend.fontsize": 16,       # Taille des légendes
+    "figure.figsize": (12, 6),    # Taille par défaut des figures
+    "figure.titlesize": 28,       # ✅ Taille du titre principal (plt.suptitle)
+    "axes.titlesize": 26,         # Taille des titres locaux (plt.title ou ax.set_title)
+    "axes.labelsize": 20,         # Taille des labels X/Y
+    "xtick.labelsize": 18,        # Taille des ticks en X
+    "ytick.labelsize": 18,        # Taille des ticks en Y
+    "legend.fontsize": 20,        # Taille des légendes
 })
 
 
@@ -52,11 +55,11 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
     elif n_lignes >= 2:
         ligne = df_stats.iloc[1]   # ✅ 2ème ligne
     else:
-        warnings.warn(
-            f"⚠️ df_stats ne contient qu'une seule ligne, "
-            f"on utilise la première (puits={puits}, distribution={distribution}).",
-            UserWarning
-        )
+        # warnings.warn(
+        #     f"⚠️ df_stats ne contient qu'une seule ligne, "
+        #     f"on utilise la première ({puits}, {distribution}).",
+        #     UserWarning
+        # )
         ligne = df_stats.iloc[0]
     
     median = ligne["median_mean"]
@@ -104,7 +107,7 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
         ecolor="red",
         elinewidth=2,
         capsize=5,
-        markersize=10
+        markersize=15
     )
 
     # Points bleus = df_suc
@@ -117,7 +120,7 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
         ecolor="blue",
         elinewidth=2,
         capsize=5,
-        markersize=10
+        markersize=15
     )
 
     # Légende mise à jour
@@ -143,11 +146,27 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
             label="p$_{independent}$"
         ),
     ]
-    plt.xlabel("Date")
-    plt.ylabel("Median years")
-    plt.title(f"{titre} - {puits}", fontweight="bold", fontsize=18)
-    plt.legend(handles=handles, loc="upper left", frameon=False)
+    plt.xlabel("Date",fontsize=plt.rcParams["axes.titlesize"]+10)
+    plt.ylabel("Median years",fontsize=plt.rcParams["axes.titlesize"]+10)
+    plt.title(f"{titre} - {puits}", fontweight="bold",fontsize=plt.rcParams["figure.titlesize"]+4)
+
+    plt.legend(
+        handles=handles,
+        loc="best",
+        frameon=False,
+        fontsize=plt.rcParams["legend.fontsize"]+10,
+        markerscale=2.1   # ✅ Agrandit les symboles dans la légende
+    )
+        
     plt.grid(True, alpha=0.4)
+    ax = plt.gca()
+    for spine in ax.spines.values():
+        spine.set_linewidth(3)  # tu peux mettre 3 ou 4 si tu veux encore plus épais
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=4))     # ✅ Limite à 4 graduations
+    ax.xaxis.set_major_formatter(DateFormatter('%Y'))    # ✅ Affiche uniquement l’année
+    ax.tick_params(axis="both", labelsize=plt.rcParams["xtick.labelsize"]+10)
+    # Axe Y : max 4 ticks
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
     plt.tight_layout()
 
     # Sauvegarde éventuelle
@@ -162,8 +181,6 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
 def tracer_concentrations(
     df_conc_all,
     gaz_mod,
-    fontsize_labels=16,
-    fontsize_ticks=14,
     layout="colonne",
     gaz_prior=None,
     n_curves=5,
@@ -174,7 +191,8 @@ def tracer_concentrations(
     with_atm_ref=False,
     distribution=None,
     puits=None,
-    use_multiprocessing=False
+    use_multiprocessing=False, 
+    plt_models=True
 ):
     # ✅ Mapping du titre comme dans tracer_stat
     titles_map = {
@@ -194,14 +212,17 @@ def tracer_concentrations(
 
     # ✅ Titre global
     if distribution is not None and puits is not None:
-        fig.suptitle(f"{titre} - {puits}", fontweight="bold", fontsize=18)
+        fig.suptitle(f"{titre} - {puits}", fontweight="bold", fontsize=plt.rcParams["axes.titlesize"])
 
     if len(traceurs) == 1:
         axes = [axes]
 
     mid_idx = len(axes) // 2
 
-    max_date = max([df_conc_all["date"].max()] + [df.index.max() for df in gaz_mod.values()])
+    if gaz_mod != None: 
+        max_date = max([df_conc_all["date"].max()] + [df.index.max() for df in gaz_mod.values()])
+    else: 
+        max_date = [df_conc_all["date"].max()]
 
     # Optionnel : références atmosphériques
     chroniques_ref = {}
@@ -237,7 +258,7 @@ def tracer_concentrations(
 
     for i, (ax, traceur) in enumerate(zip(axes, traceurs)):
         # Enveloppe calibrée
-        if traceur in gaz_mod:
+        if (traceur in gaz_mod) and (plt_models == True):
             cmod.tracer_enveloppe(ax, gaz_mod[traceur], traceur, color="#606060", alpha=0.5)
 
         # SUC (rouge)
@@ -298,12 +319,14 @@ def tracer_concentrations(
                 plt.Line2D([0], [0], color="black", marker="o", linestyle="None", label="Data"),
             ]
             data_min, data_max = int(data["date"].min()), int(data["date"].max())
-            handles.append(
-                plt.Rectangle(
-                    (0, 0), 1, 1, color="darkgrey", alpha=0.9,
-                    label=f"p$_{{series}}$ ${{{data_min}–{data_max}}}$"
+            if plt_models == True: 
+                handles.append(
+                    plt.Rectangle(
+                        (0, 0), 1, 1, color="darkgrey", alpha=0.9,
+                        # label=f"p$_{{series}}$ ${{{data_min}–{data_max}}}$"
+                        label=f"p$_{{series}}$"
+                    )
                 )
-            )
 
             if df_suc is not None:
                 label_years = _fmt_years_tuple(
@@ -312,7 +335,8 @@ def tracer_concentrations(
                     fallback_max=(int(df_suc.index.max()) if df_suc is not None else None),
                 )
                 handles.append(plt.Line2D([0], [0], color="blue", lw=1,
-                                          label=f"p$_{{constrained}}$ {label_years}".strip()))
+                                          # label=f"p$_{{constrained}}$ {label_years}".strip()))
+                                          label=f"p$_{{constrained}}$".strip()))
 
             if df_prior is not None:
                 label_years = _fmt_years_tuple(
@@ -321,7 +345,8 @@ def tracer_concentrations(
                     fallback_max=(int(df_prior.index.max()) if df_prior is not None else None),
                 )
                 handles.append(plt.Line2D([0], [0], color="red", lw=1,
-                                          label=f"p$_{{independent}}$ {label_years}".strip()))
+                                          # label=f"p$_{{independent}}$ {label_years}".strip()))
+                                          label=f"p$_{{independent}}$".strip()))
 
             if with_atm_ref and traceur.upper() in chroniques_ref:
                 handles.append(plt.Line2D([0], [0], color="black", ls="--", lw=1.2,
@@ -595,6 +620,7 @@ def map_conditionnement(base_type, prior_flag, submode):
     mapping = {
         ("suc", "prior", "double"): ("span", "prior", "double"),
         ("span", "prior", "double"): ("span", "", "double"),
+        ("suc", "prior", "simple"): ("span", "prior", "simple"),
     }
 
     return mapping.get((base_type, prior_flag, submode), (base_type, prior_flag, submode))
@@ -604,8 +630,7 @@ def analyser_puits_distribution(
     dossier, puits, distribution,
     base_type="suc", prior_flag="prior", submode="double",
     tracer_global=True, tracer_subset=True,
-    layout="colonne", n_curves=20,
-    fontsize_labels=16, fontsize_ticks=12, use_multiprocessing=False
+    layout="colonne", n_curves=20, use_multiprocessing=False
 ):
     """
     Pipeline complet pour un puits + une distribution.
@@ -626,7 +651,7 @@ def analyser_puits_distribution(
     df_conc_all, df_mod_all, gaz_mod_all, simul_param_all = charger_donnees(df, mode="calib")
     df_stat_all = charger_statistiques(df, distribution, mode="calib")
 
-    result_dir = fold.make_subdirs(dossier, "postproc", puits, distribution)
+    result_dir = fold.make_subdirs(dossier, f"postproc_{submode}", puits, distribution)
 
     fichiers_video = []
     df_concat_list = []
@@ -649,7 +674,16 @@ def analyser_puits_distribution(
 
         fichier = tracer_concentrations(
             df_conc_all, gaz_mod_all,
-            fontsize_labels=fontsize_labels, fontsize_ticks=fontsize_ticks,
+            layout=layout, gaz_prior=None, n_curves=n_curves,
+            prior_years=None, df_conc_red=None,
+            result_dir=result_dir, distribution=None, puits=puits,
+            with_atm_ref=True,
+            use_multiprocessing=use_multiprocessing, 
+            plt_models=False
+        )
+
+        fichier = tracer_concentrations(
+            df_conc_all, gaz_mod_all,
             layout=layout, gaz_prior=None, n_curves=n_curves,
             prior_years=None, df_conc_red=None,
             result_dir=result_dir, distribution=distribution, puits=puits,
@@ -704,12 +738,12 @@ def analyser_puits_distribution(
             # Tracé
             fichier = tracer_concentrations(
                 df_conc_all, gaz_mod_all,
-                fontsize_labels=fontsize_labels, fontsize_ticks=fontsize_ticks,
                 layout=layout, gaz_prior=gaz_prior_all, n_curves=n_curves,
                 prior_years=prior_years, df_conc_red=df_conc_red,
                 result_dir=result_dir, gaz_suc=gaz_suc,
                 distribution=distribution, puits=puits,
-                use_multiprocessing=use_multiprocessing
+                use_multiprocessing=use_multiprocessing, 
+                plt_models=True
             )
             if fichier:
                 fichiers_video.append(str(fichier))
@@ -737,7 +771,10 @@ def analyser_puits_distribution(
         )
 
     if fichiers_video:
-        fold.make_video_from_figures(fichiers_video, "concentrations_video.mp4", fps=1)
+        try:
+            fold.make_video_from_figures(fichiers_video, "concentrations_video.mp4", fps=1)
+        except (MemoryError, OSError, Exception) as e:
+            print(f"[AVERTISSEMENT] Vidéo non générée pour cause d'erreur : {e}")
     else:
         print("⚠️ Aucun fichier généré, pas de vidéo.")
 
@@ -767,8 +804,6 @@ def run_case(args):
         tracer_subset=True,
         layout="ligne",
         n_curves=20,
-        fontsize_labels=16,
-        fontsize_ticks=12,
         use_multiprocessing=use_multiprocessing
     )
 
@@ -788,7 +823,7 @@ if __name__ == "__main__":
 
     # ===========================================
     # 🔽 CHOISIR LE CAS À TESTER ICI 🔽
-    option_case = 4  # ← mettre 1, 2 ou 3
+    option_case = 41  # ← mettre 1, 2 ou 3
     # ===========================================
 
     if option_case == 1:
@@ -798,6 +833,8 @@ if __name__ == "__main__":
         date = "2025-09-28"
         puits_list = ["F11","F09","F34","PE","MF1","MF4","F38"]
         distributions_list = ["exp_shifted", "ig", "ig_shifted"]
+        result_scope=""
+        submode = "double"
 
     elif option_case == 2:
         # --- Option 2 ---
@@ -806,22 +843,40 @@ if __name__ == "__main__":
         date = "2025-10-01"
         puits_list = ["F11","F09","F34","PE","MF1","MF4","F38"]
         distributions_list = ["exp_shifted", "ig_shifted"]
+        result_scope=""
+        submode = "double"
 
-    elif option_case == 3:
+    elif option_case == 31 or option_case == 32:
         # --- Option 3 ---
         # Pour la date du 2025-10-02
         valeurs = [0.1, 0.2, 0.3, 0.4]
         date = "2025-10-02"
         puits_list = ["F11","F09","F34","PE","MF1","MF4","F38b","F38","PZ2","PSR1"]
         distributions_list = ["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"]
+        # distributions_list = ["exp_shifted","ig_shifted","ig","gamma","uniform"]
+        result_scope="all"
+        if option_case == 31: 
+            submode = "double"
+        elif option_case == 32: 
+            submode = "simple"
 
-    elif option_case == 4:
+    elif option_case == 41 or option_case == 42:
         # --- Option 3 ---
         # Pour la date du 2025-10-02
-        valeurs = [0.4]
+        valeurs = [0.1, 0.2, 0.3, 0.4]
+        # valeurs = [0.1]
+        # valeurs = [0.3]
         date = "2025-10-02"
-        puits_list = ["PSR1"]
-        distributions_list = ["exp_shifted"]
+        puits_list = ["F11","F09","F34","PE","MF1","MF4","F38"]
+        # puits_list = ["F38"]
+        # distributions_list = ["exp_shifted","ig_shifted","ig","dirac_double_1_set","gamma","uniform","exp"]
+        distributions_list = ["exp_shifted","ig_shifted"]
+        # distributions_list = ["exp_shifted"]
+        result_scope="ploemeur_es"
+        if option_case == 41: 
+            submode = "double"
+        elif option_case == 42: 
+            submode = "simple"
 
     else:
         raise ValueError(f"Option inconnue : {option_case}")
@@ -839,10 +894,9 @@ if __name__ == "__main__":
     # --- Options globales ---
     base_type = "suc"
     prior_flag = "prior"
-    submode = "double"
 
     # --- Paramètre global ---
-    use_multiprocessing = False
+    use_multiprocessing = True
 
     # ✅ Générer toutes les combinaisons AVEC l'erreur
     combos = [
@@ -880,7 +934,7 @@ if __name__ == "__main__":
 
     if df_global:
         df_global = pd.concat(df_global, ignore_index=True)
-        output_file = gp.ROOT_DIRECTORY_RESULTS / f"{date}_resultats_global_large.csv"
+        output_file = build_output_filepath( date, result_scope, submode)
         df_global.to_csv(output_file, index=False)
         df_test = pd.read_csv(output_file)
         print(f"✅ Stats sauvegardées : {df_test.shape[0]} lignes")
@@ -890,5 +944,6 @@ if __name__ == "__main__":
 
         
     # Génération des figures finales
-    generer_toutes_les_figures(output_file, date)
+    generer_toutes_les_figures(output_file, date, result_scope, submode)
+    print(output_file, date, result_scope)
 
