@@ -642,15 +642,15 @@ if __name__ == "__main__":
         (Path(r"2025-09-28, err02"), 0.2),
         (Path(r"2025-09-28, err04"), 0.4)
     ]
-    dossiers_list = [
-        (Path(r"2025-10-01, err03"), 0.3),
-        (Path(r"2025-10-01, err02"), 0.2),
-        (Path(r"2025-10-01, err04"), 0.4)
-    ]
-    dossiers_list = [
-        (gp.ROOT_DIRECTORY_RESULTS / d, erreur)
-        for (d, erreur) in dossiers_list
-    ]
+    # dossiers_list = [
+    #     (Path(r"2025-10-01, err03"), 0.3),
+    #     (Path(r"2025-10-01, err02"), 0.2),
+    #     (Path(r"2025-10-01, err04"), 0.4)
+    # ]
+    # dossiers_list = [
+    #     (gp.ROOT_DIRECTORY_RESULTS / d, erreur)
+    #     for (d, erreur) in dossiers_list
+    # ]
 
     # --- Listes de cas à traiter ---
     puits_list = ["F09", "F11"]
