@@ -79,7 +79,7 @@ class ConvolutionTracers:
         """
         names = []
         for x in self.elements:
-            names.append(x.get_name())
+            names.append(x.name)
         return names
 
 
@@ -89,7 +89,7 @@ class ConvolutionTracers:
         """
         names = []
         for x in self.elements:
-            names.append(concentrations.name_date(x.get_name(),x.get_date()))
+            names.append(concentrations.name_date(x.name, x.get_date()))
         return names
     
     
@@ -123,7 +123,7 @@ class ConvolutionTracers:
         """
         units=[]
         for t in self.elements:
-            units.append(t.get_unit())
+            units.append(t.unit)
         return units        
 
     
@@ -169,7 +169,7 @@ class ConvolutionTracers:
         """ 
         conc={}
         for t in self.elements:
-            conc[t.get_name()]=t.convolution_date_range(lpm,date1,date2)
+            conc[t.name]=t.convolution_date_range(lpm,date1,date2)
         return conc
 
 

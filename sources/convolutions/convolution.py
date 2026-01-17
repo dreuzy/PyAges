@@ -236,5 +236,5 @@ class Convolution(tracer.Tracer):
         df=pd.DataFrame(data=data)
         df=df.T
         df.columns=['date','concentration']
-        df['element']=self.get_name()
+        df['element']=self.name
         return df
