@@ -98,12 +98,14 @@ class Tracer:
 
         # Load recharge chronicle if specified
         if self.__has_chronicle:
-            recharge_file = dir_tracer / name / "recharge.txt"
+            recharge_file = dir_tracer / name / "recharge.csv"
             try:
-                self.__recharge_chronicle_file = pd.read_table(recharge_file, header=0)
+                # Read CSV, skipping comment lines starting with #
+                self.__recharge_chronicle_file = pd.read_csv(recharge_file, comment='#')
             except FileNotFoundError:
                 raise TracerDataError(
-                    f"Recharge chronicle file not found: {recharge_file}"
+                    f"Recharge chronicle CSV file not found: {recharge_file}\n"
+                    f"Please create a recharge.csv file for tracer '{name}'"
                 )
             except Exception as e:
                 raise TracerDataError(
