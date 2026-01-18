@@ -14,7 +14,8 @@ dependencies:
   - ffmpeg
   - av
   - imageio-ffmpeg
+  - pyyaml
   - pip
-  - pip: 
+  - pip:
     - empiricaldist
   

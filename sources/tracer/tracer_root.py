@@ -5,13 +5,25 @@ Created on Tue Mar 23 03:23:24 2021
 @author: Jean-Raynald de Dreuzy
 """
 
-from typing import Union, Optional
+from typing import Union, Optional, Dict, Any
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from scipy import interpolate
 from pathlib import Path
+import yaml
+
+# Configure matplotlib backend for VSCode integration
+# Use inline backend for Jupyter/VSCode, otherwise use default
+try:
+    # Check if running in IPython/Jupyter environment
+    get_ipython()  # type: ignore
+    matplotlib.use('module://matplotlib_inline.backend_inline')
+except NameError:
+    # Not in IPython, use interactive backend
+    pass
 
 
 # Custom Exceptions
@@ -23,8 +35,6 @@ class TracerConfigError(Exception):
 class TracerDataError(Exception):
     """Raised when tracer data files are missing or cannot be read."""
     pass
-
-
 
    
 class Tracer:
@@ -50,7 +60,7 @@ class Tracer:
         >>> concentration = tracer.get_concentration(date=2010.0, time=20.0)
 
     Note:
-        Configuration is loaded from {tracer_data}/{name}/{name}.txt
+        Configuration is loaded from YAML format: {tracer_data}/{name}/{name}.yaml
         Optional recharge chronicle from {tracer_data}/{name}/recharge.txt
     """
     def __init__(self, dir_tracer: Union[Path, str], name: str = "") -> None:
@@ -83,21 +93,8 @@ class Tracer:
         self.__recharge_chronicle_file = None
         self.__recharge_chronicle_interp = None
 
-        # Load configuration file
-        config_file = dir_tracer / name / f"{name}.txt"
-        try:
-            table = pd.read_csv(config_file, header=None)
-        except FileNotFoundError:
-            raise TracerDataError(
-                f"Tracer configuration file not found: {config_file}"
-            )
-        except Exception as e:
-            raise TracerDataError(
-                f"Error reading tracer configuration file {config_file}: {e}"
-            )
-
-        # Parse configuration parameters using handler dispatch
-        self._parse_configuration(table, name)
+        # Load configuration file (auto-detect YAML or legacy TXT format)
+        self._load_config(Path(dir_tracer), name)
 
         # Load recharge chronicle if specified
         if self.__has_chronicle:
@@ -138,79 +135,92 @@ class Tracer:
                 f"Tracer {name}: datemin ({self.datemin}) must be less than datemax ({self.datemax})"
             )
 
-    def _parse_configuration(self, table: pd.DataFrame, name: str) -> None:
+    def _load_config(self, dir_tracer: Path, name: str) -> None:
         """
-        Parse configuration table using handler dispatch pattern.
+        Load configuration file in YAML format.
 
         Args:
-            table: DataFrame containing configuration parameters
-            name: Tracer name for error messages
+            dir_tracer: Root directory where tracers are stored
+            name: Tracer name
+
+        Raises:
+            TracerDataError: If YAML configuration file is not found
         """
-        # Handler methods for each parameter type
-        handlers = {
-            'recharge_constant': self._handle_recharge_constant,
-            'recharge': self._handle_recharge_chronicle,
-            'production rate': self._handle_geoproduction,
-            'decay characteristic time': self._handle_decay,
-            'unit': self._handle_unit,
-            'datemin': self._handle_datemin,
-            'datemax': self._handle_datemax,
-        }
+        yaml_file = dir_tracer / name / f"{name}.yaml"
 
-        for i in range(len(table)):
-            param_name = table.iloc[i, 0]
+        if not yaml_file.exists():
+            raise TracerDataError(
+                f"YAML configuration file not found: {yaml_file}\n"
+                f"Please create a .yaml configuration file for tracer '{name}'"
+            )
 
-            if param_name not in handlers:
+        self._load_yaml_config(yaml_file, name)
+
+    def _load_yaml_config(self, config_file: Path, name: str) -> None:
+        """
+        Load configuration from YAML file.
+
+        Args:
+            config_file: Path to YAML configuration file
+            name: Tracer name for error messages
+
+        Raises:
+            TracerDataError: If YAML file cannot be read
+            TracerConfigError: If YAML structure is invalid
+        """
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        except FileNotFoundError:
+            raise TracerDataError(
+                f"YAML configuration file not found: {config_file}"
+            )
+        except yaml.YAMLError as e:
+            raise TracerDataError(
+                f"Error parsing YAML configuration {config_file}: {e}"
+            )
+        except Exception as e:
+            raise TracerDataError(
+                f"Error reading YAML configuration {config_file}: {e}"
+            )
+
+        if not isinstance(config, dict):
+            raise TracerConfigError(
+                f"YAML configuration must be a dictionary, got {type(config).__name__}"
+            )
+
+        # Parse each configuration parameter
+        for param_name, value in config.items():
+            if param_name == 'recharge_constant':
+                self.__recharge_constant = float(value)
+                self.__has_constant_recharge = True
+            elif param_name == 'recharge':
+                self.__has_chronicle = bool(value)
+            elif param_name == 'production_rate':
+                self.__geoproduction_enabled = True
+                self.__geoproduction_rate = float(value)
+                if self.__geoproduction_rate < 0:
+                    raise TracerConfigError(
+                        f"Tracer {name}: Geoproduction rate must be non-negative, "
+                        f"got {self.__geoproduction_rate}"
+                    )
+            elif param_name == 'decay_time':
+                self.__decay_enabled = True
+                self.__decay_time = float(value)
+                if self.__decay_time <= 0:
+                    raise TracerConfigError(
+                        f"Tracer {name}: Decay time must be positive, got {self.__decay_time}"
+                    )
+            elif param_name == 'unit':
+                self.__unit = str(value)
+            elif param_name == 'datemin':
+                self.datemin = float(value)
+            elif param_name == 'datemax':
+                self.datemax = float(value)
+            else:
                 raise TracerConfigError(
-                    f"Unknown parameter in {name}.txt: '{param_name}'"
+                    f"Unknown parameter in {name}.yaml: '{param_name}'"
                 )
-
-            # Dispatch to appropriate handler
-            handlers[param_name](table.iloc[i], name)
-
-    def _handle_recharge_constant(self, row: pd.Series, name: str) -> None:
-        """Handle recharge_constant parameter."""
-        self.__recharge_constant = float(row[1])
-        self.__has_constant_recharge = True
-
-    def _handle_recharge_chronicle(self, row: pd.Series, name: str) -> None:
-        """Handle recharge parameter (chronicle flag)."""
-        self.__has_chronicle = bool(int(row[1]))
-
-    def _handle_geoproduction(self, row: pd.Series, name: str) -> None:
-        """Handle production rate parameter."""
-        self.__geoproduction_enabled = True
-        self.__geoproduction_rate = float(row[1])
-        if self.__geoproduction_rate < 0:
-            raise TracerConfigError(
-                f"Tracer {name}: Geoproduction rate must be non-negative, "
-                f"got {self.__geoproduction_rate}"
-            )
-
-    def _handle_decay(self, row: pd.Series, name: str) -> None:
-        """Handle decay characteristic time parameter."""
-        self.__decay_enabled = True
-        self.__decay_time = float(row[1])
-        if self.__decay_time <= 0:
-            raise TracerConfigError(
-                f"Tracer {name}: Decay time must be positive, got {self.__decay_time}"
-            )
-
-    def _handle_unit(self, row: pd.Series, name: str) -> None:
-        """Handle unit parameter."""
-        if len(row) < 3:
-            raise TracerConfigError(
-                f"Tracer {name}: Unit parameter requires 3 columns, found {len(row)}"
-            )
-        self.__unit = str(row[2])
-
-    def _handle_datemin(self, row: pd.Series, name: str) -> None:
-        """Handle datemin parameter."""
-        self.datemin = float(row[1])
-
-    def _handle_datemax(self, row: pd.Series, name: str) -> None:
-        """Handle datemax parameter."""
-        self.datemax = float(row[1])
 
     @property
     def unit(self) -> str:
@@ -343,6 +353,7 @@ class Tracer:
 
         # Plotting the input chronicle
         if self.__has_chronicle:
+            plt.figure()  # Create new figure for recharge chronicle
             self.__recharge_chronicle_file.plot(
                 x=self.__recharge_chronicle_file.columns[0],
                 y=self.__recharge_chronicle_file.columns[1],
@@ -355,7 +366,8 @@ class Tracer:
         time = self.datemax - date
         c = self.get_concentration(date, time)
 
-        # --- Remplacement de figure_init(...) par son contenu ---
+        # Create new figure for concentration plot
+        plt.figure()
         fig, ax = plt.subplots(figsize=(6, 4))
         ax.set_xlabel("date", fontsize=16, fontweight="bold")
         ax.set_ylabel("concentrations", fontsize=14, fontweight="bold")
@@ -420,11 +432,15 @@ class DisplayOptions:
             plt.savefig(filepath, dpi=150)
             print(f"Figure saved: {filepath}")
 
-        # Always display on screen
-        plt.show()
-
-        # Close if requested
-        if self.figure_close:
+        # Only close if explicitly requested
+        # Otherwise, keep figures open for interactive viewing
+        if not self.figure_close:
+            # Keep figure open - draw to update display
+            plt.draw()
+            plt.pause(1)  # Small pause to allow rendering
+        else:
+            # Display then close
+            plt.show()
             plt.close()
 
 
@@ -464,7 +480,7 @@ def main() -> None:
     """
     Main function demonstrating tracer loading and display.
 
-    Loads CFC tracers and displays their recharge chronicles.
+    Automatically discovers and loads all available tracers.
     """
     try:
         tracer_dir = find_tracer_dir()
@@ -472,15 +488,29 @@ def main() -> None:
         print(f"Error: {e}")
         return
 
-    # List of available tracers to demonstrate
-    tracer_names = ["cfc11", "cfc12", "cfc113"]
+    # Automatically discover all available tracers by listing subdirectories
+    print(f"Scanning tracer directory: {tracer_dir}")
+    tracer_names = sorted([
+        d.name for d in tracer_dir.iterdir()
+        if d.is_dir() and not d.name.startswith('.')
+    ])
+
+    if not tracer_names:
+        print("No tracers found in directory.")
+        return
+
+    print(f"Found {len(tracer_names)} tracers: {', '.join(tracer_names)}\n")
 
     # Configure display options
     display_options = DisplayOptions(
         text=True,
         figure_save=False,
-        figure_close=True
+        figure_close=False
     )
+
+    # Statistics
+    success_count = 0
+    error_count = 0
 
     # Load and display each tracer
     for name in tracer_names:
@@ -494,9 +524,19 @@ def main() -> None:
             print(f"  Unit: {tracer.unit}")
             print(f"  Date range: {tracer.datemin} - {tracer.datemax}")
             tracer.display(display_options)
+            success_count += 1
 
         except (TracerDataError, TracerConfigError) as e:
             print(f"  Error loading tracer '{name}': {e}")
+            error_count += 1
+
+    # Summary
+    print(f"\n{'='*50}")
+    print(f"SUMMARY")
+    print(f"{'='*50}")
+    print(f"Successfully loaded: {success_count}/{len(tracer_names)} tracers")
+    if error_count > 0:
+        print(f"Errors: {error_count}")
 
 
 if __name__ == "__main__":

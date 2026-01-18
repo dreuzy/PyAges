@@ -1,3 +1,0 @@
-recharge,1,--
-decay characteristic time,10.76,years
-unit,0,pptv

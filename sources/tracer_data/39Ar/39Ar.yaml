@@ -1,0 +1,51 @@
+# 39Ar (Argon-39) Tracer Configuration
+#
+# This file configures the 39Ar tracer for groundwater age dating.
+# 39Ar is a radioactive noble gas tracer with constant recharge.
+#
+# Author: Jean-Raynald de Dreuzy
+# Date: 2026-01-18 (YAML conversion)
+
+# =============================================================================
+# Tracer Properties
+# =============================================================================
+
+# Unit of concentration measurement
+# Options: pptv (parts per trillion by volume), TU (Tritium Units), pmC (percent modern carbon), %modern
+unit: "%modern"
+
+# =============================================================================
+# Recharge Configuration
+# =============================================================================
+
+# Constant recharge concentration (no temporal variation)
+# For 39Ar, atmospheric concentration is considered constant at 100% modern
+recharge_constant: 1
+
+# Enable recharge chronicle from external file
+# recharge: false
+
+# =============================================================================
+# Radioactive Decay
+# =============================================================================
+
+# Decay characteristic time in years (half-life / ln(2))
+# 39Ar half-life is ~267 years
+decay_time: 267
+
+# =============================================================================
+# Optional: Geoproduction
+# =============================================================================
+
+# In-situ production rate (concentration units per year)
+# Uncomment to enable geoproduction
+# production_rate: 0.0
+
+# =============================================================================
+# Valid Date Range
+# =============================================================================
+
+# These parameters define the valid computation range for this tracer
+# For 39Ar, these are explicitly defined (not from recharge chronicle)
+datemin: 200
+datemax: 2021

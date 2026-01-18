@@ -1,4 +1,0 @@
-production rate,1,mol/s
-unit,0,mol/l
-datemin,1950,years
-datemax,2020,years

@@ -1,0 +1,48 @@
+# NO3 (Nitrate) Tracer Configuration
+#
+# This file configures the Nitrate tracer for groundwater studies.
+# Nitrate is a conservative tracer for agricultural and anthropogenic contamination.
+#
+# Author: Jean-Raynald de Dreuzy
+# Date: 2026-01-18 (YAML conversion)
+
+# =============================================================================
+# Tracer Properties
+# =============================================================================
+
+# Unit of concentration measurement
+# mol/l = molar concentration
+unit: mol/l
+
+# =============================================================================
+# Recharge Configuration
+# =============================================================================
+
+# No recharge chronicle or constant recharge specified
+# Configuration must be provided through other parameters or external files
+# recharge: false
+# recharge_constant: 0.0
+
+# =============================================================================
+# Optional: Radioactive Decay
+# =============================================================================
+
+# Nitrate is stable (no radioactive decay)
+# decay_time: not applicable
+
+# =============================================================================
+# Optional: Geoproduction
+# =============================================================================
+
+# In-situ production rate (concentration units per year)
+# Uncomment to enable geoproduction
+# production_rate: 0.0
+
+# =============================================================================
+# Valid Date Range
+# =============================================================================
+
+# These parameters define the valid computation range for this tracer
+# Must be specified if no recharge chronicle is used
+# datemin: 1950.0
+# datemax: 2020.0

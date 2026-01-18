@@ -1,3 +1,0 @@
-recharge,1,--
-decay characteristic time,12.32,years
-unit,0,mol

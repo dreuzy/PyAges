@@ -1,0 +1,54 @@
+# Kr-85 (Krypton-85) Tracer Configuration
+#
+# This file configures the Kr-85 tracer for groundwater age dating.
+# Kr-85 is a radioactive atmospheric tracer with decay.
+#
+# Author: Jean-Raynald de Dreuzy
+# Date: 2026-01-18 (YAML conversion)
+
+# =============================================================================
+# Tracer Properties
+# =============================================================================
+
+# Unit of concentration measurement
+# Options: pptv (parts per trillion by volume), TU (Tritium Units), pmC (percent modern carbon)
+unit: pptv
+
+# =============================================================================
+# Recharge Configuration
+# =============================================================================
+
+# Enable recharge chronicle from external file
+# If true, concentrations are loaded from recharge.txt in the same directory
+# If false, use recharge_constant instead
+recharge: true
+
+# Constant recharge concentration (only used if recharge: false)
+# recharge_constant: 0.0
+
+# =============================================================================
+# Radioactive Decay
+# =============================================================================
+
+# Decay characteristic time in years (half-life / ln(2))
+# Kr-85 half-life is ~10.76 years
+decay_time: 10.76
+
+# =============================================================================
+# Optional: Geoproduction
+# =============================================================================
+
+# In-situ production rate (concentration units per year)
+# Uncomment to enable geoproduction
+# production_rate: 0.0
+
+# =============================================================================
+# Valid Date Range
+# =============================================================================
+
+# These parameters define the valid computation range for this tracer
+# When recharge chronicle is enabled (recharge: true), datemin and datemax
+# are automatically determined from the loaded recharge.txt file
+# Only specify these manually if recharge: false
+# datemin: 1940.0
+# datemax: 2020.0

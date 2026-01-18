@@ -1,0 +1,48 @@
+# Li (Lithium) Tracer Configuration
+#
+# This file configures the Lithium tracer for groundwater age dating.
+# Lithium is used as a geochemical tracer with in-situ production.
+#
+# Author: Jean-Raynald de Dreuzy
+# Date: 2026-01-18 (YAML conversion)
+
+# =============================================================================
+# Tracer Properties
+# =============================================================================
+
+# Unit of concentration measurement
+# mol/l = molar concentration
+unit: mol/l
+
+# =============================================================================
+# Recharge Configuration
+# =============================================================================
+
+# No recharge chronicle or constant recharge for Lithium
+# The tracer accumulates purely through geoproduction
+# recharge: false
+# recharge_constant: 0.0
+
+# =============================================================================
+# Optional: Radioactive Decay
+# =============================================================================
+
+# Lithium is stable (no radioactive decay)
+# decay_time: not applicable
+
+# =============================================================================
+# Geoproduction
+# =============================================================================
+
+# In-situ production rate (concentration units per year)
+# For Lithium, production occurs through water-rock interactions
+production_rate: 1
+
+# =============================================================================
+# Valid Date Range
+# =============================================================================
+
+# These parameters define the valid computation range for this tracer
+# For Lithium with geoproduction, these are explicitly defined
+datemin: 1950
+datemax: 2020

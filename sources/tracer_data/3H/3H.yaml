@@ -1,0 +1,54 @@
+# 3H (Tritium) Tracer Configuration
+#
+# This file configures the 3H (Tritium) tracer for groundwater age dating.
+# Tritium is a radioactive isotope of hydrogen with a well-known atmospheric history.
+#
+# Author: Jean-Raynald de Dreuzy
+# Date: 2026-01-18 (YAML conversion)
+
+# =============================================================================
+# Tracer Properties
+# =============================================================================
+
+# Unit of concentration measurement
+# Options: TU (Tritium Units), mol, pptv, pmC, %modern
+unit: mol
+
+# =============================================================================
+# Recharge Configuration
+# =============================================================================
+
+# Enable recharge chronicle from external file
+# If true, concentrations are loaded from recharge.txt in the same directory
+# If false, use recharge_constant instead
+recharge: true
+
+# Constant recharge concentration (only used if recharge: false)
+# recharge_constant: 0.0
+
+# =============================================================================
+# Radioactive Decay
+# =============================================================================
+
+# Decay characteristic time in years (half-life / ln(2))
+# 3H half-life is ~12.32 years
+decay_time: 12.32
+
+# =============================================================================
+# Optional: Geoproduction
+# =============================================================================
+
+# In-situ production rate (concentration units per year)
+# Uncomment to enable geoproduction
+# production_rate: 0.0
+
+# =============================================================================
+# Valid Date Range
+# =============================================================================
+
+# These parameters define the valid computation range for this tracer
+# When recharge chronicle is enabled (recharge: true), datemin and datemax
+# are automatically determined from the loaded recharge.txt file
+# Only specify these manually if recharge: false
+# datemin: 1940.0
+# datemax: 2020.0

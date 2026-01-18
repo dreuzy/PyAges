@@ -1,0 +1,49 @@
+# SO4 (Sulfate) Tracer Configuration
+#
+# This file configures the Sulfate tracer for groundwater studies.
+# Sulfate is a conservative tracer for geochemical processes.
+#
+# Author: Jean-Raynald de Dreuzy
+# Date: 2026-01-18 (YAML conversion)
+
+# =============================================================================
+# Tracer Properties
+# =============================================================================
+
+# Unit of concentration measurement
+# mol/l = molar concentration
+unit: mol/l
+
+# =============================================================================
+# Recharge Configuration
+# =============================================================================
+
+# Constant recharge concentration (no temporal variation)
+# For SO4, atmospheric/recharge concentration is considered constant at 10 mg/l
+recharge_constant: 10
+
+# Enable recharge chronicle from external file
+# recharge: false
+
+# =============================================================================
+# Optional: Radioactive Decay
+# =============================================================================
+
+# Sulfate is stable (no radioactive decay)
+# decay_time: not applicable
+
+# =============================================================================
+# Optional: Geoproduction
+# =============================================================================
+
+# In-situ production rate (concentration units per year)
+# Uncomment to enable geoproduction
+# production_rate: 0.0
+
+# =============================================================================
+# Valid Date Range
+# =============================================================================
+
+# These parameters define the valid computation range for this tracer
+datemin: 1950
+datemax: 2020
