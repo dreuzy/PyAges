@@ -1,4 +1,0 @@
-recharge,1,--
-production rate,10,mol/s
-decay characteristic time,25,years
-unit,0,mol/l
