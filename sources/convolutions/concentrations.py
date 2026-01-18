@@ -292,6 +292,6 @@ def test_load(file_name,display_options=False):
             determines the figures and texts to display
     """
     # Loads test data
-    c_data=Concentrations(file_load=True, file_name=gp.DIRECTORY_TEST+file_name)
+    c_data=Concentrations(file_load=True, file_name=str(gp.DIRECTORY_TEST / file_name))
     # Displays test data
     c_data.display(display_options)

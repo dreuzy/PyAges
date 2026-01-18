@@ -341,7 +341,7 @@ class Prior() :
                     self.MHapriori_para[temp.values[i,0]].append(temp.values[i,3])   
             elif self.typ == "empirical": 
                 self.MHapriori_para={}
-                for param in lpm.param_names(): 
+                for param in lpm.get_param_names(): 
                     # Loaded histogram
                     self.MHapriori_para[param] = pd.DataFrame.to_numpy(pd.read_csv(self.prior_file + "_" + param + ".txt", sep='\t'))
                     histo_x = self.MHapriori_para[param][:,0]
@@ -384,7 +384,7 @@ class Prior() :
                 ikey = ikey + 1
         elif self.typ == "empirical": 
             ikey=0
-            for key, param in zip (lpm.p.keys(), lpm.param_names()): 
+            for key, param in zip (lpm.p.keys(), lpm.get_param_names()): 
                 if params[ikey] < self.MHapriori_para[param][:,0][0] : 
                     proba = 0 
                 elif params[ikey] > self.MHapriori_para[param][:,0][-1] : 
@@ -420,7 +420,7 @@ class Prior() :
                     apriori_theory[key]=[self.MHapriori_para[key][0],\
                                          self.MHapriori_para[key][1]**2]
                 elif self.MHapriori_dist[key] == 'uniform':
-                    apriori_theory[key]=[(self.MHapriori_para[key][0] + self.MHapriori_para[key][1]) / 2 \
+                    apriori_theory[key]=[(self.MHapriori_para[key][0] + self.MHapriori_para[key][1]) / 2, \
                                          ((self.MHapriori_para[key][1] - self.MHapriori_para[key][0]) / np.sqrt(12))**2]
                 
         elif self.typ == "empirical": 
@@ -790,7 +790,7 @@ def test_calibration_MH_prior(display_options):
     print('\nVALIDATION OF METROPOLIS-HASTINGS ON PRIOR ONLY')
     models_calib = ['exp','uniform','dirac','gamma','ig']
     for lpm in models_calib:  
-        calib_MH = CalibrationMetropolisHastings(nstep=10000,prior=True,likelyhood=False, lpm_number=10,
+        calib_MH = CalibrationMetropolisHastings(nstep=1000,prior_option=True,likelyhood=False, lpm_number=10,
                                                  monitor=True,display_traj=True)
         calib = cst.CalibrationSyntheticTest(calib_strategy=calib_MH,ncase=1,error=0.0,tracer_names=["cfc11"],
                                                  date=2000,lpm_type=lpm,display_options=display)

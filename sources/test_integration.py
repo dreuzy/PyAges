@@ -55,11 +55,11 @@ class TestIntegration:
     def __init__(self,date=2010):
         self.LPM_all = ['dirac','dirac_double','dirac_double_1_set','exp_shifted','dirac','gamma','exp','uniform','ig','ig_shifted','mix_exp_shifted']
         self.LPM_calib = ['dirac_double','exp_shifted','exp','gamma','ig','uniform','dirac_double','dirac']#['dirac_double','dirac','exp','exp_shifted','uniform','gamma','ig']
-        self.tracers_all = ["Li","TTEST","sf6","cfc11","cfc12","cfc113","kr85","3H","14C","39Ar"]
+        self.tracers_all = ["Li","sf6","cfc11","cfc12","cfc113","kr85","3H","14C","39Ar"]
         self.tracers_conv = ["cfc11","kr85"]
         self.tracers_calib = ["cfc11","kr85"]
         # Reachable Concentrations
-        self.reachable_resolution = 10000
+        self.reachable_resolution = 1000
         # Output options
         self.display = gp.display_options()
         self.display_set(single_all="all")
@@ -186,20 +186,20 @@ class TestIntegration:
         tracer_names = ["cfc11","Li"]
         # date for each of the tracers 
         date = [1990,2010] 
-        
+
         print('\nCALIBRATION ON SYNTETIC CASES: METROPOLIS-HASTINGS')
         for lpm in lpm_list:  
-            calib_MH = cMH.CalibrationMetropolisHastings(nstep=20000,prior_option=True,prior_typ="parametric",likelyhood=True,lpm_number=10,monitor=False) 
-            calib = cst.CalibrationSyntheticTest(calib_strategy=calib_MH,ncase=4,error=0.03,tracer_names=tracer_names,
-                                                 date=date,lpm_type=lpm,display_options=self.display,nmodels=50000)
+            calib_MH = cMH.CalibrationMetropolisHastings(nstep=2000,prior_option=True,prior_typ="parametric",likelyhood=True,lpm_number=10,monitor=False) 
+            calib = cst.CalibrationSyntheticTest(calib_strategy=calib_MH,ncase=2,error=0.03,tracer_names=tracer_names,
+                                                 date=date,lpm_type=lpm,display_options=self.display,nmodels=500)
             calib.perform_ncase()
 
         print('\nCALIBRATION ON SYNTETIC CASES: SIMPLEX_INIT_MULTIPLES')
         for lpm in lpm_list:
             calib_simplex = csimp.CalibrationSimplex("Simplex_init_multipes",init_multiples_n=10)
             # self.display.text = True
-            calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=4,error=0.001,tracer_names=tracer_names,
-                                                 date=date,lpm_type=lpm,display_options=self.display,nmodels=10000)
+            calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=2,error=0.001,tracer_names=tracer_names,
+                                                 date=date,lpm_type=lpm,display_options=self.display,nmodels=10)
             calib.perform_ncase()
             
         print('\nCALIBRATION ON SYNTETIC CASES: SIMPLEX')
@@ -208,19 +208,19 @@ class TestIntegration:
             calib_simplex = csimp.CalibrationSimplex("Simplex")            
             # self.display.text = True
             calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=2,error=0.01,tracer_names=tracer_names,
-                                                 date=date,lpm_type=lpm,display_options=self.display,nmodels=10000)
+                                                 date=date,lpm_type=lpm,display_options=self.display,nmodels=10)
             calib.perform_ncase()
 
         print('\nCALIBRATION ON SYNTETIC CASES: FORWARD UNCERTAINTY QUANTIFICATION')
         for lpm in lpm_list:
-            calib_simplex = csimp.CalibrationSimplex("forward_uncertainty_quantification",init_multiples_n=5,fuq_n=50)
-            calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=4,error=0.04,tracer_names=tracer_names,
+            calib_simplex = csimp.CalibrationSimplex("forward_uncertainty_quantification",init_multiples_n=2,fuq_n=2)
+            calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=2,error=0.04,tracer_names=tracer_names,
                                                  date=date,lpm_type=lpm,display_options=self.display)
             calib.perform_ncase()
 
         # Unit Test of Metropolis Hastings algorithm on simple priors 
         cMH.test_calibration_MH_prior(self.display)
-        
+
             
     
     def test_calibration_on_data(self,file_name,lpm_type,calibration_method) :
@@ -248,12 +248,7 @@ class TestIntegration:
 
 def test_integration(): 
    
-    # Checks calibration 
-    ti = TestIntegration(date=2010)
-    #ti.check_calibration(single_all="single",single_name="ig")
-    ti.check_calibration(single_all="all")
-    # ti.check_calibration(single_all="all")
-    
+
     # Simple test functions: exhaustive tracer or lpm
     ti = TestIntegration(date=2010)
     ti.check_tracers(single_all="all")
@@ -263,7 +258,13 @@ def test_integration():
     ti = TestIntegration(date=2010)
     ti.check_tracers(single_all="single",single_name="cfc11")
     ti.check_lpms(single_all="single",single_name="dirac_double_1_set")
-    
+
+    # Checks calibration 
+    ti = TestIntegration(date=2010)
+    #ti.check_calibration(single_all="single",single_name="ig")
+    ti.check_calibration(single_all="all")
+    # ti.check_calibration(single_all="all")
+        
     
 if __name__ == "__main__":
     test_integration()

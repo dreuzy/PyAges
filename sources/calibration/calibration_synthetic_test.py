@@ -226,7 +226,7 @@ class CalibrationSyntheticTest:
         self.__calib_strategy.write_calibrated_lpm(lpm_results)
         cdata.cv.to_csv(os.path.join(display_options_case.directory,"concentrations.txt"),sep='\t')
         # Concentration chronicles with time
-        ct.display_concentration_chronicles(cdata,lpm_results,str(i),self.__display_options,lpm_number=10)
+        ct.display_concentration_chronicles(cdata,lpm_results,str(i),self.__display_options,span_or_suc="suc",lpm_number=10)
         # Results storage
         self.__storage_one_case(lpm_target,lpm_results,i)
         return lpm_target, self.__calib_strategy, cdata, lpm_results

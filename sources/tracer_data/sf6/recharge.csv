@@ -9,17 +9,20 @@
 #
 # Data Source: NOAA Global Monitoring Laboratory / AGAGE network
 # Reference: https://gml.noaa.gov/hats/combined/SF6.html
-# Citation: Maiss & Brenninkmeijer (1998), Rigby et al. (2010)
+# Citation: Dutton et al. (2023), https://doi.org/10.15138/TQ02-ZX42
 #
-# Temporal Coverage: 1953.0 - 2024.5
+# Temporal Coverage: 1940.0 - 2023.0
 # Temporal Resolution: Variable (annual to semi-annual)
-# Number of Records: 169
+# Number of Records: 167
 #
 # Notes:
 # - Entirely anthropogenic, no natural sources
 # - Extremely stable in atmosphere (lifetime ~3200 years)
 # - Used in electrical equipment and as tracer gas
 # - Concentrations continuously increasing since 1950s
+# - 1995+ values are NOAA GML global monthly means sampled at Jan/Jul (semi-annual)
+# - Pre-1995 values retained from legacy reconstruction
+# - Latest NOAA combined file date: 2023-04-13
 # - Growth rate approximately exponential until 1990s
 # - Recent growth rate has slowed but remains positive
 # - Excellent tracer for very young groundwater (< 30 years)
@@ -29,8 +32,8 @@
 #
 # File Format: CSV (Comma-Separated Values)
 # Encoding: UTF-8
-# Last Updated: 2024-01-18
-# Data Version: v2024.1
+# Last Updated: 2023-04-13
+# Data Version: v2023.04.13
 #
 # Column Descriptions:
 #   date: Decimal year (e.g., 2020.5 = July 1, 2020)
@@ -149,62 +152,60 @@ date,concentration
 1993.5,3.1
 1994.0,3.22
 1994.5,3.33
-1995.0,3.411
-1995.5,3.552
-1996.0,3.73
-1996.5,3.848
-1997.0,3.967
-1997.5,4.052
-1998.0,4.186
-1998.5,4.29
-1999.0,4.448
-1999.5,4.503
-2000.0,4.629
-2000.5,4.702
-2001.0,4.819
-2001.5,4.912
-2002.0,5.043
-2002.5,5.129
-2003.0,5.262
-2003.5,5.363
-2004.0,5.506
-2004.5,5.59
-2005.0,5.689
-2005.5,5.806
-2006.0,5.954
-2006.5,6.049
-2007.0,6.197
-2007.5,6.323
-2008.0,6.475
-2008.5,6.602
-2009.0,6.77
-2009.5,6.865
-2010.0,7.04
-2010.5,7.18
-2011.0,7.32
-2011.5,7.45
-2012.0,7.63
-2012.5,7.74
-2013.0,7.94
-2013.5,8.07
-2014.0,8.25
-2014.5,8.40
-2015.0,8.56
-2015.5,8.90
-2016.0,9.03
-2016.5,9.20
-2017.0,9.37
-2017.5,9.53
-2018.0,9.69
-2018.5,9.85
-2019.0,10.05
-2019.5,10.22
-2020.0,10.36
-2020.5,10.52
-2021.0,10.67
-2021.5,10.84
-2022.0,11.073
-2022.5,11.217
-2023.0,11.428
-2023.5,11.606
-0.0,
+1995.0,3.334
+1995.5,3.453
+1996.0,3.622
+1996.5,3.706
+1997.0,3.871
+1997.5,3.981
+1998.0,4.096
+1998.5,4.193
+1999.0,4.318
+1999.5,4.379
+2000.0,4.487
+2000.5,4.596
+2001.0,4.691
+2001.5,4.778
+2002.0,4.908
+2002.5,4.992
+2003.0,5.116
+2003.5,5.228
+2004.0,5.349
+2004.5,5.460
+2005.0,5.572
+2005.5,5.673
+2006.0,5.824
+2006.5,5.907
+2007.0,6.064
+2007.5,6.187
+2008.0,6.347
+2008.5,6.478
+2009.0,6.644
+2009.5,6.757
+2010.0,6.934
+2010.5,7.069
+2011.0,7.206
+2011.5,7.329
+2012.0,7.483
+2012.5,7.615
+2013.0,7.789
+2013.5,7.936
+2014.0,8.096
+2014.5,8.268
+2015.0,8.454
+2015.5,8.590
+2016.0,8.761
+2016.5,8.935
+2017.0,9.117
+2017.5,9.258
+2018.0,9.464
+2018.5,9.620
+2019.0,9.816
+2019.5,9.964
+2020.0,10.143
+2020.5,10.286
+2021.0,10.477
+2021.5,10.669
+2022.0,10.882
+2022.5,11.051
+2023.0,11.287

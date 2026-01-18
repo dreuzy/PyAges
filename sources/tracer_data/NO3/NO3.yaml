@@ -44,5 +44,5 @@ unit: mol/l
 
 # These parameters define the valid computation range for this tracer
 # Must be specified if no recharge chronicle is used
-# datemin: 1950.0
-# datemax: 2020.0
+datemin: 1950.0
+datemax: 2020.0

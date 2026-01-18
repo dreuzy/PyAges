@@ -458,7 +458,7 @@ class LPMDist:
         """
         values = self.__dist.to_numpy()[:,0:len(self.__lpm_template.p)]
         lpm = self.__lpm_template
-        names = self.__lpm_template.param_names()
+        names = self.__lpm_template.get_param_names()
         if values.shape[1] != len(names) : 
             print("Pb in computes_and_writes_dist_params")
         dh = dist_hist.dist_hist(names,values)

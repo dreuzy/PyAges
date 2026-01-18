@@ -45,13 +45,19 @@ class Tracer:
     in hydrogeological studies. Manages atmospheric recharge chronicles,
     radioactive decay, and geoproduction for groundwater age dating applications.
 
-    Attributes:
-        name (str): Tracer identifier (e.g., 'cfc11', 'kr85', '3H')
-        unit (str): Concentration units (e.g., 'pptv', 'TU', 'pmC')
-        datemin (float): Minimum valid date for concentration computation
-        datemax (float): Maximum valid date for concentration computation
+    Attributes
+    ----------
+    name : str
+        Tracer identifier (e.g., 'cfc11', 'kr85', '3H')
+    unit : str
+        Concentration units (e.g., 'pptv', 'TU', 'pmC')
+    datemin : float
+        Minimum valid date for concentration computation
+    datemax : float
+        Maximum valid date for concentration computation
 
-    Examples:
+    Examples
+    --------
         >>> from pathlib import Path
         >>> tracer_dir = Path("sources/tracer_data")
         >>> tracer = Tracer(tracer_dir, name="cfc11")
@@ -59,24 +65,53 @@ class Tracer:
         cfc11 pptv
         >>> concentration = tracer.get_concentration(date=2010.0, time=20.0)
 
-    Note:
+    Notes
+    -----
         Configuration is loaded from YAML format: {tracer_data}/{name}/{name}.yaml
         Optional recharge chronicle from {tracer_data}/{name}/recharge.txt
+
+    Methods
+    -------
+    _load_config
+        Load tracer configuration file (YAML).
+    _load_yaml_config
+        Parse tracer settings from YAML content.
+    unit
+        Return the concentration unit.
+    name
+        Return the tracer name.
+    get_concentration
+        Compute concentration at given date and time (chronicle/decay/production).
+    mean_value
+        Compute mean concentration for a given reference date.
+    max_value
+        Return the maximum chronicle concentration.
+    display
+        Plot tracer chronicle and concentration curve.
+
+    Private Methods
+    ---------------
+    __check_date_range
+        Validate that dates fall within the configured range.
     """
     def __init__(self, dir_tracer: Union[Path, str], name: str = "") -> None:
         """
         Tracer Class Constructor from an ensemble of external files.
 
-        Args:
-            dir_tracer: Path or str
-                Root directory where the tracers are stored.
-                Default defined in the file global_parameters.py
-            name: str
-                Tracer name (e.g., 'cfc11', 'kr85', '3H')
+        Parameters
+        ----------
+        dir_tracer : Path or str
+            Root directory where the tracers are stored.
+            Default defined in the file global_parameters.py
+        name : str
+            Tracer name (e.g., 'cfc11', 'kr85', '3H')
 
-        Raises:
-            TracerDataError: If configuration files cannot be read
-            TracerConfigError: If configuration is invalid or incomplete
+        Raises
+        ------
+        TracerDataError
+            If configuration files cannot be read
+        TracerConfigError
+            If configuration is invalid or incomplete
         """
         # Initialize all attributes with default values
         self.__name = name
@@ -141,12 +176,17 @@ class Tracer:
         """
         Load configuration file in YAML format.
 
-        Args:
-            dir_tracer: Root directory where tracers are stored
-            name: Tracer name
+        Parameters
+        ----------
+        dir_tracer : Path
+            Root directory where tracers are stored
+        name : str
+            Tracer name
 
-        Raises:
-            TracerDataError: If YAML configuration file is not found
+        Raises
+        ------
+        TracerDataError
+            If YAML configuration file is not found
         """
         yaml_file = dir_tracer / name / f"{name}.yaml"
 
@@ -162,13 +202,19 @@ class Tracer:
         """
         Load configuration from YAML file.
 
-        Args:
-            config_file: Path to YAML configuration file
-            name: Tracer name for error messages
+        Parameters
+        ----------
+        config_file : Path
+            Path to YAML configuration file
+        name : str
+            Tracer name for error messages
 
-        Raises:
-            TracerDataError: If YAML file cannot be read
-            TracerConfigError: If YAML structure is invalid
+        Raises
+        ------
+        TracerDataError
+            If YAML file cannot be read
+        TracerConfigError
+            If YAML structure is invalid
         """
         try:
             with open(config_file, 'r', encoding='utf-8') as f:
@@ -239,10 +285,14 @@ class Tracer:
         """
         Checks that date is in admissible range, whether it is a scalar or an array.
 
-        Args:
-            date: Single date or array of dates to check
+        Parameters
+        ----------
+        date : float or ndarray
+            Single date or array of dates to check
 
-        Returns:
+        Returns
+        -------
+        bool
             True if all dates are within [datemin, datemax], False otherwise
         """
         if isinstance(date, np.ndarray):
@@ -259,15 +309,20 @@ class Tracer:
         """
         Computes concentrations of tracers.
 
-        Args:
-            date: Date(s) at which concentrations are computed.
-                date - time = date of recharge for the input chronicle
-            time: Time(s) at which concentrations are computed.
-                Time necessary for decay and geoproduction
+        Parameters
+        ----------
+        date : float or ndarray
+            Date(s) at which concentrations are computed.
+            date - time = date of recharge for the input chronicle
+        time : float or ndarray
+            Time(s) at which concentrations are computed.
+            Time necessary for decay and geoproduction
 
-        Returns:
-            Concentrations at the given date and time.
-            Returns float if inputs are scalars, ndarray if inputs are arrays.
+        Returns
+        -------
+        float or ndarray
+            Concentrations at the given date and time. Returns float if inputs
+            are scalars, ndarray if inputs are arrays.
         """
         c = 0
 
@@ -313,10 +368,14 @@ class Tracer:
         """
         Mean value of chronicle taken at date "date".
 
-        Args:
-            date: Reference date for computing the mean
+        Parameters
+        ----------
+        date : float
+            Reference date for computing the mean
 
-        Returns:
+        Returns
+        -------
+        float
             Mean concentration value over the chronicle period
         """
         # Sampling dates
@@ -329,11 +388,15 @@ class Tracer:
         """
         Max value of recharge chronicle concentrations.
 
-        Returns:
+        Returns
+        -------
+        float
             Maximum concentration value
 
-        Raises:
-            ValueError: If tracer has no recharge chronicle
+        Raises
+        ------
+        ValueError
+            If tracer has no recharge chronicle
         """
         if not self.__has_chronicle:
             raise ValueError(
@@ -347,8 +410,10 @@ class Tracer:
         """
         Display chemical element with plots.
 
-        Args:
-            display_options: Display configuration options
+        Parameters
+        ----------
+        display_options : DisplayOptions
+            Display configuration options
         """
         if display_options.text:
             print("chemical:", self.__name)
@@ -392,11 +457,16 @@ class DisplayOptions:
     """
     Configuration for figure display and saving.
 
-    Attributes:
-        text (bool): Enable text output to console
-        figure_save (bool): Save figures to disk
-        figure_close (bool): Close figures after display
-        directory (Path): Output directory for saved figures
+    Attributes
+    ----------
+    text : bool
+        Enable text output to console
+    figure_save : bool
+        Save figures to disk
+    figure_close : bool
+        Close figures after display
+    directory : Path
+        Output directory for saved figures
     """
 
     def __init__(
@@ -409,11 +479,16 @@ class DisplayOptions:
         """
         Initialize display options.
 
-        Args:
-            text: Enable text output to console
-            figure_save: Save figures to disk
-            figure_close: Close figures after display
-            directory: Output directory for saved figures
+        Parameters
+        ----------
+        text : bool
+            Enable text output to console
+        figure_save : bool
+            Save figures to disk
+        figure_close : bool
+            Close figures after display
+        directory : Path or str
+            Output directory for saved figures
         """
         self.text = text
         self.figure_save = figure_save
@@ -425,8 +500,10 @@ class DisplayOptions:
         """
         Save, display, and/or close the current figure.
 
-        Args:
-            filename: Base filename (without extension) for saving
+        Parameters
+        ----------
+        filename : str
+            Base filename (without extension) for saving
         """
         filepath = self.directory / f"{filename}.png"
 
@@ -450,13 +527,18 @@ def find_tracer_dir() -> Path:
     """
     Find the tracer_data directory relative to this script.
 
-    Returns:
+    Returns
+    -------
+    Path
         Path to tracer_data directory
 
-    Raises:
-        FileNotFoundError: If tracer_data directory cannot be found
+    Raises
+    ------
+    FileNotFoundError
+        If tracer_data directory cannot be found
 
-    Note:
+    Notes
+    -----
         Assumes project structure: .../pyage/sources/tracer/tracer_root.py
         and looks for: .../pyage/sources/tracer_data/
     """
