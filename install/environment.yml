@@ -15,6 +15,7 @@ dependencies:
   - av
   - imageio-ffmpeg
   - pyyaml
+  - pytest
   - pip
   - pip:
     - empiricaldist
