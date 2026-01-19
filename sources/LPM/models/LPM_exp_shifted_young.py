@@ -2,7 +2,7 @@
 """
 Created on Mon Mar 22 09:29:57 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """
 
 
@@ -12,11 +12,11 @@ from random import uniform
 from scipy.stats import expon
 
 # LPM template
-from LPM.LPM_root import LPM
-from LPM.LPM_exp_shifted import LPM_exp_shifted            # LPM shifted exponential
+from LPM.core.LPM_root import LPM
+from LPM.models.LPM_exp_shifted import LPM_exp_shifted            # LPM shifted exponential
 
 
-class LPM_exp_shifted_old(LPM_exp_shifted):
+class LPM_exp_shifted_young(LPM_exp_shifted):
     """ Lumped Parameter Model
         Exponential
     """
@@ -26,8 +26,7 @@ class LPM_exp_shifted_old(LPM_exp_shifted):
         """
         parameter_values={'mu':mu,'shift':shift}
         parameter_units={'mu':'year','shift':'year'}
-        LPM.__init__( self, "exp_shifted_old", parameter_values, parameter_units, directory_lpm)
-    
+        LPM.__init__( self, "exp_shifted_young", parameter_values, parameter_units, directory_lpm)
     
     def shift_upward(self): 
         """ Shift the distribution upward

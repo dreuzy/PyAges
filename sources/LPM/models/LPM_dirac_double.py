@@ -2,7 +2,7 @@
 """
 Created on Mon Mar 22 09:29:57 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """
 
 
@@ -12,8 +12,8 @@ from scipy.stats import expon
 from scipy import interpolate        # Interpolation function 
 
 # LPM template
-from LPM.LPM_root import LPM
-import LPM.tools_interpolation as tools_interpolation
+from LPM.core.LPM_root import LPM
+import LPM.core.tools_interpolation as tools_interpolation
 
 
 class LPM_dirac_double(LPM):

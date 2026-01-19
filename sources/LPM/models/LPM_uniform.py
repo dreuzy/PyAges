@@ -2,60 +2,60 @@
 """
 Created on Mon Mar 22 09:29:57 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """
 
 
 # Statistical distributions
-import numpy as np                      # Arrays
-from scipy.stats import expon
+from scipy.stats import uniform as uniform_stats
+import numpy as np
 
 # LPM template
-from LPM.LPM_root import LPM
+from LPM.core.LPM_root import LPM
+       
 
-class LPM_exp(LPM):
+class LPM_uniform(LPM):
     """ Lumped Parameter Model
         Exponential
     """
-    def __init__(self, mu=10, directory_lpm=None):   
+    def __init__(self, directory_lpm=None):   
         """ Constructor
             Specific
         """
-        parameter_values={'mu':mu}
-        parameter_units={'mu':'year'}
-        LPM.__init__( self, "exp", parameter_values, parameter_units, directory_lpm)
+        parameter_values={'tmin':2,'delta':10}
+        parameter_units={'tmin':'year','delta':'year'}
+        LPM.__init__(self,"uniform",parameter_values,parameter_units,directory_lpm)
         
         
     def pdf(self,t):
         """ p=pdf(t)
             Probability Density Function 
         """
-        return expon.pdf(t, 0, self.p['mu'])
+        return uniform_stats.pdf(t, self.p['tmin'], self.p['delta'])
     
     
     def cdf(self,t):
         """ p=cdf(t)
             Cumulative density 
         """
-        return expon.cdf(t, 0, self.p['mu'])
-    
-    
+        return uniform_stats.cdf(t, self.p['tmin'], self.p['delta'])
+
+        
     def cdf_inv(self,p):
         """ Inverse of the Cumulative Density Function, t=cdf^-1(p)
         """
-        return expon.ppf(p,scale=self.p['mu'])
+        return self.p['tmin'] + p * self.p['delta']
     
     
     def mean(self):
         """ 
         Returns mean of distribution """
-        return abs(expon.stats(scale=self.p['mu'],moments='m'))
+        return self.p['tmin'] + self.p['delta'] /2
     
     
     def std(self):
         """ 
         Returns std of distribution """
-        return(np.sqrt(expon.stats(scale=self.p['mu'],moments='v')))
+        return np.sqrt((self.p['delta'])**2/12)
     
-
 

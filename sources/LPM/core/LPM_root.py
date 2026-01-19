@@ -2,7 +2,16 @@
 """
 Created on Mon Mar 22 09:29:57 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
+
+Purpose
+-------
+Base classes and utilities for Lumped Parameter Models (LPM).
+Defines the common interface and shared numerical helpers used by
+specific LPM implementations (pdf/cdf, moments, parameter handling,
+and optimization utilities). Concrete models inherit from this root
+to ensure consistent behavior across calibration and convolution
+workflows.
 """
 
 from __future__ import annotations

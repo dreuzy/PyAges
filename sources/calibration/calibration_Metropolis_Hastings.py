@@ -2,7 +2,7 @@
 """
 Created on Wed Mar 24 20:35:54 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """
 
 import copy as copy
@@ -21,7 +21,7 @@ from scipy.interpolate import interp1d
 from calibration.calibration_exploration import objective_function_norm
 import calibration.calibration_basis as calbas
 import calibration.calibration_synthetic_test as cst
-import LPM.LPM_dist as LPM_dist
+import LPM.core.LPM_dist as LPM_dist
 import global_parameters as gp                              
 
 

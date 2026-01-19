@@ -2,7 +2,7 @@
 """
 Created on Mon Mar 22 09:29:57 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """
 
 
@@ -10,8 +10,8 @@ Created on Mon Mar 22 09:29:57 2021
 import numpy as np                      # Arrays
 
 # LPM template
-from LPM.LPM_root import LPM
-import LPM.tools_interpolation as tools_interpolation
+from LPM.core.LPM_root import LPM
+import LPM.core.tools_interpolation as tools_interpolation
 
 
 class LPM_dirac_double_1_set(LPM):

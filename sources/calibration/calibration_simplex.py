@@ -2,7 +2,7 @@
 """
 Created on Wed Mar 24 20:35:54 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """
 
 import copy as copy
@@ -11,7 +11,7 @@ import numpy as np
 from scipy.optimize import minimize
 import time
 
-import LPM.LPM_dist as LPM_dist
+import LPM.core.LPM_dist as LPM_dist
 import global_parameters as gp                          
 import calibration.calibration_basis as calbas
 from calibration.calibration_exploration import objective_function_norm

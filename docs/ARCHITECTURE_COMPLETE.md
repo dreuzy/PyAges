@@ -62,8 +62,8 @@ sources/
 │       └── files_years()           # Génération des fichiers par période
 │
 ├── LPM/ (Modèles à Paramètres Groupés)
-│   ├── LPM_root.py                 # Classe abstraite de base (615 lignes)
-│   ├── LPM_dist.py                 # Distribution des résultats (465 lignes)
+│   ├── core/LPM_root.py                 # Classe abstraite de base (615 lignes)
+│   ├── core/LPM_dist.py                 # Distribution des résultats (465 lignes)
 │   ├── LPM_generate.py             # Factory pattern
 │   └── Implémentations:
 │       ├── LPM_exp.py              # Exponentiel
@@ -157,7 +157,7 @@ sources/
               ▼                     ▼                     ▼
 ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
 │   Concentrations    │  │   LPM (13 types)    │  │ ConvolutionTracers  │
-│   (données .txt)    │  │   (LPM_root.py)     │  │ (multi-traceurs)    │
+│   (données .txt)    │  │   (core/LPM_root.py)     │  │ (multi-traceurs)    │
 └─────────────────────┘  └──────────┬──────────┘  └──────────┬──────────┘
                                     │                        │
                          ┌──────────┴──────────┐             │
@@ -329,7 +329,7 @@ mu,0,100,year
 shift,0,100,year
 ```
 
-**Chargement** (`LPM_root.py:119-145`):
+**Chargement** (`core/LPM_root.py:119-145`):
 ```python
 def __load_bounds(self, directory):
     file = os.path.join(directory, "bounds.txt")

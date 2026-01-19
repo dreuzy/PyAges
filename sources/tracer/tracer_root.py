@@ -3,6 +3,15 @@
 Created on Tue Mar 23 03:23:24 2021
 
 @author: Jean-Raynald de Dreuzy
+
+Purpose
+-------
+Core tracer data model and I/O utilities.
+Loads tracer recharge chronologies from local datasets, provides
+interpolation and accessors for concentration values, and exposes
+helper methods used by convolution and calibration modules. This
+module is the entry point for tracer-specific metadata and data
+normalization.
 """
 
 from typing import Union, Optional, Dict, Any

@@ -2,7 +2,7 @@
 """
 Created on Sun Sep  5 19:22:23 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 
 Tests all programs, applications, benchmarks ... 
 Equivalent to non regression test on all possible use of codes

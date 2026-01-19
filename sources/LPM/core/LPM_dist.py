@@ -2,7 +2,7 @@
 """
 Created on Sun May 23 21:53:11 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """
 
 import copy

@@ -11,7 +11,6 @@ Targets:
 - ori_ploemeur_F11_2004_2020.txt
 """
 
-import json
 from pathlib import Path
 
 import numpy as np
@@ -19,42 +18,18 @@ import pytest
 
 import global_parameters as gp
 from convolutions.concentrations import Concentrations
-
-
-def _repo_root() -> Path:
-    # repo_root/tests/convolutions/test_concentrations.py -> repo_root
-    return Path(__file__).resolve().parents[2]
+from tests.utils import golden as golden_utils
+from tests.utils import paths as test_paths
 
 
 def _tests_data_dir() -> Path:
     # Test fixtures live under tests/data
-    return _repo_root() / "tests" / "data"
+    return test_paths.repo_root() / "tests" / "data"
 
 
 def _golden_path() -> Path:
     # Golden values file for concentration aggregates
-    return _repo_root() / "tests" / "golden" / "concentrations_values.json"
-
-
-def _load_golden() -> dict:
-    # Local helper to keep this test file self-contained.
-    path = _golden_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _save_golden(store: dict) -> None:
-    # Atomic write to avoid partial JSON on interruption.
-    path = _golden_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.write_text(
-        json.dumps(store, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    tmp_path.replace(path)
+    return test_paths.repo_root() / "tests" / "golden" / "concentrations_values.json"
 
 
 @pytest.mark.parametrize(
@@ -101,11 +76,11 @@ def test_concentrations_golden_stats(file_path, update_golden):
     }
 
     key = file_path.name
-    store = _load_golden()
+    store = golden_utils.load_golden(_golden_path())
 
     if update_golden:
         store[key] = stats
-        _save_golden(store)
+        golden_utils.save_golden(_golden_path(), store)
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:

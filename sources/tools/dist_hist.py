@@ -2,7 +2,7 @@
 """
 Created on Mon May 24 17:03:47 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """
 import matplotlib.pyplot as plt
 import matplotlib        as mpl

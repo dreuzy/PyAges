@@ -2,7 +2,7 @@
 """
 Created on Tue Mar 23 21:20:39 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """
 
 from datetime import datetime

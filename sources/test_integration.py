@@ -2,7 +2,7 @@
 """
 Created on Wed Mar 24 16:26:55 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """                                        
 
 import sys
@@ -91,36 +91,6 @@ class TestIntegration:
         directory = gp.results_directory(directory,folder_name)
         self.display.directory = gp.results_directory(directory,gp.name_dhms())
 
-        
-    def check_tracers(self,single_all="all",single_name=""):
-        """ 
-        Checks tracers
-            Method with single tracer is used typically when a new tracer is developed 
-            
-        Arguments
-        ---------
-        single_all: str
-            "single": test for a single lpm
-            "all": test for all lpms
-        single_name: str
-            Name of LPM tested
-        """
-        
-        # Nature of the test
-        if single_all == "single":
-            tracers_list=[single_name]
-        else: 
-            tracers_list=self.tracers_all
-        
-        self.display_set(single_all)
-        self.folder_results("integration_tracers")   
-
-        print('\nLOAD AND DISPLAY TRACERS')
-        convolution_tracers.test_load_and_display(tracers_list,display_options=self.display)
-        
-        print('\nLOAD CONCENTRATIONS')
-        concentrations.test_load("data_test_exp.txt",display_options=self.display)
-
 
     def check_lpms(self,single_all="all",single_name=""):
         """ 
@@ -151,14 +121,6 @@ class TestIntegration:
         for t in lpm_list:
             LPM_generate.test(t,display_options=self.display)
         
-        print('\nCONVOLUTION')
-        for t in lpm_list:
-            convolution_tracers.test_convolution(t,self.tracers_conv,display_options=self.display,date=self.__date)
-
-        print('\nREACHABLE CONCENTRATIONS')
-        for t in lpm_list:
-            calibration_exploration.test_reachconc(lpm=t,tracer_names=self.tracers_conv,display_options=self.display,nmodels=self.reachable_resolution,date=self.__date)
-
 
     def check_calibration(self,single_all="all",single_name=""): 
         """ 
@@ -221,25 +183,6 @@ class TestIntegration:
         # Unit Test of Metropolis Hastings algorithm on simple priors 
         cMH.test_calibration_MH_prior(self.display)
 
-            
-    
-    def test_calibration_on_data(self,file_name,lpm_type,calibration_method) :
-        """ Test calibration procedure on a set of data red from a file
-                with the model of type "lpm_type"    
-            #JR 06/08: function should be checked 
-        """
-        # Loads test data
-        c_data = concentrations.Concentrations(file_load=True, file_name=gp.DIRECTORY_TEST+file_name)
-        # Calibrates lpm
-        calib_simplex = csimp.CalibrationSimplex("Simplex")            
-        # self.display.text = True
-        tracer_names=["TOTO"]
-        date=["TOTO"]
-        # calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=1,error=0.01,tracer_names=tracer_names,
-        #                                      date=date,lpm_type=lpm_type,display_options=self.display)
-        # calib.perform_ncase()
-        #JR 06/08: no longer working, should be replaced by Simplex or MH 
-        calib.display_concentrations()
         
 
 # ----------------------------------------------
@@ -251,12 +194,10 @@ def test_integration():
 
     # Simple test functions: exhaustive tracer or lpm
     ti = TestIntegration(date=2010)
-    ti.check_tracers(single_all="all")
     ti.check_lpms(single_all="all")
 
     # Simple test functions: single tracer or lpm
     ti = TestIntegration(date=2010)
-    ti.check_tracers(single_all="single",single_name="cfc11")
     ti.check_lpms(single_all="single",single_name="dirac_double_1_set")
 
     # Checks calibration 

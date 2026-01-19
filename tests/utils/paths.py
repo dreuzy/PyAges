@@ -8,7 +8,7 @@ def repo_root() -> Path:
 
 
 def lpm_dir() -> Path:
-    return repo_root() / "sources" / "LPM"
+    return repo_root() / "sources" / "LPM" / "models"
 
 
 def lpm_data_dir() -> Path:

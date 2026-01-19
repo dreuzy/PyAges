@@ -2,24 +2,24 @@
 """
 Created on Wed Mar 24 22:05:45 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """
 import sys                                             # sys: abort code
 
 import global_parameters as gp
 
-from LPM.LPM_dirac import LPM_dirac                        # LPM dirac
-from LPM.LPM_dirac_double import LPM_dirac_double          # LPM dirac double
-from LPM.LPM_dirac_double_1_set import LPM_dirac_double_1_set          # LPM dirac double
-from LPM.LPM_exp import LPM_exp                            # LPM exponential
-from LPM.LPM_exp_shifted import LPM_exp_shifted            # LPM shifted exponential
-from LPM.LPM_exp_shifted_young import LPM_exp_shifted_young            # LPM shifted exponential
-from LPM.LPM_exp_shifted_old import LPM_exp_shifted_old            # LPM shifted exponential
-from LPM.LPM_uniform import LPM_uniform                    # LPM uniform
-from LPM.LPM_ig import LPM_ig                              # LPM inverse gaussian
-from LPM.LPM_ig_shifted import LPM_ig_shifted              # LPM inverse gaussian shifted
-from LPM.LPM_gamma import LPM_gamma                        # LPM gamma
-from LPM.LPM_mix_exp_shifted import LPM_mix_exp_shifted
+from LPM.models.LPM_dirac import LPM_dirac                        # LPM dirac
+from LPM.models.LPM_dirac_double import LPM_dirac_double          # LPM dirac double
+from LPM.models.LPM_dirac_double_1_set import LPM_dirac_double_1_set          # LPM dirac double
+from LPM.models.LPM_exp import LPM_exp                            # LPM exponential
+from LPM.models.LPM_exp_shifted import LPM_exp_shifted            # LPM shifted exponential
+from LPM.models.LPM_exp_shifted_young import LPM_exp_shifted_young            # LPM shifted exponential
+from LPM.models.LPM_exp_shifted_old import LPM_exp_shifted_old            # LPM shifted exponential
+from LPM.models.LPM_uniform import LPM_uniform                    # LPM uniform
+from LPM.models.LPM_ig import LPM_ig                              # LPM inverse gaussian
+from LPM.models.LPM_ig_shifted import LPM_ig_shifted              # LPM inverse gaussian shifted
+from LPM.models.LPM_gamma import LPM_gamma                        # LPM gamma
+from LPM.models.LPM_mix_exp_shifted import LPM_mix_exp_shifted
 
 
 def LPM_generate(lpm_type,directory_lpm=gp.directory_lpm_data):

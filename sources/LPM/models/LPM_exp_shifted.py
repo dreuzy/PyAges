@@ -2,7 +2,7 @@
 """
 Created on Mon Mar 22 09:29:57 2021
 
-@author: dreuzy
+@author: Jean-Raynald de Dreuzy
 """
 
 
@@ -12,7 +12,7 @@ from random import uniform
 from scipy.stats import expon
 
 # LPM template
-from LPM.LPM_root import LPM
+from LPM.core.LPM_root import LPM
 
 
 class LPM_exp_shifted(LPM):
