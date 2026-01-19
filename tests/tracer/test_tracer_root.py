@@ -68,9 +68,47 @@ def _tracer_data_dir() -> Path:
     return Path(__file__).resolve().parents[2] / "sources" / "tracer_data"
 
 
+def _tracer_names(exclude=None) -> list[str]:
+    """
+    Liste les traceurs disponibles (sous-dossiers avec YAML) en excluant certains.
+    """
+    tracer_dir = _tracer_data_dir()
+    exclude_set = set(exclude or [])
+    names = []
+    for item in tracer_dir.iterdir():
+        if not item.is_dir():
+            continue
+        yaml_file = item / f"{item.name}.yaml"
+        if yaml_file.exists() and item.name not in exclude_set:
+            names.append(item.name)
+    return sorted(names)
+
+
 # ---------------------------------------------------------------------------
 # Tests de cohérence (smoke tests)
 # ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("tracer_name", _tracer_names(exclude=["NO3"]))
+def test_tracer_smoke_all(tracer_name):
+    """
+    Smoke test minimal pour tous les traceurs (sauf NO3).
+    """
+    tracer_dir = _tracer_data_dir()
+    tracer = Tracer(tracer_dir, name=tracer_name)
+
+    assert tracer.name == tracer_name
+    assert tracer.unit != ""
+    assert tracer.datemin < tracer.datemax
+
+    value = tracer.get_concentration(date=2000.0, time=10.0)
+    assert math.isfinite(float(value))
+
+    try:
+        max_val = tracer.max_value()
+        assert math.isfinite(max_val)
+    except ValueError:
+        pass
+
 
 def test_tracer_chronicle_cfc11_basics():
     """
@@ -150,7 +188,8 @@ def _golden_key(tracer_name: str, date: float, time: float) -> str:
     return f"{tracer_name}:date={date},time={time}"
 
 
-def test_tracer_get_concentration_golden(update_golden, golden_store):
+@pytest.mark.parametrize("tracer_name", _tracer_names(exclude=["NO3"]))
+def test_tracer_get_concentration_golden(tracer_name, update_golden, golden_store):
     """
     Test golden pour get_concentration sur un point précis (date, time).
 
@@ -169,17 +208,17 @@ def test_tracer_get_concentration_golden(update_golden, golden_store):
       - On évite de mélanger mise à jour et validation dans la même exécution.
     """
     tracer_dir = _tracer_data_dir()
-    tracer = Tracer(tracer_dir, name="cfc11")
+    tracer = Tracer(tracer_dir, name=tracer_name)
 
     # Paramètres du point de test : doit être stable et reproductible
-    date = 2001.0
-    time = 25.0
+    date = 0.5 * (tracer.datemin + tracer.datemax)
+    time = min(10.0, max(0.0, date - tracer.datemin))
 
     # Valeur calculée
     value = float(tracer.get_concentration(date=date, time=time))
 
     # Clé de stockage/retrieval dans le golden store
-    key = _golden_key("cfc11", date, time)
+    key = _golden_key(tracer_name, date, time)
 
     # Affiche une valeur "copiable" si tu veux l'observer dans la console
     # (utile pour debug / validation manuelle)

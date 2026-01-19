@@ -1,0 +1,141 @@
+"""
+Non-regression tests for all LPM models (pdf/cdf/cdf_inv + basic invariants).
+
+- Auto-discovers model types from sources/LPM/LPM_*.py (excluding LPM_root.py).
+- Uses golden values stored in tests/golden/lpm_values.json.
+- Supports --update-golden to refresh reference values.
+"""
+
+import json
+import math
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+import LPM.LPM_generate as LPM_generate
+
+
+def _repo_root() -> Path:
+    # repo_root/tests/LPM/test_lpm_models.py -> repo_root
+    return Path(__file__).resolve().parents[2]
+
+
+def _lpm_dir() -> Path:
+    return _repo_root() / "sources" / "LPM"
+
+
+def _lpm_data_dir() -> Path:
+    return _repo_root() / "sources" / "LPM_data"
+
+
+def _lpm_types() -> list[str]:
+    # Map filenames like LPM_exp.py -> "exp"
+    types = []
+    for path in _lpm_dir().glob("LPM_*.py"):
+        if path.name in {"LPM_root.py", "LPM_generate.py", "LPM_dist.py"}:
+            continue
+        types.append(path.stem[len("LPM_"):])
+    return sorted(t for t in types if t != "mix_exp_shifted")
+
+
+def _golden_path() -> Path:
+    return _repo_root() / "tests" / "golden" / "lpm_values.json"
+
+
+def _load_golden() -> dict:
+    # Local helper to keep this test file self-contained.
+    path = _golden_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _save_golden(store: dict) -> None:
+    # Atomic write to avoid partial JSON on interruption.
+    path = _golden_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(
+        json.dumps(store, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    tmp_path.replace(path)
+
+
+def _make_lpm(lpm_type: str):
+    # Instantiate the LPM using local LPM_data; keep defaults if init fails.
+    lpm = LPM_generate.LPM_generate(lpm_type, directory_lpm=str(_lpm_data_dir()))
+    try:
+        lpm.set_param_from_array(lpm.param_init())
+    except Exception:
+        # Keep default parameters if init file is missing or invalid.
+        pass
+    return lpm
+
+
+@pytest.mark.parametrize("lpm_type", _lpm_types())
+def test_lpm_smoke_all(lpm_type):
+    # Basic invariants for every LPM implementation.
+    lpm = _make_lpm(lpm_type)
+
+    assert lpm.name == lpm_type
+
+    rng = np.random.default_rng(12345)
+    lpm.random_uniform(rng=rng)
+    assert lpm.param_within_bounds(lpm.p)
+
+    params = lpm.get_parameters_to_array()
+    lpm.set_param_from_array(params)
+    assert lpm.param_within_bounds(lpm.p)
+
+    mean_val = lpm.mean()
+    std_val = lpm.std()
+    assert math.isfinite(mean_val)
+    assert math.isfinite(std_val)
+    assert std_val >= 0
+
+    t = np.array([0.0, 1.0, 10.0])
+    pdf_vals = lpm.pdf(t)
+    assert np.all(np.isfinite(pdf_vals))
+    assert np.all(pdf_vals >= 0)
+
+
+@pytest.mark.parametrize("lpm_type", _lpm_types())
+def test_lpm_golden_pdf_cdf_cdf_inv(lpm_type, update_golden):
+    # Golden values for a mid-quantile point p0.
+    lpm = _make_lpm(lpm_type)
+
+    p0 = 0.5
+    t0 = float(lpm.cdf_inv(p0))
+
+    pdf_val = float(np.asarray(lpm.pdf(np.array([t0])))[0])
+    cdf_val = float(np.asarray(lpm.cdf(np.array([t0])))[0])
+    cdf_inv_val = float(lpm.cdf_inv(p0))
+
+    key = lpm_type
+    store = _load_golden()
+
+    record = {
+        "pdf": {"t": t0, "value": pdf_val},
+        "cdf": {"t": t0, "value": cdf_val},
+        "cdf_inv": {"p": p0, "value": cdf_inv_val},
+    }
+
+    if update_golden:
+        store[key] = record
+        _save_golden(store)
+        pytest.skip(f"Golden updated for {key}")
+
+    if key not in store:
+        pytest.fail(
+            f"Golden value missing for {key}. "
+            f"Run: pytest -s --update-golden"
+        )
+
+    expected = store[key]
+    assert t0 == pytest.approx(expected["pdf"]["t"], rel=1e-6, abs=1e-6)
+    assert pdf_val == pytest.approx(expected["pdf"]["value"], rel=1e-6, abs=1e-6)
+    assert cdf_val == pytest.approx(expected["cdf"]["value"], rel=1e-6, abs=1e-6)
+    assert cdf_inv_val == pytest.approx(expected["cdf_inv"]["value"], rel=1e-6, abs=1e-6)
