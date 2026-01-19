@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from tests.utils import golden as golden_utils
 
 # ---------------------------------------------------------------------------
 # 1) Localisation du projet + ajout de "sources/" au PYTHONPATH des tests
@@ -93,12 +94,12 @@ def golden_store() -> dict:
 
     # Si le fichier existe, on tente de le parser en JSON
     try:
-        return json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
+        return golden_utils.load_golden(GOLDEN_PATH)
     except json.JSONDecodeError as e:
         # UsageError est une erreur "de configuration/usage" plus parlante qu'un traceback brut
         raise pytest.UsageError(
             f"Golden file is not valid JSON: {GOLDEN_PATH}\n{e}"
-        )
+        ) from e
 
 
 # ---------------------------------------------------------------------------
@@ -116,17 +117,4 @@ def save_golden_store(store: dict) -> None:
     Avantage: si le processus est interrompu pendant l'écriture, tu évites d'avoir
     un tracer_values.json partiellement écrit/corrompu.
     """
-    # S'assure que le dossier existe au moment de la sauvegarde
-    GOLDEN_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-    # Chemin temporaire
-    tmp_path = GOLDEN_PATH.with_suffix(GOLDEN_PATH.suffix + ".tmp")
-
-    # On sérialise en JSON "lisible" (indentation) avec clés triées (sort_keys=True)
-    tmp_path.write_text(
-        json.dumps(store, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-
-    # Remplace le fichier final par le fichier tmp (opération atomique sur la plupart des OS)
-    tmp_path.replace(GOLDEN_PATH)
+    golden_utils.save_golden(GOLDEN_PATH, store)

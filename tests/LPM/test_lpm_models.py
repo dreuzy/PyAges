@@ -6,7 +6,6 @@ Non-regression tests for all LPM models (pdf/cdf/cdf_inv + basic invariants).
 - Supports --update-golden to refresh reference values.
 """
 
-import json
 import math
 from pathlib import Path
 
@@ -14,25 +13,14 @@ import numpy as np
 import pytest
 
 import LPM.LPM_generate as LPM_generate
-
-
-def _repo_root() -> Path:
-    # repo_root/tests/LPM/test_lpm_models.py -> repo_root
-    return Path(__file__).resolve().parents[2]
-
-
-def _lpm_dir() -> Path:
-    return _repo_root() / "sources" / "LPM"
-
-
-def _lpm_data_dir() -> Path:
-    return _repo_root() / "sources" / "LPM_data"
+from tests.utils import golden as golden_utils
+from tests.utils import paths as test_paths
 
 
 def _lpm_types() -> list[str]:
     # Map filenames like LPM_exp.py -> "exp"
     types = []
-    for path in _lpm_dir().glob("LPM_*.py"):
+    for path in test_paths.lpm_dir().glob("LPM_*.py"):
         if path.name in {"LPM_root.py", "LPM_generate.py", "LPM_dist.py"}:
             continue
         types.append(path.stem[len("LPM_"):])
@@ -40,33 +28,12 @@ def _lpm_types() -> list[str]:
 
 
 def _golden_path() -> Path:
-    return _repo_root() / "tests" / "golden" / "lpm_values.json"
-
-
-def _load_golden() -> dict:
-    # Local helper to keep this test file self-contained.
-    path = _golden_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _save_golden(store: dict) -> None:
-    # Atomic write to avoid partial JSON on interruption.
-    path = _golden_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.write_text(
-        json.dumps(store, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    tmp_path.replace(path)
+    return test_paths.repo_root() / "tests" / "golden" / "lpm_values.json"
 
 
 def _make_lpm(lpm_type: str):
     # Instantiate the LPM using local LPM_data; keep defaults if init fails.
-    lpm = LPM_generate.LPM_generate(lpm_type, directory_lpm=str(_lpm_data_dir()))
+    lpm = LPM_generate.LPM_generate(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
     try:
         lpm.set_param_from_array(lpm.param_init())
     except Exception:
@@ -115,7 +82,7 @@ def test_lpm_golden_pdf_cdf_cdf_inv(lpm_type, update_golden):
     cdf_inv_val = float(lpm.cdf_inv(p0))
 
     key = lpm_type
-    store = _load_golden()
+    store = golden_utils.load_golden(_golden_path())
 
     record = {
         "pdf": {"t": t0, "value": pdf_val},
@@ -125,7 +92,7 @@ def test_lpm_golden_pdf_cdf_cdf_inv(lpm_type, update_golden):
 
     if update_golden:
         store[key] = record
-        _save_golden(store)
+        golden_utils.save_golden(_golden_path(), store)
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:

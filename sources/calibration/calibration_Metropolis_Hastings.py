@@ -431,8 +431,6 @@ class Prior() :
         for key in lpm.p.keys():
             MH_difference[key][0] = 100 * (1-apriori_sampled[key][0]/apriori_theory[key][0])
             MH_difference[key][1] = 100 * (1-apriori_sampled[key][1]/apriori_theory[key][1])
-            print('\nCheck MH prior distribution\n')
-            print('%.4f' % MH_difference[key][0], '%.4f' % MH_difference[key][1], ' Diff-Percent <> & \u03C3 of', key)
 
 
 class CalibrationMetropolisHastings(calbas.CalibrationBasis) : 

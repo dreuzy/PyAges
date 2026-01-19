@@ -2,21 +2,37 @@
 Script utilitaire pour lancer les tests pytest depuis la racine du projet.
 
 Usage :
-  python run_tests.py           -> mode normal (comparaison des golden)
-  python run_tests.py update    -> mise à jour des golden (--update-golden)
+  python run_tests.py               -> mode normal (synthèse)
+  python run_tests.py update        -> mise à jour des golden (--update-golden)
+  python run_tests.py detail        -> affichage détaillé (-vv)
+  python run_tests.py update detail -> combine update + détail
 """
 
+import argparse
 import subprocess
 import sys
 
 
 def main():
-    # Commande de base
-    cmd = ["pytest", "-v", "tests"]
+    parser = argparse.ArgumentParser(description="Run pytest for this project.")
+    parser.add_argument(
+        "mode",
+        nargs="*",
+        help="Optional modes: update, detail",
+    )
+    args = parser.parse_args()
 
-    # Si l'utilisateur passe "update" en argument
-    if len(sys.argv) > 1 and sys.argv[1] == "update":
-        cmd = ["pytest", "-v", "-s", "--update-golden", "tests"]
+    update = "update" in args.mode
+    detail = "detail" in args.mode
+
+    # Commande de base (synthèse)
+    cmd = ["pytest", "-q", "tests"]
+
+    if detail:
+        cmd = ["pytest", "-vv", "tests"]
+
+    if update:
+        cmd = cmd[:1] + ["-s", "--update-golden"] + cmd[1:]
 
     print("Running:", " ".join(cmd))
     print("-" * 60)
