@@ -1,2 +1,0 @@
-mu,0.1,70,year
-sigma,0.1,70,year

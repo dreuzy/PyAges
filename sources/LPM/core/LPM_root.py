@@ -27,9 +27,10 @@ import os
 import pandas as pd
 from scipy import integrate
 from scipy import optimize
+import yaml
        
 
-class LPM(abc.ABC): 
+class LPM(abc.ABC):
     """  
     Lumped Parameter Model, pure virtual class
 
@@ -129,6 +130,8 @@ class LPM(abc.ABC):
 
 
     @abc.abstractmethod
+
+
     def pdf(self, t: npt.ArrayLike) -> npt.ArrayLike:
         """
         Probability Density Function
@@ -168,6 +171,7 @@ class LPM(abc.ABC):
         """Return mean of distribution."""
         return self.__moment_k(1)
 
+
     def std(self) -> float:
         """Return standard deviation of distribution."""
         return np.sqrt(self.__moment_k(2) - self.__moment_k(1)**2)
@@ -200,6 +204,7 @@ class LPM(abc.ABC):
         lpm_temp.load_param_values(self.lpm_parameter_file("simplex_init.txt"))
         return lpm_temp.get_parameters_to_array()
 
+
     def lpm_parameter_file(self, file_name: str) -> str:
         """
         Directory + File where the lpm parameters are defined
@@ -215,6 +220,22 @@ class LPM(abc.ABC):
             Full directory + file name
         """
         return os.path.join(self.__directory_lpm_data, self.name, file_name)
+
+
+    def __load_params_yaml(self) -> dict | None:
+        """Load YAML parameters if present in the LPM directory."""
+        path = self.lpm_parameter_file("params.yaml")
+        if not hasattr(LPM, "_PARAMS_CACHE"):
+            LPM._PARAMS_CACHE = {}
+        cache = LPM._PARAMS_CACHE
+        if path in cache:
+            return cache[path]
+        if not os.path.exists(path):
+            return None
+        with open(path, "r", encoding="utf-8") as handle:
+            data = yaml.safe_load(handle) or {}
+        cache[path] = data
+        return data
         
     
     def load_param_values(self,file_name):
@@ -237,11 +258,20 @@ class LPM(abc.ABC):
         dictionary
             p["param_name"]=param_value
         """
-        # Loads file in which parameters are stored   
-        temp = pd.read_csv(file_name,header=None)
-        # Affects param_values to the distribution
-        for i in range(len(temp.values[:,0])):
-            self.p[temp.values[i,0]] = temp.values[i,1]         
+        if os.path.basename(file_name) == "simplex_init.txt":
+            params_yaml = self.__load_params_yaml()
+            if not params_yaml or "parameters" not in params_yaml:
+                raise FileNotFoundError(
+                    f"Missing params.yaml for {self.name} (required for simplex init)."
+                )
+            for param in params_yaml["parameters"]:
+                if "init" in param:
+                    self.p[param["name"]] = param["init"]
+            return
+        raise FileNotFoundError(
+            f"Legacy parameter file not supported: {file_name}. "
+            f"Use params.yaml in {self.lpm_parameter_file('params.yaml')}."
+        )
         
     
     def __load_bounds(self):
@@ -255,12 +285,16 @@ class LPM(abc.ABC):
             mu2,0,100,year
             rate,0,1,-
         """
-        # Loads file in which the bounds of the parameters are stored   
-        temp = pd.read_csv(self.lpm_parameter_file("bounds.txt"),header=None)
-        # Affects bounds to the distribution
-        for i in range(len(temp.values[:,0])):
-            self.__p_min[temp.values[i,0]] = temp.values[i,1]
-            self.__p_max[temp.values[i,0]] = temp.values[i,2]         
+        params_yaml = self.__load_params_yaml()
+        if not params_yaml or "parameters" not in params_yaml:
+            raise FileNotFoundError(
+                f"Missing params.yaml for {self.name} (required for bounds)."
+            )
+        for param in params_yaml["parameters"]:
+            bounds = param.get("bounds")
+            if bounds and len(bounds) == 2:
+                self.__p_min[param["name"]] = bounds[0]
+                self.__p_max[param["name"]] = bounds[1]
         
         
     def param_within_bounds(self, params: dict[str, float]) -> bool:
@@ -282,6 +316,7 @@ class LPM(abc.ABC):
             if val < self.__p_min[pname] or val > self.__p_max[pname]:
                 return False
         return True
+
 
     def param_within_bounds_array(self, params: list[float]) -> bool:
         """
@@ -327,9 +362,11 @@ class LPM(abc.ABC):
             val[i] = integrate.quadrature(self.pdf, 0.0, t[i])[0]
         return val
 
+
     def _cdf_minus_p(self, t: float, p: float) -> float:
         """Instrumental function for cdf_inv"""
         return (self.cdf(t) - p) ** 2
+
 
     def cdf_inv(self, p: float) -> float:
         """
@@ -357,13 +394,16 @@ class LPM(abc.ABC):
         for k, key in enumerate(self.p):
             self.p[key] = param[k]
 
+
     def get_parameters_to_array(self) -> list[float]:
         """Get parameters as array."""
         return list(self.p.values())
 
+
     def get_param_names(self) -> list[str]:
         """Return parameter names."""
         return list(self.p.keys())
+
 
     def get_param_range(self, param_name: str) -> float:
         """
@@ -381,6 +421,7 @@ class LPM(abc.ABC):
         """
         return self.__p_max[param_name] - self.__p_min[param_name]
 
+
     def get_param_interval(self) -> tuple[list[float], list[float]]:
         """
         Gets the interval of parameters
@@ -394,9 +435,11 @@ class LPM(abc.ABC):
         pmax = list(self.__p_max.values())
         return pmin, pmax
 
+
     def get_p_max(self, key: str) -> float:
         """Return upper bound for parameter."""
         return self.__p_max[key]
+
 
     def get_p_min(self, key: str) -> float:
         """Return lower bound for parameter."""
@@ -411,6 +454,7 @@ class LPM(abc.ABC):
             for key in self.p.keys():
                 print("\t", key, "\t=", self.p[key], self.__u[key])
 
+
     def __support_range(self) -> tuple[float, float]:
         """
         Defines Support Time Range
@@ -424,6 +468,7 @@ class LPM(abc.ABC):
         tmin = 0
         tmax = 1.2 * self.cdf_inv(0.98)
         return tmin, tmax
+
 
     def discret_pdf_cdf(self, type_pc: str, n: int) -> tuple[np.ndarray, npt.ArrayLike]:
         """
@@ -451,6 +496,7 @@ class LPM(abc.ABC):
         else:
             raise ValueError(f"type_pc must be 'pdf' or 'cdf', got '{type_pc}'")
         return t, values
+
 
     def plot(self, type_pc: str, display_options: Any) -> None:
         """
@@ -498,6 +544,7 @@ class LPM(abc.ABC):
                       '\t calibrated', '%.2f' % self.p[key], '\t',
                       'difference rate', '%.1e' % (self.p[key] / lpm_reference.p[key] - 1))
 
+
     def display_pdf_cdf(self, display_options: Any) -> None:
         """Check consistency of distribution."""
         self.display(display_options)
@@ -508,6 +555,7 @@ class LPM(abc.ABC):
     def write_name(self, file: Any) -> None:
         """Write LPM name to file."""
         file.write("lpm\t" + self.name + "\n")
+
 
     def write(self, file: str | Any, open_file: bool = False) -> None:
         """
@@ -528,6 +576,7 @@ class LPM(abc.ABC):
             file.write(key + '\t' + str(self.p[key]) + '\t' + str(self.__u[key]) + '\n')
         if open_file:
             file.close()
+
 
     def load_lpm_from_dist(
         self,
@@ -592,9 +641,11 @@ class LPM(abc.ABC):
 
         return (True, chosen_lines)
 
+
     def moments_name(self) -> list[str]:
         """Return moment names."""
         return ['mean', 'std', 'quart10', 'quart25', 'median', 'quart75', 'quart90']
+
 
     def moments(self) -> list[float]:
         """Compute statistical characteristics of the distribution."""
@@ -604,6 +655,7 @@ class LPM(abc.ABC):
             self.cdf_inv(0.75), self.cdf_inv(0.90)
         ]
 
+
     def display_moments(self) -> None:
         """Display computed moments."""
         print("\nmoments")
@@ -612,6 +664,7 @@ class LPM(abc.ABC):
         for i in range(len(names)):
             print(names[i], "", values[i])
         print("\n")
+
 
     def output_dataframe(self) -> pd.DataFrame:
         """Output model as dataframe."""

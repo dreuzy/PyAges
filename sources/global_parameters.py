@@ -91,6 +91,7 @@ class display_options:
         self.figure_save = False
         self.directory = None
 
+
     def save_and_close(self, fig, filename, method="", dpi=300, ax=None, with_legend=False):
         """
         Sauvegarde et ferme une figure matplotlib, avec gestion robuste
@@ -170,12 +171,14 @@ class simulation_time:
         self.simul_current = 0
         self.init_yes = False
 
+
     def initialize(self, nb):
         if not self.init_yes:
             self.time_start = time.time()
             self.time_inter_start = time.time()
             self.simul_total = nb * self.simul_total
             self.init_yes = True
+
 
     def actualize(self, nb=1):
         self.time_inter_end = time.time()

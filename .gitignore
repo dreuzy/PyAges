@@ -70,3 +70,4 @@ Thumbs.db
 figures_out/
 results/
 *.log
+*.tmp

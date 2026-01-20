@@ -1,2 +1,0 @@
-tmin,0,100,year
-delta,0.5,100,year

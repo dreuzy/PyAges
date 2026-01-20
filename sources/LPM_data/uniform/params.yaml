@@ -1,0 +1,44 @@
+# LPM parameters for model "uniform"
+# This YAML mirrors the legacy files:
+# - bounds.txt (parameter bounds used by LPM_root.__load_bounds)
+# - simplex_init.txt (initial values used by calibration_simplex)
+# - MHstep.txt (proposal step sizes used by calibration_Metropolis_Hastings)
+# - MHapriori.txt (prior distributions used by calibration_Metropolis_Hastings)
+#
+# The parameters here are read by LPM models and calibration routines to:
+# - check bounds (param_within_bounds / param_within_bounds_array)
+# - build priors and proposal steps in MH
+# - set initial values for simplex optimization
+# Some parameters (e.g., shift) are also used in convolution for shifted models.
+
+model: uniform
+version: 1
+
+parameters:
+  - name: tmin
+    label: min_time
+    unit: year
+    description: "Minimum time parameter."
+    bounds: [0.0, 100.0]
+    init: 15.0
+    step: 1.0
+    prior:
+      type: uniform
+      min: 0.0
+      max: 100.0
+      unit: year
+
+  - name: delta
+    label: width
+    unit: year
+    description: "Width parameter."
+    bounds: [0.5, 100.0]
+    init: 20.0
+    step: 1.0
+    prior:
+      type: uniform
+      min: 0.0
+      max: 100.0
+      unit: year
+
+notes: "Consolidated from bounds.txt, simplex_init.txt, MHstep.txt, MHapriori.txt."

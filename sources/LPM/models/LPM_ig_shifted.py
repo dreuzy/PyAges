@@ -26,17 +26,20 @@ class LPM_ig_shifted(LPM):
         parameter_units={'mu':'year','sigma':'year','shift':'year'}
         LPM.__init__(self,"ig_shifted",parameter_values,parameter_units, directory_lpm)
         
+
     def pdf(self,t):
         """ p=pdf(t)
             Probability Density Function 
         """
         return invgauss.pdf(t, self.p['mu'], self.p['shift'], self.p['sigma'])
     
+
     def cdf(self,t):
         """ p=cdf(t)
             Cumulative density 
         """
         return invgauss.cdf(t, self.p['mu'], self.p['shift'], self.p['sigma'])
+
 
     def cdf_inv(self, p):
         """Inverse of the Cumulative Density Function, t = cdf^-1(p).
@@ -60,6 +63,7 @@ class LPM_ig_shifted(LPM):
             loc=self.p['shift']
         )
     
+
     def mean(self):
         """ 
         Returns mean of distribution """

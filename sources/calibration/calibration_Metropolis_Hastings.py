@@ -11,7 +11,8 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import pandas as pd                                     
+import pandas as pd
+import yaml
 import sys as sys 
 from scipy.stats import norm 
 import time
@@ -191,13 +192,16 @@ class MH_step:
         self.prop = 0.1
         self.interval = 0 
         
+
     def define_by_value(self): 
         self.method = "value"
         
+
     def define_by_prop(self,prop): 
         self.method = "prop"
         self.prop = prop
         
+
     def define_value_by_interval(self,lpm):
         self.interval={}
         self.value={}
@@ -206,13 +210,27 @@ class MH_step:
             self.interval[key] = lpm.get_param_range(key)
             self.value[key] = self.prop * self.interval[key]
       
+
     def load_MHsteps(self,lpm):
-        # Loads file in which the bounds of the parameters are stored
-        temp = pd.read_csv(lpm.lpm_parameter_file("MHstep.txt"),header=None)
-        # A priori distribution for each of the parameters
-        self.value={}
-        for i in range(len(temp.values[:,0])): 
-            self.value[temp.values[i,0]] = temp.values[i,1]
+        params_path = lpm.lpm_parameter_file("params.yaml")
+        if not os.path.exists(params_path):
+            raise FileNotFoundError(
+                f"Missing params.yaml for {lpm.name} (required for MH steps)."
+            )
+        with open(params_path, "r", encoding="utf-8") as handle:
+            params_yaml = yaml.safe_load(handle) or {}
+        params = params_yaml.get("parameters", [])
+        values = {
+            p["name"]: p["step"]
+            for p in params
+            if "name" in p and "step" in p
+        }
+        if not values:
+            raise ValueError(
+                f"No MH step values found in params.yaml for {lpm.name}."
+            )
+        self.value = values
+
 
     def prepare(self,lpm):
         """ Driving prepration function """
@@ -220,6 +238,7 @@ class MH_step:
             self.define_value_by_interval(lpm)
         else:
             self.load_MHsteps(lpm)
+
 
     def save_param(self,data):
         """ writes delta step parameters in data for parameter outputs """
@@ -253,6 +272,7 @@ class Prior() :
         self.prior_file = prior_file
         self.MHapriori_dist = {}
         self.MHapriori_para = {}        
+
 
     def param_init(self,lpm): 
         
@@ -326,19 +346,48 @@ class Prior() :
         
         lpm.set_param_from_array(params0)
 
+
     def load(self,lpm): 
         """ Loads a priori of the parameter distribution 
         """
         if self.option == True: 
             if self.typ == "parametric": 
-                # Loads file in which the bounds of the parameters are stored
-                temp = pd.read_csv(lpm.lpm_parameter_file("MHapriori.txt"),header=None)
-                # A priori distribution for each of the parameters
-                for i in range(len(temp.values[:,0])):
-                    self.MHapriori_dist[temp.values[i,0]] = temp.values[i,1]
-                    self.MHapriori_para[temp.values[i,0]] = []
-                    self.MHapriori_para[temp.values[i,0]].append(temp.values[i,2])  
-                    self.MHapriori_para[temp.values[i,0]].append(temp.values[i,3])   
+                params_path = lpm.lpm_parameter_file("params.yaml")
+                if not os.path.exists(params_path):
+                    raise FileNotFoundError(
+                        f"Missing params.yaml for {lpm.name} (required for MH priors)."
+                    )
+                with open(params_path, "r", encoding="utf-8") as handle:
+                    params_yaml = yaml.safe_load(handle) or {}
+                params = params_yaml.get("parameters", [])
+                for param in params:
+                    prior = param.get("prior")
+                    if not prior:
+                        continue
+                    name = param.get("name")
+                    if not name:
+                        continue
+                    ptype = prior.get("type")
+                    if not ptype:
+                        continue
+                    self.MHapriori_dist[name] = ptype
+                    self.MHapriori_para[name] = []
+                    if ptype == "uniform":
+                        self.MHapriori_para[name].append(prior.get("min"))
+                        self.MHapriori_para[name].append(prior.get("max"))
+                    elif ptype in {"normal", "gaussian"}:
+                        self.MHapriori_para[name].append(prior.get("mean"))
+                        self.MHapriori_para[name].append(prior.get("std"))
+                    else:
+                        args = prior.get("args", [])
+                        if len(args) >= 2:
+                            self.MHapriori_para[name].append(args[0])
+                            self.MHapriori_para[name].append(args[1])
+                if not self.MHapriori_dist:
+                    raise ValueError(
+                        f"No MH priors found in params.yaml for {lpm.name}."
+                    )
+                return
             elif self.typ == "empirical": 
                 self.MHapriori_para={}
                 for param in lpm.get_param_names(): 

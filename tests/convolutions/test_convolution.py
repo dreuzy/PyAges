@@ -1,5 +1,5 @@
 """
-Smoke tests for convolution (Convolution + LPM).
+Synthetic smoke tests for convolution (Convolution + LPM).
 
 Goal: validate that convolution runs and returns finite values for a small set
 of tracers/LPMs without asserting scientific correctness.

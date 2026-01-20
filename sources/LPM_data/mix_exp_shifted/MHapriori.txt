@@ -1,4 +1,0 @@
-rate,uniform,0,1,year
-mu1,uniform,0,50,year
-mu2,uniform,0,50,year
-shift,uniform,0,100,year

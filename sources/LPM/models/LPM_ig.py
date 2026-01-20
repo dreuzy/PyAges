@@ -62,6 +62,7 @@ class LPM_ig(LPM):
         p_safe = np.clip(p, eps, 1 - eps)
         return invgauss.ppf(p_safe, self.p['mu'], scale=self.p['sigma'])
     
+
     def mean(self):
         """ 
         Returns mean of distribution """

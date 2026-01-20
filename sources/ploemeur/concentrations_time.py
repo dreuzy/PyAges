@@ -35,6 +35,7 @@ class ConcentrationTime:
         else : 
             self.cv=cv
         
+
     def display(self, fig, axs, graph_type="scatter"): 
         """Displays concentrations on given axes"""
         axs = axs.flatten()  # simplifie l'indexation
@@ -65,6 +66,7 @@ class ConcentrationTime:
         # Loads the tracers
         # 
        
+
     def save_to_file(self, filename):
         """
           Sauvegarde les concentrations self.cv dans un fichier unique,

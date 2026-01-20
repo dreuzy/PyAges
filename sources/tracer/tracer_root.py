@@ -181,6 +181,7 @@ class Tracer:
                 f"Tracer {name}: datemin ({self.datemin}) must be less than datemax ({self.datemax})"
             )
 
+
     def _load_config(self, dir_tracer: Path, name: str) -> None:
         """
         Load configuration file in YAML format.
@@ -206,6 +207,7 @@ class Tracer:
             )
 
         self._load_yaml_config(yaml_file, name)
+
 
     def _load_yaml_config(self, config_file: Path, name: str) -> None:
         """
@@ -279,12 +281,18 @@ class Tracer:
                     f"Unknown parameter in {name}.yaml: '{param_name}'"
                 )
 
+
     @property
+
+
     def unit(self) -> str:
         """Unit of tracer concentration (e.g., 'pptv', 'TU', 'pmC')."""
         return self.__unit
 
+
     @property
+
+
     def name(self) -> str:
         """Tracer name (e.g., 'cfc11', 'kr85', '3H')."""
         return self.__name
@@ -504,6 +512,7 @@ class DisplayOptions:
         self.figure_close = figure_close
         self.directory = Path(directory)
         self.directory.mkdir(exist_ok=True)
+
 
     def figure_close_fx(self, filename: str) -> None:
         """

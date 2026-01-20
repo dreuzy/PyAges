@@ -26,12 +26,14 @@ class LPM_gamma(LPM):
         parameter_units={'k':'','scale':'year'}
         LPM.__init__(self,"gamma",parameter_values,parameter_units, directory_lpm)
         
+
     def pdf(self,t):
         """ p=pdf(t)
             Probability Density Function 
         """
         return gamma.pdf(t, self.p['k'], 0, self.p['scale'])
     
+
     def cdf(self,t):
         """ p=cdf(t)
             Cumulative density 

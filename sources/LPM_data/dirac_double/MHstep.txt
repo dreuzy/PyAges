@@ -1,3 +1,0 @@
-mu1,2,year
-mu2,2,year
-rate,0.1,-

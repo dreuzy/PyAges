@@ -446,6 +446,7 @@ class ploemeur_one_date:
         self.display.directory = gp.results_directory(gp.results_directory(directory_results,well_date),lpm_type)
         self.display_reachconc = False
 
+
     def concentration_preparation(self): 
         """
         Concentrations 

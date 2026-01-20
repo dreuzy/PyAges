@@ -250,42 +250,4 @@ def test_load_and_display(element_types,display_options):
         tracers.display(display_options)
     
     
-def test_convolution(lpm_name,tracer_names,display_options,date=2000):
-    """ 
-    Test convolution function 
-        Randomly chosen lpm
-    
-    Parameters
-    ----------
-    lpm_name: str
-        Name of lpm
-    tracer_names: array of str
-        List of names of tracers to be convoluted
-    display_options: display_options
-        Figure and Text display options
-    date: float
-        date (year) at which convolution is taken 
-    
-    """
-    
-    # Randomly choosen lpm
-    rng=np.random.default_rng(12345)
-    lpm = LPM_generate.LPM_generate_random_uniform(lpm_name,rng=rng)
-    # Convolution definition w/ tracer loading
-    tracers = ConvolutionTracers(names=tracer_names,date=date)
-    # Convolution w/ results as a concentrations set
-    concentrations = tracers.convolution(lpm,return_type="concentrations_set",prepare=False)
-    # Dislays lpm and resulting concnetrations
-    if display_options.text : 
-        print('convolution as concentration_sets')
-        lpm.display(display_options)
-        concentrations.display(display_options)
-    # Convolution w/ results as a DataFrame 
-    concentrations = tracers.convolution(lpm,return_type="dataframe",prepare=False)
-    if display_options.text : 
-        print('convolution as dataframe')
-        print('date', date)
-        print(concentrations)
-   # Write results in file  
-    write_file_conc_lpm(date,concentrations,lpm,display_options.directory)
     

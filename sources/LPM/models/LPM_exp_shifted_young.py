@@ -28,6 +28,7 @@ class LPM_exp_shifted_young(LPM_exp_shifted):
         parameter_units={'mu':'year','shift':'year'}
         LPM.__init__( self, "exp_shifted_young", parameter_values, parameter_units, directory_lpm)
     
+
     def shift_upward(self): 
         """ Shift the distribution upward
             Used to determine position of the distribution compared to the peak of cfcs
