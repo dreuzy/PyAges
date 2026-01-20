@@ -27,7 +27,7 @@ import os
 import pandas as pd
 from scipy import integrate
 from scipy import optimize
-import yaml
+from pathlib import Path
        
 
 class LPM(abc.ABC):
@@ -224,6 +224,8 @@ class LPM(abc.ABC):
 
     def __load_params_yaml(self) -> dict | None:
         """Load YAML parameters if present in the LPM directory."""
+        from data_io import lpm_params
+
         path = self.lpm_parameter_file("params.yaml")
         if not hasattr(LPM, "_PARAMS_CACHE"):
             LPM._PARAMS_CACHE = {}
@@ -232,8 +234,7 @@ class LPM(abc.ABC):
             return cache[path]
         if not os.path.exists(path):
             return None
-        with open(path, "r", encoding="utf-8") as handle:
-            data = yaml.safe_load(handle) or {}
+        data = lpm_params.load_params(self.name, Path(self.__directory_lpm_data))
         cache[path] = data
         return data
         

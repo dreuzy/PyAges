@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
-import yaml
+from pathlib import Path
 import sys as sys 
 from scipy.stats import norm 
 import time
@@ -212,19 +212,11 @@ class MH_step:
       
 
     def load_MHsteps(self,lpm):
-        params_path = lpm.lpm_parameter_file("params.yaml")
-        if not os.path.exists(params_path):
-            raise FileNotFoundError(
-                f"Missing params.yaml for {lpm.name} (required for MH steps)."
-            )
-        with open(params_path, "r", encoding="utf-8") as handle:
-            params_yaml = yaml.safe_load(handle) or {}
-        params = params_yaml.get("parameters", [])
-        values = {
-            p["name"]: p["step"]
-            for p in params
-            if "name" in p and "step" in p
-        }
+        from data_io import lpm_params
+
+        data_dir = Path(lpm.lpm_parameter_file("params.yaml")).parent.parent
+        params = lpm_params.load_params(lpm.name, data_dir)
+        values = lpm_params.get_steps(params)
         if not values:
             raise ValueError(
                 f"No MH step values found in params.yaml for {lpm.name}."
@@ -352,21 +344,12 @@ class Prior() :
         """
         if self.option == True: 
             if self.typ == "parametric": 
-                params_path = lpm.lpm_parameter_file("params.yaml")
-                if not os.path.exists(params_path):
-                    raise FileNotFoundError(
-                        f"Missing params.yaml for {lpm.name} (required for MH priors)."
-                    )
-                with open(params_path, "r", encoding="utf-8") as handle:
-                    params_yaml = yaml.safe_load(handle) or {}
-                params = params_yaml.get("parameters", [])
-                for param in params:
-                    prior = param.get("prior")
-                    if not prior:
-                        continue
-                    name = param.get("name")
-                    if not name:
-                        continue
+                from data_io import lpm_params
+
+                data_dir = Path(lpm.lpm_parameter_file("params.yaml")).parent.parent
+                params = lpm_params.load_params(lpm.name, data_dir)
+                priors = lpm_params.get_priors(params)
+                for name, prior in priors.items():
                     ptype = prior.get("type")
                     if not ptype:
                         continue

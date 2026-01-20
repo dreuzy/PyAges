@@ -123,8 +123,8 @@ class SimulationStrategy:
         # self.well_select = ["PZ2","PSR1"]
         self.parallel=True#JRJR
         self.proc_nb=int(mp.cpu_count())
-        self.explo_res=int(2000/10)#JRJR
-        self.MH_nsteps=int(200000/500)#JRJR
+        self.explo_res=int(2000/100)#JRJR
+        self.MH_nsteps=int(200000/5000)#JRJR
         self.lpm_number=max(min(int(self.MH_nsteps/50),5000),10)
         
         

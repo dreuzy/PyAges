@@ -65,68 +65,19 @@ sources/
 │   ├── core/LPM_root.py                 # Classe abstraite de base (615 lignes)
 │   ├── core/LPM_dist.py                 # Distribution des résultats (465 lignes)
 │   ├── LPM_generate.py             # Factory pattern
-│   └── Implémentations:
-│       ├── LPM_exp.py              # Exponentiel
-│       ├── LPM_exp_shifted.py      # Exponentiel décalé (2 params: μ, shift)
-│       ├── LPM_gamma.py            # Gamma (2 params: α, β)
-│       ├── LPM_ig.py               # Gaussienne inverse (2 params: α, β)
-│       ├── LPM_ig_shifted.py       # Gaussienne inverse décalée (3 params)
-│       ├── LPM_uniform.py          # Uniforme (2 params: a, b)
-│       ├── LPM_dirac.py            # Dirac simple (1 param: time)
-│       ├── LPM_dirac_double.py     # Dirac double (3 params)
-│       ├── LPM_dirac_double_1_set.py
-│       ├── LPM_mix_exp_shifted.py  # Mélange dirac + exp
-│       ├── LPM_exp_shifted_young.py
-│       └── LPM_exp_shifted_old.py
-│
-├── tracer/
-│   └── tracer_root.py              # Classe Tracer (450 lignes)
-│       ├── Chargement YAML
-│       ├── Chargement CSV recharge
-│       ├── get_concentration()     # Avec decay/production
-│       └── Interpolation chroniques
-│
-├── convolutions/
-│   ├── convolution.py              # Classe Convolution (hérite de Tracer)
-│   │   ├── convolution_classic     # Intégration Simpson générique
-│   │   ├── convolution_exp         # Optimisée pour exponentielles
-│   │   └── convolution_dirac       # Cas particulier Dirac
-│   ├── convolution_tracers.py      # ConvolutionTracers (multi-traceurs)
-│   └── concentrations.py           # Classe Concentrations (données mesurées)
-│
-├── calibration/
-│   ├── calibration_basis.py        # CalibrationBasis (formulation problème)
-│   ├── calibration_exploration.py  # ParamSysSampling (grille systématique)
-│   ├── calibration_simplex.py      # CalibrationSimplex (Nelder-Mead)
-│   ├── calibration_Metropolis_Hastings.py  # MCMC (700+ lignes)
-│   │   ├── CalibrationMetropolisHastings
-│   │   ├── Prior                   # Gestion des a priori
-│   │   ├── MH_step                 # Tailles d'incrément
-│   │   └── MH_Trajectory           # Suivi de convergence
-│   └── calibration_synthetic_test.py
-│
-├── ploemeur/                       # Outils spécifiques site Ploemeur
-│   ├── appli_ploemeur_tools.py
-│   └── concentrations_time.py
-│
-├── ploemeur_data/                  # DONNÉES du site Ploemeur
-│   ├── ori_ploemeur_{well}_{dates}.txt  # Concentrations mesurées
-│   ├── {well}_{start}_{end}             # Fichiers générés (sélections)
-│   └── LPM_data/                   # Paramètres LPM spécifiques
-│       └── {lpm_type}/
-│           ├── bounds.txt          # Bornes des paramètres
-│           ├── MHstep.txt          # Pas d'incrément MH
-│           ├── MHapriori.txt       # Distributions a priori
-│           └── simplex_init.txt    # Valeurs initiales Simplex
-│
-├── tracer_data/                    # Configuration des TRACEURS
-│   └── {tracer_name}/
-│       ├── {tracer_name}.yaml      # Configuration du traceur
-│       └── recharge.csv            # Chronique atmosphérique
-│
-├── global_parameters.py            # Constantes globales
-└── tests/                          # Tests d'intégration
-```
+│   ├── models/ (implementations)
+│   ├──   LPM_exp.py              # Exponentiel
+│   ├──   LPM_exp_shifted.py      # Exponentiel decale (2 params: mu, shift)
+│   ├──   LPM_gamma.py            # Gamma (2 params: k, scale)
+│   ├──   LPM_ig.py               # Gaussienne inverse (2 params: mu, sigma)
+│   ├──   LPM_ig_shifted.py       # Gaussienne inverse decalee (3 params)
+│   ├──   LPM_uniform.py          # Uniforme (2 params: tmin, delta)
+│   ├──   LPM_dirac.py            # Dirac simple (1 param: mu)
+│   ├──   LPM_dirac_double.py     # Dirac double (3 params)
+│   ├──   LPM_dirac_double_1_set.py
+│   ├──   LPM_mix_exp_shifted.py  # Melange dirac + exp
+│   ├──   LPM_exp_shifted_young.py
+│   ├──   LPM_exp_shifted_old.py
 
 ### 2.2 Dépendances entre Modules
 
@@ -163,8 +114,8 @@ sources/
                          ┌──────────┴──────────┐             │
                          ▼                     ▼             ▼
               ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐
-              │   bounds.txt    │  │   MHstep.txt    │  │  Convolution│
-              │   MHapriori.txt │  │   simplex_init  │  │  (Tracer)   │
+              │   params.yaml    │  │   params.yaml    │  │  Convolution│
+              │   params.yaml │  │   simplex_init  │  │  (Tracer)   │
               └─────────────────┘  └─────────────────┘  └──────┬──────┘
                                                                │
                                               ┌────────────────┼────────────────┐
@@ -272,17 +223,17 @@ Total itérations = 1.85 milliards
 ploemeur_data/
 ├── LPM_data/
 │   ├── exp/
-│   │   ├── bounds.txt       # mu,0.1,100,year
-│   │   ├── MHstep.txt        # mu,0.2,year
-│   │   ├── MHapriori.txt     # mu,uniform,0.1,100,year
-│   │   └── simplex_init.txt  # mu,10,year
+│   │   ├── params.yaml       # mu,0.1,100,year
+│   │   ├── params.yaml        # mu,0.2,year
+│   │   ├── params.yaml     # mu,uniform,0.1,100,year
+│   │   └── params.yaml  # mu,10,year
 │   │
 │   ├── exp_shifted/
-│   │   ├── bounds.txt       # mu,0,100,year
+│   │   ├── params.yaml       # mu,0,100,year
 │   │   │                    # shift,0,100,year
-│   │   ├── MHstep.txt
-│   │   ├── MHapriori.txt
-│   │   └── simplex_init.txt
+│   │   ├── params.yaml
+│   │   ├── params.yaml
+│   │   └── params.yaml
 │   │
 │   ├── gamma/               # α,0.01,10,1
 │   │                        # β,0.01,100,year
@@ -321,69 +272,50 @@ tracer_data/
 ```
 
 ### 4.2 Format Détaillé des Fichiers
+**Note**: les fichiers `params.yaml`, `params.yaml`, `params.yaml` et `params.yaml` ont ?t? remplac?s par un unique `params.yaml` par mod?le LPM. Le chargement est centralis? dans `sources/data_io/lpm_params.py` et utilis? par `LPM_root` et `calibration_Metropolis_Hastings`.
 
-#### bounds.txt (Bornes des paramètres)
+#### params.yaml (Parametres LPM)ètres)
 ```
-# Format: nom_param,valeur_min,valeur_max,unité
-mu,0,100,year
-shift,0,100,year
+# Format: YAML (voir exemple)é
+model: exp_shifted
+parameters:
+  - name: mu
+    bounds: [0.0, 100.0]
+    init: 10.0
+    step: 1.0
+    prior:
+      type: uniform
+      min: 0.0
+      max: 100.0
 ```
 
 **Chargement** (`core/LPM_root.py:119-145`):
 ```python
-def __load_bounds(self, directory):
-    file = os.path.join(directory, "bounds.txt")
-    df = pd.read_csv(file, header=None)
-    for i in range(df.shape[0]):
-        param_name = df.iloc[i, 0]
-        self.__p_min[param_name] = df.iloc[i, 1]
-        self.__p_max[param_name] = df.iloc[i, 2]
+def __load_bounds(self):
+    params = load_params(self.name, data_dir)
+    bounds = get_bounds(params)
+    for name, (pmin, pmax) in bounds.items():
+        self.__p_min[name] = pmin
+        self.__p_max[name] = pmax
         self.__u[param_name] = df.iloc[i, 3]
 ```
 
-#### MHstep.txt (Pas d'incrément MCMC)
-```
-# Format: nom_param,delta,unité
-mu,1.0,year
-shift,0.5,year
-```
+#### params.yaml (Pas d'incr?ment MCMC)
+Les pas MCMC sont d?finis par `step` dans `params.yaml`.
 
-**Rôle**: Définit σ pour la perturbation gaussienne `param_new = param + N(0, δ²)`
-
-**Chargement** (`calibration_Metropolis_Hastings.py:195-215`):
+**Chargement** (`calibration_Metropolis_Hastings.py`):
 ```python
-class MH_step:
-    def load_MHsteps(self, lpm):
-        file = os.path.join(lpm.directory, "MHstep.txt")
-        df = pd.read_csv(file, header=None)
-        for key in lpm.p:
-            self.__delta[key] = df[df[0] == key].iloc[0, 1]
+params = load_params(lpm.name, data_dir)
+steps = get_steps(params)
 ```
+#### params.yaml (Distributions a priori)
+Les a priori sont d?finis dans le champ `prior` de chaque param?tre.
 
-#### MHapriori.txt (Distributions a priori)
-```
-# Format: nom_param,type_distribution,param1,param2,unité
-mu,uniform,0,100,year
-shift,normal,20,5,year
-```
-
-**Types supportés**:
-- `uniform`: param1=min, param2=max
-- `normal`: param1=μ, param2=σ
-- `lognormal`: param1=μ_log, param2=σ_log
-
-**Chargement** (`calibration_Metropolis_Hastings.py:329-357`):
+**Chargement** (`calibration_Metropolis_Hastings.py`):
 ```python
-class Prior:
-    def load(self, lpm):
-        file = os.path.join(lpm.directory, "MHapriori.txt")
-        df = pd.read_csv(file, header=None)
-        for key in lpm.p:
-            row = df[df[0] == key].iloc[0]
-            self.MHapriori_dist[key] = row[1]  # "uniform", "normal"
-            self.MHapriori_para[key] = [row[2], row[3]]  # [min, max] ou [μ, σ]
+params = load_params(lpm.name, data_dir)
+priors = get_priors(params)
 ```
-
 #### tracer.yaml (Configuration traceur)
 ```yaml
 # Unité de mesure
@@ -517,7 +449,7 @@ def perform(pod, i):
 | Données | Scope | Partage |
 |---------|-------|---------|
 | Configuration simulation | Global | Partagée (constante) |
-| Paramètres LPM (bounds.txt) | Par type LPM | Partagée en lecture |
+| Paramètres LPM (params.yaml) | Par type LPM | Partagée en lecture |
 | Chroniques traceurs (recharge.csv) | Par traceur | Partagée en lecture |
 | Concentrations mesurées | Par puits/période | Spécifique |
 | Instance LPM | Par simulation | Spécifique (copiée) |
@@ -597,8 +529,8 @@ def perform(self):
     rng = np.random.default_rng(seed=12345)
 
     # Charger paramètres depuis fichiers
-    self.MH_step.prepare(self.lpm)   # MHstep.txt
-    self.prior.load(self.lpm)        # MHapriori.txt
+    self.MH_step.prepare(self.lpm)   # params.yaml
+    self.prior.load(self.lpm)        # params.yaml
 
     # Initialiser paramètres
     if self.prior.option:
@@ -622,7 +554,7 @@ def perform(self):
     for i in range(nstep):  # 200,000 itérations
 
         # Perturbation gaussienne des paramètres
-        params_new = params + rng.normal(0, delta)  # delta depuis MHstep.txt
+        params_new = params + rng.normal(0, delta)  # delta depuis params.yaml
 
         # Évaluation du posterior pour les nouveaux paramètres
         log_p_new, obj_func_new, conc_new = __log_posterior_eval(params_new)
