@@ -1,0 +1,3 @@
+mu1,0.4,year
+mu2,0.4,year
+rate,0.05,-

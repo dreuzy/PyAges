@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 import global_parameters as gp
-import convolutions.concentrations as co
+import concentrations.concentrations as co
 
 
 def ploemeur_data_folder(): 

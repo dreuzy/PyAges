@@ -15,25 +15,18 @@ Created on Tue May 25 18:46:04 2021
 
 import copy
 import functools
-import math
-import numpy as np
 import sys        
 import os   
 import time as time
 import multiprocessing as mp        
-import pandas as pd          
 
-import tracemalloc                
-
-import convolutions.concentrations as concentrations        # List of chemical concentrations
 import global_parameters as gp
-import convolutions.concentrations as co
-from convolutions import concentrations_time as ct
+import concentrations.concentrations as co
+from concentrations import concentrations_time as ct
 
-import calibration.calibration_exploration as calibration_exploration
-import calibration.calibration_common as calbas
-import calibration.calibration_simplex as csimp
-import calibration.calibration_Metropolis_Hastings as cMH
+import calibration.utils.calibration_core as calbas
+import calibration.methods.simplex as csimp
+import calibration.methods.metropolis_hastings as cMH
 
 from sites.ploemeur.postprocessing import appli_ploemeur_tools
 from sites.ploemeur.scripts import appli_ploemeur_results_comparison as aprc
@@ -407,9 +400,9 @@ class ploemeur_one_date:
     
     Attributes, private
     -------------------
-        calstrat_MH: CalibrationMetropolisHastings
+        calstrat_MH: MetropolisHastings
             Instance of calibration class, contains the parameters of the calibration method
-        calstrat_FUQ: CalibrationMetropolisHastings
+        calstrat_FUQ: MetropolisHastings
             Instance of calibration class, contains the parameters of the calibration method
 
     """
@@ -429,7 +422,7 @@ class ploemeur_one_date:
 
         # ---------------- METROPOLIS HASTINGS --------------------
         # Method and Parameters  
-        self.calstrat_MH = cMH.CalibrationMetropolisHastings(nstep=MH_nsteps,prior_option=prior,likelyhood=likelyhood, lpm_number = lpm_number,
+        self.calstrat_MH = cMH.MetropolisHastings(nstep=MH_nsteps,prior_option=prior,likelyhood=likelyhood, lpm_number = lpm_number,
                                                              monitor=True,display_traj=True,prior_typ="empirical",prior_file=prior_file) # JR: 250000
         # self.calstrat[1].MH_step.define_by_prop(0.005)
         self.calstrat_MH.MH_step.define_by_value()
@@ -437,7 +430,7 @@ class ploemeur_one_date:
 
         
         # ---------------- FORWARD UNCERTAINTY QUANTIFICATION -----------------------------
-        self.calstrat_FUQ = csimp.CalibrationSimplex("forward_uncertainty_quantification",
+        self.calstrat_FUQ = csimp.Simplex("forward_uncertainty_quantification",
                                                     init_multiples_n=2,fuq_n=2) #JR: 5,50
         
                 
@@ -482,7 +475,8 @@ class ploemeur_one_date:
         display_options_case.directory = gp.results_directory(self.display.directory, calstrat.method)
     
         # Calibration
-        calib_basis = calbas.CalibrationCommon(cdata, self.lpm_type, display_options=display_options_case, nmodels=self.__nmodels, reachconc=self.display_reachconc)
+        calib_basis = calbas.CalibrationCore(cdata, self.lpm_type, display_options=display_options_case, nmodels=self.__nmodels, reachconc=self.display_reachconc)
+        calib_basis.prepare()
         calstrat.update_calibbasis(calib_basis)
         lpm_results = calstrat.perform()
         calstrat.write_calibrated_lpm(lpm_results, file_prior=calbas.file_prior_posterior(self.file_ploemeur, self.error_concentrations, self.lpm_type), folder_prior=self.option)

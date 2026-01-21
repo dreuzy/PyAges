@@ -1,44 +1,34 @@
-import sys
-from pathlib import Path
-
-repo_root = Path(__file__).resolve().parents[3]
-for p in (repo_root, repo_root / "sources"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
-
 # -*- coding: utf-8 -*-
 """
 Created on Tue May 18 21:10:20 2021
 
 @author: Jean-Raynald de Dreuzy
-    """
+"""
 
 import copy
-import sys
 import os
 
-import concentrations.concentrations as co
 from concentrations import concentrations_time as ct
 import global_parameters as gp
 import LPM.LPM_generate as LPM_generate
+import concentrations.concentrations as co
 
+import calibration.utils.systematic_sampling as calibration_exploration
 import calibration.utils.calibration_core as calbas
 import calibration.methods.simplex as csimp
 import calibration.methods.metropolis_hastings as cMH
 
 
-def benchmark_ploemeur():
+def benchmark_fontainebleau(): 
     # ---------------- CONCENTRATIONS DATA ------------------
     # Concentration data
     # file = "ploemeur_F22_2007"
     # date = 2007
-    file = "ploemeur_F09_2010"
-    date = 2010
-    verbose = True
+    file = "fontainebleau_CGEB"
     
     # ---------------- LPM MODEL -----------------------------
-    lpm_type = "dirac_double"
-    directory_lpm = os.path.join(gp.DIRECTORY_TEST,"ploemeur","LPM_data")
+    lpm_type = "mix_exp_shifted"#"exp_shifted"#"ig_shifted"#"dirac_double"
+    directory_lpm = os.path.join(gp.ROOT_DIRECTORY, "examples", "fontainebleau", "data", "LPM_data")
     # Resolution of objective function / concentration pattern
     resolution = 2000
     
@@ -51,11 +41,11 @@ def benchmark_ploemeur():
     
     # ---------------- FORWARD UNCERTAINTY QUANTIFICATION -----------------------------
     calstrat[0] = csimp.Simplex("forward_uncertainty_quantification",
-                                                init_multiples_n=1*2,fuq_n=1*5) #JR: 5,50
+                                                init_multiples_n=1*5,fuq_n=1*10)
     
     # ---------------- METROPOLIS HASTINGS --------------------
-    # Method and Parameters  
-    calstrat[1] = cMH.MetropolisHastings(nstep=2500,prior=False,likelyhood=True, lpm_number=10,
+    # Method and Parameters
+    calstrat[1] = cMH.MetropolisHastings(nstep=5000,prior=False,likelyhood=True,
                                                          monitor=True,display_traj=True) # JR: 250000
     # calstrat[1].MH_step.define_by_prop(0.005)
     calstrat[1].MH_step.define_by_value()
@@ -65,43 +55,45 @@ def benchmark_ploemeur():
     display = gp.display_options()
     display.text = True
     display.figure = True
-    display.figure_close = False#JR True
+    display.figure_close = True
     display.figure_save = True
     display.directory = directory_results
     
-    #---------------------------------------------------------
-    # ---------------- CONCENTRATIONS-------------------------
+    # ---------------- CONCENTRATIONS------------------------
     # Data Loading
-    
-    filename=os.path.join(gp.DIRECTORY_TEST,"ploemeur",file)
-    if verbose:
-        print("Data file location: ", filename)
-    concentration_sampled=co.Concentrations(file_load=True, file_name = filename)
+    concentration_sampled=co.Concentrations(file_load=True, file_name=os.path.join(gp.ROOT_DIRECTORY, "examples", "fontainebleau", "data", file))
     # Adds some percentage of uncertainty to the data
     # concentration_sampled.error_affect_from_value(error_concentrations)
     concentration_sampled.display(display)
     # Copy results to root directory
     concentration_sampled.cv.to_csv(os.path.join(display.directory,"concentrations.txt"),sep='\t')
     
-   
+    # ---------------- REACHABLE CONCENTRATIONS -------------
+    print('Direct problem method: exploring reachable concentrations with a LPM model')
+    directory_cr = gp.results_directory(display.directory,"reachable_concentrations")
+    display_cr=copy.deepcopy(display)
+    display_cr.directory_results=gp.results_directory(display.directory,"reachable_concentrations")
+    
+    cr = calibration_exploration.SystematicSampling(lpm_type, concentration_sampled.names(),
+                                                      date = concentration_sampled.cv["date"],
+                                                      nmodels=resolution, display_options=display_cr)
+    cr.compute_concentrations()
+    cr.output()
+    cr.display_with_data(concentration_sampled)
+    
     # ---------------- CALIBRATION -------------
+    print('Inverse problem method: calibrating a LPM model with data')
     lpm_results=[None]*2
     for i in range(len(calstrat)):
         # Outputs of Interpration
-        display_calstrat=copy.deepcopy(display)
-        display_calstrat.directory = gp.results_directory(display.directory,calstrat[i].method)
+        directory_calibration = gp.results_directory(display.directory,calstrat[i].method)
         # Calibration
-        calib_basis=calbas.CalibrationCore(concentration_sampled,lpm_type,display_options=display_calstrat,directory_lpm=directory_lpm)
+        calib_basis=calbas.CalibrationCore(concentration_sampled,lpm_type,directory_results=directory_calibration,directory_lpm=directory_lpm)
         calib_basis.prepare()
         calstrat[i].update_calibbasis(calib_basis)
         lpm_results[i]=calstrat[i].perform()
         # Stores/Writes Results
         calstrat[i].write_calibrated_lpm(lpm_results[i])
-        
-        
-    # ---------------- Analysis of Calibration Problem (reachable concentrations and objective function)
-    calstrat[1].analysis_calibration()
-
     
     # ---------------- SYNTHETIC FIGURES --------------------
     lpm_results[0].display_parameters_dist(self_method=calstrat[0].method,lpm_reference=None,
@@ -114,11 +106,12 @@ def benchmark_ploemeur():
                                                        lpm_2nd_method=calstrat[1].method,
                                                        directory=display.directory)
     
-
+    # ------- OBJECTIVE FUNCTION -------------------------------
+    calstrat[1].build_objective_function(display,resolution=resolution)
+    
     # ------------- CONCENTRATION OUTPUTS ----------------------
-    lpm=LPM_generate.LPM_generate(lpm_type,directory_lpm=gp.directory_lpm_data)
+    lpm=LPM_generate.LPM_generate(lpm_type,directory_lpm=None)
     ct.display_concentration_times([display.directory],lpm,display)
 
-
 if __name__ == "__main__":
-    benchmark_ploemeur()
+    benchmark_fontainebleau()

@@ -1,15 +1,10 @@
-import os
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
 
 import global_parameters as gp
-import ploemeur_postprocessing.folders as fold
-import ploemeur_postprocessing.concentrations_obs as cobs
-import ploemeur_postprocessing.concentrations_mod as cmod
 from matplotlib.ticker import MaxNLocator
-from matplotlib.dates import DateFormatter
 
 import numpy as np
 

@@ -16,7 +16,6 @@ Created on Tue Jun  8 14:55:45 2021
 import os
 import pandas as pd
 
-import global_parameters as gp
 from sites.ploemeur.postprocessing import appli_ploemeur_tools
 
 wells=["F34","MF4","F38b","F13","F11","F38","F22","PE","MF1","F28","F09","PZ2","PSR1"]

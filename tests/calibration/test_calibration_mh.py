@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-import calibration.calibration_Metropolis_Hastings as cMH
-import calibration.calibration_exploration as cexp
-import calibration.calibration_synthetic_test as cst
+import calibration.methods.metropolis_hastings as cMH
+import calibration.utils.systematic_sampling as cexp
+import calibration.workflows.synthetic_test as cst
 import global_parameters as gp
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
@@ -46,7 +46,7 @@ def _run_mh_one_case(
     display.directory = work_dir
 
     # Configure MH calibration (fixed nstep for reproducibility)
-    calib_mh = cMH.CalibrationMetropolisHastings(
+    calib_mh = cMH.MetropolisHastings(
         nstep=NSTEP,
         burn_in=0.2,
         nskip=10,
@@ -72,7 +72,7 @@ def _run_mh_one_case(
     )
 
     # Run one synthetic case and extract stats
-    _, _, _, lpm_results = calib.perform_one_case(0)
+    _, _, _, lpm_results, _ = calib.perform_one_case(0)
     stats = lpm_results.get_stats()
 
     # Record stable summary values for golden checks
@@ -94,7 +94,7 @@ def _run_reachconc_mean(lpm_type: str, work_dir: Path) -> dict:
     display.text = False
     display.directory = work_dir
 
-    cr = cexp.CalibrationExploration(
+    cr = cexp.SystematicSampling(
         lpm_type,
         REACHCONC_TRACERS,
         date=[2010] * len(REACHCONC_TRACERS),
@@ -104,7 +104,7 @@ def _run_reachconc_mean(lpm_type: str, work_dir: Path) -> dict:
     )
     cr.compute_concentrations()
 
-    concentrations = cr._CalibrationExploration__concentrations  # noqa: SLF001
+    concentrations = cr._SystematicSampling__concentrations  # noqa: SLF001
     means = concentrations.mean()
     return {f"{name}_mean": float(value) for name, value in means.items()}
 

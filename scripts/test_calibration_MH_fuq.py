@@ -10,9 +10,9 @@ import time
 
 import global_parameters as gp
 
-import calibration.calibration_synthetic_test as cst
-import calibration.calibration_simplex as csimp
-import calibration.calibration_Metropolis_Hastings as cMH
+import calibration.workflows.synthetic_test as cst
+import calibration.methods.simplex as csimp
+import calibration.methods.metropolis_hastings as cMH
 
 
 class comparison_MH_fuq:
@@ -45,19 +45,19 @@ class comparison_MH_fuq:
         self.display.directory = gp.results_directory(self.display.directory,name) 
         date = 2010
         
-        print('\COMPARISON: FORWARD UNCERTAINTY QUANTIFICATION AND METROPOLIS HASTINGS')
+        print('\\COMPARISON: FORWARD UNCERTAINTY QUANTIFICATION AND METROPOLIS HASTINGS')
         for lpm in self.models_calib:
             
             calstrat=[None]*2
             # ---------------- FORWARD UNCERTAINTY QUANTIFICATION -----------------------------
-            calib_simplex = csimp.CalibrationSimplex("forward_uncertainty_quantification",
+            calib_simplex = csimp.Simplex("forward_uncertainty_quantification",
                                                         init_multiples_n=self.init_multiples_n,fuq_n=self.fuq_n) 
             calstrat[0] = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=ncase,error=error,nmodels=resolution,
                                                        tracer_names=tracer_names,date=date,lpm_type=lpm,display_options=self.display)
 
             # ---------------- METROPOLIS HASTINGS --------------------
             # Method and Parameters  
-            calib_MH = cMH.CalibrationMetropolisHastings(nstep=self.MH_n,prior=False,likelyhood=True,
+            calib_MH = cMH.MetropolisHastings(nstep=self.MH_n,prior=False,likelyhood=True,
                                                                  monitor=True,display_traj=True) # JR: 250000
             calib_MH.MH_step.define_by_value() 
             # calib_MH.MH_step.define_by_prop(0.005)
@@ -73,7 +73,7 @@ class comparison_MH_fuq:
                 lpm_results=[None]*2
                 # Performs calibration
                 for j in range(len(calstrat)):
-                    [lpm_target,lpm_calibration[j],concentration_sampled,lpm_results[j]] = calstrat[j].perform_one_case(i,lpm_random=lpm_random,lpm_target=lpm_target)
+                    [lpm_target,lpm_calibration[j],concentration_sampled,lpm_results[j],_] = calstrat[j].perform_one_case(i,lpm_random=lpm_random,lpm_target=lpm_target)
                 # Outputs and Displays results
                 directory_common = gp.results_directory(self.display.directory,lpm)
                 directory_common = gp.results_directory(directory_common,str(i))

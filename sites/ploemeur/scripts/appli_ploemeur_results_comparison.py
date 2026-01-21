@@ -20,9 +20,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-import convolutions.convolution_tracers  
-import convolutions.concentrations as c
-from convolutions import concentrations_time as ct
+from concentrations import concentrations_time as ct
 import LPM.LPM_generate as lpg
 import global_parameters as gp                          # Global variables
 import tools.figures_additional as fad
@@ -194,7 +192,7 @@ def display_all(dists,param_names,well_dates,option,distribution,dir_root):
                         axs[gi[pa],gj[pa]].grid(color='k', linestyle='-', linewidth=0.5)
                         #axs[gi[pa],gj[pa]].set_yscale("log")
                     k = k + 1
-                # val = dist['obj_function'] #objective_function_norm(dist['obj_function'],(len(dist.columns)-len(param_names)-2))
+                # val = dist['obj_function'] #RMSE(dist['obj_function'],(len(dist.columns)-len(param_names)-2))
                 # Objective function 
                 if option == "distribution":
                     aa = np.histogram(dist['obj_function'], bins=100, range=None, weights=None, density=True)

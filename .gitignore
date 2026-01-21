@@ -69,5 +69,6 @@ Thumbs.db
 # Project specific outputs
 figures_out/
 results/
+tmp_path/
 *.log
 *.tmp

@@ -5,16 +5,11 @@ Created on Wed Mar 24 16:26:55 2021
 @author: Jean-Raynald de Dreuzy
 """                                        
 
-import sys
-
-import convolutions.convolution_tracers as convolution_tracers                 
-import convolutions.concentrations as concentrations       
 import global_parameters as gp
 import LPM.LPM_generate as LPM_generate
-import calibration.calibration_exploration as calibration_exploration
-import calibration.calibration_synthetic_test as cst
-import calibration.calibration_simplex as csimp
-import calibration.calibration_Metropolis_Hastings as cMH
+import calibration.workflows.synthetic_test as cst
+import calibration.methods.simplex as csimp
+import calibration.methods.metropolis_hastings as cMH
 
 
 class TestIntegration:
@@ -151,14 +146,14 @@ class TestIntegration:
 
         print('\nCALIBRATION ON SYNTETIC CASES: METROPOLIS-HASTINGS')
         for lpm in lpm_list:  
-            calib_MH = cMH.CalibrationMetropolisHastings(nstep=2000,prior_option=True,prior_typ="parametric",likelyhood=True,lpm_number=10,monitor=False) 
+            calib_MH = cMH.MetropolisHastings(nstep=2000,prior_option=True,prior_typ="parametric",likelyhood=True,lpm_number=10,monitor=False) 
             calib = cst.CalibrationSyntheticTest(calib_strategy=calib_MH,ncase=2,error=0.03,tracer_names=tracer_names,
                                                  date=date,lpm_type=lpm,display_options=self.display,nmodels=500)
             calib.perform_ncase()
 
         print('\nCALIBRATION ON SYNTETIC CASES: SIMPLEX_INIT_MULTIPLES')
         for lpm in lpm_list:
-            calib_simplex = csimp.CalibrationSimplex("Simplex_init_multipes",init_multiples_n=10)
+            calib_simplex = csimp.Simplex("Simplex_init_multipes",init_multiples_n=10)
             # self.display.text = True
             calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=2,error=0.001,tracer_names=tracer_names,
                                                  date=date,lpm_type=lpm,display_options=self.display,nmodels=10)
@@ -167,7 +162,7 @@ class TestIntegration:
         print('\nCALIBRATION ON SYNTETIC CASES: SIMPLEX')
         # Does not work for ig_shifted (3 parameters) and for uniform
         for lpm in lpm_list:
-            calib_simplex = csimp.CalibrationSimplex("Simplex")            
+            calib_simplex = csimp.Simplex("Simplex")            
             # self.display.text = True
             calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=2,error=0.01,tracer_names=tracer_names,
                                                  date=date,lpm_type=lpm,display_options=self.display,nmodels=10)
@@ -175,7 +170,7 @@ class TestIntegration:
 
         print('\nCALIBRATION ON SYNTETIC CASES: FORWARD UNCERTAINTY QUANTIFICATION')
         for lpm in lpm_list:
-            calib_simplex = csimp.CalibrationSimplex("forward_uncertainty_quantification",init_multiples_n=2,fuq_n=2)
+            calib_simplex = csimp.Simplex("forward_uncertainty_quantification",init_multiples_n=2,fuq_n=2)
             calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=2,error=0.04,tracer_names=tracer_names,
                                                  date=date,lpm_type=lpm,display_options=self.display)
             calib.perform_ncase()

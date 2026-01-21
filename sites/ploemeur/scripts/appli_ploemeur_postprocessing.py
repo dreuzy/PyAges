@@ -1,18 +1,16 @@
 import os
 from pathlib import Path
-import re
 import pandas as pd
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 import numpy as np
-import warnings
 from matplotlib.ticker import MaxNLocator
 from matplotlib.dates import DateFormatter
 
 import global_parameters as gp
-import ploemeur_postprocessing.folders as fold
-import ploemeur_postprocessing.concentrations_obs as cobs
-import ploemeur_postprocessing.concentrations_mod as cmod
+import sites.ploemeur.postprocessing.folders as fold
+import sites.ploemeur.postprocessing.concentrations_obs as cobs
+import sites.ploemeur.postprocessing.concentrations_mod as cmod
 
 from tracer.tracer_root import Tracer  # <-- ta classe Tracer
 from appli_ploemeur_postprocessing_stat import generer_toutes_les_figures, build_output_filepath
