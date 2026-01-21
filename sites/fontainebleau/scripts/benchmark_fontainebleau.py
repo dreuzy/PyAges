@@ -20,7 +20,7 @@ import LPM.LPM_generate as LPM_generate
 import convolutions.concentrations as co
 
 import calibration.calibration_exploration
-import calibration.calibration_basis as calbas
+import calibration.calibration_common as calbas
 import calibration.calibration_simplex as csimp
 import calibration.calibration_Metropolis_Hastings as cMH
 import calibration.calibration_exploration
@@ -96,7 +96,7 @@ def benchmark_fontainebleau():
         # Outputs of Interpration
         directory_calibration = gp.results_directory(display.directory,calstrat[i].method)
         # Calibration
-        calib_basis=calbas.CalibrationBasis(concentration_sampled,lpm_type,directory_results=directory_calibration,directory_lpm=directory_lpm)
+        calib_basis=calbas.CalibrationCommon(concentration_sampled,lpm_type,directory_results=directory_calibration,directory_lpm=directory_lpm)
         calstrat[i].update_calibbasis(calib_basis)
         lpm_results[i]=calstrat[i].perform()
         # Stores/Writes Results

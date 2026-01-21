@@ -13,7 +13,7 @@ import convolutions.convolution_tracers as convolution_tracers
 import global_parameters as gp
 import LPM.LPM_generate as LPM_generate
 
-import calibration.calibration_basis as calbas
+import calibration.calibration_common as calbas
 
 from convolutions import concentrations_time as ct
 
@@ -44,8 +44,8 @@ class CalibrationSyntheticTest:
     __nmodels: int
         number of models for the parameter sampling
     __calib_strategy: CalibrationSimplex, CalibrationMH
-        Daughter Class of CalibrationBasis
-        Only the methods of mother class CalibrationBasis will be called 
+        Daughter Class of CalibrationCommon
+        Only the methods of mother class CalibrationCommon will be called 
         
     Methods (public)
     ----------------
@@ -211,7 +211,7 @@ class CalibrationSyntheticTest:
         cdata.error_affect_from_value(self.__error)
         
         # 3. CALIBRATION : Use these data to calibrate a lpm of the same type with the calibration properties defined in __calib_strategy
-        calib_basis=calbas.CalibrationBasis(cdata,self.__lpm_type,display_options=display_options_case,nmodels=self.__nmodels)
+        calib_basis=calbas.CalibrationCommon(cdata,self.__lpm_type,display_options=display_options_case,nmodels=self.__nmodels)
         # Updates parent class CalibBasis of __calib_strategy (with new cdata)
         self.__calib_strategy.update_calibbasis(calib_basis)
         # 4a. Performs calibration

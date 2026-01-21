@@ -13,17 +13,17 @@ import time
 
 import LPM.core.LPM_dist as LPM_dist
 import global_parameters as gp                          
-import calibration.calibration_basis as calbas
-from calibration.calibration_exploration import objective_function_norm
+import calibration.calibration_common as calbas
+from calibration.objective_functions import objective_function_norm
 
 
-class CalibrationSimplex(calbas.CalibrationBasis): 
+class CalibrationSimplex(calbas.CalibrationCommon): 
     """ 
     Simplex calibration method
     
     Inheritance
     -----------
-    CalibrationBasis: 
+    CalibrationCommon: 
         Base class for calibration containing the problem to calibrate
     
     Attributes
@@ -42,7 +42,7 @@ class CalibrationSimplex(calbas.CalibrationBasis):
     Methods
     -------
     update_calibbasis(self,calib_basis): 
-        Updates parent class CalibrationBasis with calib_basis
+        Updates parent class CalibrationCommon with calib_basis
     perform(self): 
         Performs calibration with the selected method
     """
@@ -75,11 +75,11 @@ class CalibrationSimplex(calbas.CalibrationBasis):
     
     def update_calibbasis(self,calib_basis): 
         """
-        Updates parent class CalibrationBasis with calib_basis
+        Updates parent class CalibrationCommon with calib_basis
         
         Arguments
         ---------
-        calib_basis: CalibrationBasis
+        calib_basis: CalibrationCommon
             Base Class Calibration Problem
         
         """

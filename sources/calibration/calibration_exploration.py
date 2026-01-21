@@ -19,23 +19,8 @@ import sys
 import global_parameters as gp
 import tools.figures_additional as figadd
 from convolutions.convolution_tracers import ConvolutionTracers
-from LPM.LPM_generate import LPM_generate                          
-
-
-def objective_function(data,model,error):
-    """ 
-    Defintion of basic computation for objective function 
-    Used at several place in the code
-    """
-    return np.square((model-data)/error)   
-
-
-def objective_function_norm(ojf,n):
-    """
-    Normalization of the objective function 
-    Ensures that the same function is used everywhere
-    """
-    return np.sqrt(ojf/n)
+from LPM.LPM_generate import LPM_generate
+from calibration.objective_functions import objective_function, objective_function_norm
 
 
 class ParamSysSampling: 
@@ -512,7 +497,7 @@ class CalibrationExploration:
         """ 
         Objective Function determination by systematically sampling the parameter space 
             By default, the resolution is self.nmodels
-        Objective Function should be defined exactly like in calibration_basis
+        Objective Function should be defined exactly like in calibration_common
         Assumes that both arrays are organized in the same way
             data: rows
             model: columns

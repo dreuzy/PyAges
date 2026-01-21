@@ -8,7 +8,8 @@ Created on Wed Mar 24 20:35:54 2021
 import numpy as np
 import os
 
-from calibration.calibration_exploration import ParamSysSampling, CalibrationExploration, objective_function
+from calibration.calibration_exploration import ParamSysSampling, CalibrationExploration
+from calibration.objective_functions import objective_function
 import global_parameters as gp                         
 import LPM.LPM_generate as LPM_generate                                        
 import convolutions.convolution_tracers as convolution_tracers      
@@ -58,7 +59,7 @@ def file_prior_posterior(file_ploemeur, error_concentrations, lpm_type):
     return file_ploemeur+"_err_"+str(error_concentrations)+"_lpm_"+lpm_type
 
 
-class CalibrationBasis(CalibrationExploration): 
+class CalibrationCommon(CalibrationExploration): 
     """ 
     Class for the calibration of a LPM of type LPM_type on sampled concentrations in "cdata
         Only the formulation of the problem 

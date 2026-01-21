@@ -19,8 +19,8 @@ import time
 from pathlib import Path
 from scipy.interpolate import interp1d
 
-from calibration.calibration_exploration import objective_function_norm
-import calibration.calibration_basis as calbas
+from calibration.objective_functions import objective_function_norm
+import calibration.calibration_common as calbas
 import calibration.calibration_synthetic_test as cst
 import LPM.core.LPM_dist as LPM_dist
 import global_parameters as gp                              
@@ -465,7 +465,7 @@ class Prior() :
             MH_difference[key][1] = 100 * (1-apriori_sampled[key][1]/apriori_theory[key][1])
 
 
-class CalibrationMetropolisHastings(calbas.CalibrationBasis) : 
+class CalibrationMetropolisHastings(calbas.CalibrationCommon) : 
     """ 
     Metropolis_Hastinvs Monte-Carlo Markov Chain Algorithm (MH MCMC)
         to calibrate lpm accounting for uncertainty in the data and possibly for a-priori distributions on parameters 
@@ -547,11 +547,11 @@ class CalibrationMetropolisHastings(calbas.CalibrationBasis) :
     
     def update_calibbasis(self,calib_basis): 
         """
-        Updates parent class CalibrationBasis with calib_basis
+        Updates parent class CalibrationCommon with calib_basis
         
         Arguments
         ---------
-        calib_basis: CalibrationBasis
+        calib_basis: CalibrationCommon
             Base Class Calibration Problem
         
         """

@@ -25,7 +25,7 @@ import global_parameters as gp
 import LPM.LPM_generate as LPM_generate
 
 import calibration.calibration_exploration as calibration_exploration
-import calibration.calibration_basis as calbas
+import calibration.calibration_common as calbas
 import calibration.calibration_simplex as csimp
 import calibration.calibration_Metropolis_Hastings as cMH
 
@@ -96,7 +96,7 @@ def benchmark_ploemeur():
         display_calstrat=copy.deepcopy(display)
         display_calstrat.directory = gp.results_directory(display.directory,calstrat[i].method)
         # Calibration
-        calib_basis=calbas.CalibrationBasis(concentration_sampled,lpm_type,display_options=display_calstrat,directory_lpm=directory_lpm)
+        calib_basis=calbas.CalibrationCommon(concentration_sampled,lpm_type,display_options=display_calstrat,directory_lpm=directory_lpm)
         calstrat[i].update_calibbasis(calib_basis)
         lpm_results[i]=calstrat[i].perform()
         # Stores/Writes Results

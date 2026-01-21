@@ -31,7 +31,7 @@ import convolutions.concentrations as co
 from convolutions import concentrations_time as ct
 
 import calibration.calibration_exploration as calibration_exploration
-import calibration.calibration_basis as calbas
+import calibration.calibration_common as calbas
 import calibration.calibration_simplex as csimp
 import calibration.calibration_Metropolis_Hastings as cMH
 
@@ -482,7 +482,7 @@ class ploemeur_one_date:
         display_options_case.directory = gp.results_directory(self.display.directory, calstrat.method)
     
         # Calibration
-        calib_basis = calbas.CalibrationBasis(cdata, self.lpm_type, display_options=display_options_case, nmodels=self.__nmodels, reachconc=self.display_reachconc)
+        calib_basis = calbas.CalibrationCommon(cdata, self.lpm_type, display_options=display_options_case, nmodels=self.__nmodels, reachconc=self.display_reachconc)
         calstrat.update_calibbasis(calib_basis)
         lpm_results = calstrat.perform()
         calstrat.write_calibrated_lpm(lpm_results, file_prior=calbas.file_prior_posterior(self.file_ploemeur, self.error_concentrations, self.lpm_type), folder_prior=self.option)
