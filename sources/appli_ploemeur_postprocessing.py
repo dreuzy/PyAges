@@ -227,7 +227,7 @@ def tracer_concentrations(
     # Optionnel : références atmosphériques
     chroniques_ref = {}
     if with_atm_ref:
-        tracer_dir = Path(r"D:\codes\pyage\sources\tracer_data")
+        tracer_dir = Path(gp.DIRECTORY_TRACER_DATA)
         for name in ["cfc11", "cfc12", "cfc113"]:
             try:
                 tr = Tracer(tracer_dir, name=name)

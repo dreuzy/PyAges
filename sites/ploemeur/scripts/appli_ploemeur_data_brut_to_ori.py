@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+repo_root = Path(__file__).resolve().parents[3]
+for p in (repo_root, repo_root / "sources"):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
 # -*- coding: utf-8 -*-
 """
 Created on Tue Jun  8 14:55:45 2021
@@ -9,7 +17,7 @@ import os
 import pandas as pd
 
 import global_parameters as gp
-import ploemeur.appli_ploemeur_tools as appli_ploemeur_tools 
+from sites.ploemeur.postprocessing import appli_ploemeur_tools
 
 wells=["F34","MF4","F38b","F13","F11","F38","F22","PE","MF1","F28","F09","PZ2","PSR1"]
 # wells=["F11"]

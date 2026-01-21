@@ -14,8 +14,8 @@ import test_specific_article as tsa
 import test_calibration_MH_fuq as tcMS
 import benchmark_ploemeur as bp
 import benchmark_fontainebleau as bf
-import appli_ploemeur as ap
-import appli_ploemeur_results_comparison as aprc
+from sites.ploemeur.scripts import appli_ploemeur as ap
+from sites.ploemeur.scripts import appli_ploemeur_results_comparison as aprc
 
 
 

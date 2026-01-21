@@ -55,7 +55,7 @@ où:
 sources/
 │
 ├── POINT D'ENTRÉE
-│   └── appli_ploemeur.py           # Application principale (700 lignes)
+│   └── sites/ploemeur/scripts/appli_ploemeur.py           # Application principale (700 lignes)
 │       ├── SimulationStrategy      # Stratégie globale de simulation
 │       ├── ploemeur_one_date       # Traitement d'une date unique
 │       ├── selector()              # Configuration des puits (150 lignes !)
@@ -83,7 +83,7 @@ sources/
 
 ```
                     ┌─────────────────────────────────┐
-                    │       appli_ploemeur.py         │
+                    │       sites/ploemeur/scripts/appli_ploemeur.py         │
                     │   (SimulationStrategy, selector)│
                     └───────────────┬─────────────────┘
                                     │
@@ -176,7 +176,7 @@ def perform(self):
     # ÉTAPE 1: PRÉPARATION DES DONNÉES
     # ═══════════════════════════════════════════════════════════════
     cdata = self.concentration_preparation()
-    # └─> Charge: ploemeur_data/F09_2005_2010
+    # └─> Charge: sites/ploemeur/data/F09_2005_2010
     # └─> Applique erreur relative: cdata.error_affect_from_value(0.1)
     # └─> cdata.cv = DataFrame[element, concentration, error, unit, date]
 
@@ -220,8 +220,8 @@ Total itérations = 1.85 milliards
 ### 4.1 Structure Complète des Fichiers
 
 ```
-ploemeur_data/
-├── LPM_data/
+sites/ploemeur/data/
+├── data/LPM_data/
 │   ├── exp/
 │   │   ├── params.yaml       # mu,0.1,100,year
 │   │   ├── params.yaml        # mu,0.2,year
@@ -256,7 +256,7 @@ ploemeur_data/
 │                            # time,0.1,100,year
 │                            # rate,0.01,0.99,1
 
-tracer_data/
+data/tracer_data/
 ├── cfc11/
 │   ├── cfc11.yaml          # unit: pptv, recharge: true
 │   └── recharge.csv         # date,concentration (1940-2025)
@@ -356,7 +356,7 @@ date,concentration
 
 ### 5.1 Configuration des Puits (selector())
 
-**État actuel** (`appli_ploemeur.py:527-674`):
+**État actuel** (`sites/ploemeur/scripts/appli_ploemeur.py:527-674`):
 
 ```python
 def selector(well_select, error=0.03):
@@ -751,12 +751,12 @@ C_final = 150 × 0.131 = 19.7 TU
 
 ### 8.1 Problème Principal: selector()
 
-**État actuel**: 150 lignes de code répétitif dans `appli_ploemeur.py:527-674`
+**État actuel**: 150 lignes de code répétitif dans `sites/ploemeur/scripts/appli_ploemeur.py:527-674`
 
 **Solution proposée**: Configuration YAML externe
 
 ```yaml
-# ploemeur_data/wells_config.yaml
+# sites/ploemeur/data/wells_config.yaml
 
 defaults:
   lpm_types: ["exp_shifted", "ig_shifted", "ig", "dirac_double_1_set",
@@ -813,7 +813,7 @@ def selector(well_select: list[str], error: float = 0.03) -> tuple:
     import yaml
     from pathlib import Path
 
-    config_path = Path(__file__).parent / "ploemeur_data" / "wells_config.yaml"
+    config_path = Path(__file__).parent / "sites" / "ploemeur" / "data" / "wells_config.yaml"
     with open(config_path) as f:
         config = yaml.safe_load(f)
 

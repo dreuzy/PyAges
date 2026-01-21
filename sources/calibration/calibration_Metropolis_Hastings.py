@@ -810,7 +810,7 @@ def test_calibration_MH_prior(display_options):
     Tests MH Calibration
         on a priori distribution of lpm parameters 
         distribution are generally uniform or Gaussian
-        They are defined in the files of folder LPM_data in the directory sources/ of the repository
+        They are defined in the files of folder data/LPM_data in the repository
     """
     display = copy.deepcopy(display_options)
     display.figure = False

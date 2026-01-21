@@ -6,6 +6,7 @@ Created on Mon Jun  7 04:42:59 2021
 """
 
 import os
+from pathlib import Path
 
 import global_parameters as gp
 import convolutions.concentrations as co
@@ -19,7 +20,7 @@ def ploemeur_data_folder():
     Root Data Folder of Ploemeur Data
 
     """
-    return os.path.join(gp.ROOT_DIRECTORY_SRC,"ploemeur_data")
+    return os.path.join(gp.ROOT_DIRECTORY, "data", "ploemeur_data")
 
 
 def ploemeur_results_folder(file_root):

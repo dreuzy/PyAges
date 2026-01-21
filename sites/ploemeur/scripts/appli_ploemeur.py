@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+repo_root = Path(__file__).resolve().parents[3]
+for p in (repo_root, repo_root / "sources"):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
 # -*- coding: utf-8 -*-
 """
 Created on Tue May 25 18:46:04 2021
@@ -20,15 +28,15 @@ import tracemalloc
 import convolutions.concentrations as concentrations        # List of chemical concentrations
 import global_parameters as gp
 import convolutions.concentrations as co
-import ploemeur.concentrations_time as ct
+from convolutions import concentrations_time as ct
 
 import calibration.calibration_exploration as calibration_exploration
 import calibration.calibration_basis as calbas
 import calibration.calibration_simplex as csimp
 import calibration.calibration_Metropolis_Hastings as cMH
 
-import ploemeur.appli_ploemeur_tools as appli_ploemeur_tools
-import appli_ploemeur_results_comparison as aprc
+from sites.ploemeur.postprocessing import appli_ploemeur_tools
+from sites.ploemeur.scripts import appli_ploemeur_results_comparison as aprc
 
 
 # Proxy function for parallel simulation 
@@ -417,7 +425,7 @@ class ploemeur_one_date:
 
         # ---------------- LPM MODEL -----------------------------
         self.lpm_type = lpm_type
-        self.directory_lpm = os.path.join(self.directory_ploemeur,"LPM_data")
+        self.directory_lpm = gp.directory_lpm_data
 
         # ---------------- METROPOLIS HASTINGS --------------------
         # Method and Parameters  

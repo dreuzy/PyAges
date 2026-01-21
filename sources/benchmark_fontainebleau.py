@@ -12,7 +12,7 @@ import sys
 import os
 import math
 
-import ploemeur.concentrations_time as ct
+from convolutions import concentrations_time as ct
 import convolutions.convolution_tracers as convolution_tracers                     # Chemical elements list
 import convolutions.concentrations as concentrations        # List of chemical concentrations
 import global_parameters as gp
@@ -24,7 +24,7 @@ import calibration.calibration_basis as calbas
 import calibration.calibration_simplex as csimp
 import calibration.calibration_Metropolis_Hastings as cMH
 import calibration.calibration_exploration
-import ploemeur.appli_ploemeur_tools as appli_ploemeur_tools
+from sites.ploemeur.postprocessing import appli_ploemeur_tools
 
 
 def benchmark_fontainebleau(): 

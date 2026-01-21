@@ -439,7 +439,7 @@ Remplacer les 150 lignes de `selector()` par une configuration YAML.
 
 #### 1.1 Créer le fichier de configuration des puits
 
-**Fichier** : `sources/ploemeur_data/wells_config.yaml`
+**Fichier** : `sources/sites/ploemeur/data/wells_config.yaml`
 
 ```yaml
 # Configuration des puits pour le site de Ploemeur
@@ -553,7 +553,7 @@ class WellsConfig:
 
     Example
     -------
-    >>> config = WellsConfig(Path("ploemeur_data/wells_config.yaml"))
+    >>> config = WellsConfig(Path("sites/ploemeur/data/wells_config.yaml"))
     >>> config.list_wells()
     ['F09', 'F11', 'F34', ...]
     >>> config.get_well("F09")
@@ -679,14 +679,14 @@ def get_wells_config() -> WellsConfig:
     """
     global _wells_config
     if _wells_config is None:
-        config_path = Path(__file__).parent.parent / "ploemeur_data" / "wells_config.yaml"
+        config_path = Path(__file__).parent.parent / "sites" / "ploemeur" / "data" / "wells_config.yaml"
         _wells_config = WellsConfig(config_path)
     return _wells_config
 ```
 
 #### 1.3 Modifier selector() pour utiliser la configuration
 
-**Fichier** : `sources/appli_ploemeur.py` (modification)
+**Fichier** : `sites/ploemeur/scripts/appli_ploemeur.py` (modification)
 
 ```python
 # Ajouter en haut du fichier
@@ -1277,7 +1277,7 @@ git commit -m "Phase X.Y: Description courte"
 
 ### Format actuel vs proposé pour bounds.txt
 
-**Actuel** (`ploemeur_data/LPM_data/exp_shifted/bounds.txt`) :
+**Actuel** (`sites/ploemeur/data/data/LPM_data/exp_shifted/bounds.txt`) :
 ```
 mu,0,100,year
 shift,0,100,year
@@ -1347,7 +1347,7 @@ def convert_bounds_to_yaml(lpm_dir: Path):
 
 
 if __name__ == "__main__":
-    lpm_data = Path("sources/ploemeur_data/LPM_data")
+    lpm_data = Path("sources/data/LPM_data")
     for lpm_dir in lpm_data.iterdir():
         if lpm_dir.is_dir():
             convert_bounds_to_yaml(lpm_dir)

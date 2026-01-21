@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+repo_root = Path(__file__).resolve().parents[3]
+for p in (repo_root, repo_root / "sources"):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jun  3 05:13:16 2021
@@ -14,7 +22,7 @@ import numpy as np
 
 import convolutions.convolution_tracers  
 import convolutions.concentrations as c
-import ploemeur.concentrations_time as ct
+from convolutions import concentrations_time as ct
 import LPM.LPM_generate as lpg
 import global_parameters as gp                          # Global variables
 import tools.figures_additional as fad

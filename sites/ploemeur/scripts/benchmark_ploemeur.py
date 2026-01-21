@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+repo_root = Path(__file__).resolve().parents[3]
+for p in (repo_root, repo_root / "sources"):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
 # -*- coding: utf-8 -*-
 """
 Created on Tue May 18 21:10:20 2021
@@ -11,7 +19,7 @@ import os
 import math
 
 import convolutions.concentrations as co
-import ploemeur.concentrations_time as ct
+from convolutions import concentrations_time as ct
 import convolutions.concentrations as concentrations
 import global_parameters as gp
 import LPM.LPM_generate as LPM_generate
@@ -21,7 +29,7 @@ import calibration.calibration_basis as calbas
 import calibration.calibration_simplex as csimp
 import calibration.calibration_Metropolis_Hastings as cMH
 
-import ploemeur.appli_ploemeur_tools as appli_ploemeur_tools
+from sites.ploemeur.postprocessing import appli_ploemeur_tools
 
 
 def benchmark_ploemeur():

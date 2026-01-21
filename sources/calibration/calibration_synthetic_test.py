@@ -15,7 +15,7 @@ import LPM.LPM_generate as LPM_generate
 
 import calibration.calibration_basis as calbas
 
-import ploemeur.concentrations_time as ct
+from convolutions import concentrations_time as ct
 
 
 class CalibrationSyntheticTest:

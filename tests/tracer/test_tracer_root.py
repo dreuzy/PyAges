@@ -63,9 +63,9 @@ def _tracer_data_dir() -> Path:
       - parents[1] : tests
       - parents[2] : racine du repo
 
-    On construit ensuite : <repo_root>/sources/tracer_data
+    On construit ensuite : <repo_root>/data/tracer_data
     """
-    return Path(__file__).resolve().parents[2] / "sources" / "tracer_data"
+    return Path(__file__).resolve().parents[2] / "data" / "tracer_data"
 
 
 def _tracer_names(exclude=None) -> list[str]:

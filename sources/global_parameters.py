@@ -30,18 +30,23 @@ ROOT_DIRECTORY_SRC = next(
     None
 )
 
+# Root Directory of Repository
+ROOT_DIRECTORY = ROOT_DIRECTORY_SRC.parent if ROOT_DIRECTORY_SRC else None
+
 if ROOT_DIRECTORY_RESULTS is None:
     raise FileNotFoundError("No ROOT_DIRECTORY_RESULTS found")
 if ROOT_DIRECTORY_SRC is None:
     raise FileNotFoundError("No ROOT_DIRECTORY_SRC found")
+if ROOT_DIRECTORY is None:
+    raise FileNotFoundError("No ROOT_DIRECTORY found")
 
 # -------------------------------------------------------
 # Sub-directories (conserving same variable names)
 # -------------------------------------------------------
 
-DIRECTORY_TRACER_DATA = ROOT_DIRECTORY_SRC / "tracer_data"
+DIRECTORY_TRACER_DATA = ROOT_DIRECTORY / "data" / "tracer_data"
 DIRECTORY_TEST = ROOT_DIRECTORY_SRC / "tests_data"
-directory_lpm_data = ROOT_DIRECTORY_SRC / "LPM_data"
+directory_lpm_data = ROOT_DIRECTORY / "data" / "LPM_data"
 
 # -------------------------------------------------------
 # Global parameters
