@@ -20,7 +20,7 @@ def ploemeur_data_folder():
     Root Data Folder of Ploemeur Data
 
     """
-    return os.path.join(gp.ROOT_DIRECTORY, "data", "ploemeur_data")
+    return os.path.join(gp.ROOT_DIRECTORY, "sites", "ploemeur", "data")
 
 
 def ploemeur_results_folder(file_root):

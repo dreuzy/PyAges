@@ -68,7 +68,7 @@ class Tracer:
     Examples
     --------
         >>> from pathlib import Path
-        >>> tracer_dir = Path("data/tracer_data")
+        >>> tracer_dir = Path("core_data/tracer_data")
         >>> tracer = Tracer(tracer_dir, name="cfc11")
         >>> print(tracer.name, tracer.unit)
         cfc11 pptv
@@ -558,7 +558,7 @@ def find_tracer_dir() -> Path:
     Notes
     -----
         Assumes project structure: .../pyage/sources/tracer/tracer_root.py
-        and looks for: .../pyage/data/tracer_data/
+        and looks for: .../pyage/core_data/tracer_data/
     """
     here = Path(__file__).resolve()
 

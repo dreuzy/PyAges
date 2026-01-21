@@ -12,4 +12,4 @@ def lpm_dir() -> Path:
 
 
 def lpm_data_dir() -> Path:
-    return repo_root() / "data" / "LPM_data"
+    return repo_root() / "core_data" / "LPM_data"

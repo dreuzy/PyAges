@@ -221,7 +221,7 @@ Total itérations = 1.85 milliards
 
 ```
 sites/ploemeur/data/
-├── data/LPM_data/
+├── core_data/LPM_data/
 │   ├── exp/
 │   │   ├── params.yaml       # mu,0.1,100,year
 │   │   ├── params.yaml        # mu,0.2,year
@@ -256,7 +256,7 @@ sites/ploemeur/data/
 │                            # time,0.1,100,year
 │                            # rate,0.01,0.99,1
 
-data/tracer_data/
+core_data/tracer_data/
 ├── cfc11/
 │   ├── cfc11.yaml          # unit: pptv, recharge: true
 │   └── recharge.csv         # date,concentration (1940-2025)

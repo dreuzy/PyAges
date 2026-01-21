@@ -36,7 +36,7 @@ def benchmark_fontainebleau():
     
     # ---------------- LPM MODEL -----------------------------
     lpm_type = "mix_exp_shifted"#"exp_shifted"#"ig_shifted"#"dirac_double"
-    directory_lpm = os.path.join(gp.DIRECTORY_TEST,"fontainebleau","LPM_data")
+    directory_lpm = os.path.join(gp.ROOT_DIRECTORY, "sites", "fontainebleau", "data", "LPM_data")
     # Resolution of objective function / concentration pattern
     resolution = 2000
     
@@ -69,7 +69,7 @@ def benchmark_fontainebleau():
     
     # ---------------- CONCENTRATIONS------------------------
     # Data Loading
-    concentration_sampled=co.Concentrations(file_load=True, file_name=os.path.join(gp.DIRECTORY_TEST,"fontainebleau",file))
+    concentration_sampled=co.Concentrations(file_load=True, file_name=os.path.join(gp.ROOT_DIRECTORY, "sites", "fontainebleau", "data", file))
     # Adds some percentage of uncertainty to the data
     # concentration_sampled.error_affect_from_value(error_concentrations)
     concentration_sampled.display(display)

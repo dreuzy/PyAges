@@ -1,5 +1,0 @@
-method	Bootstrap
-xatol	1e-08
-fatol	1e-08
-init_mutiples	10
-bootstrap_n	5

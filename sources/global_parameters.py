@@ -44,9 +44,9 @@ if ROOT_DIRECTORY is None:
 # Sub-directories (conserving same variable names)
 # -------------------------------------------------------
 
-DIRECTORY_TRACER_DATA = ROOT_DIRECTORY / "data" / "tracer_data"
+DIRECTORY_TRACER_DATA = ROOT_DIRECTORY / "core_data" / "tracer_data"
 DIRECTORY_TEST = ROOT_DIRECTORY_SRC / "tests_data"
-directory_lpm_data = ROOT_DIRECTORY / "data" / "LPM_data"
+directory_lpm_data = ROOT_DIRECTORY / "core_data" / "LPM_data"
 
 # -------------------------------------------------------
 # Global parameters

@@ -12,8 +12,8 @@ Equivalent to non regression test on all possible use of codes
 import test_integration as ti
 import test_specific_article as tsa
 import test_calibration_MH_fuq as tcMS
-import benchmark_ploemeur as bp
-import benchmark_fontainebleau as bf
+from sites.ploemeur.scripts import benchmark_ploemeur as bp
+from sites.fontainebleau.scripts import benchmark_fontainebleau as bf
 from sites.ploemeur.scripts import appli_ploemeur as ap
 from sites.ploemeur.scripts import appli_ploemeur_results_comparison as aprc
 

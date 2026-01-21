@@ -1277,7 +1277,7 @@ git commit -m "Phase X.Y: Description courte"
 
 ### Format actuel vs proposé pour bounds.txt
 
-**Actuel** (`sites/ploemeur/data/data/LPM_data/exp_shifted/bounds.txt`) :
+**Actuel** (`sites/ploemeur/data/LPM_data/exp_shifted/bounds.txt`) :
 ```
 mu,0,100,year
 shift,0,100,year
@@ -1347,7 +1347,7 @@ def convert_bounds_to_yaml(lpm_dir: Path):
 
 
 if __name__ == "__main__":
-    lpm_data = Path("sources/data/LPM_data")
+    lpm_data = Path("core_data/LPM_data")
     for lpm_dir in lpm_data.iterdir():
         if lpm_dir.is_dir():
             convert_bounds_to_yaml(lpm_dir)
