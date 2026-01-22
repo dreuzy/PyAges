@@ -679,6 +679,7 @@ def selector(well_select,error=0.03):
     
     
 if __name__ == "__main__":  
+    mp.freeze_support()
     # Liste des types d'apriori
     apriori_types = ["double", "none", "single"]
     

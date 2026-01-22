@@ -824,34 +824,3 @@ def test_calibration_MH_prior(display_options):
         calib = cst.CalibrationSyntheticTest(calib_strategy=calib_MH,ncase=1,error=0.0,tracer_names=["cfc11"],
                                                  date=2000,lpm_type=lpm,display_options=display)
         calib.perform_ncase()
-
-
-display = gp.display_options()
-display.figure = False
-display.text = False
-display.figure_save = False
-display.directory = "tmp_path"
-
-calib_mh = MetropolisHastings(
-    nstep=5000,
-    burn_in=0.2,
-    nskip=5,
-    prior_option=True,
-    likelyhood=False,
-    monitor=False,
-    display_traj=False,
-    display_text=False,
-    lpm_number=3,
-)
-
-calib = cst.CalibrationSyntheticTest(
-    calib_strategy=calib_mh,
-    ncase=1,
-    error=0.0,
-    tracer_names=["cfc11","cfc12","cfc113"],
-    date=2000,
-    lpm_type="exp_shifted",
-    display_options=display,
-)
-
-calib.perform_ncase()

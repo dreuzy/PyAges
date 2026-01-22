@@ -7,6 +7,14 @@
 3. **Robustesse** : Améliorer la gestion des erreurs et les tests
 4. **Performance** : Optimisations ciblées sans casser l'existant
 
+## État actuel (structure révisée)
+
+- `sources/` contient désormais `convolution/` (singulier), `concentrations/`,
+  `calibration/{methods,utils,workflows}` et `config/`.
+- `core_data/` regroupe les données LPM et traceurs (données “core”).
+- `sites/ploemeur/` reste le site principal.
+- `examples/` contient les scénarios et données de démonstration (fontainebleau, ploemeur).
+
 ---
 
 ## Vue d'Ensemble des Phases
@@ -147,7 +155,7 @@ class TestCaptureConvolution:
     ])
     def test_capture_convolution(self, lpm_type, tracer, date):
         """Capture convolution pour chaque combinaison."""
-        from convolutions.convolution import Convolution
+        from convolution.convolution import Convolution
         from LPM.LPM_generate import LPM_generate
         import global_parameters as gp
 
@@ -291,7 +299,7 @@ class TestRegressionConvolution:
     ])
     def test_convolution_unchanged(self, lpm_type, tracer, date):
         """Compare convolution aux références."""
-        from convolutions.convolution import Convolution
+        from convolution.convolution import Convolution
         from LPM.LPM_generate import LPM_generate
         import global_parameters as gp
 
@@ -1218,7 +1226,7 @@ class Tracer:
 #### 5.2 Vectorisation partielle de la convolution
 
 ```python
-# convolutions/convolution.py
+# convolution/convolution.py
 def convolution_vectorized(self, lpm, dates: np.ndarray) -> np.ndarray:
     """
     Convolution vectorisée pour plusieurs dates.

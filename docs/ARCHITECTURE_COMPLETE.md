@@ -53,31 +53,32 @@ où:
 
 ```
 sources/
-│
-├── POINT D'ENTRÉE
-│   └── sites/ploemeur/scripts/appli_ploemeur.py           # Application principale (700 lignes)
-│       ├── SimulationStrategy      # Stratégie globale de simulation
-│       ├── ploemeur_one_date       # Traitement d'une date unique
-│       ├── selector()              # Configuration des puits (150 lignes !)
-│       └── files_years()           # Génération des fichiers par période
-│
-├── LPM/ (Modèles à Paramètres Groupés)
-│   ├── core/LPM_root.py                 # Classe abstraite de base (615 lignes)
-│   ├── core/LPM_dist.py                 # Distribution des résultats (465 lignes)
-│   ├── LPM_generate.py             # Factory pattern
-│   ├── models/ (implementations)
-│   ├──   LPM_exp.py              # Exponentiel
-│   ├──   LPM_exp_shifted.py      # Exponentiel decale (2 params: mu, shift)
-│   ├──   LPM_gamma.py            # Gamma (2 params: k, scale)
-│   ├──   LPM_ig.py               # Gaussienne inverse (2 params: mu, sigma)
-│   ├──   LPM_ig_shifted.py       # Gaussienne inverse decalee (3 params)
-│   ├──   LPM_uniform.py          # Uniforme (2 params: tmin, delta)
-│   ├──   LPM_dirac.py            # Dirac simple (1 param: mu)
-│   ├──   LPM_dirac_double.py     # Dirac double (3 params)
-│   ├──   LPM_dirac_double_1_set.py
-│   ├──   LPM_mix_exp_shifted.py  # Melange dirac + exp
-│   ├──   LPM_exp_shifted_young.py
-│   ├──   LPM_exp_shifted_old.py
+??? LPM/                                 # Mod?les ? Param?tres Group?s
+?   ??? core/LPM_root.py                 # Classe abstraite de base
+?   ??? core/LPM_dist.py                 # Distribution des r?sultats
+?   ??? LPM_generate.py                  # Factory pattern
+?   ??? models/                          # Impl?mentations LPM
+?
+??? tracer/                              # Traceurs et chroniques
+??? convolution/                         # Convolution (singulier)
+??? concentrations/                      # Donn?es de concentrations + chroniques
+??? calibration/
+?   ??? methods/                         # M?thodes de calibration (Simplex, MH)
+?   ??? utils/                           # CalibrationCore, objective functions, sampling
+?   ??? workflows/                       # Workflows (tests synth?tiques)
+??? config/
+    ??? paths.py                         # Chemins et utilitaires associ?s
+    ??? runtime.py                       # display_options, simulation_time
+    ??? bootstrap.py                     # setup_path (optionnel)
+
+core_data/                               # Donn?es globales LPM + traceurs
+sites/                                   # Sites sp?cifiques (ex. ploemeur)
+examples/                                # Exemples (fontainebleau, ploemeur)
+scripts/                                 # Orchestration / ex?cution
+tests/                                   # Tests automatis?s
+docs/                                    # Documentation
+install/                                 # Environnements
+```
 
 ### 2.2 Dépendances entre Modules
 
@@ -99,7 +100,7 @@ sources/
                                     │
                                     ▼
                     ┌─────────────────────────────────┐
-                    │       CalibrationBasis          │
+                    │       CalibrationCore          │
                     │ (cdata, lpm, tracers, obj_func) │
                     └───────────────┬─────────────────┘
                                     │
@@ -184,7 +185,7 @@ def perform(self):
     # ÉTAPE 2: CALIBRATION AVEC METROPOLIS-HASTINGS
     # ═══════════════════════════════════════════════════════════════
     lpm_results = self.calibration(cdata, self.calstrat_MH)
-    # └─> Crée CalibrationBasis(cdata, lpm_type)
+    # └─> Crée CalibrationCore(cdata, lpm_type)
     #     └─> LPM_generate(lpm_type) → instance LPM
     #     └─> ConvolutionTracers(tracer_names, dates)
     #         └─> Pour chaque traceur: Convolution(name, date)
@@ -489,7 +490,7 @@ results/
 CalibrationExploration (calibration_exploration.py)
 │   └── Exploration systématique sur grille (ParamSysSampling)
 │
-CalibrationBasis (calibration_basis.py)
+CalibrationCore (calibration_basis.py)
 │   ├── Attributs:
 │   │   ├── cdata: Concentrations (données mesurées)
 │   │   ├── lpm: LPM instance (modèle à calibrer)
@@ -898,7 +899,7 @@ class TestCaptureGolden:
 
     def test_capture_convolution(self):
         """Capture les résultats de convolution pour chaque combinaison."""
-        from convolutions.convolution import Convolution
+        from convolution.convolution import Convolution
         from LPM.LPM_generate import LPM_generate
 
         test_cases = [
