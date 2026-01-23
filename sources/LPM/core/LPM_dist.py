@@ -14,6 +14,7 @@ import pandas as pd                     # Tables-Arrays
 import global_parameters as gp
 import tools.figures_additional as figadd
 import tools.dist_hist as dist_hist
+from pathlib import Path
 
 from IPython.display import display
 
@@ -395,12 +396,14 @@ class LPMDist:
         """
         Writes for each of the parameters the histogram
         """
+        file_path = Path(file)
         nb_bins = 100
         for key in self.__lpm_template.p : 
             uu = self.__dist.loc[:,key]
             hist, bins = np.histogram(self.__dist.loc[:,key], bins=nb_bins, density='True')
             # hist_dataframe = pd.DataFrame(columns = self.__lpm_template.get_param_names() + ['obj_function'] + c_names)
-            pd.DataFrame({'val': bins[:-1],'hist': hist}).to_csv(file[:-4]+'_'+key+file[-4:],sep='\t',index=False)
+            out_path = file_path.with_name(f"{file_path.stem}_{key}{file_path.suffix}")
+            pd.DataFrame({'val': bins[:-1],'hist': hist}).to_csv(out_path,sep='\t',index=False)
 
         
         

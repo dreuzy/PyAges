@@ -537,8 +537,10 @@ class SystematicSampling:
         # Sqrt of mean quadratic differences divided by error
         ojf=0.5*np.log(ojf)
         # Storage in a dataframe
-        self.__obj_function = pd.DataFrame(np.hstack((np.asarray(self.__psystsampling.plist()),np.transpose([ojf]))),
-                                         columns=[*self.lpm.p.keys(),'log-ojf'])
+        self.__obj_function = pd.DataFrame(
+            np.hstack((np.asarray(self.__psystsampling.plist()), np.transpose([ojf]))),
+            columns=[*self.__lpm.p.keys(), "log-ojf"],
+        )
         
 
     def objective_function_display(self,lpm_results=None):
@@ -547,10 +549,13 @@ class SystematicSampling:
         # Grids objective function 
         [p_grid,obj_function_grid]=self.__psystsampling.grid_data(self.__obj_function['log-ojf'])
         # Displays gridded data
-        self.__psystsampling.display_grid_data(obj_function_grid,self.display,
-                                               name_fig='objfun_of_' + self.lpm.name, 
-                                               lpm_name = self.lpm.name,
-                                               lpm_results=lpm_results)
+        self.__psystsampling.display_grid_data(
+            obj_function_grid,
+            self.display,
+            name_fig="objfun_of_" + self.__lpm.name,
+            lpm_name=self.__lpm.name,
+            lpm_results=lpm_results,
+        )
 
 
     def set_nmodels(self,nmodels): 
