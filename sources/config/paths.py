@@ -1,37 +1,34 @@
 # -*- coding: utf-8 -*-
 """
 Paths configuration for PyAge.
+
+All paths are resolved relative to the repository root, except the results
+directory, which is set via environment variable or a user-level default.
 """
 
 from datetime import datetime
 from pathlib import Path
+import os
 
 
 # -------------------------------------------------------
 # Root directories
 # -------------------------------------------------------
 
-# Root Directory of Results
-ROOT_DIRECTORY_RESULTS = next(
-    (p for p in [Path("D:/results/PyAge"), Path("C:/results/PyAge")] if p.exists()),
-    None
-)
-
-# Root Directory of Application
-ROOT_DIRECTORY_SRC = next(
-    (p for p in [Path("D:/codes/pyage/sources"), Path("C:/codes/pyage/sources")] if p.exists()),
-    None
-)
+# Root Directory of Application (resolved from this file location)
+ROOT_DIRECTORY_SRC = Path(__file__).resolve().parents[1]
 
 # Root Directory of Repository
-ROOT_DIRECTORY = ROOT_DIRECTORY_SRC.parent if ROOT_DIRECTORY_SRC else None
+ROOT_DIRECTORY = ROOT_DIRECTORY_SRC.parent
 
-if ROOT_DIRECTORY_RESULTS is None:
-    raise FileNotFoundError("No ROOT_DIRECTORY_RESULTS found")
-if ROOT_DIRECTORY_SRC is None:
-    raise FileNotFoundError("No ROOT_DIRECTORY_SRC found")
-if ROOT_DIRECTORY is None:
-    raise FileNotFoundError("No ROOT_DIRECTORY found")
+# Root Directory of Results (absolute via env, or user-level default)
+_results_env = os.environ.get("PYAGE_RESULTS_DIR", "").strip()
+if _results_env:
+    ROOT_DIRECTORY_RESULTS = Path(_results_env)
+else:
+    ROOT_DIRECTORY_RESULTS = Path.home() / "results" / "PyAge"
+
+ROOT_DIRECTORY_RESULTS.mkdir(parents=True, exist_ok=True)
 
 # -------------------------------------------------------
 # Sub-directories

@@ -31,10 +31,13 @@ def main():
         ipy = None
     if ipy is not None:
         sys.path.insert(0, str(root / "scripts"))
-        sys.argv = [str(script), str(params), "--inline"]
+        sys.argv = [str(script), str(params), "--inline", "--set-results-dir"]
         runpy.run_path(str(script), run_name="__main__")
     else:
-        subprocess.run([sys.executable, str(script), str(params)], check=True)
+        subprocess.run(
+            [sys.executable, str(script), str(params), "--set-results-dir"],
+            check=True,
+        )
 
 
 if __name__ == "__main__":

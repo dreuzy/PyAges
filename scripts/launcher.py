@@ -20,6 +20,7 @@ import sys
 import os
 import copy
 import argparse
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -652,5 +653,25 @@ if __name__ == "__main__":
         action="store_true",
         help="Force inline backend (useful when launching from an interactive window).",
     )
+    parser.add_argument(
+        "--set-results-dir",
+        nargs="?",
+        const="__ASK__",
+        default=None,
+        help="Persist PYAGE_RESULTS_DIR for the user (prompts if no path provided).",
+    )
     args = parser.parse_args()
+    if args.set_results_dir is not None:
+        default_dir = Path.home() / "results" / "PyAge"
+        if args.set_results_dir == "__ASK__":
+            prompt = f"PYAGE_RESULTS_DIR [{default_dir}]: "
+            user_value = input(prompt).strip()
+            results_dir = user_value or str(default_dir)
+        else:
+            results_dir = args.set_results_dir
+        os.environ["PYAGE_RESULTS_DIR"] = results_dir
+        if os.name == "nt":
+            subprocess.run(["setx", "PYAGE_RESULTS_DIR", results_dir], check=True)
+        else:
+            print("PYAGE_RESULTS_DIR set for current process only (non-Windows).")
     main(args.params_path, force_inline=args.inline)
