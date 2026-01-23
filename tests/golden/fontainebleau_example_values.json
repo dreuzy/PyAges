@@ -1,0 +1,14 @@
+{
+  "fontainebleau_CGEB": {
+    "count": 4,
+    "elements": [
+      "kr85",
+      "3H",
+      "39Ar",
+      "14C"
+    ],
+    "mean_concentration": 22.7825,
+    "mean_date": 2001.85,
+    "mean_error": 0.5375
+  }
+}

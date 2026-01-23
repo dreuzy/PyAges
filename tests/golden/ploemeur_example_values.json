@@ -1,0 +1,13 @@
+{
+  "ploemeur_F09_2010.txt": {
+    "count": 3,
+    "elements": [
+      "cfc11",
+      "cfc12",
+      "cfc113"
+    ],
+    "mean_concentration": 259.771287729388,
+    "mean_date": 2010.9,
+    "mean_error": 0.0
+  }
+}
