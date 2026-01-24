@@ -36,7 +36,7 @@ ROOT_DIRECTORY_RESULTS.mkdir(parents=True, exist_ok=True)
 
 DIRECTORY_TRACER_DATA = ROOT_DIRECTORY / "core_data" / "tracer_data"
 DIRECTORY_TEST = ROOT_DIRECTORY_SRC / "tests_data"
-directory_lpm_data = ROOT_DIRECTORY / "core_data" / "LPM_data"
+DIRECTORY_LPM_DATA = ROOT_DIRECTORY / "core_data" / "LPM_data"
 
 
 # -------------------------------------------------------

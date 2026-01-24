@@ -251,7 +251,7 @@ def load_and_display(date_sim,lpm_type,directory):
     """
     [dir_names,well_dates,dir_ploemeur]=dir_list(date_sim,lpm_type,directory)
     # Gets lpm_type template and parameter names 
-    lpm = lpg.LPM_generate(lpm_type,directory_lpm=gp.directory_lpm_data)
+    lpm = lpg.LPM_generate(lpm_type,directory_lpm=gp.DIRECTORY_LPM_DATA)
     param_names = lpm.get_param_names()
     
     # Displays concentrations according to time

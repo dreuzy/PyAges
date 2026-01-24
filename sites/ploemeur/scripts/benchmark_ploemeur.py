@@ -116,7 +116,7 @@ def benchmark_ploemeur():
     
 
     # ------------- CONCENTRATION OUTPUTS ----------------------
-    lpm=LPM_generate.LPM_generate(lpm_type,directory_lpm=gp.directory_lpm_data)
+    lpm=LPM_generate.LPM_generate(lpm_type,directory_lpm=gp.DIRECTORY_LPM_DATA)
     ct.display_concentration_times([display.directory],lpm,display)
 
 

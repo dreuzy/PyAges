@@ -84,7 +84,7 @@ class CalibrationCore(SystematicSampling):
     subclasses.
     """
 
-    def __init__(self,cdata,LPM_type,display_options=gp.display_options(),directory_lpm=gp.directory_lpm_data,
+    def __init__(self,cdata,LPM_type,display_options=gp.display_options(),directory_lpm=gp.DIRECTORY_LPM_DATA,
                  nmodels=1000,objfunc=True,reachconc=True):
         """Initialize a calibration core container (requires ``prepare()``).
 

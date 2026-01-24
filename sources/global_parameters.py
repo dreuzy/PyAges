@@ -20,11 +20,14 @@ from config.paths import (
     ROOT_DIRECTORY_SRC,
     DIRECTORY_TRACER_DATA,
     DIRECTORY_TEST,
-    directory_lpm_data,
+    DIRECTORY_LPM_DATA,
     results_directory,
     results_directory_dhms,
     name_dhms,
 )
+
+# Alias de compatibilité (DEPRECATED - utiliser DIRECTORY_LPM_DATA)
+directory_lpm_data = DIRECTORY_LPM_DATA
 from config.runtime import display_options, simulation_time, arange_n
 
 # -------------------------------------------------------

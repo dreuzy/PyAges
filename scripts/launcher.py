@@ -41,25 +41,15 @@ IN_INTERACTIVE = False
 
 def setup_repo_path():
     """
-    Purpose
-    -------
     Return repo root and ensure it is on sys.path.
 
-    Notes
-    -----
     Enables running the script from any working directory while keeping imports
     stable (e.g., `concentrations`, `calibration`, `LPM`).
     """
-    # Allow running from subfolders while keeping imports stable.
-    # We walk up until a folder contains "sources", then add it to sys.path.
-    root = Path.cwd()
-    if not (root / "sources").exists():
-        for parent in root.parents:
-            if (parent / "sources").exists():
-                root = parent
-                break
-    sys.path.insert(0, str(root))  # Allow absolute imports from repo root.
-    sys.path.insert(0, str(root / "sources"))  # Prefer in-repo modules.
+    # Repository root is one level up from scripts/
+    root = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(root))
+    sys.path.insert(0, str(root / "sources"))
     return root
 
 
@@ -139,7 +129,7 @@ def build_calibration_core(params, concentration_sampled, calbas, display_run):
         concentration_sampled,
         params.lpm_model_name,
         display_options=display_run,
-        directory_lpm=str(params.lpm_data_directory),
+        directory_lpm=str(params.directory_lpm),
     )
     calib_basis.prepare()  # Build tracers, LPM structure, and sampling tools.
     return calib_basis
@@ -490,7 +480,7 @@ def run_concentration_outputs(params, LPM_generate, ct, display_save):
     Parameters
     ----------
     params : LauncherParams
-        Parsed parameters (expects lpm_model_name and lpm_data_directory).
+        Parsed parameters (expects lpm_model_name and directory_lpm).
     LPM_generate : module
         LPM.LPM_generate module.
     ct : module
@@ -500,7 +490,7 @@ def run_concentration_outputs(params, LPM_generate, ct, display_save):
     """
     lpm = LPM_generate.LPM_generate(
         params.lpm_model_name,
-        directory_lpm=str(params.lpm_data_directory),
+        directory_lpm=str(params.directory_lpm),
     )
     ct.display_concentration_times([display_save.directory], lpm, display_save)
 
@@ -560,7 +550,7 @@ def run_workflow(params_path, force_inline=False):
     concentration_sampled.cv.to_csv(
         os.path.join(display_save.directory, "concentrations.txt"), sep="\t"
     )
-    print("parameters for the calibration are in directory:\n\t", params.lpm_data_directory)
+    print("parameters for the calibration are in directory:\n\t", params.directory_lpm)
 
     # ---------------- REACHABLE CONCENTRATIONS -------------
     context = WorkflowContext(

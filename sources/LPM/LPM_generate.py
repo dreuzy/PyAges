@@ -66,7 +66,7 @@ def _resolve_directory(
         Optional override for LPM data directory.
     """
     # Prefer explicit directory; fall back to the configured default.
-    return directory_lpm if directory_lpm is not None else gp.directory_lpm_data
+    return directory_lpm if directory_lpm is not None else gp.DIRECTORY_LPM_DATA
 
 
 def _get_lpm_class(lpm_type: str) -> Type[Any]:
@@ -89,7 +89,7 @@ def _get_lpm_class(lpm_type: str) -> Type[Any]:
 
 def LPM_generate(
     lpm_type: str,
-    directory_lpm: Optional[Union[str, Path]] = gp.directory_lpm_data,
+    directory_lpm: Optional[Union[str, Path]] = gp.DIRECTORY_LPM_DATA,
 ) -> Any:
     """
     Purpose
@@ -116,7 +116,7 @@ def LPM_generate(
 def LPM_generate_random_uniform(
     lpm_type: str,
     rng: Optional[Any] = None,
-    directory_lpm: Optional[Union[str, Path]] = gp.directory_lpm_data,
+    directory_lpm: Optional[Union[str, Path]] = gp.DIRECTORY_LPM_DATA,
 ) -> Any:
     """
     Purpose

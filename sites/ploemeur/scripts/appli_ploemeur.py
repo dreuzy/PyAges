@@ -418,7 +418,7 @@ class ploemeur_one_date:
 
         # ---------------- LPM MODEL -----------------------------
         self.lpm_type = lpm_type
-        self.directory_lpm = gp.directory_lpm_data
+        self.directory_lpm = gp.DIRECTORY_LPM_DATA
 
         # ---------------- METROPOLIS HASTINGS --------------------
         # Method and Parameters  

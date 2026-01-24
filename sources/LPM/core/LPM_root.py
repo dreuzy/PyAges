@@ -56,7 +56,7 @@ class LPM(abc.ABC):
     __p_max : dictionary
         __p_max["parameter name"] = parameter higher bound
         Loaded from external file 
-    __directory_lpm_data : str
+    _directory_lpm : str
         directory of the parameters necessary for the models 
     
     Methods (defined in this class)
@@ -97,7 +97,7 @@ class LPM(abc.ABC):
         name: str,
         parameter_values: dict[str, float],
         parameter_units: dict[str, str],
-        directory_lpm_data: str
+        directory_lpm: str
     ) -> None:
         """
         Constructor
@@ -110,7 +110,7 @@ class LPM(abc.ABC):
             parameter_values["parameter name"] = parameter values
         parameter_units : dict[str, str]
             parameter_units["parameter name"] = parameter unit
-        directory_lpm_data : str
+        directory_lpm : str
             directory of the parameters necessary for the models
         """
         # Name of LPM (e.g. IG, EXP)
@@ -122,9 +122,9 @@ class LPM(abc.ABC):
         # Bounds of distribution parameters
         self.__p_min = {}
         self.__p_max = {}
-        if directory_lpm_data is None:
-            raise ValueError("directory_lpm_data must be provided, got None")
-        self.__directory_lpm_data = directory_lpm_data
+        if directory_lpm is None:
+            raise ValueError("directory_lpm must be provided, got None")
+        self._directory_lpm = directory_lpm
         # Load lower and higher bounds 
         self.__load_bounds()
 
@@ -219,7 +219,7 @@ class LPM(abc.ABC):
         str
             Full directory + file name
         """
-        return os.path.join(self.__directory_lpm_data, self.name, file_name)
+        return os.path.join(self._directory_lpm, self.name, file_name)
 
 
     def __load_params_yaml(self) -> dict | None:
@@ -234,7 +234,7 @@ class LPM(abc.ABC):
             return cache[path]
         if not os.path.exists(path):
             return None
-        data = lpm_params.load_params(self.name, Path(self.__directory_lpm_data))
+        data = lpm_params.load_params(self.name, Path(self._directory_lpm))
         cache[path] = data
         return data
         

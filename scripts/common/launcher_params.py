@@ -21,7 +21,7 @@ class LauncherParams:
     dataset_data_dir: Path
     verbose: bool
     lpm_model_name: str
-    lpm_data_directory: Path
+    directory_lpm: Path
     run_reachable_concentrations: bool
     run_objective_function: bool
     run_calibration_metropolis_hastings: bool
@@ -81,7 +81,7 @@ def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
         dataset_data_dir=dataset_data_dir,
         verbose=bool(dataset_params.get("verbose", True)),
         lpm_model_name=lpm_params.get("model_name", "dirac_double"),
-        lpm_data_directory=lpm_data_dir,
+        directory_lpm=lpm_data_dir,
         run_reachable_concentrations=bool(run_params.get("reachable_concentrations", True)),
         run_objective_function=bool(run_params.get("objective_function", True)),
         run_calibration_metropolis_hastings=bool(
