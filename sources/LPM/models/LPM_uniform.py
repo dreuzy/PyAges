@@ -1,61 +1,31 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar 22 09:29:57 2021
-
-@author: Jean-Raynald de Dreuzy
+LPM Uniform distribution model.
 """
 
+from scipy.stats import uniform
 
-# Statistical distributions
-from scipy.stats import uniform as uniform_stats
-import numpy as np
+from LPM.core.scipy_lpm import ScipyLPM
 
-# LPM template
-from LPM.core.LPM_root import LPM
-       
 
-class LPM_uniform(LPM):
-    """ Lumped Parameter Model
-        Exponential
-    """
-    def __init__(self, directory_lpm=None):   
-        """ Constructor
-            Specific
+class LPM_uniform(ScipyLPM):
+    """Lumped Parameter Model - Uniform distribution."""
+
+    scipy_dist = uniform
+
+    def __init__(self, directory_lpm=None):
         """
-        parameter_values={'tmin':2,'delta':10}
-        parameter_units={'tmin':'year','delta':'year'}
-        LPM.__init__(self,"uniform",parameter_values,parameter_units,directory_lpm)
-        
-        
-    def pdf(self,t):
-        """ p=pdf(t)
-            Probability Density Function 
-        """
-        return uniform_stats.pdf(t, self.p['tmin'], self.p['delta'])
-    
-    
-    def cdf(self,t):
-        """ p=cdf(t)
-            Cumulative density 
-        """
-        return uniform_stats.cdf(t, self.p['tmin'], self.p['delta'])
+        Constructor.
 
-        
-    def cdf_inv(self,p):
-        """ Inverse of the Cumulative Density Function, t=cdf^-1(p)
+        Parameters
+        ----------
+        directory_lpm : str
+            Directory for LPM parameter files.
         """
-        return self.p['tmin'] + p * self.p['delta']
-    
-    
-    def mean(self):
-        """ 
-        Returns mean of distribution """
-        return self.p['tmin'] + self.p['delta'] /2
-    
-    
-    def std(self):
-        """ 
-        Returns std of distribution """
-        return np.sqrt((self.p['delta'])**2/12)
-    
+        parameter_values = {'tmin': 2, 'delta': 10}
+        parameter_units = {'tmin': 'year', 'delta': 'year'}
+        super().__init__("uniform", parameter_values, parameter_units, directory_lpm)
 
+    def _scipy_params(self):
+        # scipy.stats.uniform(loc, scale) is uniform on [loc, loc+scale]
+        return (), self.p['tmin'], self.p['delta']  # (args), loc, scale

@@ -1,60 +1,34 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar 22 09:29:57 2021
-
-@author: Jean-Raynald de Dreuzy
+LPM Gamma distribution model.
 """
 
-
-# Statistical distributions
-import numpy as np
 from scipy.stats import gamma
 
-# LPM template
-from LPM.core.LPM_root import LPM
-       
+from LPM.core.scipy_lpm import ScipyLPM
 
-class LPM_gamma(LPM):
-    """ Lumped Parameter Model
-        Gamma
-    """
-    def __init__(self, k=2, scale=10, directory_lpm=None):   
-        """ Constructor
-            Specific
+
+class LPM_gamma(ScipyLPM):
+    """Lumped Parameter Model - Gamma distribution."""
+
+    scipy_dist = gamma
+
+    def __init__(self, k=2, scale=10, directory_lpm=None):
         """
-        parameter_values={'k':k,'scale':scale}
-        parameter_units={'k':'','scale':'year'}
-        LPM.__init__(self,"gamma",parameter_values,parameter_units, directory_lpm)
-        
+        Constructor.
 
-    def pdf(self,t):
-        """ p=pdf(t)
-            Probability Density Function 
+        Parameters
+        ----------
+        k : float
+            Shape parameter of the gamma distribution.
+        scale : float
+            Scale parameter of the gamma distribution.
+        directory_lpm : str
+            Directory for LPM parameter files.
         """
-        return gamma.pdf(t, self.p['k'], 0, self.p['scale'])
-    
+        parameter_values = {'k': k, 'scale': scale}
+        parameter_units = {'k': '', 'scale': 'year'}
+        super().__init__("gamma", parameter_values, parameter_units, directory_lpm)
 
-    def cdf(self,t):
-        """ p=cdf(t)
-            Cumulative density 
-        """
-        return gamma.cdf(t, self.p['k'], 0, self.p['scale'])
-
-
-    def cdf_inv(self,p):
-        """ Inverse of the Cumulative Density Function, t=cdf^-1(p)
-        """
-        return gamma.ppf(p,self.p['k'],scale=self.p['scale'])
-    
-    
-    def mean(self):
-        """ 
-        Returns mean of distribution """
-        return abs(gamma.stats(self.p['k'],scale=self.p['scale'],moments='m'))
-    
-    
-    def std(self):
-        """ 
-        Returns std of distribution """
-        return(np.sqrt(gamma.stats(self.p['k'],scale=self.p['scale'],moments='v')))
-    
+    def _scipy_params(self):
+        return (self.p['k'],), 0, self.p['scale']  # (args), loc, scale
