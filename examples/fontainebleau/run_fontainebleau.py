@@ -8,20 +8,12 @@ from pathlib import Path
 import subprocess
 import runpy
 
-
-def find_repo_root():
-    """Return repo root by walking up until 'sources' exists."""
-    root = Path.cwd()
-    if not (root / "sources").exists():
-        for parent in root.parents:
-            if (parent / "sources").exists():
-                root = parent
-                break
-    return root
+# Repository root is two levels up from this file (examples/fontainebleau/)
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
-    root = find_repo_root()
+    root = REPO_ROOT
     script = root / "scripts" / "launcher.py"
     params = root / "examples" / "fontainebleau" / "exemple_fontainebleau.yaml"
     try:
