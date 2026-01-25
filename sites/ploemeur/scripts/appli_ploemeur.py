@@ -422,8 +422,17 @@ class ploemeur_one_date:
 
         # ---------------- METROPOLIS HASTINGS --------------------
         # Method and Parameters  
-        self.calstrat_MH = cMH.MetropolisHastings(nstep=MH_nsteps,prior_option=prior,likelyhood=likelyhood, lpm_number = lpm_number,
-                                                             monitor=True,display_traj=True,prior_typ="empirical",prior_file=prior_file) # JR: 250000
+        mh_config = cMH.MHConfig(
+            nstep=MH_nsteps,
+            prior_option=prior,
+            likelyhood=likelyhood,
+            lpm_number=lpm_number,
+            monitor=True,
+            display_traj=True,
+            prior_typ="empirical",
+            prior_file=prior_file,
+        )
+        self.calstrat_MH = cMH.MetropolisHastings(config=mh_config)  # JR: 250000
         # self.calstrat[1].MH_step.define_by_prop(0.005)
         self.calstrat_MH.MH_step.define_by_value()
         # self.calstrat_MH.set_nmodels(explo_res)

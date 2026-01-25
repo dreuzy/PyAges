@@ -5,10 +5,10 @@ LPM Gamma distribution model.
 
 from scipy.stats import gamma
 
-from LPM.core.scipy_lpm import ScipyLPM
+from LPM.core.LPM_scipy import LPMScipy
 
 
-class LPM_gamma(ScipyLPM):
+class LPM_gamma(LPMScipy):
     """Lumped Parameter Model - Gamma distribution."""
 
     scipy_dist = gamma

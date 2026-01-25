@@ -57,8 +57,14 @@ class comparison_MH_fuq:
 
             # ---------------- METROPOLIS HASTINGS --------------------
             # Method and Parameters  
-            calib_MH = cMH.MetropolisHastings(nstep=self.MH_n,prior=False,likelyhood=True,
-                                                                 monitor=True,display_traj=True) # JR: 250000
+            mh_config = cMH.MHConfig(
+                nstep=self.MH_n,
+                prior_option=False,
+                likelyhood=True,
+                monitor=True,
+                display_traj=True,
+            )
+            calib_MH = cMH.MetropolisHastings(config=mh_config)  # JR: 250000
             calib_MH.MH_step.define_by_value() 
             # calib_MH.MH_step.define_by_prop(0.005)
             calstrat[1] = cst.CalibrationSyntheticTest(calib_strategy=calib_MH,ncase=ncase,error=error,

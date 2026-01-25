@@ -5,10 +5,10 @@ LPM Exponential distribution model.
 
 from scipy.stats import expon
 
-from LPM.core.scipy_lpm import ScipyLPM
+from LPM.core.LPM_scipy import LPMScipy
 
 
-class LPM_exp(ScipyLPM):
+class LPM_exp(LPMScipy):
     """Lumped Parameter Model - Exponential distribution."""
 
     scipy_dist = expon

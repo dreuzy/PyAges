@@ -54,6 +54,20 @@ def pytest_addoption(parser):
         default=False,
         help="Update golden reference values instead of asserting.",
     )
+    parser.addoption(
+        "--run-extensive",
+        action="store_true",
+        default=False,
+        help="Run extensive/slow tests (opt-in).",
+    )
+
+
+def pytest_configure(config):
+    """Register custom markers."""
+    config.addinivalue_line(
+        "markers",
+        "extensive: marks tests as extensive/slow (run with --run-extensive)",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +87,16 @@ def update_golden(request) -> bool:
               ... # mode comparaison
     """
     return bool(request.config.getoption("--update-golden"))
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip extensive tests unless explicitly enabled."""
+    if config.getoption("--run-extensive"):
+        return
+    skip_extensive = pytest.mark.skip(reason="needs --run-extensive to run")
+    for item in items:
+        if "extensive" in item.keywords:
+            item.add_marker(skip_extensive)
 
 
 @pytest.fixture

@@ -17,7 +17,7 @@ from scipy.stats import rv_continuous
 from LPM.core.LPM_root import LPM
 
 
-class ScipyLPM(LPM):
+class LPMScipy(LPM):
     """
     Base class for LPM models based on scipy.stats distributions.
 
@@ -70,9 +70,9 @@ class ScipyLPM(LPM):
         return np.sqrt(self.scipy_dist.stats(*args, loc=loc, scale=scale, moments='v'))
 
 
-class ScipyLPMSafe(ScipyLPM):
+class LPMScipySafe(LPMScipy):
     """
-    ScipyLPM with safe cdf_inv that clips probabilities.
+    LPMScipy with safe cdf_inv that clips probabilities.
 
     Useful for distributions like inverse gaussian where extreme
     probability values can cause numerical issues.

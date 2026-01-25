@@ -5,10 +5,10 @@ LPM Uniform distribution model.
 
 from scipy.stats import uniform
 
-from LPM.core.scipy_lpm import ScipyLPM
+from LPM.core.LPM_scipy import LPMScipy
 
 
-class LPM_uniform(ScipyLPM):
+class LPM_uniform(LPMScipy):
     """Lumped Parameter Model - Uniform distribution."""
 
     scipy_dist = uniform

@@ -14,7 +14,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 import global_parameters as gp
-from calibration.methods.metropolis_hastings import MetropolisHastings
+from calibration.methods.metropolis_hastings import MHConfig, MetropolisHastings
 from calibration.workflows import synthetic_test as cst
 
 
@@ -25,7 +25,7 @@ def test_calibration_mh_prior_smoke(tmp_path: Path):
     display.figure_save = False
     display.directory = tmp_path
 
-    calib_mh = MetropolisHastings(
+    mh_config = MHConfig(
         nstep=50,
         burn_in=0.2,
         nskip=5,
@@ -36,6 +36,7 @@ def test_calibration_mh_prior_smoke(tmp_path: Path):
         display_text=False,
         lpm_number=3,
     )
+    calib_mh = MetropolisHastings(config=mh_config)
 
     calib = cst.CalibrationSyntheticTest(
         calib_strategy=calib_mh,

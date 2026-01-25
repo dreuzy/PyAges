@@ -5,10 +5,10 @@ LPM Shifted Exponential distribution model.
 
 from scipy.stats import expon
 
-from LPM.core.scipy_lpm import ScipyLPM
+from LPM.core.LPM_scipy import LPMScipy
 
 
-class LPM_exp_shifted(ScipyLPM):
+class LPM_exp_shifted(LPMScipy):
     """Lumped Parameter Model - Shifted Exponential distribution."""
 
     scipy_dist = expon

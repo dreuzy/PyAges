@@ -9,6 +9,7 @@ Targets:
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 import calibration.methods.metropolis_hastings as cMH
@@ -46,7 +47,7 @@ def _run_mh_one_case(
     display.directory = work_dir
 
     # Configure MH calibration (fixed nstep for reproducibility)
-    calib_mh = cMH.MetropolisHastings(
+    mh_config = cMH.MHConfig(
         nstep=NSTEP,
         burn_in=0.2,
         nskip=10,
@@ -58,6 +59,7 @@ def _run_mh_one_case(
         display_text=False,
         lpm_number=10,
     )
+    calib_mh = cMH.MetropolisHastings(config=mh_config)
 
     # Synthetic calibration setup (single case)
     calib = cst.CalibrationSyntheticTest(
@@ -176,3 +178,46 @@ def test_reachconc_mean_golden(lpm_type, update_golden, tmp_path):
     expected = store[key]
     for k, v in record.items():
         assert v == pytest.approx(expected[k], rel=1e-6, abs=1e-6)
+
+
+@pytest.mark.extensive
+@pytest.mark.parametrize("lpm_type", ["exp", "ig", "exp_shifted", "ig_shifted"])
+def test_calibration_mh_extensive(lpm_type, tmp_path):
+    """
+    Long-running MH calibration with multiple tracers and cases.
+
+    This test is opt-in via --run-extensive.
+    """
+    display = gp.display_options()
+    display.figure = True
+    display.text = True
+    display.figure_save = True
+    display.directory = tmp_path / "calibration_mh_extensive"
+
+    mh_config = cMH.MHConfig(
+        nstep=500,
+        burn_in=0.2,
+        nskip=10,
+        prior_option=True,
+        prior_typ="parametric",
+        likelyhood=True,
+        monitor=False,
+        display_traj=False,
+        display_text=False,
+        lpm_number=20,
+    )
+    calib_mh = cMH.MetropolisHastings(config=mh_config)
+
+    calib = cst.CalibrationSyntheticTest(
+        calib_strategy=calib_mh,
+        ncase=5,
+        error=0.03,
+        tracer_names=TRACER_NAMES,
+        date=2010,
+        lpm_type=lpm_type,
+        display_options=display,
+        nmodels=200,
+    )
+
+    mean_distance = calib.perform_ncase()
+    assert np.isfinite(mean_distance)

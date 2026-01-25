@@ -5,10 +5,10 @@ LPM Shifted Inverse Gaussian distribution model.
 
 from scipy.stats import invgauss
 
-from LPM.core.scipy_lpm import ScipyLPMSafe
+from LPM.core.LPM_scipy import LPMScipySafe
 
 
-class LPM_ig_shifted(ScipyLPMSafe):
+class LPM_ig_shifted(LPMScipySafe):
     """Lumped Parameter Model - Shifted Inverse Gaussian distribution."""
 
     scipy_dist = invgauss

@@ -328,13 +328,14 @@ def run_calibration_metropolis_hastings(
     tuple
         (strategy, lpm_results) for subsequent comparisons.
     """
-    strategy = cMH.MetropolisHastings(
+    mh_config = cMH.MHConfig(
         nstep=params.mh_nstep,
         prior_option=params.mh_prior_option,
         likelyhood=params.mh_likelyhood,
         monitor=params.mh_monitor,
         display_traj=params.mh_display_traj,
     )
+    strategy = cMH.MetropolisHastings(config=mh_config)
     strategy.MH_step.define_by_value()  # Use default proposal steps.
     directory_calibration = gp.results_directory(
         display_save.directory, strategy.method

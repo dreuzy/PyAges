@@ -10,10 +10,10 @@ Reference:
 
 from scipy.stats import invgauss
 
-from LPM.core.scipy_lpm import ScipyLPMSafe
+from LPM.core.LPM_scipy import LPMScipySafe
 
 
-class LPM_ig(ScipyLPMSafe):
+class LPM_ig(LPMScipySafe):
     """Lumped Parameter Model - Inverse Gaussian distribution."""
 
     scipy_dist = invgauss
