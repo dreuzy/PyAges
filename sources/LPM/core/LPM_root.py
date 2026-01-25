@@ -28,6 +28,8 @@ import pandas as pd
 from scipy import integrate
 from scipy import optimize
 from pathlib import Path
+
+from LPM.core.parameter_manager import ParameterManager
        
 
 class LPM(abc.ABC):
@@ -116,17 +118,18 @@ class LPM(abc.ABC):
         # Name of LPM (e.g. IG, EXP)
         self.name = name
         # Parameter Values
-        self.p = parameter_values     
-        # Parameter Units 
-        self.__u = parameter_units  
-        # Bounds of distribution parameters
-        self.__p_min = {}
-        self.__p_max = {}
+        self.p = parameter_values
+        # Parameter Units
+        self.__u = parameter_units
         if directory_lpm is None:
             raise ValueError("directory_lpm must be provided, got None")
         self._directory_lpm = directory_lpm
-        # Load lower and higher bounds 
-        self.__load_bounds()
+        # Parameter manager for bounds and loading
+        self._param_manager = ParameterManager(
+            model_name=name,
+            directory_lpm=directory_lpm,
+            parameter_names=list(parameter_values.keys())
+        )
 
 
     @abc.abstractmethod
@@ -222,89 +225,25 @@ class LPM(abc.ABC):
         return os.path.join(self._directory_lpm, self.name, file_name)
 
 
-    def __load_params_yaml(self) -> dict | None:
-        """Load YAML parameters if present in the LPM directory."""
-        from data_io import lpm_params
+    def load_param_values(self, file_name: str) -> None:
+        """
+        Loads parameter values from a file.
 
-        path = self.lpm_parameter_file("params.yaml")
-        if not hasattr(LPM, "_PARAMS_CACHE"):
-            LPM._PARAMS_CACHE = {}
-        cache = LPM._PARAMS_CACHE
-        if path in cache:
-            return cache[path]
-        if not os.path.exists(path):
-            return None
-        data = lpm_params.load_params(self.name, Path(self._directory_lpm))
-        cache[path] = data
-        return data
-        
-    
-    def load_param_values(self,file_name):
-        """ 
-        Loads parameter values from a file
-        File structure
-            param_name,param_value,unit
-        File example 
-            mu1,5,year
-            mu2,10,year
-            rate,0.25,-
-        
         Parameters
-        --------
+        ----------
         file_name : str
             Name of the file
-        
-        Returns
-        -------
-        dictionary
-            p["param_name"]=param_value
         """
-        if os.path.basename(file_name) == "simplex_init.txt":
-            params_yaml = self.__load_params_yaml()
-            if not params_yaml or "parameters" not in params_yaml:
-                raise FileNotFoundError(
-                    f"Missing params.yaml for {self.name} (required for simplex init)."
-                )
-            for param in params_yaml["parameters"]:
-                if "init" in param:
-                    self.p[param["name"]] = param["init"]
-            return
-        raise FileNotFoundError(
-            f"Legacy parameter file not supported: {file_name}. "
-            f"Use params.yaml in {self.lpm_parameter_file('params.yaml')}."
-        )
-        
-    
-    def __load_bounds(self):
-        """ 
-        Loads lower and higher bounds of each of the distribution parameter 
-            From file called bounds.txt in the LPM directory
-        File structure
-            param_name,lower_bound,higher_bound,unit
-        File example 
-            mu1,0,100,year
-            mu2,0,100,year
-            rate,0,1,-
-        """
-        params_yaml = self.__load_params_yaml()
-        if not params_yaml or "parameters" not in params_yaml:
-            raise FileNotFoundError(
-                f"Missing params.yaml for {self.name} (required for bounds)."
-            )
-        for param in params_yaml["parameters"]:
-            bounds = param.get("bounds")
-            if bounds and len(bounds) == 2:
-                self.__p_min[param["name"]] = bounds[0]
-                self.__p_max[param["name"]] = bounds[1]
+        self._param_manager.load_param_values(file_name, self.p)
         
         
     def param_within_bounds(self, params: dict[str, float]) -> bool:
         """
-        Test whether parameters are within the defined bounds
+        Test whether parameters are within the defined bounds.
 
         Parameters
-        ---------
-        params: dict[str, float]
+        ----------
+        params : dict[str, float]
             params to be tested, same structure as self.p
 
         Returns
@@ -312,20 +251,15 @@ class LPM(abc.ABC):
         bool
             True if all parameters are within bounds
         """
-        for pname in params:
-            val = params[pname]
-            if val < self.__p_min[pname] or val > self.__p_max[pname]:
-                return False
-        return True
-
+        return self._param_manager.param_within_bounds(params)
 
     def param_within_bounds_array(self, params: list[float]) -> bool:
         """
-        Test whether parameters are within the defined bounds
+        Test whether parameters are within the defined bounds.
 
         Parameters
-        ---------
-        params: list[float]
+        ----------
+        params : list[float]
             params to be tested
             parameters should be in the same order as in the dictionary self.p
 
@@ -334,39 +268,57 @@ class LPM(abc.ABC):
         bool
             True if all parameters are within bounds
         """
-        for ikey, pname in enumerate(self.p):
-            val = params[ikey]
-            if val < self.__p_min[pname] or val > self.__p_max[pname]:
-                return False
-        return True
+        return self._param_manager.param_within_bounds_array(params, list(self.p.keys()))
 
     
-    def cdf(self, t: npt.ArrayLike) -> list[float]:
+    def cdf(self, t: npt.ArrayLike) -> npt.NDArray[np.floating]:
         """
-        Cumulative Density Function
-            Should be defined in the daughter class
-            Can be called here as the integration of the pdf
-            Function does not critically intervene in the code, mostly plotting purposes
+        Cumulative Density Function (vectorized fallback).
+
+        Uses cumulative trapezoidal integration over a fine grid,
+        then interpolates to requested time points.
 
         Parameters
-        ---------
+        ----------
         t : array-like
             Time values
 
         Returns
         -------
-        list[float]
+        npt.NDArray[np.floating]
             Cumulative density function values
-        """
-        val = [0.0] * len(t)
-        for i in range(len(t)):
-            val[i] = integrate.quadrature(self.pdf, 0.0, t[i])[0]
-        return val
 
+        Notes
+        -----
+        Subclasses with analytical CDFs should override this method
+        for better accuracy and performance.
+        """
+        t_arr = np.atleast_1d(np.asarray(t, dtype=float))
+
+        if len(t_arr) == 0:
+            return np.array([], dtype=float)
+
+        t_max = np.max(t_arr)
+        if t_max <= 0:
+            return np.zeros_like(t_arr)
+
+        # Fine grid for integration
+        n_points = max(1000, len(t_arr) * 10)
+        t_grid = np.linspace(0.0, t_max, n_points)
+        pdf_grid = self.pdf(t_grid)
+
+        # Cumulative trapezoidal integration
+        cdf_grid = integrate.cumulative_trapezoid(pdf_grid, t_grid, initial=0.0)
+
+        # Interpolate to requested points
+        cdf_values = np.interp(t_arr, t_grid, cdf_grid)
+
+        return np.clip(cdf_values, 0.0, 1.0)
 
     def _cdf_minus_p(self, t: float, p: float) -> float:
-        """Instrumental function for cdf_inv"""
-        return (self.cdf(t) - p) ** 2
+        """Instrumental function for cdf_inv."""
+        cdf_val = self.cdf(np.array([t]))[0]
+        return (cdf_val - p) ** 2
 
 
     def cdf_inv(self, p: float) -> float:
@@ -408,11 +360,11 @@ class LPM(abc.ABC):
 
     def get_param_range(self, param_name: str) -> float:
         """
-        Gets the range of parameters
+        Gets the range of parameters.
 
         Parameters
-        ---------
-        param_name: str
+        ----------
+        param_name : str
             name of parameter
 
         Returns
@@ -420,31 +372,26 @@ class LPM(abc.ABC):
         float
             Range of parameter values
         """
-        return self.__p_max[param_name] - self.__p_min[param_name]
-
+        return self._param_manager.get_param_range(param_name)
 
     def get_param_interval(self) -> tuple[list[float], list[float]]:
         """
-        Gets the interval of parameters
+        Gets the interval of parameters.
 
         Returns
         -------
         tuple[list[float], list[float]]
             (pmin, pmax) - lower and higher bounds
         """
-        pmin = list(self.__p_min.values())
-        pmax = list(self.__p_max.values())
-        return pmin, pmax
-
+        return self._param_manager.get_param_interval()
 
     def get_p_max(self, key: str) -> float:
         """Return upper bound for parameter."""
-        return self.__p_max[key]
-
+        return self._param_manager.get_p_max(key)
 
     def get_p_min(self, key: str) -> float:
         """Return lower bound for parameter."""
-        return self.__p_min[key]
+        return self._param_manager.get_p_min(key)
     
     
     def display(self, display_options: Any) -> None:
