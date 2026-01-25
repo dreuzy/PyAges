@@ -39,7 +39,7 @@ calibration_metropolis_hastings:
   nstep: 5000
   # Prior usage and likelihood options.
   prior_option: false
-  likelyhood: true
+  likelihood: true
   # Trajectory monitoring (heavy); display_traj enables plotting.
   monitor: false
   display_traj: false

@@ -615,7 +615,7 @@ def __log_posterior_eval(params, data_c, data_error):
     # ─────────────────────────────────────────────────────────────
     # LIKELIHOOD: P(données|modèle)
     # ─────────────────────────────────────────────────────────────
-    if likelyhood_option:
+    if likelihood_option:
         # Calculer concentrations modélisées via convolution
         model_c = tracers.convolution(lpm, prepare=True)
 

@@ -37,7 +37,7 @@ calibration_metropolis_hastings:
   # Use prior only (no likelihood) if true
   prior_option: false
   # Use likelihood if true
-  likelyhood: true
+  likelihood: true
   # Print convergence diagnostics
   monitor: false
   # Display the M-H trajectory

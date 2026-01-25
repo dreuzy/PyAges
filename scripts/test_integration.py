@@ -149,8 +149,8 @@ class TestIntegration:
             mh_config = cMH.MHConfig(
                 nstep=2000,
                 prior_option=True,
-                prior_typ="parametric",
-                likelyhood=True,
+                prior_type="parametric",
+                likelihood=True,
                 lpm_number=10,
                 monitor=False,
             )

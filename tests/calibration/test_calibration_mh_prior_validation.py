@@ -1,12 +1,11 @@
 """
-Smoke test for MH prior-only calibration.
-
-Based on calibration.test_calibration_MH_prior, but with reduced settings
-to keep the test fast and deterministic.
+Prior-only MH validation checks with tolerance thresholds.
 """
 
 import sys
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = REPO_ROOT / "sources"
@@ -18,15 +17,17 @@ from calibration.methods.metropolis_hastings import MHConfig, MetropolisHastings
 from calibration.workflows import synthetic_test as cst
 
 
-def test_calibration_mh_prior_smoke(tmp_path: Path):
+
+@pytest.mark.parametrize("lpm_type", ["exp", "ig", "ig_shifted", "gamma"])
+def test_calibration_mh_prior_validation_tolerances(tmp_path: Path, lpm_type: str):
     display = gp.display_options()
     display.figure = False
     display.text = False
     display.figure_save = False
-    display.directory = tmp_path
+    display.directory = tmp_path / lpm_type
 
     mh_config = MHConfig(
-        nstep=50,
+        nstep=2000,
         burn_in=0.2,
         nskip=5,
         prior_option=True,
@@ -44,8 +45,17 @@ def test_calibration_mh_prior_smoke(tmp_path: Path):
         error=0.0,
         tracer_names=["cfc11"],
         date=2000,
-        lpm_type="exp",
+        lpm_type=lpm_type,
         display_options=display,
     )
 
     calib.perform_ncase()
+
+    stats = calib_mh.prior_validation_stats
+    assert stats is not None
+    assert "difference_percent" in stats
+
+    tolerance = 100.0
+    for key, values in stats["difference_percent"].items():
+        assert abs(values["mean"]) < tolerance
+        assert abs(values["var"]) < tolerance

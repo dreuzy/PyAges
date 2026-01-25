@@ -30,7 +30,7 @@ class LauncherParams:
     objective_function_nmodels: int
     mh_nstep: int
     mh_prior_option: bool
-    mh_likelyhood: bool
+    mh_likelihood: bool
     mh_monitor: bool
     mh_display_traj: bool
     simplex_init_multiples_n: int
@@ -92,7 +92,7 @@ def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
         objective_function_nmodels=int(obj_params.get("nmodels", 10000)),
         mh_nstep=int(mh_params.get("nstep", 5000)),
         mh_prior_option=bool(mh_params.get("prior_option", False)),
-        mh_likelyhood=bool(mh_params.get("likelyhood", True)),
+        mh_likelihood=bool(mh_params.get("likelihood", True)),
         mh_monitor=bool(mh_params.get("monitor", False)),
         mh_display_traj=bool(mh_params.get("display_traj", False)),
         simplex_init_multiples_n=int(simplex_params.get("init_multiples_n", 3)),

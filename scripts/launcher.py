@@ -331,7 +331,7 @@ def run_calibration_metropolis_hastings(
     mh_config = cMH.MHConfig(
         nstep=params.mh_nstep,
         prior_option=params.mh_prior_option,
-        likelyhood=params.mh_likelyhood,
+        likelihood=params.mh_likelihood,
         monitor=params.mh_monitor,
         display_traj=params.mh_display_traj,
     )

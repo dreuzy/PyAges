@@ -49,7 +49,7 @@ class SimulationStrategy:
         breakup years which "span" option should consider
     prior : list of bool
         As many as options     
-    likelyhood : list of bool
+    likelihood : list of bool
         As many as options     
     errors : list of float
         List of errors that should be investigated
@@ -62,11 +62,11 @@ class SimulationStrategy:
     def __init__(self, apriori_type = None):
         # self.options =    ["span_prior","suc_prior","suc","all"]
         # self.prior  =     [True, True, False, False]
-        # self.likelyhood = [True, True, True,  True]
+        # self.likelihood = [True, True, True,  True]
 
         # self.options =    ["span_prior","suc_prior"]
         # self.errors=[0.3]#,0.15,0.25,0.05]
-        # self.likelyhood = [True, True]
+        # self.likelihood = [True, True]
         # self.prior  =     [True, True]
         # self.prior_folder = ["span","span_prior"]
         # self.folder = "ploemeur_apriori_double_"
@@ -84,34 +84,34 @@ class SimulationStrategy:
         if apriori_type == "none" :
             self.options =    ["suc"]
             self.prior  =     [False]
-            self.likelyhood = [True]
+            self.likelihood = [True]
             self.prior_folder = [""]
             self.folder = "ploemeur_"
             
         if apriori_type == "single" :
             self.options =    ["span","suc_prior"]
             self.prior  =     [False, True]
-            self.likelyhood = [True,  True]
+            self.likelihood = [True,  True]
             self.prior_folder = ["","span"]
             self.folder = "ploemeur_apriori_simple_"
 
         if apriori_type == "double" :
             self.options =    ["span","span_prior","suc_prior"]
-            self.likelyhood = [True, True, True]
+            self.likelihood = [True, True, True]
             self.prior  =     [False, True, True]
             self.prior_folder = ["","span","span_prior"]
             self.folder = "ploemeur_apriori_double_"
         
         if apriori_type == "double_suc_prior" :
             self.options =    ["suc_prior"]
-            self.likelyhood = [True]
+            self.likelihood = [True]
             self.prior  =     [True]
             self.prior_folder = ["span_prior"]
             self.folder = "ploemeur_apriori_double_"
         # self.options =    ["suc","all"]
         # self.errors=[0.3]#,0.15,0.25,0.05]
         # self.prior  =     [False, False]
-        # self.likelyhood = [True,  True]
+        # self.likelihood = [True,  True]
         # self.prior_folder = ["",""]
         # self.folder = "ploemeur_"
 
@@ -132,10 +132,10 @@ class SimulationStrategy:
     def test_F09(self): 
         self.options =    ["suc_prior"]
         self.prior  =     [True]
-        self.likelyhood = [False]
+        self.likelihood = [False]
         self.options =    ["span","suc_prior","suc","all"]
         self.prior  =     [False, True, False, False]
-        self.likelyhood = [True,  False, True, True]
+        self.likelihood = [True,  False, True, True]
         self.breakups=[2012]
         self.folder = "ploemeur_apriori_test"
         self.errors=[0.05]
@@ -153,7 +153,7 @@ class SimulationStrategy:
             - wells
         """
         for error in self.errors: 
-            for option, prior, likelyhood, prior_folder in zip (self.options, self.prior, self.likelyhood, self.prior_folder): 
+            for option, prior, likelihood, prior_folder in zip (self.options, self.prior, self.likelihood, self.prior_folder): 
                 # Gets the right combination of wells, dates, errors and lpm_types
                 wells,datess,errors,lpm_types = selector(self.well_select,error=error)
                 file_root=self.folder + str(error) + option
@@ -161,10 +161,10 @@ class SimulationStrategy:
                 # Loop on the wells
                 for k in range(len(wells)):
                     self.__execute_parallel(wells[k], datess[k], lpm_types[k], \
-                                            file_root, option, error, prior, likelyhood, prior_folder)
+                                            file_root, option, error, prior, likelihood, prior_folder)
 
 
-    def __execute_parallel(self, well, dates, lpm_types, file_root, option, error, prior, likelyhood, prior_folder):
+    def __execute_parallel(self, well, dates, lpm_types, file_root, option, error, prior, likelihood, prior_folder):
         """
         Parallelizable Execution over all combibations of 
             - dates 
@@ -190,7 +190,7 @@ class SimulationStrategy:
                     prior_file = os.path.join(temp_folder,temp_file)
                 else: 
                     prior_file = ""
-                pod = ploemeur_one_date(dir_out,well_date,error,lpm,self.explo_res,self.MH_nsteps,prior,likelyhood,self.lpm_number,prior_file=prior_file,option=option)
+                pod = ploemeur_one_date(dir_out,well_date,error,lpm,self.explo_res,self.MH_nsteps,prior,likelihood,self.lpm_number,prior_file=prior_file,option=option)
                 if self.parallel == True: 
                     pod_parallel.append(pod)
                 else:
@@ -406,7 +406,7 @@ class ploemeur_one_date:
             Instance of calibration class, contains the parameters of the calibration method
 
     """
-    def __init__(self,directory_results,well_date,error_concentrations,lpm_type,explo_res,MH_nsteps,prior,likelyhood,lpm_number,prior_file="",option=""):
+    def __init__(self,directory_results,well_date,error_concentrations,lpm_type,explo_res,MH_nsteps,prior,likelihood,lpm_number,prior_file="",option=""):
         """ 
         """
         self.option=option
@@ -425,11 +425,11 @@ class ploemeur_one_date:
         mh_config = cMH.MHConfig(
             nstep=MH_nsteps,
             prior_option=prior,
-            likelyhood=likelyhood,
+            likelihood=likelihood,
             lpm_number=lpm_number,
             monitor=True,
             display_traj=True,
-            prior_typ="empirical",
+            prior_type="empirical",
             prior_file=prior_file,
         )
         self.calstrat_MH = cMH.MetropolisHastings(config=mh_config)  # JR: 250000

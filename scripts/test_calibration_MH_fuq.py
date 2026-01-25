@@ -60,7 +60,7 @@ class comparison_MH_fuq:
             mh_config = cMH.MHConfig(
                 nstep=self.MH_n,
                 prior_option=False,
-                likelyhood=True,
+                likelihood=True,
                 monitor=True,
                 display_traj=True,
             )
