@@ -22,7 +22,6 @@ from config.paths import (
     DIRECTORY_TEST,
     DIRECTORY_LPM_DATA,
     results_directory,
-    results_directory_dhms,
     name_dhms,
 )
 

@@ -56,7 +56,3 @@ def name_dhms():
     return now.strftime("%Y_%m_%d-%H_%M_%S")
 
 
-def results_directory_dhms(sub_directory, directory=ROOT_DIRECTORY_RESULTS):
-    """Create dated sub-directory under directory/sub_directory."""
-    base = results_directory(directory, sub_directory)
-    return results_directory(base, sub_directory)
