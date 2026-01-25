@@ -3,6 +3,11 @@
 Created on Mon Mar 22 09:29:57 2021
 
 @author: Jean-Raynald de Dreuzy
+
+Purpose
+-------
+Mixture model combining a Dirac-like spike and a shifted exponential tail.
+Used to represent bimodal travel time distributions.
 """
 
 

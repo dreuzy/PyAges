@@ -3,6 +3,11 @@
 Created on Mon Mar 22 09:29:57 2021
 
 @author: Jean-Raynald de Dreuzy
+
+Purpose
+-------
+Double-Dirac LPM model with two spikes separated by mu2 and mixed by rate.
+Builds a discretized, normalized PDF for convolution.
 """
 
 

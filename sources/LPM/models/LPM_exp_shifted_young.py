@@ -3,6 +3,11 @@
 Created on Mon Mar 22 09:29:57 2021
 
 @author: Jean-Raynald de Dreuzy
+
+Purpose
+-------
+Shifted-exponential LPM variant biased toward younger ages.
+Extends the shifted exponential model with an upward shift helper.
 """
 
 

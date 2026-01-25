@@ -3,6 +3,11 @@
 Created on Mon Mar 22 09:29:57 2021
 
 @author: Jean-Raynald de Dreuzy
+
+Purpose
+-------
+Dirac (delta) LPM model with a single spike at parameter mu.
+Provides an interpolated, discretized Dirac PDF for convolution.
 """
 
 

@@ -3,6 +3,11 @@
 Created on Mon Mar 22 09:29:57 2021
 
 @author: Jean-Raynald de Dreuzy
+
+Purpose
+-------
+Double-Dirac LPM with one fixed spike (muset) and one free spike (mufree).
+Provides a discretized, normalized PDF for convolution.
 """
 
 
