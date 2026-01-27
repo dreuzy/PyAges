@@ -11,7 +11,7 @@ lpm:
   # Default LPM model used for this example
   model_name: dirac_double
   # LPM data directory for this example
-  data_directory: examples/fontainebleau/data/LPM_data
+  data_directory: examples/fontainebleau/data/data_LPM
 
 run:
   # Compute reachable concentrations (sampling-based)

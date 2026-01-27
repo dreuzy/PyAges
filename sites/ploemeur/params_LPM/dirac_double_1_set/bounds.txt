@@ -1,2 +1,0 @@
-mufree,0,70,year
-rate,0,1,-

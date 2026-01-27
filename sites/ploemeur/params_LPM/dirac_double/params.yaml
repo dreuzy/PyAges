@@ -1,0 +1,55 @@
+# LPM parameters for model "dirac_double"
+# This YAML mirrors the legacy files:
+# - bounds.txt (parameter bounds used by LPM_root.__load_bounds)
+# - simplex_init.txt (initial values used by calibration_simplex)
+# - MHstep.txt (proposal step sizes used by calibration_Metropolis_Hastings)
+# - MHapriori.txt (prior distributions used by calibration_Metropolis_Hastings)
+#
+# The parameters here are read by LPM models and calibration routines to:
+# - check bounds (param_within_bounds / param_within_bounds_array)
+# - build priors and proposal steps in MH
+# - set initial values for simplex optimization
+# Some parameters (e.g., shift) are also used in convolution for shifted models.
+
+model: dirac_double
+version: 1
+
+parameters:
+  - name: mu1
+    label: mean_age_1
+    unit: year
+    description: "First mean parameter."
+    bounds: [0.0, 70.0]
+    init: 10.0
+    step: 2.0
+    prior:
+      type: uniform
+      min: 0.0
+      max: 100.0
+      unit: year
+
+  - name: mu2
+    label: mean_age_2
+    unit: year
+    description: "Second mean parameter."
+    bounds: [0.0, 70.0]
+    init: 70.0
+    step: 2.0
+    prior:
+      type: uniform
+      min: 0.0
+      max: 100.0
+      unit: year
+
+  - name: rate
+    label: mix_rate
+    description: "Mixing rate between components."
+    bounds: [0.0, 1.0]
+    init: 0.3
+    step: 0.1
+    prior:
+      type: uniform
+      min: 0.0
+      max: 1.0
+      unit: "-"
+notes: "Consolidated from bounds.txt, simplex_init.txt, MHstep.txt, MHapriori.txt."

@@ -34,9 +34,9 @@ ROOT_DIRECTORY_RESULTS.mkdir(parents=True, exist_ok=True)
 # Sub-directories
 # -------------------------------------------------------
 
-DIRECTORY_TRACER_DATA = ROOT_DIRECTORY / "core_data" / "tracer_data"
-DIRECTORY_TEST = ROOT_DIRECTORY_SRC / "tests_data"
-DIRECTORY_LPM_DATA = ROOT_DIRECTORY / "core_data" / "LPM_data"
+DIRECTORY_TRACER_DATA = ROOT_DIRECTORY / "data_core" / "data_tracer"
+DIRECTORY_TEST = ROOT_DIRECTORY / "tests" / "data"
+DIRECTORY_LPM_DATA = ROOT_DIRECTORY / "data_core" / "data_LPM"
 
 
 # -------------------------------------------------------

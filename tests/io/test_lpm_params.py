@@ -12,7 +12,7 @@ def _models() -> list[str]:
 
 
 def _data_dir() -> Path:
-    return Path(__file__).resolve().parents[2] / "core_data" / "LPM_data"
+    return Path(__file__).resolve().parents[2] / "data_core" / "data_LPM"
 
 
 @pytest.mark.parametrize("model_name", _models())

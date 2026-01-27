@@ -11,7 +11,7 @@
 
 - `sources/` contient désormais `convolution/` (singulier), `concentrations/`,
   `calibration/{methods,utils,workflows}` et `config/`.
-- `core_data/` regroupe les données LPM et traceurs (données “core”).
+- `data_core/` regroupe les données LPM et traceurs (données “core”).
 - `sites/ploemeur/` reste le site principal.
 - `examples/` contient les scénarios et données de démonstration (fontainebleau, ploemeur).
 
@@ -1285,7 +1285,7 @@ git commit -m "Phase X.Y: Description courte"
 
 ### Format actuel vs proposé pour bounds.txt
 
-**Actuel** (`sites/ploemeur/data/LPM_data/exp_shifted/bounds.txt`) :
+**Actuel** (`sites/ploemeur/data/data_LPM/exp_shifted/bounds.txt`) :
 ```
 mu,0,100,year
 shift,0,100,year
@@ -1355,7 +1355,7 @@ def convert_bounds_to_yaml(lpm_dir: Path):
 
 
 if __name__ == "__main__":
-    lpm_data = Path("core_data/LPM_data")
+    lpm_data = Path("data_core/data_LPM")
     for lpm_dir in lpm_data.iterdir():
         if lpm_dir.is_dir():
             convert_bounds_to_yaml(lpm_dir)

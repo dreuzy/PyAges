@@ -1,1 +1,0 @@
-mu,normal,50,5,year

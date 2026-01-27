@@ -1,3 +1,0 @@
-element	concentration	error	unit	date
-cfc11	139.0	20.0	pptv	2010.0
-kr85	40.0	5.0	pptv	2010.0

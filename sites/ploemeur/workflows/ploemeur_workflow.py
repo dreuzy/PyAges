@@ -64,6 +64,14 @@ def load_yaml_file(path: Path) -> Dict[str, Any]:
         return yaml.safe_load(handle) or {}
 
 
+def resolve_lpm_directory(path_str: str) -> Path:
+    """Resolve an LPM parameter directory, allowing repo-relative paths."""
+    path = Path(path_str)
+    if not path.is_absolute():
+        path = repo_root / path
+    return path
+
+
 def validate_time_span_and_prior_mode(mode: str) -> None:
     """Validate that a time-span mode is recognized."""
     if mode not in TIME_SPAN_AND_PRIOR_MODES:
@@ -199,6 +207,16 @@ class CalibrationConfig:
         )
 
 
+@dataclass
+class LpmParamsConfig:
+    """Location of LPM parameter files."""
+    directory: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "LpmParamsConfig":
+        return cls(directory=data.get("directory"))
+
+
 # Proxy function for parallel simulation 
 def perform(pod,i): 
     pod[i].perform()
@@ -236,6 +254,7 @@ class SimulationStrategy:
         sim = params.get("observations", {})
         calibration = params.get("calibration", {})
         execution = params.get("execution", {})
+        lpm_params = params.get("lpm_params", {})
         lpm_models = params.get("lpm_models", {})
         workflow_cfg = params.get("workflows", {})
 
@@ -243,6 +262,7 @@ class SimulationStrategy:
         cal_cfg = CalibrationConfig.from_dict(calibration)
         exec_cfg = ExecutionConfig.from_dict(execution)
         wf_cfg = WorkflowConfig.from_dict(workflow_cfg)
+        lpm_cfg = LpmParamsConfig.from_dict(lpm_params)
 
         well_dates = obs_cfg.well_dates or load_observations_well_dates(params)
         if not well_dates:
@@ -279,6 +299,11 @@ class SimulationStrategy:
         if not self.lpm_types_default:
             raise ValueError("lpm_models.default must be provided in the YAML configuration.")
 
+        directory_lpm = lpm_cfg.directory or str(gp.DIRECTORY_LPM_DATA)
+        lpm_path = resolve_lpm_directory(directory_lpm)
+        if not lpm_path.exists():
+            raise ValueError(f"lpm_params.directory does not exist: {lpm_path}")
+
         self.observations_cfg = ObservationsConfig(
             conc_error_rel=obs_cfg.conc_error_rel,
             wells=obs_cfg.wells,
@@ -298,6 +323,7 @@ class SimulationStrategy:
             mh_nsteps=cal_cfg.mh_nsteps,
             lpm_number=lpm_number,
         )
+        self.lpm_directory = str(lpm_path)
 
 
     def __apply_prior_pipeline_preset(self, prior_pipeline, params):
@@ -413,6 +439,7 @@ class SimulationStrategy:
                     prior,
                     likelihood,
                     self.calibration_cfg.lpm_number,
+                    directory_lpm=self.lpm_directory,
                     prior_file=prior_file,
                     time_span_and_prior_mode=time_span_and_prior_mode,
                 )
@@ -665,6 +692,7 @@ class ploemeur_one_date:
         prior,
         likelihood,
         lpm_number,
+        directory_lpm,
         prior_file="",
         time_span_and_prior_mode="",
     ):
@@ -680,7 +708,7 @@ class ploemeur_one_date:
 
         # ---------------- LPM MODEL -----------------------------
         self.lpm_type = lpm_type
-        self.directory_lpm = gp.DIRECTORY_LPM_DATA
+        self.directory_lpm = directory_lpm
 
         # ---------------- METROPOLIS HASTINGS --------------------
         # Method and Parameters  
@@ -743,7 +771,14 @@ class ploemeur_one_date:
         display_options_case.directory = gp.results_directory(self.display.directory, calstrat.method)
     
         # Calibration
-        calib_basis = calbas.CalibrationCore(cdata, self.lpm_type, display_options=display_options_case, nmodels=self.__nmodels, reachconc=self.display_reachconc)
+        calib_basis = calbas.CalibrationCore(
+            cdata,
+            self.lpm_type,
+            display_options=display_options_case,
+            directory_lpm=self.directory_lpm,
+            nmodels=self.__nmodels,
+            reachconc=self.display_reachconc,
+        )
         calib_basis.prepare()
         calstrat.update_calibbasis(calib_basis)
         lpm_results = calstrat.perform()
@@ -837,6 +872,7 @@ def validate_workflow_params(params: Dict[str, Any]) -> None:
     observations = params.get("observations", {})
     workflow_cfg = params.get("workflows", {})
     lpm_models = params.get("lpm_models", {})
+    lpm_params = params.get("lpm_params", {})
 
     if "prior_pipeline_presets" in params:
         raise ValueError(
@@ -867,6 +903,11 @@ def validate_workflow_params(params: Dict[str, Any]) -> None:
         extra = [well for well in by_well.keys() if well not in wells]
         if extra:
             raise ValueError(f"lpm_models.by_well has wells not listed in observations.wells: {extra}")
+
+    if lpm_params.get("directory"):
+        lpm_path = resolve_lpm_directory(lpm_params["directory"])
+        if not lpm_path.exists():
+            raise ValueError(f"lpm_params.directory does not exist: {lpm_path}")
 
 
 def run_workflow(params_path: Path = None):

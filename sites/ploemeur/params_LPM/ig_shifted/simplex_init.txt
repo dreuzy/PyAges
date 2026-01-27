@@ -1,3 +1,0 @@
-mu,10,year
-sigma,2,year
-shift,4,year

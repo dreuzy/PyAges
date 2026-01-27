@@ -44,7 +44,7 @@ from conftest import save_golden_store
 # Utilitaire : localiser les données de tests
 # ---------------------------------------------------------------------------
 
-def _tracer_data_dir() -> Path:
+def _data_tracer_dir() -> Path:
     """
     Renvoie le chemin vers le dossier contenant les données nécessaires aux tests.
 
@@ -52,7 +52,7 @@ def _tracer_data_dir() -> Path:
       <repo_root>/
         conftest.py
         sources/
-          tracer_data/
+          data_tracer/
         tests/
           tracer/
             test_tracer_root.py
@@ -63,16 +63,16 @@ def _tracer_data_dir() -> Path:
       - parents[1] : tests
       - parents[2] : racine du repo
 
-    On construit ensuite : <repo_root>/core_data/tracer_data
+    On construit ensuite : <repo_root>/data_core/data_tracer
     """
-    return Path(__file__).resolve().parents[2] / "core_data" / "tracer_data"
+    return Path(__file__).resolve().parents[2] / "data_core" / "data_tracer"
 
 
 def _tracer_names(exclude=None) -> list[str]:
     """
     Liste les traceurs disponibles (sous-dossiers avec YAML) en excluant certains.
     """
-    tracer_dir = _tracer_data_dir()
+    tracer_dir = _data_tracer_dir()
     exclude_set = set(exclude or [])
     names = []
     for item in tracer_dir.iterdir():
@@ -93,7 +93,7 @@ def test_tracer_smoke_all(tracer_name):
     """
     Smoke test minimal pour tous les traceurs (sauf NO3).
     """
-    tracer_dir = _tracer_data_dir()
+    tracer_dir = _data_tracer_dir()
     tracer = Tracer(tracer_dir, name=tracer_name)
 
     assert tracer.name == tracer_name
@@ -122,7 +122,7 @@ def test_tracer_chronicle_cfc11_basics():
     Ce test NE garantit pas la validité scientifique fine :
     il valide surtout "ça marche" et "les sorties sont raisonnables".
     """
-    tracer_dir = _tracer_data_dir()
+    tracer_dir = _data_tracer_dir()
     tracer = Tracer(tracer_dir, name="cfc11")
 
     # --- attributs de base ---
@@ -160,7 +160,7 @@ def test_tracer_constant_recharge_so4():
     - get_concentration doit fonctionner et renvoyer une valeur finie
     - max_value n'est peut-être pas défini pour ce type -> on vérifie qu'il lève ValueError
     """
-    tracer_dir = _tracer_data_dir()
+    tracer_dir = _data_tracer_dir()
     tracer = Tracer(tracer_dir, name="SO4")
 
     value = tracer.get_concentration(date=2000.0, time=10.0)
@@ -207,7 +207,7 @@ def test_tracer_get_concentration_golden(tracer_name, update_golden, golden_stor
       - On veut rendre explicite l'intention : "je mets à jour la référence".
       - On évite de mélanger mise à jour et validation dans la même exécution.
     """
-    tracer_dir = _tracer_data_dir()
+    tracer_dir = _data_tracer_dir()
     tracer = Tracer(tracer_dir, name=tracer_name)
 
     # Paramètres du point de test : doit être stable et reproductible

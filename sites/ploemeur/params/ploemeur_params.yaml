@@ -73,5 +73,12 @@ lpm_models:
     PSR1: ["exp_shifted", "ig_shifted", "ig", "dirac_double_1_set", "gamma", "uniform", "exp"]
   
 
+# LPM parameter files location (can point to data_core or Ploemeur-specific params).
+lpm_params:
+  # Examples:
+  # - data_core/data_LPM
+  # - sites/ploemeur/params_LPM
+  directory: sites/ploemeur/params_LPM
+
 # Prior pipeline presets are defined in the shared config:
 #   sites/ploemeur/params/prior_pipeline_presets.yaml

@@ -1,3 +1,0 @@
-element	concentration	unit	date
-cfc11	150.0	pptv	2010.0
-cfc12	300.0	pptv	2010.0

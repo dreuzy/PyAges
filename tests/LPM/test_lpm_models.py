@@ -32,7 +32,7 @@ def _golden_path() -> Path:
 
 
 def _make_lpm(lpm_type: str):
-    # Instantiate the LPM using local LPM_data; keep defaults if init fails.
+    # Instantiate the LPM using local data_LPM; keep defaults if init fails.
     lpm = LPM_generate.LPM_generate(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
     try:
         lpm.set_param_from_array(lpm.param_init())

@@ -26,13 +26,13 @@ def main():
     detail = "detail" in args.mode
 
     # Commande de base (synthèse)
-    cmd = ["pytest", "-q", "tests"]
+    cmd = [sys.executable, "-m", "pytest", "-q", "tests"]
 
     if detail:
-        cmd = ["pytest", "-vv", "tests"]
+        cmd = [sys.executable, "-m", "pytest", "-vv", "tests"]
 
     if update:
-        cmd = cmd[:1] + ["-s", "--update-golden"] + cmd[1:]
+        cmd = cmd[:2] + ["-s", "--update-golden"] + cmd[2:]
 
     print("Running:", " ".join(cmd))
     print("-" * 60)

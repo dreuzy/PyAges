@@ -13,7 +13,7 @@ lpm:
   # LPM model identifier as expected by LPM_generate.
   model_name: dirac_double
   # Directory containing LPM params.yaml files; relative to repo root is OK.
-  data_directory: core_data/LPM_data
+  data_directory: data_core/data_LPM
 
 run:
   # Toggle the main processing blocks.

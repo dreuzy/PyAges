@@ -13,7 +13,7 @@ from tests.utils import paths as test_paths
 
 
 def _lpm_data_dir() -> Path:
-    return test_paths.repo_root() / "core_data" / "LPM_data"
+    return test_paths.repo_root() / "data_core" / "data_LPM"
 
 
 def _load_yaml(path: Path) -> dict:

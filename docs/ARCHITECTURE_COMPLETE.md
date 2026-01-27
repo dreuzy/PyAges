@@ -71,7 +71,7 @@ sources/
     ??? runtime.py                       # display_options, simulation_time
     ??? bootstrap.py                     # setup_path (optionnel)
 
-core_data/                               # Donn?es globales LPM + traceurs
+data_core/                               # Donn?es globales LPM + traceurs
 sites/                                   # Sites sp?cifiques (ex. ploemeur)
 examples/                                # Exemples (fontainebleau, ploemeur)
 scripts/                                 # Orchestration / ex?cution
@@ -222,7 +222,7 @@ Total itérations = 1.85 milliards
 
 ```
 sites/ploemeur/data/
-├── core_data/LPM_data/
+├── data_core/data_LPM/
 │   ├── exp/
 │   │   ├── params.yaml       # mu,0.1,100,year
 │   │   ├── params.yaml        # mu,0.2,year
@@ -257,7 +257,7 @@ sites/ploemeur/data/
 │                            # time,0.1,100,year
 │                            # rate,0.01,0.99,1
 
-core_data/tracer_data/
+data_core/data_tracer/
 ├── cfc11/
 │   ├── cfc11.yaml          # unit: pptv, recharge: true
 │   └── recharge.csv         # date,concentration (1940-2025)

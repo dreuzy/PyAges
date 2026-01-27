@@ -1,3 +1,0 @@
-mu,uniform,0,100,year
-sigma,uniform,0,100,year
-shift,uniform,0,100,year

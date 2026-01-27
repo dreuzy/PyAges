@@ -1,2 +1,0 @@
-mu,0.15,year
-shift,0.15,year

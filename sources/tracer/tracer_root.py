@@ -68,7 +68,7 @@ class Tracer:
     Examples
     --------
         >>> from pathlib import Path
-        >>> tracer_dir = Path("core_data/tracer_data")
+        >>> tracer_dir = Path("data_core/data_tracer")
         >>> tracer = Tracer(tracer_dir, name="cfc11")
         >>> print(tracer.name, tracer.unit)
         cfc11 pptv
@@ -76,8 +76,8 @@ class Tracer:
 
     Notes
     -----
-        Configuration is loaded from YAML format: {tracer_data}/{name}/{name}.yaml
-        Optional recharge chronicle from {tracer_data}/{name}/recharge.txt
+        Configuration is loaded from YAML format: {data_tracer}/{name}/{name}.yaml
+        Optional recharge chronicle from {data_tracer}/{name}/recharge.txt
 
     Methods
     -------
@@ -543,29 +543,29 @@ class DisplayOptions:
 
 def find_tracer_dir() -> Path:
     """
-    Find the tracer_data directory relative to this script.
+    Find the data_tracer directory relative to this script.
 
     Returns
     -------
     Path
-        Path to tracer_data directory
+        Path to data_tracer directory
 
     Raises
     ------
     FileNotFoundError
-        If tracer_data directory cannot be found
+        If data_tracer directory cannot be found
 
     Notes
     -----
         Assumes project structure: .../pyage/sources/tracer/tracer_root.py
-        and looks for: .../pyage/core_data/tracer_data/
+        and looks for: .../pyage/data_core/data_tracer/
     """
     here = Path(__file__).resolve()
 
-    # Project root: go up from sources/tracer/ to sources/
-    project_root = here.parents[1]
+    # Project root: go up from sources/tracer/ to repository root
+    project_root = here.parents[2]
 
-    tracer_dir = project_root / "data" / "tracer_data"
+    tracer_dir = project_root / "data_core" / "data_tracer"
     if not tracer_dir.exists():
         raise FileNotFoundError(
             f"Tracer data directory not found.\n"

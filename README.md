@@ -10,7 +10,7 @@ workflows (e.g., Metropolis-Hastings and simplex-based approaches).
 - `sources/convolution/`: convolution algorithms and tracer convolution helpers.
 - `sources/concentrations/`: concentration data handling and time series helpers.
 - `sources/config/`: shared configuration (paths, runtime helpers, bootstrap).
-- `core_data/`: shared model data for LPMs and tracers (not observations).
+- `data_core/`: shared model data for LPMs and tracers (not observations).
 - `sites/`: site-specific workflows, data, and scripts (e.g., `ploemeur/`).
 - `examples/`: runnable examples and their data (e.g., `fontainebleau/`, `ploemeur/`).
 - `scripts/`: entrypoints and orchestration scripts.
@@ -20,7 +20,7 @@ workflows (e.g., Metropolis-Hastings and simplex-based approaches).
 
 ## Data locations
 
-- Core model data: `core_data/` (LPM parameter files, tracer chronologies).
+- Core model data: `data_core/` (LPM parameter files, tracer chronologies).
 - Observations by site: `sites/<site>/data/`.
 - Examples: `examples/<site>/` (scripts + data used in demos).
 

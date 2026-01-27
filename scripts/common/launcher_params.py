@@ -71,7 +71,7 @@ def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
     if not dataset_data_dir.is_absolute():
         dataset_data_dir = root_dir / dataset_data_dir
 
-    lpm_data_dir = Path(lpm_params.get("data_directory", "core_data/LPM_data"))
+    lpm_data_dir = Path(lpm_params.get("data_directory", "data_core/data_LPM"))
     if not lpm_data_dir.is_absolute():
         lpm_data_dir = root_dir / lpm_data_dir
 
