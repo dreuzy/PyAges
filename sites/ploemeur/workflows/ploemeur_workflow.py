@@ -72,6 +72,14 @@ def resolve_lpm_directory(path_str: str) -> Path:
     return path
 
 
+def resolve_results_directory(path_str: str) -> Path:
+    """Resolve a results directory, allowing repo-relative paths."""
+    path = Path(path_str)
+    if not path.is_absolute():
+        path = repo_root / path
+    return path
+
+
 def validate_time_span_and_prior_mode(mode: str) -> None:
     """Validate that a time-span mode is recognized."""
     if mode not in TIME_SPAN_AND_PRIOR_MODES:
@@ -192,6 +200,20 @@ class ExecutionConfig:
 
 
 @dataclass
+class ResultsConfig:
+    """Results output configuration."""
+    use_default: Optional[bool] = None
+    directory: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ResultsConfig":
+        return cls(
+            use_default=data.get("use_default"),
+            directory=data.get("directory"),
+        )
+
+
+@dataclass
 class CalibrationConfig:
     """Calibration settings used by Metropolis-Hastings and FUQ."""
     explo_res: Optional[int] = None
@@ -205,16 +227,6 @@ class CalibrationConfig:
             mh_nsteps=data.get("mh_nsteps"),
             lpm_number=data.get("lpm_number"),
         )
-
-
-@dataclass
-class LpmParamsConfig:
-    """Location of LPM parameter files."""
-    directory: Optional[str] = None
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "LpmParamsConfig":
-        return cls(directory=data.get("directory"))
 
 
 # Proxy function for parallel simulation 
@@ -241,9 +253,11 @@ class SimulationStrategy:
         self.observations_cfg = ObservationsConfig()
         self.workflow_cfg = WorkflowConfig()
         self.execution_cfg = ExecutionConfig()
+        self.results_cfg = ResultsConfig()
         self.calibration_cfg = CalibrationConfig()
         self.lpm_types_default = []
         self.lpm_types_by_well = {}
+        self.results_root = str(gp.ROOT_DIRECTORY_RESULTS)
 
         if params:
             self.__apply_params(params)
@@ -254,15 +268,15 @@ class SimulationStrategy:
         sim = params.get("observations", {})
         calibration = params.get("calibration", {})
         execution = params.get("execution", {})
-        lpm_params = params.get("lpm_params", {})
+        results = params.get("results", {})
         lpm_models = params.get("lpm_models", {})
         workflow_cfg = params.get("workflows", {})
 
         obs_cfg = ObservationsConfig.from_dict(sim)
         cal_cfg = CalibrationConfig.from_dict(calibration)
         exec_cfg = ExecutionConfig.from_dict(execution)
+        res_cfg = ResultsConfig.from_dict(results)
         wf_cfg = WorkflowConfig.from_dict(workflow_cfg)
-        lpm_cfg = LpmParamsConfig.from_dict(lpm_params)
 
         well_dates = obs_cfg.well_dates or load_observations_well_dates(params)
         if not well_dates:
@@ -299,10 +313,10 @@ class SimulationStrategy:
         if not self.lpm_types_default:
             raise ValueError("lpm_models.default must be provided in the YAML configuration.")
 
-        directory_lpm = lpm_cfg.directory or str(gp.DIRECTORY_LPM_DATA)
+        directory_lpm = lpm_models.get("directory") or str(gp.DIRECTORY_LPM_DATA)
         lpm_path = resolve_lpm_directory(directory_lpm)
         if not lpm_path.exists():
-            raise ValueError(f"lpm_params.directory does not exist: {lpm_path}")
+            raise ValueError(f"lpm_models.directory does not exist: {lpm_path}")
 
         self.observations_cfg = ObservationsConfig(
             conc_error_rel=obs_cfg.conc_error_rel,
@@ -318,12 +332,26 @@ class SimulationStrategy:
             auto_proc_nb=exec_cfg.auto_proc_nb,
             proc_nb=exec_cfg.proc_nb,
         )
+        self.results_cfg = ResultsConfig(
+            use_default=res_cfg.use_default,
+            directory=res_cfg.directory,
+        )
         self.calibration_cfg = CalibrationConfig(
             explo_res=cal_cfg.explo_res,
             mh_nsteps=cal_cfg.mh_nsteps,
             lpm_number=lpm_number,
         )
         self.lpm_directory = str(lpm_path)
+        if res_cfg.use_default is None or res_cfg.use_default:
+            self.results_root = str(gp.ROOT_DIRECTORY_RESULTS)
+        else:
+            if not res_cfg.directory:
+                raise ValueError(
+                    "results.directory must be provided when results.use_default is false."
+                )
+            results_path = resolve_results_directory(res_cfg.directory)
+            results_path.mkdir(parents=True, exist_ok=True)
+            self.results_root = str(results_path)
 
 
     def __apply_prior_pipeline_preset(self, prior_pipeline, params):
@@ -355,7 +383,7 @@ class SimulationStrategy:
         """ 
         Execute the workflow across all requested wells, modes, and errors.
         """
-        for job in build_jobs(
+        jobs = build_jobs(
             self.observations_cfg.conc_error_rel,
             self.time_span_and_prior,
             self.prior,
@@ -366,15 +394,43 @@ class SimulationStrategy:
             self.lpm_types_default,
             self.lpm_types_by_well,
             self.folder,
-        ):
-            self.__execute_parallel(*job)
+        )
+        total_jobs = len(jobs)
+        for idx, job in enumerate(jobs, start=1):
+            self.__execute_parallel(*job, run_index=idx, run_total=total_jobs)
 
-    def __execute_parallel(self, well, dates, lpm_types, file_root, time_span_and_prior_mode, conc_error_rel, prior, likelihood, prior_folder):
+    def __execute_parallel(
+        self,
+        well,
+        dates,
+        lpm_types,
+        file_root,
+        time_span_and_prior_mode,
+        conc_error_rel,
+        prior,
+        likelihood,
+        prior_folder,
+        run_index: int,
+        run_total: int,
+    ):
         """
         Parallelizable Execution over all combibations of 
             - dates 
             - lpms 
         """
+        self.__print_run_summary(
+            well=well,
+            dates=dates,
+            lpm_types=lpm_types,
+            time_span_and_prior_mode=time_span_and_prior_mode,
+            conc_error_rel=conc_error_rel,
+            prior=prior,
+            likelihood=likelihood,
+            prior_folder=prior_folder,
+            file_root=file_root,
+            run_index=run_index,
+            run_total=run_total,
+        )
         run_ctx = self.__prepare_run(
             well,
             dates,
@@ -388,6 +444,34 @@ class SimulationStrategy:
         )
         self.__run_pods(run_ctx["pods"])
         self.__postprocess(run_ctx["lpm_types"], run_ctx["date_file"], run_ctx["dir_root"])
+
+    def __print_run_summary(
+        self,
+        well: str,
+        dates: str,
+        lpm_types: List[str],
+        time_span_and_prior_mode: str,
+        conc_error_rel: float,
+        prior: bool,
+        likelihood: bool,
+        prior_folder: str,
+        file_root: str,
+        run_index: int,
+        run_total: int,
+    ) -> None:
+        """Print a concise summary of the run being executed."""
+        lpm_display = ", ".join(lpm_types) if lpm_types else "none"
+        print(
+            "[Ploemeur] "
+            f"{run_index}/{run_total} "
+            f"well={well} "
+            f"years={dates} "
+            f"mode={time_span_and_prior_mode} "
+            f"error={conc_error_rel} "
+            f"prior={prior}({prior_folder or 'none'}) "
+            f"likelihood={likelihood} "
+            f"lpm={lpm_display}"
+        )
 
     def __prepare_run(
         self,
@@ -413,7 +497,7 @@ class SimulationStrategy:
         else:
             prior_corresp = None
 
-        dir_out, dir_root, date_file = results_folder(file_root)
+        dir_out, dir_root, date_file = results_folder(file_root, self.results_root)
 
         pods = []
         for lpm in lpm_types:
@@ -593,10 +677,10 @@ def files_years(well,dates,time_span_and_prior_mode,breakups=[]):
     # Corresponding file names for each pair of years
     # cumulative: ['F09_2005_2005', 'F09_2005_2006', 'F09_2005_2007', 'F09_2005_2010', 'F09_2005_2013', 'F09_2005_2014', 'F09_2005_2015', 'F09_2005_2016', 'F09_2005_2017', 'F09_2005_2018', 'F09_2005_2019']
     # successive: ['F09_2005_2005', 'F09_2006_2006', 'F09_2007_2007', 'F09_2010_2010', 'F09_2013_2013', 'F09_2014_2014', 'F09_2015_2015', 'F09_2016_2016', 'F09_2017_2017', 'F09_2018_2018', 'F09_2019_2019']
-    files=[]
+    files = []
     for k in range(len(start)):
         files.append(ploemeur_data_selection(well,dates,start[k],end[k]))
-    return [workflow_temp_file_path(file_name) for file_name in files]
+    return files
 
 
 def correspondance_matrix(well,dates,time_span_and_prior_mode,breakups=[]): 
@@ -739,7 +823,7 @@ class ploemeur_one_date:
         # ---- DISPLAY OPTIONS + ROOT OUTPUT DIRECTORY ------------
         # Output options
         self.display = gp.display_options()
-        self.display.text = True
+        self.display.text = False
         self.display.figure = True
         self.display.figure_close = True
         self.display.figure_save = True    
@@ -872,7 +956,7 @@ def validate_workflow_params(params: Dict[str, Any]) -> None:
     observations = params.get("observations", {})
     workflow_cfg = params.get("workflows", {})
     lpm_models = params.get("lpm_models", {})
-    lpm_params = params.get("lpm_params", {})
+    results_cfg = params.get("results", {})
 
     if "prior_pipeline_presets" in params:
         raise ValueError(
@@ -904,10 +988,17 @@ def validate_workflow_params(params: Dict[str, Any]) -> None:
         if extra:
             raise ValueError(f"lpm_models.by_well has wells not listed in observations.wells: {extra}")
 
-    if lpm_params.get("directory"):
-        lpm_path = resolve_lpm_directory(lpm_params["directory"])
+    if lpm_models.get("directory"):
+        lpm_path = resolve_lpm_directory(lpm_models["directory"])
         if not lpm_path.exists():
-            raise ValueError(f"lpm_params.directory does not exist: {lpm_path}")
+            raise ValueError(f"lpm_models.directory does not exist: {lpm_path}")
+
+    if results_cfg.get("use_default") is False:
+        results_dir = results_cfg.get("directory")
+        if not results_dir:
+            raise ValueError(
+                "results.directory must be provided when results.use_default is false."
+            )
 
 
 def run_workflow(params_path: Path = None):

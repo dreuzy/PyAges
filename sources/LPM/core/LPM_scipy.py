@@ -9,6 +9,7 @@ and uniform models.
 
 from abc import abstractmethod
 from typing import Any
+import warnings
 
 import numpy as np
 import numpy.typing as npt
@@ -83,5 +84,22 @@ class LPMScipySafe(LPMScipy):
     def cdf_inv(self, p: npt.ArrayLike) -> npt.ArrayLike:
         """Inverse CDF with probability clipping for numerical stability."""
         args, loc, scale = self._scipy_params()
-        p_safe = np.clip(p, self.cdf_inv_eps, 1 - self.cdf_inv_eps)
-        return self.scipy_dist.ppf(p_safe, *args, loc=loc, scale=scale)
+        p_arr = np.asarray(p, dtype=float)
+        p_safe = np.clip(p_arr, self.cdf_inv_eps, 1 - self.cdf_inv_eps)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=".*inverse_gaussian_distribution.*",
+                category=RuntimeWarning,
+            )
+            q = self.scipy_dist.ppf(p_safe, *args, loc=loc, scale=scale)
+        if np.any(~np.isfinite(q)):
+            p_fallback = np.clip(p_arr, 1e-6, 1 - 1e-6)
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=".*inverse_gaussian_distribution.*",
+                    category=RuntimeWarning,
+                )
+                q = self.scipy_dist.ppf(p_fallback, *args, loc=loc, scale=scale)
+        return q

@@ -40,25 +40,14 @@ observations:
   # Defined in: sites/ploemeur/params/ploemeur_observations.yaml
   well_dates: {}
 
-execution:
-  # Parallel execution.
-  parallel: true
-  # Use all available cores when true; otherwise use proc_nb.
-  auto_proc_nb: false
-  proc_nb: 6
-
-calibration:
-  # Resolution of the systematic sampling grid (number of forward models).
-  explo_res: 20
-  # Number of Metropolis-Hastings steps per calibration run.
-  mh_nsteps: 2000
-  # Number of accepted LPM samples used for output (plots + saved distributions).
-  # If 0, computed from mh_nsteps as: max(min(int(mh_nsteps/50), 5000), 10).
-  lpm_number: 0
-
 lpm_models:
   # Default LPM list used for wells without explicit override.
   default: ["exp_shifted", "ig_shifted", "ig", "dirac_double_1_set", "gamma", "uniform", "exp"]
+  # LPM parameter files location (can point to data_core or Ploemeur-specific params).
+  # Examples:
+  # - data_core/data_LPM
+  # - sites/ploemeur/params_LPM
+  directory: sites/ploemeur/params_LPM
   # Per-well overrides (optional). Example:
   by_well:
     F11: ["exp_shifted", "ig_shifted", "ig","gamma"]
@@ -71,14 +60,27 @@ lpm_models:
     F38: ["exp_shifted", "ig_shifted", "ig","gamma"]
     PZ2: ["exp_shifted", "ig_shifted", "ig", "dirac_double_1_set", "gamma", "uniform", "exp"]
     PSR1: ["exp_shifted", "ig_shifted", "ig", "dirac_double_1_set", "gamma", "uniform", "exp"]
-  
-
-# LPM parameter files location (can point to data_core or Ploemeur-specific params).
-lpm_params:
-  # Examples:
-  # - data_core/data_LPM
-  # - sites/ploemeur/params_LPM
-  directory: sites/ploemeur/params_LPM
-
 # Prior pipeline presets are defined in the shared config:
 #   sites/ploemeur/params/prior_pipeline_presets.yaml
+
+calibration:
+  # Resolution of the systematic sampling grid (number of forward models).
+  explo_res: 20
+  # Number of Metropolis-Hastings steps per calibration run.
+  mh_nsteps: 2000
+  # Number of accepted LPM samples used for output (plots + saved distributions).
+  # If 0, computed from mh_nsteps as: max(min(int(mh_nsteps/50), 5000), 10).
+  lpm_number: 0
+
+execution:
+  # Parallel execution.
+  parallel: true
+  # Use all available cores when true; otherwise use proc_nb.
+  auto_proc_nb: false
+  proc_nb: 6
+
+results:
+  # Use the default results root (PYAGE_RESULTS_DIR or <home>/results/PyAge).
+  use_default: true
+  # Custom results root (used only when use_default is false).
+  directory: ""

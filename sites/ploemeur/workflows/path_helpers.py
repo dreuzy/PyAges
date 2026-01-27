@@ -8,8 +8,13 @@ import calibration.utils.calibration_core as calbas
 from sites.ploemeur.postprocessing import appli_ploemeur_tools
 
 
-def results_folder(file_root: str):
+def results_folder(file_root: str, base_dir: str | None = None):
     """Return (dir_out, dir_root, date_file) for a results root."""
+    if base_dir:
+        dir_root = gp.results_directory(base_dir, file_root)
+        date_file = gp.name_dhms()
+        directory_results = gp.results_directory(dir_root, date_file)
+        return directory_results, dir_root, date_file
     return appli_ploemeur_tools.ploemeur_results_folder(file_root)
 
 

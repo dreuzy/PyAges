@@ -1,0 +1,73 @@
+# Ploemeur workflow configuration (full set of options).
+# This file is the single source of truth for workflow options.
+
+# Reference values for option fields:
+# prior_pipeline values correspond to calibration sequences defined by:
+# 1) whether a prior computed from a longer sequence is reused from a previous stage,
+# 2) whether that prior is built on the full span or a partial span.
+# Breakups are part of the workflow configuration (used by span_full logic).
+# Each prior_pipeline maps to a specific time_span_and_prior mode (see presets below).
+# - prior_pipeline: independent, single_prior, double_prior, double_prior_last_step
+# - time_span_and_prior (long names):
+#     successive             -> successive years (independent)
+#     cumulative             -> cumulative from first year
+#     span_full              -> full span, with optional breakups
+#     successive_with_prior  -> successive years with prior from span
+#     span_with_prior        -> span with prior enforced
+# - prior_folder values are used to locate prior outputs on disk.
+
+workflows:
+  # Breakup years for "span_full" logic (hydrological regime changes).
+  breakups: [2012]
+  # Which prior pipeline presets to run (independent simulations, not sequential).
+  # Can be one option or a list of options.
+  # Each option triggers its own calibration workflow (single or multi-stage).
+  # Options are independent from each other.
+  # - independent: no prior; likelihood-only calibration on successive windows.
+  # - double_prior: span_full -> span_with_prior -> successive_with_prior.
+  prior_pipeline: ["independent", "double_prior"]
+
+observations:
+  # Observational datasets / case studies to run through the workflow.
+  # Relative concentration error fractions to test.
+  conc_error_rel: [0.2]
+  # Wells to process.
+  wells: ["F09"]
+  # Available observation ranges per well (explicit start/end years).
+  # Each entry must be {start: <year>, end: <year>}.
+  # Defined in: sites/ploemeur/params/ploemeur_observations.yaml
+  well_dates: {}
+
+lpm_models:
+  # Default LPM list used for wells without explicit override.
+  default: ["exp_shifted"]
+  # LPM parameter files location (can point to data_core or Ploemeur-specific params).
+  # Examples:
+  # - data_core/data_LPM
+  # - sites/ploemeur/params_LPM
+  directory: sites/ploemeur/params_LPM
+  # Per-well overrides (optional). Example:
+  by_well:
+    F09: ["exp_shifted"]
+
+calibration:
+  # Resolution of the systematic sampling grid (number of forward models).
+  explo_res: 20
+  # Number of Metropolis-Hastings steps per calibration run.
+  mh_nsteps: 1000
+  # Number of accepted LPM samples used for output (plots + saved distributions).
+  # If 0, computed from mh_nsteps as: max(min(int(mh_nsteps/50), 5000), 10).
+  lpm_number: 0
+
+execution:
+  # Parallel execution.
+  parallel: false
+  # Use all available cores when true; otherwise use proc_nb.
+  auto_proc_nb: false
+  proc_nb: 6
+
+results:
+  # Use the default results root (PYAGE_RESULTS_DIR or <home>/results/PyAge).
+  use_default: true
+  # Custom results root (used only when use_default is false).
+  directory: ""

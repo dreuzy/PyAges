@@ -20,7 +20,7 @@ single_prior:
     - time_span_and_prior: successive_with_prior
       prior: true
       likelihood: true
-      prior_folder: "span"
+      prior_folder: "span_full"
   folder: "ploemeur_apriori_simple_"
 
 double_prior:
@@ -33,11 +33,11 @@ double_prior:
     - time_span_and_prior: span_with_prior
       prior: true
       likelihood: true
-      prior_folder: "span"
+      prior_folder: "span_full"
     - time_span_and_prior: successive_with_prior
       prior: true
       likelihood: true
-      prior_folder: "span_prior"
+      prior_folder: "span_with_prior"
   folder: "ploemeur_apriori_double_"
 
 double_prior_last_step:
@@ -46,5 +46,5 @@ double_prior_last_step:
     - time_span_and_prior: successive_with_prior
       prior: true
       likelihood: true
-      prior_folder: "span_prior"
+      prior_folder: "span_with_prior"
   folder: "ploemeur_apriori_double_"
