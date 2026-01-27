@@ -96,7 +96,7 @@ def make_prior_expo(
 
     # normalisation
     if normalize:
-        area = np.trapz(y_cont, x_cont)
+        area = np.trapezoid(y_cont, x_cont)
         if area > 0:
             y_cont /= area
 

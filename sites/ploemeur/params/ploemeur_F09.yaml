@@ -40,7 +40,7 @@ observations:
 
 lpm_models:
   # Default LPM list used for wells without explicit override.
-  default: ["exp_shifted"]
+  default: ["exp_shifted", "ig_shifted"]
   # LPM parameter files location (can point to data_core or Ploemeur-specific params).
   # Examples:
   # - data_core/data_LPM
@@ -48,13 +48,17 @@ lpm_models:
   directory: sites/ploemeur/params_LPM
   # Per-well overrides (optional). Example:
   by_well:
-    F09: ["exp_shifted"]
+    F09: ["exp_shifted", "ig_shifted"]
 
 calibration:
   # Resolution of the systematic sampling grid (number of forward models).
   explo_res: 20
   # Number of Metropolis-Hastings steps per calibration run.
   mh_nsteps: 1000
+  # Fix the RNG seed for reproducible runs.
+  seed_enabled: true
+  # Seed value used when seed_enabled is true.
+  seed: 12345
   # Number of accepted LPM samples used for output (plots + saved distributions).
   # If 0, computed from mh_nsteps as: max(min(int(mh_nsteps/50), 5000), 10).
   lpm_number: 0

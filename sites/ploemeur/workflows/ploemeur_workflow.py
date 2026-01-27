@@ -219,6 +219,8 @@ class CalibrationConfig:
     explo_res: Optional[int] = None
     mh_nsteps: Optional[int] = None
     lpm_number: Optional[int] = None
+    seed_enabled: Optional[bool] = None
+    seed: Optional[int] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "CalibrationConfig":
@@ -226,6 +228,8 @@ class CalibrationConfig:
             explo_res=data.get("explo_res"),
             mh_nsteps=data.get("mh_nsteps"),
             lpm_number=data.get("lpm_number"),
+            seed_enabled=data.get("seed_enabled"),
+            seed=data.get("seed"),
         )
 
 
@@ -305,6 +309,12 @@ class SimulationStrategy:
             raise ValueError(
                 "calibration.lpm_number must be provided (>0) or inferred from mh_nsteps."
             )
+        seed_enabled = bool(cal_cfg.seed_enabled) if cal_cfg.seed_enabled is not None else False
+        if seed_enabled and cal_cfg.seed is None:
+            raise ValueError(
+                "calibration.seed must be provided when calibration.seed_enabled is true."
+            )
+        seed_value = cal_cfg.seed if seed_enabled else None
 
         if "default" in lpm_models:
             self.lpm_types_default = lpm_models["default"]
@@ -340,6 +350,8 @@ class SimulationStrategy:
             explo_res=cal_cfg.explo_res,
             mh_nsteps=cal_cfg.mh_nsteps,
             lpm_number=lpm_number,
+            seed_enabled=seed_enabled,
+            seed=seed_value,
         )
         self.lpm_directory = str(lpm_path)
         if res_cfg.use_default is None or res_cfg.use_default:
@@ -523,6 +535,8 @@ class SimulationStrategy:
                     prior,
                     likelihood,
                     self.calibration_cfg.lpm_number,
+                    self.calibration_cfg.seed_enabled,
+                    self.calibration_cfg.seed,
                     directory_lpm=self.lpm_directory,
                     prior_file=prior_file,
                     time_span_and_prior_mode=time_span_and_prior_mode,
@@ -776,6 +790,8 @@ class ploemeur_one_date:
         prior,
         likelihood,
         lpm_number,
+        seed_enabled,
+        seed,
         directory_lpm,
         prior_file="",
         time_span_and_prior_mode="",
@@ -796,6 +812,9 @@ class ploemeur_one_date:
 
         # ---------------- METROPOLIS HASTINGS --------------------
         # Method and Parameters  
+        mh_kwargs = {}
+        if seed_enabled:
+            mh_kwargs["seed"] = seed
         mh_config = cMH.MHConfig(
             nstep=MH_nsteps,
             prior_option=prior,
@@ -805,6 +824,7 @@ class ploemeur_one_date:
             display_traj=True,
             prior_type="empirical",
             prior_file=prior_file,
+            **mh_kwargs,
         )
         self.calstrat_MH = cMH.MetropolisHastings(config=mh_config)  # JR: 250000
         # self.calstrat[1].MH_step.define_by_prop(0.005)

@@ -68,6 +68,10 @@ calibration:
   explo_res: 20
   # Number of Metropolis-Hastings steps per calibration run.
   mh_nsteps: 2000
+  # Fix the RNG seed for reproducible runs.
+  seed_enabled: true
+  # Seed value used when seed_enabled is true.
+  seed: 12345
   # Number of accepted LPM samples used for output (plots + saved distributions).
   # If 0, computed from mh_nsteps as: max(min(int(mh_nsteps/50), 5000), 10).
   lpm_number: 0
