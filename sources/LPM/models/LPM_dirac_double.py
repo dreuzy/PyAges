@@ -91,5 +91,6 @@ class LPM_dirac_double(LPM):
     def std(self):
         """ 
         Returns std of distribution """
-        return( np.sqrt(self.p['rate']*(1-self.p['rate'])*(self.p['mu2'])**2))
+        rate = np.clip(self.p['rate'], 0.0, 1.0)
+        return np.sqrt(rate * (1 - rate) * (self.p['mu2']) ** 2)
    

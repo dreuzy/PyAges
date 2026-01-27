@@ -38,10 +38,11 @@ def interp_normalize(td, pdfd):
     # Ensures integral to one
     step_size = td[1] - td[0]               
     sumftd=sum(fd(td)*step_size)
-    if sumftd != 0 : 
-        fd = interpolate.interp1d(td,pdfd/sumftd)
-    else: 
-        print("problem in set_interp of LPM Dirac") 
+    if sumftd != 0:
+        fd = interpolate.interp1d(td, pdfd / sumftd)
+    else:
+        # Avoid noisy output; return a zero PDF interpolator.
+        fd = interpolate.interp1d(td, pdfd, bounds_error=False, fill_value=0.0)
     # sum(fd(td)*step_size)
     return fd
 

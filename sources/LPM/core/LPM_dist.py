@@ -426,33 +426,41 @@ class LPMDist:
         """
         Plot a histogram for one parameter, with optional overlays.
         """
+        values = np.asarray(self.__dist[key].tolist(), dtype=float)
+        values = values[np.isfinite(values)]
+        if values.size == 0:
+            return
         figadd.figure_init(xlab=key, ylab="Count", figname=self.__lpm_template.name)
         binwidth = self.__lpm_template.get_param_range(key) / 100
+        if not np.isfinite(binwidth) or binwidth <= 0:
+            return
+        bins = np.arange(
+            min(max(values) / 2, self.__lpm_template.get_p_min(key)),
+            self.__lpm_template.get_p_max(key) + binwidth,
+            binwidth,
+        )
+        if bins.size < 2:
+            return
         plt.hist(
-            self.__dist[key].tolist(),
+            values,
             density=True,
-            bins=np.arange(
-                min(max(self.__dist[key].tolist()) / 2, self.__lpm_template.get_p_min(key)),
-                self.__lpm_template.get_p_max(key) + binwidth,
-                binwidth,
-            ),
+            bins=bins,
             histtype="barstacked",
             label=self_method,
         )
         if lpm_reference is not None:
             plt.axvline(lpm_reference.p[key], c="k", linewidth=2.0, label="reference")
         if lpm_2nd is not None:
-            plt.hist(
-                lpm_2nd.__dist[key],
-                density=True,
-                bins=np.arange(
-                    min(max(self.__dist[key].tolist()) / 2, self.__lpm_template.get_p_min(key)),
-                    self.__lpm_template.get_p_max(key) + binwidth,
-                    binwidth,
-                ),
-                histtype="barstacked",
-                label=lpm_2nd_method,
-            )
+            values_2nd = np.asarray(lpm_2nd.__dist[key].tolist(), dtype=float)
+            values_2nd = values_2nd[np.isfinite(values_2nd)]
+            if values_2nd.size > 0:
+                plt.hist(
+                    values_2nd,
+                    density=True,
+                    bins=bins,
+                    histtype="barstacked",
+                    label=lpm_2nd_method,
+                )
         plt.xlim(self.__lpm_template.get_p_min(key), self.__lpm_template.get_p_max(key))
         plt.legend()
         if directory is not None:
@@ -562,16 +570,25 @@ class LPMDist:
         """
         Plot parameter histogram with an apriori distribution overlay.
         """
+        values = np.asarray(self.__dist[key].tolist(), dtype=float)
+        values = values[np.isfinite(values)]
+        if values.size == 0:
+            return
         figadd.figure_init(xlab=key, ylab="Count", figname=self.__lpm_template.name)
         binwidth = self.__lpm_template.get_param_range(key) / 100
+        if not np.isfinite(binwidth) or binwidth <= 0:
+            return
+        bins = np.arange(
+            min(max(values) / 2, self.__lpm_template.get_p_min(key)),
+            self.__lpm_template.get_p_max(key) + binwidth,
+            binwidth,
+        )
+        if bins.size < 2:
+            return
         temp = plt.hist(
-            self.__dist[key].tolist(),
+            values,
             density=True,
-            bins=np.arange(
-                min(max(self.__dist[key].tolist()) / 2, self.__lpm_template.get_p_min(key)),
-                self.__lpm_template.get_p_max(key) + binwidth,
-                binwidth,
-            ),
+            bins=bins,
             histtype="barstacked",
             label="MH",
         )
@@ -587,17 +604,16 @@ class LPMDist:
         if lpm_reference is not None:
             plt.axvline(lpm_reference.p[key], c="k", linewidth=2.0, label="reference")
         if lpm_2nd is not None:
-            plt.hist(
-                lpm_2nd.__dist[key],
-                density=True,
-                bins=np.arange(
-                    min(max(self.__dist[key].tolist()) / 2, self.__lpm_template.get_p_min(key)),
-                    self.__lpm_template.get_p_max(key) + binwidth,
-                    binwidth,
-                ),
-                histtype="barstacked",
-                label=lpm_2nd_method,
-            )
+            values_2nd = np.asarray(lpm_2nd.__dist[key].tolist(), dtype=float)
+            values_2nd = values_2nd[np.isfinite(values_2nd)]
+            if values_2nd.size > 0:
+                plt.hist(
+                    values_2nd,
+                    density=True,
+                    bins=bins,
+                    histtype="barstacked",
+                    label=lpm_2nd_method,
+                )
         plt.xlim(self.__lpm_template.get_p_min(key), self.__lpm_template.get_p_max(key))
         plt.legend()
         if directory is not None:

@@ -535,7 +535,10 @@ class SystematicSampling:
             ojf=ojf+L2_norm_diff(dfdata.loc[idat]['concentration']*np.ones(dfmodel.shape[0]),
                                               colmod[1].to_numpy(),dfdata.loc[idat]['error'])
         # Sqrt of mean quadratic differences divided by error
-        ojf=0.5*np.log(ojf)
+        ojf = np.asarray(ojf, dtype=float)
+        # Avoid log(0) when objective values are zero
+        ojf = np.maximum(ojf, np.finfo(float).tiny)
+        ojf = 0.5 * np.log(ojf)
         # Storage in a dataframe
         self.__obj_function = pd.DataFrame(
             np.hstack((np.asarray(self.__psystsampling.plist()), np.transpose([ojf]))),

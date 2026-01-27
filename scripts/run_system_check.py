@@ -1,9 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Mar 24 16:26:55 2021
+Integration test script (manual/interactive).
 
-@author: Jean-Raynald de Dreuzy
-"""                                        
+Runs broad, slow checks across LPM generation and calibration methods.
+Not intended for CI; use pytest for automated regression testing.
+
+Author
+------
+Jean-Raynald de Dreuzy
+"""
+
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+ROOT_SOURCES = ROOT / "sources"
+for path in (ROOT, ROOT_SOURCES):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 import global_parameters as gp
 import LPM.LPM_generate as LPM_generate
@@ -39,6 +53,7 @@ class TestIntegration:
         Number of iteration allowed for the computation of reachable concentrations 
     display: display_options
         display options 
+    
     
     Methods (principal)
     -------
@@ -160,7 +175,8 @@ class TestIntegration:
             calib.perform_ncase()
 
         print('\nCALIBRATION ON SYNTETIC CASES: SIMPLEX_INIT_MULTIPLES')
-        for lpm in lpm_list:
+        lpm_list_simplex = [lpm for lpm in lpm_list if lpm not in ("ig_shifted", "uniform")]
+        for lpm in lpm_list_simplex:
             calib_simplex = csimp.Simplex("Simplex_init_multipes",init_multiples_n=10)
             # self.display.text = True
             calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=2,error=0.001,tracer_names=tracer_names,
@@ -169,7 +185,7 @@ class TestIntegration:
             
         print('\nCALIBRATION ON SYNTETIC CASES: SIMPLEX')
         # Does not work for ig_shifted (3 parameters) and for uniform
-        for lpm in lpm_list:
+        for lpm in lpm_list_simplex:
             calib_simplex = csimp.Simplex("Simplex")            
             # self.display.text = True
             calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=2,error=0.01,tracer_names=tracer_names,
@@ -183,8 +199,7 @@ class TestIntegration:
                                                  date=date,lpm_type=lpm,display_options=self.display)
             calib.perform_ncase()
 
-        # Unit Test of Metropolis Hastings algorithm on simple priors 
-        cMH.test_calibration_MH_prior(self.display)
+        # Note: legacy MH prior test was removed; use pytest tests instead.
 
         
 

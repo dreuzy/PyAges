@@ -1,12 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue May 18 21:10:20 2021
+Comparison script for FUQ (Simplex) vs Metropolis-Hastings on synthetic cases.
 
-@author: Jean-Raynald de Dreuzy
+Purpose
+-------
+Run synthetic calibrations across multiple LPM types and tracers, compare
+FUQ and MH outputs, and write figures + summary files for inspection.
+
+Author
+------
+Jean-Raynald de Dreuzy
 """
 
 import os
+import sys
 import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+ROOT_SOURCES = ROOT / "sources"
+for path in (ROOT, ROOT_SOURCES):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 import global_parameters as gp
 
@@ -29,8 +44,8 @@ class comparison_MH_fuq:
         self.fuq_n = 5 #50
         self.init_multiples_n = 1 #5
         self.MH_n = 2500
-        directory = gp.results_directory(gp.ROOT_DIRECTORY_RESULTS,"test_calib_comp")
-        self.directory_root = gp.results_directory(directory,gp.name_dhms()) 
+        directory = gp.results_directory(gp.ROOT_DIRECTORY_RESULTS, "test_calib_comp")
+        self.directory_root = gp.results_directory(directory, gp.name_dhms())
 
 
     def perform(self, stime, ncase=3, error=0.04, tracer_names=["kr85","Li"], lpm_random=True, lpm_target=None,resolution=1000): 
@@ -84,26 +99,24 @@ class comparison_MH_fuq:
                 directory_common = gp.results_directory(self.display.directory,lpm)
                 directory_common = gp.results_directory(directory_common,str(i))
                 lpm_results[0].display_parameters_dist(self_method=lpm_calibration[0].method,
-                                                               lpm_reference=lpm_target,lpm_2nd=lpm_results[1],
-                                                               lpm_2nd_method=lpm_calibration[1].method,
-                                                               directory=directory_common)
-                lpm_results[0].display_concentrations_dist(self_method=lpm_calibration[0].method,
-                                                                   concentrations_reference=concentration_sampled,
-                                                                   lpm_2nd=lpm_results[1],
+                                                                   lpm_reference=lpm_target,lpm_2nd=lpm_results[1],
                                                                    lpm_2nd_method=lpm_calibration[1].method,
                                                                    directory=directory_common)
+                lpm_results[0].display_concentrations_dist(self_method=lpm_calibration[0].method,
+                                                                       concentrations_reference=concentration_sampled,
+                                                                       lpm_2nd=lpm_results[1],
+                                                                       lpm_2nd_method=lpm_calibration[1].method,
+                                                                       directory=directory_common)
                 # Analysis of calibration problem
                 lpm_calibration[1].analysis_calibration()
-                end = time.time()
-                
-            # Writes agregated parameters and results
-            for i in range(len(lpm_calibration)):
-                lpm_calibration[i].write_parameters(os.path.join(calstrat[i].get_directory(),"parameters_calibration.txt"))
-                lpm_calibration[i].write_results(os.path.join(calstrat[i].get_directory(),"results_calibration.txt"))
-                calstrat[i].write_parameters_test()
-                calstrat[i].write_results()
-            # Actualization of simulation time 
-            stime.actualize()
+                # Writes agregated parameters and results
+                for k in range(len(lpm_calibration)):
+                    lpm_calibration[k].write_parameters(os.path.join(calstrat[k].get_directory(),"parameters_calibration.txt"))
+                    lpm_calibration[k].write_results(os.path.join(calstrat[k].get_directory(),"results_calibration.txt"))
+                    calstrat[k].write_parameters_test()
+                    calstrat[k].write_results()
+                # Actualization of simulation time 
+                stime.actualize()
         
         return [lpm_target,lpm_results,concentration_sampled,lpm_calibration]
   

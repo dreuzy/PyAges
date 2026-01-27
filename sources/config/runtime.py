@@ -90,11 +90,12 @@ class simulation_time:
     def actualize(self, nb=1):
         self.time_inter_end = time.time()
         self.simul_current += nb
-        print("time elapsed =", (self.time_inter_end - self.time_start) / 3600, "hours")
-        print(
-            "time remaining =",
+        elapsed = (self.time_inter_end - self.time_start) / 3600
+        remaining = (
             (self.time_inter_end - self.time_start)
             * (self.simul_total / self.simul_current - 1)
-            / 3600,
-            "hours",
+            / 3600
         )
+        line = f"time elapsed = {elapsed:.4f} h | time remaining = {remaining:.4f} h"
+        end_char = "\n" if self.simul_current >= self.simul_total else "\r"
+        print(line, end=end_char, flush=True)
