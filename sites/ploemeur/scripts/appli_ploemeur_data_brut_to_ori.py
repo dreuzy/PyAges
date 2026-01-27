@@ -8,9 +8,19 @@ for p in (repo_root, repo_root / "sources"):
 
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jun  8 14:55:45 2021
+Convert raw Ploemeur tracer tables into normalized "ori_ploemeur" files.
 
-@author: Jean-Raynald de Dreuzy
+Reads {well}_brut.txt files from the Ploemeur data/brut folder, extracts tracer
+values and sampling dates, and writes tab-separated outputs compatible with
+downstream calibration workflows.
+
+Outputs (one per well) in data/ori:
+    ori_ploemeur_{well}_{min_year}_{max_year}.txt
+Columns:
+    element, concentration, error, unit, date
+
+Copyright (c) 2021 Jean-Raynald de Dreuzy
+Author: Jean-Raynald de Dreuzy
 """
 
 import os
@@ -18,21 +28,24 @@ import pandas as pd
 
 from sites.ploemeur.postprocessing import appli_ploemeur_tools
 
-wells=["F34","MF4","F38b","F13","F11","F38","F22","PE","MF1","F28","F09","PZ2","PSR1"]
+# Wells to process (raw files are expected as {well}_brut.txt in data/brut).
+wells = ["F34", "MF4", "F38b", "F13", "F11", "F38", "F22", "PE", "MF1", "F28", "F09", "PZ2", "PSR1"]
 # wells=["F11"]
 
-for well in wells: 
-    directory = appli_ploemeur_tools.ploemeur_data_folder()
+# Convert each raw file to the standardized format.
+for well in wells:
+    brut_directory = appli_ploemeur_tools.ploemeur_brut_folder()
+    ori_directory = appli_ploemeur_tools.ploemeur_ori_folder()
     file_name=well+"_brut.txt"
     print(file_name)
-    df = pd.read_table(os.path.join(directory,file_name),header=None)
+    df = pd.read_table(os.path.join(brut_directory, file_name), header=None)
     # Gets Tracer Name
     tracer=[]
     for col in df.columns: 
         if col >=1 : 
             tracer_name=df[col][0]
             tracer.append('cfc'+tracer_name[4:])
-    # Creates pandas dataframe
+    # Prepare output dataframe in the standardized schema.
     conc = pd.DataFrame(columns = ['element','concentration','error','unit','date'])
     
     k=0
@@ -40,7 +53,8 @@ for well in wells:
     for row in df.iterrows():
         tracer_val=[]
         tracer_temp=[]
-        if k>=2: 
+        # Data rows start after the two-header lines.
+        if k>=2:
             date=df[0][k]
             temp=date.split('/')
             datef=float(temp[2])+(30*(float(temp[1])-1)+float(temp[0]))/365
@@ -50,8 +64,8 @@ for well in wells:
                 if(float(df[i+1][k])>0):
                     tracer_val.append(float(df[i+1][k]))
                     tracer_temp.append(tracer[i])
-            for j in range(len(tracer_val)): 
-                # Appends row
+            for j in range(len(tracer_val)):
+                # Append one row per tracer measurement.
                 # print(tracer_temp[j],'\t',tracer_val[j],'\t',0,'\t','pptv','\t',datef)
                 error = 0.0
                 # if tracer_temp[j] == "cfc12": 
@@ -62,5 +76,19 @@ for well in wells:
                                                    'error':error,'unit':0,'date':datef},index=[0])], ignore_index=True)
         k=k+1
     
-    conc.to_csv(os.path.join(directory,"ori_ploemeur_"+well+"_"+str(int(min(tracer_dates)))+"_"+str(int(max(tracer_dates)))+".txt"),sep='\t', index = False)
+    # Persist the normalized file with the observed time span in the name.
+    conc.to_csv(
+        os.path.join(
+            ori_directory,
+            "ori_ploemeur_"
+            + well
+            + "_"
+            + str(int(min(tracer_dates)))
+            + "_"
+            + str(int(max(tracer_dates)))
+            + ".txt",
+        ),
+        sep="\t",
+        index=False,
+    )
             

@@ -23,6 +23,24 @@ def ploemeur_data_folder():
     return os.path.join(gp.ROOT_DIRECTORY, "sites", "ploemeur", "data")
 
 
+def ploemeur_brut_folder():
+    """
+    Returns
+    -------
+    Root folder containing raw (_brut.txt) Ploemeur data files.
+    """
+    return os.path.join(ploemeur_data_folder(), "brut")
+
+
+def ploemeur_ori_folder():
+    """
+    Returns
+    -------
+    Root folder containing normalized ori_ploemeur_* data files.
+    """
+    return os.path.join(ploemeur_data_folder(), "ori")
+
+
 def ploemeur_results_folder(file_root):
     """
 
@@ -56,7 +74,7 @@ def ploemeur_file_ori(well,dates):
         Full folder and file name 
     
     """
-    directory = ploemeur_data_folder()
+    directory = ploemeur_ori_folder()
     file_ploemeur = os.path.join(directory,"ori_ploemeur_" + well + "_" + dates + ".txt") 
     return file_ploemeur
 

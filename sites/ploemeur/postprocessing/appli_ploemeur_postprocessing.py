@@ -13,7 +13,10 @@ import sites.ploemeur.postprocessing.concentrations_obs as cobs
 import sites.ploemeur.postprocessing.concentrations_mod as cmod
 
 from tracer.tracer_root import Tracer  # <-- ta classe Tracer
-from appli_ploemeur_postprocessing_stat import generer_toutes_les_figures, build_output_filepath
+from sites.ploemeur.postprocessing.appli_ploemeur_postprocessing_stat import (
+    generer_toutes_les_figures,
+    build_output_filepath,
+)
 
 # ✅ Styles globaux pour les figures (présentation/papier)
 plt.rcParams.update({

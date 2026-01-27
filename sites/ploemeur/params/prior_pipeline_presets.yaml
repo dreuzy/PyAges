@@ -1,0 +1,50 @@
+# Shared prior pipeline presets (common across workflows).
+# Each preset defines the sequence of steps and per-step settings.
+
+independent:
+  # Calibration workflow: successive (uses only the theoretical/analytical prior defined in LPM parameter files).
+  steps:
+    - time_span_and_prior: successive
+      prior: false
+      likelihood: true
+      prior_folder: ""
+  folder: "ploemeur_"
+
+single_prior:
+  # Calibration workflow: span_full -> successive_with_prior (conditioned on an interpretation over the full available data period).
+  steps:
+    - time_span_and_prior: span_full
+      prior: false
+      likelihood: true
+      prior_folder: ""
+    - time_span_and_prior: successive_with_prior
+      prior: true
+      likelihood: true
+      prior_folder: "span"
+  folder: "ploemeur_apriori_simple_"
+
+double_prior:
+  # Calibration workflow: span_full -> span_with_prior -> successive_with_prior (calibrated with a prior on the full available period).
+  steps:
+    - time_span_and_prior: span_full
+      prior: false
+      likelihood: true
+      prior_folder: ""
+    - time_span_and_prior: span_with_prior
+      prior: true
+      likelihood: true
+      prior_folder: "span"
+    - time_span_and_prior: successive_with_prior
+      prior: true
+      likelihood: true
+      prior_folder: "span_prior"
+  folder: "ploemeur_apriori_double_"
+
+double_prior_last_step:
+  # Calibration workflow: successive_with_prior only (last step of double_prior).
+  steps:
+    - time_span_and_prior: successive_with_prior
+      prior: true
+      likelihood: true
+      prior_folder: "span_prior"
+  folder: "ploemeur_apriori_double_"

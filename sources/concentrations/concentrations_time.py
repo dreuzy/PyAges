@@ -272,14 +272,15 @@ def display_concentration_chronicles(craw, lpm_results, method, display, span_or
     
     # merged_all_models accumulera toutes les colonnes des différents modèles
     merged_all_models = None
-    
+    plot_stride = max(lpm_number // 10, 1)
+
     for i, lpm in enumerate(lpm_list, start=1):
         # Convolution
         concentrations = tracers.convolution_date_range(lpm, 1960, max(craw.cv["date"]))
         conc_model = ConcentrationTime(cv=concentrations)
     
-        # 👉 Affichage seulement une fois sur 5
-        if i % 50 == 0:
+        # Affiche un sous-ensemble de courbes pour eviter de surcharger la figure.
+        if i % plot_stride == 0:
             conc_model.display(fig, axs, graph_type="line")
     
         # Conversion et accumulation

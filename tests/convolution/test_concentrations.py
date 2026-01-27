@@ -52,6 +52,13 @@ def test_concentrations_load_smoke(file_path):
     assert np.all(np.isfinite(conc.cv["concentration"].to_numpy()))
 
 
+def test_concentrations_load_basic():
+    # Replacement for legacy test_load helper.
+    file_path = _tests_data_dir() / "data_test_exp.txt"
+    conc = Concentrations(file_load=True, file_name=str(file_path))
+    assert not conc.cv.empty
+
+
 @pytest.mark.parametrize(
     "file_path",
     [
