@@ -1,0 +1,44 @@
+# Temporal MH example (multi-date concentrations).
+
+dataset:
+  # Input concentrations file (multi-date).
+  file: examples/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
+  # Relative concentration error (applied if error column is zero).
+  error_rel: 0.2
+
+lpm_models:
+  # LPMs to evaluate (defaults to exp_shifted, ig, ig_shifted).
+  list: ["exp_shifted", "ig", "ig_shifted"]
+  # LPM parameter files location.
+  directory: data_core/data_LPM
+
+workflow:
+  # span: single calibration over full time span
+  # successive: one calibration per observation date
+  mode: span
+
+calibration:
+  # Systematic sampling resolution (forward models).
+  explo_res: 20
+  # Metropolis-Hastings steps.
+  mh_nsteps: 1000
+  # Burn-in fraction and thinning.
+  burn_in: 0.2
+  nskip: 10
+  # Number of accepted samples for outputs (0 => auto).
+  lpm_number: 0
+  # Reproducible RNG.
+  seed_enabled: true
+  seed: 12345
+
+figures:
+  # Temporal chronicle plots.
+  temporal: true
+  # Distribution plots (parameters + concentrations).
+  distributions: true
+
+results:
+  # Use default results root (PYAGE_RESULTS_DIR or <home>/results/PyAge).
+  use_default: true
+  # Custom results root (used only when use_default is false).
+  directory: ""

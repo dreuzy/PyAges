@@ -1,0 +1,33 @@
+{
+  "ploemeur_temporal|ori_ploemeur_F09_2005_2024|span": {
+    "mode=span|lpm=exp_shifted": {
+      "count": 15.0,
+      "mu_mean": 9.378123694187,
+      "mu_std": 1.969832627168,
+      "obj_mean": 0.927716565677,
+      "obj_std": 0.023901703238,
+      "shift_mean": 6.123588577392,
+      "shift_std": 1.469614772853
+    },
+    "mode=span|lpm=ig": {
+      "count": 15.0,
+      "mu_mean": 45.891513432255,
+      "mu_std": 4.505893898306,
+      "obj_mean": 1.144162665394,
+      "obj_std": 0.007953622318,
+      "sigma_mean": 1.796934988039,
+      "sigma_std": 0.228289892101
+    },
+    "mode=span|lpm=ig_shifted": {
+      "count": 15.0,
+      "mu_mean": 47.38934303655,
+      "mu_std": 1.83171732873,
+      "obj_mean": 1.079171033129,
+      "obj_std": 0.400084396393,
+      "shift_mean": 6.984960123307,
+      "shift_std": 0.614027903448,
+      "sigma_mean": 2.226054092248,
+      "sigma_std": 2.607154517936
+    }
+  }
+}

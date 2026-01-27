@@ -99,6 +99,21 @@ For instance, see:
 
 - `examples/ploemeur/exemple_ploemeur.yaml`
 - `examples/fontainebleau/exemple_fontainebleau.yaml`
+- `examples/ploemeur_temporal/ploemeur_temporal.yaml`
+
+### Temporal MH launcher (multi-date concentrations)
+
+There is a dedicated launcher that runs Metropolis-Hastings on a multi-date
+concentration file (``ori_*.txt``) and produces temporal plots plus parameter
+and concentration distributions:
+
+```
+python scripts/launcher_temporal.py --params examples/ploemeur_temporal/ploemeur_temporal.yaml
+```
+
+Supported modes:
+- `span`: single calibration over the full time span
+- `successive`: one calibration per observation date
 
 ## Tests and golden files
 

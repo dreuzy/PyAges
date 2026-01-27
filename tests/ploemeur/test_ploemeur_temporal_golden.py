@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Golden test for the Ploemeur F09 workflow (parameter summaries).
+Golden test for the temporal MH launcher (span mode, multi-date file).
 """
 
 from pathlib import Path
@@ -9,28 +9,18 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
-from sites.ploemeur.workflows.ploemeur_workflow import (
-    SimulationStrategy,
-    load_workflow_params,
-    validate_workflow_params,
-)
+from scripts.launcher_temporal import run_temporal
 from tests.utils import golden as golden_utils
 
 
-GOLDEN_PATH = Path(__file__).resolve().parents[2] / "tests" / "golden" / "ploemeur_f09_workflow_values.json"
-PARAMS_PATH = Path(__file__).resolve().parents[2] / "sites" / "ploemeur" / "params" / "ploemeur_F09.yaml"
-
-TIME_SPAN_AND_PRIOR_MODES = (
-    "successive_with_prior",
-    "span_with_prior",
-    "span_full",
-    "cumulative",
-    "successive",
-)
+GOLDEN_PATH = Path(__file__).resolve().parents[2] / "tests" / "golden" / "ploemeur_temporal_values.json"
+PARAMS_PATH = Path(__file__).resolve().parents[2] / "examples" / "ploemeur_temporal" / "ploemeur_temporal.yaml"
 
 PARAM_COLUMNS = {
     "exp_shifted": ["mu", "shift"],
+    "ig": ["mu", "sigma"],
     "ig_shifted": ["mu", "sigma", "shift"],
 }
 
@@ -39,14 +29,14 @@ def _round_float(value: float, ndigits: int = 12) -> float:
     return float(np.round(value, ndigits))
 
 
-def _extract_mode(file_root: str) -> str:
-    for mode in TIME_SPAN_AND_PRIOR_MODES:
-        if mode in file_root:
-            return mode
-    return "unknown"
+def _objective_column(df: pd.DataFrame) -> Optional[str]:
+    for name in ("obj_function", "obj_func", "obj"):
+        if name in df.columns:
+            return name
+    return None
 
 
-def _collect_stats(stats_path: Path, lpm_type: str) -> Dict[str, float]:
+def _stats_from_file(stats_path: Path, lpm_type: str) -> Dict[str, float]:
     df = pd.read_csv(stats_path, sep="\t", index_col=0)
     if lpm_type not in PARAM_COLUMNS:
         raise ValueError(f"Unsupported LPM type for golden stats: {lpm_type}")
@@ -68,12 +58,9 @@ def _collect_stats(stats_path: Path, lpm_type: str) -> Dict[str, float]:
     return record
 
 
-def _objective_column(df: pd.DataFrame) -> Optional[str]:
-    candidates = ("obj_function", "obj_func", "obj")
-    for name in candidates:
-        if name in df.columns:
-            return name
-    return None
+def _load_params(path: Path) -> Dict:
+    with path.open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle) or {}
 
 
 def _assert_record_close(actual: Dict, expected: Dict, tol: float = 1e-4) -> None:
@@ -92,45 +79,35 @@ def _assert_record_close(actual: Dict, expected: Dict, tol: float = 1e-4) -> Non
         assert actual_value == expected_value, f"Value mismatch for {key}: {actual_value} != {expected_value}"
 
 
-def _collect_all_stats(root: Path) -> Dict[str, Dict[str, float]]:
-    stats_files = list(root.rglob("lpm_stats_calibrated.txt"))
-    if not stats_files:
-        raise AssertionError(f"No calibration stats found under {root}")
-
-    records: Dict[str, Dict[str, float]] = {}
-    for stats_path in stats_files:
-        rel = stats_path.relative_to(root)
-        if len(rel.parts) < 6:
-            continue
-        file_root = rel.parts[0]
-        well_date = rel.parts[-4]
-        lpm_type = rel.parts[-3]
-        mode = _extract_mode(file_root)
-        record = _collect_stats(stats_path, lpm_type)
-        key = f"mode={mode}|well_date={well_date}|lpm={lpm_type}"
-        records[key] = record
-
-    return records
-
-
-@pytest.mark.extensive
-def test_ploemeur_f09_workflow_golden(update_golden, tmp_path: Path) -> None:
-    params = load_workflow_params(PARAMS_PATH)
+def test_ploemeur_temporal_golden(update_golden, tmp_path: Path) -> None:
+    params = _load_params(PARAMS_PATH)
     params["results"] = {"use_default": False, "directory": str(tmp_path)}
     params.setdefault("calibration", {})
     params["calibration"]["mh_nsteps"] = 200
     params["calibration"]["seed_enabled"] = True
     params["calibration"]["seed"] = 12345
-    validate_workflow_params(params)
+    params["figures"] = {"temporal": False, "distributions": False}
+    params["workflow"] = {"mode": "span"}
 
-    prior_pipeline = params.get("workflows", {}).get("prior_pipeline", [])
-    for pipeline in prior_pipeline:
-        strategy = SimulationStrategy(prior_pipeline=pipeline, params=params)
-        strategy.execute()
+    params_path = tmp_path / "ploemeur_temporal_test.yaml"
+    with params_path.open("w", encoding="utf-8") as handle:
+        yaml.safe_dump(params, handle, sort_keys=False)
 
-    record = _collect_all_stats(tmp_path)
+    run_temporal(params_path)
+
+    dataset_file = Path(params["dataset"]["file"])
+    dataset_stem = dataset_file.stem
+    mode = params["workflow"]["mode"]
+    lpm_list: List[str] = params.get("lpm_models", {}).get("list") or []
+
+    results_root = tmp_path / "ploemeur_temporal" / dataset_stem / mode / "span_full"
+    record: Dict[str, Dict[str, float]] = {}
+    for lpm_type in lpm_list:
+        stats_path = results_root / lpm_type / "lpm_stats_calibrated.txt"
+        record[f"mode={mode}|lpm={lpm_type}"] = _stats_from_file(stats_path, lpm_type)
+
     store = golden_utils.load_golden(GOLDEN_PATH)
-    key = "ploemeur_F09_workflow"
+    key = f"ploemeur_temporal|{dataset_stem}|{mode}"
 
     if update_golden:
         store[key] = record

@@ -65,7 +65,7 @@ calibration:
 
 execution:
   # Parallel execution.
-  parallel: false
+  parallel: true
   # Use all available cores when true; otherwise use proc_nb.
   auto_proc_nb: false
   proc_nb: 6
