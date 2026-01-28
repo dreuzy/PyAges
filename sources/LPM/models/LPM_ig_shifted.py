@@ -1,6 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 LPM Shifted Inverse Gaussian distribution model.
+
+Purpose
+-------
+Wrap the SciPy inverse Gaussian distribution with an added shift parameter,
+providing an LPM-compatible shifted inverse-Gaussian PDF.
+
+Author
+------
+Jean-Raynald de Dreuzy
 """
 
 from scipy.stats import invgauss

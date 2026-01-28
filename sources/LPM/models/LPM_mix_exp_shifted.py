@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar 22 09:29:57 2021
-
-@author: Jean-Raynald de Dreuzy
+LPM Mixed Shifted-Exponential distribution model.
 
 Purpose
 -------
-Mixture model combining a Dirac-like spike and a shifted exponential tail.
-Used to represent bimodal travel time distributions.
+Define a mixture combining a Dirac-like spike with a shifted exponential
+tail, used to represent bimodal travel time distributions.
+
+Author
+------
+Jean-Raynald de Dreuzy
 """
 
 
@@ -19,10 +21,7 @@ from scipy.stats import expon
 from LPM.core.LPM_root import LPM
 
 class LPM_mix_exp_shifted(LPM):
-    """ Lumped Parameter Model
-        
-        #JR: all class should be checked, validation necessary
-    """
+    """Lumped Parameter Model - Mixed shifted exponential distribution."""
     def __init__(self, rate=0.5, mu1=10, mu2=10, shift=20, directory_lpm=None):   
         """ Constructor
             Specific

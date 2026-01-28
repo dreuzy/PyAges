@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 LPM Exponential distribution model.
+
+Purpose
+-------
+Wrap the SciPy exponential distribution as an LPM with model metadata.
+
+Author
+------
+Jean-Raynald de Dreuzy
 """
 
 from scipy.stats import expon

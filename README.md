@@ -92,7 +92,7 @@ Key YAML sections:
 - `observations`: wells, date ranges, and relative concentration errors
 - `calibration`: MH step counts, sampling resolution, output sampling count
 - `execution`: parallel options
-- `lpm_models`: LPM model lists, optional per‑well overrides, and LPM params directory
+- `lpm_models`: LPM model lists, optional per-well overrides, and LPM params directory
 
 The LPM parameter directory can point to `data_core/data_LPM` or to a
 site-specific directory such as `sites/ploemeur/params_LPM`.
@@ -127,7 +127,7 @@ Test data note:
 
 ## Tests and golden files
 
-Tests are under `tests/`. Some checks are “golden” regressions that compare
+Tests are under `tests/`. Some checks are "golden" regressions that compare
 aggregated outputs against stored values in `tests/golden/`.
 
 Common commands:
@@ -143,6 +143,26 @@ Run extensive tests (opt-in):
 ```
 pytest -q tests --run-extensive
 ```
+
+## Scripts (manual entrypoints)
+
+Manual scripts live under `scripts/` and are intended for interactive use
+outside pytest. The main entrypoints are:
+
+- `scripts/launcher.py`: single-date workflow launcher (YAML-driven).
+- `scripts/launcher_temporal.py`: multi-date MH launcher (YAML-driven).
+- `scripts/run_system_check.py`: quick end-to-end sanity check.
+- `scripts/run_calibration_benchmark.py`: MH vs FUQ comparison run.
+
+Expected outputs (under `<results_root>`):
+
+- `launcher.py`: `test_cases/<dataset_name>/` (calibration files + `concentration_times.png`)
+- `launcher_temporal.py`: `ploemeur_temporal/<dataset_stem>/<mode>/<date>/<lpm_type>/`
+  (calibration files + temporal plots/tables)
+- `run_system_check.py`: `test/<check_name>/<timestamp>/`
+- `run_calibration_benchmark.py`: `test_calib_comp/<timestamp>/prec_<error>/<tracers>/<lpm>/<case>/`
+
+See `scripts/README.md` for example commands and output locations.
 
 ## Notes
 

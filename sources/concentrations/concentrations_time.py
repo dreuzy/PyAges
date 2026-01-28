@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jun  7 04:15:34 2021
+Chronicles and plotting helpers for time-varying concentrations.
 
-@author: Jean-Raynald de Dreuzy
+Purpose
+-------
+Provide utilities to reshape concentration observations by tracer over time,
+run convolution-based model predictions, and export/plot resulting chronologies.
+
+Author
+------
+Jean-Raynald de Dreuzy
 """
 
 import os
@@ -10,11 +17,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-import tools.figures_additional as figadd
 import convolution.convolution_tracers as convolution_tracers
 import concentrations.concentrations as c
-import global_parameters as gp
-import LPM.LPM_generate as lpg
 
 from concentrations.utils.tables import to_cv_dict, merge_model_into_table
 from concentrations.utils.distributions import sample_lpms_from_dist
@@ -27,45 +31,78 @@ from concentrations.utils.plotting import plot_tracer_series, plot_concentration
 
 
 class ConcentrationTime:
-    """ Chronicle of concentrations with time 
     """
-    def __init__(self,craw=None,cv=None):
-        """ 
-        craw: inpout concentrations
-        c: concentrations as a function of time 
+    Concentration chronicle, grouped by tracer across time.
+
+    Attributes
+    ----------
+    craw : Concentrations
+        Raw concentration table (long format).
+    cv : dict[str, DataFrame]
+        Dict of tracer -> DataFrame(date, concentration, element).
+    """
+
+    def __init__(self, craw=None, cv=None):
         """
-        if craw != None : 
-            self.craw=craw
-        if cv == None : 
+        Build the chronicle either from raw data or from a prepared dict.
+
+        Parameters
+        ----------
+        craw : Concentrations, optional
+            Raw concentration table to reshape by tracer.
+        cv : dict[str, DataFrame], optional
+            Precomputed tracer tables.
+        """
+        if craw is not None:
+            self.craw = craw
+        if cv is None:
             self.build()
-        else : 
-            self.cv=cv
+        else:
+            self.cv = cv
         
 
     def display(self, fig, axs, graph_type="scatter"): 
-        """Displays concentrations on given axes"""
+        """
+        Plot tracer concentration series on provided axes.
+
+        Parameters
+        ----------
+        fig : matplotlib.figure.Figure
+            Figure object used for the plot title.
+        axs : array-like
+            Axes grid to draw into.
+        graph_type : str, optional
+            Plot style (e.g., "scatter" or "line").
+        """
         plot_tracer_series(self.cv, axs, graph_type=graph_type)
         fig.suptitle("Tracer", fontsize=16, y=1.02)
 
         
     def build(self):
-        """ Builds concentrations as a function of time """
-        tracers=self.craw.cv['element'].unique()
-        self.cv={}
-        for t in tracers: 
-            self.cv[t]=self.craw.cv[self.craw.cv['element'] == t]
+        """
+        Reshape raw concentrations into tracer-specific tables.
+        """
+        tracers = self.craw.cv["element"].unique()
+        self.cv = {}
+        for tracer in tracers:
+            self.cv[tracer] = self.craw.cv[self.craw.cv["element"] == tracer]
     
     
     def display_model(self, lpm, tracer):
-        """ computes and displays the models """
-        # Loads the tracers
-        # 
+        """
+        Placeholder for model visualization (reserved for future use).
+        """
+        # TODO: compute and display model predictions for a given tracer.
        
 
     def save_to_file(self, filename):
         """
-          Sauvegarde les concentrations self.cv dans un fichier unique,
-          avec la colonne 'date' commune et une colonne par traceur.
+        Save the tracer chronicle to a single table.
+
+        Parameters
+        ----------
+        filename : str or Path
+            Output file path (TSV).
         """
         save_tracer_series_table(self.cv, filename)
 
@@ -80,16 +117,24 @@ def display_concentration_times(
     plot_stride=None,
 ):
     """
-    Displays concentrations with time for each case in dir_names.
+    Display/export concentration chronologies for multiple result folders.
 
     Parameters
     ----------
-    dir_names : list of str
-        List of directory names.
+    dir_names : list[str]
+        Directories containing calibration outputs and concentrations.txt.
     lpm : LPM
         Template LPM structure.
     display : display_options
         Controls figure save/close behavior.
+    plot : bool, optional
+        Whether to generate and save plots.
+    start_year : int or float, optional
+        Start year for the plotting range.
+    end_year : int or float, optional
+        End year for the plotting range; defaults to max observation year.
+    plot_stride : int, optional
+        Plot every N-th LPM realization (controls plot density).
     """
     methods = ["Metropolis_Hastings", "forward_uncertainty_quantification"]
 
@@ -147,27 +192,35 @@ def display_concentration_times(
             # --- Save PDFs & stats ---
             save_distributions_tables(pdf, lpm_statistics, os.path.join(dn, method))
 
-def display_concentration_chronicles(craw, lpm_results, method, display, span_or_suc, lpm_number):
+def display_concentration_chronicles(
+    craw,
+    lpm_results,
+    method,
+    display,
+    time_span_mode,
+    lpm_number,
+):
     """
-    Displays the tracer concentration chronicle convolved with the lpm solutions
-        craw -> tracers
-        lpm_results -> parameters of lpm
-    Displays also the concentration data
-        craw
+    Display tracer chronologies (data + model realizations) and export tables.
 
     Parameters
     ----------
     craw : Concentrations
-        Tracers and Concentrations
+        Tracer concentrations table.
     lpm_results : LPMDist
-        Results structure of LPMs
+        LPM parameter distribution.
+    method : str
+        Label used for output folder/filenames.
     display : display_options
-        Necessary display options
+        Display options (save/close behavior).
+    time_span_mode : str
+        Selection mode for LPM sampling ("span" or "successive" variants).
+    lpm_number : int
+        Number of LPM realizations to sample.
 
     Figures
     -------
-    1 figure by tracer
-    As many figures as tracers
+    One figure containing tracer subplots.
     """
     # Figure initialization : 2x2 subplots
     fig, axs = plt.subplots(2, 2, figsize=(10, 8))
@@ -184,7 +237,7 @@ def display_concentration_chronicles(craw, lpm_results, method, display, span_or
     # LPM selection
     lpm_list, pdf, lpm_statistics = lpm_results.get_selection(
         lpm_number=lpm_number,
-        span_or_suc=span_or_suc,
+        time_span_mode=time_span_mode,
         array_resolution=1000,
     )
 

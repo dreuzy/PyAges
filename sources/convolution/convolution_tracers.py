@@ -240,14 +240,6 @@ def write_file_conc_lpm(date,concentrations,lpm,directory):
     concentrations.to_csv(root_name +" _concentrations" + ".txt",sep='\t') #, header=None, index=None, sep=',', mode='w')
 
 
-def test_load_and_display(element_types,display_options):
-    """ Test concentration loading
-    """
-    date = 2010
-    # Chemical Elements
-    tracers=ConvolutionTracers(names=element_types,date=date)
-    if display_options.figure : 
-        tracers.display(display_options)
     
     
     

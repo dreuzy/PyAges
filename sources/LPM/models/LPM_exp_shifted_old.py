@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar 22 09:29:57 2021
-
-@author: Jean-Raynald de Dreuzy
+LPM Shifted Exponential (legacy) distribution model.
 
 Purpose
 -------
 Legacy shifted-exponential LPM variant kept for backward compatibility.
 Uses the classic LPM base class with explicit parameters.
+
+Author
+------
+Jean-Raynald de Dreuzy
 """
 
 
@@ -22,9 +24,7 @@ from LPM.models.LPM_exp_shifted import LPM_exp_shifted            # LPM shifted 
 
 
 class LPM_exp_shifted_old(LPM_exp_shifted):
-    """ Lumped Parameter Model
-        Exponential
-    """
+    """Lumped Parameter Model - Shifted Exponential (legacy) distribution."""
     def __init__(self, mu=10, shift=10, directory_lpm=None):   
         """ Constructor
             Specific

@@ -152,7 +152,7 @@ class LPMDist:
         
         
     
-    def get_selection(self, lpm_number, span_or_suc, array_resolution=1000):
+    def get_selection(self, lpm_number, time_span_mode, array_resolution=1000):
         """
         Get a selection of LPMs and their PDFs from the distribution.
 
@@ -161,6 +161,9 @@ class LPMDist:
         lpm_number : int
             Number of lpm to select (redundancies possible)
             The default is 10.
+        time_span_mode : str
+            Selection mode identifier used to pick sampling strategy
+            (e.g., contains "span" for span-based sampling).
         array_resolution : int
             Number of time steps for the time resolution of pdf. 
             The default is 1000.
@@ -179,7 +182,7 @@ class LPMDist:
         lpm_statistics = pd.DataFrame(index=range(lpm_number), columns=self.__lpm_template.moments_name())
         lpm_list = []
         for i in range(1, lpm_number + 1):
-            option = "random_each" if "span" in span_or_suc else "random_line"
+            option = "random_each" if "span" in time_span_mode else "random_line"
             test, line = self.__lpm_template.load_lpm_from_dist(self.__dist, option=option, rng=rng)
             if test:
                 lpm_list.append(copy.deepcopy(self.__lpm_template))

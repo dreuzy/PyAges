@@ -920,7 +920,7 @@ class ploemeur_one_date:
             lpm_results,
             calstrat.method,
             self.display,
-            span_or_suc=self.time_span_and_prior_mode,
+            time_span_mode=self.time_span_and_prior_mode,
             lpm_number=self.calstrat_MH.config.lpm_number,
         )
         if self.display_reachconc: 

@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 LPM Uniform distribution model.
+
+Purpose
+-------
+Wrap the SciPy uniform distribution as an LPM with parameter metadata.
+
+Author
+------
+Jean-Raynald de Dreuzy
 """
 
 from scipy.stats import uniform

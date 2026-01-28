@@ -2,10 +2,19 @@
 """
 LPM Inverse Gaussian distribution model.
 
-Reference:
-    Waugh, D., and T. Hall (2002), Age of stratospheric air:
-    Theory, observations, and models, Reviews of Geophysics, 40(4), 1-1-1-26,
-    doi:https://doi.org/10.1029/2000RG000101.
+Purpose
+-------
+Wrap the SciPy inverse Gaussian distribution as an LPM with metadata.
+
+Reference
+---------
+Waugh, D., and T. Hall (2002), Age of stratospheric air: Theory, observations,
+and models, Reviews of Geophysics, 40(4), 1-1-1-26,
+doi:https://doi.org/10.1029/2000RG000101.
+
+Author
+------
+Jean-Raynald de Dreuzy
 """
 
 from scipy.stats import invgauss

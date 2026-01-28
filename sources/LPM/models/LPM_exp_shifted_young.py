@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar 22 09:29:57 2021
-
-@author: Jean-Raynald de Dreuzy
+LPM Shifted Exponential (young-water) distribution model.
 
 Purpose
 -------
-Shifted-exponential LPM variant biased toward younger ages.
+Shifted exponential LPM variant biased toward younger ages.
 Extends the shifted exponential model with an upward shift helper.
+
+Author
+------
+Jean-Raynald de Dreuzy
 """
 
 
@@ -22,9 +24,7 @@ from LPM.models.LPM_exp_shifted import LPM_exp_shifted            # LPM shifted 
 
 
 class LPM_exp_shifted_young(LPM_exp_shifted):
-    """ Lumped Parameter Model
-        Exponential
-    """
+    """Lumped Parameter Model - Shifted Exponential (young-water) distribution."""
     def __init__(self, mu=10, shift=10, directory_lpm=None):   
         """ Constructor
             Specific

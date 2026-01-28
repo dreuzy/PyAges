@@ -1,6 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 LPM Shifted Exponential distribution model.
+
+Purpose
+-------
+Wrap the SciPy exponential distribution with an added shift parameter,
+providing an LPM-compatible shifted exponential PDF.
+
+Author
+------
+Jean-Raynald de Dreuzy
 """
 
 from scipy.stats import expon

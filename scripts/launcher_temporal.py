@@ -269,7 +269,7 @@ def _run_calibration(
             lpm_results,
             calstrat.method,
             display,
-            span_or_suc=mode,
+            time_span_mode=mode,
             lpm_number=lpm_number,
         )
 

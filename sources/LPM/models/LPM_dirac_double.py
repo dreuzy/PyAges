@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar 22 09:29:57 2021
-
-@author: Jean-Raynald de Dreuzy
+LPM Double-Dirac distribution model.
 
 Purpose
 -------
-Double-Dirac LPM model with two spikes separated by mu2 and mixed by rate.
-Builds a discretized, normalized PDF for convolution.
+Define a two-spike (Dirac) LPM where the spikes are separated by ``mu2`` and
+mixed by ``rate``, producing a discretized, normalized PDF.
+
+Author
+------
+Jean-Raynald de Dreuzy
 """
 
 
@@ -22,9 +24,7 @@ import LPM.core.tools_interpolation as tools_interpolation
 
 
 class LPM_dirac_double(LPM):
-    """ Lumped Parameter Model
-        Exponential
-    """
+    """Lumped Parameter Model - Double-Dirac distribution."""
     def __init__(self, mu1=10, mu2=5, rate=0.2, directory_lpm=None):   
         """ Constructor
             Specific
