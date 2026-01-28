@@ -47,14 +47,102 @@ You can override this with `PYAGE_RESULTS_DIR` (see the root `README.md`).
 
 ## Script overview
 
-- `launcher.py`  
+- `launcher.py`
   Single-date workflow launcher (systematic sampling + calibration) driven by YAML.
-- `launcher_temporal.py`  
+- `launcher_temporal.py`
   Multi-date (chronicle) Metropolis-Hastings launcher driven by YAML.
-- `run_system_check.py`  
+- `run_system_check.py`
   Lightweight end-to-end sanity check (LPM generation, tracers, and plotting).
-- `run_calibration_benchmark.py`  
+- `run_calibration_benchmark.py`
   Compare Metropolis-Hastings and forward-uncertainty quantification runs.
+- `new_component.py`
+  Template generator for creating new LPMs or tracers.
+
+---
+
+## Creating New Components
+
+The `new_component.py` script generates boilerplate files for new LPMs and tracers,
+following project conventions automatically.
+
+### Create a New LPM
+
+```bash
+python scripts/new_component.py lpm <name> [--params <p1,p2,...>] [--scipy <dist>]
+```
+
+**Options:**
+- `--params`, `-p`: Comma-separated parameter names (default: `mu,sigma`)
+- `--scipy`, `-s`: Scipy.stats distribution name (default: `norm`)
+
+**Examples:**
+
+```bash
+# Weibull distribution with shape (k) and scale (lambda) parameters
+python scripts/new_component.py lpm weibull --params k,lambda --scipy weibull_min
+
+# Log-normal distribution
+python scripts/new_component.py lpm lognormal --params mu,sigma --scipy lognorm
+
+# Pareto distribution with single parameter
+python scripts/new_component.py lpm pareto --params alpha --scipy pareto
+```
+
+**Generated files:**
+- `pyage/LPM/models/LPM_<name>.py` — Python class with `@register_lpm` decorator
+- `data_core/data_LPM/<name>/params.yaml` — Parameter bounds, init values, MCMC settings
+
+**After creation:**
+1. Edit the Python file to configure `_scipy_params()` for your distribution
+2. Adjust parameter bounds and initial values in the YAML file
+3. Run `python scripts/run_system_check.py` to verify
+
+### Create a New Tracer
+
+```bash
+python scripts/new_component.py tracer <name> [options]
+```
+
+**Options:**
+- `--unit`, `-u`: Concentration unit (default: `pptv`)
+- `--decay`, `-d`: Enable radioactive decay section
+- `--production`, `-g`: Enable geoproduction section
+- `--no-recharge`: Use constant concentration instead of chronicle file
+
+**Examples:**
+
+```bash
+# Standard tracer with recharge chronicle
+python scripts/new_component.py tracer krypton85 --unit "Bq/L"
+
+# Radioactive tracer (e.g., Argon-39)
+python scripts/new_component.py tracer argon39 --unit "atoms/L" --decay
+
+# Tracer with both decay and geoproduction (e.g., Carbon-14)
+python scripts/new_component.py tracer carbon14 --unit pmC --decay --production
+
+# Constant concentration tracer (no chronicle file)
+python scripts/new_component.py tracer synthetic --unit pptv --no-recharge
+```
+
+**Generated files:**
+- `data_core/data_tracer/<name>/<name>.yaml` — Tracer configuration
+- `data_core/data_tracer/<name>/recharge.csv` — Sample recharge chronicle (replace with real data)
+
+**After creation:**
+1. Edit the YAML to set correct `decay_time` or `production_rate` if applicable
+2. Replace `recharge.csv` with your actual atmospheric concentration data
+3. Run `python scripts/run_system_check.py` to verify
+
+### Notes
+
+- **Reserved words**: Python reserved words (e.g., `lambda`) are automatically
+  handled by adding a trailing underscore in the code (`lambda_`).
+- **Conflict detection**: The script will error if files already exist.
+- **Auto-discovery**: New LPMs are automatically registered via the `@register_lpm`
+  decorator — no manual registration needed.
+
+---
 
 ## Expected outputs
 

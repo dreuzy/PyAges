@@ -12,7 +12,7 @@ from pathlib import Path
 
 def find_repo_root():
     """
-    Return the repository root by walking up from cwd until 'sources' exists.
+    Return the repository root by walking up from cwd until 'pyage' exists.
 
     Returns
     -------
@@ -20,9 +20,9 @@ def find_repo_root():
         The repository root directory.
     """
     root = Path.cwd()
-    if not (root / "sources").exists():
+    if not (root / "pyage").exists():
         for parent in root.parents:
-            if (parent / "sources").exists():
+            if (parent / "pyage").exists():
                 root = parent
                 break
     return root
@@ -42,5 +42,5 @@ def setup_repo_path():
     """
     root = find_repo_root()
     sys.path.insert(0, str(root))
-    sys.path.insert(0, str(root / "sources"))
+    sys.path.insert(0, str(root / "pyage"))
     return root

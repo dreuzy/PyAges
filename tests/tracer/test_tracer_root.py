@@ -51,7 +51,9 @@ def _data_tracer_dir() -> Path:
     Hypothèse d'arborescence (exemple) :
       <repo_root>/
         conftest.py
-        sources/
+        pyage/
+          ...
+        data_core/
           data_tracer/
         tests/
           tracer/

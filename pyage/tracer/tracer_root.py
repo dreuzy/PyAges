@@ -557,12 +557,12 @@ def find_tracer_dir() -> Path:
 
     Notes
     -----
-        Assumes project structure: .../pyage/sources/tracer/tracer_root.py
+        Assumes project structure: .../pyage/pyage/tracer/tracer_root.py
         and looks for: .../pyage/data_core/data_tracer/
     """
     here = Path(__file__).resolve()
 
-    # Project root: go up from sources/tracer/ to repository root
+    # Project root: go up from pyage/tracer/ to repository root
     project_root = here.parents[2]
 
     tracer_dir = project_root / "data_core" / "data_tracer"

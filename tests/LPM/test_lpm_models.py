@@ -1,7 +1,7 @@
 """
 Non-regression tests for all LPM models (pdf/cdf/cdf_inv + basic invariants).
 
-- Auto-discovers model types from sources/LPM/models/LPM_*.py.
+- Auto-discovers model types from pyage/LPM/models/LPM_*.py.
 - Uses golden values stored in tests/golden/lpm_values.json.
 - Supports --update-golden to refresh reference values.
 """

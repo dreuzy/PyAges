@@ -3,7 +3,7 @@
 PyAge is a research codebase for groundwater age modeling and tracer-based
 calibration using lumped-parameter models (LPMs), convolution operators, and
 inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
-It provides reusable scientific components in `sources/` and site-specific
+It provides reusable scientific components in `pyage/` and site-specific
 workflows in `sites/`, with examples and regression tests to support validation.
 
 ## Quick start
@@ -46,15 +46,15 @@ setx PYAGE_RESULTS_DIR "D:\results\PyAge"
 
 ## Repository layout (high level)
 
-- `sources/`: core library code (LPMs, tracers, convolution, calibration, config)
-  - `sources/LPM/`: lumped-parameter models, core distributions, and parameter I/O
-  - `sources/tracer/`: tracer chronologies and root tracer definitions
-  - `sources/convolution/`: convolution algorithms and tracer helpers
-  - `sources/concentrations/`: concentration data handling and time series helpers
-  - `sources/calibration/`: calibration methods, workflows, and objective functions
-  - `sources/config/`: shared configuration (paths, runtime helpers, bootstrap)
-  - `sources/observations/`: generic dataset loaders and observation helpers
-  - `sources/tools/`: plotting and miscellaneous utilities used across modules
+- `pyage/`: core library code (LPMs, tracers, convolution, calibration, config)
+  - `pyage/LPM/`: lumped-parameter models, core distributions, and parameter I/O
+  - `pyage/tracer/`: tracer chronologies and root tracer definitions
+  - `pyage/convolution/`: convolution algorithms and tracer helpers
+  - `pyage/concentrations/`: concentration data handling and time series helpers
+  - `pyage/calibration/`: calibration methods, workflows, and objective functions
+  - `pyage/config/`: shared configuration (paths, runtime helpers, bootstrap)
+  - `pyage/observations/`: generic dataset loaders and observation helpers
+  - `pyage/tools/`: plotting and miscellaneous utilities used across modules
 - `data_core/`: shared model data for LPMs and tracers (not observations)
   - `data_core/data_LPM/`: LPM parameter files (`params.yaml`, bounds, etc.)
   - `data_core/data_tracer/`: tracer chronologies and recharge series

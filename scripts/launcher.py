@@ -49,7 +49,7 @@ def setup_repo_path():
     # Repository root is one level up from scripts/
     root = Path(__file__).resolve().parent.parent
     sys.path.insert(0, str(root))
-    sys.path.insert(0, str(root / "sources"))
+    sys.path.insert(0, str(root / "pyage"))
     return root
 
 
@@ -511,8 +511,8 @@ def run_workflow(params_path, force_inline=False):
     root = setup_repo_path()
     print("CWD:", os.getcwd())
     print("ROOT:", root)
-    print("Has sources:", (root / "sources").exists())
-    print("Has concentrations:", (root / "sources" / "concentrations").exists())
+    print("Has pyage:", (root / "pyage").exists())
+    print("Has concentrations:", (root / "pyage" / "concentrations").exists())
 
     global IN_INTERACTIVE
     IN_INTERACTIVE = configure_backend(force_inline=force_inline)
