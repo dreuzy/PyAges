@@ -53,23 +53,33 @@ où:
 
 ```
 sources/
-??? LPM/                                 # Mod?les ? Param?tres Group?s
-?   ??? core/LPM_root.py                 # Classe abstraite de base
-?   ??? core/LPM_dist.py                 # Distribution des r?sultats
-?   ??? LPM_generate.py                  # Factory pattern
-?   ??? models/                          # Impl?mentations LPM
-?
-??? tracer/                              # Traceurs et chroniques
-??? convolution/                         # Convolution (singulier)
-??? concentrations/                      # Donn?es de concentrations + chroniques
-??? calibration/
-?   ??? methods/                         # M?thodes de calibration (Simplex, MH)
-?   ??? utils/                           # CalibrationCore, objective functions, sampling
-?   ??? workflows/                       # Workflows (tests synth?tiques)
-??? config/
-    ??? paths.py                         # Chemins et utilitaires associ?s
-    ??? runtime.py                       # display_options, simulation_time
-    ??? bootstrap.py                     # setup_path (optionnel)
+├── LPM/                                 # Modèles à Paramètres Groupés
+│   ├── core/
+│   │   ├── LPM_root.py                 # Classe abstraite de base
+│   │   ├── LPM_dist.py                 # Distribution des résultats
+│   │   ├── registry.py                 # Auto-enregistrement des LPMs (@register_lpm)
+│   │   └── convolution_strategy.py     # Enum des stratégies de convolution
+│   ├── LPM_generate.py                 # Factory pattern (découverte automatique)
+│   └── models/                         # Implémentations LPM (12 modèles)
+│
+├── tracer/                             # Traceurs et chroniques
+│   ├── tracer_root.py                  # Classe Tracer (fichiers)
+│   └── tracer_protocol.py              # Interface TracerProtocol + traceurs synthétiques
+│
+├── convolution/                        # Convolution (composition, pas héritage)
+│   ├── convolution.py                  # Classe Convolution (accepte TracerProtocol)
+│   └── convolution_tracers.py          # Multi-traceurs
+│
+├── concentrations/                     # Données de concentrations + chroniques
+├── calibration/
+│   ├── methods/                        # Méthodes de calibration (Simplex, MH)
+│   ├── utils/                          # CalibrationCore, objective functions, sampling
+│   └── workflows/                      # Workflows (tests synthétiques)
+└── config/
+    ├── paths.py                        # Chemins et utilitaires associés
+    ├── runtime.py                      # display_options, simulation_time
+    ├── context.py                      # PyAgeContext (injection de dépendances)
+    └── bootstrap.py                    # setup_path (optionnel)
 
 data_core/                               # Donn?es globales LPM + traceurs
 sites/                                   # Sites sp?cifiques (ex. ploemeur)
@@ -80,7 +90,86 @@ docs/                                    # Documentation
 install/                                 # Environnements
 ```
 
-### 2.2 Dépendances entre Modules
+### 2.2 Patterns Architecturaux Implémentés
+
+#### 2.2.1 Auto-enregistrement des LPMs (Plugin Pattern)
+
+Chaque modèle LPM utilise le décorateur `@register_lpm` pour s'enregistrer automatiquement:
+
+```python
+# sources/LPM/models/LPM_dirac.py
+from LPM.core.registry import register_lpm
+from LPM.core.convolution_strategy import ConvolutionStrategy
+
+@register_lpm("dirac")
+class LPM_dirac(LPM):
+    convolution_strategy = ConvolutionStrategy.DIRAC
+    # ...
+```
+
+**Bénéfices**:
+- Ajouter un nouveau LPM = créer un fichier avec le décorateur
+- Pas besoin de modifier `LPM_generate.py` ou d'autres fichiers
+- Découverte automatique via `list_available_lpms()`
+
+#### 2.2.2 Stratégies de Convolution (Strategy Pattern via Enum)
+
+```python
+# sources/LPM/core/convolution_strategy.py
+class ConvolutionStrategy(Enum):
+    CLASSIC = auto()              # Intégration numérique (Simpson)
+    DIRAC = auto()                # Lookup direct
+    DIRAC_DOUBLE = auto()         # Deux lookups pondérés
+    EXPONENTIAL = auto()          # Discrétisation adaptée
+    MIX_DIRAC_EXPONENTIAL = auto() # Dirac + exponentielle
+```
+
+La convolution utilise `lpm.convolution_strategy` pour sélectionner l'algorithme:
+```python
+match lpm.convolution_strategy:
+    case ConvolutionStrategy.DIRAC:
+        return self._convolution_dirac(lpm)
+    case ConvolutionStrategy.CLASSIC | _:
+        return self._convolution_classic_perform(lpm)
+```
+
+#### 2.2.3 Interface Tracer (Protocol Pattern)
+
+```python
+# sources/tracer/tracer_protocol.py
+@runtime_checkable
+class TracerProtocol(Protocol):
+    @property
+    def name(self) -> str: ...
+    @property
+    def unit(self) -> str: ...
+    @property
+    def datemin(self) -> float: ...
+    @property
+    def datemax(self) -> float: ...
+    def get_concentration(self, date, time) -> float: ...
+```
+
+**Implémentations disponibles**:
+- `Tracer` (tracer_root.py): Charge depuis fichiers YAML/CSV
+- `SyntheticTracer`: Fonction de concentration configurable
+- `ConstantTracer`: Concentration constante
+- `DecayTracer`: Décroissance radioactive simple
+
+#### 2.2.4 Composition dans Convolution
+
+La classe `Convolution` utilise la **composition** (pas l'héritage):
+
+```python
+# Nouvelle API (composition)
+tracer = SyntheticTracer(concentration_fn=lambda d, t: 100 * np.exp(-t/20))
+conv = Convolution(tracer, date=2010)
+
+# Ancienne API (rétrocompatible)
+conv = Convolution(name="cfc11", date=2010)
+```
+
+### 2.3 Dépendances entre Modules
 
 ```
                     ┌─────────────────────────────────┐

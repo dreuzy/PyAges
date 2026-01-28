@@ -14,11 +14,14 @@ Jean-Raynald de Dreuzy
 
 import numpy as np
 
-import LPM.core.LPM_root as LPM
+from LPM.core.LPM_root import LPM
+from LPM.core.convolution_strategy import ConvolutionStrategy
+from LPM.core.registry import register_lpm
 import LPM.core.tools_interpolation as tools_interpolation
 
 
-class LPM_dirac(LPM.LPM):
+@register_lpm("dirac")
+class LPM_dirac(LPM):
     """
     Lumped Parameter Model - Dirac distribution.
 
@@ -27,6 +30,8 @@ class LPM_dirac(LPM.LPM):
     get_dirac_time()
         Return the Dirac spike time (mu).
     """
+
+    convolution_strategy = ConvolutionStrategy.DIRAC
 
     def __init__(self, mu=10, directory_lpm=None):
         """
@@ -41,7 +46,7 @@ class LPM_dirac(LPM.LPM):
         """
         parameter_values = {"mu": mu}
         parameter_units = {"mu": "year"}
-        LPM.LPM.__init__(self, "dirac", parameter_values, parameter_units, directory_lpm)
+        LPM.__init__(self, "dirac", parameter_values, parameter_units, directory_lpm)
                 
     
     def get_dirac_time(self):

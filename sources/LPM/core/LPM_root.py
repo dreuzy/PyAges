@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import abc
 import copy
-from typing import Any
+from typing import Any, ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -30,70 +30,53 @@ from scipy import optimize
 from pathlib import Path
 
 from LPM.core.parameter_manager import ParameterManager
+from LPM.core.convolution_strategy import ConvolutionStrategy
        
 
 class LPM(abc.ABC):
-    """  
-    Lumped Parameter Model, pure virtual class
-
-    Inheritance
-    -----------
-    LPMDist : class
-        Class containing distribution of values of LPM
-
-    Attributes, public
-    ----------
-    name : str
-        name of LPM 
-    p : dictionary
-        p["parameter name"] = parameter values 
-
-    Attributes, private
-    ----------
-    __u : dictionary 
-        __u["parameter name"] = parameter unit
-    __p_min : dictionary
-        __p_min["parameter name"] = parameter lower bound 
-        Loaded from external file 
-    __p_max : dictionary
-        __p_max["parameter name"] = parameter higher bound
-        Loaded from external file 
-    _directory_lpm : str
-        directory of the parameters necessary for the models 
-    
-    Methods (defined in this class)
-    -------
-    param_within_bounds(self,param)
-        Test whether parameters are in the [lower,higher] intervals
-    random_uniform(self,rng=None)
-        Random uniform generation of lpm within parameter range defined by get_param_interval(), modifies self
-    set_param_from_array(self, param)
-        Sets parameters from array with same order required
-    get_parameters_to_array(self)
-        Gets parameters to an array (same order as in the dictionary)
-    __moment_k(self,k)
-        Computes and returns the moment of order k
-    __support_range(self)
-        define typical [min,max] interval on which the pdf is defined
-        
-    Methods-Pure Virtual (defined in the daughter classes, required)
-    --------------------
-    pdf(self,t)
-        probability density function: should be defined in daughter class
-
-    Methods-Virtual (defined in the daughter classes, when relevant, template alternative given in mother class)
-    ---------------
-    cdf(self,t)
-        cumulative density function 
-    cdf_inv(self,p)
-        inverse of the cumulative density function
-    mean(self):
-        Returns mean of distribution
-    std(self):
-        Returns std of distribution
-    
     """
-    
+    Lumped Parameter Model, pure virtual class.
+
+    Abstract base class for all transit time distribution models used in
+    groundwater age dating. Defines the common interface for probability
+    distributions and parameter management.
+
+    Class Attributes
+    ----------------
+    convolution_strategy : ConvolutionStrategy
+        Declares which convolution algorithm should be used for this LPM type.
+        Subclasses override this to indicate their requirements.
+        Default is CLASSIC (standard numerical integration).
+
+    Instance Attributes
+    -------------------
+    name : str
+        Name of LPM (e.g., "ig", "exp", "dirac")
+    p : dict[str, float]
+        Parameter values dictionary: p["parameter_name"] = value
+
+    Abstract Methods
+    ----------------
+    pdf(t)
+        Probability density function (must be implemented by subclasses)
+
+    Virtual Methods (with default implementations)
+    ----------------------------------------------
+    cdf(t)
+        Cumulative density function
+    cdf_inv(p)
+        Inverse of the cumulative density function
+    mean()
+        Returns mean of distribution
+    std()
+        Returns standard deviation of distribution
+    """
+
+    # Class-level declaration of convolution strategy.
+    # Subclasses override this to declare their requirements.
+    # Default is CLASSIC (standard numerical integration with Simpson's rule).
+    convolution_strategy: ClassVar[ConvolutionStrategy] = ConvolutionStrategy.CLASSIC
+
     def __init__(
         self,
         name: str,

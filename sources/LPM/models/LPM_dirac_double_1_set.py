@@ -15,13 +15,18 @@ Jean-Raynald de Dreuzy
 import numpy as np
 
 from LPM.core.LPM_root import LPM
+from LPM.core.convolution_strategy import ConvolutionStrategy
+from LPM.core.registry import register_lpm
 import LPM.core.tools_interpolation as tools_interpolation
 
 
+@register_lpm("dirac_double_1_set")
 class LPM_dirac_double_1_set(LPM):
     """
     Lumped Parameter Model - Double Dirac with one fixed spike.
     """
+
+    convolution_strategy = ConvolutionStrategy.DIRAC_DOUBLE
 
     def __init__(self, mufree=10, muset=70, rate=0.2, directory_lpm=None):
         """

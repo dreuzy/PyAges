@@ -35,8 +35,8 @@
     "mean_error": 0.0
   },
   "gamma:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 78.53404583292466,
-    "mean_concentration": 78.53404583292466,
+    "dataframe_mean_concentration": 78.52919315561647,
+    "mean_concentration": 78.52919315561647,
     "mean_error": 0.0
   },
   "ig:date=2010.0:tracers=cfc11,cfc12,cfc113": {
@@ -50,8 +50,8 @@
     "mean_error": 0.0
   },
   "uniform:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 92.70921829599246,
-    "mean_concentration": 92.70921829599246,
+    "dataframe_mean_concentration": 93.00067287051642,
+    "mean_concentration": 93.00067287051642,
     "mean_error": 0.0
   }
 }

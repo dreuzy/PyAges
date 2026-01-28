@@ -12,19 +12,20 @@ Author
 Jean-Raynald de Dreuzy
 """
 
+import numpy as np
 
-# Statistical distributions
-import numpy as np                      # Arrays
-from scipy.stats import expon
-from scipy import interpolate        # Interpolation function 
-
-# LPM template
 from LPM.core.LPM_root import LPM
+from LPM.core.convolution_strategy import ConvolutionStrategy
+from LPM.core.registry import register_lpm
 import LPM.core.tools_interpolation as tools_interpolation
 
 
+@register_lpm("dirac_double")
 class LPM_dirac_double(LPM):
     """Lumped Parameter Model - Double-Dirac distribution."""
+
+    convolution_strategy = ConvolutionStrategy.DIRAC_DOUBLE
+
     def __init__(self, mu1=10, mu2=5, rate=0.2, directory_lpm=None):   
         """ Constructor
             Specific

@@ -12,23 +12,41 @@ Author
 Jean-Raynald de Dreuzy
 """
 
-
-# Statistical distributions
 import math
+
 from scipy.stats import expon
 
-# LPM template
 from LPM.core.LPM_root import LPM
+from LPM.core.convolution_strategy import ConvolutionStrategy
+from LPM.core.registry import register_lpm
 
+
+@register_lpm("mix_exp_shifted")
 class LPM_mix_exp_shifted(LPM):
     """Lumped Parameter Model - Mixed shifted exponential distribution."""
-    def __init__(self, rate=0.5, mu1=10, mu2=10, shift=20, directory_lpm=None):   
-        """ Constructor
-            Specific
+
+    convolution_strategy = ConvolutionStrategy.MIX_DIRAC_EXPONENTIAL
+
+    def __init__(self, rate=0.5, mu1=10, mu2=10, shift=20, directory_lpm=None):
         """
-        parameter_values={'rate':rate,'mu1':mu1,'mu2':mu2,'shift':shift}
-        parameter_units={'rate':'-','mu1':'year','mu2':'year','shift':'year'}
-        LPM.__init__( self, "mix_exp_shifted", parameter_values, parameter_units, directory_lpm)
+        Constructor.
+
+        Parameters
+        ----------
+        rate : float
+            Mixing weight for the Dirac component (0 to 1).
+        mu1 : float
+            Location of the Dirac spike (years).
+        mu2 : float
+            Scale parameter for the exponential component.
+        shift : float
+            Shift for the exponential component.
+        directory_lpm : str
+            Directory for LPM parameter files.
+        """
+        parameter_values = {'rate': rate, 'mu1': mu1, 'mu2': mu2, 'shift': shift}
+        parameter_units = {'rate': '-', 'mu1': 'year', 'mu2': 'year', 'shift': 'year'}
+        LPM.__init__(self, "mix_exp_shifted", parameter_values, parameter_units, directory_lpm)
         
         
     def pdf(self,t):
