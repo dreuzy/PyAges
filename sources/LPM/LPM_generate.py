@@ -147,7 +147,6 @@ def test(lpm_type: str, display_options: Any) -> None:
         lpm.display_moments()
 
 
-# Re-export for backward compatibility
 __all__ = [
     "LPM_generate",
     "LPM_generate_random_uniform",

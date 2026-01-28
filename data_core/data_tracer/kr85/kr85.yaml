@@ -19,7 +19,7 @@ unit: pptv
 # =============================================================================
 
 # Enable recharge chronicle from external file
-# If true, concentrations are loaded from recharge.txt in the same directory
+# If true, concentrations are loaded from recharge.csv in the same directory
 # If false, use recharge_constant instead
 recharge: true
 
@@ -48,7 +48,7 @@ decay_time: 10.76
 
 # These parameters define the valid computation range for this tracer
 # When recharge chronicle is enabled (recharge: true), datemin and datemax
-# are automatically determined from the loaded recharge.txt file
+# are automatically determined from the loaded recharge.csv file
 # Only specify these manually if recharge: false
 # datemin: 1940.0
 # datemax: 2020.0

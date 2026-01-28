@@ -77,7 +77,7 @@ class Tracer:
     Notes
     -----
         Configuration is loaded from YAML format: {data_tracer}/{name}/{name}.yaml
-        Optional recharge chronicle from {data_tracer}/{name}/recharge.txt
+        Optional recharge chronicle from {data_tracer}/{name}/recharge.csv
 
     Methods
     -------
