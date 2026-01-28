@@ -5,7 +5,7 @@ from typing import Dict
 
 import global_parameters as gp
 import calibration.utils.calibration_core as calbas
-from sites.ploemeur.postprocessing import appli_ploemeur_tools
+from sites.ploemeur.observations import ploemeur as ploemeur_obs
 
 
 def results_folder(file_root: str, base_dir: str | None = None):
@@ -15,7 +15,7 @@ def results_folder(file_root: str, base_dir: str | None = None):
         date_file = gp.name_dhms()
         directory_results = gp.results_directory(dir_root, date_file)
         return directory_results, dir_root, date_file
-    return appli_ploemeur_tools.ploemeur_results_folder(file_root)
+    return ploemeur_obs.ploemeur_results_folder(file_root)
 
 
 def prior_file_path(
@@ -44,7 +44,7 @@ def data_file_path(directory: str, filename: str) -> str:
 
 def workflow_temp_folder() -> str:
     """Return the temporary data folder used by the workflow."""
-    return os.path.join(appli_ploemeur_tools.ploemeur_data_folder(), "temp")
+    return os.path.join(ploemeur_obs.ploemeur_data_folder(), "temp")
 
 
 def workflow_temp_file_path(filename: str) -> str:

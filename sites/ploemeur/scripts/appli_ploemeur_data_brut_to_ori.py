@@ -26,7 +26,7 @@ Author: Jean-Raynald de Dreuzy
 import os
 import pandas as pd
 
-from sites.ploemeur.postprocessing import appli_ploemeur_tools
+from sites.ploemeur.observations import ploemeur as ploemeur_obs
 
 # Wells to process (raw files are expected as {well}_brut.txt in data/brut).
 wells = ["F34", "MF4", "F38b", "F13", "F11", "F38", "F22", "PE", "MF1", "F28", "F09", "PZ2", "PSR1"]
@@ -34,8 +34,8 @@ wells = ["F34", "MF4", "F38b", "F13", "F11", "F38", "F22", "PE", "MF1", "F28", "
 
 # Convert each raw file to the standardized format.
 for well in wells:
-    brut_directory = appli_ploemeur_tools.ploemeur_brut_folder()
-    ori_directory = appli_ploemeur_tools.ploemeur_ori_folder()
+    brut_directory = ploemeur_obs.ploemeur_brut_folder()
+    ori_directory = ploemeur_obs.ploemeur_ori_folder()
     file_name=well+"_brut.txt"
     print(file_name)
     df = pd.read_table(os.path.join(brut_directory, file_name), header=None)

@@ -16,3 +16,8 @@ What it does:
 Outputs:
 - Stored under the default results root (`PYAGE_RESULTS_DIR`) unless overridden
   in the YAML.
+
+Tests:
+- `tests/concentrations/test_concentration_chronicles_smoke.py` reads
+  `examples/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt` as its
+  input dataset.

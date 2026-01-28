@@ -33,9 +33,13 @@ import calibration.utils.calibration_core as calbas
 import calibration.methods.simplex as csimp
 import calibration.methods.metropolis_hastings as cMH
 
-from sites.ploemeur.postprocessing import appli_ploemeur_tools
+from sites.ploemeur.observations import ploemeur as ploemeur_obs
 from sites.ploemeur.postprocessing import appli_ploemeur_results_comparison as aprc
 from sites.ploemeur.workflows.job_builder import build_jobs
+from observations.loader import (
+    build_observation_path,
+    load_observation_concentrations,
+)
 from sites.ploemeur.workflows.path_helpers import (
     calibrated_prior_name,
     data_file_path,
@@ -143,7 +147,12 @@ def validate_well_dates(wells: List[str], well_dates: Dict[str, Dict[str, int]])
                 f"observations.well_dates.{well} must define start and end years."
             )
         dates = f"{start}_{end}"
-        file_path = Path(appli_ploemeur_tools.ploemeur_file_ori(well, dates))
+        file_path = build_observation_path(
+            ploemeur_obs.ploemeur_ori_folder(),
+            "ori_ploemeur_",
+            well,
+            dates,
+        )
         if not file_path.exists():
             missing_files.append(str(file_path))
     if missing_files:
@@ -606,7 +615,12 @@ def ploemeur_data_selection(well,dates,start,end):
     
     directory = workflow_temp_folder()
     # Loads concentrations 
-    cdata=appli_ploemeur_tools.ploemoeur_concentrations_ori(well,dates)
+    cdata=load_observation_concentrations(
+        ploemeur_obs.ploemeur_ori_folder(),
+        "ori_ploemeur_",
+        well,
+        dates,
+    )
     df = cdata.cv
     # Selects concentrations within the given age range
     dfselec = df.loc[(df['date'] >= start) & (df['date'] <= (end+1))]
@@ -626,7 +640,12 @@ def periods_years(well,dates,time_span_and_prior_mode,breakups=[]):
         cumulative, successive, span_full, successive_with_prior, span_with_prior.
     """
     validate_time_span_and_prior_mode(time_span_and_prior_mode)
-    cdata=appli_ploemeur_tools.ploemoeur_concentrations_ori(well,dates)
+    cdata=load_observation_concentrations(
+        ploemeur_obs.ploemeur_ori_folder(),
+        "ori_ploemeur_",
+        well,
+        dates,
+    )
     sampling_years=sorted(functools.reduce(lambda l, x: l.append(int(x)) or l if int(x) not in l else l, cdata.cv['date'], []))
     
     start=[];end=[]
@@ -801,7 +820,7 @@ class ploemeur_one_date:
         self.time_span_and_prior_mode = time_span_and_prior_mode
         # ---------------- CONCENTRATIONS DATA ------------------
         # Concentration data 
-        self.directory_ploemeur = appli_ploemeur_tools.ploemeur_data_folder()
+        self.directory_ploemeur = ploemeur_obs.ploemeur_data_folder()
         self.file_ploemeur = data_file_path(workflow_temp_folder(), well_date)
         self.file_stem = Path(self.file_ploemeur).name
         self.error_concentrations = error_concentrations

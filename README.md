@@ -115,6 +115,11 @@ Supported modes:
 - `span`: single calibration over the full time span
 - `successive`: one calibration per observation date
 
+Test data note:
+- `tests/concentrations/test_concentration_chronicles_smoke.py` reads
+  `examples/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt` as its
+  input dataset.
+
 ## Tests and golden files
 
 Tests are under `tests/`. Some checks are “golden” regressions that compare
