@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import LPM.LPM_generate as LPM_generate
+from LPM.lpm_build import lpm_build
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -16,7 +16,7 @@ from tests.utils import paths as test_paths
 def _lpm_types() -> list[str]:
     types = []
     for path in test_paths.lpm_dir().glob("LPM_*.py"):
-        if path.name in {"LPM_root.py", "LPM_generate.py", "LPM_dist.py"}:
+        if path.name in {"LPM_root.py", "lpm_build.py", "LPM_dist.py"}:
             continue
         types.append(path.stem[len("LPM_"):])
     return sorted(t for t in types if t != "mix_exp_shifted")
@@ -33,7 +33,7 @@ def _round_list(values: list[float], ndigits: int = 10) -> list[float]:
 @pytest.mark.parametrize("lpm_type", _lpm_types())
 def test_lpm_golden_moments(lpm_type, update_golden):
     rng = np.random.default_rng(12345)
-    lpm = LPM_generate.LPM_generate(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = lpm_build(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.random_uniform(rng=rng)
     moments = _round_list(lpm.moments())
 

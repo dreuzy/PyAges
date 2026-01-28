@@ -8,7 +8,7 @@ import pytest
 matplotlib.use("Agg", force=True)
 
 import global_parameters as gp
-from LPM import LPM_generate
+from LPM.lpm_build import test as lpm_test
 
 
 @pytest.mark.parametrize("lpm_type", ["exp"])
@@ -20,7 +20,7 @@ def test_lpm_display_outputs(tmp_path: Path, lpm_type: str) -> None:
     display.text = False
     display.directory = tmp_path
 
-    LPM_generate.test(lpm_type, display)
+    lpm_test(lpm_type, display)
 
     files = [f for f in tmp_path.iterdir() if f.is_file()]
     assert files, "Expected figure output files to be saved"

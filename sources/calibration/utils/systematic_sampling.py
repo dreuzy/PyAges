@@ -19,7 +19,7 @@ import sys
 import global_parameters as gp
 import tools.figures_additional as figadd
 from convolution.convolution_tracers import ConvolutionTracers
-from LPM.LPM_generate import LPM_generate
+from LPM.lpm_build import lpm_build
 from calibration.utils.objective_functions import L2_norm_diff
 
 
@@ -401,7 +401,7 @@ class SystematicSampling:
         # Builds tracer_chemicals
         self.__tracers=ConvolutionTracers(names=tracer_names,date=date)
         # Builds lpm
-        self.__lpm = LPM_generate(lpm_name)
+        self.__lpm = lpm_build(lpm_name)
         # Sets nmodels 
         self.__nmodels = nmodels
         # Sets date

@@ -10,10 +10,10 @@ automatically when they use the @register_lpm decorator.
 
 Usage
 -----
-    from LPM.LPM_generate import LPM_generate, list_available_lpms
+    from LPM.lpm_build import lpm_build, list_available_lpms
 
     # Create an LPM by name
-    lpm = LPM_generate("ig")
+    lpm = lpm_build("ig")
 
     # List all available models
     print(list_available_lpms())
@@ -58,7 +58,7 @@ def _resolve_directory(
     return directory_lpm if directory_lpm is not None else gp.DIRECTORY_LPM_DATA
 
 
-def LPM_generate(
+def lpm_build(
     lpm_type: str,
     directory_lpm: Optional[Union[str, Path]] = None,
 ) -> "LPM":
@@ -89,18 +89,21 @@ def LPM_generate(
 
     Examples
     --------
-        >>> lpm = LPM_generate("ig")
+        >>> lpm = lpm_build("ig")
         >>> print(lpm.name)
         ig
         >>> print(lpm.convolution_strategy)
         ConvolutionStrategy.CLASSIC
     """
+    # Resolve the requested model class from the registry.
     lpm_class = get_lpm_class(lpm_type)
+    # Resolve the data directory (caller override or configured default).
     resolved_dir = _resolve_directory(directory_lpm)
+    # Instantiate the model with its data directory.
     return lpm_class(directory_lpm=resolved_dir)
 
 
-def LPM_generate_random_uniform(
+def lpm_build_random_uniform(
     lpm_type: str,
     rng: Optional[Any] = None,
     directory_lpm: Optional[Union[str, Path]] = None,
@@ -122,7 +125,8 @@ def LPM_generate_random_uniform(
     LPM
         Lumped parameter model instance with randomized parameters.
     """
-    lpm = LPM_generate(lpm_type, directory_lpm)
+    # Build the model first, then randomize its parameters uniformly.
+    lpm = lpm_build(lpm_type, directory_lpm)
     lpm.random_uniform(rng)
     return lpm
 
@@ -138,18 +142,21 @@ def test(lpm_type: str, display_options: Any) -> None:
     display_options : DisplayOptions
         Display configuration for plots and text output.
     """
-    lpm = LPM_generate_random_uniform(lpm_type)
+    # Generate a randomized model instance and compute its summary moments.
+    lpm = lpm_build_random_uniform(lpm_type)
     lpm.moments()
     if display_options.figure:
+        # Plot PDF/CDF for quick visual inspection.
         lpm.display_pdf_cdf(display_options)
     if display_options.text:
+        # Print model details and summary statistics.
         lpm.display(display_options)
         lpm.display_moments()
 
 
 __all__ = [
-    "LPM_generate",
-    "LPM_generate_random_uniform",
+    "lpm_build",
+    "lpm_build_random_uniform",
     "UnknownLPMType",
     "list_available_lpms",
     "is_registered",

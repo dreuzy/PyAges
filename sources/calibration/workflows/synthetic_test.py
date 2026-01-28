@@ -11,7 +11,7 @@ import pandas as pd
 
 import convolution.convolution_tracers as convolution_tracers                     
 import global_parameters as gp
-import LPM.LPM_generate as LPM_generate
+import LPM.lpm_build as lpm_build_module
 
 import calibration.utils.calibration_core as calbas
 
@@ -201,7 +201,7 @@ class CalibrationSyntheticTest:
         
         # 1. TARGET LPM: If not provided, generates a lpm
         if lpm_random == True : 
-            lpm_target = LPM_generate.LPM_generate_random_uniform(self.__lpm_type,rng=self.rng)
+            lpm_target = lpm_build_module.lpm_build_random_uniform(self.__lpm_type, rng=self.rng)
         else: 
             if lpm_target.name != self.__lpm_type : 
                 print("Inconsistency between lpm_target and lpm_type, replacement")

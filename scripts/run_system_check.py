@@ -20,7 +20,7 @@ for path in (ROOT, ROOT_SOURCES):
         sys.path.insert(0, str(path))
 
 import global_parameters as gp
-import LPM.LPM_generate as LPM_generate
+import LPM.lpm_build as lpm_build_module
 import calibration.workflows.synthetic_test as cst
 import calibration.methods.simplex as csimp
 import calibration.methods.metropolis_hastings as cMH
@@ -129,7 +129,7 @@ class TestIntegration:
         
         print('\nGENERATE AND DISPLAY LPM') 
         for t in lpm_list:
-            LPM_generate.test(t,display_options=self.display)
+            lpm_build_module.test(t, display_options=self.display)
         
 
     def check_calibration(self,single_all="all",single_name=""): 

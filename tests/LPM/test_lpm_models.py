@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import LPM.LPM_generate as LPM_generate
+from LPM.lpm_build import lpm_build
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -21,7 +21,7 @@ def _lpm_types() -> list[str]:
     # Map filenames like LPM_exp.py -> "exp"
     types = []
     for path in test_paths.lpm_dir().glob("LPM_*.py"):
-        if path.name in {"LPM_root.py", "LPM_generate.py", "LPM_dist.py"}:
+        if path.name in {"LPM_root.py", "lpm_build.py", "LPM_dist.py"}:
             continue
         types.append(path.stem[len("LPM_"):])
     return sorted(t for t in types if t != "mix_exp_shifted")
@@ -33,7 +33,7 @@ def _golden_path() -> Path:
 
 def _make_lpm(lpm_type: str):
     # Instantiate the LPM using local data_LPM; keep defaults if init fails.
-    lpm = LPM_generate.LPM_generate(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = lpm_build(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
     try:
         lpm.set_param_from_array(lpm.param_init())
     except Exception:

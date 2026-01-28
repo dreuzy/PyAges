@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import LPM.LPM_generate as LPM_generate
+from LPM.lpm_build import lpm_build
 import tracer.tracer_root as tracer_module
 from convolution.convolution import Convolution
 from tests.utils import golden as golden_utils
@@ -20,7 +20,7 @@ from tests.utils import paths as test_paths
 def _lpm_types() -> list[str]:
     types = []
     for path in test_paths.lpm_dir().glob("LPM_*.py"):
-        if path.name in {"LPM_root.py", "LPM_generate.py", "LPM_dist.py"}:
+        if path.name in {"LPM_root.py", "lpm_build.py", "LPM_dist.py"}:
             continue
         types.append(path.stem[len("LPM_"):])
     return sorted(t for t in types if t != "mix_exp_shifted")
@@ -33,7 +33,7 @@ def _golden_path() -> Path:
 @pytest.mark.parametrize("lpm_type", _lpm_types())
 @pytest.mark.parametrize("tracer_name", ["cfc11", "kr85", "cfc12", "cfc113", "sf6"])
 def test_convolution_value_finite(lpm_type, tracer_name):
-    lpm = LPM_generate.LPM_generate(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = lpm_build(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
     try:
         lpm.set_param_from_array(lpm.param_init())
     except Exception:
@@ -46,7 +46,7 @@ def test_convolution_value_finite(lpm_type, tracer_name):
 
 
 def test_convolution_date_range_dataframe():
-    lpm = LPM_generate.LPM_generate("exp", directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = lpm_build("exp", directory_lpm=str(test_paths.lpm_data_dir()))
     tracer = tracer_module.Tracer(test_paths.tracer_data_dir(), "cfc11")
     conv = Convolution(tracer, date=2010.0)
 
@@ -59,7 +59,7 @@ def test_convolution_date_range_dataframe():
 @pytest.mark.parametrize("lpm_type", _lpm_types())
 @pytest.mark.parametrize("tracer_name", ["cfc11", "kr85", "cfc12", "cfc113", "sf6"])
 def test_convolution_golden_at_date_2010(lpm_type, tracer_name, update_golden):
-    lpm = LPM_generate.LPM_generate(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = lpm_build(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
     try:
         lpm.set_param_from_array(lpm.param_init())
     except Exception:

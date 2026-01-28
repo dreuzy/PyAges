@@ -29,8 +29,6 @@ if TYPE_CHECKING:
     from LPM.core.LPM_root import LPM
     from LPM.core.convolution_strategy import ConvolutionStrategy
 
-# Import for test functions only
-import LPM.LPM_generate as LPM_generate
 
 
 class ConvolutionTracers:

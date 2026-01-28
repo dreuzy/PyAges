@@ -46,7 +46,7 @@ def register_lpm(name: str):
     ----------
     name : str
         The name used to identify this LPM (e.g., "ig", "exp", "dirac").
-        This name is used by LPM_generate() to instantiate the model.
+        This name is used by lpm_build() to instantiate the model.
 
     Returns
     -------

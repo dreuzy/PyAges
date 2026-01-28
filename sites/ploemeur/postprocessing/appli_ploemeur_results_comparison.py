@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from concentrations import concentrations_time as ct
-import LPM.LPM_generate as lpg
+import LPM.lpm_build as lpg
 import global_parameters as gp                          # Global variables
 import tools.figures_additional as fad
 
@@ -251,7 +251,7 @@ def load_and_display(date_sim,lpm_type,directory):
     """
     [dir_names,well_dates,dir_ploemeur]=dir_list(date_sim,lpm_type,directory)
     # Gets lpm_type template and parameter names 
-    lpm = lpg.LPM_generate(lpm_type,directory_lpm=gp.DIRECTORY_LPM_DATA)
+    lpm = lpg.lpm_build(lpm_type,directory_lpm=gp.DIRECTORY_LPM_DATA)
     param_names = lpm.get_param_names()
     
     # Displays concentrations according to time

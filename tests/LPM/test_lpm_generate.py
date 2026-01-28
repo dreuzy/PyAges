@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Tests for LPM_generate utilities.
+Tests for lpm_build utilities.
 """
 
 import pytest
 
-from LPM.LPM_generate import LPM_generate, UnknownLPMType
+from LPM.lpm_build import lpm_build, UnknownLPMType
 
 
-def test_lpm_generate_unknown_type_raises():
+def test_lpm_build_unknown_type_raises():
     with pytest.raises(UnknownLPMType):
-        LPM_generate("not_a_real_model")
+        lpm_build("not_a_real_model")

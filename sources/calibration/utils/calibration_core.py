@@ -11,7 +11,7 @@ import os
 from calibration.utils.systematic_sampling import ParamSysSampling, SystematicSampling
 from calibration.utils.objective_functions import L2_norm_diff
 import global_parameters as gp                         
-import LPM.LPM_generate as LPM_generate                                        
+import LPM.lpm_build as lpm_build_module                                        
 import convolution.convolution_tracers as convolution_tracers      
 import concentrations.concentrations as co 
 
@@ -122,7 +122,7 @@ class CalibrationCore(SystematicSampling):
     def prepare(self):
         """Initialize LPM, tracers, errors, and sampling infrastructure."""
         # Initiation of the LPM structure (not the targeted parameters)
-        self.lpm = LPM_generate.LPM_generate(self.lpm_type, self.directory_lpm)
+        self.lpm = lpm_build_module.lpm_build(self.lpm_type, self.directory_lpm)
         # Initiation of the tracer_chemicals corresponding to the data sampled
         self.tracers = convolution_tracers.ConvolutionTracers(
             names=self.cdata.cv.iloc[:, 0],

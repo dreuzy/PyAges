@@ -59,7 +59,7 @@ sources/
 │   │   ├── LPM_dist.py                 # Distribution des résultats
 │   │   ├── registry.py                 # Auto-enregistrement des LPMs (@register_lpm)
 │   │   └── convolution_strategy.py     # Enum des stratégies de convolution
-│   ├── LPM_generate.py                 # Factory pattern (découverte automatique)
+│   ├── lpm_build.py                 # Factory pattern (découverte automatique)
 │   └── models/                         # Implémentations LPM (12 modèles)
 │
 ├── tracer/                             # Traceurs et chroniques
@@ -109,7 +109,7 @@ class LPM_dirac(LPM):
 
 **Bénéfices**:
 - Ajouter un nouveau LPM = créer un fichier avec le décorateur
-- Pas besoin de modifier `LPM_generate.py` ou d'autres fichiers
+- Pas besoin de modifier `lpm_build.py` ou d'autres fichiers
 - Découverte automatique via `list_available_lpms()`
 
 #### 2.2.2 Stratégies de Convolution (Strategy Pattern via Enum)
@@ -282,7 +282,7 @@ def perform(self):
     # ═══════════════════════════════════════════════════════════════
     lpm_results = self.calibration(cdata, self.calstrat_MH)
     # └─> Crée CalibrationCore(cdata, lpm_type)
-    #     └─> LPM_generate(lpm_type) → instance LPM
+    #     └─> lpm_build(lpm_type) → instance LPM
     #     └─> ConvolutionTracers(tracer_names, dates)
     #         └─> Pour chaque traceur: Convolution(name, date)
     #             └─> Tracer.__init__() → charge YAML + CSV
@@ -996,7 +996,7 @@ class TestCaptureGolden:
     def test_capture_convolution(self):
         """Capture les résultats de convolution pour chaque combinaison."""
         from convolution.convolution import Convolution
-        from LPM.LPM_generate import LPM_generate
+        from LPM.lpm_build import lpm_build
 
         test_cases = [
             ("exp_shifted", "cfc11", 2010),
@@ -1005,7 +1005,7 @@ class TestCaptureGolden:
         ]
 
         for lpm_type, tracer_name, date in test_cases:
-            lpm = LPM_generate(lpm_type)
+            lpm = lpm_build(lpm_type)
             tracer = Tracer(gp.DIRECTORY_TRACER_DATA, tracer_name)
             conv = Convolution(tracer, date=date)
             result = conv.convolution(lpm)

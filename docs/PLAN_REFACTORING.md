@@ -117,9 +117,9 @@ class TestCaptureLPM:
     ])
     def test_capture_lpm(self, lpm_type):
         """Capture PDF/CDF pour chaque LPM."""
-        from LPM.LPM_generate import LPM_generate
+        from LPM.lpm_build import lpm_build
 
-        lpm = LPM_generate(lpm_type)
+        lpm = lpm_build(lpm_type)
         t = np.linspace(0.1, 100, 50)
 
         results = {
@@ -156,10 +156,10 @@ class TestCaptureConvolution:
     def test_capture_convolution(self, lpm_type, tracer, date):
         """Capture convolution pour chaque combinaison."""
         from convolution.convolution import Convolution
-        from LPM.LPM_generate import LPM_generate
+        from LPM.lpm_build import lpm_build
         import global_parameters as gp
 
-        lpm = LPM_generate(lpm_type)
+        lpm = lpm_build(lpm_type)
         tracer_obj = Tracer(gp.DIRECTORY_TRACER_DATA, tracer)
         conv = Convolution(tracer_obj, date=date)
         result = conv.convolution(lpm)
@@ -247,7 +247,7 @@ class TestRegressionLPM:
     ])
     def test_lpm_unchanged(self, lpm_type):
         """Compare PDF/CDF aux références."""
-        from LPM.LPM_generate import LPM_generate
+        from LPM.lpm_build import lpm_build
 
         golden_file = GOLDEN_DIR / "lpm" / f"{lpm_type}.json"
         if not golden_file.exists():
@@ -257,7 +257,7 @@ class TestRegressionLPM:
             golden = json.load(f)
 
         # Recréer le LPM avec les mêmes paramètres
-        lpm = LPM_generate(lpm_type)
+        lpm = lpm_build(lpm_type)
         for param, value in golden["parameters"].items():
             lpm.p[param] = value
 
@@ -297,7 +297,7 @@ class TestRegressionConvolution:
     def test_convolution_unchanged(self, lpm_type, tracer, date):
         """Compare convolution aux références."""
         from convolution.convolution import Convolution
-        from LPM.LPM_generate import LPM_generate
+        from LPM.lpm_build import lpm_build
         import global_parameters as gp
 
         filename = f"{lpm_type}_{tracer}_{date}.json"
@@ -308,7 +308,7 @@ class TestRegressionConvolution:
         with open(golden_file) as f:
             golden = json.load(f)
 
-        lpm = LPM_generate(lpm_type)
+        lpm = lpm_build(lpm_type)
         for param, value in golden["lpm_params"].items():
             lpm.p[param] = value
 
@@ -857,7 +857,7 @@ class ParameterError(CalibrationError):
 | `calibration_exploration.py` | 161, 176, 212 | `CalibrationError` |
 | `calibration_exploration.py` | 542, 548 | `CalibrationError` |
 | `calibration_Metropolis_Hastings.py` | 383 | `CalibrationError` |
-| `LPM_generate.py` | 69 | `LPMError` |
+| `lpm_build.py` | 69 | `LPMError` |
 
 **Exemple de modification** (`convolution.py:196-199`) :
 
@@ -882,7 +882,7 @@ if self.__prepare != prepare:
     )
 ```
 
-**Exemple pour LPM_generate.py:67-69** :
+**Exemple pour lpm_build.py:67-69** :
 
 ```python
 # AVANT
@@ -915,9 +915,9 @@ python tests/run_tests.py regression
 # Test des exceptions
 python -c "
 from core.exceptions import LPMError
-from LPM.LPM_generate import LPM_generate
+from LPM.lpm_build import lpm_build
 try:
-    LPM_generate('invalid_type')
+    lpm_build('invalid_type')
 except LPMError as e:
     print(f'OK: {e}')
 "

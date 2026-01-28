@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import LPM.LPM_generate as LPM_generate
+import LPM.lpm_build as lpm_build_module
 from convolution.convolution_tracers import ConvolutionTracers
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
@@ -36,7 +36,7 @@ DATE = 2010.0
 @pytest.mark.parametrize("lpm_name", LPM_NAMES)
 def test_convolution_tracers_golden(lpm_name, update_golden):
     rng = np.random.default_rng(12345)
-    lpm = LPM_generate.LPM_generate_random_uniform(lpm_name, rng=rng)
+    lpm = lpm_build_module.lpm_build_random_uniform(lpm_name, rng=rng)
     tracers = ConvolutionTracers(names=TRACER_NAMES, date=DATE)
 
     concentrations = tracers.convolution(

@@ -472,7 +472,7 @@ def run_objective_function_analysis(
     ss.objective_function_display()
 
 
-def run_concentration_outputs(params, LPM_generate, ct, display_save):
+def run_concentration_outputs(params, lpm_build, ct, display_save):
     """
     Purpose
     -------
@@ -482,14 +482,14 @@ def run_concentration_outputs(params, LPM_generate, ct, display_save):
     ----------
     params : LauncherParams
         Parsed parameters (expects lpm_model_name and directory_lpm).
-    LPM_generate : module
-        LPM.LPM_generate module.
+    lpm_build : callable
+        Factory function that builds an LPM by name.
     ct : module
         concentrations.concentrations_time module.
     display_save : display_options
         Saving display settings for output directory.
     """
-    lpm = LPM_generate.LPM_generate(
+    lpm = lpm_build(
         params.lpm_model_name,
         directory_lpm=str(params.directory_lpm),
     )
@@ -523,7 +523,7 @@ def run_workflow(params_path, force_inline=False):
     import concentrations.concentrations as co
     from concentrations import concentrations_time as ct
     import global_parameters as gp
-    import LPM.LPM_generate as LPM_generate
+    from LPM.lpm_build import lpm_build
     import calibration.utils.systematic_sampling as calibration_exploration
     import calibration.utils.calibration_core as calbas
     import calibration.methods.simplex as csimp
@@ -621,7 +621,7 @@ def run_workflow(params_path, force_inline=False):
         )
 
     # ------------- CONCENTRATION OUTPUTS ----------------------
-    run_concentration_outputs(context.params, LPM_generate, ct, context.display_save)
+    run_concentration_outputs(context.params, lpm_build, ct, context.display_save)
 
     print(display_save.directory)
     if not IN_INTERACTIVE:
