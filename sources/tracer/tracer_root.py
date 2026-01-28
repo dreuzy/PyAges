@@ -137,7 +137,7 @@ class Tracer:
         self.__recharge_chronicle_file = None
         self.__recharge_chronicle_interp = None
 
-        # Load configuration file (auto-detect YAML or legacy TXT format)
+        # Load configuration file (YAML format).
         self._load_config(Path(dir_tracer), name)
 
         # Load recharge chronicle if specified

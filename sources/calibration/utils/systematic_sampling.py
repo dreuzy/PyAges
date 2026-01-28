@@ -430,7 +430,7 @@ class SystematicSampling:
         tracer_names_elts = self.__tracers.element_names_dates()
         data = np.zeros((len(params),len(tracer_names_elts)))
         # Preparation of convolution 
-        self.__tracers.convolution_prepare(self.__lpm.name)
+        self.__tracers.convolution_prepare(self.__lpm.convolution_strategy)
         # For each of the parameter set in the list, computes the corresponding concentration
         for i in range(len(params)):
             # Modification of parameters in lpm & convlution computation

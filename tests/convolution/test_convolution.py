@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 import LPM.LPM_generate as LPM_generate
+import tracer.tracer_root as tracer_module
 from convolution.convolution import Convolution
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
@@ -38,14 +39,16 @@ def test_convolution_value_finite(lpm_type, tracer_name):
     except Exception:
         pass
 
-    conv = Convolution(name=tracer_name, date=2010.0)
+    tracer = tracer_module.Tracer(test_paths.tracer_data_dir(), tracer_name)
+    conv = Convolution(tracer, date=2010.0)
     value = conv.convolution(lpm, prepare=False, opt=True)
     assert math.isfinite(float(value))
 
 
 def test_convolution_date_range_dataframe():
     lpm = LPM_generate.LPM_generate("exp", directory_lpm=str(test_paths.lpm_data_dir()))
-    conv = Convolution(name="cfc11", date=2010.0)
+    tracer = tracer_module.Tracer(test_paths.tracer_data_dir(), "cfc11")
+    conv = Convolution(tracer, date=2010.0)
 
     df = conv.convolution_date_range(lpm, 2000.0, 2005.0)
     assert list(df.columns) == ["date", "concentration", "element"]
@@ -62,7 +65,8 @@ def test_convolution_golden_at_date_2010(lpm_type, tracer_name, update_golden):
     except Exception:
         pass
 
-    conv = Convolution(name=tracer_name, date=2010.0)
+    tracer = tracer_module.Tracer(test_paths.tracer_data_dir(), tracer_name)
+    conv = Convolution(tracer, date=2010.0)
     value = float(conv.convolution(lpm, prepare=False, opt=True))
 
     key = f"{lpm_type}:{tracer_name}:date=2010.0"

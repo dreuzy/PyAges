@@ -89,48 +89,30 @@ class Convolution:
 
     def __init__(
         self,
-        tracer: TracerProtocol | None = None,
+        tracer: TracerProtocol,
         date: float = 2010,
-        *,
-        # Backward-compatible keyword arguments
-        dir_tracer: "Path | None" = None,
-        name: str | None = None,
     ) -> None:
         """
         Initialize Convolution with a tracer instance.
 
-        Supports two APIs for backward compatibility:
-
-        New API (composition):
-            conv = Convolution(tracer_instance, date=2010)
-
-        Old API (backward compatible):
-            conv = Convolution(name="cfc11", date=2010)
-            conv = Convolution(dir_tracer=path, name="cfc11", date=2010)
-
         Parameters
         ----------
-        tracer : TracerProtocol, optional
+        tracer : TracerProtocol
             Any tracer implementing the TracerProtocol interface
-            (FileTracer, SyntheticTracer, ConstantTracer, etc.).
+            (Tracer, SyntheticTracer, ConstantTracer, DecayTracer, etc.).
         date : float
             Date (year) at which convolution will be computed.
-        dir_tracer : Path, optional (backward compatibility)
-            Root directory containing tracer data files.
-        name : str, optional (backward compatibility)
-            Tracer name (e.g., 'cfc11', 'kr85').
-        """
-        # Handle backward-compatible API
-        if tracer is None and name is not None:
-            import tracer.tracer_root as tracer_module
-            if dir_tracer is None:
-                dir_tracer = gp.DIRECTORY_TRACER_DATA
-            tracer = tracer_module.Tracer(dir_tracer, name)
-        elif tracer is None:
-            raise ValueError(
-                "Either 'tracer' (new API) or 'name' (old API) must be provided"
-            )
 
+        Examples
+        --------
+            >>> from tracer.tracer_root import Tracer
+            >>> tracer = Tracer(dir_tracer, "cfc11")
+            >>> conv = Convolution(tracer, date=2010)
+
+            >>> from tracer.tracer_protocol import SyntheticTracer
+            >>> synth = SyntheticTracer(concentration_fn=lambda d, t: 100 * np.exp(-t/20))
+            >>> conv = Convolution(synth, date=2010)
+        """
         self._tracer: TracerProtocol = tracer
         self._date: float = date
         self._prepare_times: npt.NDArray[np.floating] | list = []
@@ -355,29 +337,16 @@ class Convolution:
     # Public API
     # -------------------------------------------------------------------------
 
-    def convolution_prepare(self, lpm_type_or_strategy: Union[str, ConvolutionStrategy]) -> None:
+    def convolution_prepare(self, strategy: ConvolutionStrategy) -> None:
         """
         Pre-compute convolution data for classic distributions.
 
         Parameters
         ----------
-        lpm_type_or_strategy : str or ConvolutionStrategy
-            LPM type name (for backward compatibility) or ConvolutionStrategy.
+        strategy : ConvolutionStrategy
+            Convolution strategy for the requested LPM.
             Special types (Dirac, exponential) are skipped.
         """
-        # Handle backward compatibility with string type names
-        if isinstance(lpm_type_or_strategy, str):
-            # Import here to avoid circular imports
-            from LPM.LPM_generate import LPM_generate
-            try:
-                lpm_temp = LPM_generate(lpm_type_or_strategy)
-                strategy = lpm_temp.convolution_strategy
-            except Exception:
-                # Fallback to CLASSIC if type unknown
-                strategy = ConvolutionStrategy.CLASSIC
-        else:
-            strategy = lpm_type_or_strategy
-
         # Only prepare for CLASSIC strategy (others compute on-the-fly)
         if strategy == ConvolutionStrategy.CLASSIC:
             self._convolution_classic_prepare(strategy)
@@ -534,54 +503,4 @@ class Convolution:
         return df
 
 
-# -----------------------------------------------------------------------------
-# Factory function for backward compatibility
-# -----------------------------------------------------------------------------
-
-def create_convolution(
-    dir_tracer: "Path" = None,
-    name: str = "",
-    date: float = 2010
-) -> Convolution:
-    """
-    Factory function creating Convolution from tracer directory and name.
-
-    This provides backward compatibility with the previous API where
-    Convolution inherited from Tracer and was constructed with directory
-    and name parameters.
-
-    Parameters
-    ----------
-    dir_tracer : Path, optional
-        Root directory containing tracer data files.
-        Defaults to gp.DIRECTORY_TRACER_DATA.
-    name : str
-        Tracer name (e.g., 'cfc11', 'kr85').
-    date : float
-        Date (year) at which convolution will be computed.
-
-    Returns
-    -------
-    Convolution
-        Convolution instance with FileTracer.
-
-    Examples
-    --------
-        >>> # New style (composition)
-        >>> tracer = Tracer(dir_tracer, "cfc11")
-        >>> conv = Convolution(tracer, date=2010)
-
-        >>> # Old style (factory function for backward compatibility)
-        >>> conv = create_convolution(dir_tracer, "cfc11", date=2010)
-    """
-    import tracer.tracer_root as tracer_module
-
-    if dir_tracer is None:
-        dir_tracer = gp.DIRECTORY_TRACER_DATA
-
-    file_tracer = tracer_module.Tracer(dir_tracer, name)
-    return Convolution(file_tracer, date)
-
-
-# Re-export for backward compatibility
-__all__ = ["Convolution", "ConvolutionError", "create_convolution"]
+__all__ = ["Convolution", "ConvolutionError"]

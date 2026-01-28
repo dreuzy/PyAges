@@ -13,3 +13,7 @@ def lpm_dir() -> Path:
 
 def lpm_data_dir() -> Path:
     return repo_root() / "data_core" / "data_LPM"
+
+
+def tracer_data_dir() -> Path:
+    return repo_root() / "data_core" / "data_tracer"

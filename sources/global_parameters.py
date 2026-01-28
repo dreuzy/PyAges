@@ -25,8 +25,6 @@ from config.paths import (
     name_dhms,
 )
 
-# Alias de compatibilité (DEPRECATED - utiliser DIRECTORY_LPM_DATA)
-directory_lpm_data = DIRECTORY_LPM_DATA
 from config.runtime import display_options, simulation_time, arange_n
 
 # -------------------------------------------------------
@@ -40,4 +38,3 @@ RESOLUTION_CONVOLUTION = 200
 REFERENCE_COLUMNS = ["element", "concentration", "error", "unit", "date"]
 CONCENTRATION = REFERENCE_COLUMNS.index("concentration")
 ERROR = REFERENCE_COLUMNS.index("error")
-

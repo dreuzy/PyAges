@@ -131,7 +131,7 @@ class CalibrationCore(SystematicSampling):
         # Definition of errors (if error == 0, takes mean chronicle value)
         self.cdata.error_affect_from_mean(self.tracers.mean_value(self.cdata.cv["date"].mean()))
         # Preparation of convolution
-        self.tracers.convolution_prepare(self.lpm.name)
+        self.tracers.convolution_prepare(self.lpm.convolution_strategy)
         # Init SystematicSampling
         SystematicSampling.__init__(
             self,

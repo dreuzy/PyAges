@@ -23,9 +23,11 @@ import pandas as pd
 import global_parameters as gp
 import convolution.convolution as convolution
 import concentrations.concentrations as concentrations
+import tracer.tracer_root as tracer_module
 
 if TYPE_CHECKING:
     from LPM.core.LPM_root import LPM
+    from LPM.core.convolution_strategy import ConvolutionStrategy
 
 # Import for test functions only
 import LPM.LPM_generate as LPM_generate
@@ -75,7 +77,10 @@ class ConvolutionTracers:
         # Create element list and loads each element
         date_temp = [date] * len(names) if np.isscalar(date) else date
         self.elements: list[convolution.Convolution] = [
-            convolution.Convolution(name=name, date=date_temp[k])
+            convolution.Convolution(
+                tracer_module.Tracer(gp.DIRECTORY_TRACER_DATA, name),
+                date=date_temp[k]
+            )
             for k, name in enumerate(names)
         ]
     
@@ -122,10 +127,10 @@ class ConvolutionTracers:
         return [x.mean_value(date) for x in self.elements]
     
     
-    def convolution_prepare(self, lpm_type: str) -> None:
-        """Prepares convolution for all tracers."""
+    def convolution_prepare(self, strategy: "ConvolutionStrategy") -> None:
+        """Prepares convolution for all tracers using the given strategy."""
         for t in self.elements:
-            t.convolution_prepare(lpm_type)
+            t.convolution_prepare(strategy)
 
 
     def units(self) -> list[str]:

@@ -161,13 +161,20 @@ class TracerProtocol(Protocol):
 La classe `Convolution` utilise la **composition** (pas l'héritage):
 
 ```python
-# Nouvelle API (composition)
+# Avec traceur synthétique (pour tests)
 tracer = SyntheticTracer(concentration_fn=lambda d, t: 100 * np.exp(-t/20))
 conv = Convolution(tracer, date=2010)
 
-# Ancienne API (rétrocompatible)
-conv = Convolution(name="cfc11", date=2010)
+# Avec traceur fichier (données réelles)
+from tracer.tracer_root import Tracer
+tracer = Tracer(dir_tracer, "cfc11")
+conv = Convolution(tracer, date=2010)
 ```
+
+**Avantages**:
+- Injection de dépendances claire
+- Testabilité avec traceurs synthétiques
+- Pas de couplage avec les fichiers de données
 
 ### 2.3 Dépendances entre Modules
 
@@ -997,18 +1004,19 @@ class TestCaptureGolden:
             ("dirac_double_1_set", "kr85", 2010),
         ]
 
-        for lpm_type, tracer, date in test_cases:
+        for lpm_type, tracer_name, date in test_cases:
             lpm = LPM_generate(lpm_type)
-            conv = Convolution(name=tracer, date=date)
+            tracer = Tracer(gp.DIRECTORY_TRACER_DATA, tracer_name)
+            conv = Convolution(tracer, date=date)
             result = conv.convolution(lpm)
 
             # Sauvegarder comme référence
-            golden_file = GOLDEN_DIR / f"conv_{lpm_type}_{tracer}_{date}.json"
+            golden_file = GOLDEN_DIR / f"conv_{lpm_type}_{tracer_name}_{date}.json"
             with open(golden_file, "w") as f:
                 json.dump({
                     "lpm_type": lpm_type,
                     "lpm_params": dict(lpm.p),
-                    "tracer": tracer,
+                    "tracer": tracer_name,
                     "date": date,
                     "result": float(result)
                 }, f, indent=2)

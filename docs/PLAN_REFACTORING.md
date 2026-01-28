@@ -160,11 +160,8 @@ class TestCaptureConvolution:
         import global_parameters as gp
 
         lpm = LPM_generate(lpm_type)
-        conv = Convolution(
-            dir_tracer=gp.DIRECTORY_TRACER_DATA,
-            name=tracer,
-            date=date
-        )
+        tracer_obj = Tracer(gp.DIRECTORY_TRACER_DATA, tracer)
+        conv = Convolution(tracer_obj, date=date)
         result = conv.convolution(lpm)
 
         results = {
@@ -315,11 +312,8 @@ class TestRegressionConvolution:
         for param, value in golden["lpm_params"].items():
             lpm.p[param] = value
 
-        conv = Convolution(
-            dir_tracer=gp.DIRECTORY_TRACER_DATA,
-            name=tracer,
-            date=date
-        )
+        tracer_obj = Tracer(gp.DIRECTORY_TRACER_DATA, tracer)
+        conv = Convolution(tracer_obj, date=date)
         result = conv.convolution(lpm)
 
         assert abs(result - golden["convolution_result"]) < TOLERANCE, \
