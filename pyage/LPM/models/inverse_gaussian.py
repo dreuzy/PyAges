@@ -19,12 +19,12 @@ Jean-Raynald de Dreuzy
 
 from scipy.stats import invgauss
 
-from LPM.core.LPM_scipy import LPMScipySafe
+from LPM.core.lpm_scipy import LpmScipySafe
 from LPM.core.registry import register_lpm
 
 
 @register_lpm("ig")
-class InverseGaussianLpm(LPMScipySafe):
+class InverseGaussianLpm(LpmScipySafe):
     """Lumped Parameter Model - Inverse Gaussian distribution."""
 
     scipy_dist = invgauss

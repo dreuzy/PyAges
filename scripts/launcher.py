@@ -374,9 +374,9 @@ def compare_synthetic_figures(
         First calibration strategy (reference).
     strategy_b : object
         Second calibration strategy (comparison).
-    lpm_results_a : LPMDist
+    lpm_results_a : LpmDist
         Calibrated LPM distribution for strategy_a.
-    lpm_results_b : LPMDist
+    lpm_results_b : LpmDist
         Calibrated LPM distribution for strategy_b.
     concentration_sampled : Concentrations
         Observed concentrations for overlay.

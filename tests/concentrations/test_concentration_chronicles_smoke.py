@@ -13,7 +13,7 @@ matplotlib.use("Agg", force=True)
 
 import global_parameters as gp
 from concentrations import concentrations_time as ct
-from LPM.core import LPM_dist
+from LPM.core import lpm_dist as LPM_dist
 from LPM.lpm_build import lpm_build
 from observations.loader import load_concentrations
 from tests.utils import golden as golden_utils
@@ -61,9 +61,9 @@ def test_concentration_chronicles_smoke(tmp_path, update_golden):
     conc_data = ct.ConcentrationTime(craw=craw)
     conc_data.save_to_file(tmp_path / "concentrations_wide.txt")
 
-    # Build a minimal LPMDist with one parameter set to exercise plotting path.
+    # Build a minimal LpmDist with one parameter set to exercise plotting path.
     lpm = lpm_build("exp_shifted")
-    lpm_results = LPM_dist.LPMDist(lpm, craw.names_dates())
+    lpm_results = LPM_dist.LpmDist(lpm, craw.names_dates())
     lpm_results.dist_append(
         lpm.p,
         obj_function=0.0,

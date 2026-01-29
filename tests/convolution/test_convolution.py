@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from LPM.lpm_build import lpm_build
+from LPM.lpm_build import lpm_build, list_available_lpms
 import tracer.tracer_root as tracer_module
 from convolution.convolution import Convolution
 from tests.utils import golden as golden_utils
@@ -18,11 +18,7 @@ from tests.utils import paths as test_paths
 
 
 def _lpm_types() -> list[str]:
-    types = []
-    for path in test_paths.lpm_dir().glob("LPM_*.py"):
-        if path.name in {"LPM_root.py", "lpm_build.py", "LPM_dist.py"}:
-            continue
-        types.append(path.stem[len("LPM_"):])
+    types = list_available_lpms()
     return sorted(t for t in types if t != "mix_exp_shifted")
 
 

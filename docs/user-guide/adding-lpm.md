@@ -17,7 +17,7 @@ python scripts/new_component.py lpm weibull --params k,lambda --scipy weibull_mi
 ```
 
 This creates:
-- `pyage/LPM/models/LPM_weibull.py` - Python class
+- `pyage/LPM/models/weibull.py` - Python class
 - `data_core/data_LPM/weibull/params.yaml` - Parameter configuration
 
 Then follow the "Customize the Generated Code" section below.
@@ -28,7 +28,7 @@ Then follow the "Customize the Generated Code" section below.
 
 ### Step 1: Create the Python Class
 
-Create a new file `pyage/LPM/models/LPM_<name>.py`:
+Create a new file `pyage/LPM/models/<name>.py`:
 
 ```python
 # -*- coding: utf-8 -*-
@@ -50,12 +50,12 @@ Your Name
 
 from scipy.stats import weibull_min
 
-from LPM.core.LPM_scipy import LPMScipy
+from LPM.core.lpm_scipy import LpmScipy
 from LPM.core.registry import register_lpm
 
 
 @register_lpm("weibull")  # This name is used in YAML configs
-class LPM_weibull(LPMScipy):
+class WeibullLpm(LpmScipy):
     """Lumped Parameter Model - Weibull distribution."""
 
     scipy_dist = weibull_min  # The scipy.stats distribution
@@ -188,9 +188,9 @@ Choose the appropriate base class:
 
 | Base Class | Use When |
 |------------|----------|
-| `LPMScipy` | Standard scipy distribution |
-| `LPMScipySafe` | Distribution with numerical edge cases (e.g., inverse Gaussian) |
-| `LPM` | Custom distribution not in scipy |
+| `LpmScipy` | Standard scipy distribution |
+| `LpmScipySafe` | Distribution with numerical edge cases (e.g., inverse Gaussian) |
+| `LpmBase` | Custom distribution not in scipy |
 
 ### Custom Convolution Strategy
 
@@ -200,7 +200,7 @@ For special distributions that need optimized convolution (like Dirac or exponen
 from LPM.core.convolution_strategy import ConvolutionStrategy
 
 @register_lpm("my_special_lpm")
-class LPM_my_special(LPMScipy):
+class MySpecialLpm(LpmScipy):
     scipy_dist = some_dist
     convolution_strategy = ConvolutionStrategy.CLASSIC  # or DIRAC, EXPONENTIAL, etc.
 ```
@@ -303,15 +303,15 @@ parameters:
 ### Python Class
 
 ```python
-# pyage/LPM/models/LPM_lognormal.py
+# pyage/LPM/models/lognormal.py
 
 from scipy.stats import lognorm
-from LPM.core.LPM_scipy import LPMScipy
+from LPM.core.lpm_scipy import LpmScipy
 from LPM.core.registry import register_lpm
 
 
 @register_lpm("lognormal")
-class LPM_lognormal(LPMScipy):
+class LognormalLpm(LpmScipy):
     """Lumped Parameter Model - Log-normal distribution."""
 
     scipy_dist = lognorm
@@ -407,5 +407,5 @@ notes: |
 
 ### Numerical issues with CDF
 
-- Use `LPMScipySafe` instead of `LPMScipy`
+- Use `LpmScipySafe` instead of `LpmScipy`
 - Check for extreme parameter values

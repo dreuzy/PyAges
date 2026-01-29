@@ -13,12 +13,12 @@ Jean-Raynald de Dreuzy
 
 from scipy.stats import weibull_min
 
-from LPM.core.LPM_scipy import LPMScipy
+from LPM.core.lpm_scipy import LpmScipy
 from LPM.core.registry import register_lpm
 
 
 @register_lpm("weibull")
-class WeibullLpm(LPMScipy):
+class WeibullLpm(LpmScipy):
     """Lumped Parameter Model - Weibull distribution."""
 
     scipy_dist = weibull_min

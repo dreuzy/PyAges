@@ -214,7 +214,7 @@ class CalibrationCore(SystematicSampling):
         ----------
         display_options : display_options
             Output configuration for figures and text.
-        lpm_results : LPMDist
+        lpm_results : LpmDist
             Calibration results container.
         lpm_reference : LPM, optional
             Reference LPM for comparison.
@@ -237,7 +237,7 @@ class CalibrationCore(SystematicSampling):
 
         Parameters
         ----------
-        lpm_results : LPMDist
+        lpm_results : LpmDist
             Calibration results to serialize.
         file_prior : str, optional
             File stem for prior/posterior storage.

@@ -36,7 +36,7 @@ from LPM.core.registry import (
 )
 
 if TYPE_CHECKING:
-    from LPM.core.LPM_root import LPM
+    from LPM.core.lpm_base import LpmBase as LPM
 
 
 def _resolve_directory(

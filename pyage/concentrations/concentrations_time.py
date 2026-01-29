@@ -207,7 +207,7 @@ def display_concentration_chronicles(
     ----------
     craw : Concentrations
         Tracer concentrations table.
-    lpm_results : LPMDist
+    lpm_results : LpmDist
         LPM parameter distribution.
     method : str
         Label used for output folder/filenames.

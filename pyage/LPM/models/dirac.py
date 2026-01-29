@@ -14,14 +14,14 @@ Jean-Raynald de Dreuzy
 
 import numpy as np
 
-from LPM.core.LPM_root import LPM
+from LPM.core.lpm_base import LpmBase
 from LPM.core.convolution_strategy import ConvolutionStrategy
 from LPM.core.registry import register_lpm
 import LPM.core.tools_interpolation as tools_interpolation
 
 
 @register_lpm("dirac")
-class DiracLpm(LPM):
+class DiracLpm(LpmBase):
     """
     Lumped Parameter Model - Dirac distribution.
 
@@ -46,7 +46,7 @@ class DiracLpm(LPM):
         """
         parameter_values = {"mu": mu}
         parameter_units = {"mu": "year"}
-        LPM.__init__(self, "dirac", parameter_values, parameter_units, directory_lpm)
+        LpmBase.__init__(self, "dirac", parameter_values, parameter_units, directory_lpm)
                 
     
     def get_dirac_time(self):

@@ -52,15 +52,16 @@ où:
 ### 2.1 Structure Actuelle
 
 ```
-sources/
+pyage/
 ├── LPM/                                 # Modèles à Paramètres Groupés
 │   ├── core/
-│   │   ├── LPM_root.py                 # Classe abstraite de base
-│   │   ├── LPM_dist.py                 # Distribution des résultats
+│   │   ├── lpm_base.py                 # Classe abstraite de base (LpmBase)
+│   │   ├── lpm_dist.py                 # Distribution des résultats (LpmDist)
+│   │   ├── lpm_scipy.py                # Classes LpmScipy, LpmScipySafe
 │   │   ├── registry.py                 # Auto-enregistrement des LPMs (@register_lpm)
 │   │   └── convolution_strategy.py     # Enum des stratégies de convolution
 │   ├── lpm_build.py                 # Factory pattern (découverte automatique)
-│   └── models/                         # Implémentations LPM (12 modèles)
+│   └── models/                         # Implémentations LPM (14 modèles)
 │
 ├── tracer/                             # Traceurs et chroniques
 │   ├── tracer_root.py                  # Classe Tracer (fichiers)
@@ -97,12 +98,13 @@ install/                                 # Environnements
 Chaque modèle LPM utilise le décorateur `@register_lpm` pour s'enregistrer automatiquement:
 
 ```python
-# sources/LPM/models/LPM_dirac.py
+# pyage/LPM/models/dirac.py
 from LPM.core.registry import register_lpm
 from LPM.core.convolution_strategy import ConvolutionStrategy
+from LPM.core.lpm_base import LpmBase
 
 @register_lpm("dirac")
-class LPM_dirac(LPM):
+class DiracLpm(LpmBase):
     convolution_strategy = ConvolutionStrategy.DIRAC
     # ...
 ```
@@ -204,8 +206,8 @@ conv = Convolution(tracer, date=2010)
               │                     │                     │
               ▼                     ▼                     ▼
 ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
-│   Concentrations    │  │   LPM (13 types)    │  │ ConvolutionTracers  │
-│   (données .txt)    │  │   (core/LPM_root.py)     │  │ (multi-traceurs)    │
+│   Concentrations    │  │   LPM (14 types)    │  │ ConvolutionTracers  │
+│   (données .txt)    │  │   (core/lpm_base.py)     │  │ (multi-traceurs)    │
 └─────────────────────┘  └──────────┬──────────┘  └──────────┬──────────┘
                                     │                        │
                          ┌──────────┴──────────┐             │
@@ -289,7 +291,7 @@ def perform(self):
     #
     # └─> calstrat_MH.perform()
     #     └─> 200,000 itérations MCMC
-    #     └─> Retourne LPMDist (distribution des paramètres)
+    #     └─> Retourne LpmDist (distribution des paramètres)
     #
     # └─> Sauvegarde résultats dans:
     #     results/{folder}/{date}/{well}/{lpm}/Metropolis_Hastings/
@@ -386,7 +388,7 @@ parameters:
       max: 100.0
 ```
 
-**Chargement** (`core/LPM_root.py:119-145`):
+**Chargement** (`core/lpm_base.py:119-145`):
 ```python
 def __load_bounds(self):
     params = load_params(self.name, data_dir)
@@ -599,7 +601,7 @@ CalibrationCore (calibration_basis.py)
 │   │   │   ├── Simplex: scipy.optimize.minimize (Nelder-Mead)
 │   │   │   ├── Simplex_init_multiples: N initialisations aléatoires
 │   │   │   └── forward_uncertainty_quantification: Perturbation des erreurs
-│   │   └── Retourne: LPMDist (quelques solutions)
+│   │   └── Retourne: LpmDist (quelques solutions)
 │   │
 │   └── CalibrationMetropolisHastings (calibration_Metropolis_Hastings.py)
 │       ├── Composants:
@@ -611,7 +613,7 @@ CalibrationCore (calibration_basis.py)
 │       │   ├── burn_in: 0.2 (20% d'échauffement)
 │       │   ├── nskip: 10 (sauvegarde 1 sur 10)
 │       │   └── lpm_number: 5,000 (modèles pour affichage)
-│       └── Retourne: LPMDist (distribution complète)
+│       └── Retourne: LpmDist (distribution complète)
 ```
 
 ### 6.2 Algorithme Metropolis-Hastings Détaillé
@@ -686,7 +688,7 @@ def perform(self):
     # ═══════════════════════════════════════════════════════════════
     success_rate = nsuccess / nstep  # Idéalement 0.23-0.45
 
-    lpm_results = LPMDist(self.lpm, tracer_names)
+    lpm_results = LpmDist(self.lpm, tracer_names)
     lpm_results.fill_np_array(array_results, column_names)
 
     return lpm_results

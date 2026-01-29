@@ -28,7 +28,7 @@ import pkgutil
 from typing import TYPE_CHECKING, Dict, Type
 
 if TYPE_CHECKING:
-    from LPM.core.LPM_root import LPM
+    from LPM.core.lpm_base import LpmBase as LPM
 
 
 # Global registry mapping model names to their classes

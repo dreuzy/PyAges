@@ -13,12 +13,12 @@ Jean-Raynald de Dreuzy
 
 from scipy.stats import gamma
 
-from LPM.core.LPM_scipy import LPMScipy
+from LPM.core.lpm_scipy import LpmScipy
 from LPM.core.registry import register_lpm
 
 
 @register_lpm("gamma")
-class GammaLpm(LPMScipy):
+class GammaLpm(LpmScipy):
     """Lumped Parameter Model - Gamma distribution."""
 
     scipy_dist = gamma

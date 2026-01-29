@@ -14,14 +14,14 @@ Jean-Raynald de Dreuzy
 
 import numpy as np
 
-from LPM.core.LPM_root import LPM
+from LPM.core.lpm_base import LpmBase
 from LPM.core.convolution_strategy import ConvolutionStrategy
 from LPM.core.registry import register_lpm
 import LPM.core.tools_interpolation as tools_interpolation
 
 
 @register_lpm("dirac_double")
-class DiracDoubleLpm(LPM):
+class DiracDoubleLpm(LpmBase):
     """Lumped Parameter Model - Double-Dirac distribution."""
 
     convolution_strategy = ConvolutionStrategy.DIRAC_DOUBLE
@@ -32,7 +32,7 @@ class DiracDoubleLpm(LPM):
         """
         parameter_values={'mu1':mu1,'mu2':mu2,'rate':rate}
         parameter_units={'mu1':'year','mu2':'','rate':''}
-        LPM.__init__( self, "dirac_double", parameter_values, parameter_units, directory_lpm)
+        LpmBase.__init__(self, "dirac_double", parameter_values, parameter_units, directory_lpm)
                 
     
     def get_dirac_double_time(self):

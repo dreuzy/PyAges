@@ -27,7 +27,7 @@ from IPython.display import display
 
 
 
-class LPMDist:
+class LpmDist:
     """
     Distribution of LPM parameter values and derived metrics.
 
@@ -136,11 +136,11 @@ class LPMDist:
 
     def append(self, other): 
         """
-        Concatenate another LPMDist distribution into this one.
+        Concatenate another LpmDist distribution into this one.
 
         Parameters
         ----------
-        other : LPMDist
+        other : LpmDist
             Another instance to merge into this distribution.
         """
         #concat self.__dist=self.__dist.append(other.__dist,ignore_index=True)
@@ -265,7 +265,7 @@ class LPMDist:
             Reference LPM for vertical reference lines.
         bins : int, optional
             Histogram bin count (currently unused here).
-        lpm_2nd : LPMDist, optional
+        lpm_2nd : LpmDist, optional
             Secondary distribution to overlay.
         lpm_2nd_method : str, optional
             Label for the secondary distribution.
@@ -327,7 +327,7 @@ class LPMDist:
             Reference LPM for vertical reference lines.
         bins : int, optional
             Histogram bin count (currently unused here).
-        lpm_2nd : LPMDist, optional
+        lpm_2nd : LpmDist, optional
             Secondary distribution to overlay.
         lpm_2nd_method : str, optional
             Label for the secondary distribution.
@@ -362,7 +362,7 @@ class LPMDist:
             Label for the current method.
         concentrations_reference : Concentrations, optional
             Reference concentrations for plotting markers.
-        lpm_2nd : LPMDist, optional
+        lpm_2nd : LpmDist, optional
             Secondary distribution to overlay.
         lpm_2nd_method : str, optional
             Label for the secondary distribution.

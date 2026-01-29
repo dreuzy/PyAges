@@ -43,7 +43,7 @@ from tracer.tracer_protocol import TracerProtocol
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from LPM.core.LPM_root import LPM
+    from LPM.core.lpm_base import LpmBase as LPM
 
 
 class ConvolutionError(Exception):

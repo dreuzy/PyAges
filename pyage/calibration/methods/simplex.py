@@ -11,7 +11,7 @@ import numpy as np
 from scipy.optimize import minimize
 import time
 
-import LPM.core.LPM_dist as LPM_dist
+import LPM.core.lpm_dist as LPM_dist
 import global_parameters as gp                          
 import calibration.utils.calibration_core as calbas
 from calibration.utils.objective_functions import RMSE
@@ -150,7 +150,7 @@ class Simplex(calbas.CalibrationCore):
                 
         # -----------------POSTPROCESSING -------------------------
         # Stores the solution "res.x" provided by "minimize"  
-        lpm_results = LPM_dist.LPMDist(lpm=self.lpm,c_names=self.cdata.names_dates())
+        lpm_results = LPM_dist.LpmDist(lpm=self.lpm,c_names=self.cdata.names_dates())
         lpm_results.dist_append(self.lpm.p,
                                 obj_function= RMSE(res.fun, len(self.cdata.cv)),
                                 concentrations=self.tracers.convolution(self.lpm,prepare=True),
@@ -170,12 +170,12 @@ class Simplex(calbas.CalibrationCore):
         
         Returns
         -------
-        lpm_results: LPMDist
+        lpm_results: LpmDist
             Optimal models found
         """
         
         # Initialization of results structure
-        lpm_results = LPM_dist.LPMDist(self.lpm,c_names=self.cdata.names_dates())
+        lpm_results = LPM_dist.LpmDist(self.lpm,c_names=self.cdata.names_dates())
         # Random Number Generator
         rng = np.random.default_rng(self.simplex_init_multiples_seed_rng)
         # Loop over the initial conditions for the parameters
@@ -206,7 +206,7 @@ class Simplex(calbas.CalibrationCore):
             
         """ 
         # Initialization of results structure
-        lpm_results = LPM_dist.LPMDist(self.lpm,c_names=self.cdata.names_dates())
+        lpm_results = LPM_dist.LpmDist(self.lpm,c_names=self.cdata.names_dates())
         # Surrogate calibration structure for the simplex method used for each of the sampled data set
         lpm_simplex = copy.deepcopy(self)
         # Calibration is performed with the classical Simplex algorithm

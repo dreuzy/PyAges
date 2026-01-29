@@ -92,12 +92,12 @@ Author
 
 from scipy.stats import {scipy_dist}
 
-from LPM.core.LPM_scipy import LPMScipy
+from LPM.core.lpm_scipy import LpmScipy
 from LPM.core.registry import register_lpm
 
 
 @register_lpm("{registry_name}")
-class {class_name}(LPMScipy):
+class {class_name}(LpmScipy):
     """Lumped Parameter Model - {display_name} distribution."""
 
     scipy_dist = {scipy_dist}
@@ -313,14 +313,17 @@ unit: {unit}
 # If true, concentrations are loaded from recharge.csv in the same directory
 recharge: {has_recharge}
 {recharge_constant_line}
+
 # =============================================================================
 # Optional: Radioactive Decay
 # =============================================================================
 {decay_section}
+
 # =============================================================================
 # Optional: Geoproduction
 # =============================================================================
 {production_section}
+
 # =============================================================================
 # Valid Date Range (only needed if recharge: false)
 # =============================================================================
@@ -328,9 +331,9 @@ recharge: {has_recharge}
 '''
 
 
-TRACER_CSV_TEMPLATE = '''# ============================================================================
+TRACER_CSV_TEMPLATE = '''# =============================================================================
 # {name_upper} Atmospheric Recharge Chronicle
-# ============================================================================
+# =============================================================================
 #
 # Tracer: {name}
 # Unit: {unit}
@@ -349,7 +352,7 @@ TRACER_CSV_TEMPLATE = '''# =====================================================
 #   concentration: Atmospheric concentration in {unit}
 #
 # Last Updated: {date}
-# ============================================================================
+# =============================================================================
 date,concentration
 {sample_data}
 '''
@@ -389,33 +392,34 @@ def generate_tracer(
 
     # Build optional sections
     if has_decay:
-        decay_section = '''
-# Decay characteristic time in years (half-life / ln(2))
-# Example: Tritium has half-life 12.32 years -> decay_time = 17.77
-decay_time: 10.0  # TODO: Set the correct decay time
-'''
+        decay_section = (
+            "# Decay characteristic time in years (half-life / ln(2))\n"
+            "# Example: Tritium has half-life 12.32 years -> decay_time = 17.77\n"
+            "decay_time: 10.0  # TODO: Set the correct decay time\n"
+        )
     else:
-        decay_section = '''# Uncomment to enable radioactive decay
-# decay_time: 10.0
-'''
+        decay_section = (
+            "# Uncomment to enable radioactive decay\n"
+            "# decay_time: 10.0\n"
+        )
 
     if has_production:
-        production_section = '''
-# In-situ production rate (concentration units per year)
-production_rate: 0.0  # TODO: Set the correct production rate
-'''
+        production_section = (
+            "# In-situ production rate (concentration units per year)\n"
+            "production_rate: 0.0  # TODO: Set the correct production rate\n"
+        )
     else:
-        production_section = '''# Uncomment to enable geoproduction
-# production_rate: 0.0
-'''
+        production_section = (
+            "# Uncomment to enable geoproduction\n"
+            "# production_rate: 0.0\n"
+        )
 
     if has_recharge:
         recharge_constant_line = "# recharge_constant: 0.0  # Only used if recharge: false\n"
-        date_range_section = "# Date range is automatically determined from recharge.csv"
+        date_range_section = "# Date range is automatically determined from recharge.csv\n"
     else:
         recharge_constant_line = "recharge_constant: 100.0  # Constant recharge concentration\n"
-        date_range_section = '''datemin: 1940.0
-datemax: 2025.0'''
+        date_range_section = "datemin: 1940.0\ndatemax: 2025.0\n"
 
     yaml_content = TRACER_YAML_TEMPLATE.format(
         name=tracer_name,

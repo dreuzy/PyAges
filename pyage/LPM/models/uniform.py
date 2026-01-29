@@ -13,12 +13,12 @@ Jean-Raynald de Dreuzy
 
 from scipy.stats import uniform
 
-from LPM.core.LPM_scipy import LPMScipy
+from LPM.core.lpm_scipy import LpmScipy
 from LPM.core.registry import register_lpm
 
 
 @register_lpm("uniform")
-class UniformLpm(LPMScipy):
+class UniformLpm(LpmScipy):
     """Lumped Parameter Model - Uniform distribution."""
 
     scipy_dist = uniform

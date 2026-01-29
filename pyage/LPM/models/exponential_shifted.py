@@ -14,13 +14,13 @@ Jean-Raynald de Dreuzy
 
 from scipy.stats import expon
 
-from LPM.core.LPM_scipy import LPMScipy
+from LPM.core.lpm_scipy import LpmScipy
 from LPM.core.convolution_strategy import ConvolutionStrategy
 from LPM.core.registry import register_lpm
 
 
 @register_lpm("exp_shifted")
-class ExponentialShiftedLpm(LPMScipy):
+class ExponentialShiftedLpm(LpmScipy):
     """Lumped Parameter Model - Shifted Exponential distribution."""
 
     scipy_dist = expon

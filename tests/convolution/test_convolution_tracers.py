@@ -22,9 +22,7 @@ def _golden_path() -> Path:
 
 
 def _lpm_types() -> list[str]:
-    types = []
-    for path in test_paths.lpm_dir().glob("LPM_*.py"):
-        types.append(path.stem[len("LPM_"):])
+    types = lpm_build_module.list_available_lpms()
     return sorted(t for t in types if t != "mix_exp_shifted")
 
 

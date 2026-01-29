@@ -33,7 +33,7 @@ from LPM.core.parameter_manager import ParameterManager
 from LPM.core.convolution_strategy import ConvolutionStrategy
        
 
-class LPM(abc.ABC):
+class LpmBase(abc.ABC):
     """
     Lumped Parameter Model, pure virtual class.
 
@@ -464,7 +464,7 @@ class LPM(abc.ABC):
             display_options.figure_close_fx(self.name + "_" + type_pc)
     
     
-    def display_parameters(self, lpm_reference: LPM | None = None) -> None:
+    def display_parameters(self, lpm_reference: LpmBase | None = None) -> None:
         """Display values of LPM parameters."""
         if lpm_reference is None:
             for key in self.p:

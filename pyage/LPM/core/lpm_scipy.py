@@ -15,10 +15,10 @@ import numpy as np
 import numpy.typing as npt
 from scipy.stats import rv_continuous
 
-from LPM.core.LPM_root import LPM
+from LPM.core.lpm_base import LpmBase
 
 
-class LPMScipy(LPM):
+class LpmScipy(LpmBase):
     """
     Base class for LPM models based on scipy.stats distributions.
 
@@ -71,7 +71,7 @@ class LPMScipy(LPM):
         return np.sqrt(self.scipy_dist.stats(*args, loc=loc, scale=scale, moments='v'))
 
 
-class LPMScipySafe(LPMScipy):
+class LpmScipySafe(LpmScipy):
     """
     LPMScipy with safe cdf_inv that clips probabilities.
 

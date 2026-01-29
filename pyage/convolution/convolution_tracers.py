@@ -26,7 +26,7 @@ import concentrations.concentrations as concentrations
 import tracer.tracer_root as tracer_module
 
 if TYPE_CHECKING:
-    from LPM.core.LPM_root import LPM
+    from LPM.core.lpm_base import LpmBase as LPM
     from LPM.core.convolution_strategy import ConvolutionStrategy
 
 

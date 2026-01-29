@@ -1,7 +1,7 @@
 """
 Non-regression tests for all LPM models (pdf/cdf/cdf_inv + basic invariants).
 
-- Auto-discovers model types from pyage/LPM/models/LPM_*.py.
+- Auto-discovers model types from the LPM registry.
 - Uses golden values stored in tests/golden/lpm_values.json.
 - Supports --update-golden to refresh reference values.
 """
@@ -12,18 +12,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from LPM.lpm_build import lpm_build
+from LPM.lpm_build import lpm_build, list_available_lpms
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
 
 def _lpm_types() -> list[str]:
-    # Map filenames like LPM_exp.py -> "exp"
-    types = []
-    for path in test_paths.lpm_dir().glob("LPM_*.py"):
-        if path.name in {"LPM_root.py", "lpm_build.py", "LPM_dist.py"}:
-            continue
-        types.append(path.stem[len("LPM_"):])
+    types = list_available_lpms()
     return sorted(t for t in types if t != "mix_exp_shifted")
 
 

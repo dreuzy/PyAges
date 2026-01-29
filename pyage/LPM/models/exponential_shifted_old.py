@@ -12,7 +12,7 @@ Author
 Jean-Raynald de Dreuzy
 """
 
-from LPM.core.LPM_root import LPM
+from LPM.core.lpm_base import LpmBase
 from LPM.core.convolution_strategy import ConvolutionStrategy
 from LPM.core.registry import register_lpm
 from LPM.models.exponential_shifted import ExponentialShiftedLpm
@@ -39,7 +39,7 @@ class ExponentialShiftedOldLpm(ExponentialShiftedLpm):
         """
         parameter_values = {'mu': mu, 'shift': shift}
         parameter_units = {'mu': 'year', 'shift': 'year'}
-        LPM.__init__(self, "exp_shifted_old", parameter_values, parameter_units, directory_lpm)
+        LpmBase.__init__(self, "exp_shifted_old", parameter_values, parameter_units, directory_lpm)
     
     
     def shift_upward(self): 

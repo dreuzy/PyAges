@@ -14,14 +14,14 @@ Jean-Raynald de Dreuzy
 
 import numpy as np
 
-from LPM.core.LPM_root import LPM
+from LPM.core.lpm_base import LpmBase
 from LPM.core.convolution_strategy import ConvolutionStrategy
 from LPM.core.registry import register_lpm
 import LPM.core.tools_interpolation as tools_interpolation
 
 
 @register_lpm("dirac_double_1_set")
-class DiracDouble1SetLpm(LPM):
+class DiracDouble1SetLpm(LpmBase):
     """
     Lumped Parameter Model - Double Dirac with one fixed spike.
     """
@@ -46,7 +46,7 @@ class DiracDouble1SetLpm(LPM):
         self.__muset = muset
         parameter_values = {"mufree": mufree, "rate": rate}
         parameter_units = {"mufree": "year", "rate": ""}
-        LPM.__init__(self, "dirac_double_1_set", parameter_values, parameter_units, directory_lpm)
+        LpmBase.__init__(self, "dirac_double_1_set", parameter_values, parameter_units, directory_lpm)
                 
     
     def get_dirac_double_time(self):

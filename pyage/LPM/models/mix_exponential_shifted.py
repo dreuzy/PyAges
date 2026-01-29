@@ -16,13 +16,13 @@ import math
 
 from scipy.stats import expon
 
-from LPM.core.LPM_root import LPM
+from LPM.core.lpm_base import LpmBase
 from LPM.core.convolution_strategy import ConvolutionStrategy
 from LPM.core.registry import register_lpm
 
 
 @register_lpm("mix_exp_shifted")
-class MixExponentialShiftedLpm(LPM):
+class MixExponentialShiftedLpm(LpmBase):
     """Lumped Parameter Model - Mixed shifted exponential distribution."""
 
     convolution_strategy = ConvolutionStrategy.MIX_DIRAC_EXPONENTIAL
@@ -46,7 +46,7 @@ class MixExponentialShiftedLpm(LPM):
         """
         parameter_values = {'rate': rate, 'mu1': mu1, 'mu2': mu2, 'shift': shift}
         parameter_units = {'rate': '-', 'mu1': 'year', 'mu2': 'year', 'shift': 'year'}
-        LPM.__init__(self, "mix_exp_shifted", parameter_values, parameter_units, directory_lpm)
+        LpmBase.__init__(self, "mix_exp_shifted", parameter_values, parameter_units, directory_lpm)
         
         
     def pdf(self,t):

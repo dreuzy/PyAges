@@ -27,7 +27,7 @@ from scipy.interpolate import interp1d
 
 from calibration.utils.objective_functions import RMSE
 import calibration.utils.calibration_core as calbas
-import LPM.core.LPM_dist as LPM_dist
+import LPM.core.lpm_dist as LPM_dist
 import global_parameters as gp                              
 
 
@@ -900,7 +900,7 @@ class MetropolisHastings(calbas.CalibrationCore) :
         return params, log_p, obj_func, conc
 
 
-    def perform(self) -> LPM_dist.LPMDist:
+    def perform(self) -> LPM_dist.LpmDist:
         """
         Metropolis_Hastings Monte-Carlo Markov Chain Algorithm (MH MCMC)
             Main function
@@ -913,7 +913,7 @@ class MetropolisHastings(calbas.CalibrationCore) :
                 
         Returns
         -------
-        lpm_results: LPMDist (class)
+        lpm_results: LpmDist (class)
             lpm Parameters, objective function and concentration solutions
         """   
 
@@ -967,7 +967,7 @@ class MetropolisHastings(calbas.CalibrationCore) :
         # --------------- POSTPROCESSING PHASE -------------------
         # Results consolidation
         self.__success_rate = nsuccess / self.config.nstep
-        lpm_results = LPM_dist.LPMDist(self.lpm, c_names=self.cdata.names_dates())
+        lpm_results = LPM_dist.LpmDist(self.lpm, c_names=self.cdata.names_dates())
         lpm_results.fill_np_array(array_results, array_col_names)
 
         # Adds statistical characteritics to the stored distributions
@@ -1016,7 +1016,7 @@ class MetropolisHastings(calbas.CalibrationCore) :
         return directory
 
 
-    def write_posterior(self, lpm_results: LPM_dist.LPMDist, file: str | Path) -> Path:
+    def write_posterior(self, lpm_results: LPM_dist.LpmDist, file: str | Path) -> Path:
         """
         Saves posterior to a specific folder.
 
