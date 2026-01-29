@@ -17,17 +17,20 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-ROOT_SOURCES = ROOT / "pyage"
-for path in (ROOT, ROOT_SOURCES):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
+try:
+    from pyage.config.bootstrap import ensure_repo_imports
+except ModuleNotFoundError:
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
+    from pyage.config.bootstrap import ensure_repo_imports
 
-import global_parameters as gp
+ensure_repo_imports()
 
-import calibration.workflows.synthetic_test as cst
-import calibration.methods.simplex as csimp
-import calibration.methods.metropolis_hastings as cMH
+import pyage.global_parameters as gp
+
+import pyage.calibration.workflows.synthetic_test as cst
+import pyage.calibration.methods.simplex as csimp
+import pyage.calibration.methods.metropolis_hastings as cMH
 
 
 class comparison_MH_fuq:

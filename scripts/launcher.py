@@ -24,6 +24,15 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+try:
+    from pyage.config.bootstrap import ensure_repo_imports
+except ModuleNotFoundError:
+    repo_root = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(repo_root))
+    from pyage.config.bootstrap import ensure_repo_imports
+
+ensure_repo_imports()
+
 # This script runs a full example workflow:
 # 1) load concentration data,
 # 2) explore reachable concentrations,
@@ -37,20 +46,6 @@ from common.plotting_helpers import configure_backend, enable_interactive, show_
 
 # Configure backend before importing pyplot.
 IN_INTERACTIVE = False
-
-
-def setup_repo_path():
-    """
-    Return repo root and ensure it is on sys.path.
-
-    Enables running the script from any working directory while keeping imports
-    stable (e.g., `concentrations`, `calibration`, `LPM`).
-    """
-    # Repository root is one level up from scripts/
-    root = Path(__file__).resolve().parent.parent
-    sys.path.insert(0, str(root))
-    sys.path.insert(0, str(root / "pyage"))
-    return root
 
 
 def make_display(gp, directory, save_figures):
@@ -508,7 +503,7 @@ def run_workflow(params_path, force_inline=False):
     flags loaded from the YAML parameters.
     """
     # ------------------ PATHS & SETUP ------------------
-    root = setup_repo_path()
+    root = Path(__file__).resolve().parent.parent
     print("CWD:", os.getcwd())
     print("ROOT:", root)
     print("Has pyage:", (root / "pyage").exists())
@@ -520,14 +515,14 @@ def run_workflow(params_path, force_inline=False):
     enable_interactive(plt)
     show_fig = build_show_figures(plt)
 
-    import concentrations.concentrations as co
-    from concentrations import concentrations_time as ct
-    import global_parameters as gp
-    from LPM.lpm_build import lpm_build
-    import calibration.utils.systematic_sampling as calibration_exploration
-    import calibration.utils.calibration_core as calbas
-    import calibration.methods.simplex as csimp
-    import calibration.methods.metropolis_hastings as cMH
+    import pyage.concentrations.concentrations as co
+    from pyage.concentrations import concentrations_time as ct
+    import pyage.global_parameters as gp
+    from pyage.LPM.lpm_build import lpm_build
+    import pyage.calibration.utils.systematic_sampling as calibration_exploration
+    import pyage.calibration.utils.calibration_core as calbas
+    import pyage.calibration.methods.simplex as csimp
+    import pyage.calibration.methods.metropolis_hastings as cMH
 
     # Load parameters from the YAML file provided to main().
     if params_path is None:

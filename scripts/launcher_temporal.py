@@ -23,16 +23,21 @@ from typing import Dict, Iterable, List
 
 import yaml
 
-repo_root = Path(__file__).resolve().parents[1]
-for p in (repo_root, repo_root / "pyage"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
+try:
+    from pyage.config.bootstrap import ensure_repo_imports
+except ModuleNotFoundError:
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
+    from pyage.config.bootstrap import ensure_repo_imports
 
-import global_parameters as gp
-import concentrations.concentrations as co
-from concentrations import concentrations_time as ct
-import calibration.utils.calibration_core as calbas
-import calibration.methods.metropolis_hastings as cMH
+_bootstrap_root = ensure_repo_imports()
+repo_root = _bootstrap_root or Path(__file__).resolve().parents[1]
+
+import pyage.global_parameters as gp
+import pyage.concentrations.concentrations as co
+from pyage.concentrations import concentrations_time as ct
+import pyage.calibration.utils.calibration_core as calbas
+import pyage.calibration.methods.metropolis_hastings as cMH
 
 
 DEFAULT_LPMS = ["exp_shifted", "ig", "ig_shifted"]

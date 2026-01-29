@@ -13,17 +13,20 @@ Jean-Raynald de Dreuzy
 from pathlib import Path
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
-ROOT_SOURCES = ROOT / "pyage"
-for path in (ROOT, ROOT_SOURCES):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
+try:
+    from pyage.config.bootstrap import ensure_repo_imports
+except ModuleNotFoundError:
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
+    from pyage.config.bootstrap import ensure_repo_imports
 
-import global_parameters as gp
-import LPM.lpm_build as lpm_build_module
-import calibration.workflows.synthetic_test as cst
-import calibration.methods.simplex as csimp
-import calibration.methods.metropolis_hastings as cMH
+ensure_repo_imports()
+
+import pyage.global_parameters as gp
+import pyage.LPM.lpm_build as lpm_build_module
+import pyage.calibration.workflows.synthetic_test as cst
+import pyage.calibration.methods.simplex as csimp
+import pyage.calibration.methods.metropolis_hastings as cMH
 
 
 class TestIntegration:
