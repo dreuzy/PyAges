@@ -17,17 +17,17 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-import convolution.convolution_tracers as convolution_tracers
-import concentrations.concentrations as c
+import pyage.convolution.convolution_tracers as convolution_tracers
+import pyage.concentrations.concentrations as c
 
-from concentrations.utils.tables import to_cv_dict, merge_model_into_table
-from concentrations.utils.distributions import sample_lpms_from_dist
-from concentrations.utils.storage import (
+from pyage.concentrations.utils.tables import to_cv_dict, merge_model_into_table
+from pyage.concentrations.utils.distributions import sample_lpms_from_dist
+from pyage.concentrations.utils.storage import (
     save_concentrations_table,
     save_distributions_tables,
     save_tracer_series_table,
 )
-from concentrations.utils.plotting import plot_tracer_series, plot_concentration_chronicles
+from pyage.concentrations.utils.plotting import plot_tracer_series, plot_concentration_chronicles
 
 
 class ConcentrationTime:

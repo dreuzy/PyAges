@@ -12,10 +12,10 @@ Author
 Jean-Raynald de Dreuzy
 """
 
-from LPM.core.lpm_base import LpmBase
-from LPM.core.convolution_strategy import ConvolutionStrategy
-from LPM.core.registry import register_lpm
-from LPM.models.exponential_shifted import ExponentialShiftedLpm
+from pyage.LPM.core.lpm_base import LpmBase
+from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
+from pyage.LPM.core.registry import register_lpm
+from pyage.LPM.models.exponential_shifted import ExponentialShiftedLpm
 
 
 @register_lpm("exp_shifted_young")

@@ -34,6 +34,7 @@ Welcome to the PyAge user documentation. This guide helps you use PyAge for grou
 ```bash
 conda activate pyage
 python scripts/launcher.py --params examples/ploemeur/exemple_ploemeur.yaml
+pyage run examples/ploemeur/exemple_ploemeur.yaml
 ```
 
 ### Create New Components
@@ -50,6 +51,8 @@ python scripts/new_component.py tracer <name> --unit <unit> [--decay]
 
 ```bash
 python scripts/run_system_check.py
+python scripts/run_system_check.py --params configs/system_check.yaml
+pyage check
 ```
 
 ---

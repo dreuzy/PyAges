@@ -117,7 +117,7 @@ class TestCaptureLPM:
     ])
     def test_capture_lpm(self, lpm_type):
         """Capture PDF/CDF pour chaque LPM."""
-        from LPM.lpm_build import lpm_build
+        from pyage.LPM.lpm_build import lpm_build
 
         lpm = lpm_build(lpm_type)
         t = np.linspace(0.1, 100, 50)
@@ -155,8 +155,8 @@ class TestCaptureConvolution:
     ])
     def test_capture_convolution(self, lpm_type, tracer, date):
         """Capture convolution pour chaque combinaison."""
-        from convolution.convolution import Convolution
-        from LPM.lpm_build import lpm_build
+        from pyage.convolution.convolution import Convolution
+        from pyage.LPM.lpm_build import lpm_build
         import global_parameters as gp
 
         lpm = lpm_build(lpm_type)
@@ -247,7 +247,7 @@ class TestRegressionLPM:
     ])
     def test_lpm_unchanged(self, lpm_type):
         """Compare PDF/CDF aux références."""
-        from LPM.lpm_build import lpm_build
+        from pyage.LPM.lpm_build import lpm_build
 
         golden_file = GOLDEN_DIR / "lpm" / f"{lpm_type}.json"
         if not golden_file.exists():
@@ -296,8 +296,8 @@ class TestRegressionConvolution:
     ])
     def test_convolution_unchanged(self, lpm_type, tracer, date):
         """Compare convolution aux références."""
-        from convolution.convolution import Convolution
-        from LPM.lpm_build import lpm_build
+        from pyage.convolution.convolution import Convolution
+        from pyage.LPM.lpm_build import lpm_build
         import global_parameters as gp
 
         filename = f"{lpm_type}_{tracer}_{date}.json"
@@ -915,7 +915,7 @@ python tests/run_tests.py regression
 # Test des exceptions
 python -c "
 from core.exceptions import LPMError
-from LPM.lpm_build import lpm_build
+from pyage.LPM.lpm_build import lpm_build
 try:
     lpm_build('invalid_type')
 except LPMError as e:

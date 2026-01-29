@@ -16,8 +16,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import global_parameters as gp
-from concentrations.concentrations import Concentrations
+import pyage.global_parameters as gp
+from pyage.concentrations.concentrations import Concentrations
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 

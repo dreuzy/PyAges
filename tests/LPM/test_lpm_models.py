@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from LPM.lpm_build import lpm_build, list_available_lpms
+from pyage.LPM.lpm_build import lpm_build, list_available_lpms
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 

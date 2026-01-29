@@ -89,7 +89,7 @@ date,concentration
 ### Step 4: Test the Tracer
 
 ```python
-from tracer.tracer_root import Tracer, find_tracer_dir
+from pyage.tracer.tracer_root import Tracer, find_tracer_dir
 
 tracer = Tracer(find_tracer_dir(), name="mytracer")
 print(f"Name: {tracer.name}")

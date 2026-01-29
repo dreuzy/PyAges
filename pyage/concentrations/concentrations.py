@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd    
 import matplotlib.pyplot as plt                                     
 
-import global_parameters as gp                              # Global variables
+import pyage.global_parameters as gp                              # Global variables
 
 
 def name_date(name: str, date: float) -> str:

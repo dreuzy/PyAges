@@ -20,14 +20,14 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-import global_parameters as gp
-import convolution.convolution as convolution
-import concentrations.concentrations as concentrations
-import tracer.tracer_root as tracer_module
+import pyage.global_parameters as gp
+import pyage.convolution.convolution as convolution
+import pyage.concentrations.concentrations as concentrations
+import pyage.tracer.tracer_root as tracer_module
 
 if TYPE_CHECKING:
-    from LPM.core.lpm_base import LpmBase as LPM
-    from LPM.core.convolution_strategy import ConvolutionStrategy
+    from pyage.LPM.core.lpm_base import LpmBase as LPM
+    from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
 
 
 

@@ -5,7 +5,7 @@ Legacy entrypoints for Ploemeur helpers.
 This module now re-exports dataset helpers from ``sites.ploemeur.observations.ploemeur``.
 """
 
-from observations.loader import build_observation_file, load_observation_concentrations
+from pyage.observations.loader import build_observation_file, load_observation_concentrations
 from sites.ploemeur.observations import ploemeur as ploemeur_obs
 
 __all__ = [

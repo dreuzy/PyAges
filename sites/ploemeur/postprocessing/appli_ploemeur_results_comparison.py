@@ -1,10 +1,14 @@
 import sys
 from pathlib import Path
 
-repo_root = Path(__file__).resolve().parents[3]
-for p in (repo_root, repo_root / "pyage"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
+try:
+    from pyage.config.bootstrap import ensure_repo_imports
+except ModuleNotFoundError:
+    repo_root = Path(__file__).resolve().parents[3]
+    sys.path.insert(0, str(repo_root))
+    from pyage.config.bootstrap import ensure_repo_imports
+
+ensure_repo_imports()
 
 # -*- coding: utf-8 -*-
 """
@@ -20,10 +24,10 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-from concentrations import concentrations_time as ct
-import LPM.lpm_build as lpg
-import global_parameters as gp                          # Global variables
-import tools.figures_additional as fad
+from pyage.concentrations import concentrations_time as ct
+import pyage.LPM.lpm_build as lpg
+import pyage.global_parameters as gp                          # Global variables
+import pyage.tools.figures_additional as fad
 
 
 

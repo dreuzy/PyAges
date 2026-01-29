@@ -17,6 +17,7 @@ Then run a script from the repository root, for example:
 python scripts/launcher.py --params examples/ploemeur/exemple_ploemeur.yaml
 python scripts/launcher_temporal.py --params examples/ploemeur_temporal/ploemeur_temporal.yaml
 python scripts/run_system_check.py
+python scripts/run_system_check.py --params configs/system_check.yaml
 python scripts/run_calibration_benchmark.py
 ```
 
@@ -173,6 +174,7 @@ python scripts/new_component.py tracer synthetic --unit pptv --no-recharge
 - `run_system_check.py`
   - Results under: `<results_root>/test/<check_name>/<timestamp>/`
   - Diagnostic plots + console summaries of generated models/tracers.
+  - Optional config override: `python scripts/run_system_check.py --params <file.yaml>`
 - `run_calibration_benchmark.py`
   - Results under:
     `<results_root>/test_calib_comp/<timestamp>/prec_<error>/<tracers>/<lpm>/<case>/`

@@ -3,7 +3,7 @@
 Observation loaders and dataset helpers.
 """
 
-from observations.loader import (
+from pyage.observations.loader import (
     build_observation_file,
     build_observation_path,
     load_concentrations,

@@ -37,13 +37,13 @@ import numpy.typing as npt
 import pandas as pd
 from scipy import integrate
 
-import global_parameters as gp
-from LPM.core.convolution_strategy import ConvolutionStrategy
-from tracer.tracer_protocol import TracerProtocol
+import pyage.global_parameters as gp
+from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
+from pyage.tracer.tracer_protocol import TracerProtocol
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from LPM.core.lpm_base import LpmBase as LPM
+    from pyage.LPM.core.lpm_base import LpmBase as LPM
 
 
 class ConvolutionError(Exception):
@@ -75,13 +75,13 @@ class Convolution:
 
     Examples
     --------
-        >>> from tracer.tracer_root import Tracer
+        >>> from pyage.tracer.tracer_root import Tracer
         >>> tracer = Tracer(dir_tracer, name="cfc11")
         >>> conv = Convolution(tracer, date=2010)
         >>> result = conv.convolution(lpm)
 
         >>> # With synthetic tracer for testing
-        >>> from tracer.tracer_protocol import SyntheticTracer
+        >>> from pyage.tracer.tracer_protocol import SyntheticTracer
         >>> synth = SyntheticTracer(concentration_fn=lambda d, t: 100 * np.exp(-t/20))
         >>> conv = Convolution(synth, date=2010)
         >>> result = conv.convolution(lpm)
@@ -105,11 +105,11 @@ class Convolution:
 
         Examples
         --------
-            >>> from tracer.tracer_root import Tracer
+            >>> from pyage.tracer.tracer_root import Tracer
             >>> tracer = Tracer(dir_tracer, "cfc11")
             >>> conv = Convolution(tracer, date=2010)
 
-            >>> from tracer.tracer_protocol import SyntheticTracer
+            >>> from pyage.tracer.tracer_protocol import SyntheticTracer
             >>> synth = SyntheticTracer(concentration_fn=lambda d, t: 100 * np.exp(-t/20))
             >>> conv = Convolution(synth, date=2010)
         """
@@ -173,7 +173,7 @@ class Convolution:
         return self._tracer.get_concentration(date, time)
 
     def max_value(self) -> float:
-        """Get maximum concentration value from tracer."""
+        """Get maximum concentration value from pyage.tracer."""
         # If tracer has max_value method, use it; otherwise estimate
         if hasattr(self._tracer, 'max_value'):
             return self._tracer.max_value()

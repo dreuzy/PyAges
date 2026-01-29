@@ -13,8 +13,8 @@ Jean-Raynald de Dreuzy
 
 from scipy.stats import uniform
 
-from LPM.core.lpm_scipy import LpmScipy
-from LPM.core.registry import register_lpm
+from pyage.LPM.core.lpm_scipy import LpmScipy
+from pyage.LPM.core.registry import register_lpm
 
 
 @register_lpm("uniform")

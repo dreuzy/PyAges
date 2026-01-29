@@ -8,12 +8,12 @@ the objective function used during calibration, and standardized outputs.
 
 import os
 
-from calibration.utils.systematic_sampling import ParamSysSampling, SystematicSampling
-from calibration.utils.objective_functions import L2_norm_diff
-import global_parameters as gp                         
-import LPM.lpm_build as lpm_build_module                                        
-import convolution.convolution_tracers as convolution_tracers      
-import concentrations.concentrations as co 
+from pyage.calibration.utils.systematic_sampling import ParamSysSampling, SystematicSampling
+from pyage.calibration.utils.objective_functions import L2_norm_diff
+import pyage.global_parameters as gp                         
+import pyage.LPM.lpm_build as lpm_build_module                                        
+import pyage.convolution.convolution_tracers as convolution_tracers      
+import pyage.concentrations.concentrations as co 
 
 from pathlib import Path
 

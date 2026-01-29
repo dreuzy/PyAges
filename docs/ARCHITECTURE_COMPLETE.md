@@ -99,9 +99,9 @@ Chaque modèle LPM utilise le décorateur `@register_lpm` pour s'enregistrer aut
 
 ```python
 # pyage/LPM/models/dirac.py
-from LPM.core.registry import register_lpm
-from LPM.core.convolution_strategy import ConvolutionStrategy
-from LPM.core.lpm_base import LpmBase
+from pyage.LPM.core.registry import register_lpm
+from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
+from pyage.LPM.core.lpm_base import LpmBase
 
 @register_lpm("dirac")
 class DiracLpm(LpmBase):
@@ -168,7 +168,7 @@ tracer = SyntheticTracer(concentration_fn=lambda d, t: 100 * np.exp(-t/20))
 conv = Convolution(tracer, date=2010)
 
 # Avec traceur fichier (données réelles)
-from tracer.tracer_root import Tracer
+from pyage.tracer.tracer_root import Tracer
 tracer = Tracer(dir_tracer, "cfc11")
 conv = Convolution(tracer, date=2010)
 ```
@@ -997,8 +997,8 @@ class TestCaptureGolden:
 
     def test_capture_convolution(self):
         """Capture les résultats de convolution pour chaque combinaison."""
-        from convolution.convolution import Convolution
-        from LPM.lpm_build import lpm_build
+        from pyage.convolution.convolution import Convolution
+        from pyage.LPM.lpm_build import lpm_build
 
         test_cases = [
             ("exp_shifted", "cfc11", 2010),

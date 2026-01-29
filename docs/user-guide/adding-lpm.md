@@ -50,8 +50,8 @@ Your Name
 
 from scipy.stats import weibull_min
 
-from LPM.core.lpm_scipy import LpmScipy
-from LPM.core.registry import register_lpm
+from pyage.LPM.core.lpm_scipy import LpmScipy
+from pyage.LPM.core.registry import register_lpm
 
 
 @register_lpm("weibull")  # This name is used in YAML configs
@@ -197,7 +197,7 @@ Choose the appropriate base class:
 For special distributions that need optimized convolution (like Dirac or exponential), set the convolution strategy:
 
 ```python
-from LPM.core.convolution_strategy import ConvolutionStrategy
+from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
 
 @register_lpm("my_special_lpm")
 class MySpecialLpm(LpmScipy):
@@ -218,7 +218,7 @@ Available strategies:
 ### Basic Test
 
 ```python
-from LPM.lpm_build import lpm_build
+from pyage.LPM.lpm_build import lpm_build
 
 # Create instance
 lpm = lpm_build("weibull")
@@ -238,8 +238,8 @@ print(f"Std:  {lpm.std():.2f} years")
 ### Test with Convolution
 
 ```python
-from tracer.tracer_root import Tracer, find_tracer_dir
-from convolution.convolution import Convolution
+from pyage.tracer.tracer_root import Tracer, find_tracer_dir
+from pyage.convolution.convolution import Convolution
 
 # Load tracer
 tracer = Tracer(find_tracer_dir(), name="cfc11")
@@ -306,8 +306,8 @@ parameters:
 # pyage/LPM/models/lognormal.py
 
 from scipy.stats import lognorm
-from LPM.core.lpm_scipy import LpmScipy
-from LPM.core.registry import register_lpm
+from pyage.LPM.core.lpm_scipy import LpmScipy
+from pyage.LPM.core.registry import register_lpm
 
 
 @register_lpm("lognormal")
@@ -393,7 +393,7 @@ notes: |
 
 - Check that `@register_lpm("mymodel")` decorator is present
 - Verify the file is in `pyage/LPM/models/`
-- Ensure no import errors: `python -c "from LPM.models.LPM_mymodel import *"`
+- Ensure no import errors: `python -c "from pyage.LPM.models.LPM_mymodel import *"`
 
 ### "Parameter 'x' not found in bounds"
 

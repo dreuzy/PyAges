@@ -17,9 +17,9 @@ import numpy as np                      # Arrays
 import os
 import pandas as pd                     # Tables-Arrays
 
-import global_parameters as gp
-import tools.figures_additional as figadd
-import tools.dist_hist as dist_hist
+import pyage.global_parameters as gp
+import pyage.tools.figures_additional as figadd
+import pyage.tools.dist_hist as dist_hist
 from pathlib import Path
 
 from IPython.display import display

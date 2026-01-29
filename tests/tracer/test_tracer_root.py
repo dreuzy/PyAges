@@ -32,7 +32,7 @@ import math
 import pytest
 
 # Import du code à tester
-from tracer.tracer_root import Tracer
+from pyage.tracer.tracer_root import Tracer
 
 # Fonction utilitaire de sauvegarde des golden values
 # NOTE: importer depuis conftest.py marche, mais à long terme il est souvent plus propre

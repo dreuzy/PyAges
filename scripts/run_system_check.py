@@ -12,6 +12,8 @@ Jean-Raynald de Dreuzy
 
 from pathlib import Path
 import sys
+import argparse
+from typing import Optional
 
 try:
     from pyage.config.bootstrap import ensure_repo_imports
@@ -22,11 +24,15 @@ except ModuleNotFoundError:
 
 ensure_repo_imports()
 
+import yaml
+from pydantic import ValidationError
+
 import pyage.global_parameters as gp
 import pyage.LPM.lpm_build as lpm_build_module
 import pyage.calibration.workflows.synthetic_test as cst
 import pyage.calibration.methods.simplex as csimp
 import pyage.calibration.methods.metropolis_hastings as cMH
+from pyage.config.models import SystemCheckConfig
 
 
 class TestIntegration:
@@ -65,18 +71,19 @@ class TestIntegration:
         
     """
     
-    def __init__(self,date=2010):
-        self.LPM_all = ['dirac','dirac_double','dirac_double_1_set','exp_shifted','dirac','gamma','exp','uniform','ig','ig_shifted','mix_exp_shifted']
-        self.LPM_calib = ['dirac_double','exp_shifted','exp','gamma','ig','uniform','dirac_double','dirac']#['dirac_double','dirac','exp','exp_shifted','uniform','gamma','ig']
-        self.tracers_all = ["Li","sf6","cfc11","cfc12","cfc113","kr85","3H","14C","39Ar"]
-        self.tracers_conv = ["cfc11","kr85"]
-        self.tracers_calib = ["cfc11","kr85"]
+    def __init__(self, config: Optional[SystemCheckConfig] = None):
+        cfg = config or SystemCheckConfig()
+        self.LPM_all = cfg.lpm_all
+        self.LPM_calib = cfg.lpm_calib
+        self.tracers_all = cfg.tracers_all
+        self.tracers_conv = cfg.tracers_conv
+        self.tracers_calib = cfg.tracers_calib
         # Reachable Concentrations
-        self.reachable_resolution = 1000
+        self.reachable_resolution = cfg.reachable_resolution
         # Output options
         self.display = gp.display_options()
         self.display_set(single_all="all")
-        self.__date = date
+        self.__date = cfg.date
 
 
     def display_set(self,single_all="all"): 
@@ -210,23 +217,49 @@ class TestIntegration:
 # ----------------- LAUNNCHERS -----------------
 # ----------------------------------------------
 
-def test_integration(): 
+def _load_config(path: Optional[Path]) -> SystemCheckConfig:
+    """
+    Load optional YAML configuration for the integration test script.
+    """
+    if path is None:
+        return SystemCheckConfig()
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    try:
+        return SystemCheckConfig.model_validate(data)
+    except ValidationError as exc:
+        raise ValueError(f"Invalid system check config:\n{exc}") from exc
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run PyAge integration checks.")
+    parser.add_argument(
+        "--params",
+        type=Path,
+        default=None,
+        help="Optional YAML file to override integration test settings.",
+    )
+    return parser.parse_args()
+
+
+def test_integration(config: Optional[SystemCheckConfig] = None): 
    
 
     # Simple test functions: exhaustive tracer or lpm
-    ti = TestIntegration(date=2010)
+    ti = TestIntegration(config=config)
     ti.check_lpms(single_all="all")
 
     # Simple test functions: single tracer or lpm
-    ti = TestIntegration(date=2010)
+    ti = TestIntegration(config=config)
     ti.check_lpms(single_all="single",single_name="dirac_double_1_set")
 
     # Checks calibration 
-    ti = TestIntegration(date=2010)
+    ti = TestIntegration(config=config)
     #ti.check_calibration(single_all="single",single_name="ig")
     ti.check_calibration(single_all="all")
     # ti.check_calibration(single_all="all")
         
     
 if __name__ == "__main__":
-    test_integration()
+    args = _parse_args()
+    cfg = _load_config(args.params)
+    test_integration(config=cfg)

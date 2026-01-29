@@ -33,6 +33,11 @@ python scripts/run_system_check.py
 ```
 
 You should see output listing all available LPMs and tracers, with no errors.
+You can also override defaults with a small YAML file:
+
+```bash
+python scripts/run_system_check.py --params configs/system_check.yaml
+```
 
 ## Project Structure
 
@@ -60,6 +65,12 @@ The simplest way to start is with an existing example:
 
 ```bash
 python scripts/launcher.py --params examples/ploemeur/exemple_ploemeur.yaml
+```
+
+Or, if you installed the package, use the CLI:
+
+```bash
+pyage run examples/ploemeur/exemple_ploemeur.yaml
 ```
 
 This runs a complete calibration workflow on the Ploemeur dataset using the `dirac_double` LPM model.
@@ -146,5 +157,6 @@ Where:
 ## Getting Help
 
 - Run `python scripts/launcher.py --help` for CLI options
+- Run `pyage --help` for the CLI entrypoint
 - Check the `scripts/README.md` for script documentation
 - Report issues at: https://github.com/your-org/pyage/issues

@@ -12,7 +12,7 @@ direct access to global_parameters. This enables:
 
 Usage
 -----
-    from config.context import PyAgeContext
+    from pyage.config.context import PyAgeContext
 
     # Use default configuration
     ctx = PyAgeContext.default()
@@ -85,7 +85,7 @@ class PyAgeContext:
         PyAgeContext
             Context initialized with global configuration.
         """
-        import global_parameters as gp
+        import pyage.global_parameters as gp
 
         return cls(
             lpm_data_dir=Path(gp.DIRECTORY_LPM_DATA),
@@ -117,7 +117,7 @@ class PyAgeContext:
         """
         if base_dir is None:
             # Use default data directories but with lower resolution
-            import global_parameters as gp
+            import pyage.global_parameters as gp
             return cls(
                 lpm_data_dir=Path(gp.DIRECTORY_LPM_DATA),
                 tracer_data_dir=Path(gp.DIRECTORY_TRACER_DATA),

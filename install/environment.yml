@@ -15,6 +15,7 @@ dependencies:
   - av
   - imageio-ffmpeg
   - pyyaml
+  - pydantic
   - pytest
   - pip
   - pip:

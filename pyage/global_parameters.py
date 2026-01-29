@@ -5,7 +5,7 @@ Created on Tue Mar 23 21:20:39 2021
 @author: Jean-Raynald de Dreuzy
 
 Global parameters and re-exports used across the codebase.
-Includes model/data constants and forwards config helpers from config.*
+Includes model/data constants and forwards config helpers from pyage.config.*
 to keep call sites stable.
 """
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
-from config.paths import (
+from pyage.config.paths import (
     ROOT_DIRECTORY,
     ROOT_DIRECTORY_RESULTS,
     ROOT_DIRECTORY_SRC,
@@ -25,7 +25,7 @@ from config.paths import (
     name_dhms,
 )
 
-from config.runtime import display_options, simulation_time, arange_n
+from pyage.config.runtime import display_options, simulation_time, arange_n
 
 # -------------------------------------------------------
 # Global parameters (model/data constants)

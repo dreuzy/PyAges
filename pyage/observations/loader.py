@@ -10,7 +10,7 @@ across examples and site workflows.
 
 from pathlib import Path
 
-from concentrations.concentrations import Concentrations
+from pyage.concentrations.concentrations import Concentrations
 
 
 def build_observation_path(

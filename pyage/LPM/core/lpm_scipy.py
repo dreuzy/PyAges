@@ -15,7 +15,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.stats import rv_continuous
 
-from LPM.core.lpm_base import LpmBase
+from pyage.LPM.core.lpm_base import LpmBase
 
 
 class LpmScipy(LpmBase):

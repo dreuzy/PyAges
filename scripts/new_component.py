@@ -92,8 +92,8 @@ Author
 
 from scipy.stats import {scipy_dist}
 
-from LPM.core.lpm_scipy import LpmScipy
-from LPM.core.registry import register_lpm
+from pyage.LPM.core.lpm_scipy import LpmScipy
+from pyage.LPM.core.registry import register_lpm
 
 
 @register_lpm("{registry_name}")
@@ -512,7 +512,7 @@ Next steps:
      - MCMC step sizes
 
   3. Test your LPM:
-     >>> from LPM.lpm_build import lpm_build
+     >>> from pyage.LPM.lpm_build import lpm_build
      >>> lpm = lpm_build("{result['registry_name']}")
      >>> print(lpm.pdf(10.0))
 
@@ -543,7 +543,7 @@ Next steps:
      - Column 2: concentration in your chosen unit
 
   3. Test your tracer:
-     >>> from tracer.tracer_root import Tracer, find_tracer_dir
+     >>> from pyage.tracer.tracer_root import Tracer, find_tracer_dir
      >>> tracer = Tracer(find_tracer_dir(), name="{result['tracer_name']}")
      >>> print(tracer.get_concentration(date=2010.0, time=20.0))
 

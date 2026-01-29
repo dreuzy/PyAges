@@ -40,9 +40,9 @@ ensure_repo_imports()
 # 4) compare synthetic figures and objective function,
 # 5) save outputs and optionally show live figures.
 
-from common.launcher_paths import results_directory
-from common.launcher_params import LauncherParams, load_params
-from common.plotting_helpers import configure_backend, enable_interactive, show_figures
+from scripts.common.launcher_paths import results_directory
+from scripts.common.launcher_params import LauncherParams, load_params
+from scripts.common.plotting_helpers import configure_backend, enable_interactive, show_figures
 
 # Configure backend before importing pyplot.
 IN_INTERACTIVE = False

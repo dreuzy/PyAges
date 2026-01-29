@@ -3,8 +3,8 @@
 import os
 from typing import Dict
 
-import global_parameters as gp
-import calibration.utils.calibration_core as calbas
+import pyage.global_parameters as gp
+import pyage.calibration.utils.calibration_core as calbas
 from sites.ploemeur.observations import ploemeur as ploemeur_obs
 
 

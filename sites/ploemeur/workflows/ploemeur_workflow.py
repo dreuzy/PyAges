@@ -10,13 +10,9 @@ Copyright (c) 2025 Jean-Raynald de Dreuzy, CNRS
 Author: Jean-Raynald de Dreuzy
 """
 
-import sys
 from pathlib import Path
 
 repo_root = Path(__file__).resolve().parents[3]
-for p in (repo_root, repo_root / "pyage"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
 import copy
 import functools
@@ -25,18 +21,18 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import yaml
-import global_parameters as gp
-import concentrations.concentrations as co
-from concentrations import concentrations_time as ct
+import pyage.global_parameters as gp
+import pyage.concentrations.concentrations as co
+from pyage.concentrations import concentrations_time as ct
 
-import calibration.utils.calibration_core as calbas
-import calibration.methods.simplex as csimp
-import calibration.methods.metropolis_hastings as cMH
+import pyage.calibration.utils.calibration_core as calbas
+import pyage.calibration.methods.simplex as csimp
+import pyage.calibration.methods.metropolis_hastings as cMH
 
 from sites.ploemeur.observations import ploemeur as ploemeur_obs
 from sites.ploemeur.postprocessing import appli_ploemeur_results_comparison as aprc
 from sites.ploemeur.workflows.job_builder import build_jobs
-from observations.loader import (
+from pyage.observations.loader import (
     build_observation_path,
     load_observation_concentrations,
 )

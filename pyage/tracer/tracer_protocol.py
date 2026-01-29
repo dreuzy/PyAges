@@ -10,7 +10,7 @@ tracers for testing, or tracers with different data sources.
 
 Usage
 -----
-    from tracer.tracer_protocol import TracerProtocol
+    from pyage.tracer.tracer_protocol import TracerProtocol
 
     def process_tracer(tracer: TracerProtocol) -> float:
         return tracer.get_concentration(2010.0, 10.0)

@@ -12,10 +12,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import calibration.methods.metropolis_hastings as cMH
-import calibration.utils.systematic_sampling as cexp
-import calibration.workflows.synthetic_test as cst
-import global_parameters as gp
+import pyage.calibration.methods.metropolis_hastings as cMH
+import pyage.calibration.utils.systematic_sampling as cexp
+import pyage.calibration.workflows.synthetic_test as cst
+import pyage.global_parameters as gp
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 

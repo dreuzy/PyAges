@@ -13,9 +13,9 @@ SRC_DIR = REPO_ROOT / "pyage"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-import global_parameters as gp
-from calibration.methods.metropolis_hastings import MHConfig, MetropolisHastings
-from calibration.workflows import synthetic_test as cst
+import pyage.global_parameters as gp
+from pyage.calibration.methods.metropolis_hastings import MHConfig, MetropolisHastings
+from pyage.calibration.workflows import synthetic_test as cst
 
 
 def test_calibration_mh_prior_smoke(tmp_path: Path):

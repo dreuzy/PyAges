@@ -11,8 +11,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import LPM.lpm_build as lpm_build_module
-from convolution.convolution_tracers import ConvolutionTracers
+import pyage.LPM.lpm_build as lpm_build_module
+from pyage.convolution.convolution_tracers import ConvolutionTracers
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 

@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-import concentrations.concentrations as co
+import pyage.concentrations.concentrations as co
 from tests.utils import golden as golden_utils
 
 

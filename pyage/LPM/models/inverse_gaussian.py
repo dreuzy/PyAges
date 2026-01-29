@@ -19,8 +19,8 @@ Jean-Raynald de Dreuzy
 
 from scipy.stats import invgauss
 
-from LPM.core.lpm_scipy import LpmScipySafe
-from LPM.core.registry import register_lpm
+from pyage.LPM.core.lpm_scipy import LpmScipySafe
+from pyage.LPM.core.registry import register_lpm
 
 
 @register_lpm("ig")

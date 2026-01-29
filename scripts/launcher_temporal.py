@@ -1,14 +1,36 @@
 # -*- coding: utf-8 -*-
 """
-Temporal Metropolis-Hastings launcher.
+Temporal Metropolis-Hastings launcher (didactic entrypoint).
 
-Runs MH calibration on a multi-date concentration file (ori_*.txt) and
-produces temporal plots plus parameter/concentration distributions.
+What this example does
+----------------------
+This script runs a Metropolis-Hastings calibration on a multi-date concentration
+file (ori_*.txt) and writes:
+- calibrated parameters and stats,
+- concentration chronicle plots,
+- optional parameter/concentration distributions.
 
-Modes
------
-- span: single calibration over the full time span
-- successive: one calibration per observation date
+Workflow modes
+--------------
+- span: single calibration over the full time span.
+- successive: one calibration per observation date.
+
+Code architecture choices (why it is written this way)
+------------------------------------------------------
+1) Bootstrap execution (repo-direct vs installed)
+   - We attempt to import `pyage` normally.
+   - If that fails, we add the repo root to `sys.path`.
+   - This makes the script runnable both after `pip install -e .`
+     and directly from the repository.
+
+2) Pydantic configuration validation (strict + explicit)
+   - YAML is parsed into a typed schema (DatasetCfg, CalibrationCfg, ...).
+   - This gives early, clear errors for missing fields, wrong types, and bounds.
+   - It prevents silent defaults from masking misconfigurations.
+
+3) Structured I/O + reproducibility
+   - All paths are resolved relative to the repo root (if not absolute).
+   - Results are written under a stable folder tree for regression testing.
 
 Copyright (c) 2025 Jean-Raynald de Dreuzy, CNRS
 Author: Jean-Raynald de Dreuzy
@@ -19,10 +41,13 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict
 
+# YAML parsing for config files (raw load before validation).
 import yaml
 
+# Bootstrap: allow "repo-direct" execution without installation.
+# If pyage isn't importable, add the repo root to sys.path, then retry.
 try:
     from pyage.config.bootstrap import ensure_repo_imports
 except ModuleNotFoundError:
@@ -30,19 +55,34 @@ except ModuleNotFoundError:
     sys.path.insert(0, str(repo_root))
     from pyage.config.bootstrap import ensure_repo_imports
 
+# Repo root used to resolve relative paths in YAML (dataset, results, etc.).
 _bootstrap_root = ensure_repo_imports()
 repo_root = _bootstrap_root or Path(__file__).resolve().parents[1]
 
+# Core library imports (use pyage.* consistently to avoid duplicate modules).
 import pyage.global_parameters as gp
 import pyage.concentrations.concentrations as co
 from pyage.concentrations import concentrations_time as ct
 import pyage.calibration.utils.calibration_core as calbas
 import pyage.calibration.methods.metropolis_hastings as cMH
 
+from pydantic import ValidationError
+
+# Shared Pydantic schemas live in pyage.config.models to keep launchers consistent.
+from pyage.config.models import (
+    TemporalCalibrationCfg,
+    TemporalDatasetCfg,
+    TemporalFiguresCfg,
+    TemporalLpmModelsCfg,
+    TemporalParams,
+    TemporalResultsCfg,
+    TemporalWorkflowCfg,
+    TEMPORAL_VALID_MODES,
+)
+
 
 DEFAULT_LPMS = ["exp_shifted", "ig", "ig_shifted"]
-VALID_MODES = {"span", "successive"}
-
+VALID_MODES = TEMPORAL_VALID_MODES
 
 def _load_yaml(path: Path) -> Dict:
     """
@@ -67,6 +107,19 @@ def _load_yaml(path: Path) -> Dict:
         raise FileNotFoundError(f"Missing params file: {path}")
     with path.open("r", encoding="utf-8") as handle:
         return yaml.safe_load(handle) or {}
+
+
+def _load_params_validated(path: Path) -> TemporalParams:
+    """
+    Load params and validate with Pydantic.
+    """
+    data = _load_yaml(path)
+    # Pydantic raises a structured ValidationError that we convert to ValueError
+    # for a cleaner CLI error message.
+    try:
+        return TemporalParams.model_validate(data)
+    except ValidationError as exc:
+        raise ValueError(f"Invalid launcher_temporal config:\n{exc}") from exc
 
 
 def _resolve_path(path_str: str) -> Path:
@@ -106,7 +159,7 @@ def _format_date_label(date_value: float) -> str:
     return f"{date_value:.6f}".rstrip("0").rstrip(".").replace(".", "_")
 
 
-def _results_root(results_cfg: Dict) -> Path:
+def _results_root(results_cfg: TemporalResultsCfg) -> Path:
     """
     Resolve the results root based on YAML options.
 
@@ -127,10 +180,9 @@ def _results_root(results_cfg: Dict) -> Path:
     ValueError
         If use_default is false and directory is not provided.
     """
-    use_default = results_cfg.get("use_default", True)
-    if use_default:
+    if results_cfg.use_default:
         return Path(gp.ROOT_DIRECTORY_RESULTS)
-    directory = results_cfg.get("directory", "")
+    directory = results_cfg.directory
     if not directory:
         raise ValueError("results.directory must be set when use_default is false.")
     results_path = _resolve_path(directory)
@@ -138,7 +190,7 @@ def _results_root(results_cfg: Dict) -> Path:
     return results_path
 
 
-def _prepare_display(output_dir: Path, figures_cfg: Dict) -> gp.display_options:
+def _prepare_display(output_dir: Path, figures_cfg: TemporalFiguresCfg) -> gp.display_options:
     """
     Create display options for a single calibration run.
 
@@ -158,14 +210,14 @@ def _prepare_display(output_dir: Path, figures_cfg: Dict) -> gp.display_options:
     """
     display = gp.display_options()
     display.text = False
-    display.figure = bool(figures_cfg.get("temporal") or figures_cfg.get("distributions"))
+    display.figure = bool(figures_cfg.temporal or figures_cfg.distributions)
     display.figure_save = True
     display.figure_close = True
     display.directory = str(output_dir)
     return display
 
 
-def _build_mh_config(cal_cfg: Dict, lpm_number: int) -> cMH.MHConfig:
+def _build_mh_config(cal_cfg: TemporalCalibrationCfg, lpm_number: int) -> cMH.MHConfig:
     """
     Build a Metropolis-Hastings configuration from YAML settings.
 
@@ -182,15 +234,15 @@ def _build_mh_config(cal_cfg: Dict, lpm_number: int) -> cMH.MHConfig:
         Metropolis-Hastings configuration object ready for calibration runs.
     """
     # Optional reproducibility: only attach a seed when enabled.
-    seed_enabled = bool(cal_cfg.get("seed_enabled", False))
-    seed_value = cal_cfg.get("seed") if seed_enabled else None
+    seed_enabled = cal_cfg.seed_enabled
+    seed_value = cal_cfg.seed if seed_enabled else None
     mh_kwargs = {}
     if seed_enabled:
         mh_kwargs["seed"] = seed_value
     return cMH.MHConfig(
-        nstep=int(cal_cfg.get("mh_nsteps", 1000)),
-        burn_in=float(cal_cfg.get("burn_in", 0.2)),
-        nskip=int(cal_cfg.get("nskip", 10)),
+        nstep=int(cal_cfg.mh_nsteps),
+        burn_in=float(cal_cfg.burn_in),
+        nskip=int(cal_cfg.nskip),
         prior_option=True,
         prior_type="parametric",
         likelihood=True,
@@ -207,8 +259,8 @@ def _run_calibration(
     lpm_type: str,
     output_dir: Path,
     lpm_directory: Path,
-    cal_cfg: Dict,
-    figures_cfg: Dict,
+    cal_cfg: TemporalCalibrationCfg,
+    figures_cfg: TemporalFiguresCfg,
     mode: str,
 ):
     """
@@ -241,9 +293,9 @@ def _run_calibration(
     # Display and output configuration for this run.
     display = _prepare_display(output_dir, figures_cfg)
     # Calibration resolution and sampling controls.
-    explo_res = int(cal_cfg.get("explo_res", 20))
-    mh_nsteps = int(cal_cfg.get("mh_nsteps", 1000))
-    lpm_number = int(cal_cfg.get("lpm_number", 0))
+    explo_res = int(cal_cfg.explo_res)
+    mh_nsteps = int(cal_cfg.mh_nsteps)
+    lpm_number = int(cal_cfg.lpm_number)
     if lpm_number <= 0:
         lpm_number = max(min(int(mh_nsteps / 50), 5000), 10)
 
@@ -268,7 +320,7 @@ def _run_calibration(
     calstrat.write_calibrated_lpm(lpm_results)
 
     # Temporal figures (chronicles) if enabled.
-    if figures_cfg.get("temporal", False):
+    if figures_cfg.temporal:
         ct.display_concentration_chronicles(
             cdata,
             lpm_results,
@@ -279,7 +331,7 @@ def _run_calibration(
         )
 
     # Distribution figures if enabled.
-    if figures_cfg.get("distributions", False):
+    if figures_cfg.distributions:
         lpm_results.display_parameters_dist(
             self_method=calstrat.method,
             directory=display.directory,
@@ -353,38 +405,38 @@ def run_temporal(params_path: Path) -> None:
     - figures.temporal, figures.distributions
     """
     # --- Load and validate configuration ---
-    params = _load_yaml(params_path)
-    dataset_cfg = params.get("dataset", {})
-    cal_cfg = params.get("calibration", {})
-    figures_cfg = params.get("figures", {})
-    workflow_cfg = params.get("workflow", {})
-    lpm_cfg = params.get("lpm_models", {})
-    results_cfg = params.get("results", {})
+    params = _load_params_validated(params_path)
+    dataset_cfg: TemporalDatasetCfg = params.dataset
+    cal_cfg: TemporalCalibrationCfg = params.calibration
+    figures_cfg: TemporalFiguresCfg = params.figures
+    workflow_cfg: TemporalWorkflowCfg = params.workflow
+    lpm_cfg: TemporalLpmModelsCfg = params.lpm_models
+    results_cfg: TemporalResultsCfg = params.results
 
-    dataset_file = dataset_cfg.get("file")
+    dataset_file = dataset_cfg.file
     if not dataset_file:
         raise ValueError("dataset.file is required.")
     dataset_path = _resolve_path(dataset_file)
     if not dataset_path.exists():
         raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
 
-    mode = workflow_cfg.get("mode", "span")
+    mode = workflow_cfg.mode
     if mode not in VALID_MODES:
         raise ValueError(f"workflow.mode must be one of {sorted(VALID_MODES)}.")
 
     # --- LPM model selection ---
-    lpm_list = lpm_cfg.get("list") or DEFAULT_LPMS
+    lpm_list = lpm_cfg.list or DEFAULT_LPMS
     if not isinstance(lpm_list, list) or not lpm_list:
         raise ValueError("lpm_models.list must be a non-empty list.")
 
-    lpm_directory = lpm_cfg.get("directory") or str(gp.DIRECTORY_LPM_DATA)
+    lpm_directory = lpm_cfg.directory or str(gp.DIRECTORY_LPM_DATA)
     lpm_directory_path = _resolve_path(lpm_directory)
     if not lpm_directory_path.exists():
         raise ValueError(f"lpm_models.directory does not exist: {lpm_directory_path}")
 
     # --- Load concentrations and apply errors if needed ---
     cdata = co.Concentrations(file_load=True, file_name=str(dataset_path))
-    error_rel = dataset_cfg.get("error_rel")
+    error_rel = dataset_cfg.error_rel
     if error_rel is not None and min(cdata.cv.iloc[:, gp.ERROR]) == 0:
         cdata.error_affect_from_value(float(error_rel))
 

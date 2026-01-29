@@ -5,7 +5,7 @@ Tests for lpm_build utilities.
 
 import pytest
 
-from LPM.lpm_build import lpm_build, UnknownLPMType
+from pyage.LPM.lpm_build import lpm_build, UnknownLPMType
 
 
 def test_lpm_build_unknown_type_raises():

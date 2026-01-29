@@ -16,11 +16,11 @@ import pandas as pd                                         # DataFrame
 from scipy.interpolate import RegularGridInterpolator
 import sys
 
-import global_parameters as gp
-import tools.figures_additional as figadd
-from convolution.convolution_tracers import ConvolutionTracers
-from LPM.lpm_build import lpm_build
-from calibration.utils.objective_functions import L2_norm_diff
+import pyage.global_parameters as gp
+import pyage.tools.figures_additional as figadd
+from pyage.convolution.convolution_tracers import ConvolutionTracers
+from pyage.LPM.lpm_build import lpm_build
+from pyage.calibration.utils.objective_functions import L2_norm_diff
 
 
 class ParamSysSampling: 

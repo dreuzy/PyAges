@@ -3,23 +3,11 @@ PyAge check command - Verify installation and system health.
 """
 
 import sys
-from pathlib import Path
 
 import click
+from pydantic import ValidationError
 
-
-def _setup_import_paths():
-    """Setup sys.path for imports to work correctly."""
-    # Find pyage package location
-    cli_dir = Path(__file__).resolve().parent
-    pyage_dir = cli_dir.parent.parent  # cli/commands -> cli -> pyage
-    repo_root = pyage_dir.parent
-
-    # Add paths for the existing import style
-    paths_to_add = [str(repo_root), str(pyage_dir)]
-    for p in paths_to_add:
-        if p not in sys.path:
-            sys.path.insert(0, p)
+from pyage.config.models import CliCheckParams
 
 
 @click.command()
@@ -39,6 +27,14 @@ def check(verbose: bool):
         pyage check
         pyage check --verbose
     """
+    try:
+        params = CliCheckParams.model_validate({"verbose": verbose})
+    except ValidationError as exc:
+        click.echo(click.style(f"Invalid CLI arguments:\n{exc}", fg="red"))
+        sys.exit(1)
+
+    verbose = params.verbose
+
     click.echo("PyAge Installation Check")
     click.echo("=" * 40)
 
@@ -90,8 +86,7 @@ def check(verbose: bool):
 
     # Check 3: LPM registry
     try:
-        _setup_import_paths()
-        from LPM.lpm_build import list_available_lpms
+        from pyage.LPM.lpm_build import list_available_lpms
 
         lpms = list_available_lpms()
         click.echo(
@@ -107,7 +102,7 @@ def check(verbose: bool):
 
     # Check 4: Tracer directory
     try:
-        from tracer.tracer_root import find_tracer_dir
+        from pyage.tracer.tracer_root import find_tracer_dir
 
         tracer_dir = find_tracer_dir()
         tracer_names = sorted(
@@ -131,7 +126,7 @@ def check(verbose: bool):
 
     # Check 5: Data directories
     try:
-        from config.paths import (
+        from pyage.config.paths import (
             DIRECTORY_LPM_DATA,
             DIRECTORY_TRACER_DATA,
             ROOT_DIRECTORY_RESULTS,

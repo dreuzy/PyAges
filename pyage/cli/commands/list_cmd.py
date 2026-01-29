@@ -2,22 +2,7 @@
 PyAge list commands - List available LPMs and tracers.
 """
 
-import sys
-from pathlib import Path
-
 import click
-
-
-def _setup_import_paths():
-    """Setup sys.path for imports to work correctly."""
-    cli_dir = Path(__file__).resolve().parent
-    pyage_dir = cli_dir.parent.parent
-    repo_root = pyage_dir.parent
-
-    paths_to_add = [str(repo_root), str(pyage_dir)]
-    for p in paths_to_add:
-        if p not in sys.path:
-            sys.path.insert(0, p)
 
 
 @click.group(name="list")
@@ -36,9 +21,8 @@ def list_lpms(verbose: bool):
         pyage list lpms
         pyage list lpms --verbose
     """
-    _setup_import_paths()
-    from LPM.core.registry import get_lpm_class
-    from LPM.lpm_build import list_available_lpms
+    from pyage.LPM.core.registry import get_lpm_class
+    from pyage.LPM.lpm_build import list_available_lpms
 
     lpms = list_available_lpms()
     click.echo(f"Available LPM models ({len(lpms)}):")
@@ -67,8 +51,7 @@ def list_tracers(verbose: bool):
         pyage list tracers
         pyage list tracers --verbose
     """
-    _setup_import_paths()
-    from tracer.tracer_root import Tracer, find_tracer_dir
+    from pyage.tracer.tracer_root import Tracer, find_tracer_dir
 
     tracer_dir = find_tracer_dir()
     tracer_names = sorted(

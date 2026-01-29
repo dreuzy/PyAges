@@ -25,10 +25,10 @@ import sys
 import time
 from scipy.interpolate import interp1d
 
-from calibration.utils.objective_functions import RMSE
-import calibration.utils.calibration_core as calbas
-import LPM.core.lpm_dist as LPM_dist
-import global_parameters as gp                              
+from pyage.calibration.utils.objective_functions import RMSE
+import pyage.calibration.utils.calibration_core as calbas
+import pyage.LPM.core.lpm_dist as LPM_dist
+import pyage.global_parameters as gp                              
 
 
 def make_prior_expo(

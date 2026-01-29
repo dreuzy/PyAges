@@ -9,13 +9,13 @@ import numpy as np
 import os
 import pandas as pd
 
-import convolution.convolution_tracers as convolution_tracers                     
-import global_parameters as gp
-import LPM.lpm_build as lpm_build_module
+import pyage.convolution.convolution_tracers as convolution_tracers                     
+import pyage.global_parameters as gp
+import pyage.LPM.lpm_build as lpm_build_module
 
-import calibration.utils.calibration_core as calbas
+import pyage.calibration.utils.calibration_core as calbas
 
-from concentrations import concentrations_time as ct
+from pyage.concentrations import concentrations_time as ct
 
 
 class CalibrationSyntheticTest:

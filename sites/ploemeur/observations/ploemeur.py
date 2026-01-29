@@ -10,7 +10,7 @@ results folders) so examples and site workflows share the same access logic.
 
 from pathlib import Path
 
-import global_parameters as gp
+import pyage.global_parameters as gp
 
 
 def ploemeur_data_folder(root: str | Path | None = None) -> str:

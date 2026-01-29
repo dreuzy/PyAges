@@ -12,11 +12,11 @@ from tests.utils import golden as golden_utils
 # REPO_ROOT = dossier où se trouve ce fichier conftest.py (généralement la racine du repo)
 REPO_ROOT = Path(__file__).resolve().parent
 
-# Dossier contenant le code du projet
-SRC_DIR = REPO_ROOT / "pyage"
+# Dossier racine du repo (pour importer pyage.*)
+SRC_DIR = REPO_ROOT
 
 # sys.path = liste des dossiers dans lesquels Python cherche les modules à importer.
-# Ici on ajoute "pyage/" au début pour que les imports du projet fonctionnent dans les tests,
+# Ici on ajoute la racine du repo pour que les imports du projet (pyage.*) fonctionnent,
 # même si le projet n'est pas installé comme un package (pip install -e .).
 if SRC_DIR.exists() and str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))

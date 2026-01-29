@@ -2,10 +2,13 @@
 PyAge run command - Execute simulations from YAML config.
 """
 
-import sys
 from pathlib import Path
+import sys
 
 import click
+from pydantic import ValidationError
+
+from pyage.config.models import CliRunParams
 
 
 @click.command()
@@ -33,37 +36,32 @@ def run(config: Path, transient: bool, inline: bool, verbose: bool):
     """
     # Ensure config path is absolute
     config = config.resolve()
-
-    if not config.exists():
-        click.echo(click.style(f"Error: Config file not found: {config}", fg="red"))
+    try:
+        params = CliRunParams.model_validate(
+            {
+                "config": config,
+                "transient": transient,
+                "inline": inline,
+                "verbose": verbose,
+            }
+        )
+    except ValidationError as exc:
+        click.echo(click.style(f"Invalid CLI arguments:\n{exc}", fg="red"))
         sys.exit(1)
+
+    config = params.config
+    transient = params.transient
+    inline = params.inline
+    verbose = params.verbose
 
     if verbose:
         click.echo(f"Configuration file: {config}")
         click.echo(f"Mode: {'transient' if transient else 'single-date'}")
 
-    # Setup paths for imports
-    _setup_paths()
-
     if transient:
         _run_transient(config, verbose)
     else:
         _run_single_date(config, inline, verbose)
-
-
-def _setup_paths():
-    """Add necessary paths to sys.path for imports."""
-    # Find repository root (parent of pyage package)
-    pyage_cli = Path(__file__).resolve()
-    repo_root = pyage_cli.parent.parent.parent.parent  # cli/commands -> cli -> pyage -> repo
-
-    # Add paths for imports
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
-    if str(repo_root / "pyage") not in sys.path:
-        sys.path.insert(0, str(repo_root / "pyage"))
-    if str(repo_root / "scripts") not in sys.path:
-        sys.path.insert(0, str(repo_root / "scripts"))
 
 
 def _run_single_date(config: Path, inline: bool, verbose: bool):

@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 
-import global_parameters as gp
+import pyage.global_parameters as gp
 from matplotlib.ticker import MaxNLocator
 
 import numpy as np

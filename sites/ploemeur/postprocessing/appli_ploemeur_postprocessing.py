@@ -7,12 +7,12 @@ import numpy as np
 from matplotlib.ticker import MaxNLocator
 from matplotlib.dates import DateFormatter
 
-import global_parameters as gp
+import pyage.global_parameters as gp
 import sites.ploemeur.postprocessing.folders as fold
 import sites.ploemeur.postprocessing.concentrations_obs as cobs
 import sites.ploemeur.postprocessing.concentrations_mod as cmod
 
-from tracer.tracer_root import Tracer  # <-- ta classe Tracer
+from pyage.tracer.tracer_root import Tracer  # <-- ta classe Tracer
 from sites.ploemeur.postprocessing.appli_ploemeur_postprocessing_stat import (
     generer_toutes_les_figures,
     build_output_filepath,

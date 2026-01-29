@@ -11,10 +11,10 @@ import numpy as np
 from scipy.optimize import minimize
 import time
 
-import LPM.core.lpm_dist as LPM_dist
-import global_parameters as gp                          
-import calibration.utils.calibration_core as calbas
-from calibration.utils.objective_functions import RMSE
+import pyage.LPM.core.lpm_dist as LPM_dist
+import pyage.global_parameters as gp                          
+import pyage.calibration.utils.calibration_core as calbas
+from pyage.calibration.utils.objective_functions import RMSE
 
 
 class Simplex(calbas.CalibrationCore): 

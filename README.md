@@ -27,6 +27,27 @@ Update golden values (when intentionally changing outputs):
 python run_tests.py update
 ```
 
+## Execution modes (installed vs repo direct)
+
+Recommended (installed package):
+
+```
+pip install -e .
+```
+
+This makes `import pyage` work from any directory and enables the CLI:
+
+```
+pyage check
+pyage list lpms
+pyage run examples/ploemeur/exemple_ploemeur.yaml
+```
+
+Repo-direct (no install):
+- You can still run scripts from the repo (e.g. `python scripts/launcher.py ...`).
+- Entry points include a small bootstrap fallback to add the repo root to `sys.path`
+  when `pyage` is not installed.
+
 ## Results directory
 
 By default, results are written under:
@@ -85,6 +106,9 @@ Run the workflow:
 ```
 python sites/ploemeur/scripts/ploemeur_driver.py --params sites/ploemeur/params/ploemeur_full.yaml
 ```
+
+If you omit `--params`, the driver defaults to
+`sites/ploemeur/params/ploemeur_full.yaml`.
 
 Key YAML sections:
 
@@ -160,6 +184,7 @@ Expected outputs (under `<results_root>`):
 - `launcher_temporal.py`: `ploemeur_temporal/<dataset_stem>/<mode>/<date>/<lpm_type>/`
   (calibration files + temporal plots/tables)
 - `run_system_check.py`: `test/<check_name>/<timestamp>/`
+- `run_system_check.py` supports `--params <file.yaml>` to override defaults.
 - `run_calibration_benchmark.py`: `test_calib_comp/<timestamp>/prec_<error>/<tracers>/<lpm>/<case>/`
 
 See `scripts/README.md` for example commands and output locations.

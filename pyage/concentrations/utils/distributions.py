@@ -14,7 +14,7 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 
-import global_parameters as gp
+import pyage.global_parameters as gp
 
 
 def sample_lpms_from_dist(
