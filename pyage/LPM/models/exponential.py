@@ -19,7 +19,7 @@ from LPM.core.registry import register_lpm
 
 
 @register_lpm("exp")
-class LPM_exp(LPMScipy):
+class ExponentialLpm(LPMScipy):
     """Lumped Parameter Model - Exponential distribution."""
 
     scipy_dist = expon

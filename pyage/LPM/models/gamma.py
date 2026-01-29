@@ -18,7 +18,7 @@ from LPM.core.registry import register_lpm
 
 
 @register_lpm("gamma")
-class LPM_gamma(LPMScipy):
+class GammaLpm(LPMScipy):
     """Lumped Parameter Model - Gamma distribution."""
 
     scipy_dist = gamma

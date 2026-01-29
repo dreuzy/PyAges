@@ -15,11 +15,11 @@ Jean-Raynald de Dreuzy
 from LPM.core.LPM_root import LPM
 from LPM.core.convolution_strategy import ConvolutionStrategy
 from LPM.core.registry import register_lpm
-from LPM.models.LPM_exp_shifted import LPM_exp_shifted
+from LPM.models.exponential_shifted import ExponentialShiftedLpm
 
 
 @register_lpm("exp_shifted_old")
-class LPM_exp_shifted_old(LPM_exp_shifted):
+class ExponentialShiftedOldLpm(ExponentialShiftedLpm):
     """Lumped Parameter Model - Shifted Exponential (old-water) distribution."""
 
     convolution_strategy = ConvolutionStrategy.EXPONENTIAL

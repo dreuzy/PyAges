@@ -18,7 +18,7 @@ from LPM.core.registry import register_lpm
 
 
 @register_lpm("weibull")
-class LPM_weibull(LPMScipy):
+class WeibullLpm(LPMScipy):
     """Lumped Parameter Model - Weibull distribution."""
 
     scipy_dist = weibull_min

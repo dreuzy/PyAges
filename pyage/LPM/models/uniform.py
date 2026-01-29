@@ -18,7 +18,7 @@ from LPM.core.registry import register_lpm
 
 
 @register_lpm("uniform")
-class LPM_uniform(LPMScipy):
+class UniformLpm(LPMScipy):
     """Lumped Parameter Model - Uniform distribution."""
 
     scipy_dist = uniform

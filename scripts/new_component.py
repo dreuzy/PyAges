@@ -192,8 +192,9 @@ def generate_lpm(name: str, params: list[str], scipy_dist: str = "norm") -> dict
     """
     # Normalize name
     registry_name = name.lower().replace("-", "_")
-    class_name = f"LPM_{registry_name}"
+    # Convert to CamelCase + Lpm suffix (e.g., "exp_shifted" -> "ExponentialShiftedLpm")
     display_name = name.replace("_", " ").title()
+    class_name = display_name.replace(" ", "") + "Lpm"
 
     # Default parameters if none provided
     if not params:
@@ -257,7 +258,7 @@ def generate_lpm(name: str, params: list[str], scipy_dist: str = "norm") -> dict
     )
 
     # Write files
-    python_file = get_lpm_models_dir() / f"LPM_{registry_name}.py"
+    python_file = get_lpm_models_dir() / f"{registry_name}.py"
     yaml_dir = get_lpm_data_dir() / registry_name
     yaml_file = yaml_dir / "params.yaml"
 

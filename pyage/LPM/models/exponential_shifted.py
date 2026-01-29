@@ -20,7 +20,7 @@ from LPM.core.registry import register_lpm
 
 
 @register_lpm("exp_shifted")
-class LPM_exp_shifted(LPMScipy):
+class ExponentialShiftedLpm(LPMScipy):
     """Lumped Parameter Model - Shifted Exponential distribution."""
 
     scipy_dist = expon

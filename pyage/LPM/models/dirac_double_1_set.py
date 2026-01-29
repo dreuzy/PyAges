@@ -21,7 +21,7 @@ import LPM.core.tools_interpolation as tools_interpolation
 
 
 @register_lpm("dirac_double_1_set")
-class LPM_dirac_double_1_set(LPM):
+class DiracDouble1SetLpm(LPM):
     """
     Lumped Parameter Model - Double Dirac with one fixed spike.
     """

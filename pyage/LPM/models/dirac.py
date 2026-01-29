@@ -21,7 +21,7 @@ import LPM.core.tools_interpolation as tools_interpolation
 
 
 @register_lpm("dirac")
-class LPM_dirac(LPM):
+class DiracLpm(LPM):
     """
     Lumped Parameter Model - Dirac distribution.
 

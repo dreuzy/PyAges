@@ -22,7 +22,7 @@ from LPM.core.registry import register_lpm
 
 
 @register_lpm("mix_exp_shifted")
-class LPM_mix_exp_shifted(LPM):
+class MixExponentialShiftedLpm(LPM):
     """Lumped Parameter Model - Mixed shifted exponential distribution."""
 
     convolution_strategy = ConvolutionStrategy.MIX_DIRAC_EXPONENTIAL

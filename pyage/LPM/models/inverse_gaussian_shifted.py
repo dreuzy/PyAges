@@ -19,7 +19,7 @@ from LPM.core.registry import register_lpm
 
 
 @register_lpm("ig_shifted")
-class LPM_ig_shifted(LPMScipySafe):
+class InverseGaussianShiftedLpm(LPMScipySafe):
     """Lumped Parameter Model - Shifted Inverse Gaussian distribution."""
 
     scipy_dist = invgauss

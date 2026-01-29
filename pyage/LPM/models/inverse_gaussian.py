@@ -24,7 +24,7 @@ from LPM.core.registry import register_lpm
 
 
 @register_lpm("ig")
-class LPM_ig(LPMScipySafe):
+class InverseGaussianLpm(LPMScipySafe):
     """Lumped Parameter Model - Inverse Gaussian distribution."""
 
     scipy_dist = invgauss
