@@ -23,6 +23,10 @@ dataset:
 | `data_dir` | string | Yes | Path to data directory (relative to repo root) |
 | `verbose` | boolean | No | Enable verbose output (default: false) |
 
+**Tracer selection rule:** the `element` column in your data file determines
+which tracers are used. Each element must match a tracer folder under
+`data_core/data_tracer/` (or a site-specific tracer directory).
+
 ### LPM Section
 
 ```yaml
@@ -35,6 +39,9 @@ lpm:
 |-------|------|----------|-------------|
 | `model_name` | string | Yes | LPM model name (see available models below) |
 | `data_directory` | string | Yes | Directory containing `<model>/params.yaml` files |
+
+Tip: for quick overrides without editing YAML, you can use CLI options:
+`pyage run --lpm <name> --mh-nsteps <n> --data-name <file> --data-dir <dir> config.yaml`
 
 **Available LPM models:**
 

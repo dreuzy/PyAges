@@ -73,6 +73,14 @@ Or, if you installed the package, use the CLI:
 pyage run examples/ploemeur/exemple_ploemeur.yaml
 ```
 
+You can override key fields from the CLI (without editing YAML):
+
+```bash
+pyage run --lpm exp_shifted --mh-nsteps 5000 \
+  --data-name mydata.txt --data-dir examples/my_site/data \
+  my_config.yaml
+```
+
 This runs a complete calibration workflow on the Ploemeur dataset using the `dirac_double` LPM model.
 
 ### 2. View the Results

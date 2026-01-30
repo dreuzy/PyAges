@@ -4,8 +4,8 @@
 from pathlib import Path
 
 from click.testing import CliRunner
-
 import importlib
+import yaml
 import pyage.cli.commands.run as run_cmd
 import pyage.cli.commands.check as check_cmd
 
@@ -43,11 +43,31 @@ def test_cli_run_dispatch_single_date(tmp_path, monkeypatch):
     monkeypatch.setattr(run_cmd, "_run_single_date", _fake_run_single_date)
 
     runner = CliRunner()
-    result = runner.invoke(run_cmd.run, [str(config_path), "--inline", "--verbose"])
+    result = runner.invoke(
+        run_cmd.run,
+        [
+            str(config_path),
+            "--inline",
+            "--verbose",
+            "--lpm",
+            "exp_shifted",
+            "--mh-nsteps",
+            "1234",
+            "--data-name",
+            "custom.txt",
+            "--data-dir",
+            str(tmp_path),
+        ],
+    )
     assert result.exit_code == 0
-    assert called["config"] == config_path
+    assert called["config"] != config_path
     assert called["inline"] is True
     assert called["verbose"] is True
+    payload = yaml.safe_load(Path(called["config"]).read_text(encoding="utf-8"))
+    assert payload["dataset"]["name"] == "custom.txt"
+    assert payload["dataset"]["data_dir"] == str(tmp_path)
+    assert payload["lpm"]["model_name"] == "exp_shifted"
+    assert payload["calibration_metropolis_hastings"]["nstep"] == 1234
 
 
 def test_cli_run_dispatch_transient(tmp_path, monkeypatch):
@@ -61,7 +81,23 @@ def test_cli_run_dispatch_transient(tmp_path, monkeypatch):
     monkeypatch.setattr(run_cmd, "_run_transient", _fake_run_transient)
 
     runner = CliRunner()
-    result = runner.invoke(run_cmd.run, [str(config_path), "--transient"])
+    result = runner.invoke(
+        run_cmd.run,
+        [
+            str(config_path),
+            "--transient",
+            "--lpm",
+            "ig",
+            "--mh-nsteps",
+            "987",
+            "--data-file",
+            str(tmp_path / "data.txt"),
+        ],
+    )
     assert result.exit_code == 0
-    assert called["config"] == config_path
+    assert called["config"] != config_path
     assert called["verbose"] is False
+    payload = yaml.safe_load(Path(called["config"]).read_text(encoding="utf-8"))
+    assert payload["dataset"]["file"] == str(tmp_path / "data.txt")
+    assert payload["lpm_models"]["list"] == ["ig"]
+    assert payload["calibration"]["mh_nsteps"] == 987

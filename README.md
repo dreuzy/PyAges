@@ -48,6 +48,27 @@ Repo-direct (no install):
 - Entry points include a small bootstrap fallback to add the repo root to `sys.path`
   when `pyage` is not installed.
 
+## CLI (pyage)
+
+The CLI provides quick access to common workflows once the package is installed.
+
+Main commands:
+- `pyage check` : validate installation, data paths, LPM registry, tracers.
+- `pyage list lpms|tracers` : list available models or tracers.
+- `pyage run <config.yaml>` : run a YAML-driven workflow (single-date by default).
+- `pyage run --transient <config.yaml>` : run the multi-date temporal workflow.
+- `pyage new lpm|tracer ...` : scaffold a new model or tracer template.
+
+Examples:
+```
+pyage check
+pyage list lpms
+pyage run examples/ploemeur/exemple_ploemeur.yaml
+pyage run --transient examples/ploemeur_temporal/ploemeur_temporal.yaml
+pyage run --lpm exp_shifted --mh-nsteps 5000 --data-name mydata.txt --data-dir examples/my_site/data my_config.yaml
+pyage run --transient --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
+```
+
 ## Results directory
 
 By default, results are written under:

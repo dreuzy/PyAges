@@ -61,6 +61,55 @@ You can override this with `PYAGE_RESULTS_DIR` (see the root `README.md`).
 
 ---
 
+## Add a New Data File (choose LPM + tracers)
+
+1) Put your data file under a folder you control (e.g. `examples/my_site/data/`).
+   The file must contain columns: `element`, `concentration`, `error`, `unit`, `date`.
+
+2) Choose an LPM model with parameters in `data_core/data_lpm/<model>/params.yaml`.
+
+3) Create a YAML config and run the launcher:
+
+```bash
+python scripts/launcher.py --params examples/my_site/my_config.yaml
+```
+
+Minimal YAML:
+```yaml
+dataset:
+  name: my_site_2010.txt
+  year: 2010
+  data_dir: examples/my_site/data
+
+lpm:
+  model_name: exp_shifted
+  data_directory: data_core/data_lpm
+```
+
+4) If the data contains multiple dates, use the temporal launcher:
+
+```bash
+python scripts/launcher_temporal.py --params examples/my_site/my_temporal.yaml
+```
+
+```yaml
+dataset:
+  file: examples/my_site/data/ori_my_site_2005_2024.txt
+  error_rel: 0.2
+
+lpm_models:
+  list: ["exp_shifted", "ig"]
+  directory: data_core/data_lpm
+
+workflow:
+  mode: span
+```
+
+5) Tracer names come from the `element` column. If you need new tracers,
+   add them under `data_core/data_tracer/<tracer>/` (see `docs/user-guide/adding-tracer.md`).
+
+---
+
 ## Creating New Components
 
 The `new_component.py` script generates boilerplate files for new LPMs and tracers,

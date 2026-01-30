@@ -210,6 +210,83 @@ lpm:
 
 Available models: `dirac`, `dirac_double`, `exp`, `exp_shifted`, `ig`, `ig_shifted`, `gamma`, `uniform`
 
+---
+
+## Add Your Own Data File (choose LPM + tracers)
+
+This is the recommended workflow to analyze a new dataset with a chosen LPM
+and tracer set.
+
+### 1) Prepare your data file
+
+Create a tab- or space-separated file with the required columns:
+
+```
+element     concentration   error   unit    date
+cfc11       245.5          10.0    pptv    2010.0
+cfc12       520.3          15.0    pptv    2010.0
+sf6         8.2            0.5     pptv    2010.0
+```
+
+Each `element` value must match a tracer name found under
+`data_core/data_tracer/` (or a site-specific tracer directory).
+
+### 2) Choose your LPM model
+
+Pick a model name from the registry (e.g., `exp`, `ig`, `exp_shifted`) and
+ensure its parameter files exist under `data_core/data_lpm/<model>/params.yaml`.
+
+### 3) Create a YAML config (single-date)
+
+```
+dataset:
+  name: my_site_2010.txt
+  year: 2010
+  data_dir: examples/my_site/data
+
+lpm:
+  model_name: exp_shifted
+  data_directory: data_core/data_lpm
+
+run:
+  reachable_concentrations: true
+  calibration_metropolis_hastings: true
+  calibration_simplex: false
+```
+
+Run:
+```
+python scripts/launcher.py --params examples/my_site/my_config.yaml
+```
+
+### 4) Multi-date variant (temporal)
+
+If your file contains multiple dates, use the temporal launcher:
+
+```
+dataset:
+  file: examples/my_site/data/ori_my_site_2005_2024.txt
+  error_rel: 0.2
+
+lpm_models:
+  list: ["exp_shifted", "ig"]
+  directory: data_core/data_lpm
+
+workflow:
+  mode: span
+```
+
+Run:
+```
+python scripts/launcher_temporal.py --params examples/my_site/my_temporal.yaml
+```
+
+### 5) Add or update tracers (if needed)
+
+If your `element` names are not available in `data_core/data_tracer/`, create a
+new tracer configuration (see `adding-tracer.md`) and point your data file to
+those tracer names.
+
 ### Adjust MCMC Settings
 
 For more accurate results (slower):

@@ -41,12 +41,38 @@ class CliRunParams(_BaseCfg):
     transient: bool = False
     inline: bool = False
     verbose: bool = False
+    lpm: str | None = None
+    mh_nsteps: int | None = None
+    data_name: str | None = None
+    data_dir: Path | None = None
+    data_file: Path | None = None
 
     @field_validator("config")
     @classmethod
     def _config_exists(cls, value: Path) -> Path:
         if not value.exists():
             raise ValueError(f"Config file not found: {value}")
+        return value
+
+    @field_validator("lpm")
+    @classmethod
+    def _lpm_not_empty(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("lpm must be a non-empty string")
+        return value
+
+    @field_validator("mh_nsteps")
+    @classmethod
+    def _mh_nsteps_positive(cls, value: int | None) -> int | None:
+        if value is not None and value <= 0:
+            raise ValueError("mh_nsteps must be > 0")
+        return value
+
+    @field_validator("data_name")
+    @classmethod
+    def _data_name_not_empty(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("data_name must be a non-empty string")
         return value
 
 
