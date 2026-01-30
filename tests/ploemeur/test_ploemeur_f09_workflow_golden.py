@@ -43,6 +43,8 @@ def _extract_mode(file_root: str) -> str:
     for mode in TIME_SPAN_AND_PRIOR_MODES:
         if mode in file_root:
             return mode
+    if "successive" in file_root and "apriori" in file_root:
+        return "successive_with_prior"
     return "unknown"
 
 

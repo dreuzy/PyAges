@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyage.LPM.lpm_build import lpm_build, list_available_lpms
+from pyage.lpm.lpm_build import lpm_build, list_available_lpms
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -27,7 +27,7 @@ def _golden_path() -> Path:
 
 
 def _make_lpm(lpm_type: str):
-    # Instantiate the LPM using local data_LPM; keep defaults if init fails.
+    # Instantiate the LPM using local data_lpm; keep defaults if init fails.
     lpm = lpm_build(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
     try:
         lpm.set_param_from_array(lpm.param_init())

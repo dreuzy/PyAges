@@ -19,7 +19,7 @@ import sys
 import pyage.global_parameters as gp
 import pyage.tools.figures_additional as figadd
 from pyage.convolution.convolution_tracers import ConvolutionTracers
-from pyage.LPM.lpm_build import lpm_build
+from pyage.lpm.lpm_build import lpm_build
 from pyage.calibration.utils.objective_functions import L2_norm_diff
 
 

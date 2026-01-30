@@ -40,7 +40,7 @@ dataset:
 
 lpm:
   model_name: dirac_double          # LPM model to use
-  data_directory: data_core/data_LPM
+  data_directory: data_core/data_lpm
 
 run:
   reachable_concentrations: true    # Explore feasible domain
@@ -119,7 +119,7 @@ dataset:
 
 lpm_models:
   list: ["exp_shifted", "ig", "ig_shifted"]  # Models to compare
-  directory: data_core/data_LPM
+  directory: data_core/data_lpm
 
 workflow:
   mode: span                        # 'span' or 'successive'

@@ -91,7 +91,7 @@ pyage check
 ```
 pyage/
 ├── pyage/                    # Core library
-│   ├── LPM/                  # Lumped Parameter Models
+│   ├── lpm/                  # Lumped Parameter Models
 │   │   ├── core/            # Base classes, registry
 │   │   └── models/          # Model implementations
 │   ├── tracer/              # Tracer handling
@@ -100,7 +100,7 @@ pyage/
 │   └── config/              # Configuration utilities
 │
 ├── data_core/               # Model data
-│   ├── data_LPM/           # LPM parameter files
+│   ├── data_lpm/           # LPM parameter files
 │   └── data_tracer/        # Tracer chronologies
 │
 ├── examples/                # Runnable examples

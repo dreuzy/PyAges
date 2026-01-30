@@ -26,8 +26,8 @@ Author
 
 from scipy.stats import {scipy_dist}
 
-from pyage.LPM.core.{base_module} import {base_class}
-from pyage.LPM.core.registry import register_lpm
+from pyage.lpm.core.{base_module} import {base_class}
+from pyage.lpm.core.registry import register_lpm
 
 
 @register_lpm("{name}")
@@ -143,9 +143,9 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
     """
     # Determine base class and module
     base_map = {
-        "scipy": ("LPM_scipy", "LPMScipy", "norm"),
-        "scipy_safe": ("LPM_scipy", "LPMScipySafe", "norm"),
-        "root": ("LPM_root", "LPM", "norm"),
+        "scipy": ("lpm_scipy", "LpmScipy", "norm"),
+        "scipy_safe": ("lpm_scipy", "LpmScipySafe", "norm"),
+        "root": ("lpm_base", "LpmBase", "norm"),
     }
     base_module, base_class, default_scipy = base_map[base]
 
@@ -156,7 +156,7 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
 
     # Default output location for model file
     if output is None:
-        model_output = pyage_dir / "LPM" / "models"
+        model_output = pyage_dir / "lpm" / "models"
     else:
         model_output = Path(output)
 
@@ -189,7 +189,7 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
     click.echo(click.style("Created:", fg="green") + f" {model_file}")
 
     # Generate params.yaml
-    lpm_data_dir = repo_root / "data_core" / "data_LPM" / name
+    lpm_data_dir = repo_root / "data_core" / "data_lpm" / name
     lpm_data_dir.mkdir(parents=True, exist_ok=True)
 
     params_content = LPM_PARAMS_TEMPLATE.format(name=name)

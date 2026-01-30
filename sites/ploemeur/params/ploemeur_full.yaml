@@ -45,9 +45,9 @@ lpm_models:
   default: ["exp_shifted", "ig_shifted", "ig", "dirac_double_1_set", "gamma", "uniform", "exp"]
   # LPM parameter files location (can point to data_core or Ploemeur-specific params).
   # Examples:
-  # - data_core/data_LPM
-  # - sites/ploemeur/params_LPM
-  directory: sites/ploemeur/params_LPM
+  # - data_core/data_lpm
+  # - sites/ploemeur/params_lpm
+  directory: sites/ploemeur/params_lpm
   # Per-well overrides (optional). Example:
   by_well:
     F11: ["exp_shifted", "ig_shifted", "ig","gamma"]

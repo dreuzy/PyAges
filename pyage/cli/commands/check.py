@@ -86,7 +86,7 @@ def check(verbose: bool):
 
     # Check 3: LPM registry
     try:
-        from pyage.LPM.lpm_build import list_available_lpms
+        from pyage.lpm.lpm_build import list_available_lpms
 
         lpms = list_available_lpms()
         click.echo(

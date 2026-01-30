@@ -24,7 +24,7 @@ def new_group():
     "-o",
     type=click.Path(),
     default=None,
-    help="Output directory (default: pyage/LPM/models/).",
+    help="Output directory (default: pyage/lpm/models/).",
 )
 def new_lpm(name: str, base: str, output: str):
     """Generate a template for a new LPM model.
@@ -33,8 +33,8 @@ def new_lpm(name: str, base: str, output: str):
 
     \b
     Creates:
-      - pyage/LPM/models/LPM_<name>.py
-      - data_core/data_LPM/<name>/params.yaml
+      - pyage/lpm/models/LPM_<name>.py
+      - data_core/data_lpm/<name>/params.yaml
 
     \b
     Examples:

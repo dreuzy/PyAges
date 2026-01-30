@@ -21,8 +21,8 @@ def list_lpms(verbose: bool):
         pyage list lpms
         pyage list lpms --verbose
     """
-    from pyage.LPM.core.registry import get_lpm_class
-    from pyage.LPM.lpm_build import list_available_lpms
+    from pyage.lpm.core.registry import get_lpm_class
+    from pyage.lpm.lpm_build import list_available_lpms
 
     lpms = list_available_lpms()
     click.echo(f"Available LPM models ({len(lpms)}):")

@@ -126,7 +126,7 @@ class PyAgeContext:
 
         base = Path(base_dir)
         return cls(
-            lpm_data_dir=base / "data_LPM",
+            lpm_data_dir=base / "data_lpm",
             tracer_data_dir=base / "data_tracer",
             resolution_convolution=resolution_convolution,
         )

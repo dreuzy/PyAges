@@ -26,8 +26,8 @@ import pyage.concentrations.concentrations as concentrations
 import pyage.tracer.tracer_root as tracer_module
 
 if TYPE_CHECKING:
-    from pyage.LPM.core.lpm_base import LpmBase as LPM
-    from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
+    from pyage.lpm.core.lpm_base import LpmBase as LPM
+    from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
 
 
 

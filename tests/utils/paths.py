@@ -8,11 +8,11 @@ def repo_root() -> Path:
 
 
 def lpm_dir() -> Path:
-    return repo_root() / "pyage" / "LPM" / "models"
+    return repo_root() / "pyage" / "lpm" / "models"
 
 
 def lpm_data_dir() -> Path:
-    return repo_root() / "data_core" / "data_LPM"
+    return repo_root() / "data_core" / "data_lpm"
 
 
 def tracer_data_dir() -> Path:

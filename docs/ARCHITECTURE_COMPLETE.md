@@ -53,7 +53,7 @@ où:
 
 ```
 pyage/
-├── LPM/                                 # Modèles à Paramètres Groupés
+├── lpm/                                 # Modèles à Paramètres Groupés
 │   ├── core/
 │   │   ├── lpm_base.py                 # Classe abstraite de base (LpmBase)
 │   │   ├── lpm_dist.py                 # Distribution des résultats (LpmDist)
@@ -98,10 +98,10 @@ install/                                 # Environnements
 Chaque modèle LPM utilise le décorateur `@register_lpm` pour s'enregistrer automatiquement:
 
 ```python
-# pyage/LPM/models/dirac.py
-from pyage.LPM.core.registry import register_lpm
-from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
-from pyage.LPM.core.lpm_base import LpmBase
+# pyage/lpm/models/dirac.py
+from pyage.lpm.core.registry import register_lpm
+from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
+from pyage.lpm.core.lpm_base import LpmBase
 
 @register_lpm("dirac")
 class DiracLpm(LpmBase):
@@ -117,7 +117,7 @@ class DiracLpm(LpmBase):
 #### 2.2.2 Stratégies de Convolution (Strategy Pattern via Enum)
 
 ```python
-# sources/LPM/core/convolution_strategy.py
+# sources/lpm/core/convolution_strategy.py
 class ConvolutionStrategy(Enum):
     CLASSIC = auto()              # Intégration numérique (Simpson)
     DIRAC = auto()                # Lookup direct
@@ -320,7 +320,7 @@ Total itérations = 1.85 milliards
 
 ```
 sites/ploemeur/data/
-├── data_core/data_LPM/
+├── data_core/data_lpm/
 │   ├── exp/
 │   │   ├── params.yaml       # mu,0.1,100,year
 │   │   ├── params.yaml        # mu,0.2,year
@@ -998,7 +998,7 @@ class TestCaptureGolden:
     def test_capture_convolution(self):
         """Capture les résultats de convolution pour chaque combinaison."""
         from pyage.convolution.convolution import Convolution
-        from pyage.LPM.lpm_build import lpm_build
+        from pyage.lpm.lpm_build import lpm_build
 
         test_cases = [
             ("exp_shifted", "cfc11", 2010),

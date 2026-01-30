@@ -68,7 +68,7 @@ setx PYAGE_RESULTS_DIR "D:\results\PyAge"
 ## Repository layout (high level)
 
 - `pyage/`: core library code (LPMs, tracers, convolution, calibration, config)
-  - `pyage/LPM/`: lumped-parameter models, core distributions, and parameter I/O
+  - `pyage/lpm/`: lumped-parameter models, core distributions, and parameter I/O
   - `pyage/tracer/`: tracer chronologies and root tracer definitions
   - `pyage/convolution/`: convolution algorithms and tracer helpers
   - `pyage/concentrations/`: concentration data handling and time series helpers
@@ -77,7 +77,7 @@ setx PYAGE_RESULTS_DIR "D:\results\PyAge"
   - `pyage/observations/`: generic dataset loaders and observation helpers
   - `pyage/tools/`: plotting and miscellaneous utilities used across modules
 - `data_core/`: shared model data for LPMs and tracers (not observations)
-  - `data_core/data_LPM/`: LPM parameter files (`params.yaml`, bounds, etc.)
+  - `data_core/data_lpm/`: LPM parameter files (`params.yaml`, bounds, etc.)
   - `data_core/data_tracer/`: tracer chronologies and recharge series
 - `sites/`: site-specific workflows, data, and scripts (e.g., `ploemeur/`)
 - `examples/`: runnable examples and their data (e.g., `fontainebleau/`, `ploemeur/`)
@@ -118,8 +118,8 @@ Key YAML sections:
 - `execution`: parallel options
 - `lpm_models`: LPM model lists, optional per-well overrides, and LPM params directory
 
-The LPM parameter directory can point to `data_core/data_LPM` or to a
-site-specific directory such as `sites/ploemeur/params_LPM`.
+The LPM parameter directory can point to `data_core/data_lpm` or to a
+site-specific directory such as `sites/ploemeur/params_lpm`.
 
 ## Running examples
 

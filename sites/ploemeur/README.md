@@ -42,7 +42,7 @@ Directory map
   - `brut/`: raw inputs (including original Excel files)
   - `ori/`: cleaned/curated time series generated from brut
   - `temp/`: intermediate files produced by the workflow (recreated each run)
-- `params_LPM/`: site-level LPM parameter files (optional alternative to `data_core/data_LPM`)
+- `params_lpm/`: site-level LPM parameter files (optional alternative to `data_core/data_lpm`)
 - `postprocessing/`: plotting and comparison utilities
 - `docs/`: site-specific notes (if any)
 
@@ -64,14 +64,14 @@ In `params/ploemeur_full.yaml`, set:
 
 ```
 lpm_models:
-  directory: data_core/data_LPM
+  directory: data_core/data_lpm
 ```
 
 or point to the site-specific parameters:
 
 ```
 lpm_models:
-  directory: sites/ploemeur/params_LPM
+  directory: sites/ploemeur/params_lpm
 ```
 
 

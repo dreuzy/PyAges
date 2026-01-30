@@ -127,7 +127,7 @@ class LauncherDatasetCfg(_BaseCfg):
 class LauncherLpmCfg(_BaseCfg):
     """LPM section of the single-date launcher YAML."""
     model_name: str = "dirac_double"
-    data_directory: Path = Path("data_core/data_LPM")
+    data_directory: Path = Path("data_core/data_lpm")
 
     @field_validator("data_directory")
     @classmethod

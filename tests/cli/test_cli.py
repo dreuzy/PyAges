@@ -5,7 +5,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-import pyage.cli.main as cli_main
+import importlib
 import pyage.cli.commands.run as run_cmd
 import pyage.cli.commands.check as check_cmd
 
@@ -18,6 +18,7 @@ def _write_minimal_config(tmp_path: Path) -> Path:
 
 def test_cli_help():
     runner = CliRunner()
+    cli_main = importlib.import_module("pyage.cli.main")
     result = runner.invoke(cli_main.cli, ["--help"])
     assert result.exit_code == 0
     assert "PyAge" in result.output

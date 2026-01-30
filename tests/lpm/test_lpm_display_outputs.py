@@ -8,7 +8,7 @@ import pytest
 matplotlib.use("Agg", force=True)
 
 import pyage.global_parameters as gp
-from pyage.LPM.lpm_build import test as lpm_test
+from pyage.lpm.lpm_build import test as lpm_test
 
 
 @pytest.mark.parametrize("lpm_type", ["exp"])

@@ -518,7 +518,7 @@ def run_workflow(params_path, force_inline=False):
     import pyage.concentrations.concentrations as co
     from pyage.concentrations import concentrations_time as ct
     import pyage.global_parameters as gp
-    from pyage.LPM.lpm_build import lpm_build
+    from pyage.lpm.lpm_build import lpm_build
     import pyage.calibration.utils.systematic_sampling as calibration_exploration
     import pyage.calibration.utils.calibration_core as calbas
     import pyage.calibration.methods.simplex as csimp

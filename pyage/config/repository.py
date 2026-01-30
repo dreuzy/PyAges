@@ -33,7 +33,7 @@ def setup_repo_path():
     Return the repository root and ensure it is on sys.path.
 
     This enables running scripts from any working directory while keeping
-    imports stable (e.g., `concentrations`, `calibration`, `LPM`).
+    imports stable (e.g., `concentrations`, `calibration`, `lpm`).
 
     Returns
     -------

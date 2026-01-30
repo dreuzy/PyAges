@@ -361,7 +361,7 @@ def run_temporal(params_path: Path) -> None:
           error_rel: 0.2
         lpm_models:
           list: ["exp_shifted", "ig", "ig_shifted"]
-          directory: data_core/data_LPM
+          directory: data_core/data_lpm
         workflow:
           mode: span
         calibration:

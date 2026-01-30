@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyage.LPM.lpm_build import lpm_build, list_available_lpms
+from pyage.lpm.lpm_build import lpm_build, list_available_lpms
 import pyage.tracer.tracer_root as tracer_module
 from pyage.convolution.convolution import Convolution
 from tests.utils import golden as golden_utils

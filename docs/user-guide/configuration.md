@@ -28,7 +28,7 @@ dataset:
 ```yaml
 lpm:
   model_name: dirac_double          # Required: LPM model identifier
-  data_directory: data_core/data_LPM  # Required: LPM parameters directory
+  data_directory: data_core/data_lpm  # Required: LPM parameters directory
 ```
 
 | Field | Type | Required | Description |
@@ -139,7 +139,7 @@ dataset:
 ```yaml
 lpm_models:
   list: ["exp_shifted", "ig", "ig_shifted"]
-  directory: data_core/data_LPM
+  directory: data_core/data_lpm
 ```
 
 | Field | Type | Required | Description |
@@ -201,7 +201,7 @@ results:
 
 ## LPM Parameter Files (params.yaml)
 
-Each LPM model has a `params.yaml` file in `data_core/data_LPM/<model>/`.
+Each LPM model has a `params.yaml` file in `data_core/data_lpm/<model>/`.
 
 ### Structure
 

@@ -17,8 +17,8 @@ python scripts/new_component.py lpm weibull --params k,lambda --scipy weibull_mi
 ```
 
 This creates:
-- `pyage/LPM/models/weibull.py` - Python class
-- `data_core/data_LPM/weibull/params.yaml` - Parameter configuration
+- `pyage/lpm/models/weibull.py` - Python class
+- `data_core/data_lpm/weibull/params.yaml` - Parameter configuration
 
 Then follow the "Customize the Generated Code" section below.
 
@@ -28,7 +28,7 @@ Then follow the "Customize the Generated Code" section below.
 
 ### Step 1: Create the Python Class
 
-Create a new file `pyage/LPM/models/<name>.py`:
+Create a new file `pyage/lpm/models/<name>.py`:
 
 ```python
 # -*- coding: utf-8 -*-
@@ -50,8 +50,8 @@ Your Name
 
 from scipy.stats import weibull_min
 
-from pyage.LPM.core.lpm_scipy import LpmScipy
-from pyage.LPM.core.registry import register_lpm
+from pyage.lpm.core.lpm_scipy import LpmScipy
+from pyage.lpm.core.registry import register_lpm
 
 
 @register_lpm("weibull")  # This name is used in YAML configs
@@ -95,7 +95,7 @@ class WeibullLpm(LpmScipy):
 
 ### Step 2: Create the Parameter File
 
-Create `data_core/data_LPM/<name>/params.yaml`:
+Create `data_core/data_lpm/<name>/params.yaml`:
 
 ```yaml
 # LPM parameters for model "weibull"
@@ -197,7 +197,7 @@ Choose the appropriate base class:
 For special distributions that need optimized convolution (like Dirac or exponential), set the convolution strategy:
 
 ```python
-from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
+from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
 
 @register_lpm("my_special_lpm")
 class MySpecialLpm(LpmScipy):
@@ -218,7 +218,7 @@ Available strategies:
 ### Basic Test
 
 ```python
-from pyage.LPM.lpm_build import lpm_build
+from pyage.lpm.lpm_build import lpm_build
 
 # Create instance
 lpm = lpm_build("weibull")
@@ -303,11 +303,11 @@ parameters:
 ### Python Class
 
 ```python
-# pyage/LPM/models/lognormal.py
+# pyage/lpm/models/lognormal.py
 
 from scipy.stats import lognorm
-from pyage.LPM.core.lpm_scipy import LpmScipy
-from pyage.LPM.core.registry import register_lpm
+from pyage.lpm.core.lpm_scipy import LpmScipy
+from pyage.lpm.core.registry import register_lpm
 
 
 @register_lpm("lognormal")
@@ -348,7 +348,7 @@ class LognormalLpm(LpmScipy):
 ### Parameter File
 
 ```yaml
-# data_core/data_LPM/lognormal/params.yaml
+# data_core/data_lpm/lognormal/params.yaml
 
 model: lognormal
 version: 1
@@ -392,8 +392,8 @@ notes: |
 ### "Unknown LPM type: 'mymodel'"
 
 - Check that `@register_lpm("mymodel")` decorator is present
-- Verify the file is in `pyage/LPM/models/`
-- Ensure no import errors: `python -c "from pyage.LPM.models.LPM_mymodel import *"`
+- Verify the file is in `pyage/lpm/models/`
+- Ensure no import errors: `python -c "from pyage.lpm.models.LPM_mymodel import *"`
 
 ### "Parameter 'x' not found in bounds"
 

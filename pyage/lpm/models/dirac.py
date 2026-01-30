@@ -14,10 +14,10 @@ Jean-Raynald de Dreuzy
 
 import numpy as np
 
-from pyage.LPM.core.lpm_base import LpmBase
-from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
-from pyage.LPM.core.registry import register_lpm
-import pyage.LPM.core.tools_interpolation as tools_interpolation
+from pyage.lpm.core.lpm_base import LpmBase
+from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
+from pyage.lpm.core.registry import register_lpm
+import pyage.lpm.core.tools_interpolation as tools_interpolation
 
 
 @register_lpm("dirac")

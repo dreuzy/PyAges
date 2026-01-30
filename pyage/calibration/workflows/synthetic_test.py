@@ -11,7 +11,7 @@ import pandas as pd
 
 import pyage.convolution.convolution_tracers as convolution_tracers                     
 import pyage.global_parameters as gp
-import pyage.LPM.lpm_build as lpm_build_module
+import pyage.lpm.lpm_build as lpm_build_module
 
 import pyage.calibration.utils.calibration_core as calbas
 

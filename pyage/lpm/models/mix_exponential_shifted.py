@@ -16,9 +16,9 @@ import math
 
 from scipy.stats import expon
 
-from pyage.LPM.core.lpm_base import LpmBase
-from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
-from pyage.LPM.core.registry import register_lpm
+from pyage.lpm.core.lpm_base import LpmBase
+from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
+from pyage.lpm.core.registry import register_lpm
 
 
 @register_lpm("mix_exp_shifted")

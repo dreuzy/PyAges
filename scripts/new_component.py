@@ -40,12 +40,12 @@ def get_project_root() -> Path:
 
 def get_lpm_models_dir() -> Path:
     """Get the LPM models directory."""
-    return get_project_root() / "pyage" / "LPM" / "models"
+    return get_project_root() / "pyage" / "lpm" / "models"
 
 
 def get_lpm_data_dir() -> Path:
     """Get the LPM data directory."""
-    return get_project_root() / "data_core" / "data_LPM"
+    return get_project_root() / "data_core" / "data_lpm"
 
 
 def get_tracer_data_dir() -> Path:
@@ -92,8 +92,8 @@ Author
 
 from scipy.stats import {scipy_dist}
 
-from pyage.LPM.core.lpm_scipy import LpmScipy
-from pyage.LPM.core.registry import register_lpm
+from pyage.lpm.core.lpm_scipy import LpmScipy
+from pyage.lpm.core.registry import register_lpm
 
 
 @register_lpm("{registry_name}")
@@ -512,7 +512,7 @@ Next steps:
      - MCMC step sizes
 
   3. Test your LPM:
-     >>> from pyage.LPM.lpm_build import lpm_build
+     >>> from pyage.lpm.lpm_build import lpm_build
      >>> lpm = lpm_build("{result['registry_name']}")
      >>> print(lpm.pdf(10.0))
 

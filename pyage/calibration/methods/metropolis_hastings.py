@@ -27,7 +27,7 @@ from scipy.interpolate import interp1d
 
 from pyage.calibration.utils.objective_functions import RMSE
 import pyage.calibration.utils.calibration_core as calbas
-import pyage.LPM.core.lpm_dist as LPM_dist
+import pyage.lpm.core.lpm_dist as LPM_dist
 import pyage.global_parameters as gp                              
 
 

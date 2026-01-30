@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from pyage.concentrations import concentrations_time as ct
-import pyage.LPM.lpm_build as lpg
+import pyage.lpm.lpm_build as lpg
 import pyage.global_parameters as gp                          # Global variables
 import pyage.tools.figures_additional as fad
 

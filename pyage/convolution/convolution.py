@@ -38,12 +38,12 @@ import pandas as pd
 from scipy import integrate
 
 import pyage.global_parameters as gp
-from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
+from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyage.tracer.tracer_protocol import TracerProtocol
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from pyage.LPM.core.lpm_base import LpmBase as LPM
+    from pyage.lpm.core.lpm_base import LpmBase as LPM
 
 
 class ConvolutionError(Exception):

@@ -14,9 +14,9 @@ Jean-Raynald de Dreuzy
 
 from scipy.stats import expon
 
-from pyage.LPM.core.lpm_scipy import LpmScipy
-from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
-from pyage.LPM.core.registry import register_lpm
+from pyage.lpm.core.lpm_scipy import LpmScipy
+from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
+from pyage.lpm.core.registry import register_lpm
 
 
 @register_lpm("exp_shifted")

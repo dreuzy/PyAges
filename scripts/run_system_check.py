@@ -28,7 +28,7 @@ import yaml
 from pydantic import ValidationError
 
 import pyage.global_parameters as gp
-import pyage.LPM.lpm_build as lpm_build_module
+import pyage.lpm.lpm_build as lpm_build_module
 import pyage.calibration.workflows.synthetic_test as cst
 import pyage.calibration.methods.simplex as csimp
 import pyage.calibration.methods.metropolis_hastings as cMH

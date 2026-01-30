@@ -10,7 +10,7 @@ automatically when they use the @register_lpm decorator.
 
 Usage
 -----
-    from pyage.LPM.lpm_build import lpm_build, list_available_lpms
+    from pyage.lpm.lpm_build import lpm_build, list_available_lpms
 
     # Create an LPM by name
     lpm = lpm_build("ig")
@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import pyage.global_parameters as gp
 
-from pyage.LPM.core.registry import (
+from pyage.lpm.core.registry import (
     UnknownLPMType,
     get_lpm_class,
     list_available_lpms,
@@ -36,7 +36,7 @@ from pyage.LPM.core.registry import (
 )
 
 if TYPE_CHECKING:
-    from pyage.LPM.core.lpm_base import LpmBase as LPM
+    from pyage.lpm.core.lpm_base import LpmBase as LPM
 
 
 def _resolve_directory(

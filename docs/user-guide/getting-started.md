@@ -44,13 +44,13 @@ python scripts/run_system_check.py --params configs/system_check.yaml
 ```
 pyage/
 ├── pyage/                 # Core library
-│   ├── LPM/              # Lumped Parameter Models
+│   ├── lpm/              # Lumped Parameter Models
 │   ├── tracer/           # Tracer definitions
 │   ├── convolution/      # Convolution algorithms
 │   ├── calibration/      # Calibration methods
 │   └── config/           # Configuration utilities
 ├── data_core/            # Model data
-│   ├── data_LPM/         # LPM parameter files
+│   ├── data_lpm/         # LPM parameter files
 │   └── data_tracer/      # Tracer chronologies
 ├── examples/             # Runnable examples
 ├── scripts/              # CLI entry points

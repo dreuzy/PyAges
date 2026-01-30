@@ -29,8 +29,8 @@ from scipy import integrate
 from scipy import optimize
 from pathlib import Path
 
-from pyage.LPM.core.parameter_manager import ParameterManager
-from pyage.LPM.core.convolution_strategy import ConvolutionStrategy
+from pyage.lpm.core.parameter_manager import ParameterManager
+from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
        
 
 class LpmBase(abc.ABC):

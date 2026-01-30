@@ -10,7 +10,7 @@ lpm_models:
   # LPMs to evaluate (defaults to exp_shifted, ig, ig_shifted).
   list: ["exp_shifted", "ig", "ig_shifted"]
   # LPM parameter files location.
-  directory: data_core/data_LPM
+  directory: data_core/data_lpm
 
 workflow:
   # span: single calibration over full time span

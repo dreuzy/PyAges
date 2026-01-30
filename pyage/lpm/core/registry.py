@@ -10,7 +10,7 @@ the need to manually update a central registry file.
 
 Usage
 -----
-    from pyage.LPM.core.registry import register_lpm
+    from pyage.lpm.core.registry import register_lpm
 
     @register_lpm("my_model")
     class LPM_my_model(LPMScipy):
@@ -28,7 +28,7 @@ import pkgutil
 from typing import TYPE_CHECKING, Dict, Type
 
 if TYPE_CHECKING:
-    from pyage.LPM.core.lpm_base import LpmBase as LPM
+    from pyage.lpm.core.lpm_base import LpmBase as LPM
 
 
 # Global registry mapping model names to their classes
@@ -87,12 +87,12 @@ def discover_lpms() -> None:
     if _discovered:
         return
 
-    import pyage.LPM.models as models_pkg
+    import pyage.lpm.models as models_pkg
 
     # Import all modules in the models package
     for _, module_name, _ in pkgutil.iter_modules(models_pkg.__path__):
         try:
-            importlib.import_module(f"pyage.LPM.models.{module_name}")
+            importlib.import_module(f"pyage.lpm.models.{module_name}")
         except ImportError as e:
             # Log but don't fail - allows partial imports
             import warnings
