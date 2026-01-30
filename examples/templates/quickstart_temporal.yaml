@@ -1,0 +1,29 @@
+# Minimal temporal quickstart (fast, no plots).
+
+dataset:
+  file: examples/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
+  error_rel: 0.2
+
+lpm_models:
+  list: ["exp_shifted"]
+  directory: data_core/data_lpm
+
+workflow:
+  mode: span
+
+calibration:
+  explo_res: 10
+  mh_nsteps: 200
+  burn_in: 0.2
+  nskip: 10
+  lpm_number: 10
+  seed_enabled: true
+  seed: 12345
+
+figures:
+  temporal: false
+  distributions: false
+
+results:
+  use_default: true
+  directory: ""

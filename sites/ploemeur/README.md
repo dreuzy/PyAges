@@ -23,6 +23,8 @@ Overview
 
 This directory contains the Ploemeur site workflow, inputs, and postprocessing tools.
 The workflow is driven by YAML files and executed via `ploemeur_driver.py`.
+The driver now calls the site API (`sites/ploemeur/site_api.py`), which implements
+the shared `BaseSite` interface (`pyage/site/base_site.py`).
 
 
 Directory map

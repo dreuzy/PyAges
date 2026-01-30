@@ -20,7 +20,7 @@ Driver script for running the Ploemeur workflow.
 from pydantic import ValidationError
 
 from sites.ploemeur.config.models import PloemeurDriverConfig
-from sites.ploemeur.workflows.ploemeur_workflow import run_workflow
+from sites.ploemeur.site_api import PloemeurSite
 
 
 def _load_driver_config(params_path: Optional[str]) -> PloemeurDriverConfig:
@@ -50,4 +50,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     params_path = args.params_opt or args.params
     config = _load_driver_config(params_path)
-    run_workflow(Path(config.params))
+    PloemeurSite().run(Path(config.params))

@@ -1,0 +1,36 @@
+# Minimal single-date quickstart (fast, no interactive plots).
+
+dataset:
+  name: ploemeur_F09_2010.txt
+  year: 2010
+  data_dir: examples/ploemeur/data
+  verbose: false
+
+lpm:
+  model_name: exp_shifted
+  data_directory: data_core/data_lpm
+
+# Turn analyses on/off. Keep all false for a fast smoke run.
+run:
+  reachable_concentrations: false
+  objective_function: false
+  calibration_metropolis_hastings: false
+  calibration_simplex: false
+
+# If you enable the sections above, these values will be used.
+reachable_concentrations:
+  nmodels: 200
+
+objective_function:
+  nmodels: 500
+
+calibration_metropolis_hastings:
+  nstep: 200
+  prior_option: false
+  likelihood: true
+  monitor: false
+  display_traj: false
+
+calibration_simplex:
+  init_multiples_n: 2
+  fuq_n: 5

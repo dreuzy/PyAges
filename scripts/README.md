@@ -16,6 +16,8 @@ Then run a script from the repository root, for example:
 ```bash
 python scripts/launcher.py --params examples/ploemeur/exemple_ploemeur.yaml
 python scripts/launcher_temporal.py --params examples/ploemeur_temporal/ploemeur_temporal.yaml
+python scripts/launcher.py --params examples/templates/quickstart_single.yaml
+python scripts/launcher_temporal.py --params examples/templates/quickstart_temporal.yaml
 python scripts/run_system_check.py
 python scripts/run_system_check.py --params configs/system_check.yaml
 python scripts/run_calibration_benchmark.py

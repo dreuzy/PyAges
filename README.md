@@ -27,6 +27,15 @@ Update golden values (when intentionally changing outputs):
 python run_tests.py update
 ```
 
+## Quickstart (fast, no interactive plots)
+
+Use the minimal templates under `examples/templates/`:
+
+```
+python scripts/launcher.py --params examples/templates/quickstart_single.yaml
+python scripts/launcher_temporal.py --params examples/templates/quickstart_temporal.yaml
+```
+
 ## Execution modes (installed vs repo direct)
 
 Recommended (installed package):

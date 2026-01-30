@@ -10,6 +10,8 @@ PyAge includes several example workflows demonstrating different use cases. This
 | Fontainebleau | Single-date calibration (different site) | `launcher.py` |
 | Ploemeur Temporal | Multi-date time series analysis | `launcher_temporal.py` |
 
+For a minimal, fast run, use the templates under `examples/templates/`.
+
 ## Example 1: Ploemeur (Single-Date Calibration)
 
 The Ploemeur example demonstrates a complete calibration workflow for a single sampling date.

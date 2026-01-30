@@ -67,6 +67,13 @@ The simplest way to start is with an existing example:
 python scripts/launcher.py --params examples/ploemeur/exemple_ploemeur.yaml
 ```
 
+Or use the minimal templates (fast, no interactive plots):
+
+```bash
+python scripts/launcher.py --params examples/templates/quickstart_single.yaml
+python scripts/launcher_temporal.py --params examples/templates/quickstart_temporal.yaml
+```
+
 Or, if you installed the package, use the CLI:
 
 ```bash
