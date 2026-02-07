@@ -13,7 +13,7 @@ PyAge is a Python library for groundwater age dating using lumped-parameter mode
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/pyage.git
+git clone https://gitlab.com/dreuzy/pyage.git
 cd pyage
 ```
 
@@ -180,4 +180,4 @@ Where:
 - Run `python scripts/launcher.py --help` for CLI options
 - Run `pyage --help` for the CLI entrypoint
 - Check the `scripts/README.md` for script documentation
-- Report issues at: https://github.com/your-org/pyage/issues
+- Report issues at: https://gitlab.com/dreuzy/pyage

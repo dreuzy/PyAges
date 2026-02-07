@@ -7,13 +7,12 @@ name = "pyage"
 version = "0.1.0"
 description = "Groundwater Age Dating Toolkit using Lumped Parameter Models"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "CeCILL"}
 authors = [{name = "Jean-Raynald de Dreuzy"}]
 keywords = ["groundwater", "age dating", "lumped parameter model", "hydrogeology", "tracers"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",

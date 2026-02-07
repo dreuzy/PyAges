@@ -117,4 +117,4 @@ pyage/
 
 - **Scripts help**: `python scripts/<script>.py --help`
 - **System check**: `python scripts/run_system_check.py`
-- **Issues**: Report on GitHub/GitLab
+- **Issues**: Report at https://gitlab.com/dreuzy/pyage

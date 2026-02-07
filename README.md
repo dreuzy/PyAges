@@ -230,3 +230,7 @@ See `scripts/README.md` for example commands and output locations.
 This is a research codebase; outputs and workflows evolve. If you change
 behaviour intentionally, update the associated tests and golden files to keep
 the regression suite stable.
+
+## License
+
+PyAge is distributed under the CeCILL license (Copyright CNRS).
