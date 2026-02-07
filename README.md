@@ -15,6 +15,12 @@ conda env create -f install/environment.yml
 conda activate pyage
 ```
 
+Install PyAge (enables the `pyage` CLI):
+
+```
+pip install -e .
+```
+
 Run the full test suite:
 
 ```

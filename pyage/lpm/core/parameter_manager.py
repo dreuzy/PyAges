@@ -68,7 +68,7 @@ class ParameterManager:
         dict | None
             Parsed YAML content or None when missing.
         """
-        from data_io import lpm_params
+        from pyage.data_io import lpm_params
 
         path = self._params_file_path()
         if path in ParameterManager._PARAMS_CACHE:

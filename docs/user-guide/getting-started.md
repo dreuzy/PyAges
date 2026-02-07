@@ -24,7 +24,13 @@ conda env create -f install/environment.yml
 conda activate pyage
 ```
 
-### 3. Verify Installation
+### 3. Install PyAge (CLI enabled)
+
+```bash
+pip install -e .
+```
+
+### 4. Verify Installation
 
 Run the system check to verify everything is working:
 

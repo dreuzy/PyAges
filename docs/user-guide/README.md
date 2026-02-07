@@ -17,6 +17,9 @@ Welcome to the PyAge user documentation. This guide helps you use PyAge for grou
 - **[Configuration Reference](configuration.md)**
   Complete reference for all YAML configuration options.
 
+- **[CLI Flags Reference](cli-flags.md)**
+  Summary of the optional CLI flags for each command.
+
 ### Extending PyAge
 
 - **[Adding a New LPM](adding-lpm.md)**

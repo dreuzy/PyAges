@@ -264,7 +264,7 @@ class MH_step:
 
 
     def load_MHsteps(self, lpm: Any) -> None:
-        from data_io import lpm_params
+        from pyage.data_io import lpm_params
 
         data_dir = Path(lpm.lpm_parameter_file("params.yaml")).parent.parent
         params = lpm_params.load_params(lpm.name, data_dir)
@@ -442,7 +442,7 @@ class Prior() :
         -------
         Load parametric priors from params.yaml.
         """
-        from data_io import lpm_params
+        from pyage.data_io import lpm_params
 
         data_dir = Path(lpm.lpm_parameter_file("params.yaml")).parent.parent
         params = lpm_params.load_params(lpm.name, data_dir)

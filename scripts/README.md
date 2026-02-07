@@ -141,7 +141,7 @@ python scripts/new_component.py lpm pareto --params alpha --scipy pareto
 ```
 
 **Generated files:**
-- `pyage/lpm/models/LPM_<name>.py` — Python class with `@register_lpm` decorator
+- `pyage/lpm/models/<name>.py` — Python class with `@register_lpm` decorator
 - `data_core/data_lpm/<name>/params.yaml` — Parameter bounds, init values, MCMC settings
 
 **After creation:**

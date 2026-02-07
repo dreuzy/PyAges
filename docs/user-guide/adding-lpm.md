@@ -4,7 +4,13 @@ This guide explains how to add a new Lumped Parameter Model (LPM) to PyAge. LPMs
 
 ## Quick Method: Use the Template Generator
 
-The easiest way to create a new LPM is with the template generator:
+The easiest way to create a new LPM is with the template generator (CLI):
+
+```bash
+pyage new lpm <name> [--base scipy|scipy_safe|root] [-o <output_dir>]
+```
+
+Alternative (legacy script):
 
 ```bash
 python scripts/new_component.py lpm <name> --params <p1,p2,...> --scipy <distribution>
@@ -17,8 +23,8 @@ python scripts/new_component.py lpm weibull --params k,lambda --scipy weibull_mi
 ```
 
 This creates:
-- `pyage/lpm/models/weibull.py` - Python class
-- `data_core/data_lpm/weibull/params.yaml` - Parameter configuration
+- `pyage/lpm/models/weibull.py` – Python class (template)
+- `data_core/data_lpm/weibull/params.yaml` – Parameter configuration
 
 Then follow the "Customize the Generated Code" section below.
 
@@ -146,6 +152,18 @@ python scripts/run_system_check.py
 ```
 
 Your new model should appear in the list of available LPMs.
+
+You can also list models with:
+```bash
+pyage list lpms
+```
+
+## Minimal checklist (what must exist)
+
+1) A Python class in `pyage/lpm/models/<name>.py` with `@register_lpm("<name>")`.
+2) A parameter YAML file in `data_core/data_lpm/<name>/params.yaml`.
+3) Parameter names in the YAML match constructor parameter names.
+4) `lpm_build("<name>")` succeeds (no import errors).
 
 ---
 
@@ -393,7 +411,7 @@ notes: |
 
 - Check that `@register_lpm("mymodel")` decorator is present
 - Verify the file is in `pyage/lpm/models/`
-- Ensure no import errors: `python -c "from pyage.lpm.models.LPM_mymodel import *"`
+- Ensure no import errors: `python -c "from pyage.lpm.models.mymodel import *"`
 
 ### "Parameter 'x' not found in bounds"
 
