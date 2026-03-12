@@ -6,6 +6,9 @@ Create the conda environment:
 conda env create -f install/environment.yml
 ```
 
+`install/environment.yml` includes `conda-forge` because media-related optional
+packages such as `imageio-ffmpeg` are not available on `defaults` alone.
+
 Activate it and install PyAge (enables the `pyage` CLI):
 
 ```
