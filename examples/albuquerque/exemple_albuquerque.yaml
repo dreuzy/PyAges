@@ -1,11 +1,11 @@
 dataset:
   # Identifier of the dataset file (directory + basename).
-  # Example: "ploemeur_F09_2010.txt" maps to examples/ploemeur/data/ploemeur_F09_2010.txt
-  name: ploemeur_F09_2010.txt
+  # Example: "SSW_2007.txt" maps to examples/albuquerque/data/SSW_2007.txt
+  name: SSW_2007.txt
   # Reference year for labels/metadata (not required for file IO).
-  year: 2010
+  year: 2007
   # Base directory for data files; can be relative to repo root.
-  data_dir: examples/ploemeur/data
+  data_dir: examples/albuquerque/data
   # Print extra diagnostics during loading.
   verbose: true
 

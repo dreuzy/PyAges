@@ -72,3 +72,5 @@ results/
 tmp_path/
 *.log
 *.tmp
+.claude/
+nul

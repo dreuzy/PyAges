@@ -12,6 +12,8 @@ What it does:
   - `span`: single calibration over the full time span
   - `successive`: one calibration per observation date
 - Produces temporal figures and distribution figures, plus calibration files.
+- You can disable the 2D concentration pair plots by setting
+  `figures.concentrations_2d: false` in the YAML (recommended for notebooks).
 
 Outputs:
 - Stored under the default results root (`PYAGE_RESULTS_DIR`) unless overridden

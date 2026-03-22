@@ -343,7 +343,7 @@ def _run_calibration(
         )
 
 
-def run_temporal(params_path: Path) -> None:
+def run_temporal(params_path: Path) -> Path:
     """
     Execute temporal MH calibration based on a YAML configuration.
 
@@ -456,10 +456,12 @@ def run_temporal(params_path: Path) -> None:
             for date in dates
         ]
 
-    # --- Run calibrations (each subset × each LPM) ---
+    # --- Run calibrations (each subset x each LPM) ---
+    written_case_dirs: list[Path] = []
     for date_label, df in date_sets:
         ccase = co.Concentrations(dataframe_load=True, dataframe_concentration=df.copy())
-        case_dir = gp.results_directory(mode_root, date_label)
+        case_dir = Path(gp.results_directory(mode_root, date_label))
+        written_case_dirs.append(case_dir)
         for lpm_type in lpm_list:
             lpm_dir = gp.results_directory(case_dir, lpm_type)
             _run_calibration(
@@ -472,6 +474,9 @@ def run_temporal(params_path: Path) -> None:
                 mode=mode,
             )
 
+    if len(written_case_dirs) == 1:
+        return written_case_dirs[0]
+    return Path(mode_root)
 
 def _parse_args() -> argparse.Namespace:
     """
@@ -489,4 +494,5 @@ def _parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = _parse_args()
-    run_temporal(Path(args.params))
+    output_path = run_temporal(Path(args.params))
+    print(f"Results written to: {output_path}")

@@ -255,6 +255,7 @@ class TemporalFiguresCfg(_BaseCfg):
     """Toggle plot outputs."""
     temporal: bool = False
     distributions: bool = False
+    concentrations_2d: bool = False
 
 
 class TemporalWorkflowCfg(_BaseCfg):

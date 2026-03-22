@@ -1,9 +1,9 @@
 ﻿# Albuquerque example
 
 This folder mirrors the structure of `examples/ploemeur` and provides a runnable
-starter example for the Albuquerque site. The current data file is a placeholder
-copied from the Ploemeur example; replace it with the real Albuquerque dataset
-when available.
+starter example for the Albuquerque site. The bundled dataset contains several
+Albuquerque sample snapshots (`SSW_*.txt`); the default example uses
+`SSW_2007.txt`.
 
 ## Example 2 — Albuquerque public supply well (New Mexico, USA)
 
@@ -66,7 +66,8 @@ and Methods 4-F3.
 - `exemple_albuquerque.yaml`: YAML configuration for the single-date workflow.
 - `exemple_albuquerque.ipynb`: Notebook version of the workflow.
 - `run_albuquerque.py`: Convenience launcher.
-- `data/albuquerque_F09_2010.txt`: Placeholder data file.
+- `data/SSW_2007.txt`: default single-date dataset used by the example.
+- `data/SSW_*.txt`: additional Albuquerque sample snapshots.
 
 ## Run
 

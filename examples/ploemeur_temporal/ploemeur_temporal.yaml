@@ -36,6 +36,8 @@ figures:
   temporal: true
   # Distribution plots (parameters + concentrations).
   distributions: true
+  # 2D concentration pair plots (concentrations2D_*.png).
+  concentrations_2d: false
 
 results:
   # Use default results root (PYAGE_RESULTS_DIR or <home>/results/PyAge).

@@ -137,6 +137,7 @@ calibration:
 figures:
   temporal: true                    # Generate time series plots
   distributions: true               # Generate distribution plots
+  concentrations_2d: false          # Disable 2D concentration pair plots
 ```
 
 ### Workflow Modes

@@ -1,0 +1,37 @@
+﻿# 14C_SH (Carbon-14, Southern Hemisphere) Tracer Configuration
+#
+# This file configures the Southern Hemisphere 14C tracer for groundwater age dating.
+# 14C is a radioactive isotope used for dating old groundwater.
+#
+# Author: Jean-Raynald de Dreuzy
+# Date: 2026-01-18 (YAML conversion)
+
+# =============================================================================
+# Tracer Properties
+# =============================================================================
+
+# Unit of concentration measurement
+# pCm% = percent modern carbon
+unit: pCm%
+
+# =============================================================================
+# Recharge Configuration
+# =============================================================================
+
+# Enable recharge chronicle from external file
+# If true, concentrations are loaded from recharge.csv in the same directory
+# If false, use recharge_constant instead
+recharge: true
+
+# Constant recharge concentration (only used if recharge: false)
+# recharge_constant: 100
+
+# =============================================================================
+# Radioactive Decay
+# =============================================================================
+
+# Decay characteristic time in years (half-life / ln(2))
+# 14C half-life is ~5730 years, characteristic time = 5730/ln(2) approx 8267 years
+# However, here we use a shorter effective decay time of 573 years
+# (keep consistent with the legacy 14C tracer setup)
+decay_time: 573
