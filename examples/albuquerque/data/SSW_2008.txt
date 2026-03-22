@@ -1,0 +1,4 @@
+element	concentration	error	unit	date
+h3	0.96	0.0	TU	2008.8579234972678
+c14	30.98	0.0	pmC	2008.8579234972678
+cfc113	0.6	0.0	pptv	2008.8579234972678

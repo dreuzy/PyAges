@@ -1,0 +1,50 @@
+dataset:
+  # Identifier of the dataset file (directory + basename).
+  # Example: "ploemeur_F09_2010.txt" maps to examples/ploemeur/data/ploemeur_F09_2010.txt
+  name: ploemeur_F09_2010.txt
+  # Reference year for labels/metadata (not required for file IO).
+  year: 2010
+  # Base directory for data files; can be relative to repo root.
+  data_dir: examples/ploemeur/data
+  # Print extra diagnostics during loading.
+  verbose: true
+
+lpm:
+  # LPM model identifier as expected by lpm_build.
+  model_name: dirac_double
+  # Directory containing LPM params.yaml files; relative to repo root is OK.
+  data_directory: data_core/data_lpm
+
+run:
+  # Toggle the main processing blocks.
+  # reachable_concentrations: explore the feasible concentration domain.
+  reachable_concentrations: true
+  # objective_function: evaluate the objective function on a parameter grid.
+  objective_function: true
+  # calibration_metropolis_hastings: run the MH MCMC calibration strategy.
+  calibration_metropolis_hastings: true
+  # calibration_simplex: run the forward UQ / simplex-based calibration.
+  calibration_simplex: true
+
+reachable_concentrations:
+  # Number of systematic samples for reachable concentrations.
+  nmodels: 5000
+
+objective_function:
+  # Grid size for objective function evaluation.
+  nmodels: 10000
+
+calibration_metropolis_hastings:
+  # MCMC steps (higher = more accurate but slower).
+  nstep: 5000
+  # Prior usage and likelihood options.
+  prior_option: false
+  likelihood: true
+  # Trajectory monitoring (heavy); display_traj enables plotting.
+  monitor: false
+  display_traj: false
+
+calibration_simplex:
+  # Initial simplex multiplicity and FUQ sampling size.
+  init_multiples_n: 3
+  fuq_n: 30
