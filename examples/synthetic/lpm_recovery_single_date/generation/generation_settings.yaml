@@ -9,6 +9,7 @@ dataset:
 
 generation:
   seed: 12345
+  # Noise level applied to the synthetic concentrations (4% here).
   add_noise: true
   relative_error: 0.04
   date: 2010.9
@@ -16,6 +17,7 @@ generation:
     - cfc11
     - cfc12
     - cfc113
+    - sf6
 
 lpm:
   model_name: exp_shifted

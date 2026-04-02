@@ -11,6 +11,7 @@ generation:
   - cfc11
   - cfc12
   - cfc113
+  - sf6
 dataset:
   file_name: synthetic_exp_shifted_2010.txt
   truth_file: ground_truth.yaml
@@ -36,6 +37,11 @@ true_concentrations:
   error: 0
   unit: pptv
   date: 2010.9
+- element: sf6
+  concentration: 2.2906177605821267
+  error: 0
+  unit: pptv
+  date: 2010.9
 observed_concentrations:
 - element: cfc11
   concentration: 158.68129821404364
@@ -50,5 +56,10 @@ observed_concentrations:
 - element: cfc113
   concentration: 44.5962950495979
   error: 1.8482187354368764
+  unit: pptv
+  date: 2010.9
+- element: sf6
+  concentration: 2.2668710879817966
+  error: 0.09162471042328507
   unit: pptv
   date: 2010.9

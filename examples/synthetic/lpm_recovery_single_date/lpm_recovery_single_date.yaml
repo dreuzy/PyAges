@@ -19,13 +19,13 @@ run:
   calibration_simplex: false
 
 reachable_concentrations:
-  nmodels: 2500
+  nmodels: 4000
 
 objective_function:
-  nmodels: 3000
+  nmodels: 6000
 
 calibration_metropolis_hastings:
-  nstep: 2500
+  nstep: 5000
   prior_option: false
   likelihood: true
   monitor: false

@@ -102,7 +102,7 @@ def generate_synthetic_case(
     add_noise = bool(generation_cfg.get("add_noise", True))
     relative_error = float(generation_cfg.get("relative_error", 0.04))
     date = float(generation_cfg.get("date", 2010.9))
-    tracer_names = list(generation_cfg.get("tracers", ["cfc11", "cfc12", "cfc113"]))
+    tracer_names = list(generation_cfg.get("tracers", ["cfc11", "cfc12", "cfc113", "sf6"]))
     lpm_name = str(lpm_cfg.get("model_name", "exp_shifted"))
     parameter_values = {
         str(name): float(value)
@@ -273,7 +273,7 @@ def build_truth_aware_figures(
             reference_concentrations=true_frame,
             reference_label="True synthetic model",
             filename=results_dir / "01_data_model_space.png",
-            title=f"{case_label}: noisy observations, true model and calibrated samples",
+            title=f"{case_label}: observations, prior reachable space and posterior samples",
         )
         plt.close(fig)
 
@@ -283,7 +283,7 @@ def build_truth_aware_figures(
         reference_params=reference_params,
         reference_label="True parameters",
         filename=results_dir / "02_parameter_summary.png",
-        title=f"{case_label}: parameter recovery",
+        title=f"{case_label}: posterior parameter recovery",
     )
     plt.close(fig)
 
@@ -295,7 +295,7 @@ def build_truth_aware_figures(
             reference_params=reference_params,
             reference_label="True parameters",
             filename=results_dir / "03_objective_summary.png",
-            title=f"{case_label}: objective landscape with true and estimated parameters",
+            title=f"{case_label}: prior grid, posterior samples and true parameters",
         )
         plt.close(fig)
 

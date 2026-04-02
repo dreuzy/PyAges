@@ -11,6 +11,8 @@ from pathlib import Path
 import re
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.tri import TriAnalyzer, Triangulation
 import numpy as np
 import pandas as pd
 
@@ -34,16 +36,16 @@ def apply_example_style() -> None:
     plt.rcParams.update(
         {
             "figure.figsize": (7.0, 4.5),
-            "axes.titlesize": 13,
-            "axes.labelsize": 11,
+            "axes.titlesize": 14,
+            "axes.labelsize": 12,
             "axes.titleweight": "semibold",
             "axes.grid": True,
             "grid.alpha": 0.25,
             "grid.linestyle": "--",
-            "legend.fontsize": 9,
+            "legend.fontsize": 11,
             "legend.frameon": False,
-            "xtick.labelsize": 10,
-            "ytick.labelsize": 10,
+            "xtick.labelsize": 11,
+            "ytick.labelsize": 11,
             "axes.spines.top": False,
             "axes.spines.right": False,
         }
@@ -111,6 +113,58 @@ def _save_figure(fig, filename: str | Path | None, dpi: int = 220):
     return fig
 
 
+def _plot_interpolated_objective_surface(ax, x, y, values, vmin: float, vmax: float):
+    """Plot a smooth objective background when triangulation is feasible."""
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    values = np.asarray(values, dtype=float)
+    valid = np.isfinite(x) & np.isfinite(y) & np.isfinite(values)
+    x = x[valid]
+    y = y[valid]
+    values = values[valid]
+
+    if len(x) < 3 or len(np.unique(x)) < 2 or len(np.unique(y)) < 2:
+        return ax.scatter(
+            x,
+            y,
+            c=values,
+            s=18,
+            cmap=GRID_CMAP,
+            vmin=vmin,
+            vmax=vmax,
+            alpha=0.25,
+            edgecolors="none",
+            zorder=1,
+        )
+
+    try:
+        triangulation = Triangulation(x, y)
+        mask = TriAnalyzer(triangulation).get_flat_tri_mask(min_circle_ratio=0.01)
+        triangulation.set_mask(mask)
+        levels = np.linspace(vmin, vmax, 28)
+        return ax.tricontourf(
+            triangulation,
+            values,
+            levels=levels,
+            cmap=GRID_CMAP,
+            alpha=0.92,
+            extend="both",
+        )
+    except Exception:
+        return ax.scatter(
+            x,
+            y,
+            c=values,
+            s=18,
+            cmap=GRID_CMAP,
+            vmin=vmin,
+            vmax=vmax,
+            alpha=0.25,
+            edgecolors="none",
+            zorder=1,
+        )
+
+
 def _reference_concentration_lookup(reference_concentrations):
     if reference_concentrations is None:
         return None
@@ -163,7 +217,7 @@ def plot_observations_overview(
     apply_example_style()
     df = cdata.cv.copy()
     tracers = list(dict.fromkeys(df["element"].tolist()))
-    ncols = min(3, max(len(tracers), 1))
+    ncols = 2 if len(tracers) == 4 else min(3, max(len(tracers), 1))
     nrows = ceil(max(len(tracers), 1) / ncols)
     fig, axs = plt.subplots(nrows, ncols, figsize=(6.2 * ncols, 3.8 * nrows), squeeze=False)
 
@@ -218,8 +272,17 @@ def plot_single_date_model_space(
     pairs = list(combinations(range(len(concentration_columns)), 2))
     if not pairs:
         raise ValueError("At least two tracers are required to plot model space.")
+    if len(concentration_columns) >= 4:
+        pairs = pairs[:4]
 
-    fig, axs = plt.subplots(1, len(pairs), figsize=(5.3 * len(pairs), 4.6), squeeze=False)
+    ncols = 2 if len(pairs) >= 4 else len(pairs)
+    nrows = ceil(len(pairs) / ncols)
+    fig, axs = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(5.4 * ncols, 4.6 * nrows),
+        squeeze=False,
+    )
     axs = axs.flatten()
 
     for ax_index, ((i0, i1), ax) in enumerate(zip(pairs, axs)):
@@ -234,7 +297,7 @@ def plot_single_date_model_space(
             alpha=0.35,
             color=REACHABLE_COLOR,
             edgecolors="none",
-            label="Reachable space" if ax_index == 0 else None,
+            label="Prior reachable space" if ax_index == 0 else None,
         )
 
         for method_index, (method_name, result) in enumerate(posterior_results.items()):
@@ -249,10 +312,10 @@ def plot_single_date_model_space(
                 sample[xcol],
                 sample[ycol],
                 s=20,
-                alpha=0.65,
+                alpha=0.18,
                 color=color,
                 linewidths=0,
-                label=f"{method_name} samples" if ax_index == 0 else None,
+                label=f"{method_name} posterior samples" if ax_index == 0 else None,
             )
             best = _best_row(frame)
             if best is not None:
@@ -264,7 +327,7 @@ def plot_single_date_model_space(
                     color=color,
                     edgecolor="white",
                     linewidth=0.8,
-                    label=f"{method_name} best" if ax_index == 0 else None,
+                    label=f"{method_name} posterior best" if ax_index == 0 else None,
                     zorder=4,
                 )
 
@@ -298,8 +361,11 @@ def plot_single_date_model_space(
         ax.set_xlabel(_axis_label(observed.loc[i0, "element"], observed.loc[i0].get("unit")))
         ax.set_ylabel(_axis_label(observed.loc[i1, "element"], observed.loc[i1].get("unit")))
 
+    for ax in axs[len(pairs):]:
+        ax.remove()
+
     handles, labels = axs[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=min(len(labels), 4))
+    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=min(len(labels), 3))
     fig.suptitle(title, fontsize=15, y=1.08)
     fig.tight_layout(rect=(0, 0, 1, 0.9))
     return _save_figure(fig, filename)
@@ -339,7 +405,7 @@ def plot_parameter_summary(
                 alpha=0.45 if method_index == 0 else 1.0,
                 color=color,
                 linewidth=1.8,
-                label=method_name,
+                label=f"{method_name} posterior",
             )
             best = _best_row(frame)
             if best is not None and param_name in best:
@@ -361,7 +427,7 @@ def plot_parameter_summary(
 
     handles, labels = axs[0, 0].get_legend_handles_labels()
     if handles:
-        fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=min(len(labels), 4))
+        fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=min(len(labels), 3))
     fig.suptitle(title, fontsize=15, y=1.06)
     fig.tight_layout(rect=(0, 0, 1, 0.9))
     return _save_figure(fig, filename)
@@ -393,7 +459,8 @@ def plot_objective_summary(
     pairs = pairs[:3]
 
     ncols = len(pairs)
-    fig, axs = plt.subplots(1, ncols, figsize=(5.4 * ncols, 4.6), squeeze=False)
+    fig_width = 5.6 * ncols + 1.4
+    fig, axs = plt.subplots(1, ncols, figsize=(fig_width, 4.8), squeeze=False)
     axs = axs.flatten()
 
     grid_frame = objective_frame.copy()
@@ -415,7 +482,7 @@ def plot_objective_summary(
                 c=grid_frame[objective_col],
                 s=18,
                 cmap=GRID_CMAP,
-                alpha=0.7,
+                alpha=0.55,
                 edgecolors="none",
             )
             ax.scatter(
@@ -426,22 +493,20 @@ def plot_objective_summary(
                 color="white",
                 edgecolor=OBSERVED_COLOR,
                 linewidth=0.9,
-                label="Best grid point",
+                label="Best prior grid point",
                 zorder=4,
             )
             for method_index, (method_name, result) in enumerate(posterior_results.items()):
                 frame = _ensure_frame(result)
                 color = _method_color(method_name, method_index)
                 sample = frame[[xname, "obj_function"]].dropna()
-                if len(sample) > 450:
-                    sample = sample.sample(450, random_state=12345)
                 ax.scatter(
                     sample[xname],
                     sample["obj_function"],
                     s=18,
                     color=color,
-                    alpha=0.55,
-                    label=f"{method_name} samples" if ax_index == 0 else None,
+                    alpha=0.15,
+                    label=f"{method_name} posterior samples" if ax_index == 0 else None,
                 )
                 best = _best_row(frame)
                 if best is not None:
@@ -453,7 +518,7 @@ def plot_objective_summary(
                         color=color,
                         edgecolor="white",
                         linewidth=0.8,
-                        label=f"{method_name} best" if ax_index == 0 else None,
+                        label=f"{method_name} posterior best" if ax_index == 0 else None,
                         zorder=5,
                     )
             if reference_params and xname in reference_params and nearest_reference_row is not None:
@@ -477,7 +542,7 @@ def plot_objective_summary(
                 c=grid_frame[objective_col],
                 s=18,
                 cmap=GRID_CMAP,
-                alpha=0.72,
+                alpha=0.55,
                 edgecolors="none",
             )
             ax.scatter(
@@ -488,23 +553,21 @@ def plot_objective_summary(
                 color="white",
                 edgecolor=OBSERVED_COLOR,
                 linewidth=0.9,
-                label="Best grid point" if ax_index == 0 else None,
+                label="Best prior grid point" if ax_index == 0 else None,
                 zorder=4,
             )
             for method_index, (method_name, result) in enumerate(posterior_results.items()):
                 frame = _ensure_frame(result)
                 color = _method_color(method_name, method_index)
                 sample = frame[[xname, yname]].dropna()
-                if len(sample) > 450:
-                    sample = sample.sample(450, random_state=12345)
                 ax.scatter(
                     sample[xname],
                     sample[yname],
                     s=20,
                     color=color,
-                    alpha=0.6,
+                    alpha=0.15,
                     linewidths=0,
-                    label=f"{method_name} samples" if ax_index == 0 else None,
+                    label=f"{method_name} posterior samples" if ax_index == 0 else None,
                 )
                 best = _best_row(frame)
                 if best is not None:
@@ -516,7 +579,7 @@ def plot_objective_summary(
                         color=color,
                         edgecolor="white",
                         linewidth=0.8,
-                        label=f"{method_name} best" if ax_index == 0 else None,
+                        label=f"{method_name} posterior best" if ax_index == 0 else None,
                         zorder=5,
                     )
             if (
@@ -540,12 +603,210 @@ def plot_objective_summary(
         ax.set_title(f"{xname} vs {yname if yname != objective_col else 'objective'}")
 
     if scalar is not None:
-        fig.colorbar(scalar, ax=axs.tolist(), shrink=0.9, label="Lower is better")
+        plot_right = 0.80 if ncols == 1 else 0.84
+        colorbar_left = 0.88 if ncols == 1 else 0.90
+        fig.subplots_adjust(left=0.10, right=plot_right, bottom=0.12, top=0.77, wspace=0.28)
+        cax = fig.add_axes([colorbar_left, 0.18, 0.024, 0.56])
+        cbar = fig.colorbar(scalar, cax=cax)
+        cbar.set_label("Objective on prior grid (lower is better)")
     handles, labels = axs[0].get_legend_handles_labels()
     if handles:
-        fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=min(len(labels), 4))
+        fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=min(len(labels), 3))
     fig.suptitle(title, fontsize=15, y=1.08)
-    fig.subplots_adjust(top=0.77, wspace=0.28)
+    if scalar is None:
+        fig.subplots_adjust(top=0.77, wspace=0.28)
+    return _save_figure(fig, filename)
+
+
+def plot_objective_solution_map(
+    objective_frame: pd.DataFrame,
+    posterior_frame: pd.DataFrame,
+    param_names: list[str],
+    reference_params: dict[str, float] | None = None,
+    reference_label: str = "True parameters",
+    filename: str | Path | None = None,
+    title: str = "Expert view: posterior solutions colored by objective value",
+):
+    """
+    Plot posterior solutions on top of the colored objective landscape.
+    """
+    apply_example_style()
+    if not param_names:
+        raise ValueError("At least one parameter is required.")
+
+    objective_col = "log-ojf" if "log-ojf" in objective_frame.columns else "obj_function"
+    posterior_objective_col = "obj_function" if "obj_function" in posterior_frame.columns else objective_col
+    if objective_col not in objective_frame.columns:
+        raise ValueError("Objective frame must contain 'log-ojf' or 'obj_function'.")
+    if posterior_objective_col not in posterior_frame.columns:
+        raise ValueError("Posterior frame must contain 'obj_function' or 'log-ojf'.")
+
+    if len(param_names) == 1:
+        pairs = [(param_names[0], objective_col)]
+    else:
+        pairs = list(combinations(param_names, 2))
+    pairs = pairs[:3]
+
+    ncols = len(pairs)
+    fig_width = 5.8 * ncols + 1.6
+    fig, axs = plt.subplots(1, ncols, figsize=(fig_width, 4.9), squeeze=False)
+    axs = axs.flatten()
+
+    grid_frame = objective_frame.copy()
+    if len(grid_frame) > 9000:
+        grid_frame = grid_frame.sample(9000, random_state=12345)
+    post_frame = posterior_frame.copy()
+    if len(post_frame) > 2500:
+        post_frame = post_frame.sample(2500, random_state=12345)
+
+    grid_values = pd.to_numeric(grid_frame[objective_col], errors="coerce")
+    posterior_values = pd.to_numeric(post_frame[posterior_objective_col], errors="coerce")
+    combined_values = pd.concat([grid_values.dropna(), posterior_values.dropna()], ignore_index=True)
+    if combined_values.empty:
+        raise ValueError("No valid objective values found for the expert objective plot.")
+
+    vmin = float(combined_values.min())
+    vmax = float(combined_values.max())
+    best_posterior = _best_row(post_frame)
+    nearest_reference_row = _nearest_reference_objective_row(
+        objective_frame,
+        reference_params,
+        param_names,
+    )
+    scalar = None
+
+    for xname, yname in pairs:
+        ax = axs[pairs.index((xname, yname))]
+        if yname == objective_col:
+            scalar = ax.scatter(
+                grid_frame[xname],
+                grid_values,
+                c=grid_values,
+                s=18,
+                cmap=GRID_CMAP,
+                vmin=vmin,
+                vmax=vmax,
+                alpha=0.24,
+                edgecolors="none",
+            )
+            ax.scatter(
+                post_frame[xname],
+                posterior_values,
+                c=posterior_values,
+                s=34,
+                cmap=GRID_CMAP,
+                vmin=vmin,
+                vmax=vmax,
+                alpha=0.78,
+                edgecolors="white",
+                linewidths=0.2,
+                zorder=4,
+            )
+            if best_posterior is not None:
+                ax.scatter(
+                    best_posterior[xname],
+                    best_posterior[posterior_objective_col],
+                    marker="*",
+                    s=140,
+                    color="white",
+                    edgecolor=OBSERVED_COLOR,
+                    linewidth=0.9,
+                    zorder=5,
+                )
+            if reference_params and xname in reference_params and nearest_reference_row is not None:
+                ax.scatter(
+                    float(reference_params[xname]),
+                    float(nearest_reference_row[objective_col]),
+                    marker="D",
+                    s=90,
+                    color=OBSERVED_COLOR,
+                    edgecolor="white",
+                    linewidth=0.8,
+                    zorder=6,
+                )
+            ax.set_ylabel("Objective function")
+            ax.set_title(f"{xname} vs objective")
+        else:
+            scalar = _plot_interpolated_objective_surface(
+                ax,
+                grid_frame[xname],
+                grid_frame[yname],
+                grid_values,
+                vmin=vmin,
+                vmax=vmax,
+            )
+            ax.scatter(
+                grid_frame[xname],
+                grid_frame[yname],
+                s=10,
+                color="#d9e2e8",
+                alpha=0.08,
+                edgecolors="none",
+                zorder=2,
+            )
+            ax.scatter(
+                post_frame[xname],
+                post_frame[yname],
+                c=posterior_values,
+                s=34,
+                cmap=GRID_CMAP,
+                vmin=vmin,
+                vmax=vmax,
+                alpha=0.82,
+                edgecolors="white",
+                linewidths=0.2,
+                zorder=4,
+            )
+            if best_posterior is not None:
+                ax.scatter(
+                    best_posterior[xname],
+                    best_posterior[yname],
+                    marker="*",
+                    s=140,
+                    color="white",
+                    edgecolor=OBSERVED_COLOR,
+                    linewidth=0.9,
+                    zorder=5,
+                )
+            if reference_params and xname in reference_params and yname in reference_params:
+                ax.scatter(
+                    float(reference_params[xname]),
+                    float(reference_params[yname]),
+                    marker="D",
+                    s=90,
+                    color=OBSERVED_COLOR,
+                    edgecolor="white",
+                    linewidth=0.8,
+                    zorder=6,
+                )
+            ax.set_ylabel(yname)
+            ax.set_title(f"{xname} vs {yname}")
+        ax.set_xlabel(xname)
+
+    plot_right = 0.80 if ncols == 1 else 0.84
+    colorbar_left = 0.88 if ncols == 1 else 0.90
+    fig.subplots_adjust(left=0.10, right=plot_right, bottom=0.12, top=0.78, wspace=0.28)
+    cax = fig.add_axes([colorbar_left, 0.18, 0.024, 0.58])
+    cbar = fig.colorbar(scalar, cax=cax)
+    cbar.set_label("Objective value (lower is better)")
+
+    legend_handles = [
+        Line2D([], [], marker="o", linestyle="", markersize=7, markerfacecolor="#808080", markeredgecolor="none", alpha=0.55, label="Interpolated prior objective surface"),
+        Line2D([], [], marker="o", linestyle="", markersize=7, markerfacecolor="#2b8cbe", markeredgecolor="white", label="Posterior solutions colored by objective"),
+        Line2D([], [], marker="*", linestyle="", markersize=12, markerfacecolor="white", markeredgecolor=OBSERVED_COLOR, label="Best posterior solution"),
+    ]
+    if reference_params:
+        legend_handles.append(
+            Line2D([], [], marker="D", linestyle="", markersize=8, markerfacecolor=OBSERVED_COLOR, markeredgecolor="white", label=reference_label)
+        )
+    fig.legend(
+        legend_handles,
+        [handle.get_label() for handle in legend_handles],
+        loc="upper center",
+        bbox_to_anchor=(0.48, 1.0),
+        ncol=min(len(legend_handles), 3),
+    )
+    fig.suptitle(title, fontsize=15, y=1.08)
     return _save_figure(fig, filename)
 
 
