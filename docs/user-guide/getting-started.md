@@ -70,7 +70,7 @@ pyage/
 The simplest way to start is with an existing example:
 
 ```bash
-python scripts/launcher.py --params examples/ploemeur/exemple_ploemeur.yaml
+python scripts/launcher.py --params examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
 Or use the minimal templates (fast, no interactive plots):
@@ -83,7 +83,7 @@ python scripts/launcher_temporal.py --params examples/templates/quickstart_tempo
 Or, if you installed the package, use the CLI:
 
 ```bash
-pyage run examples/ploemeur/exemple_ploemeur.yaml
+pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
 You can override key fields from the CLI (without editing YAML):
@@ -113,7 +113,7 @@ Key output files:
 Copy an example YAML and modify it:
 
 ```bash
-cp examples/ploemeur/exemple_ploemeur.yaml my_config.yaml
+cp examples/natural/ploemeur/exemple_ploemeur.yaml my_config.yaml
 ```
 
 Edit `my_config.yaml` to change:

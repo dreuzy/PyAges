@@ -1,0 +1,37 @@
+dataset:
+  # Generated synthetic observations created from generation/generation_settings.yaml.
+  name: synthetic_exp_shifted_2010.txt
+  label: Synthetic exp_shifted recovery
+  year: 2010
+  data_dir: examples/synthetic/lpm_recovery_single_date/data
+  verbose: true
+
+lpm:
+  # Re-estimate the same LPM family used to generate the synthetic data.
+  model_name: exp_shifted
+  data_directory: data_core/data_lpm
+
+run:
+  # Beginner mode: focus on one calibration strategy.
+  reachable_concentrations: true
+  objective_function: true
+  calibration_metropolis_hastings: true
+  calibration_simplex: false
+
+reachable_concentrations:
+  nmodels: 2500
+
+objective_function:
+  nmodels: 3000
+
+calibration_metropolis_hastings:
+  nstep: 2500
+  prior_option: false
+  likelihood: true
+  monitor: false
+  display_traj: false
+
+calibration_simplex:
+  # Unused by default, kept for compatibility with the launcher schema.
+  init_multiples_n: 1
+  fuq_n: 5

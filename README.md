@@ -55,7 +55,7 @@ This makes `import pyage` work from any directory and enables the CLI:
 ```
 pyage check
 pyage list lpms
-pyage run examples/ploemeur/exemple_ploemeur.yaml
+pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
 Repo-direct (no install):
@@ -78,8 +78,8 @@ Examples:
 ```
 pyage check
 pyage list lpms
-pyage run examples/ploemeur/exemple_ploemeur.yaml
-pyage run --transient examples/ploemeur_temporal/ploemeur_temporal.yaml
+pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
+pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 pyage run --lpm exp_shifted --mh-nsteps 5000 --data-name mydata.txt --data-dir examples/my_site/data my_config.yaml
 pyage run --transient --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
 ```
@@ -162,9 +162,9 @@ site-specific directory such as `sites/ploemeur/params_lpm`.
 Example runners live under `examples/<site>/` and read their own YAML configs.
 For instance, see:
 
-- `examples/ploemeur/exemple_ploemeur.yaml`
-- `examples/fontainebleau/exemple_fontainebleau.yaml`
-- `examples/ploemeur_temporal/ploemeur_temporal.yaml`
+- `examples/natural/ploemeur/exemple_ploemeur.yaml`
+- `examples/natural/fontainebleau/exemple_fontainebleau.yaml`
+- `examples/natural/ploemeur_temporal/ploemeur_temporal.yaml`
 
 ### Temporal MH launcher (multi-date concentrations)
 
@@ -173,7 +173,7 @@ concentration file (``ori_*.txt``) and produces temporal plots plus parameter
 and concentration distributions:
 
 ```
-python scripts/launcher_temporal.py --params examples/ploemeur_temporal/ploemeur_temporal.yaml
+python scripts/launcher_temporal.py --params examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 Supported modes:
@@ -182,7 +182,7 @@ Supported modes:
 
 Test data note:
 - `tests/concentrations/test_concentration_chronicles_smoke.py` reads
-  `examples/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt` as its
+  `examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt` as its
   input dataset.
 
 ## Tests and golden files

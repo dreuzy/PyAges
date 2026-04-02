@@ -28,6 +28,7 @@ from pyage.concentrations.utils.storage import (
     save_tracer_series_table,
 )
 from pyage.concentrations.utils.plotting import plot_tracer_series, plot_concentration_chronicles
+from pyage.concentrations.utils.plotting import plot_concentration_chronicles_summary
 
 
 class ConcentrationTime:
@@ -222,15 +223,15 @@ def display_concentration_chronicles(
     -------
     One figure containing tracer subplots.
     """
-    # Figure initialization : 2x2 subplots
-    fig, axs = plt.subplots(2, 2, figsize=(10, 8))
-
-    # Concentrations Data
-    conc_data = ConcentrationTime(craw=craw)
+    tracer_names = craw.cv["element"].unique()
+    n_tracers = len(tracer_names)
+    ncols = min(3, max(n_tracers, 1))
+    nrows = int(np.ceil(n_tracers / ncols))
+    fig, axs = plt.subplots(nrows, ncols, figsize=(6.3 * ncols, 4.0 * nrows))
 
     # Tracers
     tracers = convolution_tracers.ConvolutionTracers(
-        names=craw.cv["element"].unique(),
+        names=tracer_names,
         date=max(craw.cv["date"]),
     )
 
@@ -243,17 +244,14 @@ def display_concentration_chronicles(
 
     # merged_all_models accumulera toutes les colonnes des differents modeles
     merged_all_models = None
-    plot_stride = max(lpm_number // 10, 1)
-
-    plot_concentration_chronicles(
+    plot_concentration_chronicles_summary(
         fig,
         axs,
-        conc_data,
+        craw,
         tracers,
         lpm_list,
         start_year=1960,
         end_year=max(craw.cv["date"]),
-        plot_stride=plot_stride,
     )
 
     for i, lpm in enumerate(lpm_list, start=1):

@@ -13,7 +13,14 @@ from tests.utils import golden as golden_utils
 
 
 GOLDEN_PATH = Path(__file__).resolve().parents[2] / "tests" / "golden" / "ploemeur_example_values.json"
-DATA_PATH = Path(__file__).resolve().parents[2] / "examples" / "ploemeur" / "data" / "ploemeur_F09_2010.txt"
+DATA_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "examples"
+    / "natural"
+    / "ploemeur"
+    / "data"
+    / "ploemeur_F09_2010.txt"
+)
 
 
 def _round_float(value: float, ndigits: int = 12) -> float:

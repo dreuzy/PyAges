@@ -14,8 +14,8 @@ conda activate pyage
 Then run a script from the repository root, for example:
 
 ```bash
-python scripts/launcher.py --params examples/ploemeur/exemple_ploemeur.yaml
-python scripts/launcher_temporal.py --params examples/ploemeur_temporal/ploemeur_temporal.yaml
+python scripts/launcher.py --params examples/natural/ploemeur/exemple_ploemeur.yaml
+python scripts/launcher_temporal.py --params examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 python scripts/launcher.py --params examples/templates/quickstart_single.yaml
 python scripts/launcher_temporal.py --params examples/templates/quickstart_temporal.yaml
 python scripts/run_system_check.py
@@ -28,14 +28,14 @@ python scripts/run_calibration_benchmark.py
 Single-date workflows (YAML-driven):
 
 ```bash
-python scripts/launcher.py --params examples/ploemeur/exemple_ploemeur.yaml
-python scripts/launcher.py --params examples/fontainebleau/exemple_fontainebleau.yaml
+python scripts/launcher.py --params examples/natural/ploemeur/exemple_ploemeur.yaml
+python scripts/launcher.py --params examples/natural/fontainebleau/exemple_fontainebleau.yaml
 ```
 
 Temporal workflows (multi-date concentrations):
 
 ```bash
-python scripts/launcher_temporal.py --params examples/ploemeur_temporal/ploemeur_temporal.yaml
+python scripts/launcher_temporal.py --params examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 ## Output location

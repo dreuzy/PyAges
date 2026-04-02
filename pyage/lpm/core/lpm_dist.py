@@ -67,6 +67,39 @@ class LpmDist:
         return self.__dist
 
 
+    def get_param_names(self):
+        """
+        Return the parameter names carried by the template LPM.
+        """
+        return list(self.__lpm_template.get_param_names())
+
+
+    def get_concentration_names(self):
+        """
+        Return the concentration column names stored in the distribution.
+        """
+        return list(self.__c_names)
+
+
+    def best_row(self):
+        """
+        Return the row with the smallest objective function.
+
+        Returns
+        -------
+        pandas.Series | None
+            Best row, or ``None`` when the distribution is empty.
+        """
+        if self.__dist.empty:
+            return None
+        if "obj_function" not in self.__dist.columns:
+            return self.__dist.iloc[0].copy()
+        values = pd.to_numeric(self.__dist["obj_function"], errors="coerce")
+        if values.isna().all():
+            return self.__dist.iloc[0].copy()
+        return self.__dist.loc[values.idxmin()].copy()
+
+
     def validate(self):
         """
         Validate that the distribution has the expected columns.

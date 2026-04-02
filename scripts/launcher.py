@@ -43,6 +43,11 @@ ensure_repo_imports()
 from scripts.common.launcher_paths import results_directory
 from scripts.common.launcher_params import LauncherParams, load_params
 from scripts.common.plotting_helpers import configure_backend, enable_interactive, show_figures
+from scripts.common.example_summary_plots import (
+    plot_objective_summary,
+    plot_parameter_summary,
+    plot_single_date_model_space,
+)
 
 # Configure backend before importing pyplot.
 IN_INTERACTIVE = False
@@ -141,6 +146,13 @@ def build_show_figures(plt):
     return _show
 
 
+def build_case_label(params: LauncherParams) -> str:
+    """Return a short human-readable label for figure titles."""
+    if params.dataset_label:
+        return params.dataset_label
+    return Path(params.dataset_name).stem.replace("_", " ")
+
+
 @dataclass
 class WorkflowContext:
     """Context container for a configured example run."""
@@ -213,8 +225,8 @@ def run_reachable_concentration_analysis(
 
     Notes
     -----
-    The analysis runs once with live display enabled (for quick feedback) and
-    again with saving enabled to capture results on disk.
+    The analysis stores the systematic sampling results used later for the
+    didactic summary figure.
     """
     display_reach_save = copy.deepcopy(display_save)
     display_reach_save.directory_results = gp.results_directory(
@@ -229,14 +241,7 @@ def run_reachable_concentration_analysis(
     )
     cr.compute_concentrations()
     cr.output()
-    # Live preview
-    cr.display = display_live
-    cr.display_concentrations_with_data()
-    show_figures()
-    # Saved figures
-    cr.display = display_reach_save
-    cr.display_concentrations_with_data()
-    show_figures()
+    return cr
 
 
 def run_calibration_simplex(
@@ -349,30 +354,21 @@ def run_calibration_metropolis_hastings(
     return strategy, lpm_results
 
 
-def compare_synthetic_figures(
-    strategy_a,
-    strategy_b,
-    lpm_results_a,
-    lpm_results_b,
+def render_summary_figures(
     concentration_sampled,
     display_save,
     show_figures,
+    reachable_frame,
+    posterior_results,
+    case_label,
 ):
     """
     Purpose
     -------
-    Render parameter and concentration comparisons between two strategies.
+    Render summary figures for a single-date calibration run.
 
     Parameters
     ----------
-    strategy_a : object
-        First calibration strategy (reference).
-    strategy_b : object
-        Second calibration strategy (comparison).
-    lpm_results_a : LpmDist
-        Calibrated LPM distribution for strategy_a.
-    lpm_results_b : LpmDist
-        Calibrated LPM distribution for strategy_b.
     concentration_sampled : Concentrations
         Observed concentrations for overlay.
     display_save : display_options
@@ -380,40 +376,54 @@ def compare_synthetic_figures(
     show_figures : callable
         Helper to flush figures in interactive mode.
 
-    Notes
-    -----
-    Generates live plots (directory=None) and saved plots to the results folder.
+    posterior_results : dict[str, object]
+        Mapping from method name to calibrated parameter distributions.
+    case_label : str
+        Short title prefix for the generated figures.
     """
-    lpm_results_a.display_parameters_dist(
-        self_method=strategy_a.method,
-        lpm_reference=None,
-        lpm_2nd=lpm_results_b,
-        lpm_2nd_method=strategy_b.method,
-        directory=None,
+    import matplotlib.pyplot as plt
+
+    if not posterior_results:
+        return
+    first_result = next(iter(posterior_results.values()))
+    param_names = first_result.get_param_names()
+
+    if reachable_frame is not None:
+        fig = plot_single_date_model_space(
+            concentration_sampled,
+            reachable_frame=reachable_frame,
+            posterior_results=posterior_results,
+            filename=None,
+            title=f"{case_label}: observations, reachable space and calibrated models",
+        )
+        show_figures()
+        plt.close(fig)
+
+        fig = plot_single_date_model_space(
+            concentration_sampled,
+            reachable_frame=reachable_frame,
+            posterior_results=posterior_results,
+            filename=Path(display_save.directory) / "01_data_model_space.png",
+            title=f"{case_label}: observations, reachable space and calibrated models",
+        )
+        plt.close(fig)
+
+    fig = plot_parameter_summary(
+        posterior_results,
+        param_names=param_names,
+        filename=None,
+        title=f"{case_label}: parameter distributions",
     )
     show_figures()
-    lpm_results_a.display_parameters_dist(
-        self_method=strategy_a.method,
-        lpm_reference=None,
-        lpm_2nd=lpm_results_b,
-        lpm_2nd_method=strategy_b.method,
-        directory=display_save.directory,
+    plt.close(fig)
+
+    fig = plot_parameter_summary(
+        posterior_results,
+        param_names=param_names,
+        filename=Path(display_save.directory) / "02_parameter_summary.png",
+        title=f"{case_label}: parameter distributions",
     )
-    lpm_results_a.display_concentrations_dist(
-        self_method=strategy_a.method,
-        concentrations_reference=concentration_sampled,
-        lpm_2nd=lpm_results_b,
-        lpm_2nd_method=strategy_b.method,
-        directory=None,
-    )
-    show_figures()
-    lpm_results_a.display_concentrations_dist(
-        self_method=strategy_a.method,
-        concentrations_reference=concentration_sampled,
-        lpm_2nd=lpm_results_b,
-        lpm_2nd_method=strategy_b.method,
-        directory=display_save.directory,
-    )
+    plt.close(fig)
 
 
 def run_objective_function_analysis(
@@ -423,6 +433,7 @@ def run_objective_function_analysis(
     display_live,
     display_save,
     show_figures,
+    posterior_results,
 ):
     """
     Purpose
@@ -446,9 +457,11 @@ def run_objective_function_analysis(
 
     Notes
     -----
-    The objective function is computed on a sampling grid, then displayed
-    both live and saved to disk for traceability.
+    The objective function is computed on a sampling grid and summarized with
+    the calibrated parameter clouds overlaid on top of the sampled landscape.
     """
+    import matplotlib.pyplot as plt
+
     ss = calibration_exploration.SystematicSampling(
         params.lpm_model_name,
         concentration_sampled.names(),
@@ -461,10 +474,32 @@ def run_objective_function_analysis(
     )
     ss.compute_concentrations()
     ss.objective_function_build()
-    ss.objective_function_display()
+    objective_frame = ss.objective_function_frame()
+    objective_frame.to_csv(
+        Path(display_save.directory) / "objective_function_grid.txt",
+        sep="\t",
+        index=False,
+    )
+    param_names = ss.parameter_names()
+
+    fig = plot_objective_summary(
+        objective_frame=objective_frame,
+        posterior_results=posterior_results,
+        param_names=param_names,
+        filename=None,
+        title=f"{build_case_label(params)}: objective landscape and estimated parameters",
+    )
     show_figures()
-    ss.display = display_save
-    ss.objective_function_display()
+    plt.close(fig)
+
+    fig = plot_objective_summary(
+        objective_frame=objective_frame,
+        posterior_results=posterior_results,
+        param_names=param_names,
+        filename=Path(display_save.directory) / "03_objective_summary.png",
+        title=f"{build_case_label(params)}: objective landscape and estimated parameters",
+    )
+    plt.close(fig)
 
 
 def run_concentration_outputs(params, lpm_build, ct, display_save):
@@ -557,8 +592,9 @@ def run_workflow(params_path, force_inline=False):
         concentration_sampled=concentration_sampled,
     )
 
+    reachable_sampler = None
     if context.params.run_reachable_concentrations:
-        run_reachable_concentration_analysis(
+        reachable_sampler = run_reachable_concentration_analysis(
             context.params,
             context.concentration_sampled,
             calibration_exploration,
@@ -593,15 +629,20 @@ def run_workflow(params_path, force_inline=False):
             gp,
         )
 
-    if strategy_simplex and strategy_mh:
-        compare_synthetic_figures(
-            strategy_simplex,
-            strategy_mh,
-            results_simplex,
-            results_mh,
+    posterior_results = {}
+    if strategy_simplex and results_simplex:
+        posterior_results[strategy_simplex.method] = results_simplex
+    if strategy_mh and results_mh:
+        posterior_results[strategy_mh.method] = results_mh
+
+    if posterior_results:
+        render_summary_figures(
             context.concentration_sampled,
             context.display_save,
             show_fig,
+            reachable_frame=reachable_sampler.concentrations_frame() if reachable_sampler else None,
+            posterior_results=posterior_results,
+            case_label=build_case_label(context.params),
         )
 
     # ------- OBJECTIVE FUNCTION -------------------------------
@@ -613,19 +654,20 @@ def run_workflow(params_path, force_inline=False):
             context.display_live,
             context.display_save,
             show_fig,
+            posterior_results,
         )
 
     # ------------- CONCENTRATION OUTPUTS ----------------------
     run_concentration_outputs(context.params, lpm_build, ct, context.display_save)
 
-    print(display_save.directory)
     if not IN_INTERACTIVE:
         plt.show(block=True)
+    return Path(display_save.directory)
 
 
 def main(params_path, force_inline=False):
     """CLI wrapper for run_workflow."""
-    run_workflow(params_path, force_inline=force_inline)
+    return run_workflow(params_path, force_inline=force_inline)
 
 
 if __name__ == "__main__":
@@ -660,4 +702,6 @@ if __name__ == "__main__":
             subprocess.run(["setx", "PYAGE_RESULTS_DIR", results_dir], check=True)
         else:
             print("PYAGE_RESULTS_DIR set for current process only (non-Windows).")
-    main(args.params_path, force_inline=args.inline)
+    output_dir = main(args.params_path, force_inline=args.inline)
+    if output_dir is not None:
+        print(output_dir)

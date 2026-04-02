@@ -71,8 +71,8 @@ def run(
 
     \b
     Examples:
-        pyage run examples/ploemeur/exemple_ploemeur.yaml
-        pyage run --transient examples/ploemeur_temporal/ploemeur_temporal.yaml
+        pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
+        pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
     """
     # Ensure config path is absolute
     config = config.resolve()

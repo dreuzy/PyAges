@@ -1,9 +1,10 @@
 dataset:
-  # Example: "fontainebleau_CGEB" maps to examples/fontainebleau/data/fontainebleau_CGEB
+  # Example: "fontainebleau_CGEB" maps to examples/natural/fontainebleau/data/fontainebleau_CGEB
   name: fontainebleau_CGEB
+  label: Fontainebleau single-date example
   year: 2010
   # Directory containing dataset files
-  data_dir: examples/fontainebleau/data
+  data_dir: examples/natural/fontainebleau/data
   # Print dataset path and summary at startup
   verbose: true
 
@@ -11,7 +12,7 @@ lpm:
   # Default LPM model used for this example
   model_name: dirac_double
   # LPM data directory for this example
-  data_directory: examples/fontainebleau/data/data_lpm
+  data_directory: examples/natural/fontainebleau/data/data_lpm
 
 run:
   # Compute reachable concentrations (sampling-based)

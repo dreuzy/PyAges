@@ -45,6 +45,7 @@ def test_concentration_chronicles_smoke(tmp_path, update_golden):
     data_path = (
         test_paths.repo_root()
         / "examples"
+        / "natural"
         / "ploemeur_temporal"
         / "data"
         / "ori_ploemeur_F09_2005_2024.txt"

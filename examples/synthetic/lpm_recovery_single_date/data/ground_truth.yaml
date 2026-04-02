@@ -1,0 +1,54 @@
+example:
+  label: Synthetic exp_shifted recovery
+  description: Recover the parameters of an exp_shifted model from synthetic single-date
+    concentrations.
+generation:
+  seed: 12345
+  add_noise: true
+  relative_error: 0.04
+  date: 2010.9
+  tracers:
+  - cfc11
+  - cfc12
+  - cfc113
+dataset:
+  file_name: synthetic_exp_shifted_2010.txt
+  truth_file: ground_truth.yaml
+  true_concentration_file: true_concentrations.txt
+lpm:
+  model_name: exp_shifted
+  parameters:
+    mu: 28.0
+    shift: 4.0
+true_concentrations:
+- element: cfc11
+  concentration: 168.26446450643965
+  error: 0
+  unit: pptv
+  date: 2010.9
+- element: cfc12
+  concentration: 336.6021451174671
+  error: 0
+  unit: pptv
+  date: 2010.9
+- element: cfc113
+  concentration: 46.20546838592191
+  error: 0
+  unit: pptv
+  date: 2010.9
+observed_concentrations:
+- element: cfc11
+  concentration: 158.68129821404364
+  error: 6.730578580257586
+  unit: pptv
+  date: 2010.9
+- element: cfc12
+  concentration: 353.617093511557
+  error: 13.464085804698684
+  unit: pptv
+  date: 2010.9
+- element: cfc113
+  concentration: 44.5962950495979
+  error: 1.8482187354368764
+  unit: pptv
+  date: 2010.9

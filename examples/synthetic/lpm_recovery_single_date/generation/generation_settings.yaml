@@ -1,0 +1,24 @@
+example:
+  label: Synthetic exp_shifted recovery
+  description: Recover the parameters of an exp_shifted model from synthetic single-date concentrations.
+
+dataset:
+  file_name: synthetic_exp_shifted_2010.txt
+  truth_file: ground_truth.yaml
+  true_concentration_file: true_concentrations.txt
+
+generation:
+  seed: 12345
+  add_noise: true
+  relative_error: 0.04
+  date: 2010.9
+  tracers:
+    - cfc11
+    - cfc12
+    - cfc113
+
+lpm:
+  model_name: exp_shifted
+  parameters:
+    mu: 28.0
+    shift: 4.0

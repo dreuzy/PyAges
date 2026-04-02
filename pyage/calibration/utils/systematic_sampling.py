@@ -566,6 +566,29 @@ class SystematicSampling:
         self.__psystsampling.set_nmodels(nmodels)
 
 
+    def concentrations_frame(self):
+        """
+        Return sampled concentrations as a dataframe copy.
+        """
+        return self.__concentrations.copy()
+
+
+    def objective_function_frame(self):
+        """
+        Return sampled objective values as a dataframe copy.
+        """
+        if not hasattr(self, "_SystematicSampling__obj_function"):
+            raise ValueError("Objective function has not been built yet.")
+        return self.__obj_function.copy()
+
+
+    def parameter_names(self):
+        """
+        Return the ordered parameter names of the sampled LPM.
+        """
+        return list(self.__lpm.p.keys())
+
+
     def analysis_reach_conc(self): 
         """ Analysis of reachable concentrations
         """

@@ -36,8 +36,8 @@ Welcome to the PyAge user documentation. This guide helps you use PyAge for grou
 
 ```bash
 conda activate pyage
-python scripts/launcher.py --params examples/ploemeur/exemple_ploemeur.yaml
-pyage run examples/ploemeur/exemple_ploemeur.yaml
+python scripts/launcher.py --params examples/natural/ploemeur/exemple_ploemeur.yaml
+pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
 ### Create New Components

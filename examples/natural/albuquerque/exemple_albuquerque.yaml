@@ -1,11 +1,12 @@
 dataset:
   # Identifier of the dataset file (directory + basename).
-  # Example: "SSW_2007.txt" maps to examples/albuquerque/data/SSW_2007.txt
+  # Example: "SSW_2007.txt" maps to examples/natural/albuquerque/data/SSW_2007.txt
   name: SSW_2007.txt
+  label: Albuquerque single-date example
   # Reference year for labels/metadata (not required for file IO).
   year: 2007
   # Base directory for data files; can be relative to repo root.
-  data_dir: examples/albuquerque/data
+  data_dir: examples/natural/albuquerque/data
   # Print extra diagnostics during loading.
   verbose: true
 

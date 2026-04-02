@@ -19,7 +19,7 @@ The Ploemeur example demonstrates a complete calibration workflow for a single s
 ### Run the Example
 
 ```bash
-python scripts/launcher.py --params examples/ploemeur/exemple_ploemeur.yaml
+python scripts/launcher.py --params examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
 ### What It Does
@@ -32,12 +32,12 @@ python scripts/launcher.py --params examples/ploemeur/exemple_ploemeur.yaml
 ### Configuration File
 
 ```yaml
-# examples/ploemeur/exemple_ploemeur.yaml
+# examples/natural/ploemeur/exemple_ploemeur.yaml
 
 dataset:
   name: ploemeur_F09_2010.txt      # Input data file
   year: 2010                        # Reference year
-  data_dir: examples/ploemeur/data  # Data directory
+  data_dir: examples/natural/ploemeur/data  # Data directory
   verbose: true
 
 lpm:
@@ -90,7 +90,7 @@ Similar to Ploemeur but with a different dataset.
 ### Run the Example
 
 ```bash
-python scripts/launcher.py --params examples/fontainebleau/exemple_fontainebleau.yaml
+python scripts/launcher.py --params examples/natural/fontainebleau/exemple_fontainebleau.yaml
 ```
 
 ### Key Differences
@@ -107,16 +107,16 @@ The temporal example demonstrates calibration across multiple sampling dates, us
 ### Run the Example
 
 ```bash
-python scripts/launcher_temporal.py --params examples/ploemeur_temporal/ploemeur_temporal.yaml
+python scripts/launcher_temporal.py --params examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 ### Configuration File
 
 ```yaml
-# examples/ploemeur_temporal/ploemeur_temporal.yaml
+# examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 
 dataset:
-  file: examples/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
+  file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
   error_rel: 0.2                    # 20% relative error
 
 lpm_models:

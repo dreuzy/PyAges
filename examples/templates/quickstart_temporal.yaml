@@ -1,7 +1,7 @@
 # Minimal temporal quickstart (fast, no plots).
 
 dataset:
-  file: examples/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
+  file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
   error_rel: 0.2
 
 lpm_models:

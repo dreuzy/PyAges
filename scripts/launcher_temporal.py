@@ -67,6 +67,10 @@ import pyage.calibration.utils.calibration_core as calbas
 import pyage.calibration.methods.metropolis_hastings as cMH
 
 from pydantic import ValidationError
+from scripts.common.example_summary_plots import (
+    plot_observations_overview,
+    plot_parameter_summary,
+)
 
 # Shared Pydantic schemas live in pyage.config.models to keep launchers consistent.
 from pyage.config.models import (
@@ -332,15 +336,20 @@ def _run_calibration(
 
     # Distribution figures if enabled.
     if figures_cfg.distributions:
-        lpm_results.display_parameters_dist(
-            self_method=calstrat.method,
-            directory=display.directory,
+        fig = plot_parameter_summary(
+            {calstrat.method: lpm_results},
+            param_names=lpm_results.get_param_names(),
+            filename=Path(display.directory) / "parameter_summary.png",
+            title=f"{lpm_type}: calibrated parameter distributions",
         )
-        lpm_results.display_concentrations_dist(
-            self_method=calstrat.method,
-            concentrations_reference=cdata,
-            directory=display.directory,
-        )
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+        if figures_cfg.concentrations_2d:
+            lpm_results.display_concentrations_dist(
+                self_method=calstrat.method,
+                concentrations_reference=cdata,
+                directory=display.directory,
+            )
 
 
 def run_temporal(params_path: Path) -> Path:
@@ -357,7 +366,7 @@ def run_temporal(params_path: Path) -> Path:
     Minimal YAML example::
 
         dataset:
-          file: examples/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
+          file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
           error_rel: 0.2
         lpm_models:
           list: ["exp_shifted", "ig", "ig_shifted"]
@@ -462,6 +471,14 @@ def run_temporal(params_path: Path) -> Path:
         ccase = co.Concentrations(dataframe_load=True, dataframe_concentration=df.copy())
         case_dir = Path(gp.results_directory(mode_root, date_label))
         written_case_dirs.append(case_dir)
+        if figures_cfg.temporal or figures_cfg.distributions:
+            fig = plot_observations_overview(
+                ccase,
+                filename=case_dir / "00_observations_overview.png",
+                title="Observed concentrations before calibration",
+            )
+            import matplotlib.pyplot as plt
+            plt.close(fig)
         for lpm_type in lpm_list:
             lpm_dir = gp.results_directory(case_dir, lpm_type)
             _run_calibration(

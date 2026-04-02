@@ -2,7 +2,7 @@
 
 dataset:
   # Input concentrations file (multi-date).
-  file: examples/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
+  file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
   # Relative concentration error (applied if error column is zero).
   error_rel: 0.2
 

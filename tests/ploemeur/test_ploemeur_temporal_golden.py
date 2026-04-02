@@ -16,7 +16,13 @@ from tests.utils import golden as golden_utils
 
 
 GOLDEN_PATH = Path(__file__).resolve().parents[2] / "tests" / "golden" / "ploemeur_temporal_values.json"
-PARAMS_PATH = Path(__file__).resolve().parents[2] / "examples" / "ploemeur_temporal" / "ploemeur_temporal.yaml"
+PARAMS_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "examples"
+    / "natural"
+    / "ploemeur_temporal"
+    / "ploemeur_temporal.yaml"
+)
 
 PARAM_COLUMNS = {
     "exp_shifted": ["mu", "shift"],

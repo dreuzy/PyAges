@@ -23,8 +23,8 @@ flowchart TB
   end
 
   subgraph Examples["examples (runnable examples)"]
-    EXPL[examples/ploemeur]
-    EXFT[examples/fontainebleau]
+    EXPL[examples/natural/ploemeur]
+    EXFT[examples/natural/fontainebleau]
     EXTMP[examples/templates]
   end
 

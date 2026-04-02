@@ -59,8 +59,8 @@ Runs a workflow from a YAML configuration file.
 
 Examples:
 ```
-pyage run examples/ploemeur/exemple_ploemeur.yaml
-pyage run --transient examples/ploemeur_temporal/ploemeur_temporal.yaml
+pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
+pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 pyage run --lpm exp_shifted --mh-nsteps 5000 --data-name mydata.txt --data-dir examples/my_site/data my_config.yaml
 pyage run --transient --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
 ```

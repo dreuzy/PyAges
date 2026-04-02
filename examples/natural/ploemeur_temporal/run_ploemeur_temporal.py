@@ -7,8 +7,8 @@ import sys
 
 
 def main():
-    root = Path(__file__).resolve().parents[2]
-    params = root / "examples" / "ploemeur_temporal" / "ploemeur_temporal.yaml"
+    root = Path(__file__).resolve().parents[3]
+    params = root / "examples" / "natural" / "ploemeur_temporal" / "ploemeur_temporal.yaml"
     script = root / "scripts" / "launcher_temporal.py"
     subprocess.run([sys.executable, str(script), "--params", str(params)], check=True)
 

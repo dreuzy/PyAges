@@ -45,6 +45,7 @@ def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
 
     return LauncherParams(
         dataset_name=cfg.dataset.name,
+        dataset_label=cfg.dataset.label,
         dataset_year=cfg.dataset.year,
         dataset_data_dir=cfg.dataset.data_dir,
         verbose=cfg.dataset.verbose,

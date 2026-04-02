@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Launcher for the Fontainebleau workflow.
+Launcher for the workflow.
 """
 
 import sys
@@ -8,14 +8,14 @@ from pathlib import Path
 import subprocess
 import runpy
 
-# Repository root is two levels up from this file (examples/fontainebleau/)
-REPO_ROOT = Path(__file__).resolve().parents[2]
+# Repository root is three levels up from this file (examples/natural/albuquerque/)
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def main():
     root = REPO_ROOT
     script = root / "scripts" / "launcher.py"
-    params = root / "examples" / "fontainebleau" / "exemple_fontainebleau.yaml"
+    params = root / "examples" / "natural" / "albuquerque" / "exemple_albuquerque.yaml"
     try:
         from IPython import get_ipython
         ipy = get_ipython()

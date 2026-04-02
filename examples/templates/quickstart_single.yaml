@@ -3,7 +3,7 @@
 dataset:
   name: ploemeur_F09_2010.txt
   year: 2010
-  data_dir: examples/ploemeur/data
+  data_dir: examples/natural/ploemeur/data
   verbose: false
 
 lpm:

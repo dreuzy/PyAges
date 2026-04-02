@@ -140,6 +140,7 @@ class SystemCheckConfig(_BaseCfg):
 class LauncherDatasetCfg(_BaseCfg):
     """Dataset section of the single-date launcher YAML."""
     name: str = "example_dataset"
+    label: str | None = None
     year: int = 2010
     data_dir: Path = Path("examples/data")
     verbose: bool = True
@@ -210,6 +211,7 @@ class LauncherParams(_BaseCfg):
     model_config = ConfigDict(frozen=True)
 
     dataset_name: str
+    dataset_label: str | None
     dataset_year: int
     dataset_data_dir: Path
     verbose: bool

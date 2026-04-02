@@ -1,6 +1,6 @@
-﻿# Albuquerque example
+# Albuquerque example
 
-This folder mirrors the structure of `examples/ploemeur` and provides a runnable
+This folder mirrors the structure of `examples/natural/ploemeur` and provides a runnable
 starter example for the Albuquerque site. The bundled dataset contains several
 Albuquerque sample snapshots (`SSW_*.txt`); the default example uses
 `SSW_2007.txt`.
@@ -72,11 +72,11 @@ and Methods 4-F3.
 ## Run
 
 ```bash
-python examples/albuquerque/run_albuquerque.py
+python examples/natural/albuquerque/run_albuquerque.py
 ```
 
 Or directly with the launcher:
 
 ```bash
-python scripts/launcher.py --params examples/albuquerque/exemple_albuquerque.yaml
+python scripts/launcher.py --params examples/natural/albuquerque/exemple_albuquerque.yaml
 ```

@@ -12,7 +12,7 @@ Used with `python scripts/launcher.py --params <config.yaml>`
 dataset:
   name: ploemeur_F09_2010.txt      # Required: input data filename
   year: 2010                        # Optional: reference year for labels
-  data_dir: examples/ploemeur/data  # Required: path to data directory
+  data_dir: examples/natural/ploemeur/data  # Required: path to data directory
   verbose: true                     # Optional: print diagnostics (default: false)
 ```
 
@@ -132,7 +132,7 @@ Used with `python scripts/launcher_temporal.py --params <config.yaml>`
 
 ```yaml
 dataset:
-  file: examples/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
+  file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
   error_rel: 0.2                    # Relative error (20%)
 ```
 
