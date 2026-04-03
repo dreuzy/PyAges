@@ -1,0 +1,31 @@
+model: uniform
+version: 1
+
+parameters:
+  - name: tmin
+    label: min_time
+    unit: year
+    description: "Bootstrap minimum age for the executable Holten workflow."
+    bounds: [0.0, 80.0]
+    init: 10.0
+    step: 1.0
+    prior:
+      type: uniform
+      min: 0.0
+      max: 80.0
+      unit: year
+
+  - name: delta
+    label: width
+    unit: year
+    description: "Bootstrap age-spread parameter for the executable Holten workflow."
+    bounds: [1.0, 120.0]
+    init: 30.0
+    step: 1.0
+    prior:
+      type: uniform
+      min: 1.0
+      max: 120.0
+      unit: year
+
+notes: "Temporary local LPM params used to exercise the Holten workflow until the dedicated 4-bin model is implemented."

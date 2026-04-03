@@ -1,0 +1,8 @@
+Holten benchmark summary
+
+Number of wells: 3
+Wells: 67-19, 72-22, 85-33
+
+67-19: reference 4-bin chi2=3.9, reference 4-bin pchi2=5.0, local 4-bin chi2=11.857900825012443, local 4-bin fractions=(0.945, 0.000, 0.055, 0.000), reference best=DM_chi2, bootstrap rmse=0.8620490056070899
+72-22: reference 4-bin chi2=0.6, reference 4-bin pchi2=45.0, local 4-bin chi2=19.483646945967067, local 4-bin fractions=(0.839, 0.000, 0.161, 0.000), reference best=9bin_chi2, bootstrap rmse=0.48987553311093746
+85-33: reference 4-bin chi2=0.0, reference 4-bin pchi2=95.0, local 4-bin chi2=0.008944875696080512, local 4-bin fractions=(0.071, 0.000, 0.082, 0.847), reference best=4bin_chi2, bootstrap rmse=2.851085879384968

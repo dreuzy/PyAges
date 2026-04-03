@@ -1,0 +1,21 @@
+unit: "TU"
+recharge: true
+decay_time: 12.32
+
+holten:
+  reference: "Visser et al. (2013)"
+  notes: "Local tritium chronicle for the Holten case."
+  source:
+    observation_table: "examples/natural/holten/doc/sampling_data.txt"
+    observation_field: "3H_TU"
+    observation_unit: "TU"
+    recharge_file: "examples/natural/holten/doc/local_tritium.txt"
+    recharge_unit: "TU"
+  preparation:
+    input_normalization: "none"
+    output_unit: "TU"
+  premodern_input:
+    value: 3.0
+    unit: "TU"
+    uncertainty: 0.4
+    meaning: "premodern initial concentration before 1953"

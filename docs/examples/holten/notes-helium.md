@@ -52,7 +52,7 @@ Si ce sujet est repris plus tard, un pretraitement specifique pourrait inclure :
 
 - lecture des variables utiles liees aux gaz nobles ;
 - verification de coherence des echantillons pour un usage `3H/3He` ;
-- distinction explicite entre `3He_trit` et `4He_terr` ;
+- distinction explicite entre `3He_trit_TU` et `He4_terr` ;
 - calcul ou reprise d'indicateurs derives utiles a l'interpretation ;
 - drapeaux de qualite sur les cas potentiellement biaises par degazage ou
   melange ;
@@ -66,7 +66,7 @@ Il vaut mieux ne pas supposer a ce stade que :
   standard ;
 - `4He` peut etre traduit directement en age sans hypothese locale forte sur
   les sources et les flux ;
-- les valeurs helium des puits de production sont interpretable sans tenir
+- les valeurs helium des puits de production sont interpretables sans tenir
   compte du melange des composantes ;
 - les corrections gaz nobles pourront etre traitees proprement sans un travail
   methodologique explicite.

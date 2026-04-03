@@ -1,0 +1,70 @@
+dataset:
+  name: holten_2010_selected_wells.txt
+  label: Holten 2010 benchmark multi-traceurs
+  year: 2010
+  data_dir: examples/natural/holten/data
+  verbose: true
+
+lpm:
+  model_name: uniform
+  data_directory: examples/natural/holten/data_lpm
+
+run:
+  reachable_concentrations: false
+  objective_function: false
+  calibration_metropolis_hastings: true
+  calibration_simplex: false
+
+reachable_concentrations:
+  nmodels: 200
+
+objective_function:
+  nmodels: 200
+
+calibration_metropolis_hastings:
+  nstep: 300
+  prior_option: false
+  likelihood: true
+  monitor: false
+  display_traj: false
+
+calibration_simplex:
+  init_multiples_n: 2
+  fuq_n: 10
+
+holten:
+  campaign:
+    label: "April 2010"
+    tracer_scope: "holten_only"
+    selected_wells:
+      - "67-19"
+      - "72-22"
+      - "85-33"
+  tracers:
+    calibration:
+      - "3H"
+      - "kr85"
+      - "39Ar"
+    source_directories:
+      3H: examples/natural/holten/tracers/3H
+      kr85: examples/natural/holten/tracers/kr85
+      39Ar: examples/natural/holten/tracers/39Ar
+    prepared_data_dir: examples/natural/holten/prepared_tracers/data_tracer
+  preparation:
+    source_sampling_file: examples/natural/holten/doc/sampling_data.txt
+    source_tritium_file: examples/natural/holten/doc/local_tritium.txt
+    source_kr85_file: examples/natural/holten/doc/freiburg_krypton.txt
+    generate_per_well_files: true
+    aggregated_dataset: examples/natural/holten/data/holten_2010_selected_wells.txt
+    date_round_decimals: 5
+  figures:
+    pre_model:
+      tracer_panels: true
+      well_panels: true
+  launcher:
+    enabled: true
+    inline: false
+  validation:
+    reference_results: examples/natural/holten/doc/calibration_results.txt
+    qualitative: true
+    semi_quantitative: true

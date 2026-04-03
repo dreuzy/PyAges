@@ -1,0 +1,5 @@
+unit: '%modern'
+recharge_constant: 1.0
+decay_time: 267.0
+datemin: 200.0
+datemax: 2021.0

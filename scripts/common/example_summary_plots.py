@@ -673,7 +673,9 @@ def plot_objective_solution_map(
         reference_params,
         param_names,
     )
-    scalar = None
+
+    # Updated color map
+    new_cmap = "viridis"
 
     for xname, yname in pairs:
         ax = axs[pairs.index((xname, yname))]
@@ -683,7 +685,7 @@ def plot_objective_solution_map(
                 grid_values,
                 c=grid_values,
                 s=18,
-                cmap=GRID_CMAP,
+                cmap=new_cmap,  # Updated colormap
                 vmin=vmin,
                 vmax=vmax,
                 alpha=0.24,
@@ -694,11 +696,11 @@ def plot_objective_solution_map(
                 posterior_values,
                 c=posterior_values,
                 s=34,
-                cmap=GRID_CMAP,
+                cmap=new_cmap,  # Updated colormap
                 vmin=vmin,
                 vmax=vmax,
                 alpha=0.78,
-                edgecolors="white",
+                edgecolors="none",  # Removed white borders
                 linewidths=0.2,
                 zorder=4,
             )
@@ -749,11 +751,11 @@ def plot_objective_solution_map(
                 post_frame[yname],
                 c=posterior_values,
                 s=34,
-                cmap=GRID_CMAP,
+                cmap=new_cmap,  # Updated colormap
                 vmin=vmin,
                 vmax=vmax,
                 alpha=0.82,
-                edgecolors="white",
+                edgecolors="none",  # Removed white borders
                 linewidths=0.2,
                 zorder=4,
             )
@@ -790,9 +792,10 @@ def plot_objective_solution_map(
     cbar = fig.colorbar(scalar, cax=cax)
     cbar.set_label("Objective value (lower is better)")
 
+    # Round values in the legend
     legend_handles = [
         Line2D([], [], marker="o", linestyle="", markersize=7, markerfacecolor="#808080", markeredgecolor="none", alpha=0.55, label="Interpolated prior objective surface"),
-        Line2D([], [], marker="o", linestyle="", markersize=7, markerfacecolor="#2b8cbe", markeredgecolor="white", label="Posterior solutions colored by objective"),
+        Line2D([], [], marker="o", linestyle="", markersize=7, markerfacecolor="#2b8cbe", markeredgecolor="none", label="Posterior solutions colored by objective"),
         Line2D([], [], marker="*", linestyle="", markersize=12, markerfacecolor="white", markeredgecolor=OBSERVED_COLOR, label="Best posterior solution"),
     ]
     if reference_params:
