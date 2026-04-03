@@ -2,6 +2,23 @@
 
 This folder contains per-package UML class diagrams.
 
+```{toctree}
+:maxdepth: 1
+
+architecture_overview
+scientific_core_classes
+classes_pyage_calibration
+classes_pyage_concentrations
+classes_pyage_config
+classes_pyage_convolution
+classes_pyage_data_io
+classes_pyage_lpm
+classes_pyage_site
+classes_pyage_tools
+classes_pyage_tracer
+classes_sites_ploemeur
+```
+
 ## Architecture (article-ready)
 
 - docs/uml/architecture_overview.md

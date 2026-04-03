@@ -74,3 +74,5 @@ tmp_path/
 *.tmp
 .claude/
 nul
+docs/_build/
+docs/api/generated/

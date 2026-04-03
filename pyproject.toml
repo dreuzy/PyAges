@@ -36,6 +36,11 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=3.0",
 ]
+docs = [
+    "sphinx>=7.2,<9",
+    "myst-parser>=3,<5",
+    "sphinx-rtd-theme>=2,<4",
+]
 
 [project.urls]
 Homepage = "https://gitlab.univ-rennes1.fr/aupepin/pyage.git"
