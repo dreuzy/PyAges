@@ -107,7 +107,7 @@ The temporal example demonstrates calibration across multiple sampling dates, us
 ### Run the Example
 
 ```bash
-python scripts/launcher_temporal.py --params examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+python examples/natural/ploemeur_temporal/run_ploemeur_temporal.py
 ```
 
 ### Configuration File
@@ -147,20 +147,24 @@ figures:
 
 ### Output Structure
 
-Results are organized by date and model:
+Results depend on the selected workflow mode:
 
 ```
 ~/results/PyAge/ploemeur_temporal/
-└── ori_ploemeur_F09_2005_2024/
-    └── span/
-        ├── 2005.0/
-        │   ├── exp_shifted/
-        │   ├── ig/
-        │   └── ig_shifted/
-        ├── 2010.0/
-        │   └── ...
-        └── ...
+\\-- ori_ploemeur_F09_2005_2024/
+    +-- span/
+    |   \\-- span_full/
+    |       +-- 00_observations_overview.png
+    |       +-- exp_shifted/
+    |       +-- ig/
+    |       \\-- ig_shifted/
+    \\-- successive/
+        +-- date_2005/
+        +-- date_2010/
+        \\-- ...
 ```
+
+The example notebook is `examples/natural/ploemeur_temporal/exemple_ploemeur_temporal.ipynb`.
 
 ---
 

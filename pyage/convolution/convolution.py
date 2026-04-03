@@ -46,6 +46,17 @@ if TYPE_CHECKING:
     from pyage.lpm.core.lpm_base import LpmBase as LPM
 
 
+IG_SHIFTED_PIECEWISE_Q10_THRESHOLD = 0.75
+IG_SHIFTED_PIECEWISE_Q50_THRESHOLD = 2.5
+IG_SHIFTED_PIECEWISE_SEGMENTS = (
+    (0.10, 60, 2.8),
+    (0.50, 60, 1.6),
+    (0.90, 40, 1.2),
+    (0.99, 20, 1.0),
+)
+IG_SHIFTED_PIECEWISE_TAIL_POINTS = 10
+
+
 class ConvolutionError(Exception):
     """Exception raised for convolution preparation/execution errors."""
     pass
@@ -234,6 +245,100 @@ class Convolution:
             x=self._prepare_times
         )
 
+    def _ig_shifted_piecewise_profile(self, lpm: LPM) -> dict[str, float] | None:
+        """
+        Return a piecewise-integration profile for very sharp ig_shifted cases.
+
+        The special path is intentionally narrow: it is only enabled when the
+        distribution starts just after the shift and reaches its median quickly.
+        Broader ig_shifted cases stay on the regular classic workflow.
+        """
+        if lpm.name != "ig_shifted":
+            return None
+
+        shift = float(lpm.p.get("shift", np.nan))
+        if not np.isfinite(shift):
+            return None
+
+        q10 = float(lpm.cdf_inv(0.10))
+        q50 = float(lpm.cdf_inv(0.50))
+        if not (np.isfinite(q10) and np.isfinite(q50)):
+            return None
+        if (q10 - shift) > IG_SHIFTED_PIECEWISE_Q10_THRESHOLD:
+            return None
+        if (q50 - shift) > IG_SHIFTED_PIECEWISE_Q50_THRESHOLD:
+            return None
+
+        q90 = float(lpm.cdf_inv(0.90))
+        q99 = float(lpm.cdf_inv(0.99))
+        if not (np.isfinite(q90) and np.isfinite(q99)):
+            return None
+
+        return {
+            "shift": shift,
+            "q10": q10,
+            "q50": q50,
+            "q90": q90,
+            "q99": q99,
+        }
+
+    @staticmethod
+    def _piecewise_segment(
+        start: float,
+        end: float,
+        npts: int,
+        power: float = 1.0,
+    ) -> npt.NDArray[np.float64]:
+        """Return a monotonic segment with optional clustering near the start."""
+        if npts <= 0 or not np.isfinite(start) or not np.isfinite(end) or end <= start:
+            return np.array([], dtype=float)
+        sampling = np.linspace(0.0, 1.0, npts, endpoint=False)
+        return start + (end - start) * np.power(sampling, power)
+
+    def _convolution_ig_shifted_piecewise(
+        self,
+        lpm: LPM,
+        profile: dict[str, float],
+    ) -> float:
+        """
+        Integrate sharp ig_shifted kernels on a piecewise time grid.
+
+        The grid concentrates points between the shift and the main mass of the
+        distribution, then relaxes through the long tail.
+        """
+        tmax = float(self._date - self.datemin)
+        shift = max(float(profile["shift"]), 0.0)
+        if not np.isfinite(tmax) or tmax <= shift:
+            return 0.0
+
+        quantiles = np.array(
+            [profile["q10"], profile["q50"], profile["q90"], profile["q99"]],
+            dtype=float,
+        )
+        quantiles = np.clip(quantiles, shift, tmax)
+        q10, q50, q90, q99 = np.maximum.accumulate(quantiles)
+
+        grid_parts = []
+        current = shift
+        for boundary, npts, power in (
+            (q10, *IG_SHIFTED_PIECEWISE_SEGMENTS[0][1:]),
+            (q50, *IG_SHIFTED_PIECEWISE_SEGMENTS[1][1:]),
+            (q90, *IG_SHIFTED_PIECEWISE_SEGMENTS[2][1:]),
+            (q99, *IG_SHIFTED_PIECEWISE_SEGMENTS[3][1:]),
+        ):
+            grid_parts.append(self._piecewise_segment(current, boundary, npts, power=power))
+            current = boundary
+
+        grid_parts.append(self._piecewise_segment(current, tmax, IG_SHIFTED_PIECEWISE_TAIL_POINTS))
+        grid_parts.append(np.array([tmax], dtype=float))
+
+        times = np.unique(np.concatenate(grid_parts))
+        if times.size < 2:
+            return 0.0
+
+        concentrations = self.get_concentration(self._date - times, times)
+        return float(integrate.simpson(concentrations * lpm.pdf(times), x=times))
+
     # -------------------------------------------------------------------------
     # Exponential convolution (adapted discretization)
     # -------------------------------------------------------------------------
@@ -404,15 +509,19 @@ class Convolution:
                 convol = self._convolution_mix_dirac_exponential(lpm)
 
             case ConvolutionStrategy.CLASSIC | _:
-                # Classic convolution with preparation check
-                if self._prepare != prepare:
-                    raise ConvolutionError(
-                        f"Inconsistent preparation state: prepare={prepare}, "
-                        f"but _prepare={self._prepare}"
-                    )
-                if not self._prepare:
-                    self._convolution_classic_prepare(strategy)
-                convol = self._convolution_classic_perform(lpm)
+                piecewise_profile = self._ig_shifted_piecewise_profile(lpm)
+                if piecewise_profile is not None:
+                    convol = self._convolution_ig_shifted_piecewise(lpm, piecewise_profile)
+                else:
+                    # Classic convolution with preparation check
+                    if self._prepare != prepare:
+                        raise ConvolutionError(
+                            f"Inconsistent preparation state: prepare={prepare}, "
+                            f"but _prepare={self._prepare}"
+                        )
+                    if not self._prepare:
+                        self._convolution_classic_prepare(strategy)
+                    convol = self._convolution_classic_perform(lpm)
 
         # Apply age correction for young/old distributions during optimization
         if opt and not reg:
