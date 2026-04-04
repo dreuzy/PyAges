@@ -174,6 +174,35 @@ def test_tracer_constant_recharge_so4():
         tracer.max_value()
 
 
+def test_tracer_allows_metadata_block(tmp_path):
+    tracer_dir = tmp_path / "data_tracer"
+    tracer_name = "meta_tracer"
+    tracer_path = tracer_dir / tracer_name
+    tracer_path.mkdir(parents=True)
+    (tracer_path / f"{tracer_name}.yaml").write_text(
+        "\n".join(
+            [
+                "unit: TU",
+                "recharge_constant: 1.0",
+                "decay_time: 12.32",
+                "datemin: 1950.0",
+                "datemax: 2021.0",
+                "metadata:",
+                "  reference: local test",
+                "  notes: keep for example workflows",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    tracer = Tracer(tracer_dir, name=tracer_name)
+
+    assert tracer.unit == "TU"
+    assert tracer.datemin == 1950.0
+    assert tracer.datemax == 2021.0
+
+
 # ---------------------------------------------------------------------------
 # Test Golden (valeur de référence / non-régression)
 # ---------------------------------------------------------------------------

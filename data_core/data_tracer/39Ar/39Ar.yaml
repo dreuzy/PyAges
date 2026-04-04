@@ -49,3 +49,19 @@ decay_time: 267
 # For 39Ar, these are explicitly defined (not from recharge chronicle)
 datemin: 200
 datemax: 2021
+
+holten:
+  reference: "Visser et al. (2013)"
+  notes: "Holten uses 39Ar as fraction of modern with a fixed old end-member."
+  source:
+    observation_table: "examples/natural/holten/doc/sampling_data.txt"
+    observation_field: "Ar39_pMC"
+    observation_unit: "pMC"
+  preparation:
+    input_normalization: "pMC_to_fraction_modern_divide_by_100"
+    output_unit: "%modern"
+    value_scale: "fraction_of_modern"
+  old_endmember:
+    value: 0.45
+    unit: "%modern"
+    meaning: "old fraction end-member; 0.45 = 45% modern"

@@ -12,6 +12,7 @@ from math import ceil
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from pathlib import Path
 import pandas as pd                                         # DataFrame
 from scipy.interpolate import RegularGridInterpolator
 import sys
@@ -375,9 +376,19 @@ class SystematicSampling:
         Analysis of the calibration problem
     """
     
-    def __init__(self,lpm_name,tracer_names,date=2010,nmodels=1000,
-                 cdata=None,objfunc=True,reachconc=True,
-                 display_options=None):
+    def __init__(
+        self,
+        lpm_name,
+        tracer_names,
+        date=2010,
+        nmodels=1000,
+        cdata=None,
+        objfunc=True,
+        reachconc=True,
+        display_options=None,
+        directory_lpm: str | Path | None = None,
+        tracer_data_dir: str | Path | None = None,
+    ):
         """ 
         Parameters
         ----------
@@ -397,11 +408,19 @@ class SystematicSampling:
                 Should objective function be displayed
             reachconc: bool 
                 Should reachable concentrations be displayed
+            directory_lpm: str or Path or None
+                Optional override for the LPM parameter directory.
+            tracer_data_dir: str or Path or None
+                Optional override for the tracer data directory.
         """
         # Builds tracer_chemicals
-        self.__tracers=ConvolutionTracers(names=tracer_names,date=date)
+        self.__tracers = ConvolutionTracers(
+            names=tracer_names,
+            date=date,
+            tracer_data_dir=tracer_data_dir,
+        )
         # Builds lpm
-        self.__lpm = lpm_build(lpm_name)
+        self.__lpm = lpm_build(lpm_name, directory_lpm=directory_lpm)
         # Sets nmodels 
         self.__nmodels = nmodels
         # Sets date

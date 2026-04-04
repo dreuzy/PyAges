@@ -11,7 +11,6 @@ import sys
 
 import numpy as np
 import pandas as pd
-import yaml
 
 try:
     from pyage.config.bootstrap import ensure_repo_imports
@@ -23,7 +22,15 @@ except ModuleNotFoundError:
 
 ensure_repo_imports()
 
-from holten_case import HoltenContext, PreparedHoltenCase, build_context, decimal_year_from_sampling_date
+from examples.natural.holten.holten_case import (
+    HoltenContext,
+    PreparedHoltenCase,
+    build_context,
+    decimal_year_from_sampling_date,
+    dump_yaml,
+    load_yaml,
+    tracer_yaml_path,
+)
 
 
 VALID_TRACERS = ("3H", "kr85", "39Ar")
@@ -33,13 +40,8 @@ TRACER_REQUIRED_SECTIONS = {
     "39Ar": ("old_endmember",),
 }
 TRACER_OUTPUT_UNITS = {"3H": "TU", "kr85": "dpm/ccKr", "39Ar": "%modern"}
-
-
-def _read_yaml(path: Path) -> dict[str, Any]:
-    payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    if not isinstance(payload, dict):
-        raise ValueError(f"Invalid YAML structure in {path}")
-    return payload
+TRITIUM_HALF_LIFE_YEARS = 12.32
+TRITIUM_MEAN_LIFETIME_YEARS = TRITIUM_HALF_LIFE_YEARS / np.log(2.0)
 
 
 def read_sampling_table(context: HoltenContext) -> pd.DataFrame:
@@ -72,12 +74,14 @@ def _resolve_repo_relative(path_text: str, context: HoltenContext) -> Path:
     return context.paths.repo_root / path
 
 
-def validate_local_tracer_yaml(tracer_name: str, context: HoltenContext) -> dict[str, Any]:
-    yaml_path = context.paths.tracer_source_dir / tracer_name / f"{tracer_name}.yaml"
+def _load_local_tracer_yaml(tracer_name: str, context: HoltenContext) -> tuple[Path, dict[str, Any]]:
+    yaml_path = tracer_yaml_path(context, tracer_name)
     if not yaml_path.exists():
         raise FileNotFoundError(f"Missing local Holten tracer YAML: {yaml_path}")
-    payload = _read_yaml(yaml_path)
+    return yaml_path, load_yaml(yaml_path)
 
+
+def _validate_tracer_payload_shape(payload: dict[str, Any], yaml_path: Path) -> None:
     for key in ("unit", "decay_time"):
         if key not in payload:
             raise ValueError(f"{yaml_path}: missing top-level key '{key}'")
@@ -99,6 +103,8 @@ def validate_local_tracer_yaml(tracer_name: str, context: HoltenContext) -> dict
         if float(payload["datemin"]) >= float(payload["datemax"]):
             raise ValueError(f"{yaml_path}: datemin must be < datemax")
 
+
+def _validate_holten_sections(payload: dict[str, Any], yaml_path: Path, context: HoltenContext) -> tuple[dict[str, Any], dict[str, Any]]:
     holten = payload.get("holten")
     if not isinstance(holten, dict):
         raise ValueError(f"{yaml_path}: missing 'holten' section")
@@ -133,7 +139,15 @@ def validate_local_tracer_yaml(tracer_name: str, context: HoltenContext) -> dict
         recharge_path = _resolve_repo_relative(str(source["recharge_file"]), context)
         if not recharge_path.exists():
             raise FileNotFoundError(f"{yaml_path}: recharge file not found: {recharge_path}")
+    return holten, preparation
 
+
+def _validate_tracer_specific_rules(
+    tracer_name: str,
+    holten: dict[str, Any],
+    preparation: dict[str, Any],
+    yaml_path: Path,
+) -> None:
     for section_name in TRACER_REQUIRED_SECTIONS.get(tracer_name, ()):
         if section_name not in holten:
             raise ValueError(f"{yaml_path}: missing 'holten.{section_name}'")
@@ -147,6 +161,12 @@ def validate_local_tracer_yaml(tracer_name: str, context: HoltenContext) -> dict
         if str(preparation.get("value_scale")) != "fraction_of_modern":
             raise ValueError(f"{yaml_path}: 39Ar requires value_scale=fraction_of_modern")
 
+
+def validate_local_tracer_yaml(tracer_name: str, context: HoltenContext) -> dict[str, Any]:
+    yaml_path, payload = _load_local_tracer_yaml(tracer_name, context)
+    _validate_tracer_payload_shape(payload, yaml_path)
+    holten, preparation = _validate_holten_sections(payload, yaml_path, context)
+    _validate_tracer_specific_rules(tracer_name, holten, preparation, yaml_path)
     return payload
 
 
@@ -219,6 +239,23 @@ def _prepare_39ar_history(tracer_cfg: dict[str, Any], reference_year: float) -> 
     return history
 
 
+def _prepare_tracer_history(
+    tracer_name: str,
+    tracer_cfg: dict[str, Any],
+    context: HoltenContext,
+    reference_year: float | None,
+) -> pd.DataFrame:
+    if tracer_name == "3H":
+        return _prepare_3h_history(tracer_cfg, context)
+    if tracer_name == "kr85":
+        return _prepare_kr85_history(tracer_cfg, context)
+    if tracer_name == "39Ar":
+        if reference_year is None:
+            raise ValueError("39Ar preparation requires a sampling reference year")
+        return _prepare_39ar_history(tracer_cfg, reference_year)
+    raise ValueError(f"Unsupported Holten tracer: {tracer_name}")
+
+
 def build_prepared_tracer_directory(context: HoltenContext, reference_year: float | None = None) -> dict[str, pd.DataFrame]:
     histories: dict[str, pd.DataFrame] = {}
     context.paths.prepared_tracer_dir.mkdir(parents=True, exist_ok=True)
@@ -226,26 +263,9 @@ def build_prepared_tracer_directory(context: HoltenContext, reference_year: floa
         tracer_cfg = validate_local_tracer_yaml(tracer_name, context)
         out_dir = context.paths.prepared_tracer_dir / tracer_name
         out_dir.mkdir(parents=True, exist_ok=True)
-
-        if tracer_name == "3H":
-            history = _prepare_3h_history(tracer_cfg, context)
-        elif tracer_name == "kr85":
-            history = _prepare_kr85_history(tracer_cfg, context)
-        elif tracer_name == "39Ar":
-            if reference_year is None:
-                raise ValueError("39Ar preparation requires a sampling reference year")
-            history = _prepare_39ar_history(tracer_cfg, reference_year)
-        else:
-            raise ValueError(f"Unsupported Holten tracer: {tracer_name}")
-
-        flattened = {
-            key: tracer_cfg[key]
-            for key in ("unit", "recharge", "recharge_constant", "decay_time", "production_rate", "datemin", "datemax")
-            if key in tracer_cfg
-        }
-        with (out_dir / f"{tracer_name}.yaml").open("w", encoding="utf-8") as handle:
-            yaml.safe_dump(flattened, handle, sort_keys=False)
-        if bool(flattened.get("recharge", False)):
+        history = _prepare_tracer_history(tracer_name, tracer_cfg, context, reference_year)
+        dump_yaml(out_dir / f"{tracer_name}.yaml", tracer_cfg)
+        if bool(tracer_cfg.get("recharge", False)):
             history[["date", "concentration"]].to_csv(out_dir / "recharge.csv", index=False)
         histories[tracer_name] = history
     return histories
@@ -281,35 +301,146 @@ def convert_39ar_record(row: pd.Series) -> dict[str, Any]:
     }
 
 
+OBSERVATION_CONVERSION_SPECS = (
+    ("3H", "3H_TU", "TU", "3H_err", convert_3h_record, "none"),
+    ("kr85", "Kr85_dpm_ccKr", "dpm/ccKr", "Kr85_err", convert_kr85_record, "none"),
+    ("39Ar", "Ar39_pMC", "pMC", "Ar39_err", convert_39ar_record, "pMC / 100"),
+)
+
+
+def _optional_float(row: pd.Series, field: str) -> float:
+    value = row.get(field, np.nan)
+    if _is_missing(value):
+        return np.nan
+    return float(value)
+
+
+def _delta_ne_screening(delta_ne_pct: float) -> str:
+    if np.isnan(delta_ne_pct):
+        return "not_available"
+    abs_delta = abs(delta_ne_pct)
+    if abs_delta <= 10.0:
+        return "limited_air_effects"
+    if abs_delta <= 20.0:
+        return "moderate_air_effects"
+    return "strong_air_effects"
+
+
+def _infer_default_3he_error(frame: pd.DataFrame) -> float:
+    values = pd.to_numeric(frame.get("3He_err"), errors="coerce")
+    values = values.loc[np.isfinite(values) & (values > 0.0)]
+    if values.empty:
+        return np.nan
+    return float(values.median())
+
+
+def build_helium_diagnostics(frame: pd.DataFrame) -> pd.DataFrame:
+    default_3he_err = _infer_default_3he_error(frame)
+    records: list[dict[str, Any]] = []
+    for _, row in frame.iterrows():
+        well_id = str(row["ID"])
+        tritium = _optional_float(row, "3H_TU")
+        tritium_err = _optional_float(row, "3H_err")
+        helium_trit = _optional_float(row, "3He_trit_TU")
+        helium_trit_err_raw = _optional_float(row, "3He_err")
+        helium_trit_err = helium_trit_err_raw
+        helium_trit_err_source = "reported"
+        if np.isnan(helium_trit_err_raw):
+            if not np.isnan(helium_trit) and not np.isnan(default_3he_err):
+                helium_trit_err = default_3he_err
+                helium_trit_err_source = "median_fallback_selected_wells"
+            elif np.isnan(helium_trit):
+                helium_trit_err_source = "not_available"
+            else:
+                helium_trit_err_source = "missing"
+        he4_terr = _optional_float(row, "He4_terr")
+        he4_total = _optional_float(row, "He4")
+        delta_ne_pct = _optional_float(row, "DeltaNe_pct")
+        reported_age = _optional_float(row, "H3_He_age")
+        reported_age_err = _optional_float(row, "H3_He_age_err")
+
+        tritium_initial = np.nan
+        if not np.isnan(tritium) and not np.isnan(helium_trit):
+            tritium_initial = tritium + helium_trit
+
+        tritium_initial_err = np.nan
+        if not np.isnan(tritium_err) and not np.isnan(helium_trit_err):
+            tritium_initial_err = float(np.hypot(tritium_err, helium_trit_err))
+
+        ratio_age = np.nan
+        if tritium > 0.0 and helium_trit >= 0.0:
+            ratio_age = float(TRITIUM_MEAN_LIFETIME_YEARS * np.log1p(helium_trit / tritium))
+
+        records.append(
+            {
+                "well_id": well_id,
+                "date": float(row["Date_decimal"]),
+                "3H_TU": tritium,
+                "3H_err": tritium_err,
+                "3He_trit_TU": helium_trit,
+                "3He_err_raw": helium_trit_err_raw,
+                "3He_err": helium_trit_err,
+                "3He_err_source": helium_trit_err_source,
+                "tritium_initial_TU": tritium_initial,
+                "tritium_initial_err": tritium_initial_err,
+                "H3_He_age_yr": reported_age,
+                "H3_He_age_err": reported_age_err,
+                "H3_He_age_ratio_yr": ratio_age,
+                "H3_He_age_ratio_delta_yr": ratio_age - reported_age if not np.isnan(ratio_age) and not np.isnan(reported_age) else np.nan,
+                "He4_terr": he4_terr,
+                "He4_total": he4_total,
+                "DeltaNe_pct": delta_ne_pct,
+                "DeltaNe_screening": _delta_ne_screening(delta_ne_pct),
+            }
+        )
+
+    diagnostics = pd.DataFrame.from_records(records)
+    if diagnostics.empty:
+        return diagnostics
+
+    diagnostics = diagnostics.sort_values(["well_id", "date"]).reset_index(drop=True)
+    diagnostics.attrs["scope"] = "diagnostic_only"
+    diagnostics.attrs["note"] = (
+        "3H/3He and He4_terr are prepared for interpretation only; not part of the calibration dataset. "
+        "When 3He_err is missing in the source table, the local Holten workflow uses the median reported "
+        "3He_err from the selected wells as a fallback."
+    )
+    return diagnostics
+
+
+def _convert_sampling_row(row: pd.Series) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    well_id = str(row["ID"])
+    records: list[dict[str, Any]] = []
+    prep_log: list[dict[str, Any]] = []
+    for element, source_field, raw_unit, err_field, converter, rule in OBSERVATION_CONVERSION_SPECS:
+        raw_value = row[source_field]
+        raw_error = row[err_field]
+        if _is_missing(raw_value) or _is_missing(raw_error):
+            raise ValueError(f"Missing required value for well {well_id}, tracer {element}")
+        converted = converter(row)
+        records.append({"well_id": well_id, **converted})
+        prep_log.append(
+            {
+                "well_id": well_id,
+                "element": element,
+                "raw_value": float(raw_value),
+                "raw_unit": raw_unit,
+                "converted_value": float(converted["concentration"]),
+                "converted_unit": converted["unit"],
+                "conversion_rule": rule,
+                "source_field": source_field,
+            }
+        )
+    return records, prep_log
+
+
 def convert_sampling_observations(frame: pd.DataFrame, context: HoltenContext) -> tuple[pd.DataFrame, pd.DataFrame]:
     records: list[dict[str, Any]] = []
     prep_log: list[dict[str, Any]] = []
     for _, row in frame.iterrows():
-        well_id = str(row["ID"])
-        conversions = [
-            ("3H", "3H_TU", "TU", "3H_err", convert_3h_record(row), "none"),
-            ("kr85", "Kr85_dpm_ccKr", "dpm/ccKr", "Kr85_err", convert_kr85_record(row), "none"),
-            ("39Ar", "Ar39_pMC", "pMC", "Ar39_err", convert_39ar_record(row), "pMC / 100"),
-        ]
-        for element, source_field, raw_unit, err_field, converted, rule in conversions:
-            raw_value = row[source_field]
-            raw_error = row[err_field]
-            if _is_missing(raw_value) or _is_missing(raw_error):
-                raise ValueError(f"Missing required value for well {well_id}, tracer {element}")
-            record = {"well_id": well_id, **converted}
-            records.append(record)
-            prep_log.append(
-                {
-                    "well_id": well_id,
-                    "element": element,
-                    "raw_value": float(raw_value),
-                    "raw_unit": raw_unit,
-                    "converted_value": float(converted["concentration"]),
-                    "converted_unit": converted["unit"],
-                    "conversion_rule": rule,
-                    "source_field": source_field,
-                }
-            )
+        row_records, row_prep_log = _convert_sampling_row(row)
+        records.extend(row_records)
+        prep_log.extend(row_prep_log)
     aggregated = pd.DataFrame.from_records(records)
     preparation_log = pd.DataFrame.from_records(prep_log)
     validate_converted_dataset(aggregated, context.selected_wells, aggregated_file=True)
@@ -383,28 +514,39 @@ def write_per_well_files(frame: pd.DataFrame, context: HoltenContext) -> dict[st
     return paths
 
 
-def prepare_holten_inputs(config_path: Path | None = None) -> PreparedHoltenCase:
-    context = build_context(config_path)
+def build_observed_by_well(frame: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    observed_by_well: dict[str, pd.DataFrame] = {}
+    for well_id, group in frame.groupby("well_id"):
+        observed_by_well[well_id] = group[
+            ["element", "concentration", "error", "unit", "date"]
+        ].copy().reset_index(drop=True)
+    return observed_by_well
+
+
+def _prepare_runtime_directories(context: HoltenContext) -> None:
     context.paths.data_dir.mkdir(parents=True, exist_ok=True)
     context.paths.generated_dir.mkdir(parents=True, exist_ok=True)
+
+
+def prepare_holten_inputs(config_path: Path | None = None) -> PreparedHoltenCase:
+    context = build_context(config_path)
+    _prepare_runtime_directories(context)
 
     sampling_raw = read_sampling_table(context)
     selected = select_v1_wells(sampling_raw, context.selected_wells)
     reference_year = float(selected["Date_decimal_exact"].median())
     tracer_histories = build_prepared_tracer_directory(context, reference_year=reference_year)
     observed_aggregated, preparation_log = convert_sampling_observations(selected, context)
+    helium_diagnostics = build_helium_diagnostics(selected)
     write_aggregated_dataset(observed_aggregated, context)
     write_per_well_files(observed_aggregated, context)
-
-    observed_by_well: dict[str, pd.DataFrame] = {}
-    for well_id, group in observed_aggregated.groupby("well_id"):
-        observed_by_well[well_id] = group[["element", "concentration", "error", "unit", "date"]].copy().reset_index(drop=True)
 
     return PreparedHoltenCase(
         context=context,
         sampling_raw=sampling_raw,
         observed_aggregated=observed_aggregated,
-        observed_by_well=observed_by_well,
+        observed_by_well=build_observed_by_well(observed_aggregated),
         tracer_histories=tracer_histories,
         preparation_log=preparation_log,
+        helium_diagnostics=helium_diagnostics,
     )

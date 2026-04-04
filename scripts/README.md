@@ -14,10 +14,10 @@ conda activate pyage
 Then run a script from the repository root, for example:
 
 ```bash
-python scripts/launcher.py --params examples/natural/ploemeur/exemple_ploemeur.yaml
-python scripts/launcher_temporal.py --params examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
-python scripts/launcher.py --params examples/templates/quickstart_single.yaml
-python scripts/launcher_temporal.py --params examples/templates/quickstart_temporal.yaml
+python scripts/launcher.py examples/natural/ploemeur/exemple_ploemeur.yaml
+python scripts/launcher_temporal.py examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+python scripts/launcher.py examples/templates/quickstart_single.yaml
+python scripts/launcher_temporal.py examples/templates/quickstart_temporal.yaml
 python scripts/run_system_check.py
 python scripts/run_system_check.py --params configs/system_check.yaml
 python scripts/run_calibration_benchmark.py
@@ -28,14 +28,16 @@ python scripts/run_calibration_benchmark.py
 Single-date workflows (YAML-driven):
 
 ```bash
-python scripts/launcher.py --params examples/natural/ploemeur/exemple_ploemeur.yaml
-python scripts/launcher.py --params examples/natural/fontainebleau/exemple_fontainebleau.yaml
+python scripts/launcher.py examples/natural/ploemeur/exemple_ploemeur.yaml
+python scripts/launcher.py examples/natural/fontainebleau/exemple_fontainebleau.yaml
+python examples/natural/fontainebleau/run_fontainebleau.py
+python examples/natural/holten/run_holten.py
 ```
 
 Temporal workflows (multi-date concentrations):
 
 ```bash
-python scripts/launcher_temporal.py --params examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+python scripts/launcher_temporal.py examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 ## Output location
@@ -73,7 +75,7 @@ You can override this with `PYAGE_RESULTS_DIR` (see the root `README.md`).
 3) Create a YAML config and run the launcher:
 
 ```bash
-python scripts/launcher.py --params examples/my_site/my_config.yaml
+python scripts/launcher.py examples/my_site/my_config.yaml
 ```
 
 Minimal YAML:
@@ -91,7 +93,7 @@ lpm:
 4) If the data contains multiple dates, use the temporal launcher:
 
 ```bash
-python scripts/launcher_temporal.py --params examples/my_site/my_temporal.yaml
+python scripts/launcher_temporal.py examples/my_site/my_temporal.yaml
 ```
 
 ```yaml

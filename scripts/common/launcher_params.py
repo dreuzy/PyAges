@@ -51,6 +51,7 @@ def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
         verbose=cfg.dataset.verbose,
         lpm_model_name=cfg.lpm.model_name,
         directory_lpm=cfg.lpm.data_directory,
+        tracer_data_dir=cfg.tracers.data_directory,
         run_reachable_concentrations=cfg.run.reachable_concentrations,
         run_objective_function=cfg.run.objective_function,
         run_calibration_metropolis_hastings=cfg.run.calibration_metropolis_hastings,

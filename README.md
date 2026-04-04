@@ -165,6 +165,7 @@ For instance, see:
 - `examples/natural/ploemeur/exemple_ploemeur.yaml`
 - `examples/natural/fontainebleau/exemple_fontainebleau.yaml`
 - `examples/natural/ploemeur_temporal/ploemeur_temporal.yaml`
+- `examples/natural/fontainebleau/run_fontainebleau.py`
 
 ### Temporal MH launcher (multi-date concentrations)
 

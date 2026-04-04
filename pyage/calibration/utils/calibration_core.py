@@ -84,8 +84,17 @@ class CalibrationCore(SystematicSampling):
     subclasses.
     """
 
-    def __init__(self,cdata,LPM_type,display_options=gp.display_options(),directory_lpm=gp.DIRECTORY_LPM_DATA,
-                 nmodels=1000,objfunc=True,reachconc=True):
+    def __init__(
+        self,
+        cdata,
+        LPM_type,
+        display_options=gp.display_options(),
+        directory_lpm=gp.DIRECTORY_LPM_DATA,
+        tracer_data_dir=None,
+        nmodels=1000,
+        objfunc=True,
+        reachconc=True,
+    ):
         """Initialize a calibration core container (requires ``prepare()``).
 
         Parameters
@@ -98,6 +107,8 @@ class CalibrationCore(SystematicSampling):
             Output settings for files and plots.
         directory_lpm : str
             Directory containing LPM data files.
+        tracer_data_dir : str or Path or None
+            Optional directory containing tracer data files.
         nmodels : int, optional
             Number of models used in sampling and objective evaluation.
         objfunc : bool, optional
@@ -109,6 +120,7 @@ class CalibrationCore(SystematicSampling):
         self.cdata = cdata
         self.lpm_type = LPM_type
         self.directory_lpm = directory_lpm
+        self.tracer_data_dir = tracer_data_dir
         self.nmodels = nmodels
         self.objfunc = objfunc
         self.reachconc = reachconc
@@ -127,6 +139,7 @@ class CalibrationCore(SystematicSampling):
         self.tracers = convolution_tracers.ConvolutionTracers(
             names=self.cdata.cv.iloc[:, 0],
             date=self.cdata.cv["date"],
+            tracer_data_dir=self.tracer_data_dir,
         )
         # Definition of errors (if error == 0, takes mean chronicle value)
         self.cdata.error_affect_from_mean(self.tracers.mean_value(self.cdata.cv["date"].mean()))
@@ -143,6 +156,8 @@ class CalibrationCore(SystematicSampling):
             objfunc=self.objfunc,
             reachconc=self.reachconc,
             display_options=self.display_options,
+            directory_lpm=self.directory_lpm,
+            tracer_data_dir=self.tracer_data_dir,
         )
         self._prepared = True
 

@@ -276,6 +276,10 @@ class Tracer:
                 self.datemin = float(value)
             elif param_name == 'datemax':
                 self.datemax = float(value)
+            elif isinstance(value, (dict, list)):
+                # Allow example/site metadata blocks while keeping strict
+                # validation on the core scalar configuration keys.
+                continue
             else:
                 raise TracerConfigError(
                     f"Unknown parameter in {name}.yaml: '{param_name}'"

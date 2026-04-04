@@ -26,7 +26,7 @@ except ModuleNotFoundError:
 
 ensure_repo_imports()
 
-from holten_case import PreparedHoltenCase, build_context, load_yaml
+from examples.natural.holten.holten_case import PreparedHoltenCase, build_context, load_yaml, tracer_yaml_path
 
 
 ARTICLE_FIGURE_SPECS = {
@@ -130,7 +130,7 @@ def build_reference_curve(
 ) -> pd.DataFrame:
     display = history.copy()
     reference_year = float(observed["date"].median())
-    yaml_path = prepared.context.paths.tracer_source_dir / tracer_name / f"{tracer_name}.yaml"
+    yaml_path = tracer_yaml_path(prepared.context, tracer_name)
     tracer_cfg = load_yaml(yaml_path)
 
     if tracer_name in {"3H", "kr85"}:
@@ -218,6 +218,115 @@ def _plot_value_range_position(ax, tracer_name: str, history: pd.DataFrame, obse
     ax.text(summary["max"], 0.22, "max", fontsize=8, ha="right", va="bottom", color="#4b5f83")
 
 
+def _build_helium_diagnostic_figures(prepared: PreparedHoltenCase, output_dir: Path) -> list[Path]:
+    diagnostics = prepared.helium_diagnostics.copy()
+    if diagnostics.empty:
+        return []
+
+    generated: list[Path] = []
+    diagnostics = diagnostics.sort_values("H3_He_age_yr", na_position="last").reset_index(drop=True)
+    x = np.arange(len(diagnostics))
+
+    fig, axes = plt.subplots(1, 2, figsize=(12.4, 4.8))
+    axes[0].bar(x, diagnostics["3H_TU"], color="#4f86c6", label="3H remaining")
+    axes[0].bar(
+        x,
+        diagnostics["3He_trit_TU"],
+        bottom=diagnostics["3H_TU"],
+        color="#d98f5f",
+        label="3He tritiogenic",
+    )
+    axes[0].errorbar(
+        x,
+        diagnostics["tritium_initial_TU"],
+        yerr=diagnostics["tritium_initial_err"],
+        fmt="o",
+        color="#1f1f1f",
+        markersize=4.5,
+        capsize=3,
+        label="3H initial = 3H + 3He_trit",
+    )
+    axes[0].set_xticks(x, diagnostics["well_id"].tolist())
+    axes[0].set_ylabel("Equivalent tritium [TU]")
+    axes[0].set_title("3H/3He diagnostic: reconstructed initial tritium")
+    axes[0].grid(axis="y", alpha=0.25)
+    axes[0].legend(loc="best")
+
+    scatter = axes[1].scatter(
+        diagnostics["H3_He_age_yr"],
+        diagnostics["He4_terr"],
+        s=120,
+        c=diagnostics["DeltaNe_pct"],
+        cmap="coolwarm",
+        edgecolor="white",
+        linewidth=0.8,
+        zorder=3,
+    )
+    for _, row in diagnostics.iterrows():
+        axes[1].annotate(
+            row["well_id"],
+            (row["H3_He_age_yr"], row["He4_terr"]),
+            textcoords="offset points",
+            xytext=(6, 4),
+            fontsize=8,
+        )
+    axes[1].set_xlabel("Reported 3H/3He apparent age [yr]")
+    axes[1].set_ylabel("He4_terr")
+    axes[1].set_title("Helium context: older 3H/3He ages vs terrigenic He4")
+    axes[1].grid(alpha=0.25)
+    colorbar = fig.colorbar(scatter, ax=axes[1], fraction=0.046, pad=0.04)
+    colorbar.set_label("DeltaNe [%]")
+    fig.tight_layout()
+    out_path = output_dir / "helium_3h3he_diagnostic_panel.png"
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    generated.append(out_path)
+
+    ratio_check = diagnostics.loc[
+        diagnostics["H3_He_age_yr"].notna() & diagnostics["H3_He_age_ratio_yr"].notna()
+    ].copy()
+    if not ratio_check.empty:
+        fig, ax = plt.subplots(figsize=(5.8, 5.0))
+        ax.errorbar(
+            ratio_check["H3_He_age_yr"],
+            ratio_check["H3_He_age_ratio_yr"],
+            xerr=ratio_check["H3_He_age_err"],
+            fmt="o",
+            color="#c95b4f",
+            markersize=6,
+            capsize=3,
+        )
+        bounds = [
+            float(min(ratio_check["H3_He_age_yr"].min(), ratio_check["H3_He_age_ratio_yr"].min())),
+            float(max(ratio_check["H3_He_age_yr"].max(), ratio_check["H3_He_age_ratio_yr"].max())),
+        ]
+        pad = max(1.0, 0.05 * (bounds[1] - bounds[0]))
+        low = max(0.0, bounds[0] - pad)
+        high = bounds[1] + pad
+        ax.plot([low, high], [low, high], linestyle="--", color="#4b5f83", linewidth=1.2)
+        for _, row in ratio_check.iterrows():
+            ax.annotate(
+                row["well_id"],
+                (row["H3_He_age_yr"], row["H3_He_age_ratio_yr"]),
+                textcoords="offset points",
+                xytext=(6, 4),
+                fontsize=8,
+            )
+        ax.set_xlim(low, high)
+        ax.set_ylim(low, high)
+        ax.set_xlabel("Reported 3H/3He age [yr]")
+        ax.set_ylabel("Reconstructed age from 3He_trit / 3H [yr]")
+        ax.set_title("3H/3He ratio check for the selected wells")
+        ax.grid(alpha=0.25)
+        fig.tight_layout()
+        out_path = output_dir / "helium_ratio_age_check.png"
+        fig.savefig(out_path, dpi=150)
+        plt.close(fig)
+        generated.append(out_path)
+
+    return generated
+
+
 def build_pre_model_figures(prepared: PreparedHoltenCase, output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     generated: list[Path] = []
@@ -298,6 +407,7 @@ def build_pre_model_figures(prepared: PreparedHoltenCase, output_dir: Path) -> l
         fig.savefig(out_path, dpi=150)
         plt.close(fig)
         generated.append(out_path)
+    generated.extend(_build_helium_diagnostic_figures(prepared, output_dir))
     return generated
 
 
@@ -326,30 +436,46 @@ def _load_stats_if_available(results_dir: Path | None) -> pd.DataFrame | None:
     return pd.read_csv(stats_path, sep="\t", index_col=0)
 
 
+def _load_tracer_cfg(prepared: PreparedHoltenCase, tracer_name: str) -> dict[str, Any]:
+    return load_yaml(tracer_yaml_path(prepared.context, tracer_name))
+
+
+def _bootstrap_mid_age(stats: pd.DataFrame) -> float:
+    tmin = float(stats.loc["mean", "tmin"])
+    delta = float(stats.loc["mean", "delta"])
+    return tmin + 0.5 * delta
+
+
+def _recharge_value_at_age(history: pd.DataFrame, sample_date: float, age_years: float) -> float:
+    target_year = sample_date - age_years
+    return float(np.interp(target_year, history["date"], history["concentration"], left=0.0, right=0.0))
+
+
+def _bootstrap_modeled_value(prepared: PreparedHoltenCase, row: pd.Series, mid_age: float) -> float:
+    tracer = str(row["element"])
+    if tracer == "39Ar":
+        tracer_cfg = _load_tracer_cfg(prepared, "39Ar")
+        recharge_constant = float(tracer_cfg["recharge_constant"])
+        decay_time = float(tracer_cfg["decay_time"])
+        return float(recharge_constant * np.exp(-mid_age / decay_time))
+
+    if tracer in {"3H", "kr85"}:
+        tracer_cfg = _load_tracer_cfg(prepared, tracer)
+        history = prepared.tracer_histories[tracer]
+        recharge = _recharge_value_at_age(history, float(row["date"]), mid_age)
+        return float(recharge * np.exp(-mid_age / float(tracer_cfg["decay_time"])))
+
+    raise ValueError(f"Unsupported tracer for Holten bootstrap RMSE: {tracer}")
+
+
 def _compute_bootstrap_rmse(prepared: PreparedHoltenCase, well_id: str, stats: pd.DataFrame | None) -> float | None:
     if stats is None or "mean" not in stats.index:
         return None
     if prepared.context.lpm_name != "uniform":
         return None
-    tmin = float(stats.loc["mean", "tmin"])
-    delta = float(stats.loc["mean", "delta"])
-    mid_age = tmin + 0.5 * delta
+    mid_age = _bootstrap_mid_age(stats)
     obs = prepared.observed_by_well[well_id].copy()
-    modeled = []
-    for _, row in obs.iterrows():
-        tracer = row["element"]
-        if tracer == "39Ar":
-            modeled.append(float(np.exp(-mid_age / 267.0)))
-        elif tracer == "3H":
-            history = prepared.tracer_histories["3H"]
-            target_year = float(row["date"]) - mid_age
-            recharge = float(np.interp(target_year, history["date"], history["concentration"], left=0.0, right=0.0))
-            modeled.append(recharge * float(np.exp(-mid_age / 12.32)))
-        elif tracer == "kr85":
-            history = prepared.tracer_histories["kr85"]
-            target_year = float(row["date"]) - mid_age
-            recharge = float(np.interp(target_year, history["date"], history["concentration"], left=0.0, right=0.0))
-            modeled.append(recharge * float(np.exp(-mid_age / 10.76)))
+    modeled = [_bootstrap_modeled_value(prepared, row, mid_age) for _, row in obs.iterrows()]
     residuals = obs["concentration"].to_numpy(dtype=float) - np.asarray(modeled, dtype=float)
     return float(np.sqrt(np.mean(np.square(residuals))))
 

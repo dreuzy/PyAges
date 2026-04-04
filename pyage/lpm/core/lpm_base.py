@@ -135,7 +135,6 @@ class LpmBase(abc.ABC):
         """
         pass
 
-        
     def __moment_k(self, k: int, n_points: int = 1000) -> float:
         """
         Returns moment k of distribution (discretized)

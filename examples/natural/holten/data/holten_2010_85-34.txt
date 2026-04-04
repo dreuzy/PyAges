@@ -1,0 +1,4 @@
+element	concentration	error	unit	date
+3H	3.98	0.11	TU	2010.30137
+kr85	8.4	0.5	dpm/ccKr	2010.30137
+39Ar	0.77	0.07	%modern	2010.30137

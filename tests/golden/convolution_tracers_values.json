@@ -40,13 +40,18 @@
     "mean_error": 0.0
   },
   "ig:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 122.88434229527657,
-    "mean_concentration": 122.88434229527657,
+    "dataframe_mean_concentration": 122.8843422952766,
+    "mean_concentration": 122.8843422952766,
     "mean_error": 0.0
   },
   "ig_shifted:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 13.07721222537828,
-    "mean_concentration": 13.07721222537828,
+    "dataframe_mean_concentration": 13.077212225378277,
+    "mean_concentration": 13.077212225378277,
+    "mean_error": 0.0
+  },
+  "shapefree_n_oldbin:date=2010.0:tracers=cfc11,cfc12,cfc113": {
+    "dataframe_mean_concentration": 31.05022166730517,
+    "mean_concentration": 31.05022166730517,
     "mean_error": 0.0
   },
   "uniform:date=2010.0:tracers=cfc11,cfc12,cfc113": {

@@ -37,9 +37,13 @@ holten:
     label: "April 2010"
     tracer_scope: "holten_only"
     selected_wells:
+      - "59-05"
       - "67-19"
       - "72-22"
+      - "73-29"
       - "85-33"
+      - "85-34"
+      - "85-35"
   tracers:
     calibration:
       - "3H"
@@ -48,7 +52,7 @@ holten:
     source_directories:
       3H: examples/natural/holten/tracers/3H
       kr85: examples/natural/holten/tracers/kr85
-      39Ar: examples/natural/holten/tracers/39Ar
+      39Ar: data_core/data_tracer/39Ar
     prepared_data_dir: examples/natural/holten/prepared_tracers/data_tracer
   preparation:
     source_sampling_file: examples/natural/holten/doc/sampling_data.txt

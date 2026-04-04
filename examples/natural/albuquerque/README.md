@@ -64,10 +64,12 @@ and Methods 4-F3.
 ## Files
 
 - `exemple_albuquerque.yaml`: YAML configuration for the single-date workflow.
+- `exemple_albuquerque_shapefree.yaml`: shape-free single-date variant using a local `data_lpm`.
 - `exemple_albuquerque.ipynb`: Notebook version of the workflow.
 - `run_albuquerque.py`: Convenience launcher.
 - `data/SSW_2007.txt`: default single-date dataset used by the example.
 - `data/SSW_*.txt`: additional Albuquerque sample snapshots.
+- `data_lpm/shapefree_n_oldbin/params.yaml`: example-specific 5-bin shape-free configuration with an LPM-defined old-bin maximum age.
 
 ## Run
 
@@ -79,4 +81,10 @@ Or directly with the launcher:
 
 ```bash
 python scripts/launcher.py --params examples/natural/albuquerque/exemple_albuquerque.yaml
+```
+
+Shape-free open-old-bin variant:
+
+```bash
+python scripts/launcher.py --params examples/natural/albuquerque/exemple_albuquerque_shapefree.yaml
 ```

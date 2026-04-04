@@ -130,6 +130,7 @@ def build_calibration_core(params, concentration_sampled, calbas, display_run):
         params.lpm_model_name,
         display_options=display_run,
         directory_lpm=str(params.directory_lpm),
+        tracer_data_dir=str(params.tracer_data_dir) if params.tracer_data_dir else None,
     )
     calib_basis.prepare()  # Build tracers, LPM structure, and sampling tools.
     return calib_basis
@@ -238,6 +239,8 @@ def run_reachable_concentration_analysis(
         date=concentration_sampled.cv["date"],
         nmodels=params.reachable_concentration_nmodels,
         display_options=display_reach_save,
+        directory_lpm=str(params.directory_lpm),
+        tracer_data_dir=str(params.tracer_data_dir) if params.tracer_data_dir else None,
     )
     cr.compute_concentrations()
     cr.output()
@@ -471,6 +474,8 @@ def run_objective_function_analysis(
         display_options=display_live,
         objfunc=True,
         reachconc=False,
+        directory_lpm=str(params.directory_lpm),
+        tracer_data_dir=str(params.tracer_data_dir) if params.tracer_data_dir else None,
     )
     ss.compute_concentrations()
     ss.objective_function_build()

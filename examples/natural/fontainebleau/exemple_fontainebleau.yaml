@@ -2,11 +2,23 @@ dataset:
   # Example: "fontainebleau_CGEB" maps to examples/natural/fontainebleau/data/fontainebleau_CGEB
   name: fontainebleau_CGEB
   label: Fontainebleau single-date example
-  year: 2010
+  # Sampling campaign reported in Corcho Alvarado et al. (2007): October 2001
+  year: 2001
   # Directory containing dataset files
   data_dir: examples/natural/fontainebleau/data
   # Print dataset path and summary at startup
   verbose: true
+
+fontainebleau:
+  source:
+    article: "Corcho Alvarado et al. (2007), Water Resources Research 43, W03427"
+    sampling_campaign: "October 2001"
+  tracers:
+    39Ar:
+      # Numerical values are stored as fraction of modern (0.73 = 73% modern)
+      # while the unit label remains %modern for PyAge compatibility.
+      unit_label: "%modern"
+      value_scale: "fraction_of_modern"
 
 lpm:
   # Default LPM model used for this example

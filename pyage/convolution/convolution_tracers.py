@@ -15,6 +15,7 @@ calibration and analysis.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -60,7 +61,8 @@ class ConvolutionTracers:
     def __init__(
         self,
         names: list[str] | None = None,
-        date: float | list[float] = 2010
+        date: float | list[float] = 2010,
+        tracer_data_dir: str | Path | None = None,
     ) -> None:
         """
         Constructor
@@ -72,11 +74,12 @@ class ConvolutionTracers:
         """
         if names is None:
             names = ["cfc11", "kr85"]
+        resolved_tracer_dir = Path(tracer_data_dir) if tracer_data_dir is not None else Path(gp.DIRECTORY_TRACER_DATA)
         # Create element list and loads each element
         date_temp = [date] * len(names) if np.isscalar(date) else date
         self.elements: list[convolution.Convolution] = [
             convolution.Convolution(
-                tracer_module.Tracer(gp.DIRECTORY_TRACER_DATA, name),
+                tracer_module.Tracer(resolved_tracer_dir, name),
                 date=date_temp[k]
             )
             for k, name in enumerate(names)

@@ -162,6 +162,18 @@ class LauncherLpmCfg(_BaseCfg):
         return _resolve_path(value, info)
 
 
+class LauncherTracerCfg(_BaseCfg):
+    """Optional tracer data override for single-date launcher workflows."""
+    data_directory: Path | None = None
+
+    @field_validator("data_directory")
+    @classmethod
+    def _resolve_tracer_dir(cls, value: Path | None, info):
+        if value is None:
+            return None
+        return _resolve_path(value, info)
+
+
 class LauncherRunCfg(_BaseCfg):
     """Run flags for each step of the workflow."""
     reachable_concentrations: bool = True
@@ -199,6 +211,7 @@ class LauncherConfig(_BaseCfg):
     """Full YAML schema for launcher.py."""
     dataset: LauncherDatasetCfg = LauncherDatasetCfg()
     lpm: LauncherLpmCfg = LauncherLpmCfg()
+    tracers: LauncherTracerCfg = LauncherTracerCfg()
     run: LauncherRunCfg = LauncherRunCfg()
     reachable_concentrations: LauncherReachableCfg = LauncherReachableCfg()
     objective_function: LauncherObjectiveCfg = LauncherObjectiveCfg()
@@ -217,6 +230,7 @@ class LauncherParams(_BaseCfg):
     verbose: bool
     lpm_model_name: str
     directory_lpm: Path
+    tracer_data_dir: Path | None = None
     run_reachable_concentrations: bool
     run_objective_function: bool
     run_calibration_metropolis_hastings: bool

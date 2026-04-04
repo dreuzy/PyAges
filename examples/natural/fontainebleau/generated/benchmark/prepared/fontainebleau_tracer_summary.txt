@@ -1,0 +1,5 @@
+element	unit	dataset_count	min_concentration	median_concentration	max_concentration	mean_error
+kr85	dpm_cm3	7	2.9	6.2	43.0	2.8999999999999995
+3H	TU	7	3.1	7.8	15.1	0.8
+39Ar	%modern	7	0.51	0.69	0.79	0.05285714285714286
+14C	pmC	7	69.8	75.1	84.2	0.6

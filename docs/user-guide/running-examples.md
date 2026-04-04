@@ -7,7 +7,8 @@ PyAge includes several example workflows demonstrating different use cases. This
 | Example | Description | Script |
 |---------|-------------|--------|
 | Ploemeur | Single-date calibration | `launcher.py` |
-| Fontainebleau | Single-date calibration (different site) | `launcher.py` |
+| Fontainebleau | Single-date calibration (different site) | `run_fontainebleau.py` |
+| Holten | Example-local preparation, benchmark, and calibration reuse | `run_holten.py` |
 | Ploemeur Temporal | Multi-date time series analysis | `launcher_temporal.py` |
 
 For a minimal, fast run, use the templates under `examples/templates/`.
@@ -19,7 +20,7 @@ The Ploemeur example demonstrates a complete calibration workflow for a single s
 ### Run the Example
 
 ```bash
-python scripts/launcher.py --params examples/natural/ploemeur/exemple_ploemeur.yaml
+python scripts/launcher.py examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
 ### What It Does
@@ -85,22 +86,65 @@ Results are saved to `~/results/PyAge/test_cases/ploemeur_F09_2010/`:
 
 ## Example 2: Fontainebleau
 
-Similar to Ploemeur but with a different dataset.
+Fontainebleau now follows the same local-example style as Holten: a dedicated
+runner orchestrates a lightweight pre-model benchmark for the site, then
+delegates the calibration itself to the standard single-date launcher.
 
 ### Run the Example
 
 ```bash
-python scripts/launcher.py --params examples/natural/fontainebleau/exemple_fontainebleau.yaml
+python examples/natural/fontainebleau/run_fontainebleau.py
 ```
 
 ### Key Differences
 
 - Different geographic site with different tracer measurements
-- May use different LPM models depending on the hydrogeological context
+- A local benchmark summary is written under `examples/natural/fontainebleau/generated/benchmark/`
+- You can override the dataset or the LPM directly from the example runner
+
+### Useful Options
+
+```bash
+python examples/natural/fontainebleau/run_fontainebleau.py --mode benchmark_only
+python examples/natural/fontainebleau/run_fontainebleau.py --dataset fontainebleau_IMR
+python examples/natural/fontainebleau/run_fontainebleau.py --lpm ig
+```
 
 ---
 
-## Example 3: Ploemeur Temporal (Multi-Date Analysis)
+## Example 3: Holten
+
+Holten keeps its site-specific preparation and article comparison logic in the
+example directory, but reuses the validated single-date launcher core for the
+calibration itself. The prepared tracer directory is passed explicitly through
+generated launcher YAML files instead of patching global paths at runtime. Its
+tracer sources can be mixed per tracer: for example, `3H` and `kr85` can stay
+example-local while `39Ar` comes from `data_core/data_tracer/39Ar`.
+
+### Run the Example
+
+```bash
+python examples/natural/holten/run_holten.py
+```
+
+### Useful Options
+
+```bash
+python examples/natural/holten/run_holten.py --mode prepare_only
+python examples/natural/holten/run_holten.py --mode calibration_only
+python examples/natural/holten/run_holten.py --wells 59-05,73-29
+```
+
+### Outputs
+
+- Prepared datasets and tracer histories under `examples/natural/holten/generated/benchmark/prepared/`
+- Pre-model figures under `examples/natural/holten/generated/benchmark/pre_model/`
+- Local 4-bin comparison tables and figures under `examples/natural/holten/generated/benchmark/four_bin/`
+- Standard calibration outputs under the configured results root via `scripts/launcher.py`
+
+---
+
+## Example 4: Ploemeur Temporal (Multi-Date Analysis)
 
 The temporal example demonstrates calibration across multiple sampling dates, useful for studying temporal variations in groundwater age.
 
@@ -263,7 +307,7 @@ run:
 
 Run:
 ```
-python scripts/launcher.py --params examples/my_site/my_config.yaml
+python scripts/launcher.py examples/my_site/my_config.yaml
 ```
 
 ### 4) Multi-date variant (temporal)
@@ -285,7 +329,7 @@ workflow:
 
 Run:
 ```
-python scripts/launcher_temporal.py --params examples/my_site/my_temporal.yaml
+python scripts/launcher_temporal.py examples/my_site/my_temporal.yaml
 ```
 
 ### 5) Add or update tracers (if needed)

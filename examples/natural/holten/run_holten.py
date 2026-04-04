@@ -6,11 +6,8 @@ Launcher/orchestrator for the Holten benchmark workflow.
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
-import copy
 from pathlib import Path
 import sys
-from typing import Iterator
 
 try:
     from pyage.config.bootstrap import ensure_repo_imports
@@ -22,56 +19,23 @@ except ModuleNotFoundError:
 
 ensure_repo_imports()
 
-from holten_benchmark import (
+import pandas as pd
+
+from examples.natural.holten.holten_benchmark import (
     build_article_reference_figures,
     build_pre_model_figures,
     build_reference_comparison_figures,
     compare_with_reference_results,
     write_benchmark_summary,
 )
-from holten_case import build_context, dump_yaml
-from holten_four_bin import run_local_4bin
-from holten_prepare import prepare_holten_inputs
-
-
-@contextmanager
-def patched_tracer_directory(tracer_dir: Path) -> Iterator[None]:
-    import pyage.config.paths as cfg_paths
-    import pyage.global_parameters as gp
-    from pyage.config.context import get_default_context, set_default_context
-
-    old_gp = gp.DIRECTORY_TRACER_DATA
-    old_cfg = cfg_paths.DIRECTORY_TRACER_DATA
-    old_ctx = get_default_context()
-    tracer_dir = tracer_dir.resolve()
-    gp.DIRECTORY_TRACER_DATA = tracer_dir
-    cfg_paths.DIRECTORY_TRACER_DATA = tracer_dir
-    set_default_context(old_ctx.with_tracer_dir(tracer_dir))
-    try:
-        yield
-    finally:
-        gp.DIRECTORY_TRACER_DATA = old_gp
-        cfg_paths.DIRECTORY_TRACER_DATA = old_cfg
-        set_default_context(old_ctx)
+from examples.natural.holten.holten_case import PreparedHoltenCase, build_context, write_well_launcher_config
+from examples.natural.holten.holten_four_bin import run_local_4bin, run_local_4bin_mh
+from examples.natural.holten.holten_prepare import prepare_holten_inputs
 
 
 def _lpm_ready(context) -> bool:
     params_path = context.paths.lpm_data_dir / context.lpm_name / "params.yaml"
     return bool(context.lpm_name) and params_path.exists()
-
-
-def _launcher_yaml_for_well(context, well_id: str) -> Path:
-    payload = copy.deepcopy(context.config)
-    payload["dataset"] = {
-        "name": f"holten_2010_{well_id}.txt",
-        "label": f"Holten {well_id}",
-        "year": 2010,
-        "data_dir": str(context.paths.data_dir.relative_to(context.paths.repo_root)),
-        "verbose": True,
-    }
-    out_path = context.paths.launcher_config_dir / f"holten_{well_id}_launcher.yaml"
-    dump_yaml(out_path, payload)
-    return out_path
 
 
 def existing_results_for_wells(prepared) -> dict[str, Path]:
@@ -94,14 +58,13 @@ def run_launcher_for_wells(prepared, inline: bool = False) -> dict[str, Path]:
 
     results: dict[str, Path] = {}
     prepared.context.paths.launcher_config_dir.mkdir(parents=True, exist_ok=True)
-    with patched_tracer_directory(prepared.context.paths.prepared_tracer_dir):
-        for well_id in prepared.context.selected_wells:
-            config_path = _launcher_yaml_for_well(prepared.context, well_id)
-            results[well_id] = Path(launcher.main(str(config_path), force_inline=inline))
+    for well_id in prepared.context.selected_wells:
+        config_path = write_well_launcher_config(prepared.context, well_id)
+        results[well_id] = Path(launcher.main(str(config_path), force_inline=inline))
     return results
 
 
-def write_prepared_artifacts(prepared, output_dir: Path) -> None:
+def write_prepared_artifacts(prepared: PreparedHoltenCase, output_dir: Path) -> None:
     prepared_dir = output_dir / "prepared"
     tracer_dir = prepared_dir / "tracer_histories"
     wells_dir = prepared_dir / "wells"
@@ -111,25 +74,102 @@ def write_prepared_artifacts(prepared, output_dir: Path) -> None:
 
     prepared.preparation_log.to_csv(prepared_dir / "preparation_log.txt", sep="\t", index=False)
     prepared.observed_aggregated.to_csv(prepared_dir / "holten_2010_selected_wells.txt", sep="\t", index=False)
+    prepared.helium_diagnostics.to_csv(prepared_dir / "helium_diagnostics.txt", sep="\t", index=False)
     for well_id, frame in prepared.observed_by_well.items():
         frame.to_csv(wells_dir / f"holten_{well_id}.txt", sep="\t", index=False)
     for tracer_name, frame in prepared.tracer_histories.items():
         frame.to_csv(tracer_dir / f"{tracer_name}_local_prepared.txt", sep="\t", index=False)
 
 
-def _subset_prepared(prepared, selected_wells: list[str]):
-    prepared.context = copy.copy(prepared.context)
-    object.__setattr__(prepared.context, "selected_wells", selected_wells)
-    prepared.observed_aggregated = prepared.observed_aggregated.loc[
-        prepared.observed_aggregated["well_id"].isin(selected_wells)
-    ].reset_index(drop=True)
-    prepared.observed_by_well = {
-        well_id: frame for well_id, frame in prepared.observed_by_well.items() if well_id in selected_wells
-    }
-    prepared.preparation_log = prepared.preparation_log.loc[
-        prepared.preparation_log["well_id"].isin(selected_wells)
-    ].reset_index(drop=True)
+def _selected_wells_from_args(config_path: Path, wells_arg: str) -> list[str]:
+    context = build_context(config_path)
+    if not wells_arg.strip():
+        return list(context.selected_wells)
+    return [item.strip() for item in wells_arg.split(",") if item.strip()]
+
+
+def _prepare_case(config_path: Path, selected_wells: list[str]) -> PreparedHoltenCase:
+    prepared = prepare_holten_inputs(config_path)
+    if selected_wells != prepared.context.selected_wells:
+        prepared = prepared.subset(selected_wells)
     return prepared
+
+
+def _ensure_prepared(
+    prepared: PreparedHoltenCase | None,
+    config_path: Path,
+    selected_wells: list[str],
+) -> PreparedHoltenCase:
+    return prepared if prepared is not None else _prepare_case(config_path, selected_wells)
+
+
+def _ensure_local_4bin_summary(
+    prepared: PreparedHoltenCase,
+    local_4bin_summary: pd.DataFrame | None,
+) -> pd.DataFrame:
+    if local_4bin_summary is not None:
+        return local_4bin_summary
+    _, summary, _, _ = run_local_4bin(prepared, prepared.context.paths.benchmark_dir / "four_bin")
+    return summary
+
+
+def _ensure_local_4bin_mh(prepared: PreparedHoltenCase, already_run: bool) -> bool:
+    if already_run:
+        return True
+    run_local_4bin_mh(prepared, prepared.context.paths.benchmark_dir / "four_bin")
+    return True
+
+
+def _run_prepare_phase(
+    prepared: PreparedHoltenCase,
+    local_4bin_summary: pd.DataFrame | None,
+    local_4bin_mh_done: bool,
+) -> tuple[pd.DataFrame, bool]:
+    benchmark_root = prepared.context.paths.benchmark_dir
+    write_prepared_artifacts(prepared, benchmark_root)
+    build_pre_model_figures(prepared, benchmark_root / "pre_model")
+    try:
+        build_article_reference_figures(prepared.context, benchmark_root / "article_reference")
+    except Exception as exc:
+        print(f"Article figure extraction skipped: {exc}")
+    local_4bin_summary = _ensure_local_4bin_summary(prepared, local_4bin_summary)
+    local_4bin_mh_done = _ensure_local_4bin_mh(prepared, local_4bin_mh_done)
+    return local_4bin_summary, local_4bin_mh_done
+
+
+def _run_calibration_phase(
+    prepared: PreparedHoltenCase,
+    local_4bin_summary: pd.DataFrame | None,
+    local_4bin_mh_done: bool,
+) -> tuple[pd.DataFrame, bool, dict[str, Path]]:
+    local_4bin_summary = _ensure_local_4bin_summary(prepared, local_4bin_summary)
+    local_4bin_mh_done = _ensure_local_4bin_mh(prepared, local_4bin_mh_done)
+    if prepared.context.launcher_enabled and _lpm_ready(prepared.context):
+        return (
+            local_4bin_summary,
+            local_4bin_mh_done,
+            run_launcher_for_wells(prepared, inline=prepared.context.launcher_inline),
+        )
+    print("Launcher skipped: local LPM parameters are not ready or launcher disabled.")
+    return local_4bin_summary, local_4bin_mh_done, existing_results_for_wells(prepared)
+
+
+def _run_compare_phase(
+    prepared: PreparedHoltenCase,
+    results_by_well: dict[str, Path],
+    local_4bin_summary: pd.DataFrame | None,
+) -> None:
+    local_4bin_summary = _ensure_local_4bin_summary(prepared, local_4bin_summary)
+    if not results_by_well:
+        results_by_well = existing_results_for_wells(prepared)
+    comparison = compare_with_reference_results(
+        prepared,
+        results_by_well=results_by_well,
+        local_4bin_summary=local_4bin_summary,
+    )
+    build_reference_comparison_figures(prepared, comparison, prepared.context.paths.benchmark_dir / "benchmark")
+    write_benchmark_summary(comparison, prepared.context.paths.benchmark_dir / "benchmark")
+    print(prepared.context.paths.benchmark_dir)
 
 
 def main() -> None:
@@ -147,59 +187,33 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    context = build_context(Path(args.config))
-    selected_wells = context.selected_wells
-    if args.wells.strip():
-        selected_wells = [item.strip() for item in args.wells.split(",") if item.strip()]
+    config_path = Path(args.config)
+    selected_wells = _selected_wells_from_args(config_path, args.wells)
 
-    prepared = None
+    prepared: PreparedHoltenCase | None = None
     results_by_well: dict[str, Path] = {}
-    local_4bin_summary = None
+    local_4bin_summary: pd.DataFrame | None = None
+    local_4bin_mh_done = False
 
     if args.mode in ("full", "prepare_only"):
-        prepared = prepare_holten_inputs(Path(args.config))
-        if selected_wells != prepared.context.selected_wells:
-            prepared = _subset_prepared(prepared, selected_wells)
-        benchmark_root = prepared.context.paths.benchmark_dir
-        write_prepared_artifacts(prepared, benchmark_root)
-        build_pre_model_figures(prepared, benchmark_root / "pre_model")
-        try:
-            build_article_reference_figures(prepared.context, benchmark_root / "article_reference")
-        except RuntimeError as exc:
-            print(f"Article figure extraction skipped: {exc}")
-        _, local_4bin_summary, _, _ = run_local_4bin(prepared, benchmark_root / "four_bin")
+        prepared = _ensure_prepared(prepared, config_path, selected_wells)
+        local_4bin_summary, local_4bin_mh_done = _run_prepare_phase(
+            prepared,
+            local_4bin_summary,
+            local_4bin_mh_done,
+        )
 
     if args.mode in ("full", "calibration_only"):
-        if prepared is None:
-            prepared = prepare_holten_inputs(Path(args.config))
-            if selected_wells != prepared.context.selected_wells:
-                prepared = _subset_prepared(prepared, selected_wells)
-        if local_4bin_summary is None:
-            _, local_4bin_summary, _, _ = run_local_4bin(prepared, prepared.context.paths.benchmark_dir / "four_bin")
-        if prepared.context.launcher_enabled and _lpm_ready(prepared.context):
-            inline = bool(prepared.context.config.get("holten", {}).get("launcher", {}).get("inline", False))
-            results_by_well = run_launcher_for_wells(prepared, inline=inline)
-        else:
-            print("Launcher skipped: local LPM parameters are not ready or launcher disabled.")
-            results_by_well = existing_results_for_wells(prepared)
+        prepared = _ensure_prepared(prepared, config_path, selected_wells)
+        local_4bin_summary, local_4bin_mh_done, results_by_well = _run_calibration_phase(
+            prepared,
+            local_4bin_summary,
+            local_4bin_mh_done,
+        )
 
     if args.mode in ("full", "prepare_only", "compare_only", "calibration_only"):
-        if prepared is None:
-            prepared = prepare_holten_inputs(Path(args.config))
-            if selected_wells != prepared.context.selected_wells:
-                prepared = _subset_prepared(prepared, selected_wells)
-        if local_4bin_summary is None:
-            _, local_4bin_summary, _, _ = run_local_4bin(prepared, prepared.context.paths.benchmark_dir / "four_bin")
-        if not results_by_well:
-            results_by_well = existing_results_for_wells(prepared)
-        comparison = compare_with_reference_results(
-            prepared,
-            results_by_well=results_by_well,
-            local_4bin_summary=local_4bin_summary,
-        )
-        build_reference_comparison_figures(prepared, comparison, prepared.context.paths.benchmark_dir / "benchmark")
-        write_benchmark_summary(comparison, prepared.context.paths.benchmark_dir / "benchmark")
-        print(prepared.context.paths.benchmark_dir)
+        prepared = _ensure_prepared(prepared, config_path, selected_wells)
+        _run_compare_phase(prepared, results_by_well, local_4bin_summary)
 
 
 if __name__ == "__main__":
