@@ -1,0 +1,27 @@
+dataset:
+  name: ploemeur_F09_2010_ig_shifted.txt
+  label: Ploemeur single-date example (ig_shifted)
+  year: 2010
+  data_dir: C:\codes\pyage\examples\natural\ploemeur_temporal\_single_date_compare\data
+  verbose: true
+lpm:
+  model_name: ig_shifted
+  data_directory: data_core/data_lpm
+run:
+  reachable_concentrations: true
+  objective_function: true
+  calibration_metropolis_hastings: true
+  calibration_simplex: true
+reachable_concentrations:
+  nmodels: 5000
+objective_function:
+  nmodels: 10000
+calibration_metropolis_hastings:
+  nstep: 5000
+  prior_option: false
+  likelihood: true
+  monitor: false
+  display_traj: false
+calibration_simplex:
+  init_multiples_n: 3
+  fuq_n: 30

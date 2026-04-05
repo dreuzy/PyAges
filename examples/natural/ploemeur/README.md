@@ -9,6 +9,7 @@ python examples/natural/ploemeur/run_ploemeur.py
 What it does:
 
 - loads the single-date `F09` concentration record,
+- uses the shifted exponential LPM (`exp_shifted`),
 - explores the reachable concentration space for the selected LPM,
 - runs both calibration strategies:
   - `forward_uncertainty_quantification`

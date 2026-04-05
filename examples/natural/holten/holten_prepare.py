@@ -12,12 +12,11 @@ import sys
 import numpy as np
 import pandas as pd
 
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from pyage.config.bootstrap import ensure_repo_imports
 
 
 ensure_repo_imports()
@@ -77,7 +76,7 @@ def _resolve_repo_relative(path_text: str, context: HoltenContext) -> Path:
 def _load_local_tracer_yaml(tracer_name: str, context: HoltenContext) -> tuple[Path, dict[str, Any]]:
     yaml_path = tracer_yaml_path(context, tracer_name)
     if not yaml_path.exists():
-        raise FileNotFoundError(f"Missing local Holten tracer YAML: {yaml_path}")
+        raise FileNotFoundError(f"Missing Holten tracer YAML: {yaml_path}")
     return yaml_path, load_yaml(yaml_path)
 
 
@@ -484,7 +483,10 @@ def validate_converted_dataset(frame: pd.DataFrame, selected_wells: list[str], a
         if frame.duplicated(["well_id", "element", "date"]).any():
             raise ValueError("Duplicate well_id/element/date rows in aggregated dataset")
         if len(frame) != len(selected_wells) * len(VALID_TRACERS):
-            raise ValueError("Aggregated dataset does not contain exactly 9 V1 rows")
+            raise ValueError(
+                "Aggregated dataset does not contain the expected number of rows "
+                f"({len(selected_wells)} wells x {len(VALID_TRACERS)} tracers)"
+            )
     else:
         if frame.duplicated(["element", "date"]).any():
             raise ValueError("Duplicate element/date rows in per-well dataset")
@@ -539,7 +541,8 @@ def prepare_holten_inputs(config_path: Path | None = None) -> PreparedHoltenCase
     observed_aggregated, preparation_log = convert_sampling_observations(selected, context)
     helium_diagnostics = build_helium_diagnostics(selected)
     write_aggregated_dataset(observed_aggregated, context)
-    write_per_well_files(observed_aggregated, context)
+    if context.generate_per_well_files:
+        write_per_well_files(observed_aggregated, context)
 
     return PreparedHoltenCase(
         context=context,

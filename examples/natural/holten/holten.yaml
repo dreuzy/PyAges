@@ -35,7 +35,6 @@ calibration_simplex:
 holten:
   campaign:
     label: "April 2010"
-    tracer_scope: "holten_only"
     selected_wells:
       - "59-05"
       - "67-19"

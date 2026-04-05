@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import pytest
+
 from examples.natural.holten.holten_benchmark import (
     build_pre_model_figures,
     build_reference_comparison_figures,
     write_benchmark_summary,
 )
-from examples.natural.holten.holten_case import build_context, load_yaml, write_well_launcher_config
-from examples.natural.holten.run_holten import write_prepared_artifacts
+from examples.natural.holten.holten_case import build_context, dump_yaml, load_yaml, write_well_launcher_config
+from examples.natural.holten.holten_prepare import prepare_holten_inputs
+from examples.natural.holten.run_holten import _run_calibration_phase, write_prepared_artifacts
 from scripts.common.launcher_params import load_params
 from tests.examples.holten_test_support import (
     EXPECTED_PRE_MODEL_FIGURES,
@@ -32,6 +35,7 @@ def test_holten_context_smoke(holten_sandbox):
     assert context.selected_wells == EXPECTED_SELECTED_WELLS
     assert context.calibration_tracers == ["3H", "kr85", "39Ar"]
     assert context.launcher_inline is False
+    assert context.generate_per_well_files is True
     assert context.paths.reference_results_path.exists()
 
 
@@ -63,6 +67,38 @@ def test_generated_launcher_yaml_uses_prepared_tracer_directory(prepared_holten_
     params = load_params(prepared.context.paths.repo_root, config_path)
 
     assert params.tracer_data_dir == prepared.context.paths.prepared_tracer_dir
+
+
+def test_prepare_can_skip_per_well_files_when_launcher_disabled(holten_sandbox):
+    config_path = holten_sandbox["example_dir"] / "holten_no_per_well.yaml"
+    payload = load_yaml(holten_sandbox["config_path"])
+    payload["holten"]["preparation"]["generate_per_well_files"] = False
+    payload["holten"]["launcher"]["enabled"] = False
+    dump_yaml(config_path, payload)
+    for well_id in EXPECTED_SELECTED_WELLS:
+        per_well_path = holten_sandbox["example_dir"] / "data" / f"holten_2010_{well_id}.txt"
+        if per_well_path.exists():
+            per_well_path.unlink()
+
+    prepared = prepare_holten_inputs(config_path)
+
+    assert prepared.context.generate_per_well_files is False
+    assert prepared.context.paths.aggregated_dataset_path.exists()
+    for well_id in EXPECTED_SELECTED_WELLS:
+        assert not (prepared.context.paths.data_dir / f"holten_2010_{well_id}.txt").exists()
+
+
+def test_calibration_rejects_launcher_without_per_well_files(holten_sandbox):
+    config_path = holten_sandbox["example_dir"] / "holten_invalid_launcher.yaml"
+    payload = load_yaml(holten_sandbox["config_path"])
+    payload["holten"]["preparation"]["generate_per_well_files"] = False
+    payload["holten"]["launcher"]["enabled"] = True
+    dump_yaml(config_path, payload)
+
+    prepared = prepare_holten_inputs(config_path)
+
+    with pytest.raises(ValueError, match="generate_per_well_files"):
+        _run_calibration_phase(prepared)
 
 
 def test_prepared_case_subset_returns_filtered_clone(prepared_holten_case):

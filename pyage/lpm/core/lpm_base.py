@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar 22 09:29:57 2021
-
-@author: Jean-Raynald de Dreuzy
-
-Purpose
--------
 Base classes and utilities for Lumped Parameter Models (LPM).
+
 Defines the common interface and shared numerical helpers used by
 specific LPM implementations (pdf/cdf, moments, parameter handling,
 and optimization utilities). Concrete models inherit from this root
@@ -27,15 +22,13 @@ import os
 import pandas as pd
 from scipy import integrate
 from scipy import optimize
-from pathlib import Path
-
 from pyage.lpm.core.parameter_manager import ParameterManager
 from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
        
 
 class LpmBase(abc.ABC):
     """
-    Lumped Parameter Model, pure virtual class.
+    Abstract base class for all Lumped Parameter Models.
 
     Abstract base class for all transit time distribution models used in
     groundwater age dating. Defines the common interface for probability
@@ -116,12 +109,10 @@ class LpmBase(abc.ABC):
 
 
     @abc.abstractmethod
-
-
     def pdf(self, t: npt.ArrayLike) -> npt.ArrayLike:
         """
         Probability Density Function
-        Should be defined in the daughter class
+        Must be implemented by subclasses.
 
         Parameters
         ---------
@@ -133,7 +124,7 @@ class LpmBase(abc.ABC):
         pdf: scalar or array (same size as input t)
             Probability density function
         """
-        pass
+        raise NotImplementedError
 
     def __moment_k(self, k: int, n_points: int = 1000) -> float:
         """
@@ -299,15 +290,24 @@ class LpmBase(abc.ABC):
 
     def _cdf_minus_p(self, t: float, p: float) -> float:
         """Instrumental function for cdf_inv."""
-        cdf_val = self.cdf(np.array([t]))[0]
-        return (cdf_val - p) ** 2
+        return self._cdf_scalar(t) - p
+
+
+    def _cdf_scalar(self, t: float) -> float:
+        """Evaluate the CDF at a scalar time value."""
+        cdf_val = np.asarray(self.cdf(np.array([t], dtype=float)), dtype=float)
+        if cdf_val.size != 1:
+            raise ValueError(f"Expected scalar-compatible CDF output, got shape {cdf_val.shape}")
+        return float(cdf_val.reshape(-1)[0])
 
 
     def cdf_inv(self, p: float) -> float:
         """
-        Inverse of the Cumulative Density Function, t=cdf^-1(p)
-            Useful for the computation of quantiles
-            Should be defined in the daughter class
+        Inverse of the Cumulative Density Function, t = cdf^-1(p).
+
+        The default implementation brackets the requested quantile on
+        ``[0, +inf)`` and solves it with ``brentq``. Subclasses with
+        analytical inverse CDFs should override this method.
 
         Parameters
         ---------
@@ -319,9 +319,30 @@ class LpmBase(abc.ABC):
         float
             time corresponding to cdf^-1(p)
         """
-        t0 = 10
-        res = optimize.root(self._cdf_minus_p, t0, args=(p), method='hybr', jac=None, tol=None, callback=None, options=None)
-        return res.x[0]
+        probability = float(p)
+        if probability <= 0.0:
+            return 0.0
+        if probability >= 1.0:
+            raise ValueError(f"cdf_inv expects 0 <= p < 1, got {probability}")
+
+        lower = 0.0
+        f_lower = self._cdf_minus_p(lower, probability)
+        if f_lower >= 0.0:
+            return lower
+
+        upper = 10.0
+        max_upper = 1.0e9
+        f_upper = self._cdf_minus_p(upper, probability)
+        while f_upper < 0.0 and upper < max_upper:
+            upper *= 2.0
+            f_upper = self._cdf_minus_p(upper, probability)
+
+        if not np.isfinite(f_upper) or f_upper < 0.0:
+            raise RuntimeError(
+                f"Could not bracket cdf_inv(p={probability}) for model '{self.name}' before t={upper}"
+            )
+
+        return float(optimize.brentq(self._cdf_minus_p, lower, upper, args=(probability,)))
     
     
     def set_param_from_array(self, param: list[float]) -> None:

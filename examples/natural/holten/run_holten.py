@@ -9,12 +9,11 @@ import argparse
 from pathlib import Path
 import sys
 
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from pyage.config.bootstrap import ensure_repo_imports
 
 
 ensure_repo_imports()
@@ -137,21 +136,17 @@ def _run_prepare_phase(
     return local_4bin_summary, local_4bin_mh_done
 
 
-def _run_calibration_phase(
-    prepared: PreparedHoltenCase,
-    local_4bin_summary: pd.DataFrame | None,
-    local_4bin_mh_done: bool,
-) -> tuple[pd.DataFrame, bool, dict[str, Path]]:
-    local_4bin_summary = _ensure_local_4bin_summary(prepared, local_4bin_summary)
-    local_4bin_mh_done = _ensure_local_4bin_mh(prepared, local_4bin_mh_done)
+def _run_calibration_phase(prepared: PreparedHoltenCase) -> dict[str, Path]:
     if prepared.context.launcher_enabled and _lpm_ready(prepared.context):
-        return (
-            local_4bin_summary,
-            local_4bin_mh_done,
-            run_launcher_for_wells(prepared, inline=prepared.context.launcher_inline),
-        )
+        if not prepared.context.generate_per_well_files:
+            raise ValueError(
+                "Holten calibration launcher requires "
+                "`holten.preparation.generate_per_well_files: true` "
+                "because each launcher job reads a per-well dataset file."
+            )
+        return run_launcher_for_wells(prepared, inline=prepared.context.launcher_inline)
     print("Launcher skipped: local LPM parameters are not ready or launcher disabled.")
-    return local_4bin_summary, local_4bin_mh_done, existing_results_for_wells(prepared)
+    return existing_results_for_wells(prepared)
 
 
 def _run_compare_phase(
@@ -205,13 +200,9 @@ def main() -> None:
 
     if args.mode in ("full", "calibration_only"):
         prepared = _ensure_prepared(prepared, config_path, selected_wells)
-        local_4bin_summary, local_4bin_mh_done, results_by_well = _run_calibration_phase(
-            prepared,
-            local_4bin_summary,
-            local_4bin_mh_done,
-        )
+        results_by_well = _run_calibration_phase(prepared)
 
-    if args.mode in ("full", "prepare_only", "compare_only", "calibration_only"):
+    if args.mode in ("full", "compare_only"):
         prepared = _ensure_prepared(prepared, config_path, selected_wells)
         _run_compare_phase(prepared, results_by_well, local_4bin_summary)
 

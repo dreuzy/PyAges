@@ -12,7 +12,7 @@ dataset:
 
 lpm:
   # LPM model identifier as expected by lpm_build.
-  model_name: dirac_double
+  model_name: exp_shifted
   # Directory containing LPM params.yaml files; relative to repo root is OK.
   data_directory: data_core/data_lpm
 

@@ -1,3 +1,21 @@
 unit: dpm/ccKr
 recharge: true
 decay_time: 10.76
+holten:
+  reference: Visser et al. (2013)
+  notes: Holten-specific radiometric convention for krypton-85.
+  source:
+    observation_table: examples/natural/holten/doc/sampling_data.txt
+    observation_field: Kr85_dpm_ccKr
+    observation_unit: dpm/ccKr
+    recharge_file: examples/natural/holten/doc/freiburg_krypton.txt
+    recharge_unit: Bq/cbm air
+  preparation:
+    input_normalization: Bq_cbm_air_to_dpm_ccKr
+    output_unit: dpm/ccKr
+    krypton_air_fraction: 1.14e-06
+    conversion_factor: 52.63157894736842
+  old_endmember:
+    value: 0.0
+    unit: dpm/ccKr
+    meaning: plausible premodern old-fraction end-member for V1

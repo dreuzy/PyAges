@@ -83,17 +83,28 @@ Preparation and benchmark artifacts only:
 python examples/natural/holten/run_holten.py --mode prepare_only
 ```
 
+This mode stops after preparation and benchmark artifacts. It does not launch
+the bootstrap calibration or the final comparison summary.
+
 Calibration phase only:
 
 ```bash
 python examples/natural/holten/run_holten.py --mode calibration_only
 ```
 
+This mode prepares the case if needed, then runs only the launcher/bootstrap
+calibration step.
+
 Comparison phase only:
 
 ```bash
 python examples/natural/holten/run_holten.py --mode compare_only
 ```
+
+This mode rebuilds the comparison products only. If the local `4-bin` summary
+is missing, it is recomputed on the fly because the comparison depends on it.
+It still reloads the prepared Holten inputs, so it may refresh intermediate
+prepared files before producing the comparison outputs.
 
 Run a subset of wells:
 
@@ -118,6 +129,10 @@ These folders contain:
 - comparison tables against the published reference results
 
 Launcher outputs remain in the standard results directory configured by PyAge.
+Per-well launcher input files are generated only when
+`holten.preparation.generate_per_well_files` is enabled in `holten.yaml`.
+If `holten.launcher.enabled` is `true`, this option must stay enabled because
+the launcher runs read those per-well files.
 
 ## Models Used Here
 

@@ -21,7 +21,7 @@ calibration:
   # Systematic sampling resolution (forward models).
   explo_res: 20
   # Metropolis-Hastings steps.
-  mh_nsteps: 1000
+  mh_nsteps: 3000
   # Burn-in fraction and thinning.
   burn_in: 0.2
   nskip: 10

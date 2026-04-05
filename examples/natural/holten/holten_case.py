@@ -14,12 +14,11 @@ import sys
 
 import pandas as pd
 
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from pyage.config.bootstrap import ensure_repo_imports
 
 
 ensure_repo_imports()
@@ -65,11 +64,11 @@ class HoltenContext:
     tracer_source_dirs: dict[str, Path]
     selected_wells: list[str]
     calibration_tracers: list[str]
-    tracer_scope: str
     date_round_decimals: int
     lpm_name: str
     launcher_enabled: bool
     launcher_inline: bool
+    generate_per_well_files: bool
 
     def with_selected_wells(self, selected_wells: list[str]) -> "HoltenContext":
         normalized = [str(well_id) for well_id in selected_wells]
@@ -238,11 +237,11 @@ def build_context(config_path: Path | None = None) -> HoltenContext:
         tracer_source_dirs=tracer_source_dirs,
         selected_wells=selected_wells,
         calibration_tracers=calibration_tracers,
-        tracer_scope=str(campaign_cfg.get("tracer_scope", "holten_only")),
         date_round_decimals=int(prep_cfg.get("date_round_decimals", 5)),
         lpm_name=params.lpm_model_name,
         launcher_enabled=bool(launcher_cfg.get("enabled", False)),
         launcher_inline=bool(launcher_cfg.get("inline", False)),
+        generate_per_well_files=bool(prep_cfg.get("generate_per_well_files", True)),
     )
 
 
@@ -331,6 +330,12 @@ def write_effective_config(
 
 
 def write_well_launcher_config(context: HoltenContext, well_id: str) -> Path:
+    if not context.generate_per_well_files:
+        raise ValueError(
+            "Holten launcher configs require "
+            "`holten.preparation.generate_per_well_files: true` "
+            "because launcher runs target per-well datasets."
+        )
     dataset_name = f"holten_2010_{well_id}.txt"
     return write_effective_config(
         context,

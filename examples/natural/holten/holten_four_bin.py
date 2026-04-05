@@ -23,12 +23,11 @@ import pandas as pd
 from scipy.optimize import minimize
 from scipy.special import expit
 
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from pyage.config.bootstrap import ensure_repo_imports
 
 
 ensure_repo_imports()
@@ -704,7 +703,19 @@ def _plot_fraction_posteriors(
 
 
 def _plot_fraction_interval_comparison(comparison: pd.DataFrame, output_dir: Path) -> Path:
-    fig, axes = plt.subplots(1, len(FRACTION_COLUMNS), figsize=(4.0 * len(FRACTION_COLUMNS), 4.4), sharey=True)
+    panel_titles = {
+        "f_0_20": "0-20 years",
+        "f_20_40": "20-40 years",
+        "f_40_60": "40-60 years",
+        "f_old": "> 60 years",
+    }
+    axis_labels = {
+        "f_0_20": r"$f_1$",
+        "f_20_40": r"$f_2$",
+        "f_40_60": r"$f_3$",
+        "f_old": r"$f_4$",
+    }
+    fig, axes = plt.subplots(1, len(FRACTION_COLUMNS), figsize=(4.8 * len(FRACTION_COLUMNS), 5.2), sharey=True)
     if len(FRACTION_COLUMNS) == 1:
         axes = [axes]
     y = np.arange(len(comparison))
@@ -713,27 +724,35 @@ def _plot_fraction_interval_comparison(comparison: pd.DataFrame, output_dir: Pat
         median = comparison[f"{frac}_posterior_median"].astype(float)
         upper = comparison[f"{frac}_posterior_q90"].astype(float)
         paper = comparison[f"{frac}_paper"].astype(float)
-        ax.hlines(y, lower, upper, color="#4c78a8", linewidth=3, label="MH q10-q90" if frac == FRACTION_COLUMNS[0] else None)
-        ax.scatter(median, y, color="#1f4b99", marker="o", label="MH median" if frac == FRACTION_COLUMNS[0] else None)
-        ax.scatter(paper, y, color="#c13b31", marker="D", label="Paper value" if frac == FRACTION_COLUMNS[0] else None)
-        ax.set_title(frac.replace("f_", "").replace("_", "-"))
+        ax.hlines(y, lower, upper, color="#4c78a8", linewidth=4, label="MH q10-q90" if frac == FRACTION_COLUMNS[0] else None)
+        ax.scatter(
+            median,
+            y,
+            color="#1f4b99",
+            marker="o",
+            s=90,
+            label="MH median" if frac == FRACTION_COLUMNS[0] else None,
+            zorder=3,
+        )
+        ax.scatter(
+            paper,
+            y,
+            color="#c13b31",
+            marker="D",
+            s=110,
+            label="Paper value" if frac == FRACTION_COLUMNS[0] else None,
+            zorder=4,
+        )
+        ax.set_title(panel_titles.get(frac, frac.replace("f_", "").replace("_", "-")), fontsize=17, fontweight="bold")
         ax.set_xlim(0.0, 1.0)
-        ax.set_xlabel("Fraction")
+        ax.set_xlabel(axis_labels.get(frac, "Fraction"), fontsize=26)
+        ax.tick_params(axis="both", labelsize=17)
         ax.grid(alpha=0.25)
-        for yi, p, m, ql, qu in zip(y, paper, median, lower, upper):
-            if qu < 1e-4:
-                label = f"~0\nq90={qu:.1e}"
-            else:
-                label = f"{m:.3g}"
-            label_x = min(0.98, max(0.02, qu))
-            ax.text(label_x, yi + 0.10, label, fontsize=7, color="#1f4b99", ha="left", va="bottom")
     axes[0].set_yticks(y, comparison["well_id"].tolist())
-    axes[0].legend(loc="best")
-    fig.supxlabel("Fraction value")
-    fig.suptitle("Paper 4-bin fractions vs local MH posterior intervals", y=1.02)
+    axes[0].legend(loc="best", fontsize=14, frameon=True)
     fig.tight_layout()
     out_path = output_dir / "holten_4bin_paper_vs_mh_intervals.png"
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    fig.savefig(out_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
     return out_path
 

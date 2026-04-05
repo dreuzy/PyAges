@@ -16,12 +16,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from pyage.config.bootstrap import ensure_repo_imports
 
 
 ensure_repo_imports()
@@ -141,7 +140,7 @@ def build_reference_curve(
         display.attrs["display_kind"] = "reference_decay"
         display.attrs["reference_year"] = reference_year
         display.attrs["display_label"] = f"Input history after decay to {reference_year:.2f}"
-        display.attrs["display_title"] = f"{tracer_name}: reference curve brought to the 2010 sampling year"
+        display.attrs["display_title"] = f"{tracer_name}: reference curve brought to the {reference_year:.2f} sampling year"
         display.attrs["x_label"] = "Equivalent recharge year"
         return display
 
@@ -154,7 +153,7 @@ def build_reference_curve(
         )
         display.attrs.setdefault(
             "display_title",
-            f"{tracer_name}: theoretical decay curve referenced to the 2010 sampling year",
+            f"{tracer_name}: theoretical decay curve referenced to the {reference_year:.2f} sampling year",
         )
         display.attrs.setdefault("x_label", "Equivalent recharge year")
     return display
@@ -330,83 +329,88 @@ def _build_helium_diagnostic_figures(prepared: PreparedHoltenCase, output_dir: P
 def build_pre_model_figures(prepared: PreparedHoltenCase, output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     generated: list[Path] = []
+    pre_model_cfg = prepared.context.config.get("holten", {}).get("figures", {}).get("pre_model", {})
+    tracer_panels_enabled = bool(pre_model_cfg.get("tracer_panels", True))
+    well_panels_enabled = bool(pre_model_cfg.get("well_panels", True))
 
-    for tracer_name, history in prepared.tracer_histories.items():
-        observed = prepared.observed_aggregated.loc[
-            prepared.observed_aggregated["element"] == tracer_name
-        ].copy()
-        display_history = build_reference_curve(prepared, tracer_name, history, observed)
-        line_label = display_history.attrs.get("display_label", "Recharge history")
-        title = display_history.attrs.get("display_title", f"{tracer_name}: recharge history and Holten observations")
-        x_label = display_history.attrs.get("x_label", "Decimal year")
-        fig, axes = plt.subplots(2, 1, figsize=(10, 7.2), gridspec_kw={"height_ratios": [2.0, 1.0]})
-        ax = axes[0]
-        ax.plot(
-            display_history["date"],
-            display_history["concentration"],
-            color="#1f4b99",
-            linewidth=1.8,
-            label=line_label,
-        )
-        ax.scatter(
-            observed["date"],
-            observed["concentration"],
-            s=55,
-            color="#c13b31",
-            zorder=3,
-            label="2010 samples",
-        )
-        for _, row in observed.iterrows():
-            ax.annotate(
-                row["well_id"],
-                (row["date"], row["concentration"]),
-                textcoords="offset points",
-                xytext=(5, 5),
-                fontsize=8,
+    if tracer_panels_enabled:
+        for tracer_name, history in prepared.tracer_histories.items():
+            observed = prepared.observed_aggregated.loc[
+                prepared.observed_aggregated["element"] == tracer_name
+            ].copy()
+            display_history = build_reference_curve(prepared, tracer_name, history, observed)
+            line_label = display_history.attrs.get("display_label", "Recharge history")
+            title = display_history.attrs.get("display_title", f"{tracer_name}: recharge history and Holten observations")
+            x_label = display_history.attrs.get("x_label", "Decimal year")
+            fig, axes = plt.subplots(2, 1, figsize=(10, 7.2), gridspec_kw={"height_ratios": [2.0, 1.0]})
+            ax = axes[0]
+            ax.plot(
+                display_history["date"],
+                display_history["concentration"],
+                color="#1f4b99",
+                linewidth=1.8,
+                label=line_label,
             )
-        unit = display_history["unit"].iloc[0]
-        ax.set_title(title)
-        ax.set_xlabel(x_label)
-        ax.set_ylabel(f"Concentration [{unit}]")
-        ax.grid(alpha=0.25)
-        if display_history["concentration"].nunique() == 1 and not observed.empty:
-            center = float(observed["date"].median())
-            ax.set_xlim(center - 20.0, center + 20.0)
-        ax.legend(loc="best")
-        _plot_value_range_position(axes[1], tracer_name, display_history, observed)
-        fig.tight_layout()
-        out_path = output_dir / f"tracer_{tracer_name}_history_and_observations.png"
-        fig.savefig(out_path, dpi=150)
-        plt.close(fig)
-        generated.append(out_path)
-
-        fig, ax = plt.subplots(figsize=(10, 2.8))
-        _plot_value_range_position(ax, tracer_name, display_history, observed)
-        fig.tight_layout()
-        out_path = output_dir / f"tracer_{tracer_name}_value_range_position.png"
-        fig.savefig(out_path, dpi=150)
-        plt.close(fig)
-        generated.append(out_path)
-
-    for well_id, frame in prepared.observed_by_well.items():
-        fig, axes = plt.subplots(len(frame), 1, figsize=(9, 8), sharex=False)
-        if len(frame) == 1:
-            axes = [axes]
-        for ax, (_, row) in zip(axes, frame.iterrows()):
-            tracer_name = row["element"]
-            raw_history = prepared.tracer_histories[tracer_name]
-            display_history = build_reference_curve(prepared, tracer_name, raw_history, frame.loc[frame["element"] == tracer_name])
-            ax.plot(display_history["date"], display_history["concentration"], color="#1f4b99", linewidth=1.5)
-            ax.scatter([row["date"]], [row["concentration"]], s=60, color="#c13b31", zorder=3)
-            ax.set_ylabel(f"{tracer_name} [{row['unit']}]")
+            ax.scatter(
+                observed["date"],
+                observed["concentration"],
+                s=55,
+                color="#c13b31",
+                zorder=3,
+                label="2010 samples",
+            )
+            for _, row in observed.iterrows():
+                ax.annotate(
+                    row["well_id"],
+                    (row["date"], row["concentration"]),
+                    textcoords="offset points",
+                    xytext=(5, 5),
+                    fontsize=8,
+                )
+            unit = display_history["unit"].iloc[0]
+            ax.set_title(title)
+            ax.set_xlabel(x_label)
+            ax.set_ylabel(f"Concentration [{unit}]")
             ax.grid(alpha=0.25)
-        axes[0].set_title(f"Well {well_id}: multi-tracer panel")
-        axes[-1].set_xlabel("Equivalent recharge year")
-        fig.tight_layout()
-        out_path = output_dir / f"well_{well_id}_multi_tracer_panel.png"
-        fig.savefig(out_path, dpi=150)
-        plt.close(fig)
-        generated.append(out_path)
+            if display_history["concentration"].nunique() == 1 and not observed.empty:
+                center = float(observed["date"].median())
+                ax.set_xlim(center - 20.0, center + 20.0)
+            ax.legend(loc="best")
+            _plot_value_range_position(axes[1], tracer_name, display_history, observed)
+            fig.tight_layout()
+            out_path = output_dir / f"tracer_{tracer_name}_history_and_observations.png"
+            fig.savefig(out_path, dpi=150)
+            plt.close(fig)
+            generated.append(out_path)
+
+            fig, ax = plt.subplots(figsize=(10, 2.8))
+            _plot_value_range_position(ax, tracer_name, display_history, observed)
+            fig.tight_layout()
+            out_path = output_dir / f"tracer_{tracer_name}_value_range_position.png"
+            fig.savefig(out_path, dpi=150)
+            plt.close(fig)
+            generated.append(out_path)
+
+    if well_panels_enabled:
+        for well_id, frame in prepared.observed_by_well.items():
+            fig, axes = plt.subplots(len(frame), 1, figsize=(9, 8), sharex=False)
+            if len(frame) == 1:
+                axes = [axes]
+            for ax, (_, row) in zip(axes, frame.iterrows()):
+                tracer_name = row["element"]
+                raw_history = prepared.tracer_histories[tracer_name]
+                display_history = build_reference_curve(prepared, tracer_name, raw_history, frame.loc[frame["element"] == tracer_name])
+                ax.plot(display_history["date"], display_history["concentration"], color="#1f4b99", linewidth=1.5)
+                ax.scatter([row["date"]], [row["concentration"]], s=60, color="#c13b31", zorder=3)
+                ax.set_ylabel(f"{tracer_name} [{row['unit']}]")
+                ax.grid(alpha=0.25)
+            axes[0].set_title(f"Well {well_id}: multi-tracer panel")
+            axes[-1].set_xlabel("Equivalent recharge year")
+            fig.tight_layout()
+            out_path = output_dir / f"well_{well_id}_multi_tracer_panel.png"
+            fig.savefig(out_path, dpi=150)
+            plt.close(fig)
+            generated.append(out_path)
     generated.extend(_build_helium_diagnostic_figures(prepared, output_dir))
     return generated
 

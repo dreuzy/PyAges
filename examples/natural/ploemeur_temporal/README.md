@@ -24,6 +24,9 @@ Notebook:
 - `examples/natural/ploemeur_temporal/exemple_ploemeur_temporal.ipynb`
   follows the same guided structure as the single-date `ploemeur` example,
   but keeps the temporal reading order and the `span` / `successive` split.
+- the notebook also rebuilds comparative views between the transient and
+  single-date calibrations for `exp_shifted` and `ig_shifted`:
+  temporal fit overlays and parameter distribution overlays.
 
 Outputs:
 - stored under the default results root (`PYAGE_RESULTS_DIR`) unless overridden
