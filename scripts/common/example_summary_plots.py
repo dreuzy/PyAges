@@ -12,6 +12,7 @@ import re
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.ticker import MaxNLocator
 from matplotlib.tri import TriAnalyzer, Triangulation
 import numpy as np
 import pandas as pd
@@ -26,6 +27,7 @@ DEFAULT_METHOD_COLORS = {
 REACHABLE_COLOR = "#d9e2e8"
 OBSERVED_COLOR = "#111111"
 MEDIAN_COLOR = "#08519c"
+SINGLE_DATE_HIGHLIGHT_COLOR = "#d62728"
 INTERVAL_50_COLOR = "#6baed6"
 INTERVAL_90_COLOR = "#c6dbef"
 GRID_CMAP = "cividis_r"
@@ -210,6 +212,9 @@ def plot_observations_overview(
     cdata,
     filename: str | Path | None = None,
     title: str = "Observed concentrations",
+    highlight_dates: list[float] | None = None,
+    highlight_label: str = "Single-date interpretation",
+    highlight_tolerance: float = 0.02,
 ):
     """
     Plot observation-only panels for each tracer.
@@ -220,6 +225,8 @@ def plot_observations_overview(
     ncols = 2 if len(tracers) == 4 else min(3, max(len(tracers), 1))
     nrows = ceil(max(len(tracers), 1) / ncols)
     fig, axs = plt.subplots(nrows, ncols, figsize=(6.2 * ncols, 3.8 * nrows), squeeze=False)
+    highlight_array = np.asarray(highlight_dates or [], dtype=float)
+    highlighted_any = False
 
     for ax, tracer in zip(axs.flatten(), tracers):
         tracer_df = df[df["element"] == tracer].sort_values("date")
@@ -236,6 +243,35 @@ def plot_observations_overview(
             elinewidth=1.2,
             capsize=2,
         )
+        if highlight_array.size:
+            dates = pd.to_numeric(tracer_df["date"], errors="coerce").to_numpy(dtype=float)
+            highlight_mask = np.any(
+                np.isclose(
+                    dates[:, None],
+                    highlight_array[None, :],
+                    atol=float(highlight_tolerance),
+                    rtol=0.0,
+                ),
+                axis=1,
+            )
+            if highlight_mask.any():
+                highlighted_any = True
+                highlight_df = tracer_df.loc[highlight_mask]
+                highlight_yerr = yerr.loc[highlight_df.index] if has_error else None
+                ax.errorbar(
+                    highlight_df["date"],
+                    highlight_df["concentration"],
+                    yerr=highlight_yerr,
+                    fmt="o",
+                    ms=6.5,
+                    color=SINGLE_DATE_HIGHLIGHT_COLOR,
+                    ecolor=SINGLE_DATE_HIGHLIGHT_COLOR,
+                    elinewidth=1.4,
+                    capsize=2,
+                    markeredgecolor="white",
+                    markeredgewidth=0.7,
+                    zorder=4,
+                )
         unit = tracer_df["unit"].iloc[0] if "unit" in tracer_df.columns and not tracer_df.empty else None
         ax.set_title(_pretty_tracer_name(tracer))
         ax.set_xlabel("Year")
@@ -244,8 +280,36 @@ def plot_observations_overview(
     for ax in axs.flatten()[len(tracers):]:
         ax.remove()
 
-    fig.suptitle(title, fontsize=15, y=1.04)
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    if highlighted_any:
+        fig.legend(
+            handles=[
+                Line2D(
+                    [0],
+                    [0],
+                    marker="o",
+                    linestyle="none",
+                    markersize=6,
+                    markerfacecolor=MEDIAN_COLOR,
+                    markeredgecolor=MEDIAN_COLOR,
+                    label="Temporal observations",
+                ),
+                Line2D(
+                    [0],
+                    [0],
+                    marker="o",
+                    linestyle="none",
+                    markersize=7,
+                    markerfacecolor=SINGLE_DATE_HIGHLIGHT_COLOR,
+                    markeredgecolor="white",
+                    label=highlight_label,
+                ),
+            ],
+            loc="upper center",
+            bbox_to_anchor=(0.5, 1.0),
+            ncol=2,
+        )
+    fig.suptitle(title, fontsize=15, y=1.08 if highlighted_any else 1.04)
+    fig.tight_layout(rect=(0, 0, 1, 0.91 if highlighted_any else 0.96))
     return _save_figure(fig, filename)
 
 
@@ -430,6 +494,278 @@ def plot_parameter_summary(
         fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=min(len(labels), 3))
     fig.suptitle(title, fontsize=15, y=1.06)
     fig.tight_layout(rect=(0, 0, 1, 0.9))
+    return _save_figure(fig, filename)
+
+
+def plot_parameter_distribution_comparison(
+    distributions: dict[str, object],
+    param_names: list[str],
+    param_labels: dict[str, str] | None = None,
+    param_density_labels: dict[str, str] | None = None,
+    filename: str | Path | None = None,
+    title: str | None = None,
+):
+    """
+    Overlay posterior parameter distributions coming from different workflows.
+    """
+    apply_example_style()
+    ncols = min(3, max(len(param_names), 1))
+    nrows = ceil(max(len(param_names), 1) / ncols)
+    fig, axs = plt.subplots(nrows, ncols, figsize=(5.2 * ncols, 3.9 * nrows), squeeze=False)
+
+    color_cycle = plt.get_cmap("tab10")
+
+    for ax, param_name in zip(axs.flatten(), param_names):
+        for dist_index, (label, result) in enumerate(distributions.items()):
+            frame = _ensure_frame(result)
+            if param_name not in frame.columns:
+                continue
+            values = pd.to_numeric(frame[param_name], errors="coerce").dropna()
+            if values.empty:
+                continue
+            bins = min(max(int(np.sqrt(len(values))), 12), 32)
+            color = color_cycle(dist_index % 10)
+            ax.hist(
+                values,
+                bins=bins,
+                density=True,
+                histtype="step",
+                linewidth=2.0,
+                color=color,
+                alpha=0.95,
+                label=label,
+            )
+            ax.axvline(values.median(), color=color, linestyle="--", linewidth=1.6, alpha=0.85)
+        display_name = param_labels.get(param_name, param_name) if param_labels else param_name
+        density_name = param_density_labels.get(param_name, display_name) if param_density_labels else display_name
+        ax.set_title("")
+        ax.set_xlabel(display_name, fontsize=18)
+        ax.set_ylabel(f"$p({density_name})$", fontsize=18)
+        ax.tick_params(axis="both", labelsize=16)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+
+    for ax in axs.flatten()[len(param_names):]:
+        ax.remove()
+
+    handles, labels = axs[0, 0].get_legend_handles_labels()
+    if handles:
+        fig.legend(
+            handles,
+            labels,
+            loc="upper center",
+            bbox_to_anchor=(0.5, 1.0),
+            ncol=min(len(labels), 3),
+            fontsize=13,
+        )
+    if title:
+        fig.suptitle(title, fontsize=15, y=1.06)
+        fig.tight_layout(rect=(0, 0, 1, 0.9))
+    else:
+        fig.tight_layout(rect=(0, 0, 1, 0.94))
+    return _save_figure(fig, filename)
+
+
+def plot_temporal_fit_comparison(
+    craw,
+    posterior_frames: dict[str, pd.DataFrame],
+    lpm_name: str,
+    lpm_directory: str | Path,
+    selection_modes: dict[str, str] | None = None,
+    lpm_number: int = 40,
+    filename: str | Path | None = None,
+    title: str | None = None,
+    start_year: float = 1960,
+    highlight_dates: list[float] | None = None,
+    highlight_label: str = "Single-date observation",
+    highlight_tolerance: float = 0.02,
+):
+    """
+    Overlay temporal fit summaries from multiple posterior distributions.
+    """
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+
+    from pyage.lpm.lpm_build import lpm_build
+    from pyage.lpm.core.lpm_dist import LpmDist
+
+    apply_example_style()
+    tracer_names = list(dict.fromkeys(craw.cv["element"].tolist()))
+    ncols = len(tracer_names) if len(tracer_names) <= 3 else 2
+    nrows = ceil(max(len(tracer_names), 1) / ncols)
+    fig, axs = plt.subplots(nrows, ncols, figsize=(6.5 * ncols, 4.2 * nrows), squeeze=False)
+    highlight_array = np.asarray(highlight_dates or [], dtype=float)
+    highlighted_any = False
+
+    end_year = float(craw.cv["date"].max())
+    tracers = convolution_tracers.ConvolutionTracers(
+        names=craw.cv["element"].unique(),
+        date=end_year,
+    )
+
+    overlay_styles = [
+        {
+            "band": "#c6dbef",
+            "line": "#08519c",
+            "band_label": "Transient 90% interval",
+            "line_label": "Transient median",
+        },
+        {
+            "band": "#fdd0a2",
+            "line": "#d94801",
+            "band_label": "Single-date 90% interval",
+            "line_label": "Single-date median",
+        },
+        {
+            "band": "#d9d9d9",
+            "line": "#636363",
+            "band_label": "Comparison 90% interval",
+            "line_label": "Comparison median",
+        },
+    ]
+
+    predictions: dict[str, dict[str, tuple[np.ndarray, np.ndarray]]] = {}
+    for source_index, (label, frame) in enumerate(posterior_frames.items()):
+        if frame.empty:
+            continue
+        mode = (selection_modes or {}).get(label, "random_line")
+        lpm_template = lpm_build(lpm_name, directory_lpm=str(lpm_directory))
+        lpm_dist = LpmDist(lpm_template, c_names=[])
+        lpm_dist.fill_np_array(frame.to_numpy(), frame.columns.tolist())
+        selection_mode = mode if mode in {"span", "successive", "span_full"} else "single_date"
+        lpm_list, _, _ = lpm_dist.get_selection(
+            lpm_number=lpm_number,
+            time_span_mode=selection_mode,
+            array_resolution=1000,
+        )
+        source_predictions: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        for lpm in lpm_list:
+            concentration_dict = tracers.convolution_date_range(lpm, start_year, end_year)
+            for tracer_name, tracer_df in concentration_dict.items():
+                ordered = tracer_df.sort_values("date")
+                dates = ordered["date"].to_numpy(dtype=float)
+                values = ordered["concentration"].to_numpy(dtype=float)
+                if tracer_name not in source_predictions:
+                    source_predictions[tracer_name] = (dates, values[None, :])
+                else:
+                    prev_dates, prev_values = source_predictions[tracer_name]
+                    source_predictions[tracer_name] = (prev_dates, np.vstack([prev_values, values]))
+        predictions[label] = source_predictions
+
+    legend_handles = [
+        Line2D(
+            [],
+            [],
+            marker="o",
+            linestyle="",
+            color="#111111",
+            markerfacecolor="#111111",
+            markeredgecolor="#111111",
+            markersize=6,
+            label="Observations",
+        )
+    ]
+    if highlight_array.size:
+        legend_handles.append(
+            Line2D(
+                [],
+                [],
+                marker="o",
+                linestyle="",
+                color=SINGLE_DATE_HIGHLIGHT_COLOR,
+                markerfacecolor=SINGLE_DATE_HIGHLIGHT_COLOR,
+                markeredgecolor="white",
+                markersize=7,
+                label=highlight_label,
+            )
+        )
+
+    for source_index, (label, source_predictions) in enumerate(predictions.items()):
+        style = overlay_styles[min(source_index, len(overlay_styles) - 1)]
+        legend_handles.append(Patch(facecolor=style["band"], edgecolor="none", alpha=0.75, label=style["band_label"]))
+        legend_handles.append(Line2D([], [], color=style["line"], linewidth=2.4, label=style["line_label"]))
+        for ax, tracer_name in zip(axs.flatten(), tracer_names):
+            if tracer_name not in source_predictions:
+                continue
+            pred_dates, pred_array = source_predictions[tracer_name]
+            q10, q50, q90 = np.quantile(pred_array, [0.10, 0.50, 0.90], axis=0)
+            ax.fill_between(pred_dates, q10, q90, color=style["band"], alpha=0.55 if source_index else 0.75)
+            ax.plot(pred_dates, q50, color=style["line"], linewidth=2.3)
+
+    for ax, tracer_name in zip(axs.flatten(), tracer_names):
+        observed = craw.cv[craw.cv["element"] == tracer_name].sort_values("date")
+        unit = observed["unit"].iloc[0] if "unit" in observed.columns and not observed.empty else None
+        has_error = "error" in observed.columns and np.any(pd.to_numeric(observed["error"], errors="coerce") > 0)
+        error = observed["error"] if has_error else None
+        ax.errorbar(
+            observed["date"],
+            observed["concentration"],
+            yerr=error,
+            fmt="o",
+            color="#111111",
+            ecolor="#4d4d4d",
+            elinewidth=1.1,
+            capsize=2,
+            ms=5,
+            zorder=5,
+        )
+        if highlight_array.size:
+            observed_dates = pd.to_numeric(observed["date"], errors="coerce").to_numpy(dtype=float)
+            highlight_mask = np.any(
+                np.isclose(
+                    observed_dates[:, None],
+                    highlight_array[None, :],
+                    atol=float(highlight_tolerance),
+                    rtol=0.0,
+                ),
+                axis=1,
+            )
+            if highlight_mask.any():
+                highlighted_any = True
+                highlighted = observed.loc[highlight_mask]
+                highlighted_error = error.loc[highlighted.index] if has_error else None
+                ax.errorbar(
+                    highlighted["date"],
+                    highlighted["concentration"],
+                    yerr=highlighted_error,
+                    fmt="o",
+                    color=SINGLE_DATE_HIGHLIGHT_COLOR,
+                    ecolor=SINGLE_DATE_HIGHLIGHT_COLOR,
+                    elinewidth=1.5,
+                    capsize=2,
+                    ms=6.5,
+                    markeredgecolor="white",
+                    markeredgewidth=0.8,
+                    zorder=6,
+                )
+        ax.set_title("")
+        ax.set_xlabel("Year", fontsize=18)
+        ax.set_ylabel(_axis_label(tracer_name, unit), fontsize=18)
+        ax.tick_params(axis="both", labelsize=16)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+
+    for ax in axs.flatten()[len(tracer_names):]:
+        ax.remove()
+
+    legend_items = legend_handles
+    if not highlighted_any:
+        legend_items = [handle for handle in legend_handles if handle.get_label() != highlight_label]
+
+    fig.legend(
+        legend_items,
+        [handle.get_label() for handle in legend_items],
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=min(len(legend_items), 3),
+        fontsize=18,
+        frameon=False,
+    )
+    if title:
+        fig.suptitle(title, fontsize=15, y=1.08)
+        fig.tight_layout(rect=(0, 0, 1, 0.90))
+    else:
+        fig.tight_layout(rect=(0, 0, 1, 0.94))
     return _save_figure(fig, filename)
 
 
