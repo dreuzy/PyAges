@@ -146,6 +146,9 @@ class MHConfig:
     prior_file: str = ""
     lpm_number: int = 10
     seed: int = 12345
+    # Optional explicit start used only for calibrations without a prior.
+    # Prior-informed stages retain their existing MAP initialization.
+    initial_params: Optional[Dict[str, float]] = None
 
 
 @dataclass(frozen=True)
@@ -691,6 +694,8 @@ class MetropolisHastings(calbas.CalibrationCore) :
         self.prior = Prior(option=self.config.prior_option, typ=self.config.prior_type, prior_file=self.config.prior_file)
         # Results
         self.__success_rate = 0
+        self.__initial_params_used: Dict[str, float] = {}
+        self.__initialization_source = ""
         self.prior_validation_stats = None
         self.time_perform = 0 
 
@@ -891,10 +896,40 @@ class MetropolisHastings(calbas.CalibrationCore) :
         # Initialization of calibration parameters with default parameters of distribution
         if self.prior.option:
             self.prior.param_init(self.lpm)
+            self.__initialization_source = "prior_map"
+        elif self.config.initial_params is not None:
+            expected = list(self.lpm.p.keys())
+            provided = list(self.config.initial_params.keys())
+            missing = [name for name in expected if name not in self.config.initial_params]
+            extra = [name for name in provided if name not in self.lpm.p]
+            if missing or extra:
+                raise ValueError(
+                    "initial_params must define exactly the LPM parameters "
+                    f"{expected} (missing={missing}, extra={extra})."
+                )
+            params0 = [float(self.config.initial_params[name]) for name in expected]
+            if not all(math.isfinite(value) for value in params0):
+                raise ValueError("initial_params values must be finite numbers.")
+            if not self.lpm.param_within_bounds_array(params0):
+                bounds = {
+                    name: [self.lpm.get_p_min(name), self.lpm.get_p_max(name)]
+                    for name in expected
+                }
+                raise ValueError(
+                    f"initial_params are outside the LPM bounds {bounds}: "
+                    f"{dict(zip(expected, params0))}"
+                )
+            self.lpm.set_param_from_array(params0)
+            self.__initialization_source = "config"
         else:
+            # Preserve the historical initialization path when the option is
+            # absent. Some LPM implementations expose param_init() for legacy
+            # side effects even though its return value was not applied here.
             self.lpm.param_init()
+            self.__initialization_source = "lpm_default"
         # Gets parameters in an array (compulsory for performance of the loop)
         params = self.lpm.get_parameters_to_array()
+        self.__initial_params_used = dict(zip(self.lpm.p.keys(), params))
         # Value of the posterior distribution for initial set of parameters
         log_p, obj_func, conc = self.__log_posterior_eval(params, data_conc, data_error)
         return params, log_p, obj_func, conc
@@ -1062,6 +1097,9 @@ class MetropolisHastings(calbas.CalibrationCore) :
         data["likelihood_option"] = self.config.likelihood
         self.MH_step.save_param(data)
         data["seed"] = self.config.seed
+        data["initialization_source"] = self.__initialization_source
+        for param, value in self.__initial_params_used.items():
+            data[f"initial_{param}"] = value
         return data
 
 

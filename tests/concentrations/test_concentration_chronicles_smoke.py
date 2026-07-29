@@ -15,7 +15,7 @@ import pyage.global_parameters as gp
 from pyage.concentrations import concentrations_time as ct
 from pyage.lpm.core import lpm_dist as LPM_dist
 from pyage.lpm.lpm_build import lpm_build
-from observations.loader import load_concentrations
+from pyage.observations.loader import load_concentrations
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 

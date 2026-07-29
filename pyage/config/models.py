@@ -247,7 +247,7 @@ class LauncherParams(_BaseCfg):
 
 
 # ---------------------------------------------------------------------------
-# launcher_temporal.py (multi-date) config models
+# Generic temporal workflow (multi-date) config models
 # ---------------------------------------------------------------------------
 
 class TemporalDatasetCfg(_BaseCfg):
@@ -296,6 +296,7 @@ class TemporalResultsCfg(_BaseCfg):
     """Results location (default root or explicit directory)."""
     use_default: bool = True
     directory: str | None = None
+    study_name: str = Field(default="temporal", min_length=1, pattern=r"^[A-Za-z0-9_.-]+$")
 
     @field_validator("directory")
     @classmethod
@@ -306,7 +307,7 @@ class TemporalResultsCfg(_BaseCfg):
 
 
 class TemporalParams(_BaseCfg):
-    """Top-level config model for launcher_temporal.yaml."""
+    """Top-level configuration for a temporal calibration workflow."""
     dataset: TemporalDatasetCfg
     calibration: TemporalCalibrationCfg = TemporalCalibrationCfg()
     figures: TemporalFiguresCfg = TemporalFiguresCfg()

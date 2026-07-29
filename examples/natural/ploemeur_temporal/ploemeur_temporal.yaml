@@ -40,6 +40,8 @@ figures:
   concentrations_2d: false
 
 results:
+  # Site/example namespace; the reusable workflow defaults to "temporal".
+  study_name: ploemeur_temporal
   # Use default results root (PYAGE_RESULTS_DIR or <home>/results/PyAge).
   use_default: true
   # Custom results root (used only when use_default is false).

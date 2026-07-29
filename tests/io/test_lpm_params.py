@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from data_io import lpm_params
+from pyage.data_io import lpm_params
 
 
 def _models() -> list[str]:

@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 import yaml
 
-from scripts.launcher_temporal import run_temporal
+from pyage.workflows.temporal import run_temporal
 from tests.utils import golden as golden_utils
 
 
@@ -87,7 +87,11 @@ def _assert_record_close(actual: Dict, expected: Dict, tol: float = 1e-4) -> Non
 
 def test_ploemeur_temporal_golden(update_golden, tmp_path: Path) -> None:
     params = _load_params(PARAMS_PATH)
-    params["results"] = {"use_default": False, "directory": str(tmp_path)}
+    params["results"] = {
+        "use_default": False,
+        "directory": str(tmp_path),
+        "study_name": "ploemeur_temporal",
+    }
     params.setdefault("calibration", {})
     params["calibration"]["mh_nsteps"] = 200
     params["calibration"]["seed_enabled"] = True

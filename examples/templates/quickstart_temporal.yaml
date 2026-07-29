@@ -25,5 +25,6 @@ figures:
   distributions: false
 
 results:
+  study_name: temporal
   use_default: true
   directory: ""
