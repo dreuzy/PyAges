@@ -46,6 +46,9 @@ Directory map
   - `temp/`: intermediate files produced by the workflow (recreated each run)
 - `params_lpm/`: site-level LPM parameter files (optional alternative to `data_core/data_lpm`)
 - `postprocessing/`: plotting and comparison utilities
+- `studies/`: self-contained, reproducible scientific studies
+  - `HYP-26-0172/`: long-term CFC article, including its matrix, configurations,
+    figure builders, scientific map, and archived development material
 - `docs/`: site-specific notes (if any)
 
 
@@ -58,6 +61,11 @@ workflow generates -> data/temp (intermediate)
 ```
 
 See `sites/ploemeur/data/README.md` for details about data provenance.
+
+Article-specific configurations, journal export rules, figure numbers, and
+scientific claims do not belong in the site-level `params/` or
+`postprocessing/` directories. They live in the corresponding `studies/`
+subdirectory.
 
 
 Choosing LPM parameter files

@@ -1,9 +1,11 @@
 import os
+from io import BytesIO
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 import numpy as np
+from PIL import Image
 from matplotlib.ticker import MaxNLocator
 from matplotlib.dates import DateFormatter
 
@@ -17,6 +19,11 @@ from sites.ploemeur.postprocessing.appli_ploemeur_postprocessing_stat import (
     generer_toutes_les_figures,
     build_output_filepath,
 )
+
+
+COLOR_CONDITIONED = "blue"
+COLOR_UNCONSTRAINED = "red"
+COLOR_FULL_SERIES = "grey"
 
 # ✅ Styles globaux pour les figures (présentation/papier)
 plt.rcParams.update({
@@ -95,30 +102,30 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
 
     # Bande ± écart-type
     plt.fill_between(dates, [median - std, median - std], [median + std, median + std],
-                     color="grey", alpha=0.3)
-    plt.plot(dates, [median, median], color="grey", linewidth=2)
+                     color=COLOR_FULL_SERIES, alpha=0.3)
+    plt.plot(dates, [median, median], color=COLOR_FULL_SERIES, linewidth=2)
 
-    # Points rouges = "In Chronicle"
+    # Points bleus = calibration conditionnée par la série complète
     plt.errorbar(
         df_stat_prior["date"],
         df_stat_prior["median_mean"],
         yerr=df_stat_prior["median_std"],
         fmt="o",
-        color="red",
-        ecolor="red",
+        color=COLOR_CONDITIONED,
+        ecolor=COLOR_CONDITIONED,
         elinewidth=2,
         capsize=5,
         markersize=15
     )
 
-    # Points bleus = df_suc
+    # Points rouges = calibration indépendante avec prior uniforme
     plt.errorbar(
         df_suc["date"],
         df_suc["median_mean"],
         yerr=df_suc["median_std"],
         fmt="o",
-        color="blue",
-        ecolor="blue",
+        color=COLOR_UNCONSTRAINED,
+        ecolor=COLOR_UNCONSTRAINED,
         elinewidth=2,
         capsize=5,
         markersize=15
@@ -128,36 +135,37 @@ def tracer_stat(df_stats, df_stat_prior, df_suc, distribution, puits, save_path=
     handles = [
         plt.Rectangle(
             (0, 0), 1, 1,
-            color="grey",
+            color=COLOR_FULL_SERIES,
             alpha=0.3,
-            label=f"p$_{{series}}$"
+            label="Full series"
         ),
         plt.Line2D(
             [0], [0],
-            color="red",
+            color=COLOR_CONDITIONED,
             marker="o",
             linestyle="None",
-            label="p$_{constrained}$"
+            label="Conditioned"
         ),
         plt.Line2D(
             [0], [0],
-            color="blue",
+            color=COLOR_UNCONSTRAINED,
             marker="o",
             linestyle="None",
-            label="p$_{independent}$"
+            label="Unconstrained"
         ),
     ]
     plt.xlabel("Date",fontsize=plt.rcParams["axes.titlesize"]+10)
     plt.ylabel("Median years",fontsize=plt.rcParams["axes.titlesize"]+10)
     plt.title(f"{titre} - {puits}", fontweight="bold",fontsize=plt.rcParams["figure.titlesize"]+4)
 
-    plt.legend(
-        handles=handles,
-        loc="best",
-        frameon=False,
-        fontsize=plt.rcParams["legend.fontsize"]+10,
-        markerscale=2.1   # ✅ Agrandit les symboles dans la légende
-    )
+    if puits == "F09":
+        plt.legend(
+            handles=handles,
+            loc="best",
+            frameon=False,
+            fontsize=plt.rcParams["legend.fontsize"]+10,
+            markerscale=2.1   # ✅ Agrandit les symboles dans la légende
+        )
         
     plt.grid(True, alpha=0.4)
     ax = plt.gca()
@@ -193,7 +201,8 @@ def tracer_concentrations(
     distribution=None,
     puits=None,
     use_multiprocessing=False, 
-    plt_models=True
+    plt_models=True,
+    article=False,
 ):
     # ✅ Mapping du titre comme dans tracer_stat
     titles_map = {
@@ -212,8 +221,17 @@ def tracer_concentrations(
         fig, axes = plt.subplots(len(traceurs), 1, figsize=(8, 4 * len(traceurs)), sharex=True)
 
     # ✅ Titre global
-    if distribution is not None and puits is not None:
-        fig.suptitle(f"{titre} - {puits}", fontweight="bold", fontsize=plt.rcParams["axes.titlesize"])
+    # The atmospheric-reference figure contains observations and atmospheric
+    # input functions only: do not label it with an LPM distribution.
+    if puits is not None:
+        figure_title = puits if not plt_models else (
+            f"{titre} - {puits}" if distribution is not None else puits
+        )
+        fig.suptitle(
+            figure_title,
+            fontweight="bold",
+            fontsize=plt.rcParams["axes.titlesize"],
+        )
 
     if len(traceurs) == 1:
         axes = [axes]
@@ -336,8 +354,7 @@ def tracer_concentrations(
                     fallback_max=(int(df_suc.index.max()) if df_suc is not None else None),
                 )
                 handles.append(plt.Line2D([0], [0], color="blue", lw=1,
-                                          # label=f"p$_{{constrained}}$ {label_years}".strip()))
-                                          label=f"p$_{{constrained}}$".strip()))
+                                          label=f"p$_{{constrained}}$ {label_years}".strip()))
 
             if df_prior is not None:
                 label_years = _fmt_years_tuple(
@@ -346,14 +363,19 @@ def tracer_concentrations(
                     fallback_max=(int(df_prior.index.max()) if df_prior is not None else None),
                 )
                 handles.append(plt.Line2D([0], [0], color="red", lw=1,
-                                          # label=f"p$_{{independent}}$ {label_years}".strip()))
-                                          label=f"p$_{{independent}}$".strip()))
+                                          label=f"p$_{{independent}}$ {label_years}".strip()))
 
             if with_atm_ref and traceur.upper() in chroniques_ref:
                 handles.append(plt.Line2D([0], [0], color="black", ls="--", lw=1.2,
                                           label="Atmospheric ref."))
 
-            ax.legend(handles=handles, loc="upper left", frameon=False)
+            ax.legend(
+                handles=handles,
+                loc="upper left",
+                frameon=False,
+                fontsize=9,
+                handlelength=1.6,
+            )
 
     plt.tight_layout()
 
@@ -363,13 +385,40 @@ def tracer_concentrations(
         result_dir = Path(result_dir)
         result_dir.mkdir(parents=True, exist_ok=True)
 
-        idx = 1
-        while (result_dir / f"figure_{idx:03d}.png").exists():
-            idx += 1
+        if prior_years is None:
+            idx = 1
+            while (result_dir / f"figure_{idx:03d}.png").exists():
+                idx += 1
+            stem = f"figure_{idx:03d}"
+        else:
+            year_start, year_end = (int(year) for year in prior_years)
+            stem = f"figure_{year_start}_{year_end}"
 
-        out_file = result_dir / f"figure_{idx:03d}.png"
-        fig.savefig(out_file, dpi=300)
-        saved_file = out_file
+        if article:
+            # Hydrological Processes submission export: graph at 600 DPI,
+            # flattened to RGB on a white background and LZW-compressed.
+            saved_file = result_dir / f"{stem}.tif"
+            buffer = BytesIO()
+            fig.savefig(
+                buffer,
+                format="png",
+                dpi=600,
+                facecolor="white",
+                transparent=False,
+            )
+            buffer.seek(0)
+            with Image.open(buffer) as rendered:
+                rendered.convert("RGB").save(
+                    saved_file,
+                    format="TIFF",
+                    dpi=(600, 600),
+                    compression="tiff_lzw",
+                )
+            buffer.close()
+        else:
+            # Lightweight working export for routine post-processing.
+            saved_file = result_dir / f"{stem}.png"
+            fig.savefig(saved_file, dpi=150, facecolor="white", transparent=False)
 
     if use_multiprocessing == False: 
         plt.show()
@@ -631,7 +680,8 @@ def analyser_puits_distribution(
     dossier, puits, distribution,
     base_type="suc", prior_flag="prior", submode="double",
     tracer_global=True, tracer_subset=True,
-    layout="colonne", n_curves=20, use_multiprocessing=False
+    layout="colonne", n_curves=20, use_multiprocessing=False,
+    article=False, selected_period=None,
 ):
     """
     Pipeline complet pour un puits + une distribution.
@@ -645,7 +695,11 @@ def analyser_puits_distribution(
     )
 
     # Recherche des répertoires
-    folders = fold.trouver_repertoires(dossier, [puits, distribution])
+    folders = [
+        folder
+        for folder in fold.trouver_repertoires(dossier, [puits, distribution])
+        if not any(part.startswith("postproc_") for part in Path(folder).parts)
+    ]
     df = fold.construire_dataframe(folders)
 
     # Données calibrées globales
@@ -711,6 +765,16 @@ def analyser_puits_distribution(
         df_subset = fold.trouver_sauf_annees(
             df, base_type=base_type, prior=prior_flag, submode=submode, afficher=False
         )
+        if selected_period is not None:
+            selected_start, selected_end = (int(year) for year in selected_period)
+            df_subset = df_subset[
+                (df_subset["annee_debut"].astype(int) == selected_start)
+                & (df_subset["annee_fin"].astype(int) == selected_end)
+            ]
+            if df_subset.empty:
+                raise ValueError(
+                    f"No {puits} results found for {selected_start}–{selected_end}"
+                )
 
         df_stat_suc_all = []
 
@@ -744,7 +808,7 @@ def analyser_puits_distribution(
                 result_dir=result_dir, gaz_suc=gaz_suc,
                 distribution=distribution, puits=puits,
                 use_multiprocessing=use_multiprocessing, 
-                plt_models=True
+                plt_models=True, article=article,
             )
             if fichier:
                 fichiers_video.append(str(fichier))
@@ -765,13 +829,18 @@ def analyser_puits_distribution(
 
         df_stat_suc = pd.concat(df_stat_suc_all, ignore_index=True) if df_stat_suc_all else None
 
-        tracer_stat(
-            df_stat_all, df_stat_prior, df_stat_suc,
-            distribution, puits, save_path=result_dir,
-            use_multiprocessing=use_multiprocessing
-        )
+        if selected_period is None:
+            tracer_stat(
+                df_stat_all, df_stat_prior, df_stat_suc,
+                distribution, puits,
+                save_path=Path(result_dir) / "parameter_statistics.png",
+                use_multiprocessing=use_multiprocessing
+            )
 
-    if fichiers_video:
+    if article or selected_period is not None:
+        return pd.concat(df_concat_list, ignore_index=True) if df_concat_list else None
+
+    if fichiers_video and not article and selected_period is None:
         try:
             fold.make_video_from_figures(fichiers_video, "concentrations_video.mp4", fps=1)
         except (MemoryError, OSError, Exception) as e:

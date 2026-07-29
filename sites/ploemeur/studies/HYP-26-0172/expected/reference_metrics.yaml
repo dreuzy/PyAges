@@ -1,0 +1,13 @@
+# Values stated in the tracked-changes manuscript. These are validation targets,
+# not substitutes for values recomputed from posterior outputs.
+F11_initialization:
+  full_series_median_years_approx: 85
+  max_conditioned_trajectory_difference_years: 0.5
+F11_tracer_sensitivity:
+  CFC11_only:
+    pre_2012_median_years_approx: 84
+    post_2012_median_years_approx: 90
+  three_CFC:
+    pre_2012_median_years_approx: 83
+    post_2012_median_years_approx: 87
+  post_2012_three_CFC_younger_by_years_approx: 4

@@ -86,9 +86,17 @@ def corresp_folder_suc(base_path, distribution=None):
 
     # Nom de scénario nettoyé
     if "_apriori_double" in scenario_dir:
-        scenario_clean = scenario_dir.replace("_apriori_double", "").replace("_prior", "")
+        scenario_clean = (
+            scenario_dir
+            .replace("_apriori_double", "")
+            .replace("successive_with_prior", "successive")
+        )
     elif "_apriori_simple" in scenario_dir:
-        scenario_clean = scenario_dir.replace("_apriori_simple", "").replace("_prior", "")
+        scenario_clean = (
+            scenario_dir
+            .replace("_apriori_simple", "")
+            .replace("successive_with_prior", "successive")
+        )
 
     # On se limite au run courant pour éviter les collisions entre runs
     search_root = root_dir / scenario_clean / run_dir

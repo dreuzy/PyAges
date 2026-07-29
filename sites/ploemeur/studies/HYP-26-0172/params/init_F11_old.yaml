@@ -1,0 +1,12 @@
+workflows: {breakups: [2012], prior_pipeline: ["double_prior"]}
+observations: {conc_error_rel: [0.2], wells: ["F11"], well_dates: {}}
+lpm_models: {default: ["exp_shifted"], directory: sites/ploemeur/params_lpm, by_well: {}}
+calibration:
+  explo_res: 20
+  mh_nsteps: 40000
+  seed_enabled: true
+  seed: 54321
+  initial_params: {mu: 65.0, shift: 60.0}
+  lpm_number: 0
+execution: {parallel: true, auto_proc_nb: false, proc_nb: 6}
+results: {use_default: false, directory: results/HYP-26-0172/runs/init_F11_old_seed54321/workflow}

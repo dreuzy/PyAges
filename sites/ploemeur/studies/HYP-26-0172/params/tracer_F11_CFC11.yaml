@@ -1,0 +1,6 @@
+workflows: {breakups: [2012], prior_pipeline: ["double_prior"]}
+observations: {conc_error_rel: [0.2], wells: ["F11_CFC11"], well_dates: {F11_CFC11: {start: 2004, end: 2024}}}
+lpm_models: {default: ["exp_shifted"], directory: sites/ploemeur/params_lpm, by_well: {}}
+calibration: {explo_res: 20, mh_nsteps: 40000, seed_enabled: true, seed: 12345, lpm_number: 0}
+execution: {parallel: true, auto_proc_nb: false, proc_nb: 6}
+results: {use_default: false, directory: results/HYP-26-0172/runs/tracer_F11_cfc11_err20_seed12345/workflow}

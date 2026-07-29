@@ -70,6 +70,7 @@ Thumbs.db
 figures_out/
 results/
 tmp_path/
+/sites/ploemeur/data/temp/
 *.log
 *.tmp
 .claude/

@@ -16,6 +16,7 @@ repo_root = Path(__file__).resolve().parents[3]
 
 import copy
 import functools
+import math
 import multiprocessing as mp
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -226,6 +227,7 @@ class CalibrationConfig:
     lpm_number: Optional[int] = None
     seed_enabled: Optional[bool] = None
     seed: Optional[int] = None
+    initial_params: Optional[Dict[str, float]] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "CalibrationConfig":
@@ -235,6 +237,7 @@ class CalibrationConfig:
             lpm_number=data.get("lpm_number"),
             seed_enabled=data.get("seed_enabled"),
             seed=data.get("seed"),
+            initial_params=data.get("initial_params"),
         )
 
 
@@ -320,6 +323,20 @@ class SimulationStrategy:
                 "calibration.seed must be provided when calibration.seed_enabled is true."
             )
         seed_value = cal_cfg.seed if seed_enabled else None
+        initial_params = cal_cfg.initial_params
+        if initial_params is not None:
+            if not isinstance(initial_params, dict) or not initial_params:
+                raise ValueError("calibration.initial_params must be a non-empty mapping.")
+            try:
+                initial_params = {
+                    str(name): float(value) for name, value in initial_params.items()
+                }
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "calibration.initial_params values must be numeric."
+                ) from exc
+            if not all(math.isfinite(value) for value in initial_params.values()):
+                raise ValueError("calibration.initial_params values must be finite.")
 
         if "default" in lpm_models:
             self.lpm_types_default = lpm_models["default"]
@@ -357,6 +374,7 @@ class SimulationStrategy:
             lpm_number=lpm_number,
             seed_enabled=seed_enabled,
             seed=seed_value,
+            initial_params=initial_params,
         )
         self.lpm_directory = str(lpm_path)
         if res_cfg.use_default is None or res_cfg.use_default:
@@ -545,6 +563,7 @@ class SimulationStrategy:
                     directory_lpm=self.lpm_directory,
                     prior_file=prior_file,
                     time_span_and_prior_mode=time_span_and_prior_mode,
+                    initial_params=self.calibration_cfg.initial_params,
                 )
                 pods.append(pod)
 
@@ -810,6 +829,7 @@ class ploemeur_one_date:
         directory_lpm,
         prior_file="",
         time_span_and_prior_mode="",
+        initial_params=None,
     ):
         """Initialize the single-case workflow runner."""
         validate_time_span_and_prior_mode(time_span_and_prior_mode)
@@ -839,6 +859,7 @@ class ploemeur_one_date:
             display_traj=True,
             prior_type="empirical",
             prior_file=prior_file,
+            initial_params=initial_params,
             **mh_kwargs,
         )
         self.calstrat_MH = cMH.MetropolisHastings(config=mh_config)  # JR: 250000

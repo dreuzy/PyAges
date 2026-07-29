@@ -1,0 +1,32 @@
+# Legacy F09 calibration used during Figure 3/4 development (10,000 MH steps).
+
+workflows:
+  breakups: [2012]
+  prior_pipeline: ["independent", "double_prior"]
+
+observations:
+  conc_error_rel: [0.2]
+  wells: ["F09"]
+  well_dates: {}
+
+lpm_models:
+  default: ["exp_shifted", "ig_shifted"]
+  directory: sites/ploemeur/params_lpm
+  by_well:
+    F09: ["exp_shifted", "ig_shifted"]
+
+calibration:
+  explo_res: 20
+  mh_nsteps: 10000
+  seed_enabled: true
+  seed: 12345
+  lpm_number: 0
+
+execution:
+  parallel: true
+  auto_proc_nb: false
+  proc_nb: 6
+
+results:
+  use_default: false
+  directory: results/figure3_F09_10000

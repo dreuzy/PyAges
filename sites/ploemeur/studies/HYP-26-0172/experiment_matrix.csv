@@ -1,0 +1,14 @@
+experiment_id,enabled,family,wells,tracers,lpm_models,prior_pipeline,relative_errors,seeds,params_path,article_outputs,notes
+main_F09_exp_ig_3cfc_err20_seed12345,true,main,F09,3CFC,exp_shifted+ig_shifted,independent+double_prior,0.2,12345,sites/ploemeur/studies/HYP-26-0172/params/main_F09.yaml,Figure3+Figure4+Figure5,F09 full-series and successive-window comparison
+main_F11_exp_ig_3cfc_err20_seed12345,true,main,F11,3CFC,exp_shifted+ig_shifted,independent+double_prior,0.2,12345,sites/ploemeur/studies/HYP-26-0172/params/main_F11.yaml,Figure3+Figure4+Figure5,F11 full-series and successive-window comparison
+regime_F09_exp_3cfc_err20_seed12345,false,regime,F09,3CFC,exp_shifted,double_prior,0.2,12345,sites/ploemeur/studies/HYP-26-0172/params/regime_F09.yaml,Figure6,Redundant with main_F09; retained as a documented alias
+regime_F11_exp_3cfc_err20_seed12345,false,regime,F11,3CFC,exp_shifted,double_prior,0.2,12345,sites/ploemeur/studies/HYP-26-0172/params/regime_F11.yaml,Figure6,Redundant with main_F11; retained as a documented alias
+regime_F38_exp_3cfc_err20_seed12345,true,regime,F38,3CFC,exp_shifted,double_prior,0.2,12345,sites/ploemeur/studies/HYP-26-0172/params/regime_F38.yaml,Figure6,F38 pre/post-2012 analysis
+regime_MF1_exp_3cfc_err20_seed12345,true,regime,MF1,3CFC,exp_shifted,double_prior,0.2,12345,sites/ploemeur/studies/HYP-26-0172/params/regime_MF1.yaml,Figure6,MF1 pre/post-2012 analysis
+regime_PE_exp_3cfc_err20_seed12345,true,regime,PE,3CFC,exp_shifted,double_prior,0.2,12345,sites/ploemeur/studies/HYP-26-0172/params/regime_PE.yaml,Figure6,PE pre/post-2012 analysis
+error_F09_exp_ig_3cfc_seed12345,true,error,F09,3CFC,exp_shifted+ig_shifted,double_prior,0.1+0.3+0.4,12345,sites/ploemeur/studies/HYP-26-0172/params/error_F09.yaml,FigureA1,F09 sensitivity; 20 percent comes from main_F09
+error_F11_exp_ig_3cfc_seed12345,true,error,F11,3CFC,exp_shifted+ig_shifted,double_prior,0.1+0.3+0.4,12345,sites/ploemeur/studies/HYP-26-0172/params/error_F11.yaml,FigureA1,F11 sensitivity; 20 percent comes from main_F11
+init_F11_young_seed24680,true,initialization,F11,3CFC,exp_shifted,double_prior,0.2,24680,sites/ploemeur/studies/HYP-26-0172/params/init_F11_young.yaml,Robustness,F11 initial mu=5 shift=5
+init_F11_old_seed54321,true,initialization,F11,3CFC,exp_shifted,double_prior,0.2,54321,sites/ploemeur/studies/HYP-26-0172/params/init_F11_old.yaml,Robustness,F11 initial mu=65 shift=60
+tracer_F11_3cfc_err20_seed12345,false,tracer,F11,3CFC,exp_shifted,double_prior,0.2,12345,sites/ploemeur/studies/HYP-26-0172/params/tracer_F11_3CFC.yaml,Section3.3,Redundant with main_F11; retained as a documented alias
+tracer_F11_cfc11_err20_seed12345,true,tracer,F11_CFC11,CFC11,exp_shifted,double_prior,0.2,12345,sites/ploemeur/studies/HYP-26-0172/params/tracer_F11_CFC11.yaml,Section3.3,CFC-11-only sensitivity

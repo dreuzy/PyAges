@@ -1,0 +1,37 @@
+# Legacy F11 calibration using only the CFC-11 observations already present
+# in the reference three-tracer dataset. This run uses 40,000 MH steps.
+
+workflows:
+  breakups: [2012]
+  prior_pipeline: ["double_prior"]
+
+observations:
+  conc_error_rel: [0.2]
+  wells: ["F11_CFC11"]
+  well_dates:
+    F11_CFC11: {start: 2004, end: 2024}
+
+lpm_models:
+  default: ["exp_shifted"]
+  directory: sites/ploemeur/params_lpm
+  by_well:
+    F11_CFC11: ["exp_shifted"]
+
+calibration:
+  explo_res: 20
+  mh_nsteps: 40000
+  seed_enabled: true
+  seed: 12345
+  # Optional explicit start for calibrations without an empirical prior.
+  # Conditioned stages keep their existing prior-MAP initialization.
+  # initial_params: {mu: 35.0, shift: 35.0}
+  lpm_number: 0
+
+execution:
+  parallel: true
+  auto_proc_nb: false
+  proc_nb: 6
+
+results:
+  use_default: false
+  directory: results/ploemeur_F11_CFC11

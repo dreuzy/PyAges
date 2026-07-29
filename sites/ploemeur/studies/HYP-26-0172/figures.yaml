@@ -1,0 +1,60 @@
+# Authoritative map from scientific claims to reproducible figure products.
+figures:
+  Figure2:
+    claim: Observed CFC chronicles and atmospheric input functions at F09 and F11.
+    experiments: []
+    inputs:
+      - sites/ploemeur/data/ori/ori_ploemeur_F09_2005_2024.txt
+      - sites/ploemeur/data/ori/ori_ploemeur_F11_2004_2024.txt
+    builder: postprocessing/build_observation_figures.py
+    derived_table: null
+
+  Figure3:
+    claim: Full-series, independent-window, and conditioned-window predictions differ.
+    experiment_families: [main]
+    builder: postprocessing/build_products.py
+    derived_table: null
+    note: Prediction ensembles are read from the matrix-managed main runs.
+
+  Figure4:
+    claim: Inferred median transit time changes through the observation period.
+    experiment_families: [main]
+    builder: postprocessing/build_products.py
+    derived_table: figure4_median_transit_times.csv
+
+  Figure5:
+    claim: The temporal interpretation is tested against two LPM families.
+    experiment_families: [main]
+    builder: postprocessing/build_products.py
+    derived_table: figure5_model_comparison.csv
+
+  Figure6:
+    claim: Pre- and post-2012 transit-time behavior differs among monitored wells.
+    experiment_families: [main, regime]
+    builder: postprocessing/build_products.py
+    derived_table: figure6_median_transit_times.csv
+
+  FigureA1:
+    claim: Transit-time estimates are tested for sensitivity to observation error.
+    experiment_families: [main, error]
+    builder: postprocessing/build_products.py
+    derived_table: figureA1_error_sensitivity.csv
+
+  FigureS1:
+    claim: Paired CFC-11/CFC-12 observations are compared with atmospheric and mixing trajectories.
+    experiments: []
+    inputs:
+      - sites/ploemeur/data/ori/ori_ploemeur_F09_2005_2024.txt
+      - sites/ploemeur/data/ori/ori_ploemeur_F11_2004_2024.txt
+      - data_core/data_tracer/cfc11/recharge.csv
+      - data_core/data_tracer/cfc12/recharge.csv
+    builder: postprocessing/build_observation_figures.py
+    derived_table: null
+
+non_figure_checks:
+  initialization:
+    experiment_family: initialization
+    derived_table: F11_initialization_robustness.csv
+  tracer_selection:
+    experiment_family: tracer
+    derived_table: F11_tracer_sensitivity.csv
