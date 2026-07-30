@@ -71,6 +71,7 @@ figures_out/
 results/
 tmp_path/
 /sites/ploemeur/data/temp/
+/examples/natural/ploemeur/*.html
 *.log
 *.tmp
 .claude/
