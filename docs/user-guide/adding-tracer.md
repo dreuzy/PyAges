@@ -7,26 +7,25 @@ This guide explains how to add a new environmental tracer to PyAge. Tracers are 
 The easiest way to create a new tracer is with the template generator:
 
 ```bash
-python scripts/new_component.py tracer <name> [options]
+pyage new tracer <name> [--with-decay] [--no-chronicle] [-o <output_dir>]
 ```
 
 **Options:**
-- `--unit`, `-u`: Concentration unit (default: pptv)
-- `--decay`, `-d`: Enable radioactive decay
-- `--production`, `-g`: Enable geoproduction
-- `--no-recharge`: Use constant concentration instead of chronicle
+- `--with-decay`: Include radioactive decay configuration
+- `--no-chronicle`: Use constant recharge instead of a chronicle template
+- `--output`, `-o`: Select the generated tracer directory
 
 **Examples:**
 
 ```bash
 # Standard atmospheric tracer
-python scripts/new_component.py tracer krypton85 --unit "Bq/L"
+pyage new tracer krypton85
 
 # Radioactive tracer
-python scripts/new_component.py tracer argon39 --unit "atoms/L" --decay
+pyage new tracer argon39 --with-decay
 
-# Tracer with decay and geoproduction
-python scripts/new_component.py tracer carbon14 --unit pmC --decay --production
+# Constant-recharge tracer
+pyage new tracer synthetic --no-chronicle
 ```
 
 This creates:
@@ -57,7 +56,7 @@ unit: pptv
 recharge: true
 
 # Optional: Radioactive decay (uncomment if needed)
-# decay_time: 17.77  # Half-life / ln(2) in years
+# half_life: 12.32  # Published half-life in years
 
 # Optional: In-situ production (uncomment if needed)
 # production_rate: 0.0
@@ -89,9 +88,10 @@ date,concentration
 ### Step 4: Test the Tracer
 
 ```python
-from pyage.tracer.tracer_root import Tracer, find_tracer_dir
+from pyage.config.paths import DIRECTORY_TRACER_DATA
+from pyage.tracer.tracer_root import Tracer
 
-tracer = Tracer(find_tracer_dir(), name="mytracer")
+tracer = Tracer(DIRECTORY_TRACER_DATA, name="mytracer")
 print(f"Name: {tracer.name}")
 print(f"Unit: {tracer.unit}")
 print(f"Date range: {tracer.datemin} - {tracer.datemax}")
@@ -109,7 +109,7 @@ print(f"Concentration at 2010, age 20: {conc}")
 
 ```yaml
 # Required: concentration unit
-unit: pptv      # or TU, pmC, Bq/L, atoms/L, mol, etc.
+unit: pptv      # or TU, pmC, Bq/L, fraction_modern, mol, etc.
 
 # Required: recharge source (choose one)
 recharge: true                 # Load from recharge.csv
@@ -122,20 +122,22 @@ recharge_constant: 100.0       # Use constant value
 For tracers that decay radioactively (3H, 14C, 39Ar, 85Kr, etc.):
 
 ```yaml
-# Decay time = half-life / ln(2)
-decay_time: 17.77  # years
+# Choose exactly one decay convention:
+half_life: 12.32               # published half-life in years
+# decay_mean_lifetime: 17.77   # equivalent mean lifetime in years
 ```
 
-**Common decay times:**
+**Common decay constants:**
 
-| Tracer | Half-life | decay_time |
-|--------|-----------|------------|
-| Tritium (3H) | 12.32 years | 17.77 |
-| Carbon-14 | 5,730 years | 8,267 |
-| Krypton-85 | 10.76 years | 15.52 |
-| Argon-39 | 269 years | 388 |
+| Tracer | `half_life` (years) | Equivalent `decay_mean_lifetime` (years) |
+|--------|---------------------|------------------------------------------|
+| Tritium (3H) | 12.32 | 17.77 |
+| Carbon-14 | 5,730 | 8,267 |
+| Krypton-85 | 10.76 | 15.52 |
+| Argon-39 | 267 | 385.20 |
 
-**Formula:** `decay_time = half_life / ln(2) = half_life / 0.693`
+**Formula:** `decay_mean_lifetime = half_life / ln(2)`. Configure one, and
+only one, of the two keys above.
 
 ### Geoproduction
 
@@ -239,23 +241,18 @@ A radioactive tracer with the famous "bomb peak" from nuclear testing.
 # Tritium Tracer Configuration
 unit: TU
 recharge: true
-decay_time: 17.77  # Half-life 12.32 years / ln(2)
+half_life: 12.32
 ```
 
 **3H/recharge.csv:**
 ```csv
 date,concentration
-1950.0,5.0
-1955.0,10.0
-1960.0,50.0
-1963.0,5000.0    # Bomb peak
-1965.0,3000.0
-1970.0,1000.0
-1980.0,100.0
-1990.0,20.0
-2000.0,10.0
-2010.0,8.0
-2020.0,6.0
+1957.5,24.0
+1963.0,1001.0
+1963.5,945.0
+2000.0,3.70
+2009.5,2.60
+2010.0,2.55
 ```
 
 ### Example 3: Carbon-14 (14C)
@@ -267,7 +264,7 @@ Long-lived radioactive tracer with geoproduction.
 # Carbon-14 Tracer Configuration
 unit: pmC
 recharge: true
-decay_time: 8267     # Half-life 5730 years / ln(2)
+half_life: 5730
 production_rate: 0.5  # In-situ production
 ```
 
@@ -334,13 +331,13 @@ df_out.to_csv("data_core/data_tracer/cfc11_updated/recharge.csv", index=False)
 The measured concentration `C(t)` at time `t` is:
 
 ```
-C(t) = ∫₀^∞ C_in(t - τ) × g(τ) × exp(-τ/τ_decay) dτ + C_prod
+C(t) = ∫₀^∞ [C_in(t - τ) × exp(-βτ) + C_prod(τ)] × g(τ) dτ
 ```
 
 Where:
 - `C_in(t - τ)` = Input concentration at recharge time
 - `g(τ)` = Transit time distribution (from LPM)
-- `exp(-τ/τ_decay)` = Radioactive decay factor
+- `exp(-βτ)` = Radioactive decay factor
 - `C_prod` = Geoproduction contribution
 
 ### Decay Correction
@@ -348,10 +345,11 @@ Where:
 For radioactive tracers, the decay factor is:
 
 ```
-decay_factor = exp(-τ / decay_time)
+decay_factor = exp(-βτ)
 ```
 
-Where `decay_time = T_half / ln(2)`.
+Where `β = ln(2) / half_life`, or equivalently
+`β = 1 / decay_mean_lifetime`.
 
 ### Geoproduction
 
@@ -359,7 +357,7 @@ For tracers with in-situ production, the contribution accumulates over transit t
 
 ```
 C_prod = production_rate × τ  (no decay)
-C_prod = production_rate × decay_time × (1 - exp(-τ/decay_time))  (with decay)
+C_prod = (production_rate / β) × (1 - exp(-βτ))  (with decay)
 ```
 
 ---
@@ -370,7 +368,7 @@ C_prod = production_rate × decay_time × (1 - exp(-τ/decay_time))  (with decay
 
 - Check directory name matches tracer name
 - Verify YAML file is named `<tracer>/<tracer>.yaml`
-- Run: `python scripts/run_system_check.py`
+- Run: `python -m scripts.run_system_check`
 
 ### "FileNotFoundError: recharge.csv"
 
@@ -385,7 +383,7 @@ C_prod = production_rate × decay_time × (1 - exp(-τ/decay_time))  (with decay
 ### Unexpected Concentrations
 
 - Verify units match between YAML and input data
-- Check decay_time calculation (use half-life / 0.693)
+- Check that exactly one of `half_life` or `decay_mean_lifetime` is configured
 - Ensure recharge data covers the required time range
 
 ---

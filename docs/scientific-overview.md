@@ -100,7 +100,7 @@ PyAge is designed for applied workflows with minimal code changes:
   parameters.
 - CLI commands (`pyage run`, `pyage run --transient`, `pyage list`, `pyage check`)
   provide a consistent entry point when installed as a package.
-- Script entry points (`scripts/launcher.py`, `scripts/launcher_temporal.py`)
+- Entry points (`pyage run` and `pyage run --transient`)
   enable direct execution from the repository.
 - Quickstart templates under `examples/templates/` run in short time without
   interactive plotting, suitable for rapid validation.
@@ -119,7 +119,7 @@ New tracers are added by providing:
 - A YAML configuration describing units, decay, and production options.
 - A CSV recharge chronicle (or a constant value).
 
-A template generator (`pyage new tracer` or `scripts/new_component.py`) creates
+A template generator (`pyage new tracer`) creates
 the required files and stubs. This workflow allows new tracers to be inserted
 without modifying the core codebase.
 

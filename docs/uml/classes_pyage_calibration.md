@@ -1,3 +1,7 @@
+---
+orphan: true
+---
+
 # UML classes for pyage/calibration
 
 ```mermaid

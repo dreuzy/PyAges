@@ -1,20 +1,29 @@
-# UML classes for sites/ploemeur
+---
+orphan: true
+---
+
+# UML classes for `sites/ploemeur`
 
 ```mermaid
 classDiagram
-class CalibrationConfig
-class ExecutionConfig
-class ObservationsConfig
-class PloemeurDriverConfig
 class PloemeurSite
-class ResultsConfig
+class PloemeurWorkflowConfig
+class PloemeurObservationsConfig
+class PloemeurWorkflowSettings
+class PloemeurLpmConfig
+class PloemeurCalibrationConfig
+class PloemeurExecutionConfig
+class PloemeurResultsConfig
 class SimulationStrategy
-class WorkflowConfig
-class _BaseCfg
-class ploemeur_one_date
-class sim_results
-class sim_tree
-_BaseCfg <|-- PloemeurDriverConfig
+class PloemeurSingleRun
+
 BaseSite <|-- PloemeurSite
-BaseModel <|-- _BaseCfg
+PloemeurWorkflowConfig *-- PloemeurObservationsConfig
+PloemeurWorkflowConfig *-- PloemeurWorkflowSettings
+PloemeurWorkflowConfig *-- PloemeurLpmConfig
+PloemeurWorkflowConfig *-- PloemeurCalibrationConfig
+PloemeurWorkflowConfig *-- PloemeurExecutionConfig
+PloemeurWorkflowConfig *-- PloemeurResultsConfig
+SimulationStrategy ..> PloemeurWorkflowConfig
+SimulationStrategy o-- PloemeurSingleRun
 ```

@@ -6,10 +6,10 @@ PyAge includes several example workflows demonstrating different use cases. This
 
 | Example | Description | Script |
 |---------|-------------|--------|
-| Ploemeur | Single-date calibration | `launcher.py` |
+| Ploemeur | Single-date calibration | `pyage run` |
 | Fontainebleau | Single-date calibration (different site) | `run_fontainebleau.py` |
 | Holten | Example-local preparation, benchmark, and calibration reuse | `run_holten.py` |
-| Ploemeur Temporal | Multi-date time series analysis | `launcher_temporal.py` |
+| Ploemeur Temporal | Multi-date time series analysis | `pyage run --transient` |
 
 For a minimal, fast run, use the templates under `examples/templates/`.
 
@@ -20,7 +20,7 @@ The Ploemeur example demonstrates a complete calibration workflow for a single s
 ### Run the Example
 
 ```bash
-python scripts/launcher.py examples/natural/ploemeur/exemple_ploemeur.yaml
+pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
 ### What It Does
@@ -93,7 +93,7 @@ delegates the calibration itself to the standard single-date launcher.
 ### Run the Example
 
 ```bash
-python examples/natural/fontainebleau/run_fontainebleau.py
+python -m examples.natural.fontainebleau.run_fontainebleau
 ```
 
 ### Key Differences
@@ -105,9 +105,9 @@ python examples/natural/fontainebleau/run_fontainebleau.py
 ### Useful Options
 
 ```bash
-python examples/natural/fontainebleau/run_fontainebleau.py --mode benchmark_only
-python examples/natural/fontainebleau/run_fontainebleau.py --dataset fontainebleau_IMR
-python examples/natural/fontainebleau/run_fontainebleau.py --lpm ig
+python -m examples.natural.fontainebleau.run_fontainebleau --mode benchmark_only
+python -m examples.natural.fontainebleau.run_fontainebleau --dataset fontainebleau_IMR
+python -m examples.natural.fontainebleau.run_fontainebleau --lpm ig
 ```
 
 ---
@@ -140,7 +140,7 @@ python examples/natural/holten/run_holten.py --wells 59-05,73-29
 - Prepared datasets and tracer histories under `examples/natural/holten/generated/benchmark/prepared/`
 - Pre-model figures under `examples/natural/holten/generated/benchmark/pre_model/`
 - Local 4-bin comparison tables and figures under `examples/natural/holten/generated/benchmark/four_bin/`
-- Standard calibration outputs under the configured results root via `scripts/launcher.py`
+- Standard calibration outputs under the configured results root via `pyage run`
 
 ---
 
@@ -151,7 +151,7 @@ The temporal example demonstrates calibration across multiple sampling dates, us
 ### Run the Example
 
 ```bash
-python examples/natural/ploemeur_temporal/run_ploemeur_temporal.py
+python -m examples.natural.ploemeur_temporal.run_ploemeur_temporal
 ```
 
 ### Configuration File
@@ -307,7 +307,7 @@ run:
 
 Run:
 ```
-python scripts/launcher.py examples/my_site/my_config.yaml
+pyage run examples/my_site/my_config.yaml
 ```
 
 ### 4) Multi-date variant (temporal)
@@ -329,7 +329,7 @@ workflow:
 
 Run:
 ```
-python scripts/launcher_temporal.py examples/my_site/my_temporal.yaml
+pyage run --transient examples/my_site/my_temporal.yaml
 ```
 
 ### 5) Add or update tracers (if needed)
@@ -377,7 +377,7 @@ Check that:
 
 ### "Unknown LPM type"
 
-Run `python scripts/run_system_check.py` to see available LPM models.
+Run `python -m scripts.run_system_check` to see available LPM models.
 
 ### "Tracer not found"
 

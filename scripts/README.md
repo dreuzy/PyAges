@@ -14,13 +14,13 @@ conda activate pyage
 Then run a script from the repository root, for example:
 
 ```bash
-python scripts/launcher.py examples/natural/ploemeur/exemple_ploemeur.yaml
-python scripts/launcher_temporal.py examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
-python scripts/launcher.py examples/templates/quickstart_single.yaml
-python scripts/launcher_temporal.py examples/templates/quickstart_temporal.yaml
-python scripts/run_system_check.py
-python scripts/run_system_check.py --params configs/system_check.yaml
-python scripts/run_calibration_benchmark.py
+pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
+pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyage run examples/templates/quickstart_single.yaml
+pyage run --transient examples/templates/quickstart_temporal.yaml
+python -m scripts.run_system_check
+python -m scripts.run_system_check --params configs/system_check.yaml
+python -m scripts.run_calibration_benchmark
 ```
 
 ### Example parameters
@@ -28,16 +28,16 @@ python scripts/run_calibration_benchmark.py
 Single-date workflows (YAML-driven):
 
 ```bash
-python scripts/launcher.py examples/natural/ploemeur/exemple_ploemeur.yaml
-python scripts/launcher.py examples/natural/fontainebleau/exemple_fontainebleau.yaml
-python examples/natural/fontainebleau/run_fontainebleau.py
-python examples/natural/holten/run_holten.py
+pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
+pyage run examples/natural/fontainebleau/exemple_fontainebleau.yaml
+python -m examples.natural.fontainebleau.run_fontainebleau
+python -m examples.natural.holten.run_holten
 ```
 
 Temporal workflows (multi-date concentrations):
 
 ```bash
-python scripts/launcher_temporal.py examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 ## Output location
@@ -52,16 +52,14 @@ You can override this with `PYAGE_RESULTS_DIR` (see the root `README.md`).
 
 ## Script overview
 
-- `launcher.py`
-  Single-date workflow launcher (systematic sampling + calibration) driven by YAML.
-- `launcher_temporal.py`
-  Multi-date (chronicle) Metropolis-Hastings launcher driven by YAML.
+- `pyage run`
+  Canonical single-date workflow (systematic sampling + calibration) driven by YAML.
+- `pyage.workflows.temporal`
+  Canonical multi-date Metropolis-Hastings workflow, exposed by the CLI.
 - `run_system_check.py`
   Lightweight end-to-end sanity check (LPM generation, tracers, and plotting).
 - `run_calibration_benchmark.py`
   Compare Metropolis-Hastings and forward-uncertainty quantification runs.
-- `new_component.py`
-  Template generator for creating new LPMs or tracers.
 
 ---
 
@@ -75,7 +73,7 @@ You can override this with `PYAGE_RESULTS_DIR` (see the root `README.md`).
 3) Create a YAML config and run the launcher:
 
 ```bash
-python scripts/launcher.py examples/my_site/my_config.yaml
+pyage run examples/my_site/my_config.yaml
 ```
 
 Minimal YAML:
@@ -90,10 +88,10 @@ lpm:
   data_directory: data_core/data_lpm
 ```
 
-4) If the data contains multiple dates, use the temporal launcher:
+4) If the data contains multiple dates, use the temporal workflow:
 
 ```bash
-python scripts/launcher_temporal.py examples/my_site/my_temporal.yaml
+pyage run --transient examples/my_site/my_temporal.yaml
 ```
 
 ```yaml
@@ -116,91 +114,22 @@ workflow:
 
 ## Creating New Components
 
-The `new_component.py` script generates boilerplate files for new LPMs and tracers,
-following project conventions automatically.
-
-### Create a New LPM
+Use the canonical CLI generators:
 
 ```bash
-python scripts/new_component.py lpm <name> [--params <p1,p2,...>] [--scipy <dist>]
+pyage new lpm <name> --base scipy
+pyage new tracer <name> [--with-decay] [--no-chronicle]
 ```
 
-**Options:**
-- `--params`, `-p`: Comma-separated parameter names (default: `mu,sigma`)
-- `--scipy`, `-s`: Scipy.stats distribution name (default: `norm`)
-
-**Examples:**
-
-```bash
-# Weibull distribution with shape (k) and scale (lambda) parameters
-python scripts/new_component.py lpm weibull --params k,lambda --scipy weibull_min
-
-# Log-normal distribution
-python scripts/new_component.py lpm lognormal --params mu,sigma --scipy lognorm
-
-# Pareto distribution with single parameter
-python scripts/new_component.py lpm pareto --params alpha --scipy pareto
-```
-
-**Generated files:**
-- `pyage/lpm/models/<name>.py` — Python class with `@register_lpm` decorator
-- `data_core/data_lpm/<name>/params.yaml` — Parameter bounds, init values, MCMC settings
-
-**After creation:**
-1. Edit the Python file to configure `_scipy_params()` for your distribution
-2. Adjust parameter bounds and initial values in the YAML file
-3. Run `python scripts/run_system_check.py` to verify
-
-### Create a New Tracer
-
-```bash
-python scripts/new_component.py tracer <name> [options]
-```
-
-**Options:**
-- `--unit`, `-u`: Concentration unit (default: `pptv`)
-- `--decay`, `-d`: Enable radioactive decay section
-- `--production`, `-g`: Enable geoproduction section
-- `--no-recharge`: Use constant concentration instead of chronicle file
-
-**Examples:**
-
-```bash
-# Standard tracer with recharge chronicle
-python scripts/new_component.py tracer krypton85 --unit "Bq/L"
-
-# Radioactive tracer (e.g., Argon-39)
-python scripts/new_component.py tracer argon39 --unit "atoms/L" --decay
-
-# Tracer with both decay and geoproduction (e.g., Carbon-14)
-python scripts/new_component.py tracer carbon14 --unit pmC --decay --production
-
-# Constant concentration tracer (no chronicle file)
-python scripts/new_component.py tracer synthetic --unit pptv --no-recharge
-```
-
-**Generated files:**
-- `data_core/data_tracer/<name>/<name>.yaml` — Tracer configuration
-- `data_core/data_tracer/<name>/recharge.csv` — Sample recharge chronicle (replace with real data)
-
-**After creation:**
-1. Edit the YAML to set correct `decay_time` or `production_rate` if applicable
-2. Replace `recharge.csv` with your actual atmospheric concentration data
-3. Run `python scripts/run_system_check.py` to verify
-
-### Notes
-
-- **Reserved words**: Python reserved words (e.g., `lambda`) are automatically
-  handled by adding a trailing underscore in the code (`lambda_`).
-- **Conflict detection**: The script will error if files already exist.
-- **Auto-discovery**: New LPMs are automatically registered via the `@register_lpm`
-  decorator — no manual registration needed.
+Run `pyage new lpm --help` or `pyage new tracer --help` for the complete
+options. Complete the scientific definitions in the generated templates, then
+validate the installation with `pyage check`.
 
 ---
 
 ## Expected outputs
 
-- `launcher.py`
+- Single-date workflow (`pyage run`)
   - Results under: `<results_root>/test_cases/<dataset_name>/`
   - Core calibration outputs:
     - `parameters_calibration.txt`
@@ -208,18 +137,16 @@ python scripts/new_component.py tracer synthetic --unit pptv --no-recharge
     - `lpm_dist_calibrated.txt`
     - `lpm_histo_calibrated.txt`
     - `lpm_stats_calibrated.txt`
-    - `lpm_param_dist_calibrated.txt`
   - Plots/tables from concentration time displays, including:
     - `concentration_times.png`
     - `concentrations_all_models.txt`
-- `launcher_temporal.py`
+- `pyage run --transient`
   - Results under:
     `<results_root>/ploemeur_temporal/<dataset_stem>/<mode>/<date>/<lpm_type>/`
   - Core outputs:
     - `parameters_calibration.txt`
     - `results_calibration.txt`
     - `lpm_stats_calibrated.txt`
-    - `lpm_param_dist_calibrated.txt`
     - `concentration_times.png`
     - `concentrations_all_models.txt`
     - `distributions.txt`
@@ -227,7 +154,7 @@ python scripts/new_component.py tracer synthetic --unit pptv --no-recharge
 - `run_system_check.py`
   - Results under: `<results_root>/test/<check_name>/<timestamp>/`
   - Diagnostic plots + console summaries of generated models/tracers.
-  - Optional config override: `python scripts/run_system_check.py --params <file.yaml>`
+  - Optional config override: `python -m scripts.run_system_check --params <file.yaml>`
 - `run_calibration_benchmark.py`
   - Results under:
     `<results_root>/test_calib_comp/<timestamp>/prec_<error>/<tracers>/<lpm>/<case>/`
@@ -243,9 +170,9 @@ python scripts/new_component.py tracer synthetic --unit pptv --no-recharge
   Check the `PYAGE_RESULTS_DIR` environment variable. If unset, results go to
   `<home>/results/PyAge`.
 
-- **`ModuleNotFoundError: global_parameters`**  
-  Run scripts from the repository root so imports resolve correctly:
-  `python scripts/<script>.py ...`
+- **`ModuleNotFoundError: pyage`**
+  Install the project once with `pip install -e .`, then use `pyage` or
+  `python -m ...` entry points.
 
 - **`FileNotFoundError` for data files**  
   Verify the YAML paths and that example datasets are present under

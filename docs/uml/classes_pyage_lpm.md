@@ -1,3 +1,7 @@
+---
+orphan: true
+---
+
 # UML classes for pyage/lpm
 
 ```mermaid
@@ -8,8 +12,6 @@ class DiracDoubleLpm
 class DiracLpm
 class ExponentialLpm
 class ExponentialShiftedLpm
-class ExponentialShiftedOldLpm
-class ExponentialShiftedYoungLpm
 class GammaLpm
 class InverseGaussianLpm
 class InverseGaussianShiftedLpm
@@ -28,8 +30,6 @@ LpmBase <|-- DiracDoubleLpm
 LpmBase <|-- DiracLpm
 LpmScipy <|-- ExponentialLpm
 LpmScipy <|-- ExponentialShiftedLpm
-ExponentialShiftedLpm <|-- ExponentialShiftedOldLpm
-ExponentialShiftedLpm <|-- ExponentialShiftedYoungLpm
 LpmScipy <|-- GammaLpm
 LpmScipySafe <|-- InverseGaussianLpm
 LpmScipySafe <|-- InverseGaussianShiftedLpm

@@ -2,9 +2,9 @@
 
 PyAge uses YAML configuration files to control workflows. This reference documents all available options.
 
-## Workflow Configuration (launcher.py)
+## Single-date workflow configuration
 
-Used with `python scripts/launcher.py --params <config.yaml>`
+Used with `pyage run <config.yaml>`.
 
 ### Dataset Section
 
@@ -124,9 +124,9 @@ calibration_simplex:
 
 ---
 
-## Temporal Workflow Configuration (launcher_temporal.py)
+## Temporal Workflow Configuration
 
-Used with `python scripts/launcher_temporal.py --params <config.yaml>`
+Used with `pyage run --transient <config.yaml>`.
 
 ### Dataset Section
 
@@ -286,7 +286,8 @@ recharge: true                      # Load from recharge.csv
 # recharge_constant: 100.0          # Or use constant value
 
 # Optional: Radioactive decay
-# decay_time: 17.77                 # Half-life / ln(2) in years
+# half_life: 12.32                  # Published half-life in years
+# decay_mean_lifetime: 17.77        # Alternative; do not set both
 
 # Optional: Geoproduction
 # production_rate: 0.0              # In-situ production rate
@@ -303,12 +304,14 @@ recharge: true                      # Load from recharge.csv
 | `unit` | string | Yes | Concentration unit (pptv, TU, pmC, etc.) |
 | `recharge` | boolean | Yes* | Load from recharge.csv |
 | `recharge_constant` | number | Yes* | Constant concentration (if no chronicle) |
-| `decay_time` | number | No | Decay time constant (years) |
+| `half_life` | number | No | Published radioactive half-life (years) |
+| `decay_mean_lifetime` | number | No | Mean lifetime (years), alternative to `half_life` |
 | `production_rate` | number | No | Geoproduction rate |
 | `datemin` | number | No | Minimum valid date |
 | `datemax` | number | No | Maximum valid date |
 
 *Either `recharge: true` or `recharge_constant` must be specified.
+`half_life` and `decay_mean_lifetime` are mutually exclusive.
 
 ### Recharge Chronicle (recharge.csv)
 

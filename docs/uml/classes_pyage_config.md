@@ -1,3 +1,7 @@
+---
+orphan: true
+---
+
 # UML classes for pyage/config
 
 ```mermaid
@@ -13,7 +17,6 @@ class LauncherParams
 class LauncherReachableCfg
 class LauncherRunCfg
 class LauncherSimplexCfg
-class PyAgeContext
 class SystemCheckConfig
 class TemporalCalibrationCfg
 class TemporalDatasetCfg
@@ -23,8 +26,8 @@ class TemporalParams
 class TemporalResultsCfg
 class TemporalWorkflowCfg
 class _BaseCfg
-class display_options
-class simulation_time
+class DisplayOptions
+class SimulationTimer
 _BaseCfg <|-- CliCheckParams
 _BaseCfg <|-- CliRunParams
 _BaseCfg <|-- LauncherConfig

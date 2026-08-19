@@ -36,7 +36,6 @@ Welcome to the PyAge user documentation. This guide helps you use PyAge for grou
 
 ```bash
 conda activate pyage
-python scripts/launcher.py --params examples/natural/ploemeur/exemple_ploemeur.yaml
 pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
@@ -44,17 +43,16 @@ pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
 
 ```bash
 # New LPM
-python scripts/new_component.py lpm <name> --params <p1,p2> --scipy <dist>
+pyage new lpm <name> --base scipy
 
 # New Tracer
-python scripts/new_component.py tracer <name> --unit <unit> [--decay]
+pyage new tracer <name> [--with-decay]
 ```
 
 ### Check Installation
 
 ```bash
-python scripts/run_system_check.py
-python scripts/run_system_check.py --params configs/system_check.yaml
+python -m scripts.run_system_check
 pyage check
 ```
 
@@ -84,7 +82,7 @@ pyage check
 | `sf6` | pptv | No | SF6 (still increasing) |
 | `3H` | TU | Yes | Tritium (bomb peak) |
 | `14C` | pmC | Yes | Carbon-14 (long timescales) |
-| `39Ar` | atoms/L | Yes | Argon-39 |
+| `39Ar` | fraction_modern | Yes | Argon-39 (1 = 100% modern) |
 | `kr85` | Bq/L | Yes | Krypton-85 |
 
 ---
@@ -116,5 +114,5 @@ pyage/
 ## Support
 
 - **Scripts help**: `python scripts/<script>.py --help`
-- **System check**: `python scripts/run_system_check.py`
-- **Issues**: Report at https://gitlab.com/dreuzy/pyage
+- **System check**: `python -m scripts.run_system_check`
+- **Issues**: Report at https://gitlab.univ-rennes1.fr/aupepin/pyage

@@ -31,3 +31,14 @@ uml/index
 dev/index
 api/index
 ```
+
+```{toctree}
+:maxdepth: 1
+:caption: Scientific Audits and Migration Notes
+
+convolution-method-evolution-report
+scientific-migration-ig-decay
+pyage-scientific-audit
+pyage-tracerlpm-targeted-comparison
+tracerlpm-visual-studio-feasibility
+```

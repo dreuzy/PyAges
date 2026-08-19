@@ -1,23 +1,34 @@
 from __future__ import annotations
 
 import os
-import sys
-import tomllib
+import shutil
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.9/3.10 docs builds
+    import tomli as tomllib
 
 from sphinx.highlighting import lexers
 from pygments.lexers.special import TextLexer
 
+from pyage import __version__
+
 
 DOCS_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = DOCS_ROOT.parent
-sys.path.insert(0, str(REPO_ROOT))
+
+# Autosummary pages are build artifacts. Removing the previous build prevents
+# deleted or renamed modules from remaining discoverable as stale source files.
+AUTOSUMMARY_ROOT = DOCS_ROOT / "api" / "generated"
+if AUTOSUMMARY_ROOT.is_dir():
+    shutil.rmtree(AUTOSUMMARY_ROOT)
 
 project_metadata = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 
-project = project_metadata["name"]
+project = "PyAge"
 author = ", ".join(author_data["name"] for author_data in project_metadata.get("authors", []))
-release = project_metadata["version"]
+release = __version__
 version = release
 
 root_doc = "index"
@@ -49,7 +60,7 @@ myst_enable_extensions = [
 myst_heading_anchors = 3
 
 autosummary_generate = True
-autosummary_imported_members = True
+autosummary_imported_members = False
 autosummary_ignore_module_all = False
 
 autodoc_default_options = {
@@ -66,6 +77,7 @@ autodoc_typehints = "description"
 
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
+napoleon_use_ivar = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

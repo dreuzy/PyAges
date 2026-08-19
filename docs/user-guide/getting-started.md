@@ -4,7 +4,7 @@ PyAge is a Python library for groundwater age dating using lumped-parameter mode
 
 ## Prerequisites
 
-- Python 3.10 or later
+- Python 3.9 or later
 - Conda (recommended) or pip
 - Git
 
@@ -13,7 +13,7 @@ PyAge is a Python library for groundwater age dating using lumped-parameter mode
 ### 1. Clone the Repository
 
 ```bash
-git clone https://gitlab.com/dreuzy/pyage.git
+git clone https://gitlab.univ-rennes1.fr/aupepin/pyage.git
 cd pyage
 ```
 
@@ -35,15 +35,12 @@ pip install -e .
 Run the system check to verify everything is working:
 
 ```bash
-python scripts/run_system_check.py
+python -m scripts.run_system_check
 ```
 
 You should see output listing all available LPMs and tracers, with no errors.
-You can also override defaults with a small YAML file:
-
-```bash
-python scripts/run_system_check.py --params configs/system_check.yaml
-```
+Advanced checks can override defaults with
+`python -m scripts.run_system_check --params <config.yaml>`.
 
 ## Project Structure
 
@@ -70,14 +67,14 @@ pyage/
 The simplest way to start is with an existing example:
 
 ```bash
-python scripts/launcher.py --params examples/natural/ploemeur/exemple_ploemeur.yaml
+pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
 Or use the minimal templates (fast, no interactive plots):
 
 ```bash
-python scripts/launcher.py --params examples/templates/quickstart_single.yaml
-python scripts/launcher_temporal.py --params examples/templates/quickstart_temporal.yaml
+pyage run examples/templates/quickstart_single.yaml
+pyage run --transient examples/templates/quickstart_temporal.yaml
 ```
 
 Or, if you installed the package, use the CLI:
@@ -124,7 +121,7 @@ Edit `my_config.yaml` to change:
 Then run with your configuration:
 
 ```bash
-python scripts/launcher.py --params my_config.yaml
+pyage run my_config.yaml
 ```
 
 ## Understanding the Core Concepts
@@ -136,7 +133,7 @@ LPMs describe the distribution of groundwater transit times. Available models in
 | Model | Description | Parameters |
 |-------|-------------|------------|
 | `dirac` | Single age (piston flow) | `tau` (age) |
-| `dirac_double` | Binary mixing | `tau1`, `tau2`, `f` |
+| `dirac_double` | Binary mixing | `mu1`, `mu2`, `rate` |
 | `exp` | Exponential distribution | `mu` (mean age) |
 | `exp_shifted` | Shifted exponential | `mu`, `shift` |
 | `ig` | Inverse Gaussian | `mu`, `sigma` |
@@ -177,7 +174,7 @@ Where:
 
 ## Getting Help
 
-- Run `python scripts/launcher.py --help` for CLI options
-- Run `pyage --help` for the CLI entrypoint
+- Run `pyage run --help` for workflow options
+- Run `pyage --help` for all CLI commands
 - Check the `scripts/README.md` for script documentation
-- Report issues at: https://gitlab.com/dreuzy/pyage
+- Report issues at: https://gitlab.univ-rennes1.fr/aupepin/pyage

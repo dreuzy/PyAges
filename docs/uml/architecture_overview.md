@@ -11,6 +11,7 @@ flowchart TB
     CFG[pyage/config]
     IO[pyage/data_io]
     TOOLS[pyage/tools]
+    TEMP[pyage/workflows/temporal.py]
   end
 
   subgraph Data["data_core (shared model data)"]
@@ -28,9 +29,8 @@ flowchart TB
     EXTMP[examples/templates]
   end
 
-  subgraph Scripts["scripts (entry points)"]
-    LAUNCH[scripts/launcher.py]
-    LAUNCHT[scripts/launcher_temporal.py]
+  subgraph Scripts["entry points"]
+    LAUNCH[pyage run]
     CHECK[scripts/run_system_check.py]
   end
 

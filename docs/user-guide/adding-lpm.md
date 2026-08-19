@@ -10,16 +10,10 @@ The easiest way to create a new LPM is with the template generator (CLI):
 pyage new lpm <name> [--base scipy|scipy_safe|root] [-o <output_dir>]
 ```
 
-Alternative (legacy script):
-
-```bash
-python scripts/new_component.py lpm <name> --params <p1,p2,...> --scipy <distribution>
-```
-
 Example for a Weibull distribution:
 
 ```bash
-python scripts/new_component.py lpm weibull --params k,lambda --scipy weibull_min
+pyage new lpm weibull --base scipy
 ```
 
 This creates:
@@ -148,7 +142,7 @@ notes: |
 The `@register_lpm("weibull")` decorator automatically registers the model. Verify with:
 
 ```bash
-python scripts/run_system_check.py
+python -m scripts.run_system_check
 ```
 
 Your new model should appear in the list of available LPMs.
@@ -185,7 +179,7 @@ Common patterns:
 | Exponential | `expon` | `()` | `0` | `mu` |
 | Gamma | `gamma` | `(a,)` | `0` | `scale` |
 | Normal | `norm` | `()` | `mu` | `sigma` |
-| Inverse Gaussian | `invgauss` | `(mu,)` | `0` | `sigma` |
+| Inverse Gaussian | `invgauss` | `((sigma / mu)**2,)` | `0` | `mu**3 / sigma**2` |
 | Weibull | `weibull_min` | `(c,)` | `0` | `scale` |
 | Log-normal | `lognorm` | `(s,)` | `0` | `scale` |
 
@@ -210,9 +204,11 @@ Choose the appropriate base class:
 | `LpmScipySafe` | Distribution with numerical edge cases (e.g., inverse Gaussian) |
 | `LpmBase` | Custom distribution not in scipy |
 
-### Custom Convolution Strategy
+### Convolution contract
 
-For special distributions that need optimized convolution (like Dirac or exponential), set the convolution strategy:
+Continuous distributions use the common CDF–partial-first-moment engine. They
+must provide a vectorized `cdf_and_partial_first_moment(t)` returning
+`(F(t), E[T 1(T <= t)])`:
 
 ```python
 from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
@@ -220,14 +216,21 @@ from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
 @register_lpm("my_special_lpm")
 class MySpecialLpm(LpmScipy):
     scipy_dist = some_dist
-    convolution_strategy = ConvolutionStrategy.CLASSIC  # or DIRAC, EXPONENTIAL, etc.
+    convolution_strategy = ConvolutionStrategy.CONTINUOUS
+
+    def cdf_and_partial_first_moment(self, t):
+        ...
 ```
 
 Available strategies:
-- `CLASSIC`: Standard numerical integration (default)
+- `CONTINUOUS`: CDF and partial-first-moment convolution (default)
 - `DIRAC`: Direct lookup for point mass distributions
 - `DIRAC_DOUBLE`: Two-point mass distributions
-- `EXPONENTIAL`: Optimized for exponential distributions
+- `MIXED_DIRAC_CONTINUOUS`: Direct point mass plus normalized continuous part
+
+PyAge does not reconstruct a production CDF from sampled PDF values. A
+continuous model without a trustworthy vectorized CDF and partial first moment
+is rejected explicitly.
 
 ---
 
@@ -256,11 +259,12 @@ print(f"Std:  {lpm.std():.2f} years")
 ### Test with Convolution
 
 ```python
-from pyage.tracer.tracer_root import Tracer, find_tracer_dir
+from pyage.config.paths import DIRECTORY_TRACER_DATA
+from pyage.tracer.tracer_root import Tracer
 from pyage.convolution.convolution import Convolution
 
 # Load tracer
-tracer = Tracer(find_tracer_dir(), name="cfc11")
+tracer = Tracer(DIRECTORY_TRACER_DATA, name="cfc11")
 
 # Create convolution
 conv = Convolution(tracer, date=2010.0)
@@ -274,7 +278,7 @@ print(f"CFC-11 concentration: {concentration:.2f} pptv")
 ### Run System Check
 
 ```bash
-python scripts/run_system_check.py
+python -m scripts.run_system_check
 ```
 
 ---
@@ -411,7 +415,7 @@ notes: |
 
 - Check that `@register_lpm("mymodel")` decorator is present
 - Verify the file is in `pyage/lpm/models/`
-- Ensure no import errors: `python -c "from pyage.lpm.models.mymodel import *"`
+- Ensure no import errors: `python -c "import pyage.lpm.models.mymodel"`
 
 ### "Parameter 'x' not found in bounds"
 

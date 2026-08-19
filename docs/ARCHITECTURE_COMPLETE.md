@@ -44,7 +44,7 @@ pyage/
 ├── convolution/         # Convolution engine
 ├── concentrations/      # Observations and concentration utilities
 ├── calibration/         # Calibration methods + utilities
-├── config/              # Paths, context, bootstrap, pydantic models
+├── config/              # Validated models, paths, runtime helpers
 └── data_io/             # Data loading helpers
 ```
 
@@ -70,14 +70,17 @@ Benefits:
 
 ### 3.2 Convolution Strategy (Enum)
 
-Each LPM can declare a convolution strategy:
+Each LPM declares the kind of probability measure it exposes:
 
-- `CLASSIC`: numeric integration (Simpson).
+- `CONTINUOUS`: cached tracer grid integrated from the vectorized CDF and
+  partial first moment.
 - `DIRAC`: direct lookup for point-mass models.
 - `DIRAC_DOUBLE`: two-point mass models.
-- `EXPONENTIAL`: refined integration near discontinuities.
+- `MIXED_DIRAC_CONTINUOUS`: direct Dirac lookup plus a normalized continuous
+  component.
 
-The convolution engine chooses the algorithm from the LPM attribute.
+There is no distribution-specific exponential path and no PDF quadrature in
+the production convolution engine.
 
 ### 3.3 Composition over Inheritance
 
@@ -86,7 +89,7 @@ The convolution engine chooses the algorithm from the LPM attribute.
 ```python
 tracer = Tracer(...)
 conv = Convolution(tracer, date=2010.0)
-value = conv.convolution(lpm)
+value = conv.convolve(lpm)
 ```
 
 This isolates tracer data loading from convolution logic and supports synthetic tracers in tests.
@@ -130,8 +133,8 @@ Example keys (per tracer):
 
 - `recharge.csv` or `recharge.txt`: atmospheric chronicle
 - metadata file with:
-  - `decay_time`
-  - `geoproduction_rate`
+  - `half_life` or `decay_mean_lifetime` (mutually exclusive)
+  - `production_rate`
   - `[tmin, tmax]`
 
 ---

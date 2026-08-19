@@ -21,6 +21,14 @@ Install PyAge (enables the `pyage` CLI):
 pip install -e .
 ```
 
+The published distribution is named `pyage-groundwater`; the Python import
+and command remain `pyage`. Once a release is available from the configured
+package index, install it with:
+
+```
+pip install pyage-groundwater
+```
+
 Run the full test suite:
 
 ```
@@ -38,11 +46,11 @@ python run_tests.py update
 Use the minimal templates under `examples/templates/`:
 
 ```
-python scripts/launcher.py --params examples/templates/quickstart_single.yaml
-python scripts/launcher_temporal.py --params examples/templates/quickstart_temporal.yaml
+pyage run examples/templates/quickstart_single.yaml
+pyage run --transient examples/templates/quickstart_temporal.yaml
 ```
 
-## Execution modes (installed vs repo direct)
+## Installation and execution
 
 Recommended (installed package):
 
@@ -58,10 +66,8 @@ pyage list lpms
 pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
-Repo-direct (no install):
-- You can still run scripts from the repo (e.g. `python scripts/launcher.py ...`).
-- Entry points include a small bootstrap fallback to add the repo root to `sys.path`
-  when `pyage` is not installed.
+The supported entry point is the installed `pyage` command. Direct execution
+of repository files is not part of the public interface.
 
 ## CLI (pyage)
 
@@ -109,7 +115,7 @@ setx PYAGE_RESULTS_DIR "D:\results\PyAge"
   - `pyage/convolution/`: convolution algorithms and tracer helpers
   - `pyage/concentrations/`: concentration data handling and time series helpers
   - `pyage/calibration/`: calibration methods, workflows, and objective functions
-  - `pyage/config/`: shared configuration (paths, runtime helpers, bootstrap)
+  - `pyage/config/`: validated configuration models, paths, and runtime helpers
   - `pyage/observations/`: generic dataset loaders and observation helpers
   - `pyage/tools/`: plotting and miscellaneous utilities used across modules
 - `data_core/`: shared model data for LPMs and tracers (not observations)
@@ -140,7 +146,7 @@ The Ploemeur workflow is parameterized by YAML files:
 Run the workflow:
 
 ```
-python sites/ploemeur/scripts/ploemeur_driver.py --params sites/ploemeur/params/ploemeur_full.yaml
+python -m sites.ploemeur.scripts.ploemeur_driver --params sites/ploemeur/params/ploemeur_full.yaml
 ```
 
 If you omit `--params`, the driver defaults to
@@ -174,7 +180,7 @@ concentration file (``ori_*.txt``) and produces temporal plots plus parameter
 and concentration distributions:
 
 ```
-python scripts/launcher_temporal.py --params examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 Supported modes:
@@ -205,20 +211,19 @@ Run extensive tests (opt-in):
 pytest -q tests --run-extensive
 ```
 
-## Scripts (manual entrypoints)
+## Workflows and diagnostics
 
-Manual scripts live under `scripts/` and are intended for interactive use
-outside pytest. The main entrypoints are:
+The supported workflow entrypoints are:
 
-- `scripts/launcher.py`: single-date workflow launcher (YAML-driven).
-- `scripts/launcher_temporal.py`: multi-date MH launcher (YAML-driven).
-- `scripts/run_system_check.py`: quick end-to-end sanity check.
-- `scripts/run_calibration_benchmark.py`: MH vs FUQ comparison run.
+- `pyage run`: single-date workflow driven by YAML.
+- `pyage.workflows.temporal`: canonical multi-date MH workflow, exposed by `pyage run --transient`.
+- `python -m scripts.run_system_check`: quick end-to-end sanity check.
+- `python -m scripts.run_calibration_benchmark`: MH vs FUQ comparison run.
 
 Expected outputs (under `<results_root>`):
 
-- `launcher.py`: `test_cases/<dataset_name>/` (calibration files + `concentration_times.png`)
-- `launcher_temporal.py`: `ploemeur_temporal/<dataset_stem>/<mode>/<date>/<lpm_type>/`
+- single-date workflow: `test_cases/<dataset_name>/` (calibration files + `concentration_times.png`)
+- temporal workflow: `ploemeur_temporal/<dataset_stem>/<mode>/<date>/<lpm_type>/`
   (calibration files + temporal plots/tables)
 - `run_system_check.py`: `test/<check_name>/<timestamp>/`
 - `run_system_check.py` supports `--params <file.yaml>` to override defaults.
@@ -232,6 +237,10 @@ This is a research codebase; outputs and workflows evolve. If you change
 behaviour intentionally, update the associated tests and golden files to keep
 the regression suite stable.
 
+The supported public surface and compatibility policy are documented in
+`docs/reference/public-api.md`. Release changes are recorded in
+`CHANGELOG.md`.
+
 ## License
 
-PyAge is distributed under the CeCILL license (Copyright CNRS).
+PyAge is distributed under the CeCILL 2.1 license (Copyright CNRS).
