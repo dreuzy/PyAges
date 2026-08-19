@@ -1,0 +1,9 @@
+include CHANGELOG.md
+include CITATION.cff
+include CONTRIBUTING.md
+include NOTICE-DATA.md
+include SECURITY.md
+include install/README.md
+include install/environment.yml
+include install/constraints.txt
+prune tests

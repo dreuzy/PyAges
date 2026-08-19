@@ -9,11 +9,10 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - Python 3.9/3.10 docs builds
     import tomli as tomllib
 
-from sphinx.highlighting import lexers
 from pygments.lexers.special import TextLexer
+from sphinx.highlighting import lexers
 
 from pyage import __version__
-
 
 DOCS_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = DOCS_ROOT.parent
@@ -24,10 +23,14 @@ AUTOSUMMARY_ROOT = DOCS_ROOT / "api" / "generated"
 if AUTOSUMMARY_ROOT.is_dir():
     shutil.rmtree(AUTOSUMMARY_ROOT)
 
-project_metadata = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+project_metadata = tomllib.loads(
+    (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+)["project"]
 
 project = "PyAge"
-author = ", ".join(author_data["name"] for author_data in project_metadata.get("authors", []))
+author = ", ".join(
+    author_data["name"] for author_data in project_metadata.get("authors", [])
+)
 release = __version__
 version = release
 
@@ -43,6 +46,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinxcontrib.mermaid",
 ]
 
 source_suffix = {
@@ -91,7 +95,6 @@ html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
 html_show_sourcelink = False
 
 lexers["csv"] = TextLexer()
-lexers["mermaid"] = TextLexer()
 
 try:
     import sphinx_rtd_theme  # noqa: F401
