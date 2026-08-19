@@ -25,8 +25,9 @@ interfaces. They can evolve without a compatibility alias.
 - Deprecations are recorded in `CHANGELOG.md` with their planned removal.
 - Scientific changes that can alter numerical results require updated golden
   references and a migration note.
-- Result schemas must either remain backward compatible or carry an explicit
-  schema/version field.
+- Public workflow directories contain `result_manifest.json`. Its
+  `schema_version` field identifies the result layout; incompatible layout
+  changes increment that value and are recorded in `CHANGELOG.md`.
 - Before version 1.0, incompatible changes may occur in a minor release. From
   version 1.0 onward, incompatible public changes require a major release.
 

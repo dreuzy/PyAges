@@ -1,6 +1,6 @@
 # PyAge architecture overview
 
-```mermaid
+```{mermaid}
 flowchart TB
   subgraph Core["pyage (core library)"]
     LPM[pyage/lpm]
@@ -11,7 +11,8 @@ flowchart TB
     CFG[pyage/config]
     IO[pyage/data_io]
     TOOLS[pyage/tools]
-    TEMP[pyage/workflows/temporal.py]
+    WORKFLOWS[pyage/workflows]
+    CLI[pyage/cli]
   end
 
   subgraph Data["data_core (shared model data)"]
@@ -27,11 +28,6 @@ flowchart TB
     EXPL[examples/natural/ploemeur]
     EXFT[examples/natural/fontainebleau]
     EXTMP[examples/templates]
-  end
-
-  subgraph Scripts["entry points"]
-    LAUNCH[pyage run]
-    CHECK[scripts/run_system_check.py]
   end
 
   subgraph Tests["tests (regression + golden)"]
@@ -50,6 +46,8 @@ flowchart TB
 
   Sites --> Core
   Examples --> Core
-  Scripts --> Core
+  CLI --> WORKFLOWS
+  WORKFLOWS --> CAL
+  WORKFLOWS --> CONC
   Tests --> Core
 ```

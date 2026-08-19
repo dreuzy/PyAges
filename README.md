@@ -10,6 +10,20 @@ Project status: **beta** (`0.1.0b1`). Public interfaces are documented and
 tested, but feedback may still lead to explicitly documented changes before
 the first stable release.
 
+Release maturity follows this policy:
+
+- **alpha**: exploratory behavior; features and interfaces may be incomplete;
+- **beta**: intended features are usable and tested, but pre-1.0 interfaces may
+  still change with a changelog entry;
+- **release candidate**: proposed final artifact, changed only for blocking
+  defects;
+- **stable**: supported public contract, with compatibility managed according
+  to semantic versioning.
+
+The current code is beta because the installable workflows and validation gates
+are in place, while broader natural-dataset qualification and final user
+feedback remain prerequisites for `1.0.0`.
+
 ## Quick start
 
 Create the conda environment:
@@ -22,21 +36,23 @@ conda activate pyage
 Install PyAge (enables the `pyage` CLI):
 
 ```
-pip install -e .
+python -m pip install -e .
 ```
 
 The published distribution is named `pyage-groundwater`; the Python import
-and command remain `pyage`. Once a release is available from the configured
-package index, install it with:
+and command remain `pyage`. The wheel contains the reusable library, its CLI,
+and core model data. Repository examples and site studies remain in the Git
+source tree. Once a release is available from the configured package index,
+install it with:
 
 ```
-pip install pyage-groundwater
+python -m pip install pyage-groundwater
 ```
 
 Until a final release is published, pip users must opt into prereleases:
 
 ```
-pip install --pre pyage-groundwater
+python -m pip install --pre pyage-groundwater
 ```
 
 Run the full test suite:
@@ -53,7 +69,7 @@ python run_tests.py update
 
 ## Quickstart (fast, no interactive plots)
 
-Use the minimal templates under `examples/templates/`:
+From a source checkout, use the minimal templates under `examples/templates/`:
 
 ```
 pyage run examples/templates/quickstart_single.yaml
@@ -65,7 +81,7 @@ pyage run --transient examples/templates/quickstart_temporal.yaml
 Recommended (installed package):
 
 ```
-pip install -e .
+python -m pip install -e .
 ```
 
 This makes `import pyage` work from any directory and enables the CLI:

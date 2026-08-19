@@ -48,9 +48,14 @@ text files in the same directory are manually maintained exports. Files under
 
 Redistribution of these source and normalized files with the PyAge repository
 was confirmed by the project maintainer on 19 August 2026. Reusers should cite
-the PyAge project and the Ploemeur observatory or study publication associated
-with their analysis. The exact institutional dataset citation and contact
-should be added here by the maintainer before the first stable release.
+the PyAge project and the **Ploemeur-Guidel observatory, SNO H+ / OZCAR**, whose
+site description and data-access catalogue are available at
+<https://hplus.ore.fr/en/ploemeur/>. Questions about the institutional dataset
+and attribution can be addressed to `hplus-contact@univ-rennes1.fr`. A useful
+site-context reference is Le Borgne et al. (2004), *Water Resources Research*,
+<https://doi.org/10.1029/2003WR002436>. These references identify the
+observatory; they do not imply that every local working-table value was
+downloaded from that publication.
 
 ## Holten example data
 
@@ -85,9 +90,13 @@ obtain the article through its DOI.
 
 ## Other examples, tests, and validation data
 
-- Data under `examples/natural/albuquerque/` are example inputs maintained by
-  the project. The maintainer should add the original dataset citation here if
-  these values derive from an external study.
+- Data under `examples/natural/albuquerque/` are local example inputs prepared
+  from the Albuquerque public-supply-well case described by Jurgens, Böhlke,
+  and Eberts (2012), *TracerLPM: An Excel Workbook for Interpreting Groundwater
+  Age Distributions from Environmental Tracer Data*, USGS Techniques and
+  Methods 4-F3, <https://doi.org/10.3133/tm4F3>. Redistribution of the prepared
+  tables was confirmed by the project maintainer; retain both the USGS and
+  PyAge transformation attribution.
 - Files under `tests/data/` and `tests/golden/` are compact fixtures or
   regression values created for PyAge. They may be redistributed with the
   software and are not independent reference datasets.

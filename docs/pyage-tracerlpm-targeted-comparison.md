@@ -1,7 +1,14 @@
-# Plan d’implémentation — validation ciblée de PyAge par TracerLPM
+# Protocole et état — qualification ciblée de PyAge par TracerLPM
 
-> Version actualisée le 17 août 2026 — document soumis à validation avant
-> exécution de la campagne comparative.
+> Version consolidée le 19 août 2026 — protocole exécuté sur données
+> synthétiques ; qualification sur données naturelles encore distincte.
+
+La campagne synthétique est terminée. Le rapport généré le 18 août 2026 repose
+sur 270 comparaisons *forward*, des inversions sans bruit, une étude SF6 et
+**480 cas appariés** EPM/DM exécutés par PyAge et TracerLPM. Les sorties brutes
+et le rapport détaillé sont reproductibles sous
+`validation/tracerlpm/benchmark/generated/` mais restent ignorés par Git ; ce
+document conserve le protocole, les conclusions versionnables et leurs limites.
 
 ## 1. Objectif et limite
 
@@ -29,10 +36,11 @@ La validation forward doit réussir avant toute interprétation des inversions.
   la loi inverse gaussienne.
 - Les frontières des modèles Dirac doubles et les conventions de décroissance
   radioactive ont été corrigées.
-- La suite PyAge passe : **351 tests réussis, 5 ignorés, aucun échec**.
+- Les contrôles automatisés du benchmark sont intégrés au jalon de publication.
 
-Les hashes existants démontrent la répétabilité technique, pas encore la
-concordance scientifique.
+Les hashes existants démontrent la répétabilité technique. La concordance
+scientifique est qualifiée dans le périmètre synthétique décrit ci-dessous,
+sans généralisation aux données naturelles.
 
 ## 3. Périmètre scientifique initial
 
@@ -319,6 +327,13 @@ canal hélium à traitement spécial ne sera utilisé comme alias.
 Les tolérances sont justifiées par les calculs, pas ajustées pour faire passer
 les résultats.
 
+**État au 18 août 2026 : terminé pour le périmètre synthétique.** PyAge converge
+vers la quadrature indépendante lorsque la résolution augmente. Les inversions
+sans bruit récupèrent les paramètres EMM, EPM et DM ; les erreurs relatives
+PyAge sont inférieures à 0,04 % pour EPM et DM. Les deux outils terminent les
+480 inversions de robustesse. À 10–20 % de bruit, les paramètres de largeur
+deviennent fréquemment non identifiables et atteignent les bornes.
+
 ### Phase 6 — cas environnemental et rapport final
 
 - figer les chroniques CFC-11/CFC-12/CFC-113 et leurs métadonnées ;
@@ -326,6 +341,14 @@ les résultats.
 - exécuter la sous-matrice pertinente ;
 - séparer incertitude analytique et tolérance numérique ;
 - produire tableaux, figures, écarts attribués et limites de validation.
+
+**État : hors de la qualification synthétique publiée ici.** Aucun résultat de
+cette campagne ne doit être présenté comme une validation générale sur données
+naturelles. Les fonctions objectif diffèrent actuellement (L2 pondérée dans
+PyAge, somme L1 relative dans TracerLPM), les trois CFC sont corrélés, seulement
+dix graines sont disponibles par cellule de robustesse et certaines
+distributions anciennes ne sont couvertes qu’à 80–94 % par la fenêtre
+temporelle.
 
 ## 9. Métriques et réussite
 
@@ -357,9 +380,9 @@ Le benchmark minimal réussit si :
 - Un fichier source hashé unique alimente les deux outils.
 - Résultats bruts conservés avant toute normalisation ou tolérance.
 
-## 11. Décisions demandées avant lancement
+## 11. Décisions enregistrées pour la campagne
 
-Valider ce plan revient à approuver :
+La campagne exécutée a retenu :
 
 1. le périmètre PFM, EMM, EPM et DM ;
 2. les cinq entrées synthétiques ;
@@ -372,8 +395,8 @@ Valider ce plan revient à approuver :
 9. SF6 seulement après qualification séparée de ses hypothèses de recharge ;
 10. le confinement du chantier dans `validation/tracerlpm/benchmark/`.
 
-Après validation, l’implémentation commencera par la Phase 1. La campagne Excel
-complète attendra la réussite et la revue du pilote PFM de Phase 2.
+Le passage à un cas naturel constitue une campagne séparée, avec ses propres
+hypothèses de recharge, incertitudes analytiques et critères d’acceptation.
 
 ## 12. Références
 

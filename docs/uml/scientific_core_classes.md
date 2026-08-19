@@ -1,6 +1,6 @@
 # PyAge scientific execution flow
 
-```mermaid
+```{mermaid}
 flowchart LR
   YAML[YAML configuration] --> CFG[Pydantic validation]
   CFG --> TR[Tracer chronology]

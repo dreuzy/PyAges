@@ -6,7 +6,7 @@ lumped-parameter models (LPMs), convolution, and calibration workflows.
 For a local build:
 
 ```bash
-pip install -e ".[docs]"
+python -m pip install -c install/constraints.txt -e ".[docs]"
 python -m sphinx -b html docs docs/_build/html
 ```
 

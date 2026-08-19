@@ -18,6 +18,10 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Made core LPM and tracer data explicit package resources.
 - Removed filesystem creation as a side effect of importing path settings.
 - Centralized the package and CLI version in `pyage/_version.py`.
+- Moved the single-date workflow and its plotting/configuration helpers into
+  the installable package; repository scripts now provide compatibility imports.
+- Pinned a portable qualified dependency set while retaining broader runtime
+  compatibility ranges in package metadata.
 
 ### Added
 
@@ -27,6 +31,9 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Data provenance and redistribution guidance for tracer histories and example
   observations.
 - A reproducible PyAge–TracerLPM validation runner and compact reference cases.
+- A versioned `result_manifest.json` in public workflow output directories.
+- Coverage, formatting, TracerLPM benchmark, .NET compilation, and real
+  installed-workflow checks in continuous integration.
 
 ### Fixed
 
@@ -34,6 +41,11 @@ Before 1.0, incompatible public changes are identified explicitly below.
   empirical prior distributions.
 - Prevented calibration diagnostics and concentration chronicles from opening
   Matplotlib figures when figure output is disabled.
+- Restored Python 3.9 imports for annotations using PEP 604 union syntax.
+- Preserved configuration-relative data paths when CLI overrides create a
+  temporary YAML file and in the installed temporal workflow.
+- Rejected ambiguous or missing concentration inputs and unsupported
+  calibration dimensions with explicit errors.
 
 ### Removed
 

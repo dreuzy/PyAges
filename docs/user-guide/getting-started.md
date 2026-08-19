@@ -27,14 +27,14 @@ conda activate pyage
 ### 3. Install PyAge (CLI enabled)
 
 ```bash
-pip install -e .
+python -m pip install -e .
 ```
 
 Contributors should install the test, release, and documentation tools declared
 by the project:
 
 ```bash
-python -m pip install -e ".[dev,docs]"
+python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
 ```
 
 IDE and media-export packages are optional; see `install/README.md` for the

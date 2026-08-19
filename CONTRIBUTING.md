@@ -3,14 +3,16 @@
 Install the project and development tools in an isolated environment:
 
 ```bash
-python -m pip install -e ".[dev,docs]"
+python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
 ```
 
 Before proposing a change, run:
 
 ```bash
 python -m ruff check .
+python -m ruff format --check .
 python -m pytest -q
+python -m pytest -q validation/tracerlpm/benchmark/tests
 python -m sphinx -W --keep-going -b html docs docs/_build/html
 ```
 
