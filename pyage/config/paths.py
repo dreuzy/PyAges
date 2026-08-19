@@ -6,11 +6,12 @@ All paths are resolved relative to the repository root, except the results
 directory, which is set via environment variable or a user-level default.
 """
 
+from __future__ import annotations
+
+import os
 from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
-import os
-
 
 # -------------------------------------------------------
 # Root directories
@@ -46,6 +47,7 @@ DIRECTORY_LPM_DATA = _DATA_CORE_DIRECTORY / "data_lpm"
 # Utility functions
 # -------------------------------------------------------
 
+
 def result_subdirectory(directory: str | Path, sub_directory: str) -> Path:
     """Create and return one named subdirectory below a results directory."""
     path = Path(directory) / sub_directory
@@ -69,5 +71,3 @@ __all__ = [
     "result_subdirectory",
     "timestamp_name",
 ]
-
-

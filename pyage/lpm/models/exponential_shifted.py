@@ -15,8 +15,8 @@ Jean-Raynald de Dreuzy
 import numpy.typing as npt
 from scipy.stats import expon
 
-from pyage.lpm.core.lpm_scipy import LpmScipy
 from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
+from pyage.lpm.core.lpm_scipy import LpmScipy
 from pyage.lpm.core.registry import register_lpm
 from pyage.lpm.models.exponential import (
     cdf_and_partial_first_moment_from_scale_shift,
@@ -43,17 +43,19 @@ class ExponentialShiftedLpm(LpmScipy):
         directory_lpm : str
             Directory for LPM parameter files.
         """
-        parameter_values = {'mu': mu, 'shift': shift}
-        parameter_units = {'mu': 'year', 'shift': 'year'}
-        super().__init__("exp_shifted", parameter_values, parameter_units, directory_lpm)
+        parameter_values = {"mu": mu, "shift": shift}
+        parameter_units = {"mu": "year", "shift": "year"}
+        super().__init__(
+            "exp_shifted", parameter_values, parameter_units, directory_lpm
+        )
 
     def _scipy_params(self):
-        return (), self.p['shift'], self.p['mu']  # (args), loc, scale
+        return (), self.p["shift"], self.p["mu"]  # (args), loc, scale
 
     def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
         """Return exact cumulative mass and raw truncated first moment."""
         return cdf_and_partial_first_moment_from_scale_shift(
             t,
-            self.p['mu'],
-            self.p['shift'],
+            self.p["mu"],
+            self.p["shift"],
         )

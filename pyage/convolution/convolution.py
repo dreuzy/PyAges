@@ -214,7 +214,9 @@ class Convolution:
             values = np.full(ages_array.shape, float(values), dtype=float)
         else:
             try:
-                values = np.asarray(np.broadcast_to(values, ages_array.shape), dtype=float)
+                values = np.asarray(
+                    np.broadcast_to(values, ages_array.shape), dtype=float
+                )
             except ValueError as exc:
                 raise ConvolutionError(
                     "Tracer response shape does not match the requested age grid: "
@@ -291,19 +293,12 @@ class Convolution:
             np.asarray(boundary_dates, dtype=float) == float(self.datemax)
         )
         newest_boundary_age = float(self._date - self.datemax)
-        if (
-            has_newest_boundary
-            and 0.0 < newest_boundary_age < initial_edges[-1]
-        ):
-            outside_bins = np.flatnonzero(
-                initial_edges[1:] == newest_boundary_age
-            )
+        if has_newest_boundary and 0.0 < newest_boundary_age < initial_edges[-1]:
+            outside_bins = np.flatnonzero(initial_edges[1:] == newest_boundary_age)
             if outside_bins.size:
                 outside_date = np.nextafter(float(self.datemax), np.inf)
                 outside_age = float(self._date - outside_date)
-                outside_value = float(
-                    self.get_concentration(outside_date, outside_age)
-                )
+                outside_value = float(self.get_concentration(outside_date, outside_age))
                 right_edge_values[outside_bins] = outside_value
 
         grid = prepare_adaptive_grid(
@@ -362,9 +357,8 @@ class Convolution:
         if strategy == ConvolutionStrategy.DIRAC_DOUBLE:
             first, second = lpm.get_dirac_double_time()
             rate = float(lpm.p["rate"])
-            return (
-                rate * float(0.0 <= float(first) <= tmax)
-                + (1.0 - rate) * float(0.0 <= float(second) <= tmax)
+            return rate * float(0.0 <= float(first) <= tmax) + (1.0 - rate) * float(
+                0.0 <= float(second) <= tmax
             )
         if strategy == ConvolutionStrategy.MIXED_DIRAC_CONTINUOUS:
             rate = float(lpm.p["rate"])
@@ -451,7 +445,7 @@ class Convolution:
         [time1, time2] = lpm.get_dirac_double_time()
         convol1 = self._dirac_concentration(time1)
         convol2 = self._dirac_concentration(time2)
-        return lpm.p['rate'] * convol1 + (1 - lpm.p['rate']) * convol2
+        return lpm.p["rate"] * convol1 + (1 - lpm.p["rate"]) * convol2
 
     # -------------------------------------------------------------------------
     # Mixed convolution (Dirac + normalized continuous component)
@@ -488,8 +482,7 @@ class Convolution:
         dirac_mass = float(0.0 <= float(lpm.get_dirac_time()) <= tmax)
         self._last_diagnostics = ConvolutionDiagnostics(
             window_mass=(
-                rate * dirac_mass
-                + (1.0 - rate) * continuous_diagnostics.window_mass
+                rate * dirac_mass + (1.0 - rate) * continuous_diagnostics.window_mass
             ),
             n_bins=continuous_diagnostics.n_bins,
             min_weight=(1.0 - rate) * continuous_diagnostics.min_weight,
@@ -577,8 +570,8 @@ class Convolution:
         float
             Corrected convolution result (penalized if on wrong side).
         """
-        is_young = lpm.name.endswith('young')
-        is_old = lpm.name.endswith('old')
+        is_young = lpm.name.endswith("young")
+        is_old = lpm.name.endswith("old")
 
         if not (is_young or is_old):
             return convol
@@ -596,12 +589,7 @@ class Convolution:
 
         return convol
 
-    def convolve_date_range(
-        self,
-        lpm: LPM,
-        date1: float,
-        date2: float
-    ) -> pd.DataFrame:
+    def convolve_date_range(self, lpm: LPM, date1: float, date2: float) -> pd.DataFrame:
         """
         Compute convolution over a range of dates.
 
@@ -628,8 +616,8 @@ class Convolution:
         data = [date, conc]
         df = pd.DataFrame(data=data)
         df = df.T
-        df.columns = ['date', 'concentration']
-        df['element'] = self.name
+        df.columns = ["date", "concentration"]
+        df["element"] = self.name
         return df
 
 

@@ -20,7 +20,11 @@ def compare(run_json: Path) -> dict:
         raise ValueError("Un rapport d'inversion EMM TracerLPM est requis")
     pyage_path = RESULT_DIR / "inversion-emm-tau20-no-noise" / "pyage-result.json"
     pyage = json.loads(pyage_path.read_text(encoding="utf-8"))
-    config = yaml.safe_load((BENCHMARK_ROOT / "configs" / "inversion-campaign.yaml").read_text(encoding="utf-8"))
+    config = yaml.safe_load(
+        (BENCHMARK_ROOT / "configs" / "inversion-campaign.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
     true_tau = float(pyage["true_tau"])
     threshold = float(config["acceptance"]["maximum_tau_absolute_error_years"])
     output = RESULT_DIR / "inversion-emm-tau20-no-noise"
@@ -37,11 +41,15 @@ def compare(run_json: Path) -> dict:
         "maximum_tau_absolute_error_years": threshold,
         "pyage_pass": float(pyage["tau_absolute_error"]) <= threshold,
         "tracerlpm_pass": abs(float(fit["estimatedAge"]) - true_tau) <= threshold,
-        "parameter_comparison": [{
-            "parameter": "tau", "unit": "year", "true_value": true_tau,
-            "pyage_value": float(pyage["estimated_tau"]),
-            "tracerlpm_value": float(fit["estimatedAge"]),
-        }],
+        "parameter_comparison": [
+            {
+                "parameter": "tau",
+                "unit": "year",
+                "true_value": true_tau,
+                "pyage_value": float(pyage["estimated_tau"]),
+                "tracerlpm_value": float(fit["estimatedAge"]),
+            }
+        ],
         "tracerlpm_attempts": fit["attempts"],
         "scope_note": (
             "Both tools use CFC-11, CFC-12 and CFC-113. TracerLPM aliases them "
@@ -49,13 +57,15 @@ def compare(run_json: Path) -> dict:
         ),
         "tracerlpm_raw_report": raw.relative_to(BENCHMARK_ROOT).as_posix(),
     }
-    (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    (output / "summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
     markdown = f"""# Pilote d’inversion EMM sans bruit
 
 | Outil | Tau vrai | Tau estimé | Erreur absolue | Seuil | Verdict |
 |---|---:|---:|---:|---:|---|
-| PyAge | {true_tau:g} | {summary['pyage_estimated_tau']:.9g} | {summary['pyage_tau_absolute_error']:.6g} | {threshold:g} | {'pass' if summary['pyage_pass'] else 'investigate'} |
-| TracerLPM | {true_tau:g} | {summary['tracerlpm_estimated_tau']:.9g} | {summary['tracerlpm_tau_absolute_error']:.6g} | {threshold:g} | {'pass' if summary['tracerlpm_pass'] else 'investigate'} |
+| PyAge | {true_tau:g} | {summary["pyage_estimated_tau"]:.9g} | {summary["pyage_tau_absolute_error"]:.6g} | {threshold:g} | {"pass" if summary["pyage_pass"] else "investigate"} |
+| TracerLPM | {true_tau:g} | {summary["tracerlpm_estimated_tau"]:.9g} | {summary["tracerlpm_tau_absolute_error"]:.6g} | {threshold:g} | {"pass" if summary["tracerlpm_pass"] else "investigate"} |
 
 Les deux outils utilisent CFC-11, CFC-12 et CFC-113. TracerLPM les reçoit par
 des alias explicites dans les canaux SF6, 3H et NO3-N du classeur Example 1 ;

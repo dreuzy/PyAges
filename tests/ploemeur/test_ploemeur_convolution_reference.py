@@ -13,7 +13,6 @@ from pyage.convolution.convolution import Convolution
 from pyage.lpm.lpm_build import lpm_build
 from pyage.tracer.tracer_root import Tracer
 
-
 LPM_DIRECTORY = "sites/ploemeur/params_lpm"
 POSTERIOR_REGIMES = [
     # Independent 2005-2006 window: broad IG tail and a measurable truncation.

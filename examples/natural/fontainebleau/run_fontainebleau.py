@@ -18,7 +18,7 @@ from examples.natural.fontainebleau.fontainebleau_case import (
     build_context,
     write_effective_config,
 )
-from scripts.launcher import run_workflow
+from pyage.workflows.single_date import run_workflow
 
 
 def _running_in_ipython() -> bool:
@@ -77,7 +77,10 @@ def run_launcher(config_path: Path, inline: bool = False) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Fontainebleau workflow.")
-    parser.add_argument("--config", default=str(Path(__file__).resolve().parent / "exemple_fontainebleau.yaml"))
+    parser.add_argument(
+        "--config",
+        default=str(Path(__file__).resolve().parent / "exemple_fontainebleau.yaml"),
+    )
     parser.add_argument(
         "--mode",
         choices=("full", "benchmark_only", "calibration_only"),

@@ -10,7 +10,6 @@ from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyage.lpm.lpm_build import lpm_build
 from tests.utils import paths as test_paths
 
-
 MODEL_CASES = [
     ("exp", {"mu": 10.0}, 12.0),
     ("exp_shifted", {"mu": 10.0, "shift": 5.0}, 17.0),

@@ -1,5 +1,7 @@
 """Job-building helpers for the Ploemeur workflow."""
 
+from __future__ import annotations
+
 from sites.ploemeur.config.models import WellDateConfig
 
 

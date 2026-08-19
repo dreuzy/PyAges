@@ -6,10 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from pyage.config.runtime import DisplayOptions
-from pyage.calibration.methods.metropolis_hastings import MHConfig, MetropolisHastings
+from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
 from pyage.calibration.workflows import synthetic_test as cst
-
+from pyage.config.runtime import DisplayOptions
 
 
 @pytest.mark.parametrize("lpm_type", ["exp", "ig", "ig_shifted", "gamma"])
@@ -50,6 +49,6 @@ def test_calibration_mh_prior_validation_tolerances(tmp_path: Path, lpm_type: st
     assert "difference_percent" in stats
 
     tolerance = 100.0
-    for key, values in stats["difference_percent"].items():
+    for _key, values in stats["difference_percent"].items():
         assert abs(values["mean"]) < tolerance
         assert abs(values["var"]) < tolerance

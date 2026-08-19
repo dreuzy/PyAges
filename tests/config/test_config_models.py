@@ -2,12 +2,11 @@
 
 from pathlib import Path
 
-from pydantic import ValidationError
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from pyage.config.models import LauncherConfig, TemporalParams
-
 
 ROOT = Path(__file__).resolve().parents[2]
 

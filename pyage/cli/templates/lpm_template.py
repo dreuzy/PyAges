@@ -4,6 +4,8 @@ LPM model template generator.
 Generates boilerplate code for new LPM models.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import click
@@ -91,7 +93,7 @@ class LPM_{name}({base_class}):
         )
 '''
 
-LPM_PARAMS_TEMPLATE = '''\
+LPM_PARAMS_TEMPLATE = """\
 # LPM parameters for model "{name}"
 #
 # This YAML defines bounds, initial values, proposal steps, and priors
@@ -132,7 +134,7 @@ parameters:
 notes: |
   This is a template file. Customize the parameters based on your
   distribution's requirements.
-'''
+"""
 
 
 def generate_lpm_template(name: str, output: str | None, base: str) -> None:
@@ -155,16 +157,13 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
     }
     base_module, base_class, default_scipy = base_map[base]
 
-    # Find repository root
-    cli_dir = Path(__file__).resolve().parent.parent
-    pyage_dir = cli_dir.parent
-    repo_root = pyage_dir.parent
+    project_root = Path.cwd()
 
     # Default output location for model file
     if output is None:
-        model_output = pyage_dir / "lpm" / "models"
+        model_output = project_root / "pyage" / "lpm" / "models"
     else:
-        model_output = Path(output)
+        model_output = Path(output).resolve()
 
     model_output.mkdir(parents=True, exist_ok=True)
 
@@ -195,7 +194,7 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
     click.echo(click.style("Created:", fg="green") + f" {model_file}")
 
     # Generate params.yaml
-    lpm_data_dir = repo_root / "data_core" / "data_lpm" / name
+    lpm_data_dir = project_root / "data_core" / "data_lpm" / name
     lpm_data_dir.mkdir(parents=True, exist_ok=True)
 
     params_content = LPM_PARAMS_TEMPLATE.format(name=name)
@@ -215,7 +214,9 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
     click.echo()
     click.echo(click.style("Next steps:", fg="cyan", bold=True))
     click.echo(f"  1. Edit {model_file}")
-    click.echo("     - Set the correct scipy_dist (e.g., norm, gamma, lognorm, invgauss)")
+    click.echo(
+        "     - Set the correct scipy_dist (e.g., norm, gamma, lognorm, invgauss)"
+    )
     click.echo("     - Update __init__ parameters if needed")
     click.echo("     - Implement _scipy_params() method for your distribution")
     click.echo("     - Implement cdf_and_partial_first_moment()")

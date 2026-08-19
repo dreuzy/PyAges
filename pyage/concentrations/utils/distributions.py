@@ -8,6 +8,8 @@ Sample LPMs from a stored distribution table and assemble
 PDF samples and summary statistics.
 """
 
+from __future__ import annotations
+
 import copy
 from typing import List, Tuple
 
@@ -55,11 +57,15 @@ def sample_lpms_from_dist(
     pdf_array[0, :] = pdf_t
     colnames = ["t"]
 
-    lpm_statistics = pd.DataFrame(index=range(lpm_number), columns=lpm_template.moments_name())
+    lpm_statistics = pd.DataFrame(
+        index=range(lpm_number), columns=lpm_template.moments_name()
+    )
     lpm_list: List[object] = []
 
     for i in range(1, lpm_number + 1):
-        test, line = lpm_template.load_lpm_from_dist(dist, option="random_line", rng=rng)
+        test, line = lpm_template.load_lpm_from_dist(
+            dist, option="random_line", rng=rng
+        )
         if not test:
             colnames.append("p")
             continue

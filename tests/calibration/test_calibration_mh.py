@@ -19,7 +19,6 @@ from pyage.config.runtime import DisplayOptions
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
-
 # Test matrix
 LPM_TYPES = ["exp", "ig"]
 TRACER_NAMES = ["cfc11", "cfc12", "cfc113"]
@@ -140,10 +139,7 @@ def test_calibration_mh_golden(
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:
-        pytest.fail(
-            f"Golden value missing for {key}. "
-            f"Run: pytest -s --update-golden"
-        )
+        pytest.fail(f"Golden value missing for {key}. Run: pytest -s --update-golden")
 
     expected = store[key]
     # Compare all stored keys
@@ -157,9 +153,7 @@ def test_reachconc_mean_golden(lpm_type, update_golden, tmp_path):
     record = _run_reachconc_mean(lpm_type, tmp_path / "reachconc")
 
     key = (
-        f"reachmean:{lpm_type}:"
-        f"tracers={','.join(REACHCONC_TRACERS)}:"
-        f"nmodels={NMODELS}"
+        f"reachmean:{lpm_type}:tracers={','.join(REACHCONC_TRACERS)}:nmodels={NMODELS}"
     )
     store = golden_utils.load_golden(_golden_path())
 
@@ -170,10 +164,7 @@ def test_reachconc_mean_golden(lpm_type, update_golden, tmp_path):
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:
-        pytest.fail(
-            f"Golden value missing for {key}. "
-            f"Run: pytest -s --update-golden"
-        )
+        pytest.fail(f"Golden value missing for {key}. Run: pytest -s --update-golden")
 
     expected = store[key]
     for k, v in record.items():

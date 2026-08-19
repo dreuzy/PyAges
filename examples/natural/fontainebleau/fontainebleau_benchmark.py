@@ -15,7 +15,6 @@ from examples.natural.fontainebleau.fontainebleau_case import (
     build_context,
 )
 
-
 REQUIRED_COLUMNS = {"element", "concentration", "error", "unit", "date"}
 
 
@@ -48,12 +47,16 @@ def load_all_datasets(context=None) -> pd.DataFrame:
         frame.insert(2, "selected", dataset_name == ctx.params.dataset_name)
         frames.append(frame)
     if not frames:
-        return pd.DataFrame(columns=["dataset_name", "site_code", "selected", *sorted(REQUIRED_COLUMNS)])
+        return pd.DataFrame(
+            columns=["dataset_name", "site_code", "selected", *sorted(REQUIRED_COLUMNS)]
+        )
     return pd.concat(frames, ignore_index=True)
 
 
 def _build_dataset_summary(all_observations: pd.DataFrame) -> pd.DataFrame:
-    grouped = all_observations.groupby(["dataset_name", "site_code", "selected"], sort=False)
+    grouped = all_observations.groupby(
+        ["dataset_name", "site_code", "selected"], sort=False
+    )
     summary = grouped.agg(
         tracer_count=("element", "size"),
         tracers=("element", lambda values: ",".join(values.astype(str))),
@@ -77,11 +80,15 @@ def _build_tracer_summary(all_observations: pd.DataFrame) -> pd.DataFrame:
     return summary.reset_index()
 
 
-def prepare_fontainebleau_case(config_path: Path | None = None) -> PreparedFontainebleauCase:
+def prepare_fontainebleau_case(
+    config_path: Path | None = None,
+) -> PreparedFontainebleauCase:
     context = build_context(config_path)
     selected_observations = read_dataset(context.dataset_path).copy()
     selected_observations.insert(0, "dataset_name", context.params.dataset_name)
-    selected_observations.insert(1, "site_code", context.params.dataset_name.removeprefix("fontainebleau_"))
+    selected_observations.insert(
+        1, "site_code", context.params.dataset_name.removeprefix("fontainebleau_")
+    )
     all_observations = load_all_datasets(context)
     return PreparedFontainebleauCase(
         context=context,
@@ -92,7 +99,9 @@ def prepare_fontainebleau_case(config_path: Path | None = None) -> PreparedFonta
     )
 
 
-def write_prepared_tables(prepared: PreparedFontainebleauCase, output_dir: Path) -> list[Path]:
+def write_prepared_tables(
+    prepared: PreparedFontainebleauCase, output_dir: Path
+) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     outputs = [
         output_dir / f"{prepared.context.params.dataset_name}_observations.txt",
@@ -107,7 +116,9 @@ def write_prepared_tables(prepared: PreparedFontainebleauCase, output_dir: Path)
     return outputs
 
 
-def build_pre_model_figures(prepared: PreparedFontainebleauCase, output_dir: Path) -> list[Path]:
+def build_pre_model_figures(
+    prepared: PreparedFontainebleauCase, output_dir: Path
+) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     selected = prepared.selected_observations.copy()
     summary = prepared.tracer_summary.rename(columns={"unit": "summary_unit"})
@@ -119,8 +130,11 @@ def build_pre_model_figures(prepared: PreparedFontainebleauCase, output_dir: Pat
     normalized["position_0_1"] = 0.5
     non_constant = normalized["max_concentration"] > normalized["min_concentration"]
     normalized.loc[non_constant, "position_0_1"] = (
-        (normalized.loc[non_constant, "concentration"] - normalized.loc[non_constant, "min_concentration"])
-        / (normalized.loc[non_constant, "max_concentration"] - normalized.loc[non_constant, "min_concentration"])
+        normalized.loc[non_constant, "concentration"]
+        - normalized.loc[non_constant, "min_concentration"]
+    ) / (
+        normalized.loc[non_constant, "max_concentration"]
+        - normalized.loc[non_constant, "min_concentration"]
     )
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.8), constrained_layout=True)
@@ -145,17 +159,21 @@ def build_pre_model_figures(prepared: PreparedFontainebleauCase, output_dir: Pat
 
     axes[1].set_title("Selected site within the Fontainebleau ensemble", loc="left")
     for idx, row in enumerate(normalized.itertuples(index=False)):
-        tracer_rows = prepared.all_observations.loc[prepared.all_observations["element"] == row.element].copy()
+        tracer_rows = prepared.all_observations.loc[
+            prepared.all_observations["element"] == row.element
+        ].copy()
         min_value = float(row.min_concentration)
         max_value = float(row.max_concentration)
         tracer_rows["position_0_1"] = 0.5
         if max_value > min_value:
-            tracer_rows["position_0_1"] = (
-                (tracer_rows["concentration"] - min_value) / (max_value - min_value)
+            tracer_rows["position_0_1"] = (tracer_rows["concentration"] - min_value) / (
+                max_value - min_value
             )
         others = tracer_rows.loc[~tracer_rows["selected"]]
         axes[1].hlines(idx, 0.0, 1.0, color="0.85", linewidth=2)
-        axes[1].scatter(others["position_0_1"], [idx] * len(others), color="0.6", s=28, zorder=2)
+        axes[1].scatter(
+            others["position_0_1"], [idx] * len(others), color="0.6", s=28, zorder=2
+        )
         axes[1].scatter(row.position_0_1, idx, color="tab:blue", s=70, zorder=3)
         axes[1].text(
             1.03,
@@ -178,7 +196,9 @@ def build_pre_model_figures(prepared: PreparedFontainebleauCase, output_dir: Pat
     return [out_path]
 
 
-def write_benchmark_summary(prepared: PreparedFontainebleauCase, output_dir: Path) -> Path:
+def write_benchmark_summary(
+    prepared: PreparedFontainebleauCase, output_dir: Path
+) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     selected = prepared.dataset_summary.loc[prepared.dataset_summary["selected"]]
     if selected.empty:

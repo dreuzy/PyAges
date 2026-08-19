@@ -8,7 +8,6 @@ from PIL import Image
 
 from .plot_cfc11_vs_cfc12 import make_figure
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 SUBMISSION_DIRECTORY = REPOSITORY_ROOT / "results" / "HYP-26-0172" / "figures"
 SOURCE_F11 = SUBMISSION_DIRECTORY / "Figure_F11_atmospheric_inputs.tif"

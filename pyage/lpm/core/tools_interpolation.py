@@ -11,12 +11,10 @@ Provides a normalized interpolator for discretized PDFs and a
 discretized Dirac pulse used by Dirac/Dirac-double distributions.
 """
 
-
-from scipy import interpolate        # Interpolation function 
-
+from scipy import interpolate  # Interpolation function
 
 
-def interp_normalize(td, pdfd): 
+def interp_normalize(td, pdfd):
     """
     Purpose
     -------
@@ -34,10 +32,10 @@ def interp_normalize(td, pdfd):
     fd : interpolator
         Interpolation function for the normalized PDF.
     """
-    fd = interpolate.interp1d(td,pdfd)
+    fd = interpolate.interp1d(td, pdfd)
     # Ensures integral to one
-    step_size = td[1] - td[0]               
-    sumftd=sum(fd(td)*step_size)
+    step_size = td[1] - td[0]
+    sumftd = sum(fd(td) * step_size)
     if sumftd != 0:
         fd = interpolate.interp1d(td, pdfd / sumftd)
     else:
@@ -47,7 +45,7 @@ def interp_normalize(td, pdfd):
     return fd
 
 
-def dirac_discret(t, center=1, width=1): 
+def dirac_discret(t, center=1, width=1):
     """
     Purpose
     -------

@@ -16,7 +16,6 @@ from sites.ploemeur.workflows.ploemeur_workflow import (
     validate_workflow_params,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SITE_ROOT = REPO_ROOT / "sites" / "ploemeur"
 

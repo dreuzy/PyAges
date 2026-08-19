@@ -14,7 +14,6 @@ from .generate_inputs import BENCHMARK_ROOT
 from .generate_inversion_pilot import expanded_cases
 from .invert_pyage_pilot import RESULT_DIR
 
-
 CONFIGS = (
     ("width_noise", BENCHMARK_ROOT / "configs" / "robustness-width-noise.yaml"),
     ("age_noise", BENCHMARK_ROOT / "configs" / "robustness-age-noise.yaml"),
@@ -74,7 +73,8 @@ def _relative_objectives(observed: dict, calculated: dict) -> tuple[float, float
 def _best_calculated_concentrations(fit: dict) -> dict:
     """Return concentrations from the attempt retained in the fit summary."""
     candidates = [
-        attempt for attempt in fit["attempts"]
+        attempt
+        for attempt in fit["attempts"]
         if abs(float(attempt["objective"]) - float(fit["objective"])) <= 1e-10
     ]
     if not candidates:
@@ -108,10 +108,14 @@ def summarize(run_output: Path = RUN_OUTPUT, output: Path = OUTPUT) -> dict:
             tau_truth = float(case["true_parameters"]["tau"])
             secondary_truth = float(case["true_parameters"][secondary_key]) - offset
             pyage_tau = float(pyage["estimated_parameters"]["tau"])
-            pyage_secondary = float(pyage["estimated_parameters"][secondary_key]) - offset
+            pyage_secondary = (
+                float(pyage["estimated_parameters"][secondary_key]) - offset
+            )
             tracer_tau = float(fit["estimatedAge"])
             tracer_secondary = float(fit["estimatedModelParameter"])
-            secondary_bounds = [float(value) - offset for value in case["bounds"][secondary_key]]
+            secondary_bounds = [
+                float(value) - offset for value in case["bounds"][secondary_key]
+            ]
             pyage_observed = {
                 item["tracer"]: float(item["observed"])
                 for item in pyage["concentrations"]
@@ -125,68 +129,93 @@ def summarize(run_output: Path = RUN_OUTPUT, output: Path = OUTPUT) -> dict:
                 for name, value in fit["observations"].items()
             }
             if pyage_observed.keys() != tracer_observed_as_pyage.keys() or any(
-                not np.isclose(value, tracer_observed_as_pyage[name], rtol=0.0, atol=1e-12)
+                not np.isclose(
+                    value, tracer_observed_as_pyage[name], rtol=0.0, atol=1e-12
+                )
                 for name, value in pyage_observed.items()
             ):
-                raise ValueError(f"Pseudo-observations non appariées pour {case['case_id']}")
+                raise ValueError(
+                    f"Pseudo-observations non appariées pour {case['case_id']}"
+                )
             tracer_calculated = _best_calculated_concentrations(fit)
             pyage_l1, pyage_l2 = _relative_objectives(pyage_observed, pyage_calculated)
-            tracer_l1, tracer_l2 = _relative_objectives(fit["observations"], tracer_calculated)
-            rows.append({
-                "phase": phase,
-                "case_id": case["case_id"],
-                "model": case["model"],
-                "seed": int(case["noise"]["seed"]),
-                "noise_relative_sd": float(case["noise"]["relative_standard_deviation"]),
-                "true_tau": tau_truth,
-                "secondary_name": "r" if epm else "DP",
-                "true_secondary": secondary_truth,
-                "tau_lower_bound": float(case["bounds"]["tau"][0]),
-                "tau_upper_bound": float(case["bounds"]["tau"][1]),
-                "secondary_lower_bound": secondary_bounds[0],
-                "secondary_upper_bound": secondary_bounds[1],
-                "initial_values_json": json.dumps(case["initial_values"], sort_keys=True),
-                "observations_json": json.dumps(pyage_observed, sort_keys=True),
-                "pyage_tau": pyage_tau,
-                "pyage_secondary": pyage_secondary,
-                "pyage_success": bool(pyage["optimizer_success"]),
-                "pyage_boundary_hit": _near_boundary(pyage_tau, case["bounds"]["tau"])
-                                      or _near_boundary(pyage_secondary, secondary_bounds),
-                "pyage_maximum_concentration_relative_error": float(
-                    pyage["maximum_recalculated_relative_error"]
-                ),
-                "pyage_native_weighted_l2_objective": float(pyage["objective_chi_square"]),
-                "pyage_recalculated_relative_l1_objective": pyage_l1,
-                "pyage_recalculated_relative_l2_objective": pyage_l2,
-                "pyage_calculated_concentrations_json": json.dumps(
-                    pyage_calculated, sort_keys=True
-                ),
-                "tracerlpm_tau": tracer_tau,
-                "tracerlpm_secondary": tracer_secondary,
-                "tracerlpm_success": tracer.get("status") == "success",
-                "tracerlpm_boundary_hit": _near_boundary(tracer_tau, case["bounds"]["tau"])
-                                          or _near_boundary(tracer_secondary, secondary_bounds),
-                "tracerlpm_maximum_concentration_relative_error": _maximum_relative_error(
-                    fit["observations"], tracer_calculated
-                ),
-                "tracerlpm_native_l1_objective": float(fit["objective"]),
-                "tracerlpm_objective": float(fit["objective"]),
-                "tracerlpm_recalculated_relative_l1_objective": tracer_l1,
-                "tracerlpm_recalculated_relative_l2_objective": tracer_l2,
-                "tracerlpm_calculated_concentrations_json": json.dumps(
-                    tracer_calculated, sort_keys=True
-                ),
-                "tracerlpm_report": (
-                    report_path.relative_to(BENCHMARK_ROOT.parent).as_posix()
-                    if report_path.is_relative_to(BENCHMARK_ROOT.parent)
-                    else str(report_path.resolve())
-                ),
-            })
+            tracer_l1, tracer_l2 = _relative_objectives(
+                fit["observations"], tracer_calculated
+            )
+            rows.append(
+                {
+                    "phase": phase,
+                    "case_id": case["case_id"],
+                    "model": case["model"],
+                    "seed": int(case["noise"]["seed"]),
+                    "noise_relative_sd": float(
+                        case["noise"]["relative_standard_deviation"]
+                    ),
+                    "true_tau": tau_truth,
+                    "secondary_name": "r" if epm else "DP",
+                    "true_secondary": secondary_truth,
+                    "tau_lower_bound": float(case["bounds"]["tau"][0]),
+                    "tau_upper_bound": float(case["bounds"]["tau"][1]),
+                    "secondary_lower_bound": secondary_bounds[0],
+                    "secondary_upper_bound": secondary_bounds[1],
+                    "initial_values_json": json.dumps(
+                        case["initial_values"], sort_keys=True
+                    ),
+                    "observations_json": json.dumps(pyage_observed, sort_keys=True),
+                    "pyage_tau": pyage_tau,
+                    "pyage_secondary": pyage_secondary,
+                    "pyage_success": bool(pyage["optimizer_success"]),
+                    "pyage_boundary_hit": _near_boundary(
+                        pyage_tau, case["bounds"]["tau"]
+                    )
+                    or _near_boundary(pyage_secondary, secondary_bounds),
+                    "pyage_maximum_concentration_relative_error": float(
+                        pyage["maximum_recalculated_relative_error"]
+                    ),
+                    "pyage_native_weighted_l2_objective": float(
+                        pyage["objective_chi_square"]
+                    ),
+                    "pyage_recalculated_relative_l1_objective": pyage_l1,
+                    "pyage_recalculated_relative_l2_objective": pyage_l2,
+                    "pyage_calculated_concentrations_json": json.dumps(
+                        pyage_calculated, sort_keys=True
+                    ),
+                    "tracerlpm_tau": tracer_tau,
+                    "tracerlpm_secondary": tracer_secondary,
+                    "tracerlpm_success": tracer.get("status") == "success",
+                    "tracerlpm_boundary_hit": _near_boundary(
+                        tracer_tau, case["bounds"]["tau"]
+                    )
+                    or _near_boundary(tracer_secondary, secondary_bounds),
+                    "tracerlpm_maximum_concentration_relative_error": _maximum_relative_error(
+                        fit["observations"], tracer_calculated
+                    ),
+                    "tracerlpm_native_l1_objective": float(fit["objective"]),
+                    "tracerlpm_objective": float(fit["objective"]),
+                    "tracerlpm_recalculated_relative_l1_objective": tracer_l1,
+                    "tracerlpm_recalculated_relative_l2_objective": tracer_l2,
+                    "tracerlpm_calculated_concentrations_json": json.dumps(
+                        tracer_calculated, sort_keys=True
+                    ),
+                    "tracerlpm_report": (
+                        report_path.relative_to(BENCHMARK_ROOT.parent).as_posix()
+                        if report_path.is_relative_to(BENCHMARK_ROOT.parent)
+                        else str(report_path.resolve())
+                    ),
+                }
+            )
 
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for row in rows:
-        groups[(row["model"], row["true_tau"], row["secondary_name"],
-                row["true_secondary"], row["noise_relative_sd"])].append(row)
+        groups[
+            (
+                row["model"],
+                row["true_tau"],
+                row["secondary_name"],
+                row["true_secondary"],
+                row["noise_relative_sd"],
+            )
+        ].append(row)
 
     summaries = []
     for key, selected in sorted(groups.items()):
@@ -199,37 +228,73 @@ def summarize(run_output: Path = RUN_OUTPUT, output: Path = OUTPUT) -> dict:
             secondary = [float(row[f"{tool}_secondary"]) for row in selected]
             tools[tool] = {
                 "successful": sum(bool(row[f"{tool}_success"]) for row in selected),
-                "boundary_hits": sum(bool(row[f"{tool}_boundary_hit"]) for row in selected),
+                "boundary_hits": sum(
+                    bool(row[f"{tool}_boundary_hit"]) for row in selected
+                ),
                 "tau": _statistics(tau, tau_truth),
                 "secondary": _statistics(secondary, secondary_truth),
-                "maximum_concentration_relative_error_median": float(np.median([
-                    row[f"{tool}_maximum_concentration_relative_error"] for row in selected
-                ])),
+                "maximum_concentration_relative_error_median": float(
+                    np.median(
+                        [
+                            row[f"{tool}_maximum_concentration_relative_error"]
+                            for row in selected
+                        ]
+                    )
+                ),
             }
-        summaries.append({
-            "model": model,
-            "true_tau": tau_truth,
-            "secondary_name": secondary_name,
-            "true_secondary": secondary_truth,
-            "noise_relative_sd": noise,
-            "count": len(selected),
-            "tools": tools,
-            "paired_tracerlpm_minus_pyage": {
-                "tau_mean": float(np.mean([
-                    row["tracerlpm_tau"] - row["pyage_tau"] for row in selected
-                ])),
-                "tau_rmse": float(np.sqrt(np.mean([
-                    (row["tracerlpm_tau"] - row["pyage_tau"]) ** 2 for row in selected
-                ]))),
-                "secondary_mean": float(np.mean([
-                    row["tracerlpm_secondary"] - row["pyage_secondary"] for row in selected
-                ])),
-                "secondary_rmse": float(np.sqrt(np.mean([
-                    (row["tracerlpm_secondary"] - row["pyage_secondary"]) ** 2
-                    for row in selected
-                ]))),
-            },
-        })
+        summaries.append(
+            {
+                "model": model,
+                "true_tau": tau_truth,
+                "secondary_name": secondary_name,
+                "true_secondary": secondary_truth,
+                "noise_relative_sd": noise,
+                "count": len(selected),
+                "tools": tools,
+                "paired_tracerlpm_minus_pyage": {
+                    "tau_mean": float(
+                        np.mean(
+                            [
+                                row["tracerlpm_tau"] - row["pyage_tau"]
+                                for row in selected
+                            ]
+                        )
+                    ),
+                    "tau_rmse": float(
+                        np.sqrt(
+                            np.mean(
+                                [
+                                    (row["tracerlpm_tau"] - row["pyage_tau"]) ** 2
+                                    for row in selected
+                                ]
+                            )
+                        )
+                    ),
+                    "secondary_mean": float(
+                        np.mean(
+                            [
+                                row["tracerlpm_secondary"] - row["pyage_secondary"]
+                                for row in selected
+                            ]
+                        )
+                    ),
+                    "secondary_rmse": float(
+                        np.sqrt(
+                            np.mean(
+                                [
+                                    (
+                                        row["tracerlpm_secondary"]
+                                        - row["pyage_secondary"]
+                                    )
+                                    ** 2
+                                    for row in selected
+                                ]
+                            )
+                        )
+                    ),
+                },
+            }
+        )
 
     summary = {
         "campaign_ids": campaign_ids,
@@ -262,20 +327,28 @@ def summarize(run_output: Path = RUN_OUTPUT, output: Path = OUTPUT) -> dict:
             stats = group["tools"][tool]
             lines.append(
                 f"| {group['model']} | {group['true_tau']:.6g} | {group['secondary_name']} | "
-                f"{group['true_secondary']:.6g} | {100*group['noise_relative_sd']:.0f} % | "
+                f"{group['true_secondary']:.6g} | {100 * group['noise_relative_sd']:.0f} % | "
                 f"{tool} | {stats['successful']}/{group['count']} | {stats['boundary_hits']} | "
                 f"{stats['tau']['rmse']:.6g} | {stats['secondary']['rmse']:.6g} | "
-                f"{100*stats['maximum_concentration_relative_error_median']:.3g} % |"
+                f"{100 * stats['maximum_concentration_relative_error_median']:.3g} % |"
             )
-    (output / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    (output / "summary.md").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8", newline="\n"
+    )
     return summary
 
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-output", type=Path, default=RUN_OUTPUT)
     parser.add_argument("--output", type=Path, default=OUTPUT)
     args = parser.parse_args()
     result = summarize(args.run_output, args.output)
-    print(json.dumps({"case_count": result["case_count"], "group_count": result["group_count"]}, indent=2))
+    print(
+        json.dumps(
+            {"case_count": result["case_count"], "group_count": result["group_count"]},
+            indent=2,
+        )
+    )

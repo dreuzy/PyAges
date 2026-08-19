@@ -1,10 +1,9 @@
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
-from PIL import Image
 import yaml
-
+from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = REPO_ROOT / "sites" / "ploemeur" / "studies" / "HYP-26-0172" / "scripts"

@@ -49,12 +49,16 @@ def plot_observations_overview(
             fmt="o",
             capsize=2,
         )
-        unit = observed["unit"].iloc[0] if "unit" in observed and not observed.empty else None
+        unit = (
+            observed["unit"].iloc[0]
+            if "unit" in observed and not observed.empty
+            else None
+        )
         ax.set_title(str(tracer).upper())
         ax.set_xlabel("Year")
         ax.set_ylabel(f"Concentration [{unit}]" if unit else "Concentration")
         ax.grid(alpha=0.25)
-    for ax in list(axes.flat)[len(tracers):]:
+    for ax in list(axes.flat)[len(tracers) :]:
         ax.remove()
     fig.suptitle(title)
     fig.tight_layout()
@@ -78,7 +82,11 @@ def plot_parameter_summary(
     )
     for ax, parameter in zip(axes.flat, param_names):
         for method, result in results_by_method.items():
-            frame = result.dist().copy() if hasattr(result, "dist") else pd.DataFrame(result)
+            frame = (
+                result.dist().copy()
+                if hasattr(result, "dist")
+                else pd.DataFrame(result)
+            )
             if parameter not in frame:
                 continue
             values = pd.to_numeric(frame[parameter], errors="coerce").dropna()
@@ -89,7 +97,7 @@ def plot_parameter_summary(
         ax.set_title(parameter)
         ax.set_xlabel(parameter)
         ax.set_ylabel("Density")
-    for ax in list(axes.flat)[len(param_names):]:
+    for ax in list(axes.flat)[len(param_names) :]:
         ax.remove()
     handles, labels = axes[0, 0].get_legend_handles_labels()
     if handles:

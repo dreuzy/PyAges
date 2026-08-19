@@ -17,7 +17,6 @@ from sites.ploemeur.workflows.ploemeur_workflow import (
 )
 from tests.utils import golden as golden_utils
 
-
 GOLDEN_PATH = (
     Path(__file__).resolve().parents[2]
     / "tests"
@@ -91,9 +90,9 @@ def _objective_column(df: pd.DataFrame) -> Optional[str]:
 
 def _assert_record_close(actual: Dict, expected: Dict, tol: float = 1e-4) -> None:
     """Assert that two nested dicts of numeric values are close within tolerance."""
-    assert actual.keys() == expected.keys(), (
-        f"Golden keys mismatch: {actual.keys()} vs {expected.keys()}"
-    )
+    assert (
+        actual.keys() == expected.keys()
+    ), f"Golden keys mismatch: {actual.keys()} vs {expected.keys()}"
     for key, actual_value in actual.items():
         expected_value = expected[key]
         if isinstance(actual_value, dict) and isinstance(expected_value, dict):
@@ -102,13 +101,13 @@ def _assert_record_close(actual: Dict, expected: Dict, tol: float = 1e-4) -> Non
         if isinstance(actual_value, (int, float)) and isinstance(
             expected_value, (int, float)
         ):
-            assert np.isclose(actual_value, expected_value, atol=0, rtol=tol), (
-                f"Value mismatch for {key}: {actual_value} != {expected_value} (tol={tol})"
-            )
+            assert np.isclose(
+                actual_value, expected_value, atol=0, rtol=tol
+            ), f"Value mismatch for {key}: {actual_value} != {expected_value} (tol={tol})"
             continue
-        assert actual_value == expected_value, (
-            f"Value mismatch for {key}: {actual_value} != {expected_value}"
-        )
+        assert (
+            actual_value == expected_value
+        ), f"Value mismatch for {key}: {actual_value} != {expected_value}"
 
 
 def _collect_all_stats(root: Path) -> Dict[str, Dict[str, float]]:

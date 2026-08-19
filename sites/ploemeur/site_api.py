@@ -13,8 +13,8 @@ from typing import Any, Dict
 from pyage.site.base_site import BaseSite
 from sites.ploemeur.workflows.ploemeur_workflow import (
     load_workflow_params,
-    validate_workflow_params,
     run_workflow,
+    validate_workflow_params,
 )
 
 

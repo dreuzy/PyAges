@@ -8,6 +8,8 @@ Provide small, dataset-agnostic helpers to load concentration tables used
 across examples and site workflows.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from pyage.concentrations.concentrations import Concentrations

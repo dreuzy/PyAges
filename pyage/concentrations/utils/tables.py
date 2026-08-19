@@ -8,12 +8,16 @@ Normalize concentration data structures and assemble wide tables used for
 model comparisons and exports.
 """
 
+from __future__ import annotations
+
 from typing import Dict, Optional
 
 import pandas as pd
 
 
-def to_cv_dict(concentrations: pd.DataFrame | Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
+def to_cv_dict(
+    concentrations: pd.DataFrame | Dict[str, pd.DataFrame],
+) -> Dict[str, pd.DataFrame]:
     """
     Normalize concentrations to a dict {tracer: DataFrame(date, concentration, element)}.
 
@@ -32,7 +36,9 @@ def to_cv_dict(concentrations: pd.DataFrame | Dict[str, pd.DataFrame]) -> Dict[s
             )
         cv: Dict[str, pd.DataFrame] = {}
         for tracer, group in concentrations.groupby("element"):
-            cv[tracer] = group[["date", "concentration", "element"]].reset_index(drop=True)
+            cv[tracer] = group[["date", "concentration", "element"]].reset_index(
+                drop=True
+            )
         return cv
     raise TypeError(
         "Unsupported 'concentrations' format (expected dict or DataFrame with 'element')."

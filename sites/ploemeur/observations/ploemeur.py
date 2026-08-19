@@ -8,6 +8,8 @@ Centralize filesystem conventions for Ploemeur observations (raw/ori data,
 results folders) so examples and site workflows share the same access logic.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from pyage.config.paths import (

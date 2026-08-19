@@ -39,17 +39,17 @@ class GammaLpm(LpmScipy):
         directory_lpm : str
             Directory for LPM parameter files.
         """
-        parameter_values = {'k': k, 'scale': scale}
-        parameter_units = {'k': '', 'scale': 'year'}
+        parameter_values = {"k": k, "scale": scale}
+        parameter_units = {"k": "", "scale": "year"}
         super().__init__("gamma", parameter_values, parameter_units, directory_lpm)
 
     def _scipy_params(self):
-        return (self.p['k'],), 0, self.p['scale']  # (args), loc, scale
+        return (self.p["k"],), 0, self.p["scale"]  # (args), loc, scale
 
     def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
         """Return exact cumulative mass and truncated first moment."""
-        shape = float(self.p['k'])
-        scale = float(self.p['scale'])
+        shape = float(self.p["k"])
+        scale = float(self.p["scale"])
         if not np.isfinite(shape) or shape <= 0.0:
             raise ValueError(f"Gamma shape must be positive and finite, got {shape}")
         if not np.isfinite(scale) or scale <= 0.0:
@@ -61,9 +61,7 @@ class GammaLpm(LpmScipy):
         positive = values > 0.0
         if np.any(positive):
             first_moment[positive] = (
-                shape
-                * scale
-                * gammainc(shape + 1.0, values[positive] / scale)
+                shape * scale * gammainc(shape + 1.0, values[positive] / scale)
             )
         if values.ndim == 0:
             return float(cdf), float(first_moment)

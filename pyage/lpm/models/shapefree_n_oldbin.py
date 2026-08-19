@@ -29,7 +29,6 @@ from pyage.data_io import lpm_params
 from pyage.lpm.core.lpm_base import LpmBase
 from pyage.lpm.core.registry import register_lpm
 
-
 MODEL_NAME = "shapefree_n_oldbin"
 VALID_MODES = {"bounded", "support_open"}
 
@@ -72,7 +71,9 @@ def _as_float_array(values: list[Any], *, field_name: str) -> np.ndarray:
 
 
 def _load_model_spec(directory_lpm: str | Path | None) -> tuple[Path, dict[str, Any]]:
-    resolved_dir = Path(directory_lpm) if directory_lpm is not None else DIRECTORY_LPM_DATA
+    resolved_dir = (
+        Path(directory_lpm) if directory_lpm is not None else DIRECTORY_LPM_DATA
+    )
     return resolved_dir, lpm_params.load_params(MODEL_NAME, resolved_dir)
 
 
@@ -83,11 +84,17 @@ def _load_shape_spec(spec: dict[str, Any]) -> ShapeFreeSpec:
 
     mode = str(shapefree_cfg.get("mode", "bounded")).strip().lower()
     if mode not in VALID_MODES:
-        raise ValueError(f"{MODEL_NAME}: unsupported shapefree.mode={mode!r}, expected one of {sorted(VALID_MODES)}")
+        raise ValueError(
+            f"{MODEL_NAME}: unsupported shapefree.mode={mode!r}, expected one of {sorted(VALID_MODES)}"
+        )
 
-    edges = _as_float_array(list(shapefree_cfg.get("edges", [])), field_name="shapefree.edges")
+    edges = _as_float_array(
+        list(shapefree_cfg.get("edges", [])), field_name="shapefree.edges"
+    )
     if edges.size < 2:
-        raise ValueError(f"{MODEL_NAME}: shapefree.edges must define at least two edges")
+        raise ValueError(
+            f"{MODEL_NAME}: shapefree.edges must define at least two edges"
+        )
     if not np.isfinite(edges).all():
         raise ValueError(f"{MODEL_NAME}: shapefree.edges must be finite")
     if not np.all(np.diff(edges) > 0.0):
@@ -100,7 +107,9 @@ def _load_shape_spec(spec: dict[str, Any]) -> ShapeFreeSpec:
 
     support_end_max = shapefree_cfg.get("support_end_max")
     if support_end_max is None:
-        raise ValueError(f"{MODEL_NAME}: support_open mode requires shapefree.support_end_max")
+        raise ValueError(
+            f"{MODEL_NAME}: support_open mode requires shapefree.support_end_max"
+        )
     try:
         support_end_max = float(support_end_max)
     except (TypeError, ValueError) as exc:
@@ -117,10 +126,14 @@ def _load_shape_spec(spec: dict[str, Any]) -> ShapeFreeSpec:
     return ShapeFreeSpec(mode=mode, edges=edges, support_end_max=support_end_max)
 
 
-def _parameter_defaults(spec: dict[str, Any], n_fraction_bins: int) -> tuple[dict[str, float], dict[str, str]]:
+def _parameter_defaults(
+    spec: dict[str, Any], n_fraction_bins: int
+) -> tuple[dict[str, float], dict[str, str]]:
     parameter_defs = spec.get("parameters")
     if not isinstance(parameter_defs, list) or not parameter_defs:
-        raise ValueError(f"{MODEL_NAME}: params.yaml must define at least one parameter")
+        raise ValueError(
+            f"{MODEL_NAME}: params.yaml must define at least one parameter"
+        )
 
     expected_count = n_fraction_bins - 1
     if len(parameter_defs) != expected_count:
@@ -149,8 +162,12 @@ class ShapeFreeNOldBinLpm(LpmBase):
     def __init__(self, directory_lpm=None):
         resolved_dir, spec = _load_model_spec(directory_lpm)
         self._shape = _load_shape_spec(spec)
-        parameter_values, parameter_units = _parameter_defaults(spec, self._shape.n_bins)
-        super().__init__(MODEL_NAME, parameter_values, parameter_units, str(resolved_dir))
+        parameter_values, parameter_units = _parameter_defaults(
+            spec, self._shape.n_bins
+        )
+        super().__init__(
+            MODEL_NAME, parameter_values, parameter_units, str(resolved_dir)
+        )
 
     def bin_edges(self) -> np.ndarray:
         """Return the finite bin edges used for the current shape specification."""
@@ -175,7 +192,9 @@ class ShapeFreeNOldBinLpm(LpmBase):
 
         total = float(fractions.sum())
         if total <= 0.0:
-            raise ValueError(f"{MODEL_NAME}: invalid fraction state with non-positive total mass")
+            raise ValueError(
+                f"{MODEL_NAME}: invalid fraction state with non-positive total mass"
+            )
         return fractions / total
 
     def _pdf_array(self, t_arr: np.ndarray, edges: np.ndarray) -> np.ndarray:
@@ -210,7 +229,9 @@ class ShapeFreeNOldBinLpm(LpmBase):
         fractions = self.fractions()
         cumulative_before = 0.0
         widths = np.diff(edges)
-        for left, right, width, fraction in zip(edges[:-1], edges[1:], widths, fractions):
+        for left, right, width, fraction in zip(
+            edges[:-1], edges[1:], widths, fractions
+        ):
             if width <= 0.0:
                 continue
             if value < right:
@@ -225,7 +246,9 @@ class ShapeFreeNOldBinLpm(LpmBase):
         edges = self.bin_edges()
         if t_arr.ndim == 0:
             return self._cdf_scalar(float(t_arr), edges)
-        return np.asarray([self._cdf_scalar(float(value), edges) for value in t_arr], dtype=float)
+        return np.asarray(
+            [self._cdf_scalar(float(value), edges) for value in t_arr], dtype=float
+        )
 
     def cdf_and_partial_first_moment(
         self,
@@ -247,10 +270,7 @@ class ShapeFreeNOldBinLpm(LpmBase):
             upper = np.clip(values, left, right)
             first_moment += np.where(
                 values > left,
-                fraction
-                * (upper - left)
-                * (upper + left)
-                / (2.0 * width),
+                fraction * (upper - left) * (upper + left) / (2.0 * width),
                 0.0,
             )
         if values.ndim == 0:
@@ -284,7 +304,9 @@ class ShapeFreeNOldBinLpm(LpmBase):
         edges = self.bin_edges()
         if p_arr.ndim == 0:
             return self._cdf_inv_scalar(float(p_arr), edges)
-        return np.asarray([self._cdf_inv_scalar(float(value), edges) for value in p_arr], dtype=float)
+        return np.asarray(
+            [self._cdf_inv_scalar(float(value), edges) for value in p_arr], dtype=float
+        )
 
     def mean(self) -> float:
         """Return the mean age of the piecewise-uniform distribution."""

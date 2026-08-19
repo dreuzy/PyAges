@@ -27,12 +27,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from pyage.config.paths import DIRECTORY_LPM_DATA
-
 from pyage.lpm.core.registry import (
     UnknownLPMType,
     get_lpm_class,
-    list_available_lpms,
     is_registered,
+    list_available_lpms,
 )
 
 if TYPE_CHECKING:

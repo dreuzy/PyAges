@@ -5,9 +5,9 @@ Runtime configuration helpers (display and timing).
 
 from __future__ import annotations
 
-from pathlib import Path
 import time
 import warnings
+from pathlib import Path
 
 import numpy as np
 
@@ -24,12 +24,15 @@ class DisplayOptions:
         self.figure_save = False
         self.directory: str | Path | None = None
 
-    def save_and_close(self, fig, filename, method="", dpi=300, ax=None, with_legend=False):
+    def save_and_close(
+        self, fig, filename, method="", dpi=300, ax=None, with_legend=False
+    ):
         """
         Sauvegarde et ferme une figure matplotlib, avec gestion robuste
         des warnings liés à tight_layout et legend(loc="best").
         """
         import matplotlib.pyplot as plt
+
         filepath = Path(self.directory) / method / filename
         filepath.parent.mkdir(parents=True, exist_ok=True)
 
@@ -64,6 +67,7 @@ class DisplayOptions:
 
     def figure_close_fx(self, filename):
         import matplotlib.pyplot as plt
+
         if self.figure_save and self.directory is not None:
             plt.savefig(Path(self.directory) / filename, dpi=300)
         if self.figure_close:

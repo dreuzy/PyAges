@@ -105,7 +105,9 @@ class MHStep:
         """Compute proposal steps from model parameter ranges."""
         intervals = {name: lpm.get_param_range(name) for name in lpm.p}
         self.interval = intervals
-        self.value = {name: self.prop * interval for name, interval in intervals.items()}
+        self.value = {
+            name: self.prop * interval for name, interval in intervals.items()
+        }
 
     def load_MHsteps(self, lpm: Any) -> None:
         """Load explicit proposal steps from ``params.yaml``."""

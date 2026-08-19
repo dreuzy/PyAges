@@ -1,4 +1,3 @@
-
 """Public package metadata for PyAge.
 
 Scientific APIs are exposed by their focused subpackages, for example

@@ -6,17 +6,17 @@ Defines the shared preparation flow (LPM + tracers + errors + sampling),
 the objective function used during calibration, and standardized outputs.
 """
 
-
-from pyage.calibration.utils.systematic_sampling import SystematicSampling
-from pyage.calibration.utils.objective_functions import L2_norm_diff
-from pyage.config.paths import DIRECTORY_LPM_DATA
-from pyage.config.runtime import DisplayOptions
-import pyage.lpm.lpm_build as lpm_build_module                                        
-import pyage.convolution.convolution_tracers as convolution_tracers      
-
 from pathlib import Path
 
-def folder_prior_posterior(file, stageup=-5, folder_prior=""): 
+import pyage.convolution.convolution_tracers as convolution_tracers
+import pyage.lpm.lpm_build as lpm_build_module
+from pyage.calibration.utils.objective_functions import L2_norm_diff
+from pyage.calibration.utils.systematic_sampling import SystematicSampling
+from pyage.config.paths import DIRECTORY_LPM_DATA
+from pyage.config.runtime import DisplayOptions
+
+
+def folder_prior_posterior(file, stageup=-5, folder_prior=""):
     """Return the folder used to store posterior distributions for reuse as priors.
 
     Parameters
@@ -35,13 +35,15 @@ def folder_prior_posterior(file, stageup=-5, folder_prior=""):
         Existing or newly created folder path.
     """
     file_path = Path(file).resolve()
-    
+
     # on remonte de |stageup| niveaux
     try:
         folder_root = file_path.parents[abs(stageup) - 1]
-    except IndexError:
-        raise ValueError(f"stageup={stageup} remonte trop haut pour {file_path}")
-    
+    except IndexError as exc:
+        raise ValueError(
+            f"stageup={stageup} remonte trop haut pour {file_path}"
+        ) from exc
+
     # sous-dossier prior_distributions
     folder_root = folder_root / "prior_distributions"
     folder_root.mkdir(parents=True, exist_ok=True)
@@ -50,11 +52,11 @@ def folder_prior_posterior(file, stageup=-5, folder_prior=""):
     if folder_prior:
         folder_root = folder_root / folder_prior
         folder_root.mkdir(parents=True, exist_ok=True)
-    
+
     return folder_root
 
 
-def file_prior_posterior(file_ploemeur, error_concentrations, lpm_type): 
+def file_prior_posterior(file_ploemeur, error_concentrations, lpm_type):
     """Build a posterior filename stem from the case settings.
 
     Parameters
@@ -74,7 +76,7 @@ def file_prior_posterior(file_ploemeur, error_concentrations, lpm_type):
     return file_ploemeur + "_err_" + str(error_concentrations) + "_lpm_" + lpm_type
 
 
-class CalibrationCore(SystematicSampling): 
+class CalibrationCore(SystematicSampling):
     """Shared calibration behavior for LPM models.
 
     This class defines the common preparation flow (LPM, tracers, errors,
@@ -115,7 +117,7 @@ class CalibrationCore(SystematicSampling):
         reachconc : bool, optional
             Whether to compute reachable concentrations.
         """
-        
+
         self.cdata = cdata
         self.lpm_type = LPM_type
         self.directory_lpm = directory_lpm
@@ -141,7 +143,9 @@ class CalibrationCore(SystematicSampling):
             tracer_data_dir=self.tracer_data_dir,
         )
         # Definition of errors (if error == 0, takes mean chronicle value)
-        self.cdata.error_affect_from_mean(self.tracers.mean_value(self.cdata.cv["date"].mean()))
+        self.cdata.error_affect_from_mean(
+            self.tracers.mean_value(self.cdata.cv["date"].mean())
+        )
         # Preparation of convolution
         self.tracers.prepare(self.lpm)
         # Init SystematicSampling
@@ -166,8 +170,7 @@ class CalibrationCore(SystematicSampling):
             raise RuntimeError(
                 "CalibrationCore.prepare() must be called before using this method."
             )
-    
-    
+
     def objective_function(self, param, data_c, data_error, conc=False):
         """Compute the objective value for a set of model parameters.
 
@@ -200,19 +203,18 @@ class CalibrationCore(SystematicSampling):
             apply_age_correction=True,
         )
         # Squared difference
-        #JRBUG
-        if any(data_error==0):         
+        # JRBUG
+        if any(data_error == 0):
             print("error concentration errors not defined")
             print(data_error)
             print(self.lpm.name)
-        #JRBUG
+        # JRBUG
         diff = sum(L2_norm_diff(data_c, model_c, data_error))
         # diff = sum(np.square((model_c-data_c)/data_error))
-        if conc: 
-            return [diff,model_c]
-        else: 
+        if conc:
+            return [diff, model_c]
+        else:
             return diff
-    
 
     def display_concentrations(self):
         """Display observed and modeled concentrations for the current LPM."""
@@ -224,10 +226,9 @@ class CalibrationCore(SystematicSampling):
             return_type="concentrations",
         )
         concentration_computed.display()
-        print("J=",self.cdata.sqrt_quadratic_mean_diff(concentration_computed))
-  
-        
-    def display_lpms(self,display_options,lpm_results,lpm_reference=None):
+        print("J=", self.cdata.sqrt_quadratic_mean_diff(concentration_computed))
+
+    def display_lpms(self, display_options, lpm_results, lpm_reference=None):
         """Display calibrated LPM results and optional reference comparisons.
 
         Parameters
@@ -240,20 +241,27 @@ class CalibrationCore(SystematicSampling):
             Reference LPM for comparison.
         """
         self._ensure_prepared()
-        #JR: Should it be different
-        if self.method == "Simplex" or self.method == "Simplex_init_multipes": 
+        # JR: Should it be different
+        if self.method == "Simplex" or self.method == "Simplex_init_multipes":
             # Comparison of parameters
             if display_options.text and lpm_reference is not None:
                 [exist, lpm] = lpm_results.get_best_lpm()
                 if exist:
                     lpm.display_parameters(lpm_reference)
-        if self.method == "forward_uncertainty_quantification" or self.method == "Metropolis_Hastings" :
+        if (
+            self.method == "forward_uncertainty_quantification"
+            or self.method == "Metropolis_Hastings"
+        ):
             # Distribution of parameters
-            if display_options.figure : 
-                lpm_results.display_parameters_dist(self_method=self.method,lpm_reference=lpm_reference,bins=100,directory=self.display_options.directory)
+            if display_options.figure:
+                lpm_results.display_parameters_dist(
+                    self_method=self.method,
+                    lpm_reference=lpm_reference,
+                    bins=100,
+                    directory=self.display_options.directory,
+                )
 
-
-    def write_calibrated_lpm(self,lpm_results,file_prior="none",folder_prior=""): 
+    def write_calibrated_lpm(self, lpm_results, file_prior="none", folder_prior=""):
         """Write calibrated LPM outputs and optional prior distributions.
 
         Parameters
@@ -264,23 +272,24 @@ class CalibrationCore(SystematicSampling):
             File stem for prior/posterior storage.
         folder_prior : str, optional
             Subfolder for prior storage.
-        """ 
+        """
         self._ensure_prepared()
         # Writes calibration parameters and efficiencty results
         base_dir = Path(self.display_options.directory)
         self.write_parameters(base_dir / "parameters_calibration.txt")
         self.write_results(base_dir / "results_calibration.txt")
         # Writes distribution of "best" lpm
-        if self.method != "Simplex" : 
+        if self.method != "Simplex":
             lpm_results.write_dist(base_dir / "lpm_dist_calibrated.txt")
             lpm_results.write_histograms(base_dir / "lpm_histo_calibrated.txt")
             lpm_results.write_stats(base_dir / "lpm_stats_calibrated.txt")
-        if self.method == "Metropolis_Hastings" : 
+        if self.method == "Metropolis_Hastings":
             prior_dir = folder_prior_posterior(
                 self.display_options.directory, stageup=-5, folder_prior=folder_prior
             )
             lpm_results.write_histograms(prior_dir / f"{file_prior}.txt")
-    def write_results(self,file_name):
+
+    def write_results(self, file_name):
         """Write scalar calibration results to a text file.
 
         Parameters
@@ -288,9 +297,9 @@ class CalibrationCore(SystematicSampling):
         file_name : str or Path
             Output file path.
         """
-        data={}
+        data = {}
         # Generic results for all calibration methods
-        data['time_perform'] = self.time_perform
+        data["time_perform"] = self.time_perform
         # Specific results to this calibration method
         self.write_results_spec(data)
         # Writing in file
@@ -298,4 +307,3 @@ class CalibrationCore(SystematicSampling):
         with file_path.open("w") as handle:
             for key, val in data.items():
                 handle.write(f"{key}\t{val}\n")
-        

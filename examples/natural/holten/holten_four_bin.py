@@ -22,35 +22,133 @@ import pandas as pd
 from scipy.optimize import minimize
 from scipy.special import expit
 
+from examples.natural.holten.holten_benchmark import build_reference_curve
+from examples.natural.holten.holten_case import (
+    PreparedHoltenCase,
+    build_context,
+    load_yaml,
+    tracer_yaml_path,
+)
 from pyage.tracer.decay import rate_from_config
 
-from examples.natural.holten.holten_benchmark import build_reference_curve
-from examples.natural.holten.holten_case import PreparedHoltenCase, build_context, load_yaml, tracer_yaml_path
-
-
 BIN_DEFINITIONS = (
-    {"name": "f_0_20", "label": "0-20", "age_min": 0.0, "age_max": 20.0, "representative_age": 10.0},
-    {"name": "f_20_40", "label": "20-40", "age_min": 20.0, "age_max": 40.0, "representative_age": 30.0},
-    {"name": "f_40_60", "label": "40-60", "age_min": 40.0, "age_max": 60.0, "representative_age": 50.0},
-    {"name": "f_old", "label": ">60", "age_min": 60.0, "age_max": np.inf, "representative_age": 310.0},
+    {
+        "name": "f_0_20",
+        "label": "0-20",
+        "age_min": 0.0,
+        "age_max": 20.0,
+        "representative_age": 10.0,
+    },
+    {
+        "name": "f_20_40",
+        "label": "20-40",
+        "age_min": 20.0,
+        "age_max": 40.0,
+        "representative_age": 30.0,
+    },
+    {
+        "name": "f_40_60",
+        "label": "40-60",
+        "age_min": 40.0,
+        "age_max": 60.0,
+        "representative_age": 50.0,
+    },
+    {
+        "name": "f_old",
+        "label": ">60",
+        "age_min": 60.0,
+        "age_max": np.inf,
+        "representative_age": 310.0,
+    },
 )
 BIN_ORDER = [item["name"] for item in BIN_DEFINITIONS]
 FRACTION_COLUMNS = BIN_ORDER
 LOCAL_4BIN_TRACER_ORDER = ("3H", "kr85", "39Ar")
+LOCAL_4BIN_TRACER_ORDER_WITH_HELIUM = ("3H", "3He_trit", "kr85", "39Ar")
 
 
 def _reference_year(prepared: PreparedHoltenCase) -> float:
     return float(prepared.observed_aggregated["date"].median())
 
 
-def _local_4bin_observations(prepared: PreparedHoltenCase, well_id: str) -> pd.DataFrame:
+def tritium_parent_daughter(
+    initial_tritium: float | np.ndarray,
+    age_years: float | np.ndarray,
+    *,
+    half_life_years: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return conserved 3H and tritiogenic-3He concentrations for Holten.
+
+    ``initial_tritium`` is the effective saturated-zone input in TU.  The
+    daughter result is therefore in equivalent TU and deliberately excludes
+    atmospheric, terrigenic, and radiogenic helium, which have already been
+    removed from Visser's ``3He_trit_TU`` observations.
+    """
+
+    if half_life_years <= 0.0:
+        raise ValueError("Tritium half-life must be positive")
+    initial = np.asarray(initial_tritium, dtype=float)
+    ages = np.asarray(age_years, dtype=float)
+    if np.any(ages < 0.0):
+        raise ValueError("Transit ages must be non-negative")
+    decay_rate = np.log(2.0) / float(half_life_years)
+    parent = initial * np.exp(-decay_rate * ages)
+    daughter = initial * (1.0 - np.exp(-decay_rate * ages))
+    return parent, daughter
+
+
+def _local_4bin_observations(
+    prepared: PreparedHoltenCase,
+    well_id: str,
+    *,
+    include_helium: bool = False,
+) -> pd.DataFrame:
     obs = prepared.observed_by_well[well_id].copy()
-    order_map = {name: idx for idx, name in enumerate(LOCAL_4BIN_TRACER_ORDER)}
+    tracer_order = LOCAL_4BIN_TRACER_ORDER
+    if include_helium:
+        helium = prepared.helium_diagnostics.loc[
+            prepared.helium_diagnostics["well_id"] == well_id
+        ]
+        if helium.empty:
+            raise ValueError(f"Missing helium diagnostics for well {well_id}")
+        helium_row = helium.iloc[0]
+        if pd.isna(helium_row["3He_trit_TU"]) or pd.isna(helium_row["3He_err"]):
+            raise ValueError(
+                f"Missing 3He_trit observation or uncertainty for well {well_id}"
+            )
+        obs = pd.concat(
+            [
+                obs,
+                pd.DataFrame(
+                    [
+                        {
+                            "element": "3He_trit",
+                            "concentration": float(helium_row["3He_trit_TU"]),
+                            "error": float(helium_row["3He_err"]),
+                            "unit": "TU_equivalent",
+                            "date": float(helium_row["date"]),
+                        }
+                    ]
+                ),
+            ],
+            ignore_index=True,
+        )
+        tracer_order = LOCAL_4BIN_TRACER_ORDER_WITH_HELIUM
+
+    order_map = {name: idx for idx, name in enumerate(tracer_order)}
     obs["_local_order"] = obs["element"].map(order_map)
     if obs["_local_order"].isna().any():
-        unknown = sorted(obs.loc[obs["_local_order"].isna(), "element"].astype(str).unique())
-        raise ValueError(f"Unsupported local 4-bin tracer(s) for well {well_id}: {unknown}")
-    obs = obs.sort_values(["_local_order", "date"]).drop(columns="_local_order").reset_index(drop=True)
+        unknown = sorted(
+            obs.loc[obs["_local_order"].isna(), "element"].astype(str).unique()
+        )
+        raise ValueError(
+            f"Unsupported local 4-bin tracer(s) for well {well_id}: {unknown}"
+        )
+    obs = (
+        obs.sort_values(["_local_order", "date"])
+        .drop(columns="_local_order")
+        .reset_index(drop=True)
+    )
     return obs
 
 
@@ -72,7 +170,9 @@ def _tritium_input_value(
     return interp
 
 
-def _old_endmember_value(prepared: PreparedHoltenCase, tracer_name: str, reference_year: float) -> float:
+def _old_endmember_value(
+    prepared: PreparedHoltenCase, tracer_name: str, reference_year: float
+) -> float:
     tracer_cfg = load_yaml(tracer_yaml_path(prepared.context, tracer_name))
     holten_cfg = tracer_cfg["holten"]
     if tracer_name == "39Ar":
@@ -91,7 +191,9 @@ def _old_endmember_value(prepared: PreparedHoltenCase, tracer_name: str, referen
     raise ValueError(f"Unsupported tracer for Holten 4-bin fit: {tracer_name}")
 
 
-def _old_endmember_3he_trit(prepared: PreparedHoltenCase, reference_year: float) -> float:
+def _old_endmember_3he_trit(
+    prepared: PreparedHoltenCase, reference_year: float
+) -> float:
     tracer_cfg = load_yaml(tracer_yaml_path(prepared.context, "3H"))
     premodern = float(tracer_cfg["holten"]["premodern_input"]["value"])
     decay_rate = rate_from_config(tracer_cfg)
@@ -125,17 +227,27 @@ def _reference_curve_value(
         elif tracer_name == "39Ar":
             interp[missing] = values[0]
         else:
-            raise ValueError(f"Unsupported tracer for interpolation fallback: {tracer_name}")
+            raise ValueError(
+                f"Unsupported tracer for interpolation fallback: {tracer_name}"
+            )
     return interp
 
 
-def build_4bin_endmembers(prepared: PreparedHoltenCase) -> pd.DataFrame:
+def build_4bin_endmembers(
+    prepared: PreparedHoltenCase,
+    *,
+    include_helium: bool = False,
+) -> pd.DataFrame:
     reference_year = _reference_year(prepared)
     rows: list[dict[str, Any]] = []
 
     for tracer_name, raw_history in prepared.tracer_histories.items():
-        observed = prepared.observed_aggregated.loc[prepared.observed_aggregated["element"] == tracer_name].copy()
-        display_history = build_reference_curve(prepared, tracer_name, raw_history, observed)
+        observed = prepared.observed_aggregated.loc[
+            prepared.observed_aggregated["element"] == tracer_name
+        ].copy()
+        display_history = build_reference_curve(
+            prepared, tracer_name, raw_history, observed
+        )
         tracer_cfg = load_yaml(tracer_yaml_path(prepared.context, tracer_name))
         unit = str(display_history["unit"].iloc[0])
 
@@ -145,7 +257,9 @@ def build_4bin_endmembers(prepared: PreparedHoltenCase) -> pd.DataFrame:
             lower_date = reference_year - age_max
             upper_date = reference_year - age_min
             sample_dates = np.linspace(lower_date, upper_date, 120)
-            sample_values = _reference_curve_value(tracer_name, tracer_cfg, display_history, reference_year, sample_dates)
+            sample_values = _reference_curve_value(
+                tracer_name, tracer_cfg, display_history, reference_year, sample_dates
+            )
             rows.append(
                 {
                     "tracer": tracer_name,
@@ -168,8 +282,63 @@ def build_4bin_endmembers(prepared: PreparedHoltenCase) -> pd.DataFrame:
                 "age_min": old_spec["age_min"],
                 "age_max": np.nan,
                 "representative_age": old_spec["representative_age"],
-                "concentration": _old_endmember_value(prepared, tracer_name, reference_year),
+                "concentration": _old_endmember_value(
+                    prepared, tracer_name, reference_year
+                ),
                 "unit": unit,
+            }
+        )
+
+    if include_helium:
+        tritium_history = prepared.tracer_histories["3H"]
+        tritium_cfg = load_yaml(tracer_yaml_path(prepared.context, "3H"))
+        half_life = float(tritium_cfg["half_life"])
+        for spec in BIN_DEFINITIONS[:-1]:
+            ages = np.linspace(float(spec["age_min"]), float(spec["age_max"]), 120)
+            recharge_years = reference_year - ages
+            initial = _tritium_input_value(
+                tritium_history,
+                tritium_cfg,
+                reference_year,
+                recharge_years,
+            )
+            _, daughter = tritium_parent_daughter(
+                initial,
+                ages,
+                half_life_years=half_life,
+            )
+            rows.append(
+                {
+                    "tracer": "3He_trit",
+                    "bin_name": spec["name"],
+                    "bin_label": spec["label"],
+                    "age_min": spec["age_min"],
+                    "age_max": spec["age_max"],
+                    "representative_age": spec["representative_age"],
+                    "concentration": float(np.mean(daughter)),
+                    "unit": "TU_equivalent",
+                }
+            )
+
+        tritium_cfg_holten = tritium_cfg["holten"]
+        old_initial = float(tritium_cfg_holten["premodern_input"]["value"])
+        old_age = max(60.0, reference_year - 1953.0)
+        _, old_daughter = tritium_parent_daughter(
+            old_initial,
+            old_age,
+            half_life_years=half_life,
+        )
+        old_spec = BIN_DEFINITIONS[-1]
+        rows.append(
+            {
+                "tracer": "3He_trit",
+                "bin_name": old_spec["name"],
+                "bin_label": old_spec["label"],
+                "age_min": old_spec["age_min"],
+                "age_max": np.nan,
+                "representative_age": old_spec["representative_age"],
+                "concentration": float(old_daughter),
+                "unit": "TU_equivalent",
             }
         )
 
@@ -196,11 +365,16 @@ def _fractions_array(fractions: dict[str, float]) -> np.ndarray:
 
 def _mean_age_local_4bin(fractions: dict[str, float]) -> float:
     return float(
-        sum(fractions[name] * spec["representative_age"] for name, spec in zip(BIN_ORDER, BIN_DEFINITIONS))
+        sum(
+            fractions[name] * spec["representative_age"]
+            for name, spec in zip(BIN_ORDER, BIN_DEFINITIONS)
+        )
     )
 
 
-def _modeled_concentrations(matrix: np.ndarray, fractions: dict[str, float]) -> np.ndarray:
+def _modeled_concentrations(
+    matrix: np.ndarray, fractions: dict[str, float]
+) -> np.ndarray:
     return matrix @ _fractions_array(fractions)
 
 
@@ -213,13 +387,17 @@ def _endmember_matrix(endmembers: pd.DataFrame, tracer_order: list[str]) -> np.n
     return matrix
 
 
-def _objective_from_matrix(matrix: np.ndarray, y: np.ndarray, sigma: np.ndarray, z: np.ndarray) -> float:
+def _objective_from_matrix(
+    matrix: np.ndarray, y: np.ndarray, sigma: np.ndarray, z: np.ndarray
+) -> float:
     fractions = _stick_breaking_fractions(z)
     residual = (_modeled_concentrations(matrix, fractions) - y) / sigma
     return float(np.sum(residual * residual))
 
 
-def _optimize_well_4bin(obs: pd.DataFrame, endmembers: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list[str], Any]:
+def _optimize_well_4bin(
+    obs: pd.DataFrame, endmembers: pd.DataFrame
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list[str], Any]:
     tracer_order = obs["element"].tolist()
     y = obs["concentration"].to_numpy(dtype=float)
     sigma = obs["error"].to_numpy(dtype=float)
@@ -230,6 +408,7 @@ def _optimize_well_4bin(obs: pd.DataFrame, endmembers: pd.DataFrame) -> tuple[np
         np.array([1.0, 0.0, 0.0], dtype=float),
         np.array([-1.0, 0.5, 0.0], dtype=float),
     )
+
     def objective(z):
         return _objective_from_matrix(matrix, y, sigma, z)
 
@@ -244,17 +423,27 @@ def _optimize_well_4bin(obs: pd.DataFrame, endmembers: pd.DataFrame) -> tuple[np
         candidates.append(minimize(objective, x0=refined_start, method="Powell"))
 
     successful = [result for result in candidates if bool(result.success)]
-    best = min(successful, key=lambda result: float(result.fun)) if successful else min(
-        candidates,
-        key=lambda result: float(result.fun),
+    best = (
+        min(successful, key=lambda result: float(result.fun))
+        if successful
+        else min(
+            candidates,
+            key=lambda result: float(result.fun),
+        )
     )
 
     assert best is not None
     return matrix, y, sigma, best.x, tracer_order, best
 
 
-def fit_well_4bin(prepared: PreparedHoltenCase, well_id: str, endmembers: pd.DataFrame) -> tuple[dict[str, Any], pd.DataFrame]:
-    obs = _local_4bin_observations(prepared, well_id)
+def fit_well_4bin(
+    prepared: PreparedHoltenCase,
+    well_id: str,
+    endmembers: pd.DataFrame,
+    *,
+    include_helium: bool = False,
+) -> tuple[dict[str, Any], pd.DataFrame]:
+    obs = _local_4bin_observations(prepared, well_id, include_helium=include_helium)
     matrix, y, sigma, z_opt, tracer_order, best = _optimize_well_4bin(obs, endmembers)
     fractions = _stick_breaking_fractions(z_opt)
     modeled = _modeled_concentrations(matrix, fractions)
@@ -284,7 +473,9 @@ def fit_well_4bin(prepared: PreparedHoltenCase, well_id: str, endmembers: pd.Dat
         **fractions,
         "chi2_local_4bin": float(np.sum(weighted_residual * weighted_residual)),
         "rmse_local_4bin": float(np.sqrt(np.mean(residual * residual))),
-        "weighted_rmse_local_4bin": float(np.sqrt(np.mean(weighted_residual * weighted_residual))),
+        "weighted_rmse_local_4bin": float(
+            np.sqrt(np.mean(weighted_residual * weighted_residual))
+        ),
         "mean_age_local_4bin": _mean_age_local_4bin(fractions),
         "optimization_success": bool(best.success),
         "optimization_message": str(best.message),
@@ -292,12 +483,21 @@ def fit_well_4bin(prepared: PreparedHoltenCase, well_id: str, endmembers: pd.Dat
     return summary, pd.DataFrame(fit_rows)
 
 
-def fit_all_wells_4bin(prepared: PreparedHoltenCase) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    endmembers = build_4bin_endmembers(prepared)
+def fit_all_wells_4bin(
+    prepared: PreparedHoltenCase,
+    *,
+    include_helium: bool = False,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    endmembers = build_4bin_endmembers(prepared, include_helium=include_helium)
     summary_rows: list[dict[str, Any]] = []
     fit_frames: list[pd.DataFrame] = []
     for well_id in prepared.context.selected_wells:
-        summary, fit_frame = fit_well_4bin(prepared, well_id, endmembers)
+        summary, fit_frame = fit_well_4bin(
+            prepared,
+            well_id,
+            endmembers,
+            include_helium=include_helium,
+        )
         summary_rows.append(summary)
         fit_frames.append(fit_frame)
     summary_df = pd.DataFrame(summary_rows)
@@ -343,7 +543,11 @@ def _extract_4bin_cumulative(raw_table: pd.DataFrame) -> pd.DataFrame:
         if isinstance(label, str) and label.strip():
             current_model = label.strip()
         age_value = row[age_col]
-        if current_model == "4-bins" and pd.notna(age_value) and str(age_value).strip() != "Age":
+        if (
+            current_model == "4-bins"
+            and pd.notna(age_value)
+            and str(age_value).strip() != "Age"
+        ):
             model_rows.append(
                 {
                     "age": float(age_value),
@@ -375,7 +579,10 @@ def load_paper_4bin_fractions(prepared: PreparedHoltenCase) -> pd.DataFrame:
     raw_table = _load_shape_free_reference_table(prepared)
     cumulative = _extract_4bin_cumulative(raw_table)
 
-    rows = [_paper_fraction_row(cumulative, well_id) for well_id in prepared.context.selected_wells]
+    rows = [
+        _paper_fraction_row(cumulative, well_id)
+        for well_id in prepared.context.selected_wells
+    ]
     return pd.DataFrame(rows)
 
 
@@ -387,9 +594,12 @@ def sample_well_4bin_mh(
     burn_in: float = 0.2,
     proposal_scale: float = 0.18,
     seed: int = 12345,
+    include_helium: bool = False,
 ) -> pd.DataFrame:
-    obs = _local_4bin_observations(prepared, well_id)
-    matrix, y, sigma, z_current, tracer_order, best = _optimize_well_4bin(obs, endmembers)
+    obs = _local_4bin_observations(prepared, well_id, include_helium=include_helium)
+    matrix, y, sigma, z_current, tracer_order, best = _optimize_well_4bin(
+        obs, endmembers
+    )
     current_obj = float(best.fun)
     rng = np.random.default_rng(seed)
     burn_count = int(nstep * burn_in)
@@ -419,7 +629,9 @@ def sample_well_4bin_mh(
                 "mean_age_local_4bin": _mean_age_local_4bin(fractions),
                 **fractions,
             }
-            for tracer_name, modeled_value, observed_value, sigma_value in zip(tracer_order, modeled, y, sigma):
+            for tracer_name, modeled_value, observed_value, sigma_value in zip(
+                tracer_order, modeled, y, sigma
+            ):
                 record[f"{tracer_name}_modeled"] = float(modeled_value)
                 record[f"{tracer_name}_observed"] = float(observed_value)
                 record[f"{tracer_name}_error"] = float(sigma_value)
@@ -435,6 +647,7 @@ def sample_all_wells_4bin_mh(
     burn_in: float = 0.2,
     proposal_scale: float = 0.18,
     seed: int = 12345,
+    include_helium: bool = False,
 ) -> pd.DataFrame:
     frames: list[pd.DataFrame] = []
     for idx, well_id in enumerate(prepared.context.selected_wells):
@@ -447,6 +660,7 @@ def sample_all_wells_4bin_mh(
                 burn_in=burn_in,
                 proposal_scale=proposal_scale,
                 seed=seed + 101 * idx,
+                include_helium=include_helium,
             )
         )
     return pd.concat(frames, ignore_index=True)
@@ -474,7 +688,9 @@ def summarize_4bin_mh_posterior(samples: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def compare_paper_vs_mh_4bin(paper: pd.DataFrame, posterior: pd.DataFrame) -> pd.DataFrame:
+def compare_paper_vs_mh_4bin(
+    paper: pd.DataFrame, posterior: pd.DataFrame
+) -> pd.DataFrame:
     merged = paper.merge(posterior, on="well_id", how="inner")
     rows: list[dict[str, Any]] = []
     for _, row in merged.iterrows():
@@ -513,10 +729,15 @@ def _plot_fraction_bars(summary: pd.DataFrame, output_dir: Path) -> Path:
 
 def _plot_modeled_vs_observed(fit_df: pd.DataFrame, output_dir: Path) -> Path:
     order_map = {name: idx for idx, name in enumerate(LOCAL_4BIN_TRACER_ORDER)}
-    tracers = sorted(fit_df["tracer"].astype(str).unique().tolist(), key=lambda name: order_map.get(name, 999))
+    tracers = sorted(
+        fit_df["tracer"].astype(str).unique().tolist(),
+        key=lambda name: order_map.get(name, 999),
+    )
     ncols = 2 if len(tracers) > 3 else len(tracers)
     nrows = int(np.ceil(len(tracers) / ncols))
-    fig, axes = plt.subplots(nrows, ncols, figsize=(6.0 * ncols, 4.2 * nrows), sharey=False)
+    fig, axes = plt.subplots(
+        nrows, ncols, figsize=(6.0 * ncols, 4.2 * nrows), sharey=False
+    )
     axes_array = np.atleast_1d(axes).reshape(nrows, ncols)
     flat_axes = axes_array.ravel()
     for ax, tracer_name in zip(flat_axes, tracers):
@@ -535,7 +756,7 @@ def _plot_modeled_vs_observed(fit_df: pd.DataFrame, output_dir: Path) -> Path:
         ax.set_title(tracer_name)
         ax.set_ylabel(f"Concentration [{subset.iloc[0]['unit']}]")
         ax.grid(axis="y", alpha=0.25)
-    for ax in flat_axes[len(tracers):]:
+    for ax in flat_axes[len(tracers) :]:
         ax.axis("off")
     flat_axes[0].legend(loc="best")
     fig.suptitle("Holten local 4-bin fit: observed vs modeled concentrations")
@@ -601,7 +822,12 @@ def _plot_fraction_posteriors(
                     ha="right",
                     va="top",
                     fontsize=8,
-                    bbox={"boxstyle": "round,pad=0.2", "fc": "white", "ec": "#b0b0b0", "alpha": 0.9},
+                    bbox={
+                        "boxstyle": "round,pad=0.2",
+                        "fc": "white",
+                        "ec": "#b0b0b0",
+                        "alpha": 0.9,
+                    },
                 )
             elif q10 > 0.75:
                 ax.text(
@@ -612,7 +838,12 @@ def _plot_fraction_posteriors(
                     ha="right",
                     va="top",
                     fontsize=8,
-                    bbox={"boxstyle": "round,pad=0.2", "fc": "white", "ec": "#b0b0b0", "alpha": 0.9},
+                    bbox={
+                        "boxstyle": "round,pad=0.2",
+                        "fc": "white",
+                        "ec": "#b0b0b0",
+                        "alpha": 0.9,
+                    },
                 )
             ax.text(
                 0.98,
@@ -625,7 +856,9 @@ def _plot_fraction_posteriors(
                 color="#333333",
             )
     fig.supxlabel("Fraction value")
-    fig.suptitle("Holten 4-bin fractions: local MH posterior with paper reference", y=1.02)
+    fig.suptitle(
+        "Holten 4-bin fractions: local MH posterior with paper reference", y=1.02
+    )
     fig.tight_layout()
     out_path = output_dir / "holten_4bin_mh_fraction_posteriors.png"
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
@@ -633,7 +866,9 @@ def _plot_fraction_posteriors(
     return out_path
 
 
-def _plot_fraction_interval_comparison(comparison: pd.DataFrame, output_dir: Path) -> Path:
+def _plot_fraction_interval_comparison(
+    comparison: pd.DataFrame, output_dir: Path
+) -> Path:
     panel_titles = {
         "f_0_20": "0-20 years",
         "f_20_40": "20-40 years",
@@ -646,7 +881,12 @@ def _plot_fraction_interval_comparison(comparison: pd.DataFrame, output_dir: Pat
         "f_40_60": r"$f_3$",
         "f_old": r"$f_4$",
     }
-    fig, axes = plt.subplots(1, len(FRACTION_COLUMNS), figsize=(4.8 * len(FRACTION_COLUMNS), 5.2), sharey=True)
+    fig, axes = plt.subplots(
+        1,
+        len(FRACTION_COLUMNS),
+        figsize=(4.8 * len(FRACTION_COLUMNS), 5.2),
+        sharey=True,
+    )
     if len(FRACTION_COLUMNS) == 1:
         axes = [axes]
     y = np.arange(len(comparison))
@@ -655,7 +895,14 @@ def _plot_fraction_interval_comparison(comparison: pd.DataFrame, output_dir: Pat
         median = comparison[f"{frac}_posterior_median"].astype(float)
         upper = comparison[f"{frac}_posterior_q90"].astype(float)
         paper = comparison[f"{frac}_paper"].astype(float)
-        ax.hlines(y, lower, upper, color="#4c78a8", linewidth=4, label="MH q10-q90" if frac == FRACTION_COLUMNS[0] else None)
+        ax.hlines(
+            y,
+            lower,
+            upper,
+            color="#4c78a8",
+            linewidth=4,
+            label="MH q10-q90" if frac == FRACTION_COLUMNS[0] else None,
+        )
         ax.scatter(
             median,
             y,
@@ -674,7 +921,11 @@ def _plot_fraction_interval_comparison(comparison: pd.DataFrame, output_dir: Pat
             label="Paper value" if frac == FRACTION_COLUMNS[0] else None,
             zorder=4,
         )
-        ax.set_title(panel_titles.get(frac, frac.replace("f_", "").replace("_", "-")), fontsize=17, fontweight="bold")
+        ax.set_title(
+            panel_titles.get(frac, frac.replace("f_", "").replace("_", "-")),
+            fontsize=17,
+            fontweight="bold",
+        )
         ax.set_xlim(0.0, 1.0)
         ax.set_xlabel(axis_labels.get(frac, "Fraction"), fontsize=26)
         ax.tick_params(axis="both", labelsize=17)
@@ -740,8 +991,16 @@ def write_4bin_mh_outputs(
     }
 
 
-def run_local_4bin(prepared: PreparedHoltenCase, output_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Path]]:
-    endmembers, summary, fit_df = fit_all_wells_4bin(prepared)
+def run_local_4bin(
+    prepared: PreparedHoltenCase,
+    output_dir: Path,
+    *,
+    include_helium: bool = False,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Path]]:
+    endmembers, summary, fit_df = fit_all_wells_4bin(
+        prepared,
+        include_helium=include_helium,
+    )
     paths = write_4bin_outputs(endmembers, summary, fit_df, output_dir)
     return endmembers, summary, fit_df, paths
 
@@ -753,8 +1012,9 @@ def run_local_4bin_mh(
     burn_in: float = 0.2,
     proposal_scale: float = 0.18,
     seed: int = 12345,
+    include_helium: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Path]]:
-    endmembers = build_4bin_endmembers(prepared)
+    endmembers = build_4bin_endmembers(prepared, include_helium=include_helium)
     paper = load_paper_4bin_fractions(prepared)
     samples = sample_all_wells_4bin_mh(
         prepared,
@@ -763,6 +1023,7 @@ def run_local_4bin_mh(
         burn_in=burn_in,
         proposal_scale=proposal_scale,
         seed=seed,
+        include_helium=include_helium,
     )
     posterior = summarize_4bin_mh_posterior(samples)
     comparison = compare_paper_vs_mh_4bin(paper, posterior)
@@ -772,4 +1033,6 @@ def run_local_4bin_mh(
 
 if __name__ == "__main__":
     ctx = build_context()
-    raise SystemExit(f"Holten local 4-bin utilities are available for {ctx.paths.example_dir}")
+    raise SystemExit(
+        f"Holten local 4-bin utilities are available for {ctx.paths.example_dir}"
+    )

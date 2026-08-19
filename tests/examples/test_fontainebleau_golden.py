@@ -11,8 +11,12 @@ import pandas as pd
 import pyage.concentrations.concentrations as co
 from tests.utils import golden as golden_utils
 
-
-GOLDEN_PATH = Path(__file__).resolve().parents[2] / "tests" / "golden" / "fontainebleau_example_values.json"
+GOLDEN_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "tests"
+    / "golden"
+    / "fontainebleau_example_values.json"
+)
 DATA_PATH = (
     Path(__file__).resolve().parents[2]
     / "examples"

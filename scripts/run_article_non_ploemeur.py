@@ -31,7 +31,7 @@ import yaml
 from numpy.polynomial.legendre import leggauss
 from scipy import integrate, stats
 
-from pyage.calibration.methods.metropolis_hastings import MHConfig, MetropolisHastings
+from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
 from pyage.calibration.utils.calibration_core import CalibrationCore
 from pyage.config.paths import DIRECTORY_LPM_DATA, DIRECTORY_TRACER_DATA
 from pyage.config.runtime import DisplayOptions
@@ -41,7 +41,6 @@ from pyage.convolution.settings import DEFAULT_TRACER_GRID_SETTINGS, TracerGridS
 from pyage.lpm.lpm_build import lpm_build
 from pyage.tracer.tracer_protocol import ConstantTracer, SyntheticTracer
 from pyage.tracer.tracer_root import Tracer
-
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "results" / "article_non_ploemeur_final"
@@ -60,9 +59,14 @@ def _markdown(frame: pd.DataFrame) -> str:
     """Render a compact GFM table without the optional ``tabulate`` package."""
     values = frame.copy().replace({np.nan: ""})
     headers = [str(column).replace("|", "\\|") for column in values.columns]
-    lines = ["| " + " | ".join(headers) + " |", "| " + " | ".join("---" for _ in headers) + " |"]
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
     for row in values.itertuples(index=False, name=None):
-        lines.append("| " + " | ".join(str(value).replace("|", "\\|") for value in row) + " |")
+        lines.append(
+            "| " + " | ".join(str(value).replace("|", "\\|") for value in row) + " |"
+        )
     return "\n".join(lines)
 
 
@@ -91,10 +95,7 @@ def _git(*args: str, binary: bool = False) -> bytes | str:
 
 def _excluded_from_run(relative: Path) -> bool:
     parts = [part.lower() for part in relative.parts]
-    return any(
-        part.startswith("ploemeur") or part == "hyp-26-0172"
-        for part in parts
-    )
+    return any(part.startswith("ploemeur") or part == "hyp-26-0172" for part in parts)
 
 
 def _workspace_snapshot(excluded_root: Path) -> tuple[str, str, str, int]:
@@ -139,7 +140,9 @@ def _workspace_snapshot(excluded_root: Path) -> tuple[str, str, str, int]:
 
 def write_manifest(output: Path) -> Path:
     output = _guard_output(output)
-    tracked_hash, scoped_hash, snapshot_hash, untracked_count = _workspace_snapshot(output)
+    tracked_hash, scoped_hash, snapshot_hash, untracked_count = _workspace_snapshot(
+        output
+    )
     grid = asdict(DEFAULT_TRACER_GRID_SETTINGS)
     tracer_hashes: dict[str, dict[str, str]] = {}
     for tracer in TRACERS:
@@ -153,7 +156,10 @@ def write_manifest(output: Path) -> Path:
     status = str(_git("status", "--porcelain"))
     manifest = {
         "run_id": "article_non_ploemeur_final",
-        "scope": {"included": "article generic, TracerLPM, Holten", "excluded": "Ploemeur"},
+        "scope": {
+            "included": "article generic, TracerLPM, Holten",
+            "excluded": "Ploemeur",
+        },
         "created_local": pd.Timestamp.now(tz="Europe/Paris").isoformat(),
         "git": {
             "base_sha": str(_git("rev-parse", "HEAD")).strip(),
@@ -162,8 +168,14 @@ def write_manifest(output: Path) -> Path:
             "run_scoped_tracked_diff_sha256": scoped_hash,
             "workspace_snapshot_sha256": snapshot_hash,
             "workspace_snapshot_untracked_file_count": untracked_count,
-            "snapshot_excludes_generated_output": str(output.relative_to(ROOT)).replace("\\", "/"),
-            "snapshot_excluded_scopes": ["sites/ploemeur", "results/HYP-26-0172", "Ploemeur goldens"],
+            "snapshot_excludes_generated_output": str(output.relative_to(ROOT)).replace(
+                "\\", "/"
+            ),
+            "snapshot_excluded_scopes": [
+                "sites/ploemeur",
+                "results/HYP-26-0172",
+                "Ploemeur goldens",
+            ],
         },
         "environment": {
             "python": sys.version,
@@ -203,7 +215,11 @@ MODEL_CASES = (
     ("ig", {"mu": 20.0, "sigma": 1.0}, "low_dispersion"),
     ("ig", {"mu": 20.0, "sigma": 30.0}, "high_dispersion"),
     ("ig_shifted", {"mu": 10.0, "sigma": 1.0, "shift": 5.0}, "shifted_low_dispersion"),
-    ("ig_shifted", {"mu": 30.0, "sigma": 35.0, "shift": 20.0}, "shifted_high_dispersion"),
+    (
+        "ig_shifted",
+        {"mu": 30.0, "sigma": 35.0, "shift": 20.0},
+        "shifted_high_dispersion",
+    ),
     ("shapefree_n_oldbin", {"z1": -1.0, "z2": 0.5, "z3": 1.0}, "shape_free"),
     ("mix_exp_shifted", {"rate": 0.35, "mu1": 8.0, "mu2": 20.0, "shift": 4.0}, "mixed"),
     ("dirac", {"mu": 20.0}, "discrete"),
@@ -275,6 +291,7 @@ def independent_reference(tracer: Tracer, model, date: float) -> float:
             tracer.get_concentration(date - age, age),
             dtype=float,
         )
+
     if name == "dirac":
         age = p["mu"]
         return float(response(age)) if 0.0 <= age <= tmax else 0.0
@@ -306,11 +323,17 @@ def independent_reference(tracer: Tracer, model, date: float) -> float:
                         )
                     )
                 )
-                for segment_left, segment_right in zip(local_edges[:-1], local_edges[1:]):
-                    total += fraction / (right - left) * _gauss_interval(
-                        response,
-                        float(segment_left),
-                        float(segment_right),
+                for segment_left, segment_right in zip(
+                    local_edges[:-1], local_edges[1:]
+                ):
+                    total += (
+                        fraction
+                        / (right - left)
+                        * _gauss_interval(
+                            response,
+                            float(segment_left),
+                            float(segment_right),
+                        )
                     )
         return float(total)
     distribution = _independent_distribution(name, p)
@@ -417,11 +440,15 @@ def _independent_invariant_values(model) -> dict[str, float | bool]:
             upper = min(probe, float(right))
             if upper > left:
                 cdf_expected += fraction * (upper - left) / (right - left)
-                moment_expected += fraction * (upper**2 - left**2) / (2.0 * (right - left))
+                moment_expected += (
+                    fraction * (upper**2 - left**2) / (2.0 * (right - left))
+                )
         midpoints = 0.5 * (edges[:-1] + edges[1:])
         mean_expected = float(np.dot(fractions, midpoints))
         second_expected = float(
-            np.sum(fractions * (edges[1:] ** 3 - edges[:-1] ** 3) / (3.0 * np.diff(edges)))
+            np.sum(
+                fractions * (edges[1:] ** 3 - edges[:-1] ** 3) / (3.0 * np.diff(edges))
+            )
         )
         cdf_actual, moment_actual = model.cdf_and_partial_first_moment(probe)
         return {
@@ -431,8 +458,11 @@ def _independent_invariant_values(model) -> dict[str, float | bool]:
             "partial_first_moment_at_probe": float(moment_actual),
             "partial_first_moment_expected": float(moment_expected),
             "mean_expected": mean_expected,
-            "std_expected": float(np.sqrt(max(0.0, second_expected - mean_expected**2))),
-            "support_consistent": abs(float(model.cdf(np.nextafter(edges[0], -np.inf)))) <= 1e-14,
+            "std_expected": float(
+                np.sqrt(max(0.0, second_expected - mean_expected**2))
+            ),
+            "support_consistent": abs(float(model.cdf(np.nextafter(edges[0], -np.inf))))
+            <= 1e-14,
         }
 
     if name == "mix_exp_shifted":
@@ -445,22 +475,27 @@ def _independent_invariant_values(model) -> dict[str, float | bool]:
         cdf_actual = rate + (1.0 - rate) * float(tail_cdf)
         moment_actual = rate * float(p["mu1"]) + (1.0 - rate) * float(tail_moment)
         q = (probe - support) / scale
-        tail_moment_expected = support * probability + scale * (1.0 - np.exp(-q) * (1.0 + q))
+        tail_moment_expected = support * probability + scale * (
+            1.0 - np.exp(-q) * (1.0 + q)
+        )
         continuous_mean = support + scale
         mean_expected = rate * float(p["mu1"]) + (1.0 - rate) * continuous_mean
-        variance_expected = (
-            rate * (float(p["mu1"]) - mean_expected) ** 2
-            + (1.0 - rate) * (scale**2 + (continuous_mean - mean_expected) ** 2)
-        )
+        variance_expected = rate * (float(p["mu1"]) - mean_expected) ** 2 + (
+            1.0 - rate
+        ) * (scale**2 + (continuous_mean - mean_expected) ** 2)
         return {
             "probe_age": probe,
             "cdf_at_probe": cdf_actual,
             "cdf_expected": rate + (1.0 - rate) * probability,
             "partial_first_moment_at_probe": moment_actual,
-            "partial_first_moment_expected": rate * float(p["mu1"]) + (1.0 - rate) * tail_moment_expected,
+            "partial_first_moment_expected": rate * float(p["mu1"])
+            + (1.0 - rate) * tail_moment_expected,
             "mean_expected": mean_expected,
             "std_expected": float(np.sqrt(variance_expected)),
-            "support_consistent": abs(float(model.cdf(np.nextafter(float(p["mu1"]), -np.inf)))) <= 1e-14,
+            "support_consistent": abs(
+                float(model.cdf(np.nextafter(float(p["mu1"]), -np.inf)))
+            )
+            <= 1e-14,
         }
 
     if name == "dirac":
@@ -473,7 +508,8 @@ def _independent_invariant_values(model) -> dict[str, float | bool]:
             "partial_first_moment_expected": probe,
             "mean_expected": probe,
             "std_expected": 0.0,
-            "support_consistent": abs(float(model.cdf(np.nextafter(probe, -np.inf)))) <= 1e-14,
+            "support_consistent": abs(float(model.cdf(np.nextafter(probe, -np.inf))))
+            <= 1e-14,
         }
 
     if name == "dirac_double":
@@ -489,7 +525,8 @@ def _independent_invariant_values(model) -> dict[str, float | bool]:
             "partial_first_moment_expected": rate * first,
             "mean_expected": mean_expected,
             "std_expected": float(np.sqrt(rate * (1.0 - rate)) * abs(second - first)),
-            "support_consistent": abs(float(model.cdf(np.nextafter(first, -np.inf)))) <= 1e-14,
+            "support_consistent": abs(float(model.cdf(np.nextafter(first, -np.inf))))
+            <= 1e-14,
         }
     raise ValueError(f"No independent invariant reference for {name}")
 
@@ -510,9 +547,7 @@ def _analytical_rows() -> list[dict[str, object]]:
             "parameters": json.dumps(parameters, sort_keys=True),
             "support": _support_description(name, parameters),
             "partial_first_moment": (
-                "exact discrete"
-                if name in {"dirac", "dirac_double"}
-                else "analytic"
+                "exact discrete" if name in {"dirac", "dirac_double"} else "analytic"
             ),
             "mean": float(model.mean()),
             "std": float(model.std()),
@@ -537,7 +572,11 @@ def _analytical_rows() -> list[dict[str, object]]:
             )
         else:
             moment = float(model.mean())
-            row.update(normalization=1.0, cdf_infinity=float(model.cdf(np.inf)), partial_first_moment_infinity=moment)
+            row.update(
+                normalization=1.0,
+                cdf_infinity=float(model.cdf(np.inf)),
+                partial_first_moment_infinity=moment,
+            )
         constant_value = float(Convolution(constant, 2020.0).convolve(model))
         affine_value = float(Convolution(affine, 2020.0).convolve(model))
         window = float(Convolution(constant, 2020.0).window_mass(model))
@@ -545,18 +584,17 @@ def _analytical_rows() -> list[dict[str, object]]:
             affine_expected = 2.5 + 0.03 * model.p["mu"]
         elif name == "dirac_double":
             first, second = model.get_dirac_double_time()
-            affine_expected = (
-                model.p["rate"] * (2.5 + 0.03 * first)
-                + (1.0 - model.p["rate"]) * (2.5 + 0.03 * second)
-            )
+            affine_expected = model.p["rate"] * (2.5 + 0.03 * first) + (
+                1.0 - model.p["rate"]
+            ) * (2.5 + 0.03 * second)
         elif name == "mix_exp_shifted":
             continuous_mass, continuous_moment = (
                 model.continuous_cdf_and_partial_first_moment(320.0)
             )
-            affine_expected = (
-                model.p["rate"] * (2.5 + 0.03 * model.get_dirac_time())
-                + (1.0 - model.p["rate"])
-                * (2.5 * continuous_mass + 0.03 * continuous_moment)
+            affine_expected = model.p["rate"] * (
+                2.5 + 0.03 * model.get_dirac_time()
+            ) + (1.0 - model.p["rate"]) * (
+                2.5 * continuous_mass + 0.03 * continuous_moment
             )
         else:
             _, partial = model.cdf_and_partial_first_moment(320.0)
@@ -593,7 +631,9 @@ def _validation_matrix(settings: TracerGridSettings) -> pd.DataFrame:
                     "PyAge": value,
                     "reference": reference,
                     "abs_error": abs_error,
-                    "rel_error": abs_error / abs(reference) if reference != 0.0 else np.nan,
+                    "rel_error": abs_error / abs(reference)
+                    if reference != 0.0
+                    else np.nan,
                     "window_mass": conv.window_mass(model),
                     "n_bins": conv.diagnostics.n_bins if conv.diagnostics else 0,
                 }
@@ -602,7 +642,9 @@ def _validation_matrix(settings: TracerGridSettings) -> pd.DataFrame:
 
 
 def _error_summary(frame: pd.DataFrame, label: str) -> dict[str, object]:
-    relative = frame.loc[np.isfinite(frame["rel_error"]), "rel_error"].to_numpy(dtype=float)
+    relative = frame.loc[np.isfinite(frame["rel_error"]), "rel_error"].to_numpy(
+        dtype=float
+    )
     worst = frame.iloc[int(np.nanargmax(frame["rel_error"].to_numpy(dtype=float)))]
     return {
         "configuration": label,
@@ -701,7 +743,9 @@ def run_s1(output: Path) -> dict[str, object]:
         start = time.perf_counter()
         matrix = _validation_matrix(settings)
         elapsed = time.perf_counter() - start
-        matrix.to_csv(output / f"independent_matrix_{label.replace('.', '_')}.csv", index=False)
+        matrix.to_csv(
+            output / f"independent_matrix_{label.replace('.', '_')}.csv", index=False
+        )
         summary = _error_summary(matrix, label)
         summary["matrix_seconds"] = elapsed
         summary.update(_tolerance_timing(settings))
@@ -751,7 +795,7 @@ Référence : Gauss–Legendre segmentée d'ordre 48 en espace des quantiles,
 32 segments, avec lois SciPy construites directement à partir des paramètres
 physiques et sans appel au moteur de convolution PyAge.
 
-{_markdown(pd.DataFrame([_error_summary(default_matrix, '1x')]))}
+{_markdown(pd.DataFrame([_error_summary(default_matrix, "1x")]))}
 
 ## Sensibilité numérique
 
@@ -875,7 +919,9 @@ def _historical_chain(
     accepted = 0
     for step in range(steps):
         proposal = parameters + 1.5 * rng.standard_normal(2)
-        proposal_log_probability, proposal_j, proposal_concentrations = evaluate(proposal)
+        proposal_log_probability, proposal_j, proposal_concentrations = evaluate(
+            proposal
+        )
         if proposal_log_probability >= log_probability or (
             np.isfinite(proposal_log_probability)
             and np.log(rng.random()) < proposal_log_probability - log_probability
@@ -892,7 +938,10 @@ def _historical_chain(
                 "obj_function": math.sqrt(j_value / 4.0),
             }
             record.update(
-                {f"{name}_{DATE:g}": value for name, value in zip(TABLE3_TRACERS, concentrations)}
+                {
+                    f"{name}_{DATE:g}": value
+                    for name, value in zip(TABLE3_TRACERS, concentrations)
+                }
             )
             records.append(record)
     return pd.DataFrame(records), accepted / steps
@@ -932,8 +981,12 @@ def _summary_row(
         row[f"posterior_{parameter}_q25"] = float(np.quantile(values, 0.25))
         row[f"posterior_{parameter}_q75"] = float(np.quantile(values, 0.75))
         row[f"posterior_{parameter}_q975"] = float(np.quantile(values, 0.975))
-    row["posterior_mean_transit_time_mean"] = float(np.mean(frame["mu"] + frame["shift"]))
-    row["posterior_mean_transit_time_median"] = float(np.median(frame["mu"] + frame["shift"]))
+    row["posterior_mean_transit_time_mean"] = float(
+        np.mean(frame["mu"] + frame["shift"])
+    )
+    row["posterior_mean_transit_time_median"] = float(
+        np.median(frame["mu"] + frame["shift"])
+    )
     row["sqrt_J_data_over_m_best"] = float(frame["obj_function"].min())
     return row
 
@@ -969,7 +1022,9 @@ def run_table3(output: Path, steps: int = 10_000, skip: int = 5) -> dict[str, ob
             )
         )
         old_observed = _old_simpson_values(old_kernels, mu, shift)
-        old_chain_path = chains / f"historical_case_{index:02d}_mu{mu:g}_t0{shift:g}.csv"
+        old_chain_path = (
+            chains / f"historical_case_{index:02d}_mu{mu:g}_t0{shift:g}.csv"
+        )
         if old_chain_path.exists():
             old_frame = pd.read_csv(old_chain_path)
         else:
@@ -993,7 +1048,9 @@ def run_table3(output: Path, steps: int = 10_000, skip: int = 5) -> dict[str, ob
     old_table.to_csv(output / "table3_historical_pdf_simpson.csv", index=False)
     comparison_rows = []
     for column in table.select_dtypes(include=[np.number]).columns:
-        for case, old_value, new_value in zip(table["case"], old_table[column], table[column]):
+        for case, old_value, new_value in zip(
+            table["case"], old_table[column], table[column]
+        ):
             absolute = abs(float(new_value - old_value))
             comparison_rows.append(
                 {
@@ -1002,7 +1059,9 @@ def run_table3(output: Path, steps: int = 10_000, skip: int = 5) -> dict[str, ob
                     "old_value": float(old_value),
                     "new_value": float(new_value),
                     "absolute_difference": absolute,
-                    "relative_difference": absolute / abs(float(old_value)) if old_value != 0 else np.nan,
+                    "relative_difference": absolute / abs(float(old_value))
+                    if old_value != 0
+                    else np.nan,
                 }
             )
     comparison = pd.DataFrame(comparison_rows)
@@ -1014,7 +1073,11 @@ def run_table3(output: Path, steps: int = 10_000, skip: int = 5) -> dict[str, ob
         encoding="utf-8",
         newline="\n",
     )
-    return {"cases": len(table), "comparison_rows": len(comparison), "output": str(output)}
+    return {
+        "cases": len(table),
+        "comparison_rows": len(comparison),
+        "output": str(output),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:

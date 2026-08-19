@@ -1,5 +1,7 @@
 """Path helpers for the Ploemeur workflow."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import pyage.calibration.utils.calibration_core as calbas

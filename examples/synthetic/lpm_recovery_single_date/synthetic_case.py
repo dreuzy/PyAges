@@ -92,7 +92,9 @@ def generate_synthetic_case(
     add_noise = bool(generation_cfg.get("add_noise", True))
     relative_error = float(generation_cfg.get("relative_error", 0.04))
     date = float(generation_cfg.get("date", 2010.9))
-    tracer_names = list(generation_cfg.get("tracers", ["cfc11", "cfc12", "cfc113", "sf6"]))
+    tracer_names = list(
+        generation_cfg.get("tracers", ["cfc11", "cfc12", "cfc113", "sf6"])
+    )
     lpm_name = str(lpm_cfg.get("model_name", "exp_shifted"))
     parameter_values = {
         str(name): float(value)
@@ -101,7 +103,9 @@ def generate_synthetic_case(
     if not parameter_values:
         raise ValueError("Synthetic example requires explicit lpm.parameters values.")
 
-    lpm = lpm_build(lpm_name, directory_lpm=str(_repo_root() / "data_core" / "data_lpm"))
+    lpm = lpm_build(
+        lpm_name, directory_lpm=str(_repo_root() / "data_core" / "data_lpm")
+    )
     for name, value in parameter_values.items():
         lpm.p[name] = value
 
@@ -223,7 +227,8 @@ def build_truth_aware_figures(
     """
     truth = truth_payload or load_ground_truth()
     import matplotlib.pyplot as plt
-    from scripts.common.example_summary_plots import (
+
+    from pyage.workflows.summary_plots import (
         plot_objective_summary,
         plot_parameter_summary,
         plot_single_date_model_space,
@@ -249,8 +254,7 @@ def build_truth_aware_figures(
 
     results_by_method = {method: posterior_frame}
     reference_params = {
-        str(name): float(value)
-        for name, value in truth["lpm"]["parameters"].items()
+        str(name): float(value) for name, value in truth["lpm"]["parameters"].items()
     }
     case_label = truth.get("example", {}).get("label", "Synthetic recovery example")
 

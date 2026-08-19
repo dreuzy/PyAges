@@ -9,7 +9,6 @@ from pyage.lpm.models.inverse_gaussian import InverseGaussianLpm
 from pyage.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
 from tests.utils import paths as test_paths
 
-
 PARAMETER_PAIRS = [
     (1.0, 1.0),
     (10.0, 20.0),
@@ -112,7 +111,7 @@ def test_inverse_gaussian_matches_article_density():
     )
     ages = np.array([1.0, 5.0, 10.0, 20.0])
     expected = (
-        mean_age ** 1.5
+        mean_age**1.5
         / np.sqrt(2.0 * np.pi * std_age**2 * ages**3)
         * np.exp(-mean_age * (ages - mean_age) ** 2 / (2.0 * std_age**2 * ages))
     )
@@ -120,7 +119,9 @@ def test_inverse_gaussian_matches_article_density():
     assert model.pdf(ages) == pytest.approx(expected, rel=1e-12, abs=1e-15)
 
 
-@pytest.mark.parametrize("mean_age,std_age", [(0.0, 1.0), (-1.0, 1.0), (1.0, 0.0), (1.0, -1.0)])
+@pytest.mark.parametrize(
+    "mean_age,std_age", [(0.0, 1.0), (-1.0, 1.0), (1.0, 0.0), (1.0, -1.0)]
+)
 def test_inverse_gaussian_rejects_non_positive_moments(mean_age, std_age):
     model = InverseGaussianLpm(
         mu=mean_age, sigma=std_age, directory_lpm=_data_directory()

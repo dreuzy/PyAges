@@ -11,7 +11,6 @@ from typing import Any, Iterable
 
 import yaml
 
-
 REPO_ROOT = Path(__file__).resolve().parents[5]
 STUDY_ROOT = Path(__file__).resolve().parents[1]
 MATRIX_PATH = STUDY_ROOT / "experiment_matrix.csv"

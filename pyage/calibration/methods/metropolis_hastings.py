@@ -12,23 +12,26 @@ Author
 Jean-Raynald de Dreuzy
 """
 
-import copy as copy
-from typing import Any, Dict, List, Optional, Tuple
-import math
-import numpy as np
-from pathlib import Path
-import time
+from __future__ import annotations
 
-from pyage.calibration.utils.objective_functions import RMSE
-from pyage.calibration.methods.prior import Prior, gauss, make_prior_expo, moments_histo
-from pyage.calibration.methods.trajectory import (
-    MHConfig,
-    MH_Trajectory,
-    MH_step,
-    TrajOptions,
-)
+import copy as copy
+import math
+import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+
 import pyage.calibration.utils.calibration_core as calbas
 import pyage.lpm.core.lpm_dist as LPM_dist
+from pyage.calibration.methods.prior import Prior, gauss, make_prior_expo, moments_histo
+from pyage.calibration.methods.trajectory import (
+    MH_step,
+    MH_Trajectory,
+    MHConfig,
+    TrajOptions,
+)
+from pyage.calibration.utils.objective_functions import RMSE
 from pyage.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
 
 __all__ = [
@@ -52,12 +55,10 @@ class MetropolisHastings(calbas.CalibrationCore):
     returns the accepted parameter and concentration distributions.
     """
 
-
     def __init__(self, config: MHConfig | None = None, **kwargs):
-        """ Constructor: definition of  MH parameters 
-        """
+        """Constructor: definition of  MH parameters"""
         # Parameters
-        self.method="Metropolis_Hastings"
+        self.method = "Metropolis_Hastings"
         if config is None:
             raise TypeError(
                 "MetropolisHastings now requires config=MHConfig(...). "
@@ -72,31 +73,35 @@ class MetropolisHastings(calbas.CalibrationCore):
         # MH step = delta * Delta (parameter bounds)
         self.MH_step = MH_step()
         # A priori distributions
-        self.prior = Prior(option=self.config.prior_option, typ=self.config.prior_type, prior_file=self.config.prior_file)
+        self.prior = Prior(
+            option=self.config.prior_option,
+            typ=self.config.prior_type,
+            prior_file=self.config.prior_file,
+        )
         # Results
         self.__success_rate = 0
         self.__initial_params_used: Dict[str, float] = {}
         self.__initialization_source = ""
         self.prior_validation_stats = None
-        self.time_perform = 0 
-
+        self.time_perform = 0
 
     def update_calibbasis(self, calib_basis: calbas.CalibrationCore) -> None:
         """
         Updates parent class CalibrationCore with calib_basis
-        
+
         Arguments
         ---------
         calib_basis: CalibrationCore
             Base Class Calibration Problem
-        
+
         """
-        super(MetropolisHastings,self).__dict__.update(calib_basis.__dict__)
+        super(MetropolisHastings, self).__dict__.update(calib_basis.__dict__)
 
-
-    def __param_inc(self, p0: List[float], lpm: Any, rng: np.random.Generator) -> List[float]:
-        """ Increment parameters  
-            Metropolis_Hastings
+    def __param_inc(
+        self, p0: List[float], lpm: Any, rng: np.random.Generator
+    ) -> List[float]:
+        """Increment parameters
+        Metropolis_Hastings
         """
         # Required deepcopy to avoid p0 to be modified if not chosen eventually
         p1 = []
@@ -108,62 +113,68 @@ class MetropolisHastings(calbas.CalibrationCore):
             k = k + 1
         return p1
 
-
     def __log_posterior_eval(
         self,
         params: List[float],
         data_conc: np.ndarray,
         data_error: np.ndarray,
     ) -> Tuple[float, float, List[float]]:
-        """ posterior distribution 
-        It is the logarithm of the posterior probability that is computed to avoid taking the exponential of the difference, 
+        """posterior distribution
+        It is the logarithm of the posterior probability that is computed to avoid taking the exponential of the difference,
         an hazardous operation for very small or very large numbers
         """
         log_proba = 0
-        # If parameters are out of bounds, returns immediatly 0 
+        # If parameters are out of bounds, returns immediatly 0
         if self.lpm.param_within_bounds_array(params) is False:
             return -math.inf, math.inf, []
         if self.config.likelihood:
-            [objfunc,conc] = self.objective_function( params, data_conc, data_error, conc=True)
-            log_proba = log_proba - 0.5 * objfunc #1
+            [objfunc, conc] = self.objective_function(
+                params, data_conc, data_error, conc=True
+            )
+            log_proba = log_proba - 0.5 * objfunc  # 1
         else:
             objfunc = 0
             conc = [1]
-        if(self.prior.option):
-            log_proba = log_proba + np.log(self.prior.evaluate(self.lpm,params)) 
+        if self.prior.option:
+            log_proba = log_proba + np.log(self.prior.evaluate(self.lpm, params))
         return log_proba, objfunc, conc
 
-
-    def __prepare_storage(self) -> Tuple[np.ndarray, List[str]]: 
-        """ 
+    def __prepare_storage(self) -> Tuple[np.ndarray, List[str]]:
+        """
         Prepares array for storage of results (optimization of performances)
-        
-        Returns 
+
+        Returns
         -------
         sto: np.array
             with the required shape for the storage
         """
         # Number of lines that should be stored
-        line=0
+        line = 0
         for i in range(self.config.nstep):
-            if i > self.config.burn_in * self.config.nstep and i % self.config.nskip == 0:
+            if (
+                i > self.config.burn_in * self.config.nstep
+                and i % self.config.nskip == 0
+            ):
                 line = line + 1
         # Number and name of columns that should be stored
         if self.config.likelihood:
             column = len(self.lpm.p) + 1 + len(self.cdata.names_dates()) + 1
-            column_names = self.lpm.get_param_names() + \
-                                ['obj_function'] + \
-                                self.cdata.names_dates() + \
-                                ['param_in_bounds']
+            column_names = (
+                self.lpm.get_param_names()
+                + ["obj_function"]
+                + self.cdata.names_dates()
+                + ["param_in_bounds"]
+            )
         else:
             column = len(self.lpm.p) + 3
-            column_names = self.lpm.get_param_names() + \
-                                ['obj_function'] + \
-                                ['conc'] + \
-                                ['param_in_bounds']
+            column_names = (
+                self.lpm.get_param_names()
+                + ["obj_function"]
+                + ["conc"]
+                + ["param_in_bounds"]
+            )
         # Creation of table
-        return np.zeros((line,column),dtype=float),column_names
-
+        return np.zeros((line, column), dtype=float), column_names
 
     def __mcmc_step(
         self,
@@ -179,7 +190,7 @@ class MetropolisHastings(calbas.CalibrationCore):
         Purpose
         -------
         Perform one Metropolis-Hastings step.
-        
+
         Returns
         -------
         tuple
@@ -189,7 +200,9 @@ class MetropolisHastings(calbas.CalibrationCore):
         # Proposal
         params_n = self.__param_inc(params, self.lpm, rng)
         # Evaluate posterior for proposal
-        log_pn, obj_func_n, conc_n = self.__log_posterior_eval(params_n, data_conc, data_error)
+        log_pn, obj_func_n, conc_n = self.__log_posterior_eval(
+            params_n, data_conc, data_error
+        )
         # Accept / reject
         success = False
         if log_pn >= log_p:
@@ -202,8 +215,9 @@ class MetropolisHastings(calbas.CalibrationCore):
             return params_n, log_pn, obj_func_n, conc_n, True
         return params, log_p, obj_func, conc, False
 
-
-    def __finalize_trajectory(self, traj: "MH_Trajectory", n: int, traj_options: TrajOptions) -> None:
+    def __finalize_trajectory(
+        self, traj: "MH_Trajectory", n: int, traj_options: TrajOptions
+    ) -> None:
         """
         Purpose
         -------
@@ -216,7 +230,6 @@ class MetropolisHastings(calbas.CalibrationCore):
             traj.plot(self.display.directory)
         if traj_options.text:
             traj.check()
-
 
     def __prepare_mcmc(
         self,
@@ -251,7 +264,11 @@ class MetropolisHastings(calbas.CalibrationCore):
         # Initialization of stepping interval
         self.MH_step.prepare(self.lpm)
         # Trajectory monitoring
-        traj = MH_Trajectory(self.lpm.p.keys(), self.config.nstep) if traj_options.monitor else None
+        traj = (
+            MH_Trajectory(self.lpm.p.keys(), self.config.nstep)
+            if traj_options.monitor
+            else None
+        )
         # Loads a priori for the distribution of parameters
         self.prior.load(self.lpm)
         # Initialization of results structure
@@ -265,7 +282,6 @@ class MetropolisHastings(calbas.CalibrationCore):
             array_results,
             array_col_names,
         )
-
 
     def __initialize_state(
         self, data_conc: np.ndarray, data_error: np.ndarray
@@ -282,7 +298,9 @@ class MetropolisHastings(calbas.CalibrationCore):
         elif self.config.initial_params is not None:
             expected = list(self.lpm.p.keys())
             provided = list(self.config.initial_params.keys())
-            missing = [name for name in expected if name not in self.config.initial_params]
+            missing = [
+                name for name in expected if name not in self.config.initial_params
+            ]
             extra = [name for name in provided if name not in self.lpm.p]
             if missing or extra:
                 raise ValueError(
@@ -313,7 +331,6 @@ class MetropolisHastings(calbas.CalibrationCore):
         log_p, obj_func, conc = self.__log_posterior_eval(params, data_conc, data_error)
         return params, log_p, obj_func, conc
 
-
     def perform(self) -> LPM_dist.LpmDist:
         """Run the configured Markov chain.
 
@@ -324,7 +341,7 @@ class MetropolisHastings(calbas.CalibrationCore):
         """
 
         start = time.time()
-        
+
         # --------------- PREPARATION PHASE ------------------------
         (
             traj_options,
@@ -335,12 +352,12 @@ class MetropolisHastings(calbas.CalibrationCore):
             array_results,
             array_col_names,
         ) = self.__prepare_mcmc()
-        
+
         # --------------- INITIALIZATION PHASE ----------------------
         params, log_p, obj_func, conc = self.__initialize_state(data_conc, data_error)
         n = 0
         nsuccess = 0
-        
+
         # --------------- MONTE CARLO MARKOV CHAIN LOOP ------------
         line = 0
         for i in range(self.config.nstep):
@@ -356,20 +373,20 @@ class MetropolisHastings(calbas.CalibrationCore):
             if success:
                 # print(nsuccess, params[0],params[1],log_p)
                 nsuccess += 1
-            if i > self.config.burn_in * self.config.nstep and i % self.config.nskip == 0:
+            if (
+                i > self.config.burn_in * self.config.nstep
+                and i % self.config.nskip == 0
+            ):
                 # Storage : everything relative to params and not params !!! (sources of errors to take params_n)
                 array_results[line] = (
-                    params
-                    + [RMSE(obj_func, len(conc))]
-                    + conc
-                    + [1.0]
+                    params + [RMSE(obj_func, len(conc))] + conc + [1.0]
                 )
                 line += 1
                 if traj_options.monitor:
                     traj.update(n, params, -log_p)
                     traj.inc_one(n)
                     n += 1
-        
+
         # --------------- POSTPROCESSING PHASE -------------------
         # Results consolidation
         self.__success_rate = nsuccess / self.config.nstep
@@ -378,20 +395,21 @@ class MetropolisHastings(calbas.CalibrationCore):
 
         # Adds statistical characteritics to the stored distributions
         lpm_results = lpm_results.stats_distribution()
-            
+
         # Displays Trajectory
         if traj_options.monitor:
             self.__finalize_trajectory(traj, n, traj_options)
-            
+
         # Checks algorithm with prior distribution and no likelihood
         if self.config.likelihood is False and self.prior.option is True:
-            self.prior_validation_stats = self.prior.validation_MH_prior(traj.path, self.lpm)
-            
+            self.prior_validation_stats = self.prior.validation_MH_prior(
+                traj.path, self.lpm
+            )
+
         end = time.time()
         self.time_perform = end - start
-    
-        return lpm_results
 
+        return lpm_results
 
     def __posterior_dir(self, file: str | Path) -> Path:
         """
@@ -402,15 +420,14 @@ class MetropolisHastings(calbas.CalibrationCore):
         file_path = Path(file).resolve()
         try:
             folder_root = file_path.parents[3]
-        except IndexError:
+        except IndexError as exc:
             raise ValueError(
                 f"Cannot derive posterior directory from {file_path} "
                 "(expected at least 4 parent levels)."
-            )
+            ) from exc
         posterior_dir = folder_root / "posterior_distributions"
         posterior_dir.mkdir(parents=True, exist_ok=True)
         return posterior_dir
-
 
     def __set_display_directory(self, directory: Path) -> Path:
         """
@@ -420,7 +437,6 @@ class MetropolisHastings(calbas.CalibrationCore):
         """
         self.display_options.directory = directory
         return directory
-
 
     def write_posterior(self, lpm_results: LPM_dist.LpmDist, file: str | Path) -> Path:
         """
@@ -441,8 +457,6 @@ class MetropolisHastings(calbas.CalibrationCore):
 
         return posterior_dir
 
-
-
     def __write_kv_file(self, file_name: str | Path, data: Dict[str, Any]) -> None:
         """
         Purpose
@@ -452,7 +466,6 @@ class MetropolisHastings(calbas.CalibrationCore):
         with open(file_name, "w") as handle:
             for key, val in data.items():
                 handle.write(f"{key}\t{val}\n")
-
 
     def __parameters_payload(self) -> Dict[str, Any]:
         """
@@ -473,23 +486,21 @@ class MetropolisHastings(calbas.CalibrationCore):
             data[f"initial_{param}"] = value
         return data
 
-
     def write_parameters(self, file_name: str | Path) -> None:
-        """ 
+        """
         Writes parameters of calibration
         """
         data = self.__parameters_payload()
         self.__write_kv_file(file_name, data)
 
-
     def write_results_spec(self, data: Dict[str, Any]) -> None:
         """
         Specific contribution of the daughter class to the calibration results
-        
+
         Argumments
         ----------
         data: dictionary
             results to be stored
-        
+
         """
-        data['success_rate'] = self.__success_rate
+        data["success_rate"] = self.__success_rate

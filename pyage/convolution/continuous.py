@@ -12,7 +12,6 @@ from pyage.convolution.models import (
 )
 from pyage.convolution.settings import TracerGridSettings
 
-
 Array = npt.NDArray[np.float64]
 TracerEvaluator = Callable[[npt.ArrayLike], Array]
 MomentProvider = Callable[[Array], tuple[npt.ArrayLike, npt.ArrayLike]]
@@ -52,9 +51,7 @@ def prepare_adaptive_grid(
         k_atol = settings.absolute_tolerance_factor * max(
             global_scale, np.finfo(float).eps
         )
-        accept_mask = (
-            k_range <= k_atol + settings.relative_tolerance * local_scale
-        )
+        accept_mask = k_range <= k_atol + settings.relative_tolerance * local_scale
 
         for index in np.flatnonzero(accept_mask):
             accepted.append(
@@ -139,9 +136,8 @@ def _evaluate_moments(
         raise ConvolutionError(
             f"LPM '{distribution_name}' CDF returned non-finite values"
         )
-    if (
-        first_moment_edges.shape != edges.shape
-        or not np.all(np.isfinite(first_moment_edges))
+    if first_moment_edges.shape != edges.shape or not np.all(
+        np.isfinite(first_moment_edges)
     ):
         raise ConvolutionError(
             f"LPM '{distribution_name}' returned invalid partial first moments"
@@ -159,9 +155,7 @@ def _bin_weights(
     min_weight = float(np.min(weights)) if weights.size else 0.0
     cdf_scale = max(1.0, float(np.max(np.abs(f_edges))))
     negative_tolerance = (
-        settings.floating_weight_epsilon_factor
-        * np.finfo(float).eps
-        * cdf_scale
+        settings.floating_weight_epsilon_factor * np.finfo(float).eps * cdf_scale
     )
     if np.any(weights < -negative_tolerance):
         raise ConvolutionError(
@@ -198,9 +192,7 @@ def _centered_moments(
         * np.finfo(float).eps
         * max(1.0, float(edges[-1]))
     )
-    if np.any(centered < -tolerance) or np.any(
-        centered > centered_upper + tolerance
-    ):
+    if np.any(centered < -tolerance) or np.any(centered > centered_upper + tolerance):
         raise ConvolutionError(
             f"LPM '{distribution_name}' returned inconsistent partial first moments"
         )

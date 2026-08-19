@@ -2,9 +2,11 @@
 PyAge run command - Execute simulations from YAML config.
 """
 
-from pathlib import Path
+from __future__ import annotations
+
 import sys
 import tempfile
+from pathlib import Path
 
 import click
 import yaml
@@ -108,6 +110,7 @@ def run(
         click.echo(f"Configuration file: {config}")
         click.echo(f"Mode: {'transient' if transient else 'single-date'}")
 
+    original_config = config
     config = _apply_overrides(
         config=config,
         transient=transient,
@@ -119,10 +122,14 @@ def run(
         verbose=verbose,
     )
 
-    if transient:
-        _run_transient(config, verbose)
-    else:
-        _run_single_date(config, inline, verbose)
+    try:
+        if transient:
+            _run_transient(config, verbose)
+        else:
+            _run_single_date(config, inline, verbose)
+    finally:
+        if config != original_config:
+            config.unlink(missing_ok=True)
 
 
 def _load_yaml(path: Path) -> dict:
@@ -176,11 +183,19 @@ def _apply_overrides(
         if lpm:
             data.setdefault("lpm", {})["model_name"] = lpm
         if mh_nsteps is not None:
-            data.setdefault("calibration_metropolis_hastings", {})["nstep"] = int(mh_nsteps)
+            data.setdefault("calibration_metropolis_hastings", {})["nstep"] = int(
+                mh_nsteps
+            )
 
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".yaml")
-    tmp_path = Path(tmp.name)
-    tmp.close()
+    # Keep the temporary file beside the source configuration so all relative
+    # data paths retain the same resolution root after applying overrides.
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        dir=config.parent,
+        prefix=f".{config.stem}-",
+        suffix=".yaml",
+    ) as tmp:
+        tmp_path = Path(tmp.name)
     tmp_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
     if verbose:
@@ -192,12 +207,11 @@ def _apply_overrides(
 def _run_single_date(config: Path, inline: bool, verbose: bool):
     """Run the canonical single-date workflow."""
     try:
-        # Import the launcher module
-        from scripts.launcher import run_workflow
+        from pyage.workflows.single_date import run_single_date
 
         click.echo("Running single-date workflow...")
         click.echo(f"Config: {config}")
-        run_workflow(str(config), force_inline=inline)
+        run_single_date(str(config), force_inline=inline)
 
     except ImportError as e:
         click.echo(click.style(f"Import error: {e}", fg="red"))
@@ -207,6 +221,7 @@ def _run_single_date(config: Path, inline: bool, verbose: bool):
         click.echo(click.style(f"Error running workflow: {e}", fg="red"))
         if verbose:
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 
@@ -229,5 +244,6 @@ def _run_transient(config: Path, verbose: bool):
         click.echo(click.style(f"Error running transient workflow: {e}", fg="red"))
         if verbose:
             import traceback
+
             traceback.print_exc()
         sys.exit(1)

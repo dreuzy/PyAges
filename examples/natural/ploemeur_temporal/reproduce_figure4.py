@@ -39,14 +39,15 @@ from pyage.lpm.models.inverse_gaussian_shifted import (
 )
 from pyage.tracer.tracer_root import Tracer
 
-
 ROOT = Path(__file__).resolve().parents[3]
 TRACERS = ("cfc11", "cfc12", "cfc113")
 PARAMETERS = ("mu", "sigma", "t0")
 LOWER = np.array([0.1, 0.1, 0.1])
 UPPER = np.array([100.0, 30.0, 30.0])
 ERROR_REL = 0.20
-DATA_PATH = Path("examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt")
+DATA_PATH = Path(
+    "examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt"
+)
 TRACER_DIR = Path("data_core/data_tracer")
 LPM_DIR = Path("data_core/data_lpm")
 DEFAULT_OUTPUT = Path("results/ploemeur_figure4_final")
@@ -88,7 +89,9 @@ def _git_state() -> dict:
     return {
         "sha": _run_git("rev-parse", "HEAD"),
         "dirty": bool(status),
-        "diff_sha256_including_untracked_content": digest.hexdigest() if status else None,
+        "diff_sha256_including_untracked_content": digest.hexdigest()
+        if status
+        else None,
         "status": status.splitlines(),
     }
 
@@ -104,7 +107,9 @@ def load_observations() -> pd.DataFrame:
             f"{data['date'].nunique()} dates"
         )
     if set(data["element"]) != set(TRACERS):
-        raise ValueError(f"Expected exactly {TRACERS}, got {sorted(data['element'].unique())}")
+        raise ValueError(
+            f"Expected exactly {TRACERS}, got {sorted(data['element'].unique())}"
+        )
     if (data["element"].str.lower() == "sf6").any():
         raise ValueError("Ploemeur F09 must not contain SF6")
     data = data.copy()
@@ -156,9 +161,7 @@ class PreparedForward:
         local_scale = np.maximum.reduce(
             (np.abs(self.k_left), np.abs(self.k_mid), np.abs(self.k_right))
         )
-        curvature = np.abs(
-            self.k_mid - 0.5 * (self.k_left + self.k_right)
-        )
+        curvature = np.abs(self.k_mid - 0.5 * (self.k_left + self.k_right))
         self.use_linear = curvature <= settings.linear_curvature_factor * (
             settings.absolute_tolerance_factor * global_scale
             + settings.relative_tolerance * local_scale
@@ -171,9 +174,7 @@ class PreparedForward:
         self.model.p.update(mu=mu, sigma=sigma, shift=t0)
         cdf, moment = self.model.cdf_and_partial_first_moment(self.edges)
         weights = cdf[self.right] - cdf[self.left]
-        centered = (
-            moment[self.right] - moment[self.left] - self.edge_left * weights
-        )
+        centered = moment[self.right] - moment[self.left] - self.edge_left * weights
         weight_tolerance = (
             DEFAULT_TRACER_GRID_SETTINGS.floating_weight_epsilon_factor
             * np.finfo(float).eps
@@ -246,7 +247,9 @@ def _pilot_chain(
     scale = 1.0
     window_accepted = 0
     for step in range(steps):
-        proposal = _reflect(q + rng.multivariate_normal(np.zeros(3), covariance * scale))
+        proposal = _reflect(
+            q + rng.multivariate_normal(np.zeros(3), covariance * scale)
+        )
         proposal_logp = target.evaluate(_physical(proposal))[0]
         if math.log(rng.random()) < proposal_logp - logp:
             q, logp = proposal, proposal_logp
@@ -372,7 +375,9 @@ def chain_diagnostics(chains: np.ndarray) -> pd.DataFrame:
                 "parameter": name,
                 "split_rhat": split_rhat(values),
                 "bulk_ess": effective_sample_size(ranked),
-                "tail_ess": min(effective_sample_size(low), effective_sample_size(high)),
+                "tail_ess": min(
+                    effective_sample_size(low), effective_sample_size(high)
+                ),
             }
         )
     return pd.DataFrame(rows)
@@ -414,7 +419,10 @@ def _summaries(chains: np.ndarray, experiment: str) -> pd.DataFrame:
                 "mean": np.mean(sample),
                 "median": np.median(sample),
                 "sd": np.std(sample, ddof=1),
-                **{f"q{int(q * 100):02d}": value for q, value in zip(QUANTILES, quantile)},
+                **{
+                    f"q{int(q * 100):02d}": value
+                    for q, value in zip(QUANTILES, quantile)
+                },
             }
         )
     return pd.DataFrame(rows)
@@ -453,11 +461,12 @@ def posterior_diagnostics(
     table["window_mass_q05"] = np.quantile(window, 0.05, axis=0)
     table["window_mass_median"] = np.median(window, axis=0)
     table["window_mass_q95"] = np.quantile(window, 0.95, axis=0)
-    table.to_csv(output / f"{experiment}_posterior_predictive_observations.csv", index=False)
+    table.to_csv(
+        output / f"{experiment}_posterior_predictive_observations.csv", index=False
+    )
     objective = np.sum(contribution, axis=1)
-    latent_covered = (
-        (observed >= np.quantile(predictions, 0.05, axis=0))
-        & (observed <= np.quantile(predictions, 0.95, axis=0))
+    latent_covered = (observed >= np.quantile(predictions, 0.05, axis=0)) & (
+        observed <= np.quantile(predictions, 0.95, axis=0)
     )
     pd.DataFrame(
         {
@@ -547,7 +556,9 @@ def quadrature_checks(
         np.argmin(flat[:, 0] + flat[:, 2]),
         np.argmax(flat[:, 0] + flat[:, 2]),
     ]
-    obs_indices = sorted(set([0, len(target.observations) // 2, len(target.observations) - 1]))
+    obs_indices = sorted(
+        set([0, len(target.observations) // 2, len(target.observations) - 1])
+    )
     rows = []
     model = InverseGaussianShiftedLpm(directory_lpm=ROOT / LPM_DIR)
     for draw_index in chosen:
@@ -555,19 +566,26 @@ def quadrature_checks(
         model.p.update(mu=theta[0], sigma=theta[1], shift=theta[2])
         batched = target.forward.predict(theta)
         for obs_index in obs_indices:
-            reference = _quadrature_reference(target.forward.convolutions[obs_index], model)
+            reference = _quadrature_reference(
+                target.forward.convolutions[obs_index], model
+            )
             rows.append(
                 {
                     "experiment": experiment,
                     "posterior_flat_index": draw_index,
-                    "observation_id": int(target.observations.iloc[obs_index]["observation_id"]),
+                    "observation_id": int(
+                        target.observations.iloc[obs_index]["observation_id"]
+                    ),
                     "engine": batched[obs_index],
                     "quadrature": reference,
                     "absolute_difference": abs(batched[obs_index] - reference),
-                    "relative_difference": abs(batched[obs_index] - reference) / max(abs(reference), 1e-12),
+                    "relative_difference": abs(batched[obs_index] - reference)
+                    / max(abs(reference), 1e-12),
                 }
             )
-    pd.DataFrame(rows).to_csv(output / f"{experiment}_quadrature_checks.csv", index=False)
+    pd.DataFrame(rows).to_csv(
+        output / f"{experiment}_quadrature_checks.csv", index=False
+    )
 
 
 def _trace_plots(experiment: str, chains: np.ndarray, output: Path) -> None:
@@ -659,7 +677,9 @@ def calibrate_experiment(
         retained += count
         chains = np.asarray([np.concatenate(parts) for parts in chain_parts])
         diagnostics = chain_diagnostics(chains)
-        diagnostics.to_csv(output / f"{experiment}_diagnostics_checkpoint.csv", index=False)
+        diagnostics.to_csv(
+            output / f"{experiment}_diagnostics_checkpoint.csv", index=False
+        )
         print(
             f"{experiment}: {retained} production draws/chain; "
             f"max R-hat={diagnostics.split_rhat.max():.4f}; "
@@ -784,7 +804,9 @@ def create_figure(output: Path, prediction_draws: int, prediction_seed: int) -> 
             zorder=4,
         )
         for name in ("time_series", "single_date"):
-            subset = prediction[(prediction.element == tracer) & (prediction.experiment == name)]
+            subset = prediction[
+                (prediction.element == tracer) & (prediction.experiment == name)
+            ]
             axis.fill_between(
                 subset.date,
                 subset.q05,
@@ -838,11 +860,16 @@ def create_figure(output: Path, prediction_draws: int, prediction_seed: int) -> 
     plt.close(fig)
 
 
-def _write_manifest(output: Path, args: argparse.Namespace, observations: pd.DataFrame) -> None:
+def _write_manifest(
+    output: Path, args: argparse.Namespace, observations: pd.DataFrame
+) -> None:
     input_paths = [ROOT / DATA_PATH, ROOT / LPM_DIR / "ig_shifted" / "params.yaml"]
     for tracer in TRACERS:
         input_paths.extend(
-            [ROOT / TRACER_DIR / tracer / f"{tracer}.yaml", ROOT / TRACER_DIR / tracer / "recharge.csv"]
+            [
+                ROOT / TRACER_DIR / tracer / f"{tracer}.yaml",
+                ROOT / TRACER_DIR / tracer / "recharge.csv",
+            ]
         )
     manifest = {
         "created_utc": datetime.now(timezone.utc).isoformat(),
@@ -904,7 +931,11 @@ def _markdown_table(frame: pd.DataFrame, columns: list[str], digits: int = 3) ->
         values = []
         for column in columns:
             value = row[column]
-            values.append(f"{value:.{digits}f}" if isinstance(value, (float, np.floating)) else str(value))
+            values.append(
+                f"{value:.{digits}f}"
+                if isinstance(value, (float, np.floating))
+                else str(value)
+            )
         rows.append("| " + " | ".join(values) + " |")
     return "\n".join((header, separator, *rows))
 
@@ -934,7 +965,18 @@ def write_report(output: Path) -> None:
         )
     convergence = pd.DataFrame(convergence_rows)
     posterior = summary[
-        ["experiment", "parameter", "mean", "median", "sd", "q05", "q10", "q50", "q90", "q95"]
+        [
+            "experiment",
+            "parameter",
+            "mean",
+            "median",
+            "sd",
+            "q05",
+            "q10",
+            "q50",
+            "q90",
+            "q95",
+        ]
     ]
     comparison_rows = []
     for parameter in ("mu", "sigma", "t0", "mu_plus_t0"):
@@ -952,23 +994,43 @@ def write_report(output: Path) -> None:
     comparison = pd.DataFrame(comparison_rows)
     correlations = []
     for experiment in ("single_date", "time_series"):
-        corr = pd.read_csv(output / f"{experiment}_posterior_correlations.csv", index_col=0)
+        corr = pd.read_csv(
+            output / f"{experiment}_posterior_correlations.csv", index_col=0
+        )
         correlations.extend(
             [
-                {"experiment": experiment, "pair": "mu–sigma", "correlation": corr.loc["mu", "sigma"]},
-                {"experiment": experiment, "pair": "mu–t0", "correlation": corr.loc["mu", "t0"]},
-                {"experiment": experiment, "pair": "sigma–t0", "correlation": corr.loc["sigma", "t0"]},
+                {
+                    "experiment": experiment,
+                    "pair": "mu–sigma",
+                    "correlation": corr.loc["mu", "sigma"],
+                },
+                {
+                    "experiment": experiment,
+                    "pair": "mu–t0",
+                    "correlation": corr.loc["mu", "t0"],
+                },
+                {
+                    "experiment": experiment,
+                    "pair": "sigma–t0",
+                    "correlation": corr.loc["sigma", "t0"],
+                },
             ]
         )
     objective = pd.concat(
-        [pd.read_csv(output / f"{name}_objective_summary.csv") for name in ("single_date", "time_series")],
+        [
+            pd.read_csv(output / f"{name}_objective_summary.csv")
+            for name in ("single_date", "time_series")
+        ],
         ignore_index=True,
     )
-    influential = pd.read_csv(output / "time_series_posterior_predictive_observations.csv").nlargest(
-        10, "objective_contribution_median"
-    )
+    influential = pd.read_csv(
+        output / "time_series_posterior_predictive_observations.csv"
+    ).nlargest(10, "objective_contribution_median")
     window = pd.concat(
-        [pd.read_csv(output / f"{name}_window_mass_summary.csv") for name in ("single_date", "time_series")],
+        [
+            pd.read_csv(output / f"{name}_window_mass_summary.csv")
+            for name in ("single_date", "time_series")
+        ],
         ignore_index=True,
     )
     quadrature = []
@@ -1000,9 +1062,9 @@ def write_report(output: Path) -> None:
 
 We recalibrated the Ploemeur F09 record with a shifted inverse Gaussian transit-time distribution using the physical parameterization in which *mu* is the mean and *sigma* the standard deviation of the unshifted component, *t0* is the shift, and the total mean transit time is *mu + t0*. The single-date and time-series experiments used identical uniform priors, parameter bounds, 20% observation errors, convolution settings, and random-walk Metropolis algorithm; they differed only in using the three observations collected at 2010.9 or all 58 observations from 20 sampling dates, respectively. Four dispersed chains were run for each experiment, and 20,000 post-warm-up draws per chain were retained without thinning. All principal parameters had split R-hat below 1.01 and bulk and tail effective sample sizes above 11,000.
 
-The single-date posterior median total mean transit time was {s_total['median']:.2f} yr (90% credible interval {s_total['q05']:.2f}–{s_total['q95']:.2f} yr), compared with {t_total['median']:.2f} yr ({t_total['q05']:.2f}–{t_total['q95']:.2f} yr) for the time-series calibration. The corresponding median component parameters were *mu* = {single.loc['mu', 'median']:.2f}, *sigma* = {single.loc['sigma', 'median']:.2f}, and *t0* = {single.loc['t0', 'median']:.2f} yr for the single-date analysis, and *mu* = {temporal.loc['mu', 'median']:.2f}, *sigma* = {temporal.loc['sigma', 'median']:.2f}, and *t0* = {temporal.loc['t0', 'median']:.2f} yr for the time-series analysis. Thus, under the controlled protocol, the time-series posterior supports a lower total mean transit time while its median *sigma* is slightly higher; these statements describe the new posterior and are not transformations of the legacy parameters.
+The single-date posterior median total mean transit time was {s_total["median"]:.2f} yr (90% credible interval {s_total["q05"]:.2f}–{s_total["q95"]:.2f} yr), compared with {t_total["median"]:.2f} yr ({t_total["q05"]:.2f}–{t_total["q95"]:.2f} yr) for the time-series calibration. The corresponding median component parameters were *mu* = {single.loc["mu", "median"]:.2f}, *sigma* = {single.loc["sigma", "median"]:.2f}, and *t0* = {single.loc["t0", "median"]:.2f} yr for the single-date analysis, and *mu* = {temporal.loc["mu", "median"]:.2f}, *sigma* = {temporal.loc["sigma", "median"]:.2f}, and *t0* = {temporal.loc["t0", "median"]:.2f} yr for the time-series analysis. Thus, under the controlled protocol, the time-series posterior supports a lower total mean transit time while its median *sigma* is slightly higher; these statements describe the new posterior and are not transformations of the legacy parameters.
 
-Posterior predictive curves were computed exclusively from joint posterior draws. The time-series standardized objective had a median of {objective.loc[objective.experiment == 'time_series', 'median'].iloc[0]:.2f} for 58 observations. The largest median contributions came from CFC-11 and CFC-12 in 2021, which were retained in the analysis. Median window masses were approximately {window.loc[window.experiment == 'time_series', 'median'].median():.3f} for the time-series posterior and {window.loc[window.experiment == 'single_date', 'median'].median():.3f} for the single-date posterior, indicating little truncation for most draws, although the lower tail of the single-date posterior includes some mass older than the available chronicles. Independent probability-space quadrature checks agreed with the production convolution to better than 1.1 × 10⁻¹² in relative terms.
+Posterior predictive curves were computed exclusively from joint posterior draws. The time-series standardized objective had a median of {objective.loc[objective.experiment == "time_series", "median"].iloc[0]:.2f} for 58 observations. The largest median contributions came from CFC-11 and CFC-12 in 2021, which were retained in the analysis. Median window masses were approximately {window.loc[window.experiment == "time_series", "median"].median():.3f} for the time-series posterior and {window.loc[window.experiment == "single_date", "median"].median():.3f} for the single-date posterior, indicating little truncation for most draws, although the lower tail of the single-date posterior includes some mass older than the available chronicles. Independent probability-space quadrature checks agreed with the production convolution to better than 1.1 × 10⁻¹² in relative terms.
 """
     report = f"""# Reconstruction of the Ploemeur F09 case and Figure 4
 
@@ -1020,7 +1082,7 @@ Four random-walk Metropolis chains start from dispersed points in the admissible
 
 Per-chain acceptance and seeds are:
 
-{_markdown_table(pd.concat(chain_detail, ignore_index=True), ['experiment', 'chain', 'seed', 'pilot_acceptance', 'production_acceptance', 'retained_draws'])}
+{_markdown_table(pd.concat(chain_detail, ignore_index=True), ["experiment", "chain", "seed", "pilot_acceptance", "production_acceptance", "retained_draws"])}
 
 Trace plots and autocorrelation tables/figures are archived for both experiments. Although production acceptance rates are about 0.55–0.58, the rank-normalized split R-hat and ESS results are comfortably inside the requested thresholds.
 
@@ -1036,7 +1098,7 @@ The time-series result is lower in `mu`, `t0`, and total mean transit time, whil
 
 ## Posterior dependence
 
-{_markdown_table(pd.DataFrame(correlations), ['experiment', 'pair', 'correlation'])}
+{_markdown_table(pd.DataFrame(correlations), ["experiment", "pair", "correlation"])}
 
 The strongest dependence is the single-date `mu–t0` anticorrelation, consistent with three observations constraining their sum more directly than the two components.
 
@@ -1048,7 +1110,7 @@ The 90% bands in Figure 4 are latent concentration bands from joint parameter un
 
 The ten largest median time-series objective contributions are:
 
-{_markdown_table(influential, ['observation_id', 'element', 'date', 'concentration', 'prediction_median', 'standardized_residual_median', 'objective_contribution_median'])}
+{_markdown_table(influential, ["observation_id", "element", "date", "concentration", "prediction_median", "standardized_residual_median", "objective_contribution_median"])}
 
 CFC-11 2021 and CFC-12 2021 contribute 16.84 and 6.34, respectively, and remain in the primary analysis.
 
@@ -1058,7 +1120,7 @@ CFC-11 2021 and CFC-12 2021 contribute 16.84 and 6.34, respectively, and remain 
 
 For time-series, fewer than 0.01% of sampled observation/draw combinations have `window_mass < 0.95`. For single-date, 5.6% do; its minimum among the archived diagnostic draws is 0.882. Thus, most posterior mass lies within the available histories, but a small lower-tail single-date regime places a non-negligible fraction of the TTD before the chronicle window. No renormalization is applied.
 
-{_markdown_table(pd.DataFrame(quadrature), ['experiment', 'max absolute difference', 'max relative difference'])}
+{_markdown_table(pd.DataFrame(quadrature), ["experiment", "max absolute difference", "max relative difference"])}
 
 ## Figure 4
 
@@ -1075,7 +1137,9 @@ This reconstruction did not update any Ploemeur golden.
 {section_42}
 """
     (output / "final_report.md").write_text(report, encoding="utf-8")
-    (output / "manuscript_section_4_2_proposed.md").write_text(section_42, encoding="utf-8")
+    (output / "manuscript_section_4_2_proposed.md").write_text(
+        section_42, encoding="utf-8"
+    )
 
 
 def _archive(output: Path) -> None:
@@ -1093,7 +1157,9 @@ def calibrate(args: argparse.Namespace, output: Path) -> None:
     if len(single) != 3:
         raise ValueError(f"Expected three observations at 2010.9, found {len(single)}")
     all_summary = []
-    for index, (name, data) in enumerate((("single_date", single), ("time_series", observations))):
+    for index, (name, data) in enumerate(
+        (("single_date", single), ("time_series", observations))
+    ):
         chains, target = calibrate_experiment(
             name,
             data,
@@ -1114,7 +1180,9 @@ def calibrate(args: argparse.Namespace, output: Path) -> None:
             args.diagnostic_draws,
         )
         quadrature_checks(name, target, chains, output)
-    pd.concat(all_summary, ignore_index=True).to_csv(output / "posterior_summary.csv", index=False)
+    pd.concat(all_summary, ignore_index=True).to_csv(
+        output / "posterior_summary.csv", index=False
+    )
     _write_manifest(output, args, observations)
     create_figure(output, args.prediction_draws, args.posterior_predictive_seed)
     write_report(output)
@@ -1124,10 +1192,16 @@ def calibrate(args: argparse.Namespace, output: Path) -> None:
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--calibrate", action="store_true", help="run new calibrations and plot")
-    mode.add_argument("--plot-only", action="store_true", help="plot existing new-chain outputs")
+    mode.add_argument(
+        "--calibrate", action="store_true", help="run new calibrations and plot"
+    )
+    mode.add_argument(
+        "--plot-only", action="store_true", help="plot existing new-chain outputs"
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--seeds", type=int, nargs="+", default=[73101, 73102, 73103, 73104])
+    parser.add_argument(
+        "--seeds", type=int, nargs="+", default=[73101, 73102, 73103, 73104]
+    )
     parser.add_argument("--pilot-steps", type=int, default=4000)
     parser.add_argument("--production-chunk", type=int, default=10000)
     parser.add_argument("--max-production", type=int, default=100000)

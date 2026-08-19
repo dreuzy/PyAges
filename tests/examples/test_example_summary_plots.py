@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import pyage.concentrations.concentrations as co
-from scripts.common.example_summary_plots import (
+from pyage.workflows.summary_plots import (
     plot_parameter_distribution_comparison,
     plot_temporal_fit_comparison,
 )

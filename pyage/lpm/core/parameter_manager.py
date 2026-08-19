@@ -9,6 +9,7 @@ from YAML configuration files.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 
 class ParameterManager:
@@ -24,13 +25,10 @@ class ParameterManager:
     """
 
     # Class-level cache shared across all instances to avoid repeated YAML loads.
-    _PARAMS_CACHE: dict[Path, dict | None] = {}
+    _PARAMS_CACHE: ClassVar[dict[Path, dict | None]] = {}
 
     def __init__(
-        self,
-        model_name: str,
-        directory_lpm: str,
-        parameter_names: list[str]
+        self, model_name: str, directory_lpm: str, parameter_names: list[str]
     ) -> None:
         """
         Initialize parameter manager and load bounds.
@@ -129,9 +127,7 @@ class ParameterManager:
         return True
 
     def param_within_bounds_array(
-        self,
-        params: list[float],
-        param_order: list[str]
+        self, params: list[float], param_order: list[str]
     ) -> bool:
         """
         Test whether array parameters are within bounds.

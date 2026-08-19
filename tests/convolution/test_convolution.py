@@ -7,12 +7,13 @@ of tracers/LPMs without asserting scientific correctness.
 
 import math
 from pathlib import Path
+
 import numpy as np
 import pytest
 
-from pyage.lpm.lpm_build import lpm_build, list_available_lpms
 import pyage.tracer.tracer_root as tracer_module
 from pyage.convolution.convolution import Convolution
+from pyage.lpm.lpm_build import list_available_lpms, lpm_build
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -74,10 +75,7 @@ def test_convolution_golden_at_date_2010(lpm_type, tracer_name, update_golden):
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:
-        pytest.fail(
-            f"Golden value missing for {key}. "
-            f"Run: pytest -s --update-golden"
-        )
+        pytest.fail(f"Golden value missing for {key}. Run: pytest -s --update-golden")
 
     expected = float(store[key])
     assert value == pytest.approx(expected, rel=1e-6, abs=1e-6)

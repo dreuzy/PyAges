@@ -15,16 +15,20 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from pyage.config.models import LauncherConfig, LauncherParams
+from pyage.workflows.single_date_config import load_params_payload
 from scripts.common.example_case_utils import (
     dump_yaml_dict as dump_yaml,
+)
+from scripts.common.example_case_utils import (
     load_yaml_dict as load_yaml,
+)
+from scripts.common.example_case_utils import (
     repo_root_from,
 )
 from scripts.common.example_launcher_utils import (
     build_effective_launcher_config,
     generated_launcher_config_path,
 )
-from scripts.common.launcher_params import load_params_payload
 
 
 class _HoltenBaseConfig(BaseModel):
@@ -100,9 +104,7 @@ def _validate_holten_config(payload: dict[str, Any], root: Path) -> None:
 def _launcher_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Select only fields belonging to the generic launcher schema."""
     return {
-        name: payload[name]
-        for name in LauncherConfig.model_fields
-        if name in payload
+        name: payload[name] for name in LauncherConfig.model_fields if name in payload
     }
 
 
@@ -167,10 +169,14 @@ class PreparedHoltenCase:
         selected = set(context.selected_wells)
         return PreparedHoltenCase(
             context=context,
-            sampling_raw=self.sampling_raw.loc[self.sampling_raw["ID"].isin(selected)].copy().reset_index(drop=True),
+            sampling_raw=self.sampling_raw.loc[self.sampling_raw["ID"].isin(selected)]
+            .copy()
+            .reset_index(drop=True),
             observed_aggregated=self.observed_aggregated.loc[
                 self.observed_aggregated["well_id"].isin(selected)
-            ].copy().reset_index(drop=True),
+            ]
+            .copy()
+            .reset_index(drop=True),
             observed_by_well={
                 well_id: frame.copy().reset_index(drop=True)
                 for well_id, frame in self.observed_by_well.items()
@@ -182,10 +188,14 @@ class PreparedHoltenCase:
             },
             preparation_log=self.preparation_log.loc[
                 self.preparation_log["well_id"].isin(selected)
-            ].copy().reset_index(drop=True),
+            ]
+            .copy()
+            .reset_index(drop=True),
             helium_diagnostics=self.helium_diagnostics.loc[
                 self.helium_diagnostics["well_id"].isin(selected)
-            ].copy().reset_index(drop=True),
+            ]
+            .copy()
+            .reset_index(drop=True),
         )
 
 
@@ -209,7 +219,9 @@ def _common_parent(paths: list[Path], fallback: Path) -> Path:
 def resolve_paths(config_path: Path | None = None) -> HoltenPaths:
     root = repo_root()
     example_dir = Path(__file__).resolve().parent
-    yaml_path = Path(config_path) if config_path is not None else (example_dir / "holten.yaml")
+    yaml_path = (
+        Path(config_path) if config_path is not None else (example_dir / "holten.yaml")
+    )
     cfg = load_yaml(yaml_path)
     _validate_holten_config(cfg, root)
     params = _load_launcher_params(root, cfg)
@@ -224,7 +236,9 @@ def resolve_paths(config_path: Path | None = None) -> HoltenPaths:
         params.tracer_data_dir
         if params.tracer_data_dir is not None
         else _resolve_repo_relative(
-            tracer_cfg.get("prepared_data_dir", example_dir / "prepared_tracers" / "data_tracer"),
+            tracer_cfg.get(
+                "prepared_data_dir", example_dir / "prepared_tracers" / "data_tracer"
+            ),
             root,
         )
     )
@@ -241,7 +255,9 @@ def resolve_paths(config_path: Path | None = None) -> HoltenPaths:
         root,
     )
     reference_results_path = _resolve_repo_relative(
-        validation_cfg.get("reference_results", example_dir / "doc" / "calibration_results.txt"),
+        validation_cfg.get(
+            "reference_results", example_dir / "doc" / "calibration_results.txt"
+        ),
         root,
     )
     aggregated_dataset_path = _resolve_repo_relative(
@@ -282,7 +298,11 @@ def resolve_paths(config_path: Path | None = None) -> HoltenPaths:
 
 def load_holten_config(config_path: Path | None = None) -> dict[str, Any]:
     root = repo_root()
-    yaml_path = Path(config_path) if config_path is not None else Path(__file__).resolve().parent / "holten.yaml"
+    yaml_path = (
+        Path(config_path)
+        if config_path is not None
+        else Path(__file__).resolve().parent / "holten.yaml"
+    )
     payload = load_yaml(yaml_path)
     _validate_holten_config(payload, root)
     return payload
@@ -324,7 +344,9 @@ def build_context(config_path: Path | None = None) -> HoltenContext:
 
 
 def tracer_yaml_path(context: HoltenContext, tracer_name: str) -> Path:
-    tracer_dir = context.tracer_source_dirs.get(tracer_name, context.paths.tracer_source_dir / tracer_name)
+    tracer_dir = context.tracer_source_dirs.get(
+        tracer_name, context.paths.tracer_source_dir / tracer_name
+    )
     return tracer_dir / f"{tracer_name}.yaml"
 
 
@@ -417,15 +439,20 @@ def write_well_launcher_config(context: HoltenContext, well_id: str) -> Path:
     dataset_name = f"holten_2010_{well_id}.txt"
     return write_effective_config(
         context,
-        output_path=context.paths.launcher_config_dir / f"holten_{well_id}_launcher.yaml",
+        output_path=context.paths.launcher_config_dir
+        / f"holten_{well_id}_launcher.yaml",
         dataset_name=dataset_name,
         dataset_label=f"Holten {well_id}",
         dataset_year=context.params.dataset_year,
         dataset_data_dir=context.paths.data_dir.relative_to(context.paths.repo_root),
         dataset_verbose=True,
         lpm_model_name=context.params.lpm_model_name,
-        lpm_data_directory=context.paths.lpm_data_dir.relative_to(context.paths.repo_root),
-        tracer_data_dir=context.paths.prepared_tracer_dir.relative_to(context.paths.repo_root),
+        lpm_data_directory=context.paths.lpm_data_dir.relative_to(
+            context.paths.repo_root
+        ),
+        tracer_data_dir=context.paths.prepared_tracer_dir.relative_to(
+            context.paths.repo_root
+        ),
     )
 
 
@@ -440,7 +467,10 @@ def decimal_year_from_sampling_date(date_text: str) -> float:
     dt = parse_dd_mm_yy(date_text)
     year_start = datetime(dt.year, 1, 1, tzinfo=timezone.utc)
     next_year = datetime(dt.year + 1, 1, 1, tzinfo=timezone.utc)
-    return dt.year + (dt - year_start).total_seconds() / (next_year - year_start).total_seconds()
+    return (
+        dt.year
+        + (dt - year_start).total_seconds() / (next_year - year_start).total_seconds()
+    )
 
 
 def rounded_decimal_year(date_text: str, ndigits: int = 5) -> float:

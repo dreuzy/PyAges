@@ -7,7 +7,6 @@ from pathlib import Path
 
 from PIL import Image
 
-
 REPO_ROOT = Path(__file__).resolve().parents[5]
 DEFAULT_DIRECTORY = REPO_ROOT / "results" / "HYP-26-0172" / "figures"
 REQUIRED_STEMS = {"Figure3", "Figure4", "Figure5", "Figure6", "FigureA1"}

@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 from pyage.config.paths import DIRECTORY_LPM_DATA, DIRECTORY_TRACER_DATA
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 

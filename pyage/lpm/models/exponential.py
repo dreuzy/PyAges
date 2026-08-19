@@ -16,8 +16,8 @@ import numpy.typing as npt
 from scipy.special import gammainc
 from scipy.stats import expon
 
-from pyage.lpm.core.lpm_scipy import LpmScipy
 from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
+from pyage.lpm.core.lpm_scipy import LpmScipy
 from pyage.lpm.core.registry import register_lpm
 
 
@@ -68,13 +68,13 @@ class ExponentialLpm(LpmScipy):
         directory_lpm : str
             Directory for LPM parameter files.
         """
-        parameter_values = {'mu': mu}
-        parameter_units = {'mu': 'year'}
+        parameter_values = {"mu": mu}
+        parameter_units = {"mu": "year"}
         super().__init__("exp", parameter_values, parameter_units, directory_lpm)
 
     def _scipy_params(self):
-        return (), 0, self.p['mu']  # (args), loc, scale
+        return (), 0, self.p["mu"]  # (args), loc, scale
 
     def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
         """Return exact cumulative mass and truncated first moment."""
-        return cdf_and_partial_first_moment_from_scale_shift(t, self.p['mu'])
+        return cdf_and_partial_first_moment_from_scale_shift(t, self.p["mu"])

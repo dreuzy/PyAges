@@ -13,7 +13,6 @@ from scipy.integrate import quad
 from pyage.lpm.models.exponential_shifted import ExponentialShiftedLpm
 from pyage.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[6]
 OUTPUT_DIRECTORY = (
     REPOSITORY_ROOT / "results" / "HYP-26-0172" / "figures" / "supporting_information"

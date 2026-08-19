@@ -1,4 +1,3 @@
-
 """Public API for tracer/LPM convolution."""
 
 from pyage.convolution.convolution import (

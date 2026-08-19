@@ -20,7 +20,6 @@ import yaml
 
 from .generate_inputs import BENCHMARK_ROOT
 
-
 GENERATED = BENCHMARK_ROOT / "generated"
 ROBUSTNESS = GENERATED / "robustness-study"
 OUTPUT = GENERATED / "qualification-report"
@@ -43,13 +42,21 @@ def _load_rows() -> list[dict]:
     with (ROBUSTNESS / "results.csv").open(encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
     numeric = {
-        "noise_relative_sd", "true_tau", "true_secondary", "pyage_tau",
-        "pyage_secondary", "pyage_maximum_concentration_relative_error",
-        "tracerlpm_tau", "tracerlpm_secondary",
-        "tracerlpm_maximum_concentration_relative_error", "tracerlpm_objective",
+        "noise_relative_sd",
+        "true_tau",
+        "true_secondary",
+        "pyage_tau",
+        "pyage_secondary",
+        "pyage_maximum_concentration_relative_error",
+        "tracerlpm_tau",
+        "tracerlpm_secondary",
+        "tracerlpm_maximum_concentration_relative_error",
+        "tracerlpm_objective",
     }
     boolean = {
-        "pyage_success", "pyage_boundary_hit", "tracerlpm_success",
+        "pyage_success",
+        "pyage_boundary_hit",
+        "tracerlpm_success",
         "tracerlpm_boundary_hit",
     }
     for row in rows:
@@ -70,7 +77,9 @@ def _aggregate(rows: list[dict], keys: tuple[str, ...]) -> list[dict]:
         base = dict(zip(keys, group_key))
         for tool in ("pyage", "tracerlpm"):
             tau_errors = [row[f"{tool}_tau"] - row["true_tau"] for row in selected]
-            tau_relative = [abs(error) / row["true_tau"] for error, row in zip(tau_errors, selected)]
+            tau_relative = [
+                abs(error) / row["true_tau"] for error, row in zip(tau_errors, selected)
+            ]
             secondary_errors = [
                 row[f"{tool}_secondary"] - row["true_secondary"] for row in selected
             ]
@@ -78,55 +87,74 @@ def _aggregate(rows: list[dict], keys: tuple[str, ...]) -> list[dict]:
                 abs(error) / row["true_secondary"]
                 for error, row in zip(secondary_errors, selected)
             ]
-            output.append({
-                **base,
-                "tool": tool,
-                "count": len(selected),
-                "tau_bias": statistics.mean(tau_errors),
-                "tau_rmse": _rmse(tau_errors),
-                "tau_median_absolute_relative_error": _median(tau_relative),
-                "secondary_bias": statistics.mean(secondary_errors),
-                "secondary_rmse": _rmse(secondary_errors),
-                "secondary_median_absolute_relative_error": _median(secondary_relative),
-                "boundary_hits": sum(row[f"{tool}_boundary_hit"] for row in selected),
-                "median_maximum_concentration_relative_error": _median([
-                    row[f"{tool}_maximum_concentration_relative_error"] for row in selected
-                ]),
-            })
+            output.append(
+                {
+                    **base,
+                    "tool": tool,
+                    "count": len(selected),
+                    "tau_bias": statistics.mean(tau_errors),
+                    "tau_rmse": _rmse(tau_errors),
+                    "tau_median_absolute_relative_error": _median(tau_relative),
+                    "secondary_bias": statistics.mean(secondary_errors),
+                    "secondary_rmse": _rmse(secondary_errors),
+                    "secondary_median_absolute_relative_error": _median(
+                        secondary_relative
+                    ),
+                    "boundary_hits": sum(
+                        row[f"{tool}_boundary_hit"] for row in selected
+                    ),
+                    "median_maximum_concentration_relative_error": _median(
+                        [
+                            row[f"{tool}_maximum_concentration_relative_error"]
+                            for row in selected
+                        ]
+                    ),
+                }
+            )
     return output
 
 
 def _fit_objective_diagnostic(rows: list[dict]) -> dict:
     comparisons = []
     for row in rows:
-        pyage = json.loads((
-            GENERATED / "inversion" / row["case_id"] / "pyage-result.json"
-        ).read_text(encoding="utf-8"))
-        tracer = json.loads((
-            TRACERLPM_ROOT / row["tracerlpm_report"]
-        ).read_text(encoding="utf-8-sig"))["fit"]
-        tracer_attempt = min(tracer["attempts"], key=lambda item: float(item["objective"]))
+        pyage = json.loads(
+            (GENERATED / "inversion" / row["case_id"] / "pyage-result.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        tracer = json.loads(
+            (TRACERLPM_ROOT / row["tracerlpm_report"]).read_text(encoding="utf-8-sig")
+        )["fit"]
+        tracer_attempt = min(
+            tracer["attempts"], key=lambda item: float(item["objective"])
+        )
         pyage_relative = [
             abs(float(item["calculated"]) - float(item["observed"]))
             / max(abs(float(item["observed"])), 1e-300)
             for item in pyage["concentrations"]
         ]
         tracer_relative = [
-            abs(float(tracer_attempt["calculatedConcentrations"][name]) - float(observed))
+            abs(
+                float(tracer_attempt["calculatedConcentrations"][name])
+                - float(observed)
+            )
             / max(abs(float(observed)), 1e-300)
             for name, observed in tracer["observations"].items()
         ]
-        comparisons.append({
-            "case_id": row["case_id"],
-            "pyage_l1": sum(pyage_relative),
-            "tracerlpm_l1": sum(tracer_relative),
-            "pyage_l2": sum(value * value for value in pyage_relative),
-            "tracerlpm_l2": sum(value * value for value in tracer_relative),
-            "pyage_tau_error": abs(row["pyage_tau"] - row["true_tau"]),
-            "tracerlpm_tau_error": abs(row["tracerlpm_tau"] - row["true_tau"]),
-        })
+        comparisons.append(
+            {
+                "case_id": row["case_id"],
+                "pyage_l1": sum(pyage_relative),
+                "tracerlpm_l1": sum(tracer_relative),
+                "pyage_l2": sum(value * value for value in pyage_relative),
+                "tracerlpm_l2": sum(value * value for value in tracer_relative),
+                "pyage_tau_error": abs(row["pyage_tau"] - row["true_tau"]),
+                "tracerlpm_tau_error": abs(row["tracerlpm_tau"] - row["true_tau"]),
+            }
+        )
     pyage_tau_worse = [
-        item for item in comparisons
+        item
+        for item in comparisons
         if item["pyage_tau_error"] > item["tracerlpm_tau_error"]
     ]
     return {
@@ -190,13 +218,17 @@ def _coverage(rows: list[dict]) -> list[dict]:
 
 
 def _sha256(path: Path) -> str | None:
-    return hashlib.sha256(path.read_bytes()).hexdigest().upper() if path.exists() else None
+    return (
+        hashlib.sha256(path.read_bytes()).hexdigest().upper() if path.exists() else None
+    )
 
 
 def _provenance() -> dict:
-    config = yaml.safe_load((
-        TRACERLPM_ROOT / "config" / "runner-config.robustness-session.local.yaml"
-    ).read_text(encoding="utf-8"))
+    config = yaml.safe_load(
+        (
+            TRACERLPM_ROOT / "config" / "runner-config.robustness-session.local.yaml"
+        ).read_text(encoding="utf-8")
+    )
     try:
         commit = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=BENCHMARK_ROOT.parents[2], text=True
@@ -240,14 +272,21 @@ def _make_figure(model_noise: list[dict], head_to_head: dict, target: Path) -> N
     fig, axes = plt.subplots(2, 2, figsize=(12, 8.2))
     fields = [
         ("tau_median_absolute_relative_error", "Erreur médiane relative sur τ (%)"),
-        ("secondary_median_absolute_relative_error", "Erreur médiane relative sur le paramètre 2 (%)"),
+        (
+            "secondary_median_absolute_relative_error",
+            "Erreur médiane relative sur le paramètre 2 (%)",
+        ),
         ("boundary_hits", "Solutions sur une borne (%)"),
     ]
     for axis, (field, title) in zip(axes.flat[:3], fields):
         for model in ("EPM", "DM"):
             for tool in ("pyage", "tracerlpm"):
                 selected = sorted(
-                    (row for row in model_noise if row["model"] == model and row["tool"] == tool),
+                    (
+                        row
+                        for row in model_noise
+                        if row["model"] == model and row["tool"] == tool
+                    ),
                     key=lambda row: row["noise_relative_sd"],
                 )
                 x = [100 * row["noise_relative_sd"] for row in selected]
@@ -256,7 +295,11 @@ def _make_figure(model_noise: list[dict], head_to_head: dict, target: Path) -> N
                 else:
                     y = [100 * row[field] for row in selected]
                 axis.plot(
-                    x, y, marker="o", linestyle=styles[model], color=colors[tool],
+                    x,
+                    y,
+                    marker="o",
+                    linestyle=styles[model],
+                    color=colors[tool],
                     label=f"{labels[tool]} {model}",
                 )
         axis.set_title(title)
@@ -270,19 +313,25 @@ def _make_figure(model_noise: list[dict], head_to_head: dict, target: Path) -> N
     axis.bar(
         x - width / 2,
         [head_to_head[name]["pyage"] for name in ("tau", "secondary")],
-        width, color=colors["pyage"], label="PyAge",
+        width,
+        color=colors["pyage"],
+        label="PyAge",
     )
     axis.bar(
         x + width / 2,
         [head_to_head[name]["tracerlpm"] for name in ("tau", "secondary")],
-        width, color=colors["tracerlpm"], label="TracerLPM",
+        width,
+        color=colors["tracerlpm"],
+        label="TracerLPM",
     )
     axis.set_xticks(x, ["τ", "Paramètre 2"])
     axis.set_ylabel("Nombre de cas plus proches de la vérité")
     axis.set_title("Comparaison cas par cas (descriptive)")
     axis.grid(axis="y", alpha=0.25)
     axis.legend()
-    fig.suptitle("Qualification PyAge–TracerLPM : robustesse de l’inversion", fontsize=14)
+    fig.suptitle(
+        "Qualification PyAge–TracerLPM : robustesse de l’inversion", fontsize=14
+    )
     fig.tight_layout()
     fig.savefig(target, dpi=180, bbox_inches="tight")
     plt.close(fig)
@@ -345,10 +394,22 @@ def build() -> dict:
     objectives = _fit_objective_diagnostic(rows)
     coverage = _coverage(rows)
     provenance = _provenance()
-    forward = json.loads((GENERATED / "pyage_comparison" / "summary.json").read_text(encoding="utf-8"))
-    convergence = json.loads((GENERATED / "pyage_convergence" / "summary.json").read_text(encoding="utf-8"))
-    sf6 = json.loads((GENERATED / "sf6-information-gain" / "summary.json").read_text(encoding="utf-8"))
-    sf6_tools = json.loads((GENERATED / "tracerlpm-sf6-monte-carlo" / "summary.json").read_text(encoding="utf-8"))
+    forward = json.loads(
+        (GENERATED / "pyage_comparison" / "summary.json").read_text(encoding="utf-8")
+    )
+    convergence = json.loads(
+        (GENERATED / "pyage_convergence" / "summary.json").read_text(encoding="utf-8")
+    )
+    sf6 = json.loads(
+        (GENERATED / "sf6-information-gain" / "summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    sf6_tools = json.loads(
+        (GENERATED / "tracerlpm-sf6-monte-carlo" / "summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
     metrics = {
         "status": "complete_working_report",
         "provenance": provenance,
@@ -366,7 +427,9 @@ def build() -> dict:
             "pyage": sum(row["pyage_success"] for row in rows),
             "tracerlpm": sum(row["tracerlpm_success"] for row in rows),
             "pyage_boundary_hits": sum(row["pyage_boundary_hit"] for row in rows),
-            "tracerlpm_boundary_hits": sum(row["tracerlpm_boundary_hit"] for row in rows),
+            "tracerlpm_boundary_hits": sum(
+                row["tracerlpm_boundary_hit"] for row in rows
+            ),
         },
         "model_noise": model_noise,
         "model_age_noise": model_age_noise,
@@ -396,8 +459,8 @@ la vérification du calcul direct (*forward*), la récupération de paramètres 
 données synthétiques et la robustesse de l'inversion au bruit. Il ne constitue
 pas encore, à lui seul, une validation universelle de PyAge sur données naturelles.
 
-Date de consolidation : **{provenance['report_date']}**. Révision Git observée :
-`{provenance['git_commit_at_report_generation']}`. Les données détaillées et les
+Date de consolidation : **{provenance["report_date"]}**. Révision Git observée :
+`{provenance["git_commit_at_report_generation"]}`. Les données détaillées et les
 rapports bruts sont conservés ; aucun résultat n'est reconstruit à partir du seul
 présent texte.
 
@@ -419,9 +482,9 @@ présent texte.
    fortement et les solutions sur les bornes deviennent fréquentes.
 5. Le classement direct des outils par distance aux paramètres vrais doit rester
    descriptif : PyAge minimise une norme L2 pondérée, tandis que TracerLPM minimise
-   une somme L1 d'erreurs relatives. Dans {objectives['pyage_tau_worse_count']} cas
+   une somme L1 d'erreurs relatives. Dans {objectives["pyage_tau_worse_count"]} cas
    où le τ PyAge est plus éloigné de la vérité, PyAge conserve pourtant le meilleur
-   critère L2 dans {objectives['pyage_tau_worse_but_lower_l2_count']} cas. Le bruit,
+   critère L2 dans {objectives["pyage_tau_worse_but_lower_l2_count"]} cas. Le bruit,
    l'équifinalité et la différence de fonction objectif expliquent donc une large
    part des inversions où TracerLPM paraît ponctuellement plus proche de la vérité.
 
@@ -445,14 +508,14 @@ Le programme de tests répond aux questions suivantes :
 
 | Élément | Version ou empreinte |
 |---|---|
-| Système | {provenance['platform']} |
-| Python | {provenance['python']} |
-| NumPy | {provenance['numpy']} |
-| SciPy | {provenance['scipy']} |
-| Excel | {provenance['excel']} |
-| SDK .NET | {provenance['dotnet_sdk']} |
-| Classeur quatre traceurs | `{provenance['workbook_sha256_observed']}` |
-| XLL TracerLPM 64 bits | `{provenance['xll_sha256_observed']}` |
+| Système | {provenance["platform"]} |
+| Python | {provenance["python"]} |
+| NumPy | {provenance["numpy"]} |
+| SciPy | {provenance["scipy"]} |
+| Excel | {provenance["excel"]} |
+| SDK .NET | {provenance["dotnet_sdk"]} |
+| Classeur quatre traceurs | `{provenance["workbook_sha256_observed"]}` |
+| XLL TracerLPM 64 bits | `{provenance["xll_sha256_observed"]}` |
 
 Le runner vérifie les empreintes du classeur et du XLL avant calcul. Les entrées,
 bornes, initialisations et graines sont décrites en YAML. Chaque cas TracerLPM
@@ -625,10 +688,10 @@ de fonction objectif et de Solver.
 
 À 1 % de bruit et 30 graines appariées, l'ajout de SF6 aux trois CFC réduit :
 
-- le RMSE de `tau` EPM de **{100 * sf6_epm['relative_reductions']['tau_rmse']:.1f} %** ;
-- le RMSE de `r` de **{100 * sf6_epm['relative_reductions']['secondary_rmse']:.1f} %** ;
-- le RMSE de `tau` DM de **{100 * sf6_dm['relative_reductions']['tau_rmse']:.1f} %** ;
-- le RMSE de `DP` de **{100 * sf6_dm['relative_reductions']['secondary_rmse']:.1f} %**.
+- le RMSE de `tau` EPM de **{100 * sf6_epm["relative_reductions"]["tau_rmse"]:.1f} %** ;
+- le RMSE de `r` de **{100 * sf6_epm["relative_reductions"]["secondary_rmse"]:.1f} %** ;
+- le RMSE de `tau` DM de **{100 * sf6_dm["relative_reductions"]["tau_rmse"]:.1f} %** ;
+- le RMSE de `DP` de **{100 * sf6_dm["relative_reductions"]["secondary_rmse"]:.1f} %**.
 
 La corrélation empirique `tau–DP` passe de −0,959 à 0,248. SF6 réduit donc
 nettement l'équifinalité locale dans ce scénario à 20 ans. Ce résultat justifie
@@ -673,21 +736,21 @@ donc uniformément sur l'ensemble des âges.
 Sur les 480 cas :
 
 - PyAge est plus proche de la vérité pour `tau` dans
-  **{head_to_head['tau']['pyage']} cas**, contre
-  **{head_to_head['tau']['tracerlpm']}** pour TracerLPM ;
+  **{head_to_head["tau"]["pyage"]} cas**, contre
+  **{head_to_head["tau"]["tracerlpm"]}** pour TracerLPM ;
 - pour le second paramètre, PyAge est plus proche dans
-  **{head_to_head['secondary']['pyage']} cas**, TracerLPM dans
-  **{head_to_head['secondary']['tracerlpm']}**, avec
-  **{head_to_head['secondary']['ties']} égalités** ;
+  **{head_to_head["secondary"]["pyage"]} cas**, TracerLPM dans
+  **{head_to_head["secondary"]["tracerlpm"]}**, avec
+  **{head_to_head["secondary"]["ties"]} égalités** ;
 - PyAge a le plus faible objectif L2 recalculé dans
-  **{objectives['pyage_lower_l2_count']}/480 cas** ;
+  **{objectives["pyage_lower_l2_count"]}/480 cas** ;
 - PyAge a la plus faible somme L1 dans seulement
-  **{objectives['pyage_lower_l1_count']}/480 cas** ;
-- parmi les {objectives['pyage_tau_worse_count']} cas où son `tau` est moins proche
+  **{objectives["pyage_lower_l1_count"]}/480 cas** ;
+- parmi les {objectives["pyage_tau_worse_count"]} cas où son `tau` est moins proche
   de la vérité, PyAge conserve un objectif L2 inférieur dans
-  **{objectives['pyage_tau_worse_but_lower_l2_count']} cas** et une erreur relative
+  **{objectives["pyage_tau_worse_but_lower_l2_count"]} cas** et une erreur relative
   maximale de concentration inférieure dans
-  **{objectives['pyage_tau_worse_but_lower_maximum_residual_count']} cas**.
+  **{objectives["pyage_tau_worse_but_lower_maximum_residual_count"]} cas**.
 
 Ces nombres démontrent que le classement par récupération des paramètres ne peut
 pas être assimilé à un classement des optimiseurs. Une réalisation bruitée peut
@@ -821,9 +884,15 @@ https://doi.org/10.3133/tm4F3
 
 if __name__ == "__main__":
     result = build()
-    print(json.dumps({
-        "report": str(OUTPUT / "report.md"),
-        "case_count": result["scope"]["robustness_case_count"],
-        "pyage_success": result["success"]["pyage"],
-        "tracerlpm_success": result["success"]["tracerlpm"],
-    }, indent=2, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "report": str(OUTPUT / "report.md"),
+                "case_count": result["scope"]["robustness_case_count"],
+                "pyage_success": result["success"]["pyage"],
+                "tracerlpm_success": result["success"]["tracerlpm"],
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+    )

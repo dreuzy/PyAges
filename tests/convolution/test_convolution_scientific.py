@@ -12,10 +12,10 @@ from scipy.stats import expon
 from pyage.convolution.convolution import Convolution, ConvolutionError
 from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyage.lpm.lpm_build import lpm_build
-from pyage.lpm.models.mix_exponential_shifted import MixExponentialShiftedLpm
 from pyage.lpm.models.dirac_double_1_set import DiracDouble1SetLpm
-from pyage.tracer.tracer_root import Tracer
+from pyage.lpm.models.mix_exponential_shifted import MixExponentialShiftedLpm
 from pyage.tracer.tracer_protocol import ConstantTracer, SyntheticTracer
+from pyage.tracer.tracer_root import Tracer
 from tests.utils import paths as test_paths
 
 
@@ -282,8 +282,9 @@ def test_synthetic_tracer_without_nodes_gets_a_safe_initial_grid():
     lpm.p.update({"tmin": tmax / 8.0 - 0.05, "delta": 0.1})
     conv = Convolution(tracer, date)
     expected = quad(
-        lambda age: float(tracer.get_concentration(date - age, age))
-        * float(lpm.pdf(age)),
+        lambda age: (
+            float(tracer.get_concentration(date - age, age)) * float(lpm.pdf(age))
+        ),
         lpm.p["tmin"],
         lpm.p["tmin"] + lpm.p["delta"],
         epsabs=1e-12,
@@ -361,9 +362,8 @@ def test_mixed_dirac_exponential_integrates_linear_tracer_exactly():
     lpm = _mixed_lpm(rate=0.3)
     conv = Convolution(tracer, 2010.0)
     mass, partial_moment = lpm.continuous_cdf_and_partial_first_moment(110.0)
-    expected = (
-        0.3 * (2.0 + 0.01 * lpm.get_dirac_time())
-        + 0.7 * (2.0 * mass + 0.01 * partial_moment)
+    expected = 0.3 * (2.0 + 0.01 * lpm.get_dirac_time()) + 0.7 * (
+        2.0 * mass + 0.01 * partial_moment
     )
 
     assert conv.convolve(lpm) == pytest.approx(expected, rel=2e-13, abs=2e-13)

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from .study_common import load_matrix, load_yaml, resolve_repo_path, split_field
 from sites.ploemeur.workflows.ploemeur_workflow import validate_workflow_params
+
+from .study_common import load_matrix, load_yaml, resolve_repo_path, split_field
 
 
 def validate_row(row: dict[str, str]) -> list[str]:

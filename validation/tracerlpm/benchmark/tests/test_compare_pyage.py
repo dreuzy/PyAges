@@ -3,17 +3,19 @@ from pathlib import Path
 
 import pytest
 
+from pyage.convolution.settings import TracerGridSettings
 from validation.tracerlpm.benchmark.scripts.compare_pyage import (
     parse_parameters,
     pyage_parameters,
     symmetric_relative_difference,
 )
-from pyage.convolution.settings import TracerGridSettings
 
 
 def test_parameter_parser_and_dm_mapping():
     parameters = parse_parameters("tau=40;DP=0.2")
-    assert pyage_parameters("DM", parameters) == pytest.approx({"mu": 40, "sigma": 40 * (0.4**0.5)})
+    assert pyage_parameters("DM", parameters) == pytest.approx(
+        {"mu": 40, "sigma": 40 * (0.4**0.5)}
+    )
 
 
 def test_symmetric_relative_difference_is_signed_and_bounded():

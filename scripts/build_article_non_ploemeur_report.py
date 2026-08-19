@@ -11,19 +11,25 @@ import numpy as np
 import pandas as pd
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RUN = ROOT / "results" / "article_non_ploemeur_final"
 TRACERLPM = ROOT / "validation" / "tracerlpm" / "benchmark"
-HOLTEN = ROOT / "examples" / "natural" / "holten" / "generated" / "benchmark" / "four_bin"
+HOLTEN = (
+    ROOT / "examples" / "natural" / "holten" / "generated" / "benchmark" / "four_bin"
+)
 
 
 def _markdown(frame: pd.DataFrame) -> str:
     values = frame.copy().replace({np.nan: ""})
     headers = [str(column).replace("|", "\\|") for column in values.columns]
-    lines = ["| " + " | ".join(headers) + " |", "| " + " | ".join("---" for _ in headers) + " |"]
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
     for row in values.itertuples(index=False, name=None):
-        lines.append("| " + " | ".join(str(value).replace("|", "\\|") for value in row) + " |")
+        lines.append(
+            "| " + " | ".join(str(value).replace("|", "\\|") for value in row) + " |"
+        )
     return "\n".join(lines)
 
 
@@ -66,8 +72,14 @@ def _tracerlpm_summary(run: Path) -> tuple[str, str]:
         }
     )
     main = f"Campagne appariée: {counts['cases']} cas; modèles {counts['models']}; niveaux de bruit {counts['noise']}.\n\n"
-    main += _markdown(summary.loc[summary["metric"].str.contains("objective|error|boundary", case=False)])
-    no_noise_path = run / "inversion_four_tracer" / "pyage_tracerlpm_no_noise_parameters.csv"
+    main += _markdown(
+        summary.loc[
+            summary["metric"].str.contains("objective|error|boundary", case=False)
+        ]
+    )
+    no_noise_path = (
+        run / "inversion_four_tracer" / "pyage_tracerlpm_no_noise_parameters.csv"
+    )
     if no_noise_path.exists():
         no_noise = pd.read_csv(no_noise_path)
         main += "\n\n### Qualification finale sans bruit et contrôles aveugles\n\n"
@@ -88,7 +100,9 @@ def _tracerlpm_summary(run: Path) -> tuple[str, str]:
         "et conservées pour chaque cas.\n\n"
     )
     supplement += "## Bornes, initialisations et seeds\n\nLes YAML de campagne sont normatifs; les seeds 401–410 sont appariées. "
-    supplement += "Les contrôles aveugles sont dans `inversion-final-four-tracer-blind.yaml`.\n\n"
+    supplement += (
+        "Les contrôles aveugles sont dans `inversion-final-four-tracer-blind.yaml`.\n\n"
+    )
     supplement += "## Résultats détaillés\n\n"
     supplement += _markdown(frame)
     if no_noise_path.exists():
@@ -109,7 +123,12 @@ def _holten_summary(run: Path) -> str:
             pd.read_csv(posterior), on="well_id", suffixes=("_old", "_new")
         )
         changes = []
-        for metric in ("f_0_20_median", "f_20_40_median", "f_40_60_median", "f_old_median"):
+        for metric in (
+            "f_0_20_median",
+            "f_20_40_median",
+            "f_40_60_median",
+            "f_old_median",
+        ):
             difference = (old_new[f"{metric}_new"] - old_new[f"{metric}_old"]).abs()
             index = int(difference.idxmax())
             changes.append(
@@ -126,9 +145,7 @@ def _holten_summary(run: Path) -> str:
             + _markdown(pd.DataFrame(changes))
         )
     return (
-        "### Périmètre et comparaison ancienne/nouvelle\n\n"
-        + old_new_text
-        + "\n\n"
+        "### Périmètre et comparaison ancienne/nouvelle\n\n" + old_new_text + "\n\n"
         "### Médianes et intervalles des quatre fractions\n\n"
         + _table(posterior)
         + "\n\n### Comparaison Visser et al.\n\n"
@@ -189,7 +206,9 @@ def _write_holten_old_new(run: Path) -> Path | None:
                     "old_value": old_value,
                     "new_value": new_value,
                     "absolute_difference": difference,
-                    "relative_difference": difference / abs(old_value) if old_value else np.nan,
+                    "relative_difference": difference / abs(old_value)
+                    if old_value
+                    else np.nan,
                 }
             )
     path = run / "holten" / "holten_old_new_all_numeric_columns.csv"
@@ -223,7 +242,9 @@ def _write_robustness_old_new(run: Path) -> Path | None:
                     "old_value": old_value,
                     "new_value": new_value,
                     "absolute_difference": difference,
-                    "relative_difference": difference / abs(old_value) if old_value else np.nan,
+                    "relative_difference": difference / abs(old_value)
+                    if old_value
+                    else np.nan,
                 }
             )
     path = run / "robustness_480" / "old_new_all_numeric_columns.csv"
@@ -243,17 +264,19 @@ def build(run: Path) -> Path:
     (run / "supplement_s2.md").write_text(supplement_s2, encoding="utf-8", newline="\n")
     s1 = _read(run / "supplement_s1" / "supplement_s1.md", "Supplement S1 manquant.")
     table3 = _read(run / "table3" / "table3_final.md", "Table 3 manquante.")
-    figure2 = _read(run / "figure2" / "figure2_manifest.json", "Manifeste Figure 2 manquant.")
+    figure2 = _read(
+        run / "figure2" / "figure2_manifest.json", "Manifeste Figure 2 manquant."
+    )
     tests = _read(run / "tests_summary.md", "Synthèse des tests manquante.")
     report = f"""# Final non-Ploemeur article run
 
 ## 1. Version exacte du code et manifeste
 
-- Base Git: `{manifest['git']['base_sha']}`
-- Dirty: `{manifest['git']['dirty']}`
-- Diff global SHA-256: `{manifest['git']['tracked_diff_sha256']}`
-- Diff du périmètre du run SHA-256: `{manifest['git'].get('run_scoped_tracked_diff_sha256', manifest['git']['tracked_diff_sha256'])}`
-- Snapshot workspace SHA-256: `{manifest['git']['workspace_snapshot_sha256']}`
+- Base Git: `{manifest["git"]["base_sha"]}`
+- Dirty: `{manifest["git"]["dirty"]}`
+- Diff global SHA-256: `{manifest["git"]["tracked_diff_sha256"]}`
+- Diff du périmètre du run SHA-256: `{manifest["git"].get("run_scoped_tracked_diff_sha256", manifest["git"]["tracked_diff_sha256"])}`
+- Snapshot workspace SHA-256: `{manifest["git"]["workspace_snapshot_sha256"]}`
 - Manifeste complet: `run_manifest.yaml`
 
 Tous les fichiers de ce run sont reliés au manifeste par `artifact_inventory.csv`.

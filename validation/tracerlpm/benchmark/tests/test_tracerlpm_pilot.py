@@ -1,6 +1,8 @@
 import pytest
 
-from validation.tracerlpm.benchmark.scripts.compare_tracerlpm_pilot import sample_decimal_year
+from validation.tracerlpm.benchmark.scripts.compare_tracerlpm_pilot import (
+    sample_decimal_year,
+)
 
 
 def test_sample_date_uses_actual_leap_year_length():

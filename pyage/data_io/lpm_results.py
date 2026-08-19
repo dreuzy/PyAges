@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import nullcontext
 from os import PathLike
 from typing import TYPE_CHECKING, TextIO
 
@@ -22,8 +21,14 @@ def write_lpm(
     open_file: bool = False,
 ) -> None:
     """Write model parameters to a path or an already-open text stream."""
-    context = open(target, "w", encoding="utf-8") if open_file else nullcontext(target)
-    with context as stream:
+
+    def write_to_stream(stream: TextIO) -> None:
         write_lpm_name(lpm, stream)
         for name, value in lpm.p.items():
             stream.write(f"{name}\t{value}\t{lpm.parameter_units[name]}\n")
+
+    if open_file:
+        with open(target, "w", encoding="utf-8") as stream:
+            write_to_stream(stream)
+    else:
+        write_to_stream(target)

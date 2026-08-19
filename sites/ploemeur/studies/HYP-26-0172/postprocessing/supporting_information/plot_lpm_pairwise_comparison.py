@@ -1,13 +1,17 @@
 """Four-panel comparison read from the matched-quantile CSV outputs."""
 
 from __future__ import annotations
+
 import csv
 from pathlib import Path
+
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 import numpy as np
+from matplotlib.lines import Line2D
 from PIL import Image
+
 from pyage.lpm.models.exponential_shifted import ExponentialShiftedLpm
+
 from .plot_lpm_distribution_families_matched_quantiles import inverse_gaussian_model
 
 ROOT = Path(__file__).resolve().parents[6]

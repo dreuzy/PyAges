@@ -9,7 +9,6 @@ import yaml
 from .generate_inputs import BENCHMARK_ROOT
 from .prepare_noisy_tracerlpm_campaign import prepare
 
-
 CONFIGS = (
     BENCHMARK_ROOT / "configs" / "robustness-width-noise.yaml",
     BENCHMARK_ROOT / "configs" / "robustness-age-noise.yaml",
@@ -32,12 +31,16 @@ def _write(path: Path, cases: list[dict], label: str) -> None:
 def build() -> dict:
     cases: list[dict] = []
     for index, config in enumerate(CONFIGS, start=1):
-        temporary = BENCHMARK_ROOT / "configs" / f".tracerlpm-robustness-phase{index}.yaml"
+        temporary = (
+            BENCHMARK_ROOT / "configs" / f".tracerlpm-robustness-phase{index}.yaml"
+        )
         cases.extend(prepare(config, temporary))
         temporary.unlink(missing_ok=True)
     identifiers = [case["case_id"] for case in cases]
     if len(identifiers) != len(set(identifiers)):
-        raise ValueError("La préparation a produit des identifiants TracerLPM en double")
+        raise ValueError(
+            "La préparation a produit des identifiants TracerLPM en double"
+        )
     epm = [case for case in cases if case["fit"]["model"] == "EPM"]
     dm = [case for case in cases if case["fit"]["model"] == "DM"]
     _write(OUTPUT_ALL, cases, "l'étude complète de robustesse")
@@ -46,8 +49,10 @@ def build() -> dict:
     for model, selected in (("epm", epm), ("dm", dm)):
         for index, start in enumerate(range(0, len(selected), SHARD_SIZE), start=1):
             _write(
-                BENCHMARK_ROOT / "configs" / f"tracerlpm-robustness-{model}-shard{index}.yaml",
-                selected[start:start + SHARD_SIZE],
+                BENCHMARK_ROOT
+                / "configs"
+                / f"tracerlpm-robustness-{model}-shard{index}.yaml",
+                selected[start : start + SHARD_SIZE],
                 f"le segment {index} de la branche {model.upper()}",
             )
     return {"total": len(cases), "EPM": len(epm), "DM": len(dm)}

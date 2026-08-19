@@ -9,24 +9,19 @@ Copyright (c) 2025 Jean-Raynald de Dreuzy, CNRS
 Author: Jean-Raynald de Dreuzy
 """
 
+from __future__ import annotations
+
 import copy
 import multiprocessing as mp
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+import pyage.calibration.methods.metropolis_hastings as cMH
+import pyage.calibration.utils.calibration_core as calbas
 import pyage.concentrations.concentrations as co
 from pyage.concentrations import concentrations_time as ct
-
-import pyage.calibration.utils.calibration_core as calbas
-import pyage.calibration.methods.metropolis_hastings as cMH
-
-from sites.ploemeur.observations import ploemeur as ploemeur_obs
-from sites.ploemeur.workflows.job_builder import build_jobs
-from pyage.observations.loader import (
-    build_observation_path,
-    load_observation_concentrations,
-)
 from pyage.concentrations.schema import ERROR_COLUMN
 from pyage.config.paths import (
     ROOT_DIRECTORY,
@@ -34,12 +29,18 @@ from pyage.config.paths import (
     result_subdirectory,
 )
 from pyage.config.runtime import DisplayOptions
+from pyage.observations.loader import (
+    build_observation_path,
+    load_observation_concentrations,
+)
 from sites.ploemeur.config.models import (
     ObservationMetadataConfig,
     PloemeurWorkflowConfig,
     PriorPipelinePresets,
     WellDateConfig,
 )
+from sites.ploemeur.observations import ploemeur as ploemeur_obs
+from sites.ploemeur.workflows.job_builder import build_jobs
 from sites.ploemeur.workflows.path_helpers import (
     calibrated_prior_name,
     data_file_path,

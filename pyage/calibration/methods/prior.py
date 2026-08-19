@@ -115,7 +115,11 @@ class Prior:
             value = first if strategy == "map" else rng.normal(first, second)
             return float(np.clip(value, pmin, pmax))
         if distribution == "uniform":
-            value = 0.5 * (first + second) if strategy == "map" else rng.uniform(first, second)
+            value = (
+                0.5 * (first + second)
+                if strategy == "map"
+                else rng.uniform(first, second)
+            )
             return float(np.clip(value, pmin, pmax))
         return 0.5 * (pmin + pmax)
 
@@ -133,7 +137,9 @@ class Prior:
         if strategy == "map":
             value = float(values[np.argmax(probabilities)])
         else:
-            increments = 0.5 * (probabilities[:-1] + probabilities[1:]) * np.diff(values)
+            increments = (
+                0.5 * (probabilities[:-1] + probabilities[1:]) * np.diff(values)
+            )
             cdf = np.concatenate([[0.0], np.cumsum(increments)])
             if cdf[-1] > 0:
                 cdf /= cdf[-1]
@@ -263,7 +269,10 @@ class Prior:
                 if self.MHapriori_dist[key] == "normal":
                     theory[key] = [first, second**2]
                 elif self.MHapriori_dist[key] == "uniform":
-                    theory[key] = [(first + second) / 2, ((second - first) / np.sqrt(12)) ** 2]
+                    theory[key] = [
+                        (first + second) / 2,
+                        ((second - first) / np.sqrt(12)) ** 2,
+                    ]
         elif self.typ == "empirical":
             for key in lpm.p:
                 theory[key] = list(moments_histo(self.MHapriori_para[key]))
@@ -273,8 +282,14 @@ class Prior:
             differences[key][0] = 100 * (1 - sampled[key][0] / theory[key][0])
             differences[key][1] = 100 * (1 - sampled[key][1] / theory[key][1])
         return {
-            "sampled": {key: {"mean": value[0], "var": value[1]} for key, value in sampled.items()},
-            "theory": {key: {"mean": value[0], "var": value[1]} for key, value in theory.items()},
+            "sampled": {
+                key: {"mean": value[0], "var": value[1]}
+                for key, value in sampled.items()
+            },
+            "theory": {
+                key: {"mean": value[0], "var": value[1]}
+                for key, value in theory.items()
+            },
             "difference_percent": {
                 key: {"mean": value[0], "var": value[1]}
                 for key, value in differences.items()

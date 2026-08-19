@@ -13,16 +13,17 @@ from __future__ import annotations
 
 import abc
 import copy
+from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from pathlib import Path
 from scipy import optimize
-from pyage.lpm.core.parameter_manager import ParameterManager
+
 from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
-       
+from pyage.lpm.core.parameter_manager import ParameterManager
+
 
 class LpmBase(abc.ABC):
     """
@@ -73,7 +74,7 @@ class LpmBase(abc.ABC):
         name: str,
         parameter_values: dict[str, float],
         parameter_units: dict[str, str],
-        directory_lpm: str
+        directory_lpm: str,
     ) -> None:
         """
         Constructor
@@ -102,9 +103,8 @@ class LpmBase(abc.ABC):
         self._param_manager = ParameterManager(
             model_name=name,
             directory_lpm=directory_lpm,
-            parameter_names=list(parameter_values.keys())
+            parameter_names=list(parameter_values.keys()),
         )
-
 
     @abc.abstractmethod
     def pdf(self, t: npt.ArrayLike) -> npt.ArrayLike:
@@ -129,13 +129,11 @@ class LpmBase(abc.ABC):
         """Return the exact or distribution-native mean."""
         raise NotImplementedError
 
-
     @abc.abstractmethod
     def std(self) -> float:
         """Return the exact or distribution-native standard deviation."""
         raise NotImplementedError
-        
-        
+
     def random_uniform(self, rng: np.random.Generator | None = None) -> None:
         """
         Random uniform generation of lpm
@@ -147,7 +145,6 @@ class LpmBase(abc.ABC):
             rng = np.random.default_rng()
         param = [pmin[i] + (pmax[i] - pmin[i]) * rng.random() for i in range(len(pmin))]
         self.set_param_from_array(param)
-
 
     def param_init(self) -> list[float]:
         """
@@ -163,18 +160,15 @@ class LpmBase(abc.ABC):
         lpm_temp.load_initial_parameters()
         return lpm_temp.get_parameters_to_array()
 
-
     @property
     def lpm_data_directory(self) -> Path:
         """Return the root directory containing LPM parameter folders."""
         return Path(self._directory_lpm)
 
-
     def load_initial_parameters(self) -> None:
         """Load initial parameter values from the canonical params.yaml file."""
         self._param_manager.load_initial_values(self.p)
-        
-        
+
     def param_within_bounds(self, params: dict[str, float]) -> bool:
         """
         Test whether parameters are within the defined bounds.
@@ -206,14 +200,14 @@ class LpmBase(abc.ABC):
         bool
             True if all parameters are within bounds
         """
-        return self._param_manager.param_within_bounds_array(params, list(self.p.keys()))
+        return self._param_manager.param_within_bounds_array(
+            params, list(self.p.keys())
+        )
 
-    
     @abc.abstractmethod
     def cdf(self, t: npt.ArrayLike) -> npt.ArrayLike:
         """Return a trustworthy, vectorized cumulative distribution function."""
         raise NotImplementedError
-
 
     def cdf_and_partial_first_moment(
         self,
@@ -238,14 +232,14 @@ class LpmBase(abc.ABC):
         """Instrumental function for cdf_inv."""
         return self._cdf_scalar(t) - p
 
-
     def _cdf_scalar(self, t: float) -> float:
         """Evaluate the CDF at a scalar time value."""
         cdf_val = np.asarray(self.cdf(np.array([t], dtype=float)), dtype=float)
         if cdf_val.size != 1:
-            raise ValueError(f"Expected scalar-compatible CDF output, got shape {cdf_val.shape}")
+            raise ValueError(
+                f"Expected scalar-compatible CDF output, got shape {cdf_val.shape}"
+            )
         return float(cdf_val.reshape(-1)[0])
-
 
     def cdf_inv(self, p: float) -> float:
         """
@@ -288,24 +282,22 @@ class LpmBase(abc.ABC):
                 f"Could not bracket cdf_inv(p={probability}) for model '{self.name}' before t={upper}"
             )
 
-        return float(optimize.brentq(self._cdf_minus_p, lower, upper, args=(probability,)))
-    
-    
+        return float(
+            optimize.brentq(self._cdf_minus_p, lower, upper, args=(probability,))
+        )
+
     def set_param_from_array(self, param: list[float]) -> None:
         """Set parameters from array to dictionary."""
         for k, key in enumerate(self.p):
             self.p[key] = param[k]
 
-
     def get_parameters_to_array(self) -> list[float]:
         """Get parameters as array."""
         return list(self.p.values())
 
-
     def get_param_names(self) -> list[str]:
         """Return parameter names."""
         return list(self.p.keys())
-
 
     def get_param_range(self, param_name: str) -> float:
         """
@@ -341,14 +333,12 @@ class LpmBase(abc.ABC):
     def get_p_min(self, key: str) -> float:
         """Return lower bound for parameter."""
         return self._param_manager.get_p_min(key)
-    
-    
+
     def display(self, display_options: Any) -> None:
         """Display the model using the presentation compatibility layer."""
         from pyage.lpm.presentation import display_lpm
 
         display_lpm(self, display_options)
-
 
     def __support_range(self) -> tuple[float, float]:
         """
@@ -363,7 +353,6 @@ class LpmBase(abc.ABC):
         tmin = 0
         tmax = 1.2 * self.cdf_inv(0.98)
         return tmin, tmax
-
 
     def discret_pdf_cdf(self, type_pc: str, n: int) -> tuple[np.ndarray, npt.ArrayLike]:
         """
@@ -384,14 +373,13 @@ class LpmBase(abc.ABC):
         """
         tmin, tmax = self.__support_range()
         t = np.linspace(tmin, tmax, n)
-        if type_pc == 'pdf':
+        if type_pc == "pdf":
             values = self.pdf(t)
-        elif type_pc == 'cdf':
+        elif type_pc == "cdf":
             values = self.cdf(t)
         else:
             raise ValueError(f"type_pc must be 'pdf' or 'cdf', got '{type_pc}'")
         return t, values
-
 
     def plot(self, type_pc: str, display_options: Any) -> None:
         """
@@ -407,28 +395,24 @@ class LpmBase(abc.ABC):
         from pyage.lpm.presentation import plot_lpm
 
         plot_lpm(self, type_pc, display_options)
-    
-    
+
     def display_parameters(self, lpm_reference: LpmBase | None = None) -> None:
         """Display values of LPM parameters."""
         from pyage.lpm.presentation import display_parameters
 
         display_parameters(self, lpm_reference)
 
-
     def display_pdf_cdf(self, display_options: Any) -> None:
         """Check consistency of distribution."""
         from pyage.lpm.presentation import display_pdf_cdf
 
         display_pdf_cdf(self, display_options)
-        
-        
+
     def write_name(self, file: Any) -> None:
         """Write LPM name to file."""
         from pyage.data_io.lpm_results import write_lpm_name
 
         write_lpm_name(self, file)
-
 
     def write(self, file: str | Any, open_file: bool = False) -> None:
         """
@@ -446,13 +430,12 @@ class LpmBase(abc.ABC):
 
         write_lpm(self, file, open_file=open_file)
 
-
     def load_lpm_from_dist(
         self,
         dist: pd.DataFrame,
         option: str = "line",
         rng: np.random.Generator | None = None,
-        line_no: int = 0
+        line_no: int = 0,
     ) -> tuple[bool, dict[str, int]]:
         """
         Loads parameter values from distribution file
@@ -510,20 +493,21 @@ class LpmBase(abc.ABC):
 
         return (True, chosen_lines)
 
-
     def moments_name(self) -> list[str]:
         """Return moment names."""
-        return ['mean', 'std', 'quart10', 'quart25', 'median', 'quart75', 'quart90']
-
+        return ["mean", "std", "quart10", "quart25", "median", "quart75", "quart90"]
 
     def moments(self) -> list[float]:
         """Compute statistical characteristics of the distribution."""
         return [
-            self.mean(), self.std(),
-            self.cdf_inv(0.10), self.cdf_inv(0.25), self.cdf_inv(0.5),
-            self.cdf_inv(0.75), self.cdf_inv(0.90)
+            self.mean(),
+            self.std(),
+            self.cdf_inv(0.10),
+            self.cdf_inv(0.25),
+            self.cdf_inv(0.5),
+            self.cdf_inv(0.75),
+            self.cdf_inv(0.90),
         ]
-
 
     def display_moments(self) -> None:
         """Display computed moments."""
@@ -531,13 +515,9 @@ class LpmBase(abc.ABC):
 
         display_moments(self)
 
-
     def output_dataframe(self) -> pd.DataFrame:
         """Output model as dataframe."""
-        data: dict[str, Any] = {'LPM_name': self.name}
+        data: dict[str, Any] = {"LPM_name": self.name}
         for key in self.p:
             data[key] = self.p[key]
         return pd.DataFrame(data, index=[0])
-        
-
-

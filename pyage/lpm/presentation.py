@@ -55,9 +55,7 @@ def plot_lpm(lpm: "LpmBase", kind: str, display_options: Any) -> None:
     display_options.figure_close_fx(f"{lpm.name}_{kind}")
 
 
-def display_parameters(
-    lpm: "LpmBase", reference: "LpmBase | None" = None
-) -> None:
+def display_parameters(lpm: "LpmBase", reference: "LpmBase | None" = None) -> None:
     """Print model parameters, optionally compared with a reference model."""
     for name, value in lpm.p.items():
         if reference is None:

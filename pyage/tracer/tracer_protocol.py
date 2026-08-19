@@ -160,7 +160,9 @@ class SyntheticTracer:
         self._unit = unit
         self._datemin = datemin
         self._datemax = datemax
-        self._fn = concentration_fn or (lambda d, t: 100.0 * np.exp(-np.asarray(t) / 20.0))
+        self._fn = concentration_fn or (
+            lambda d, t: 100.0 * np.exp(-np.asarray(t) / 20.0)
+        )
         self._convolution_dates = convolution_dates
         if int(convolution_initial_bins) < 1:
             raise ValueError("convolution_initial_bins must be at least 1")

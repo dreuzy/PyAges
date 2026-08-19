@@ -17,7 +17,6 @@ from pydantic import (
 
 from pyage.config.paths import ROOT_DIRECTORY
 
-
 PLOEMEUR_ROOT = Path(__file__).resolve().parents[1]
 TimeSpanMode = Literal[
     "cumulative",

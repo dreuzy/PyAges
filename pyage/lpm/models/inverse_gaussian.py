@@ -53,9 +53,8 @@ def cdf_and_partial_first_moment_from_mean_std(
         shape_parameter = mean_age**3 / std_age**2
         root = np.sqrt(shape_parameter / ages)
         direct = ndtr(root * (ages / mean_age - 1.0))
-        reflected_log = (
-            2.0 * shape_parameter / mean_age
-            + log_ndtr(-root * (ages / mean_age + 1.0))
+        reflected_log = 2.0 * shape_parameter / mean_age + log_ndtr(
+            -root * (ages / mean_age + 1.0)
         )
         reflected = np.exp(np.minimum(reflected_log, 0.0))
         cdf[positive_finite] = np.clip(direct + reflected, 0.0, 1.0)
@@ -92,18 +91,18 @@ class InverseGaussianLpm(LpmScipySafe):
         directory_lpm : str
             Directory for LPM parameter files.
         """
-        parameter_values = {'mu': mu, 'sigma': sigma}
-        parameter_units = {'mu': 'year', 'sigma': 'year'}
+        parameter_values = {"mu": mu, "sigma": sigma}
+        parameter_units = {"mu": "year", "sigma": "year"}
         super().__init__("ig", parameter_values, parameter_units, directory_lpm)
 
     def _scipy_params(self):
-        shape, scale = scipy_params_from_mean_std(self.p['mu'], self.p['sigma'])
+        shape, scale = scipy_params_from_mean_std(self.p["mu"], self.p["sigma"])
         return (shape,), 0, scale
 
     def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
         """Return the CDF and truncated first moment on the requested ages."""
         return cdf_and_partial_first_moment_from_mean_std(
             t,
-            self.p['mu'],
-            self.p['sigma'],
+            self.p["mu"],
+            self.p["sigma"],
         )

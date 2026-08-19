@@ -18,7 +18,9 @@ from tests.utils import paths as test_paths
 
 
 def _golden_path() -> Path:
-    return test_paths.repo_root() / "tests" / "golden" / "convolution_tracers_values.json"
+    return (
+        test_paths.repo_root() / "tests" / "golden" / "convolution_tracers_values.json"
+    )
 
 
 def _lpm_types() -> list[str]:
@@ -58,10 +60,7 @@ def test_convolution_tracers_golden(lpm_name, update_golden):
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:
-        pytest.fail(
-            f"Golden value missing for {key}. "
-            f"Run: pytest -s --update-golden"
-        )
+        pytest.fail(f"Golden value missing for {key}. Run: pytest -s --update-golden")
 
     expected = store[key]
     assert stats["mean_concentration"] == pytest.approx(

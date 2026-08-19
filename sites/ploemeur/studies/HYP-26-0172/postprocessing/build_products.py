@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from ..scripts.study_common import validate_profile
 from .export import export_figure
 from .style import (
     CONDITIONED,
@@ -19,8 +20,6 @@ from .style import (
     UNCONSTRAINED,
     WELL_COLORS,
 )
-from ..scripts.study_common import validate_profile
-
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 STUDY_RESULTS = REPO_ROOT / "results" / "HYP-26-0172"

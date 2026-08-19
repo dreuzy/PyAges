@@ -13,22 +13,25 @@ Jean-Raynald de Dreuzy
 """
 
 import os
-import pandas as pd
+
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
-import pyage.convolution.convolution_tracers as convolution_tracers
 import pyage.concentrations.concentrations as c
-
-from pyage.concentrations.utils.tables import to_cv_dict, merge_model_into_table
+import pyage.convolution.convolution_tracers as convolution_tracers
 from pyage.concentrations.utils.distributions import sample_lpms_from_dist
+from pyage.concentrations.utils.plotting import (
+    plot_concentration_chronicles,
+    plot_concentration_chronicles_summary,
+    plot_tracer_series,
+)
 from pyage.concentrations.utils.storage import (
     save_concentrations_table,
     save_distributions_tables,
     save_tracer_series_table,
 )
-from pyage.concentrations.utils.plotting import plot_tracer_series, plot_concentration_chronicles
-from pyage.concentrations.utils.plotting import plot_concentration_chronicles_summary
+from pyage.concentrations.utils.tables import merge_model_into_table, to_cv_dict
 
 
 class ConcentrationTime:
@@ -60,9 +63,8 @@ class ConcentrationTime:
             self.build()
         else:
             self.cv = cv
-        
 
-    def display(self, fig, axs, graph_type="scatter"): 
+    def display(self, fig, axs, graph_type="scatter"):
         """
         Plot tracer concentration series on provided axes.
 
@@ -78,7 +80,6 @@ class ConcentrationTime:
         plot_tracer_series(self.cv, axs, graph_type=graph_type)
         fig.suptitle("Tracer", fontsize=16, y=1.02)
 
-        
     def build(self):
         """
         Reshape raw concentrations into tracer-specific tables.
@@ -87,14 +88,12 @@ class ConcentrationTime:
         self.cv = {}
         for tracer in tracers:
             self.cv[tracer] = self.craw.cv[self.craw.cv["element"] == tracer]
-    
-    
+
     def display_model(self, lpm, tracer):
         """
         Placeholder for model visualization (reserved for future use).
         """
         # TODO: compute and display model predictions for a given tracer.
-       
 
     def save_to_file(self, filename):
         """
@@ -188,10 +187,13 @@ def display_concentration_times(
                     end_year=end_year or max(craw.cv["date"]),
                     plot_stride=plot_stride,
                 )
-                display.save_and_close(fig, "concentration_times.png", method=method, dpi=300)
+                display.save_and_close(
+                    fig, "concentration_times.png", method=method, dpi=300
+                )
 
             # --- Save PDFs & stats ---
             save_distributions_tables(pdf, lpm_statistics, os.path.join(dn, method))
+
 
 def display_concentration_chronicles(
     craw,
@@ -262,7 +264,9 @@ def display_concentration_chronicles(
     for i, lpm in enumerate(lpm_list, start=1):
         concentrations = tracers.convolve_date_range(lpm, 1960, max(craw.cv["date"]))
         cv_dict = to_cv_dict(concentrations)
-        merged_all_models = merge_model_into_table(merged_all_models, cv_dict, model_id=i)
+        merged_all_models = merge_model_into_table(
+            merged_all_models, cv_dict, model_id=i
+        )
 
     # Finalisation: sauvegarde + fermeture via display_options
     if display.figure:
@@ -272,8 +276,12 @@ def display_concentration_chronicles(
         )
 
     # Sauvegarde des donnees fusionnees
-    outfile_data = os.path.join(display.directory, method, "concentrations_all_models.txt")
+    outfile_data = os.path.join(
+        display.directory, method, "concentrations_all_models.txt"
+    )
     save_concentrations_table(merged_all_models, outfile_data)
 
     # Sauvegarde distributions
-    save_distributions_tables(pdf, lpm_statistics, os.path.join(display.directory, method))
+    save_distributions_tables(
+        pdf, lpm_statistics, os.path.join(display.directory, method)
+    )

@@ -61,7 +61,9 @@ def shifted_exponential_to_epm(mu: float, shift: float) -> EpmParameters:
     return EpmParameters(tau=shift + mu, eta=1 + shift / mu)
 
 
-def dm_to_inverse_gaussian(tau: float, dispersion_parameter: float) -> InverseGaussianParameters:
+def dm_to_inverse_gaussian(
+    tau: float, dispersion_parameter: float
+) -> InverseGaussianParameters:
     tau = _positive("tau", tau)
     dispersion_parameter = _positive("dispersion_parameter", dispersion_parameter)
     return InverseGaussianParameters(

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pyage.calibration.methods.metropolis_hastings import MHConfig, MetropolisHastings
+from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
 
 
 class _FakeLpm:

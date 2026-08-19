@@ -112,7 +112,9 @@ def test_shapefree_n_oldbin_support_open_respects_lpm_max(tmp_path):
     assert lpm.bin_edges().tolist() == [0.0, 10.0, 30.0, 100.0]
 
 
-def test_shapefree_n_oldbin_support_open_convolution_truncates_on_traceur_support(tmp_path):
+def test_shapefree_n_oldbin_support_open_convolution_truncates_on_traceur_support(
+    tmp_path,
+):
     lpm = _make_support_open_lpm(tmp_path)
     tracer = SyntheticTracer(
         name="linear_time",

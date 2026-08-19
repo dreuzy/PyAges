@@ -11,7 +11,6 @@ import pytest
 from pyage.tracer.decay import rate_from_half_life
 from pyage.tracer.tracer_root import Tracer
 
-
 DATA_TRACER_DIR = Path(__file__).resolve().parents[2] / "data_core" / "data_tracer"
 
 

@@ -14,15 +14,14 @@ from pyage.convolution.settings import DEFAULT_TRACER_GRID_SETTINGS
 from .compare_pyage import DEFAULT_INPUT_DIR, DEFAULT_REFERENCE, compare
 from .generate_inputs import BENCHMARK_ROOT, DEFAULT_CONFIG
 
-
 DEFAULT_OUTPUT = BENCHMARK_ROOT / "generated" / "pyage_convergence"
 
 
-def study(config_path: Path = DEFAULT_CONFIG, output_dir: Path = DEFAULT_OUTPUT) -> dict:
+def study(
+    config_path: Path = DEFAULT_CONFIG, output_dir: Path = DEFAULT_OUTPUT
+) -> dict:
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    tolerance_scales = [
-        float(value) for value in config["pyage_grid_tolerance_scales"]
-    ]
+    tolerance_scales = [float(value) for value in config["pyage_grid_tolerance_scales"]]
     reports = []
     for scale in tolerance_scales:
         settings = replace(
@@ -64,12 +63,25 @@ def study(config_path: Path = DEFAULT_CONFIG, output_dir: Path = DEFAULT_OUTPUT)
             for model in ("PFM", "EMM", "EPM", "DM")
         },
     }
-    (output_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8", newline="\n")
-    lines = ["# Sensibilité de la grille PyAge", "", "| Facteur de tolérance | Modèle | MAE | RMSE | Max absolu |", "|---:|---|---:|---:|---:|"]
+    (output_dir / "summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
+    lines = [
+        "# Sensibilité de la grille PyAge",
+        "",
+        "| Facteur de tolérance | Modèle | MAE | RMSE | Max absolu |",
+        "|---:|---|---:|---:|---:|",
+    ]
     for row in rows:
-        lines.append(f"| {row['tolerance_scale']:g} | {row['model']} | {row['mae']:.6g} | {row['rmse']:.6g} | {row['maximum_absolute_difference']:.6g} |")
-    lines.extend(["", "Ces mesures ne constituent pas encore des tolérances d’acceptation.", ""])
-    (output_dir / "summary.md").write_text("\n".join(lines), encoding="utf-8", newline="\n")
+        lines.append(
+            f"| {row['tolerance_scale']:g} | {row['model']} | {row['mae']:.6g} | {row['rmse']:.6g} | {row['maximum_absolute_difference']:.6g} |"
+        )
+    lines.extend(
+        ["", "Ces mesures ne constituent pas encore des tolérances d’acceptation.", ""]
+    )
+    (output_dir / "summary.md").write_text(
+        "\n".join(lines), encoding="utf-8", newline="\n"
+    )
     return summary
 
 

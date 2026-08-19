@@ -18,7 +18,6 @@ from sites.ploemeur.observations.ploemeur import (
     ploemeur_ori_folder,
 )
 
-
 WELLS = (
     "F34",
     "MF4",

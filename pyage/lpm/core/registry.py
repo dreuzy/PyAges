@@ -64,6 +64,7 @@ def register_lpm(name: str):
             scipy_dist = weibull_min
             ...
     """
+
     def decorator(cls: Type[LPM]) -> Type[LPM]:
         if name in _LPM_REGISTRY:
             existing = _LPM_REGISTRY[name]
@@ -74,6 +75,7 @@ def register_lpm(name: str):
                 )
         _LPM_REGISTRY[name] = cls
         return cls
+
     return decorator
 
 
@@ -125,8 +127,7 @@ def get_lpm_class(name: str) -> Type[LPM]:
     if name not in _LPM_REGISTRY:
         available = ", ".join(sorted(_LPM_REGISTRY.keys()))
         raise UnknownLPMType(
-            f"Unknown LPM type: '{name}'. "
-            f"Available types: {available}"
+            f"Unknown LPM type: '{name}'. Available types: {available}"
         )
     return _LPM_REGISTRY[name]
 
@@ -164,4 +165,5 @@ def is_registered(name: str) -> bool:
 
 class UnknownLPMType(ValueError):
     """Raised when an LPM type is not registered."""
+
     pass

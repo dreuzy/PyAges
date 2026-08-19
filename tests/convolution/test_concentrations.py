@@ -16,8 +16,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyage.concentrations.schema import REFERENCE_COLUMNS
 from pyage.concentrations.concentrations import Concentrations
+from pyage.concentrations.schema import REFERENCE_COLUMNS
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -91,10 +91,7 @@ def test_concentrations_golden_stats(file_path, update_golden):
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:
-        pytest.fail(
-            f"Golden value missing for {key}. "
-            f"Run: pytest -s --update-golden"
-        )
+        pytest.fail(f"Golden value missing for {key}. Run: pytest -s --update-golden")
 
     expected = store[key]
     assert stats["mean_concentration"] == pytest.approx(

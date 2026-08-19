@@ -9,7 +9,6 @@ import yaml
 from .generate_inputs import BENCHMARK_ROOT
 from .generate_inversion_pilot import expanded_cases
 
-
 CONFIGS = (
     BENCHMARK_ROOT / "configs" / "robustness-width-noise.yaml",
     BENCHMARK_ROOT / "configs" / "robustness-age-noise.yaml",
@@ -30,7 +29,9 @@ def check() -> dict:
         except (OSError, json.JSONDecodeError):
             continue
         case_id = report.get("caseId")
-        if case_id and (case_id not in latest or path.stat().st_mtime > latest[case_id][0]):
+        if case_id and (
+            case_id not in latest or path.stat().st_mtime > latest[case_id][0]
+        ):
             latest[case_id] = (path.stat().st_mtime, report)
     expected = set().union(*expected_by_model.values())
     present = expected.intersection(latest)

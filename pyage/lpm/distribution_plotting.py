@@ -141,7 +141,9 @@ def _finite_parameter_values(distribution: "LpmDist", name: str) -> np.ndarray:
     return values[np.isfinite(values)]
 
 
-def _parameter_bins(distribution: "LpmDist", name: str, values: np.ndarray) -> np.ndarray:
+def _parameter_bins(
+    distribution: "LpmDist", name: str, values: np.ndarray
+) -> np.ndarray:
     model = distribution.lpm_template
     binwidth = model.get_param_range(name) / 100
     if not np.isfinite(binwidth) or binwidth <= 0:
@@ -282,7 +284,9 @@ def _plot_param_histogram_apriori(
     bins = _parameter_bins(distribution, name, values)
     if bins.size < 2:
         return
-    histogram = plt.hist(values, density=True, bins=bins, histtype="barstacked", label="MH")
+    histogram = plt.hist(
+        values, density=True, bins=bins, histtype="barstacked", label="MH"
+    )
     nonzero_hist = histogram[0][histogram[0] != 0]
     prior_density = prior.MHapriori_para[name]
     nonzero_prior = prior_density[prior_density[:, 1] != 0, 1]
@@ -322,8 +326,16 @@ def _plot_concentration_pair(
     if names[index] not in frame:
         return
     other = None if lpm_2nd is None else lpm_2nd.dist()
-    refx = None if concentrations_reference is None else concentrations_reference.cv["concentration"][index]
-    refy = None if concentrations_reference is None else concentrations_reference.cv["concentration"][index_next]
+    refx = (
+        None
+        if concentrations_reference is None
+        else concentrations_reference.cv["concentration"][index]
+    )
+    refy = (
+        None
+        if concentrations_reference is None
+        else concentrations_reference.cv["concentration"][index_next]
+    )
     figadd.hist_scatter(
         histo=other is not None,
         histox=None if other is None else other[names[index]],

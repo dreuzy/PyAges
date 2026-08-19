@@ -13,7 +13,6 @@ from .check_robustness_progress import RUN_OUTPUT
 from .generate_inputs import BENCHMARK_ROOT
 from .prepare_robustness_study import OUTPUT_ALL, _write
 
-
 DEFAULT_PREFIX = "tracerlpm-robustness-missing"
 PREFIX_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
@@ -31,7 +30,9 @@ def successful_case_ids(run_output: Path) -> set[str]:
     return successful
 
 
-def partition_cases(cases: list[dict], successful: set[str], shard_count: int) -> list[list[dict]]:
+def partition_cases(
+    cases: list[dict], successful: set[str], shard_count: int
+) -> list[list[dict]]:
     if shard_count < 1:
         raise ValueError("shard_count doit être supérieur ou égal à 1")
     identifiers = [case["case_id"] for case in cases]
@@ -46,7 +47,7 @@ def partition_cases(cases: list[dict], successful: set[str], shard_count: int) -
     start = 0
     for index in range(active_shards):
         size = base + (1 if index < extra else 0)
-        result.append(remaining[start:start + size])
+        result.append(remaining[start : start + size])
         start += size
     return result
 
@@ -59,7 +60,9 @@ def build(
     config_directory: Path | None = None,
 ) -> dict:
     if not PREFIX_PATTERN.fullmatch(prefix):
-        raise ValueError("prefix doit contenir uniquement des minuscules, chiffres et tirets")
+        raise ValueError(
+            "prefix doit contenir uniquement des minuscules, chiffres et tirets"
+        )
     config_directory = config_directory or BENCHMARK_ROOT / "configs"
     cases = yaml.safe_load(all_cases_path.read_text(encoding="utf-8"))
     successful = successful_case_ids(run_output)

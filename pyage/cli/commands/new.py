@@ -24,7 +24,7 @@ def new_group():
     "-o",
     type=click.Path(),
     default=None,
-    help="Output directory (default: pyage/lpm/models/).",
+    help="Model output directory (default: ./pyage/lpm/models/).",
 )
 def new_lpm(name: str, base: str, output: str):
     """Generate a template for a new LPM model.
@@ -64,7 +64,7 @@ def new_lpm(name: str, base: str, output: str):
     "-o",
     type=click.Path(),
     default=None,
-    help="Output directory (default: data_core/data_tracer/).",
+    help="Tracer output directory (default: ./data_core/data_tracer/).",
 )
 def new_tracer(name: str, with_decay: bool, no_chronicle: bool, output: str):
     """Generate a template for a new tracer.

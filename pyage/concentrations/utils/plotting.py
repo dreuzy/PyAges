@@ -149,7 +149,11 @@ def plot_concentration_chronicles_summary(
             break
         ax = axs[idx]
         observed = craw.cv[craw.cv["element"] == tracer_name].sort_values("date")
-        unit = observed["unit"].iloc[0] if "unit" in observed.columns and not observed.empty else None
+        unit = (
+            observed["unit"].iloc[0]
+            if "unit" in observed.columns and not observed.empty
+            else None
+        )
 
         if tracer_name in predictions:
             pred_array = np.vstack(predictions[tracer_name])
@@ -159,9 +163,15 @@ def plot_concentration_chronicles_summary(
                 [0.10, 0.25, 0.50, 0.75, 0.90],
                 axis=0,
             )
-            ax.fill_between(pred_dates, q10, q90, color="#c6dbef", alpha=0.8, label="90% interval")
-            ax.fill_between(pred_dates, q25, q75, color="#6baed6", alpha=0.75, label="50% interval")
-            ax.plot(pred_dates, q50, color="#08519c", linewidth=2.2, label="Median model")
+            ax.fill_between(
+                pred_dates, q10, q90, color="#c6dbef", alpha=0.8, label="90% interval"
+            )
+            ax.fill_between(
+                pred_dates, q25, q75, color="#6baed6", alpha=0.75, label="50% interval"
+            )
+            ax.plot(
+                pred_dates, q50, color="#08519c", linewidth=2.2, label="Median model"
+            )
 
         has_error = "error" in observed.columns and np.any(
             pd.to_numeric(observed["error"], errors="coerce") > 0
@@ -187,5 +197,5 @@ def plot_concentration_chronicles_summary(
         ax.set_ylabel(ylabel)
         ax.grid(True, alpha=0.25, linestyle="--")
 
-    for ax in axs[len(tracer_names):]:
+    for ax in axs[len(tracer_names) :]:
         ax.remove()

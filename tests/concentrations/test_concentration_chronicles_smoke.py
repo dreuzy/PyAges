@@ -11,8 +11,8 @@ import pytest
 
 matplotlib.use("Agg", force=True)
 
-from pyage.config.runtime import DisplayOptions
 from pyage.concentrations import concentrations_time as ct
+from pyage.config.runtime import DisplayOptions
 from pyage.lpm.core import lpm_dist as LPM_dist
 from pyage.lpm.lpm_build import lpm_build
 from pyage.observations.loader import load_concentrations
@@ -21,7 +21,12 @@ from tests.utils import paths as test_paths
 
 
 def _golden_path() -> Path:
-    return test_paths.repo_root() / "tests" / "golden" / "concentration_chronicles_values.json"
+    return (
+        test_paths.repo_root()
+        / "tests"
+        / "golden"
+        / "concentration_chronicles_values.json"
+    )
 
 
 def _summarize_concentrations(table: pd.DataFrame) -> dict[str, float]:

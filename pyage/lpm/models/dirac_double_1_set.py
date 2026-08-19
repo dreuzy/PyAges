@@ -14,10 +14,10 @@ Jean-Raynald de Dreuzy
 
 import numpy as np
 
-from pyage.lpm.core.lpm_base import LpmBase
-from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
-from pyage.lpm.core.registry import register_lpm
 import pyage.lpm.core.tools_interpolation as tools_interpolation
+from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
+from pyage.lpm.core.lpm_base import LpmBase
+from pyage.lpm.core.registry import register_lpm
 
 
 @register_lpm("dirac_double_1_set")
@@ -46,57 +46,53 @@ class DiracDouble1SetLpm(LpmBase):
         self.__muset = muset
         parameter_values = {"mufree": mufree, "rate": rate}
         parameter_units = {"mufree": "year", "rate": ""}
-        LpmBase.__init__(self, "dirac_double_1_set", parameter_values, parameter_units, directory_lpm)
-                
-    
+        LpmBase.__init__(
+            self, "dirac_double_1_set", parameter_values, parameter_units, directory_lpm
+        )
+
     def get_dirac_double_time(self):
         """Return the times of the two Dirac spikes."""
         return [self.p["mufree"], self.__muset]
-        
-    
+
     def set_interp(self):
         """Build the interpolated, normalized PDF for the two spikes."""
-        # Width of the Dirac 
+        # Width of the Dirac
         width = max(1, self.get_param_range("mufree") / 200, self.__muset / 200)
-        # Finer resolution than convolution 
+        # Finer resolution than convolution
         td = 1.2 * (self.get_p_max("mufree") + self.__muset) * np.arange(0, 201) / 200
         # Summation of the two Diracs
-        pdfd1 = tools_interpolation.dirac_discret(td, center=self.p["mufree"], width=width)
+        pdfd1 = tools_interpolation.dirac_discret(
+            td, center=self.p["mufree"], width=width
+        )
         pdfd2 = tools_interpolation.dirac_discret(td, center=self.__muset, width=width)
         pdfd = self.p["rate"] * pdfd1 + (1 - self.p["rate"]) * pdfd2
-        # Interpolation function 
+        # Interpolation function
         self.f = tools_interpolation.interp_normalize(td, pdfd)
-
 
     def pdf(self, t):
         """Return the probability density function at time ``t``."""
         self.set_interp()
         return self.f(t)
-    
-    
+
     def cdf(self, t):
         """Return the cumulative distribution function at time ``t``."""
         values = np.asarray(t, dtype=float)
-        result = (
-            self.p["rate"] * (values >= self.p["mufree"]).astype(int)
-            + (1 - self.p["rate"]) * (values >= self.__muset).astype(int)
-        )
+        result = self.p["rate"] * (values >= self.p["mufree"]).astype(int) + (
+            1 - self.p["rate"]
+        ) * (values >= self.__muset).astype(int)
         return float(result) if values.ndim == 0 else result
-        
-       
+
     def cdf_inv(self, p):
         """Return the inverse CDF (quantile) for probability ``p``."""
         if p <= self.p["rate"]:
             return self.p["mufree"]
         else:
             return self.__muset
-    
-    
+
     def mean(self):
         """Return the mean of the distribution."""
         return self.p["rate"] * self.p["mufree"] + (1 - self.p["rate"]) * self.__muset
-    
-    
+
     def std(self):
         """Return the standard deviation of the distribution."""
         return np.sqrt(
@@ -104,4 +100,3 @@ class DiracDouble1SetLpm(LpmBase):
             * (1 - self.p["rate"])
             * (self.__muset - self.p["mufree"]) ** 2
         )
-   

@@ -32,7 +32,9 @@ def test_analytical_moments(model, parameters, expected_mean, expected_std):
     ],
 )
 def test_continuous_reference_is_normalized(model, parameters):
-    mass = quad(lambda age: float(pdf(model, age, parameters)), 0, np.inf, epsabs=1e-10)[0]
+    mass = quad(
+        lambda age: float(pdf(model, age, parameters)), 0, np.inf, epsabs=1e-10
+    )[0]
     assert mass == pytest.approx(1.0, abs=1e-8)
     assert float(cdf(model, 1e6, parameters)) == pytest.approx(1.0, abs=1e-8)
 

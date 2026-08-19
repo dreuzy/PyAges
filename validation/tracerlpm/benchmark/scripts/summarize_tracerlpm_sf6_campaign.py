@@ -13,7 +13,6 @@ from .generate_inputs import BENCHMARK_ROOT
 from .generate_inversion_pilot import expanded_cases
 from .invert_pyage_pilot import RESULT_DIR
 
-
 CONFIG = BENCHMARK_ROOT / "configs" / "inversion-monte-carlo-01-sf6.yaml"
 RUN_OUTPUT = BENCHMARK_ROOT.parent / "output" / "four-tracer"
 OUTPUT = BENCHMARK_ROOT / "generated" / "tracerlpm-sf6-monte-carlo"
@@ -56,24 +55,29 @@ def summarize() -> dict:
             raise ValueError(f"Résultat TracerLPM invalide pour {case['case_id']}")
         secondary_key = "eta" if case["model"] == "EPM" else "DP"
         secondary_offset = 1.0 if case["model"] == "EPM" else 0.0
-        rows.append({
-            "case_id": case["case_id"],
-            "model": case["model"],
-            "seed": case["noise"]["seed"],
-            "pyage_tau": float(pyage["estimated_parameters"]["tau"]),
-            "pyage_secondary": float(pyage["estimated_parameters"][secondary_key]) - secondary_offset,
-            "tracerlpm_tau": float(tracer["fit"]["estimatedAge"]),
-            "tracerlpm_secondary": float(tracer["fit"]["estimatedModelParameter"]),
-            "tracerlpm_objective": float(tracer["fit"]["objective"]),
-            "tracerlpm_report": tracer_path.relative_to(BENCHMARK_ROOT.parent).as_posix(),
-        })
+        rows.append(
+            {
+                "case_id": case["case_id"],
+                "model": case["model"],
+                "seed": case["noise"]["seed"],
+                "pyage_tau": float(pyage["estimated_parameters"]["tau"]),
+                "pyage_secondary": float(pyage["estimated_parameters"][secondary_key])
+                - secondary_offset,
+                "tracerlpm_tau": float(tracer["fit"]["estimatedAge"]),
+                "tracerlpm_secondary": float(tracer["fit"]["estimatedModelParameter"]),
+                "tracerlpm_objective": float(tracer["fit"]["objective"]),
+                "tracerlpm_report": tracer_path.relative_to(
+                    BENCHMARK_ROOT.parent
+                ).as_posix(),
+            }
+        )
 
     models = {}
     for model in ("EPM", "DM"):
         selected = [row for row in rows if row["model"] == model]
         if len(selected) != 30:
             raise ValueError(f"Campagne {model} incomplète : {len(selected)}/30")
-        secondary_name, secondary_truth = (("r", 2.0) if model == "EPM" else ("DP", 0.2))
+        secondary_name, secondary_truth = ("r", 2.0) if model == "EPM" else ("DP", 0.2)
         p_tau = np.asarray([row["pyage_tau"] for row in selected])
         p_sec = np.asarray([row["pyage_secondary"] for row in selected])
         t_tau = np.asarray([row["tracerlpm_tau"] for row in selected])
@@ -81,10 +85,14 @@ def summarize() -> dict:
         models[model] = {
             "count": len(selected),
             "secondary_name": secondary_name,
-            "pyage": {"tau": _statistics(p_tau, 20.0),
-                       "secondary": _statistics(p_sec, secondary_truth)},
-            "tracerlpm": {"tau": _statistics(t_tau, 20.0),
-                           "secondary": _statistics(t_sec, secondary_truth)},
+            "pyage": {
+                "tau": _statistics(p_tau, 20.0),
+                "secondary": _statistics(p_sec, secondary_truth),
+            },
+            "tracerlpm": {
+                "tau": _statistics(t_tau, 20.0),
+                "secondary": _statistics(t_sec, secondary_truth),
+            },
             "paired_tracerlpm_minus_pyage": {
                 "tau_mean": float(np.mean(t_tau - p_tau)),
                 "tau_rmse": float(np.sqrt(np.mean((t_tau - p_tau) ** 2))),
@@ -93,29 +101,45 @@ def summarize() -> dict:
             },
         }
 
-    summary = {"campaign_id": config["campaign_id"], "noise_relative_sd": 0.01,
-               "tracers": [item["name"] for item in config["tracers"]],
-               "models": models, "rows": rows}
+    summary = {
+        "campaign_id": config["campaign_id"],
+        "noise_relative_sd": 0.01,
+        "tracers": [item["name"] for item in config["tracers"]],
+        "models": models,
+        "rows": rows,
+    }
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    (OUTPUT / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    (OUTPUT / "summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
     with (OUTPUT / "results.csv").open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=rows[0].keys(), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
-    lines = ["# Comparaison PyAge–TracerLPM — 30 réalisations, quatre traceurs, bruit 1 %", "",
-             "Traceurs : CFC-11, CFC-12, CFC-113 et SF6.", "",
-             "| Modèle | Outil | Paramètre | Vrai | Moyenne | Biais | Écart type | RMSE | q2,5 % | q97,5 % |",
-             "|---|---|---|---:|---:|---:|---:|---:|---:|---:|"]
+    lines = [
+        "# Comparaison PyAge–TracerLPM — 30 réalisations, quatre traceurs, bruit 1 %",
+        "",
+        "Traceurs : CFC-11, CFC-12, CFC-113 et SF6.",
+        "",
+        "| Modèle | Outil | Paramètre | Vrai | Moyenne | Biais | Écart type | RMSE | q2,5 % | q97,5 % |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|",
+    ]
     for model, data in models.items():
         for tool in ("pyage", "tracerlpm"):
-            for key, label, truth in (("tau", "tau", 20.0),
-                                      ("secondary", data["secondary_name"], 2.0 if model == "EPM" else 0.2)):
+            for key, label, truth in (
+                ("tau", "tau", 20.0),
+                ("secondary", data["secondary_name"], 2.0 if model == "EPM" else 0.2),
+            ):
                 stats = data[tool][key]
-                lines.append(f"| {model} | {tool} | {label} | {truth:.6g} | {stats['mean']:.6g} | "
-                             f"{stats['bias']:.6g} | {stats['standard_deviation']:.6g} | {stats['rmse']:.6g} | "
-                             f"{stats['q025']:.6g} | {stats['q975']:.6g} |")
-    (OUTPUT / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+                lines.append(
+                    f"| {model} | {tool} | {label} | {truth:.6g} | {stats['mean']:.6g} | "
+                    f"{stats['bias']:.6g} | {stats['standard_deviation']:.6g} | {stats['rmse']:.6g} | "
+                    f"{stats['q025']:.6g} | {stats['q975']:.6g} |"
+                )
+    (OUTPUT / "summary.md").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8", newline="\n"
+    )
     return summary
 
 

@@ -45,24 +45,24 @@ class InverseGaussianShiftedLpm(LpmScipySafe):
         directory_lpm : str
             Directory for LPM parameter files.
         """
-        parameter_values = {'mu': mu, 'sigma': sigma, 'shift': shift}
-        parameter_units = {'mu': 'year', 'sigma': 'year', 'shift': 'year'}
+        parameter_values = {"mu": mu, "sigma": sigma, "shift": shift}
+        parameter_units = {"mu": "year", "sigma": "year", "shift": "year"}
         super().__init__("ig_shifted", parameter_values, parameter_units, directory_lpm)
 
     def _scipy_params(self):
-        shape, scale = scipy_params_from_mean_std(self.p['mu'], self.p['sigma'])
-        return (shape,), self.p['shift'], scale
+        shape, scale = scipy_params_from_mean_std(self.p["mu"], self.p["sigma"])
+        return (shape,), self.p["shift"], scale
 
     def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
         """Return the CDF and raw truncated first moment after shifting."""
         values = np.asarray(t, dtype=float)
         cdf, component_moment = cdf_and_partial_first_moment_from_mean_std(
-            values - self.p['shift'],
-            self.p['mu'],
-            self.p['sigma'],
+            values - self.p["shift"],
+            self.p["mu"],
+            self.p["sigma"],
         )
         cdf = np.asarray(cdf, dtype=float)
-        raw_moment = self.p['shift'] * cdf + np.asarray(
+        raw_moment = self.p["shift"] * cdf + np.asarray(
             component_moment,
             dtype=float,
         )

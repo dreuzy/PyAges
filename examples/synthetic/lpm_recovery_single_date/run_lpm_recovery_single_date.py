@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.launcher import run_workflow
 from examples.synthetic.lpm_recovery_single_date.synthetic_case import (
     build_truth_aware_figures,
     generate_synthetic_case,
 )
+from pyage.workflows.single_date import run_workflow
 
 
 def main(force_inline: bool = False) -> Path:

@@ -11,7 +11,9 @@ from validation.tracerlpm.benchmark.scripts.prepare_remaining_robustness_shards 
 
 
 def _cases(count: int) -> list[dict]:
-    return [{"case_id": f"case-{index}", "fit": {"model": "EPM"}} for index in range(count)]
+    return [
+        {"case_id": f"case-{index}", "fit": {"model": "EPM"}} for index in range(count)
+    ]
 
 
 def test_partition_cases_is_balanced_and_preserves_order():
@@ -19,7 +21,13 @@ def test_partition_cases_is_balanced_and_preserves_order():
     shards = partition_cases(cases, {"case-1", "case-4", "case-8"}, 3)
     assert [len(shard) for shard in shards] == [3, 2, 2]
     assert [case["case_id"] for shard in shards for case in shard] == [
-        "case-0", "case-2", "case-3", "case-5", "case-6", "case-7", "case-9"
+        "case-0",
+        "case-2",
+        "case-3",
+        "case-5",
+        "case-6",
+        "case-7",
+        "case-9",
     ]
 
 
@@ -70,5 +78,15 @@ def test_build_writes_only_missing_cases_and_manifest(tmp_path):
     written = []
     for shard in manifest["shards"]:
         written.extend(yaml.safe_load(open(shard["path"], encoding="utf-8")))
-    assert [case["case_id"] for case in written] == ["case-0", "case-2", "case-3", "case-4"]
-    assert json.loads(open(manifest["manifest_path"], encoding="utf-8").read())["remaining"] == 4
+    assert [case["case_id"] for case in written] == [
+        "case-0",
+        "case-2",
+        "case-3",
+        "case-4",
+    ]
+    assert (
+        json.loads(open(manifest["manifest_path"], encoding="utf-8").read())[
+            "remaining"
+        ]
+        == 4
+    )

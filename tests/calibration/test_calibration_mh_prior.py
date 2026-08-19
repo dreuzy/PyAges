@@ -7,9 +7,9 @@ to keep the test fast and deterministic.
 
 from pathlib import Path
 
-from pyage.config.runtime import DisplayOptions
-from pyage.calibration.methods.metropolis_hastings import MHConfig, MetropolisHastings
+from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
 from pyage.calibration.workflows import synthetic_test as cst
+from pyage.config.runtime import DisplayOptions
 
 
 def test_calibration_mh_prior_smoke(tmp_path: Path):

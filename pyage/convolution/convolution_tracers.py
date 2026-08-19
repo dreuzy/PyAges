@@ -12,6 +12,7 @@ convolution calls for each tracer, and aggregates results into arrays
 or structured outputs (dataframes, Concentrations objects) for
 calibration and analysis.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,17 +21,16 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import pandas as pd
 
+import pyage.concentrations.concentrations as concentrations
+import pyage.convolution.convolution as convolution
+import pyage.tracer.tracer_root as tracer_module
 from pyage.config.paths import DIRECTORY_TRACER_DATA
 from pyage.config.runtime import DisplayOptions
-import pyage.convolution.convolution as convolution
 from pyage.convolution.settings import TracerGridSettings
-import pyage.concentrations.concentrations as concentrations
 from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
-import pyage.tracer.tracer_root as tracer_module
 
 if TYPE_CHECKING:
     from pyage.lpm.core.lpm_base import LpmBase as LPM
-
 
 
 class ConvolutionTracers:
@@ -46,7 +46,7 @@ class ConvolutionTracers:
         List of Convolution instances, one per tracer.
 
     """
-    
+
     def __init__(
         self,
         names: list[str] | None = None,
@@ -79,32 +79,27 @@ class ConvolutionTracers:
             )
             for k, name in enumerate(names)
         ]
-    
-    
+
     def display(self, display_options: DisplayOptions) -> None:
         """Displays the tracers."""
         for x in self.elements:
             x.display(display_options)
 
-
     def write_name(self, file) -> None:
         """Write tracer names to file."""
         file.write("tracers")
         for t in self.element_names():
-            file.write('\t')
+            file.write("\t")
             file.write(t)
-        file.write('\n')
-
+        file.write("\n")
 
     def element_names(self) -> list[str]:
         """Gets the list of element names."""
         return [x.name for x in self.elements]
 
-
     def element_names_dates(self) -> list[str]:
         """Gets the list of element names with dates."""
         return [concentrations.name_date(x.name, x.date) for x in self.elements]
-
 
     def mean_value(self, date: float) -> list[float]:
         """
@@ -121,8 +116,7 @@ class ConvolutionTracers:
             Mean value for each element concentration.
         """
         return [x.mean_value(date) for x in self.elements]
-    
-    
+
     def prepare(self, lpm: LPM | None = None) -> None:
         """Eagerly prepare grids when the requested LPM has a continuous part."""
         if lpm is not None and lpm.convolution_strategy not in {
@@ -133,12 +127,10 @@ class ConvolutionTracers:
         for t in self.elements:
             t.prepare()
 
-
     def units(self) -> list[str]:
         """Gets units of tracers."""
-        return [t.unit for t in self.elements]        
+        return [t.unit for t in self.elements]
 
-    
     def convolve(
         self,
         lpm: LPM,
@@ -179,28 +171,32 @@ class ConvolutionTracers:
         if return_type == "array":
             return conc
         elif return_type == "concentrations":
-            data_temp = pd.DataFrame({
-                "element": self.element_names(),
-                "concentration": conc,
-                "unit": self.units(),
-                "date": date_vec
-            }, columns=["element", "concentration", "unit", "date"])
-            return concentrations.Concentrations(dataframe_load=True, dataframe_concentration=data_temp)
+            data_temp = pd.DataFrame(
+                {
+                    "element": self.element_names(),
+                    "concentration": conc,
+                    "unit": self.units(),
+                    "date": date_vec,
+                },
+                columns=["element", "concentration", "unit", "date"],
+            )
+            return concentrations.Concentrations(
+                dataframe_load=True, dataframe_concentration=data_temp
+            )
         elif return_type == "dataframe":
-            return pd.DataFrame({
-                "element": self.element_names(),
-                "concentration": conc,
-                "date": date_vec
-            }, columns=["element", "concentration"])
+            return pd.DataFrame(
+                {
+                    "element": self.element_names(),
+                    "concentration": conc,
+                    "date": date_vec,
+                },
+                columns=["element", "concentration"],
+            )
         else:
             raise ValueError(f"Unknown return_type: {return_type}")
-    
-    
+
     def convolve_date_range(
-        self,
-        lpm: LPM,
-        date1: float,
-        date2: float
+        self, lpm: LPM, date1: float, date2: float
     ) -> dict[str, pd.DataFrame]:
         """
         Convolution on the range of dates given by [date1, date2].
@@ -220,8 +216,3 @@ class ConvolutionTracers:
             Dictionary mapping tracer names to their convolution DataFrames.
         """
         return {t.name: t.convolve_date_range(lpm, date1, date2) for t in self.elements}
-
-
-    
-    
-    

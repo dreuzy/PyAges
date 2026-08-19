@@ -6,16 +6,15 @@ import argparse
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
+from matplotlib.lines import Line2D
 from PIL import Image
 
 from pyage.config.paths import DIRECTORY_TRACER_DATA
 from pyage.observations.loader import load_observation_concentrations
 from pyage.tracer.tracer_root import Tracer
 from sites.ploemeur.observations.ploemeur import ploemeur_ori_folder
-
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 OUTPUT_DIRECTORY = (

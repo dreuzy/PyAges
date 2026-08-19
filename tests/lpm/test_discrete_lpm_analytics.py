@@ -23,9 +23,7 @@ def test_dirac_cdf_is_scalar_safe_and_right_continuous():
 
 
 def test_dirac_double_cdf_includes_each_point_mass():
-    model = DiracDoubleLpm(
-        mu1=10.0, mu2=5.0, rate=0.2, directory_lpm=_data_directory()
-    )
+    model = DiracDoubleLpm(mu1=10.0, mu2=5.0, rate=0.2, directory_lpm=_data_directory())
 
     values = model.cdf(np.array([9.999, 10.0, 14.999, 15.0]))
 
@@ -37,9 +35,7 @@ def test_dirac_double_cdf_includes_each_point_mass():
     [(0.0, 10.0), (0.2, 10.0), (0.200001, 15.0), (0.9, 15.0)],
 )
 def test_dirac_double_generalized_quantile(probability, expected):
-    model = DiracDoubleLpm(
-        mu1=10.0, mu2=5.0, rate=0.2, directory_lpm=_data_directory()
-    )
+    model = DiracDoubleLpm(mu1=10.0, mu2=5.0, rate=0.2, directory_lpm=_data_directory())
 
     assert model.cdf_inv(probability) == pytest.approx(expected)
 
@@ -92,9 +88,7 @@ def test_mixed_cdf_is_scalar_safe_and_includes_the_dirac_mass():
 def test_mixed_generalized_quantile(probability):
     model = _mixed_model()
     expected = (
-        10.0
-        if probability <= 0.3
-        else 15.0 - 8.0 * np.log((1.0 - probability) / 0.7)
+        10.0 if probability <= 0.3 else 15.0 - 8.0 * np.log((1.0 - probability) / 0.7)
     )
 
     assert model.cdf_inv(probability) == pytest.approx(expected)
@@ -113,9 +107,8 @@ def test_mixed_generalized_quantile_handles_degenerate_rates():
 def test_mixed_moments_include_both_component_locations_and_tail_variance():
     model = _mixed_model()
     expected_mean = 0.3 * 10.0 + 0.7 * (15.0 + 8.0)
-    expected_variance = (
-        0.3 * (10.0 - expected_mean) ** 2
-        + 0.7 * (8.0**2 + (15.0 + 8.0 - expected_mean) ** 2)
+    expected_variance = 0.3 * (10.0 - expected_mean) ** 2 + 0.7 * (
+        8.0**2 + (15.0 + 8.0 - expected_mean) ** 2
     )
 
     assert model.mean() == pytest.approx(expected_mean)

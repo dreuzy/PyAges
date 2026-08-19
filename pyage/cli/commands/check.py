@@ -29,7 +29,9 @@ def _fail(message: str) -> None:
 
 
 def _check_python() -> CheckResult:
-    version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    version = (
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
     if sys.version_info >= (3, 9):
         _ok(f"Python version: {version}")
         return CheckResult(passed=1)

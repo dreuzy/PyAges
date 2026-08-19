@@ -14,31 +14,36 @@ module is the entry point for tracer-specific metadata and data
 normalization.
 """
 
+from __future__ import annotations
+
+from pathlib import Path
 from typing import Union
+
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from scipy import interpolate
-from pathlib import Path
 import yaml
+from scipy import interpolate
 
-from pyage.tracer.decay import rate_from_config
 from pyage.config.paths import DIRECTORY_TRACER_DATA
 from pyage.config.runtime import DisplayOptions
+from pyage.tracer.decay import rate_from_config
 
 
 # Custom Exceptions
 class TracerConfigError(Exception):
     """Raised when tracer configuration is invalid or incomplete."""
+
     pass
 
 
 class TracerDataError(Exception):
     """Raised when tracer data files are missing or cannot be read."""
+
     pass
 
-   
+
 class Tracer:
     """
     Chemical tracer for groundwater age dating.
@@ -73,6 +78,7 @@ class Tracer:
         Optional recharge chronicle from {data_tracer}/{name}/recharge.csv
 
     """
+
     def __init__(self, dir_tracer: Union[Path, str], name: str = "") -> None:
         """
         Tracer Class Constructor from an ensemble of external files.
@@ -116,22 +122,22 @@ class Tracer:
             recharge_file = dir_tracer / name / "recharge.csv"
             try:
                 # Read CSV, skipping comment lines starting with #
-                self.__recharge_chronicle_file = pd.read_csv(recharge_file, comment='#')
-            except FileNotFoundError:
+                self.__recharge_chronicle_file = pd.read_csv(recharge_file, comment="#")
+            except FileNotFoundError as exc:
                 raise TracerDataError(
                     f"Recharge chronicle CSV file not found: {recharge_file}\n"
                     f"Please create a recharge.csv file for tracer '{name}'"
-                )
+                ) from exc
             except Exception as e:
                 raise TracerDataError(
                     f"Error reading recharge chronicle {recharge_file}: {e}"
-                )
+                ) from e
 
             # Create interpolation function for the input chronicle
             self.__recharge_chronicle_interp = interpolate.interp1d(
                 self.__recharge_chronicle_file.iloc[:, 0],
                 self.__recharge_chronicle_file.iloc[:, 1],
-                kind="linear"
+                kind="linear",
             )
 
             # Update date range from chronicle
@@ -151,7 +157,6 @@ class Tracer:
             raise TracerConfigError(
                 f"Tracer {name}: datemin ({self.datemin}) must be less than datemax ({self.datemax})"
             )
-
 
     def _load_config(self, dir_tracer: Path, name: str) -> None:
         """
@@ -179,7 +184,6 @@ class Tracer:
 
         self._load_yaml_config(yaml_file, name)
 
-
     def _load_yaml_config(self, config_file: Path, name: str) -> None:
         """
         Load configuration from YAML file.
@@ -199,20 +203,20 @@ class Tracer:
             If YAML structure is invalid
         """
         try:
-            with open(config_file, 'r', encoding='utf-8') as f:
+            with open(config_file, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
             raise TracerDataError(
                 f"YAML configuration file not found: {config_file}"
-            )
+            ) from exc
         except yaml.YAMLError as e:
             raise TracerDataError(
                 f"Error parsing YAML configuration {config_file}: {e}"
-            )
+            ) from e
         except Exception as e:
             raise TracerDataError(
                 f"Error reading YAML configuration {config_file}: {e}"
-            )
+            ) from e
 
         if not isinstance(config, dict):
             raise TracerConfigError(
@@ -227,12 +231,12 @@ class Tracer:
 
         # Parse each configuration parameter
         for param_name, value in config.items():
-            if param_name == 'recharge_constant':
+            if param_name == "recharge_constant":
                 self.__recharge_constant = float(value)
                 self.__has_constant_recharge = True
-            elif param_name == 'recharge':
+            elif param_name == "recharge":
                 self.__has_chronicle = bool(value)
-            elif param_name == 'production_rate':
+            elif param_name == "production_rate":
                 self.__geoproduction_enabled = True
                 self.__geoproduction_rate = float(value)
                 if self.__geoproduction_rate < 0:
@@ -240,13 +244,13 @@ class Tracer:
                         f"Tracer {name}: Geoproduction rate must be non-negative, "
                         f"got {self.__geoproduction_rate}"
                     )
-            elif param_name in {'half_life', 'decay_mean_lifetime'}:
+            elif param_name in {"half_life", "decay_mean_lifetime"}:
                 continue
-            elif param_name == 'unit':
+            elif param_name == "unit":
                 self.__unit = str(value)
-            elif param_name == 'datemin':
+            elif param_name == "datemin":
                 self.datemin = float(value)
-            elif param_name == 'datemax':
+            elif param_name == "datemax":
                 self.datemax = float(value)
             elif isinstance(value, (dict, list)):
                 # Allow example/site metadata blocks while keeping strict
@@ -257,23 +261,16 @@ class Tracer:
                     f"Unknown parameter in {name}.yaml: '{param_name}'"
                 )
 
-
     @property
-
-
     def unit(self) -> str:
         """Unit of tracer concentration (e.g., 'pptv', 'TU', 'pmC')."""
         return self.__unit
 
-
     @property
-
-
     def name(self) -> str:
         """Tracer name (e.g., 'cfc11', 'kr85', '3H')."""
         return self.__name
-    
-    
+
     def __check_date_range(self, date: Union[float, npt.NDArray[np.float64]]) -> bool:
         """
         Checks that date is in admissible range, whether it is a scalar or an array.
@@ -293,11 +290,10 @@ class Tracer:
         else:
             return (date <= self.datemax) and (date >= self.datemin)
 
-
     def get_concentration(
         self,
         date: Union[float, npt.NDArray[np.float64]],
-        time: Union[float, npt.NDArray[np.float64]]
+        time: Union[float, npt.NDArray[np.float64]],
     ) -> Union[float, npt.NDArray[np.float64]]:
         """
         Computes concentrations of tracers.
@@ -332,7 +328,9 @@ class Tracer:
                         valid_mask = (date >= self.datemin) & (date <= self.datemax)
                         c1 = np.zeros_like(date, dtype=float)
                         if valid_mask.any():
-                            c1[valid_mask] = self.__recharge_chronicle_interp(date[valid_mask])
+                            c1[valid_mask] = self.__recharge_chronicle_interp(
+                                date[valid_mask]
+                            )
                     else:
                         c1 = 0
 
@@ -349,13 +347,16 @@ class Tracer:
         # Compute geoproduction component
         if self.__geoproduction_enabled:
             if self.__decay_enabled:
-                c2 = self.__geoproduction_rate * (1 - np.exp(-self.__decay_rate * time)) / self.__decay_rate
+                c2 = (
+                    self.__geoproduction_rate
+                    * (1 - np.exp(-self.__decay_rate * time))
+                    / self.__decay_rate
+                )
             else:
                 c2 = self.__geoproduction_rate * time
             c = c + c2
 
         return c
-
 
     def mean_value(self, date: float) -> float:
         """
@@ -372,10 +373,9 @@ class Tracer:
             Mean concentration value over the chronicle period
         """
         # Sampling dates
-        t = self.datemin + (date - self.datemin) * np.arange(0, 1, 1/1000)
+        t = self.datemin + (date - self.datemin) * np.arange(0, 1, 1 / 1000)
         # Computes convolution
-        return float(np.mean(self.get_concentration(t, date - t)))        
-
+        return float(np.mean(self.get_concentration(t, date - t)))
 
     def max_value(self) -> float:
         """
@@ -398,7 +398,6 @@ class Tracer:
             )
         return float(self.__recharge_chronicle_file.iloc[:, 1].max())
 
-
     @property
     def convolution_dates(self) -> npt.NDArray[np.float64] | None:
         """Return recharge chronicle dates used as convolution grid knots."""
@@ -410,7 +409,6 @@ class Tracer:
     def convolution_initial_bins(self) -> int:
         """Return the initial grid size used when no chronicle is available."""
         return 64
-
 
     def display(self, display_options: DisplayOptions) -> None:
         """
@@ -430,7 +428,7 @@ class Tracer:
             self.__recharge_chronicle_file.plot(
                 x=self.__recharge_chronicle_file.columns[0],
                 y=self.__recharge_chronicle_file.columns[1],
-                title="input chronicle (recharge) for " + self.__name
+                title="input chronicle (recharge) for " + self.__name,
             )
             display_options.figure_close_fx(self.__name + "_recharge")
 
@@ -470,10 +468,13 @@ def main() -> None:
 
     # Automatically discover all available tracers by listing subdirectories
     print(f"Scanning tracer directory: {tracer_dir}")
-    tracer_names = sorted([
-        d.name for d in tracer_dir.iterdir()
-        if d.is_dir() and not d.name.startswith('.')
-    ])
+    tracer_names = sorted(
+        [
+            d.name
+            for d in tracer_dir.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
+        ]
+    )
 
     if not tracer_names:
         print("No tracers found in directory.")
@@ -493,9 +494,9 @@ def main() -> None:
 
     # Load and display each tracer
     for name in tracer_names:
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print(f"Loading tracer: {name}")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
 
         try:
             tracer = Tracer(tracer_dir, name=name)
@@ -510,9 +511,9 @@ def main() -> None:
             error_count += 1
 
     # Summary
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print("SUMMARY")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
     print(f"Successfully loaded: {success_count}/{len(tracer_names)} tracers")
     if error_count > 0:
         print(f"Errors: {error_count}")
