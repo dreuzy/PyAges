@@ -30,6 +30,16 @@ conda activate pyage
 pip install -e .
 ```
 
+Contributors should install the test, release, and documentation tools declared
+by the project:
+
+```bash
+python -m pip install -e ".[dev,docs]"
+```
+
+IDE and media-export packages are optional; see `install/README.md` for the
+separate conda command.
+
 ### 4. Verify Installation
 
 Run the system check to verify everything is working:

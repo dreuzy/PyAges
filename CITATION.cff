@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use PyAge in scientific work, please cite the software release."
+title: "PyAge: Groundwater Age Dating Toolkit"
+type: software
+authors:
+  - family-names: "de Dreuzy"
+    given-names: "Jean-Raynald"
+version: "0.1.0b1"
+repository-code: "https://gitlab.univ-rennes1.fr/aupepin/pyage.git"
+license: CECILL-2.1

@@ -18,7 +18,7 @@ from pyage.config.models import CliRunParams
 @click.option(
     "--transient",
     is_flag=True,
-    help="Run in transient (multi-date) mode using launcher_temporal.",
+    help="Run the canonical multi-date temporal workflow.",
 )
 @click.option(
     "--inline",
@@ -190,12 +190,12 @@ def _apply_overrides(
 
 
 def _run_single_date(config: Path, inline: bool, verbose: bool):
-    """Run single-date workflow via launcher.py."""
+    """Run the canonical single-date workflow."""
     try:
         # Import the launcher module
         from scripts.launcher import run_workflow
 
-        click.echo(f"Running single-date workflow...")
+        click.echo("Running single-date workflow...")
         click.echo(f"Config: {config}")
         run_workflow(str(config), force_inline=inline)
 
@@ -212,37 +212,18 @@ def _run_single_date(config: Path, inline: bool, verbose: bool):
 
 
 def _run_transient(config: Path, verbose: bool):
-    """Run transient (multi-date) workflow via launcher_temporal.py."""
+    """Run the canonical transient (multi-date) workflow."""
     try:
-        # Import the temporal launcher
-        from scripts.launcher_temporal import run_temporal_workflow
+        from pyage.workflows.temporal import run_temporal
 
-        click.echo(f"Running transient (multi-date) workflow...")
+        click.echo("Running transient (multi-date) workflow...")
         click.echo(f"Config: {config}")
-        run_temporal_workflow(str(config))
+        run_temporal(config)
 
     except ImportError as e:
-        # Fallback: try to import and call the main function directly
-        click.echo(click.style(f"Import error: {e}", fg="yellow"))
-        click.echo("Attempting alternative import...")
-
-        try:
-            import scripts.launcher_temporal as lt
-            # Check if there's a main-like function we can call
-            if hasattr(lt, "main"):
-                lt.main(str(config))
-            else:
-                click.echo(click.style(
-                    "Could not find entry point in launcher_temporal.py",
-                    fg="red"
-                ))
-                sys.exit(1)
-        except Exception as e2:
-            click.echo(click.style(f"Error: {e2}", fg="red"))
-            if verbose:
-                import traceback
-                traceback.print_exc()
-            sys.exit(1)
+        click.echo(click.style(f"Import error: {e}", fg="red"))
+        click.echo("Make sure you have installed pyage: pip install -e .")
+        sys.exit(1)
 
     except Exception as e:
         click.echo(click.style(f"Error running transient workflow: {e}", fg="red"))

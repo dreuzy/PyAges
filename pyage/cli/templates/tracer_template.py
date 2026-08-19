@@ -138,9 +138,9 @@ def generate_tracer_template(
             "# recharge_constant: 1.0" if with_chronicle else "recharge_constant: 1.0"
         ),
         decay_line=(
-            "decay_time: 17.77  # Example: customize for your tracer"
+            "half_life: 12.32  # Years; replace with the isotope's published half-life"
             if with_decay
-            else "# decay_time: 17.77"
+            else "# half_life: 12.32"
         ),
         date_range=(
             "# datemin: 1940.0\n# datemax: 2025.0"
@@ -192,7 +192,7 @@ def generate_tracer_template(
     click.echo(f"  1. Edit {config_file}")
     click.echo("     - Set the correct unit for your tracer")
     if with_decay:
-        click.echo("     - Adjust decay_time for your specific isotope")
+        click.echo("     - Adjust half_life for your specific isotope")
     if with_chronicle:
         click.echo(f"  2. Edit {tracer_dir / 'recharge.csv'}")
         click.echo("     - Replace placeholder data with actual atmospheric chronicle")

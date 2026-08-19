@@ -30,13 +30,10 @@ def list_lpms(verbose: bool):
 
     for name in lpms:
         if verbose:
-            try:
-                cls = get_lpm_class(name)
-                doc = cls.__doc__ or "No description"
-                first_line = doc.strip().split("\n")[0]
-                click.echo(f"  {name:24s} {first_line}")
-            except Exception:
-                click.echo(f"  {name}")
+            cls = get_lpm_class(name)
+            doc = cls.__doc__ or "No description"
+            first_line = doc.strip().split("\n")[0]
+            click.echo(f"  {name:24s} {first_line}")
         else:
             click.echo(f"  - {name}")
 
@@ -51,9 +48,10 @@ def list_tracers(verbose: bool):
         pyage list tracers
         pyage list tracers --verbose
     """
-    from pyage.tracer.tracer_root import Tracer, find_tracer_dir
+    from pyage.config.paths import DIRECTORY_TRACER_DATA
+    from pyage.tracer.tracer_root import Tracer
 
-    tracer_dir = find_tracer_dir()
+    tracer_dir = DIRECTORY_TRACER_DATA
     tracer_names = sorted(
         [
             d.name
@@ -69,13 +67,10 @@ def list_tracers(verbose: bool):
 
     for name in tracer_names:
         if verbose:
-            try:
-                tracer = Tracer(tracer_dir, name=name)
-                click.echo(
-                    f"  {name:12s} unit: {tracer.unit:6s}  "
-                    f"range: {tracer.datemin:.0f}-{tracer.datemax:.0f}"
-                )
-            except Exception as e:
-                click.echo(f"  {name:12s} (error: {e})")
+            tracer = Tracer(tracer_dir, name=name)
+            click.echo(
+                f"  {name:12s} unit: {tracer.unit:6s}  "
+                f"range: {tracer.datemin:.0f}-{tracer.datemax:.0f}"
+            )
         else:
             click.echo(f"  - {name}")

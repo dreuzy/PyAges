@@ -6,6 +6,10 @@ inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
 It provides reusable scientific components in `pyage/` and site-specific
 workflows in `sites/`, with examples and regression tests to support validation.
 
+Project status: **beta** (`0.1.0b1`). Public interfaces are documented and
+tested, but feedback may still lead to explicitly documented changes before
+the first stable release.
+
 ## Quick start
 
 Create the conda environment:
@@ -27,6 +31,12 @@ package index, install it with:
 
 ```
 pip install pyage-groundwater
+```
+
+Until a final release is published, pip users must opt into prereleases:
+
+```
+pip install --pre pyage-groundwater
 ```
 
 Run the full test suite:

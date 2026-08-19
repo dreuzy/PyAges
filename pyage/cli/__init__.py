@@ -1,5 +1,1 @@
-"""PyAge Command Line Interface."""
-
-from pyage.cli.main import cli, main
-
-__all__ = ["cli", "main"]
+"""PyAge command-line package; use :mod:`pyage.cli.main` as the entry point."""

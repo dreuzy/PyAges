@@ -11,20 +11,9 @@ Usage:
     pyage check
 """
 
-import sys
-from pathlib import Path
-
 import click
 
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[2]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-ensure_repo_imports()
-
+from pyage import __version__
 from pyage.cli.commands.check import check
 from pyage.cli.commands.list_cmd import list_group
 from pyage.cli.commands.new import new_group
@@ -32,7 +21,7 @@ from pyage.cli.commands.run import run
 
 
 @click.group()
-@click.version_option(version="0.1.0", prog_name="pyage")
+@click.version_option(version=__version__, prog_name="pyage")
 def cli():
     """PyAge - Groundwater Age Dating Toolkit.
 

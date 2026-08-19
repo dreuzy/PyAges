@@ -70,6 +70,9 @@ Thumbs.db
 figures_out/
 results/
 tmp_path/
+/.env
+/package-lock.json
+/holten_helium_requalification.md
 /sites/ploemeur/data/temp/
 /examples/**/generated/
 /examples/natural/ploemeur/*.html
