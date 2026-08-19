@@ -1,8 +1,0 @@
-dataset_name	site_code	selected	tracer_count	tracers	sampling_date	mean_concentration	mean_error
-fontainebleau_CGEB	CGEB	True	4	kr85,3H,39Ar,14C	2001.85	22.7825	0.5375
-fontainebleau_IMR	IMR	False	4	kr85,3H,39Ar,14C	2001.85	19.0875	0.4625
-fontainebleau_LRN10	LRN10	False	4	kr85,3H,39Ar,14C	2001.85	22.0925	1.5625
-fontainebleau_SA	SA	False	4	kr85,3H,39Ar,14C	2001.85	29.0225	1.3875
-fontainebleau_SLP4	SLP4	False	4	kr85,3H,39Ar,14C	2001.85	22.5225	0.9875
-fontainebleau_SLP5	SLP5	False	4	kr85,3H,39Ar,14C	2001.85	20.9775	1.0625
-fontainebleau_SM	SM	False	4	kr85,3H,39Ar,14C	2001.85	33.4975	1.6175
