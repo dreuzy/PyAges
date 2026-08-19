@@ -28,7 +28,7 @@ def build_observation_path(
     base_dir : str or Path
         Root folder containing observation files.
     prefix : str
-        Filename prefix (e.g., "ori_ploemeur_").
+        Filename prefix (e.g., ``ori_ploemeur_``).
     well : str
         Well name (or station identifier).
     dates : str
@@ -59,7 +59,7 @@ def build_observation_file(
     base_dir : str or Path
         Root folder containing observation files.
     prefix : str
-        Filename prefix (e.g., "ori_ploemeur_").
+        Filename prefix (e.g., ``ori_ploemeur_``).
     well : str
         Well name (or station identifier).
     dates : str
@@ -85,7 +85,7 @@ def load_observation_concentrations(
     base_dir : str or Path
         Root folder containing observation files.
     prefix : str
-        Filename prefix (e.g., "ori_ploemeur_").
+        Filename prefix (e.g., ``ori_ploemeur_``).
     well : str
         Well name (or station identifier).
     dates : str

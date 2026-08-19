@@ -30,9 +30,8 @@ recharge: true
 # Radioactive Decay
 # =============================================================================
 
-# Decay characteristic time in years (half-life / ln(2))
-# Kr-85 half-life is ~10.76 years
-decay_time: 10.76
+# Published radioactive half-life in years.
+half_life: 10.76
 
 # =============================================================================
 # Optional: Geoproduction

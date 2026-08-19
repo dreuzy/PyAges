@@ -10,6 +10,8 @@ the need to manually update a central registry file.
 
 Usage
 -----
+::
+
     from pyage.lpm.core.registry import register_lpm
 
     @register_lpm("my_model")
@@ -55,6 +57,8 @@ def register_lpm(name: str):
 
     Examples
     --------
+    Register a model class with its configuration name::
+
         @register_lpm("weibull")
         class LPM_weibull(LPMScipySafe):
             scipy_dist = weibull_min
@@ -91,12 +95,7 @@ def discover_lpms() -> None:
 
     # Import all modules in the models package
     for _, module_name, _ in pkgutil.iter_modules(models_pkg.__path__):
-        try:
-            importlib.import_module(f"pyage.lpm.models.{module_name}")
-        except ImportError as e:
-            # Log but don't fail - allows partial imports
-            import warnings
-            warnings.warn(f"Failed to import LPM module '{module_name}': {e}")
+        importlib.import_module(f"pyage.lpm.models.{module_name}")
 
     _discovered = True
 

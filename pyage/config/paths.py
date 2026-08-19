@@ -7,6 +7,7 @@ directory, which is set via environment variable or a user-level default.
 """
 
 from datetime import datetime
+from importlib.resources import files
 from pathlib import Path
 import os
 
@@ -28,31 +29,45 @@ if _results_env:
 else:
     ROOT_DIRECTORY_RESULTS = Path.home() / "results" / "PyAge"
 
-ROOT_DIRECTORY_RESULTS.mkdir(parents=True, exist_ok=True)
-
 # -------------------------------------------------------
 # Sub-directories
 # -------------------------------------------------------
 
-DIRECTORY_TRACER_DATA = ROOT_DIRECTORY / "data_core" / "data_tracer"
+# ``data_core`` is an explicit package in built distributions.  Resolving it
+# through importlib.resources works both in a repository checkout and after a
+# wheel installation, without assuming where site-packages is located.
+_DATA_CORE_DIRECTORY = Path(str(files("data_core")))
+DIRECTORY_TRACER_DATA = _DATA_CORE_DIRECTORY / "data_tracer"
 DIRECTORY_TEST = ROOT_DIRECTORY / "tests" / "data"
-DIRECTORY_LPM_DATA = ROOT_DIRECTORY / "data_core" / "data_lpm"
+DIRECTORY_LPM_DATA = _DATA_CORE_DIRECTORY / "data_lpm"
 
 
 # -------------------------------------------------------
 # Utility functions
 # -------------------------------------------------------
 
-def results_directory(directory, sub_directory):
-    """Create sub-directory if necessary and return its path."""
+def result_subdirectory(directory: str | Path, sub_directory: str) -> Path:
+    """Create and return one named subdirectory below a results directory."""
     path = Path(directory) / sub_directory
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-def name_dhms():
+def timestamp_name() -> str:
     """Return a timestamp string (year_month_day-hour_minute_second)."""
     now = datetime.now()
     return now.strftime("%Y_%m_%d-%H_%M_%S")
+
+
+__all__ = [
+    "DIRECTORY_LPM_DATA",
+    "DIRECTORY_TEST",
+    "DIRECTORY_TRACER_DATA",
+    "ROOT_DIRECTORY",
+    "ROOT_DIRECTORY_RESULTS",
+    "ROOT_DIRECTORY_SRC",
+    "result_subdirectory",
+    "timestamp_name",
+]
 
 

@@ -15,12 +15,10 @@ import abc
 import copy
 from typing import Any, ClassVar
 
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import os
 import pandas as pd
-from scipy import integrate
+from pathlib import Path
 from scipy import optimize
 from pyage.lpm.core.parameter_manager import ParameterManager
 from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
@@ -39,7 +37,7 @@ class LpmBase(abc.ABC):
     convolution_strategy : ConvolutionStrategy
         Declares which convolution algorithm should be used for this LPM type.
         Subclasses override this to indicate their requirements.
-        Default is CLASSIC (standard numerical integration).
+        Default is CONTINUOUS (CDF and partial-first-moment convolution).
 
     Instance Attributes
     -------------------
@@ -52,23 +50,23 @@ class LpmBase(abc.ABC):
     ----------------
     pdf(t)
         Probability density function (must be implemented by subclasses)
+    cdf(t)
+        Trustworthy vectorized cumulative distribution function
+    mean(), std()
+        Distribution-native moments
 
     Virtual Methods (with default implementations)
     ----------------------------------------------
-    cdf(t)
-        Cumulative density function
     cdf_inv(p)
         Inverse of the cumulative density function
-    mean()
-        Returns mean of distribution
-    std()
-        Returns standard deviation of distribution
+    cdf_and_partial_first_moment(t)
+        Required override for continuous convolution
     """
 
     # Class-level declaration of convolution strategy.
     # Subclasses override this to declare their requirements.
-    # Default is CLASSIC (standard numerical integration with Simpson's rule).
-    convolution_strategy: ClassVar[ConvolutionStrategy] = ConvolutionStrategy.CLASSIC
+    # Continuous LPMs use the common CDF/partial-first-moment engine by default.
+    convolution_strategy: ClassVar[ConvolutionStrategy] = ConvolutionStrategy.CONTINUOUS
 
     def __init__(
         self,
@@ -126,31 +124,16 @@ class LpmBase(abc.ABC):
         """
         raise NotImplementedError
 
-    def __moment_k(self, k: int, n_points: int = 1000) -> float:
-        """
-        Returns moment k of distribution (discretized)
-
-        Parameters
-        ---------
-        k : int
-            Order of the moment
-        n_points : int
-            Number of discretization points (default: 1000)
-        """
-        tmin, tmax = self.__support_range()
-        t = np.linspace(tmin, tmax, n_points)
-        pdf = self.pdf(t)
-        return integrate.simpson(t**k * pdf, x=t)
-
-    
+    @abc.abstractmethod
     def mean(self) -> float:
-        """Return mean of distribution."""
-        return self.__moment_k(1)
+        """Return the exact or distribution-native mean."""
+        raise NotImplementedError
 
 
+    @abc.abstractmethod
     def std(self) -> float:
-        """Return standard deviation of distribution."""
-        return np.sqrt(self.__moment_k(2) - self.__moment_k(1)**2)
+        """Return the exact or distribution-native standard deviation."""
+        raise NotImplementedError
         
         
     def random_uniform(self, rng: np.random.Generator | None = None) -> None:
@@ -177,37 +160,19 @@ class LpmBase(abc.ABC):
             Parameters in an array format
         """
         lpm_temp = copy.deepcopy(self)
-        lpm_temp.load_param_values(self.lpm_parameter_file("simplex_init.txt"))
+        lpm_temp.load_initial_parameters()
         return lpm_temp.get_parameters_to_array()
 
 
-    def lpm_parameter_file(self, file_name: str) -> str:
-        """
-        Directory + File where the lpm parameters are defined
-
-        Parameters
-        ---------
-        file_name : str
-            File name
-
-        Returns
-        -------
-        str
-            Full directory + file name
-        """
-        return os.path.join(self._directory_lpm, self.name, file_name)
+    @property
+    def lpm_data_directory(self) -> Path:
+        """Return the root directory containing LPM parameter folders."""
+        return Path(self._directory_lpm)
 
 
-    def load_param_values(self, file_name: str) -> None:
-        """
-        Loads parameter values from a file.
-
-        Parameters
-        ----------
-        file_name : str
-            Name of the file
-        """
-        self._param_manager.load_param_values(file_name, self.p)
+    def load_initial_parameters(self) -> None:
+        """Load initial parameter values from the canonical params.yaml file."""
+        self._param_manager.load_initial_values(self.p)
         
         
     def param_within_bounds(self, params: dict[str, float]) -> bool:
@@ -244,49 +209,30 @@ class LpmBase(abc.ABC):
         return self._param_manager.param_within_bounds_array(params, list(self.p.keys()))
 
     
-    def cdf(self, t: npt.ArrayLike) -> npt.NDArray[np.floating]:
+    @abc.abstractmethod
+    def cdf(self, t: npt.ArrayLike) -> npt.ArrayLike:
+        """Return a trustworthy, vectorized cumulative distribution function."""
+        raise NotImplementedError
+
+
+    def cdf_and_partial_first_moment(
+        self,
+        t: npt.ArrayLike,
+    ) -> tuple[npt.ArrayLike, npt.ArrayLike]:
+        """Return ``F(t)`` and ``E[T 1(T <= t)]`` for continuous convolution.
+
+        Continuous LPMs must override this method. Discrete and mixed models
+        use their dedicated convolution contracts instead.
         """
-        Cumulative Density Function (vectorized fallback).
+        raise NotImplementedError(
+            f"Continuous LPM '{self.name}' must implement "
+            "cdf_and_partial_first_moment()"
+        )
 
-        Uses cumulative trapezoidal integration over a fine grid,
-        then interpolates to requested time points.
-
-        Parameters
-        ----------
-        t : array-like
-            Time values
-
-        Returns
-        -------
-        npt.NDArray[np.floating]
-            Cumulative density function values
-
-        Notes
-        -----
-        Subclasses with analytical CDFs should override this method
-        for better accuracy and performance.
-        """
-        t_arr = np.atleast_1d(np.asarray(t, dtype=float))
-
-        if len(t_arr) == 0:
-            return np.array([], dtype=float)
-
-        t_max = np.max(t_arr)
-        if t_max <= 0:
-            return np.zeros_like(t_arr)
-
-        # Fine grid for integration
-        n_points = max(1000, len(t_arr) * 10)
-        t_grid = np.linspace(0.0, t_max, n_points)
-        pdf_grid = self.pdf(t_grid)
-
-        # Cumulative trapezoidal integration
-        cdf_grid = integrate.cumulative_trapezoid(pdf_grid, t_grid, initial=0.0)
-
-        # Interpolate to requested points
-        cdf_values = np.interp(t_arr, t_grid, cdf_grid)
-
-        return np.clip(cdf_values, 0.0, 1.0)
+    @property
+    def parameter_units(self) -> dict[str, str]:
+        """Return a copy of the parameter units keyed by parameter name."""
+        return dict(self.__u)
 
     def _cdf_minus_p(self, t: float, p: float) -> float:
         """Instrumental function for cdf_inv."""
@@ -398,12 +344,10 @@ class LpmBase(abc.ABC):
     
     
     def display(self, display_options: Any) -> None:
-        """Display LPM."""
-        if display_options.text:
-            print("LPM type:", self.name)
-            print("Parameters:")
-            for key in self.p.keys():
-                print("\t", key, "\t=", self.p[key], self.__u[key])
+        """Display the model using the presentation compatibility layer."""
+        from pyage.lpm.presentation import display_lpm
+
+        display_lpm(self, display_options)
 
 
     def __support_range(self) -> tuple[float, float]:
@@ -457,55 +401,33 @@ class LpmBase(abc.ABC):
         ---------
         type_pc : str
             "pdf" or "cdf"
-        display_options : display_options
+        display_options : DisplayOptions
             display configuration
         """
-        if display_options.figure:
-            t, values = self.discret_pdf_cdf(type_pc, 1000)
-            plt.figure()
-            plt.xlabel('t', fontsize=16, fontweight='bold')
-            plt.xticks(fontsize=14)
-            plt.ylabel('f(t)', fontsize=14, fontweight='bold')
-            plt.yticks(fontsize=14)
-            plt.title(type_pc + " of " + self.name, fontsize=22, fontweight='bold')
-            plt.grid(True)
-            if len(t) != len(values):
-                raise ValueError(f"Dimension mismatch: len(t)={len(t)} != len(values)={len(values)}")
-            plt.plot(t, values, 'r', label=self.name)
-            plt.xlim((0, max(t)))
-            if max(t) == 0:
-                print(max(t))
-            if max(values) <= 0:
-                ylim = 1
-            else:
-                ylim = max(values) * 1.1
-            if not np.isnan(ylim) and not np.isinf(ylim):
-                plt.ylim((0, ylim))
-            display_options.figure_close_fx(self.name + "_" + type_pc)
+        from pyage.lpm.presentation import plot_lpm
+
+        plot_lpm(self, type_pc, display_options)
     
     
     def display_parameters(self, lpm_reference: LpmBase | None = None) -> None:
         """Display values of LPM parameters."""
-        if lpm_reference is None:
-            for key in self.p:
-                print(key, '\t', '%.2f' % self.p[key])
-        else:
-            for key in self.p:
-                print(key, '\t', 'target ', '%.2f' % lpm_reference.p[key],
-                      '\t calibrated', '%.2f' % self.p[key], '\t',
-                      'difference rate', '%.1e' % (self.p[key] / lpm_reference.p[key] - 1))
+        from pyage.lpm.presentation import display_parameters
+
+        display_parameters(self, lpm_reference)
 
 
     def display_pdf_cdf(self, display_options: Any) -> None:
         """Check consistency of distribution."""
-        self.display(display_options)
-        self.plot('pdf', display_options)
-        self.plot('cdf', display_options)
+        from pyage.lpm.presentation import display_pdf_cdf
+
+        display_pdf_cdf(self, display_options)
         
         
     def write_name(self, file: Any) -> None:
         """Write LPM name to file."""
-        file.write("lpm\t" + self.name + "\n")
+        from pyage.data_io.lpm_results import write_lpm_name
+
+        write_lpm_name(self, file)
 
 
     def write(self, file: str | Any, open_file: bool = False) -> None:
@@ -520,13 +442,9 @@ class LpmBase(abc.ABC):
         open_file: bool
             Whether to open the file (True) or use existing file object (False)
         """
-        if open_file:
-            file = open(file, "w")
-        self.write_name(file)
-        for key in self.p:
-            file.write(key + '\t' + str(self.p[key]) + '\t' + str(self.__u[key]) + '\n')
-        if open_file:
-            file.close()
+        from pyage.data_io.lpm_results import write_lpm
+
+        write_lpm(self, file, open_file=open_file)
 
 
     def load_lpm_from_dist(
@@ -562,12 +480,12 @@ class LpmBase(abc.ABC):
             return (False, {})
 
         if rng is None:
-            rng = np.random
+            rng = np.random.default_rng()
 
         chosen_lines: dict[str, int] = {}
 
         if option == "random_line":
-            line = rng.integers(len(dist.index)) if hasattr(rng, "integers") else rng.randint(len(dist.index))
+            line = int(rng.integers(len(dist.index)))
             for key in self.p.keys():
                 self.p[key] = dist[key].iloc[line]
                 chosen_lines[key] = line
@@ -581,7 +499,7 @@ class LpmBase(abc.ABC):
 
         elif option == "random_each":
             for key in self.p.keys():
-                line = rng.integers(len(dist.index)) if hasattr(rng, "integers") else rng.randint(len(dist.index))
+                line = int(rng.integers(len(dist.index)))
                 self.p[key] = dist[key].iloc[line]
                 chosen_lines[key] = line
 
@@ -609,12 +527,9 @@ class LpmBase(abc.ABC):
 
     def display_moments(self) -> None:
         """Display computed moments."""
-        print("\nmoments")
-        names = self.moments_name()
-        values = self.moments()
-        for i in range(len(names)):
-            print(names[i], "", values[i])
-        print("\n")
+        from pyage.lpm.presentation import display_moments
+
+        display_moments(self)
 
 
     def output_dataframe(self) -> pd.DataFrame:

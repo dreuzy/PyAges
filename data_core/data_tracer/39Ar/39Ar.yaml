@@ -11,8 +11,8 @@
 # =============================================================================
 
 # Unit of concentration measurement
-# Options: pptv (parts per trillion by volume), TU (Tritium Units), pmC (percent modern carbon), %modern
-unit: "%modern"
+# Options: pptv (parts per trillion by volume), TU (Tritium Units), pmC (percent modern carbon), fraction_modern
+unit: "fraction_modern"
 
 # =============================================================================
 # Recharge Configuration
@@ -29,9 +29,8 @@ recharge_constant: 1
 # Radioactive Decay
 # =============================================================================
 
-# Decay characteristic time in years (half-life / ln(2))
-# 39Ar half-life is ~267 years
-decay_time: 267
+# Published radioactive half-life in years.
+half_life: 267
 
 # =============================================================================
 # Optional: Geoproduction
@@ -59,9 +58,9 @@ holten:
     observation_unit: "pMC"
   preparation:
     input_normalization: "pMC_to_fraction_modern_divide_by_100"
-    output_unit: "%modern"
+    output_unit: "fraction_modern"
     value_scale: "fraction_of_modern"
   old_endmember:
     value: 0.45
-    unit: "%modern"
+    unit: "fraction_modern"
     meaning: "old fraction end-member; 0.45 = 45% modern"

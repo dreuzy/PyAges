@@ -2,17 +2,11 @@
 Prior-only MH validation checks with tolerance thresholds.
 """
 
-import sys
 from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SRC_DIR = REPO_ROOT / "pyage"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-
-import pyage.global_parameters as gp
+from pyage.config.runtime import DisplayOptions
 from pyage.calibration.methods.metropolis_hastings import MHConfig, MetropolisHastings
 from pyage.calibration.workflows import synthetic_test as cst
 
@@ -20,7 +14,7 @@ from pyage.calibration.workflows import synthetic_test as cst
 
 @pytest.mark.parametrize("lpm_type", ["exp", "ig", "ig_shifted", "gamma"])
 def test_calibration_mh_prior_validation_tolerances(tmp_path: Path, lpm_type: str):
-    display = gp.display_options()
+    display = DisplayOptions()
     display.figure = False
     display.text = False
     display.figure_save = False

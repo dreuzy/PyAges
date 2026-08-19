@@ -37,12 +37,11 @@ def test_convolution_tracers_golden(lpm_name, update_golden):
     lpm = lpm_build_module.lpm_build_random_uniform(lpm_name, rng=rng)
     tracers = ConvolutionTracers(names=TRACER_NAMES, date=DATE)
 
-    concentrations = tracers.convolution(
+    concentrations = tracers.convolve(
         lpm,
-        return_type="concentrations_set",
-        prepare=False,
+        return_type="concentrations",
     )
-    df = tracers.convolution(lpm, return_type="dataframe", prepare=False)
+    df = tracers.convolve(lpm, return_type="dataframe")
 
     stats = {
         "mean_concentration": float(concentrations.cv["concentration"].mean()),

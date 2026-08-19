@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import pyage.global_parameters as gp
+from pyage.concentrations.schema import REFERENCE_COLUMNS
 from pyage.concentrations.concentrations import Concentrations
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
@@ -45,7 +45,7 @@ def test_concentrations_load_smoke(file_path):
     conc = Concentrations(file_load=True, file_name=str(file_path))
 
     # Columns are normalized and ordered
-    assert list(conc.cv.columns) == gp.REFERENCE_COLUMNS
+    assert list(conc.cv.columns) == list(REFERENCE_COLUMNS)
 
     # Basic sanity checks
     assert len(conc.cv) > 0
@@ -53,7 +53,7 @@ def test_concentrations_load_smoke(file_path):
 
 
 def test_concentrations_load_basic():
-    # Replacement for legacy test_load helper.
+    # Load through the public constructor.
     file_path = _tests_data_dir() / "data_test_exp.txt"
     conc = Concentrations(file_load=True, file_name=str(file_path))
     assert not conc.cv.empty

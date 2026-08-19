@@ -26,7 +26,7 @@ Jean-Raynald de Dreuzy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-import pyage.global_parameters as gp
+from pyage.config.paths import DIRECTORY_LPM_DATA
 
 from pyage.lpm.core.registry import (
     UnknownLPMType,
@@ -43,7 +43,7 @@ def _resolve_directory(
     directory_lpm: Optional[Union[str, Path]],
 ) -> Union[str, Path]:
     """
-    Resolve the LPM data directory with a default fallback.
+    Resolve the LPM data directory from an override or the canonical default.
 
     Parameters
     ----------
@@ -55,7 +55,7 @@ def _resolve_directory(
     str or Path
         Resolved directory path.
     """
-    return directory_lpm if directory_lpm is not None else gp.DIRECTORY_LPM_DATA
+    return directory_lpm if directory_lpm is not None else DIRECTORY_LPM_DATA
 
 
 def lpm_build(
@@ -75,7 +75,7 @@ def lpm_build(
         Use list_available_lpms() to see all available types.
     directory_lpm : str or Path or None
         Optional LPM data directory override.
-        Defaults to gp.DIRECTORY_LPM_DATA.
+        Defaults to `pyage.config.paths.DIRECTORY_LPM_DATA`.
 
     Returns
     -------
@@ -93,7 +93,7 @@ def lpm_build(
         >>> print(lpm.name)
         ig
         >>> print(lpm.convolution_strategy)
-        ConvolutionStrategy.CLASSIC
+        ConvolutionStrategy.CONTINUOUS
     """
     # Resolve the requested model class from the registry.
     lpm_class = get_lpm_class(lpm_type)

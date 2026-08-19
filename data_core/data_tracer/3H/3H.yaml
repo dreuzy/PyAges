@@ -11,8 +11,8 @@
 # =============================================================================
 
 # Unit of concentration measurement
-# Options: TU (Tritium Units), mol, pptv, pmC, %modern
-unit: mol
+# Options: TU (Tritium Units), mol, pptv, pmC, fraction_modern
+unit: TU
 
 # =============================================================================
 # Recharge Configuration
@@ -30,9 +30,8 @@ recharge: true
 # Radioactive Decay
 # =============================================================================
 
-# Decay characteristic time in years (half-life / ln(2))
-# 3H half-life is ~12.32 years
-decay_time: 12.32
+# Published radioactive half-life in years.
+half_life: 12.32
 
 # =============================================================================
 # Optional: Geoproduction

@@ -24,7 +24,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.special import expit
 
-import pyage.global_parameters as gp
+from pyage.config.paths import DIRECTORY_LPM_DATA
 from pyage.data_io import lpm_params
 from pyage.lpm.core.lpm_base import LpmBase
 from pyage.lpm.core.registry import register_lpm
@@ -72,7 +72,7 @@ def _as_float_array(values: list[Any], *, field_name: str) -> np.ndarray:
 
 
 def _load_model_spec(directory_lpm: str | Path | None) -> tuple[Path, dict[str, Any]]:
-    resolved_dir = Path(directory_lpm) if directory_lpm is not None else Path(gp.DIRECTORY_LPM_DATA)
+    resolved_dir = Path(directory_lpm) if directory_lpm is not None else DIRECTORY_LPM_DATA
     return resolved_dir, lpm_params.load_params(MODEL_NAME, resolved_dir)
 
 
@@ -226,6 +226,36 @@ class ShapeFreeNOldBinLpm(LpmBase):
         if t_arr.ndim == 0:
             return self._cdf_scalar(float(t_arr), edges)
         return np.asarray([self._cdf_scalar(float(value), edges) for value in t_arr], dtype=float)
+
+    def cdf_and_partial_first_moment(
+        self,
+        t: npt.ArrayLike,
+    ) -> tuple[npt.ArrayLike, npt.ArrayLike]:
+        """Return exact cumulative mass and moment of the piecewise-uniform law."""
+        values = np.asarray(t, dtype=float)
+        cdf = np.asarray(self.cdf(values), dtype=float)
+        first_moment = np.zeros_like(values, dtype=float)
+        edges = self.bin_edges()
+        for left, right, width, fraction in zip(
+            edges[:-1],
+            edges[1:],
+            np.diff(edges),
+            self.fractions(),
+        ):
+            if fraction <= 0.0 or width <= 0.0:
+                continue
+            upper = np.clip(values, left, right)
+            first_moment += np.where(
+                values > left,
+                fraction
+                * (upper - left)
+                * (upper + left)
+                / (2.0 * width),
+                0.0,
+            )
+        if values.ndim == 0:
+            return float(cdf), float(first_moment)
+        return cdf, first_moment
 
     def _cdf_inv_scalar(self, probability: float, edges: np.ndarray) -> float:
         p = float(np.clip(probability, 0.0, 1.0))

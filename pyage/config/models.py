@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import List
-
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 
@@ -27,8 +26,9 @@ def _resolve_path(value: Path, info):
 
 
 class _BaseCfg(BaseModel):
-    """Base config: ignore unknown keys to keep legacy YAML compatible."""
-    model_config = ConfigDict(extra="ignore")
+    """Strict base for all user-facing configuration models."""
+
+    model_config = ConfigDict(extra="forbid")
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +88,7 @@ class CliCheckParams(_BaseCfg):
 class SystemCheckConfig(_BaseCfg):
     """Configuration for the integration test script."""
     date: float = 2010
-    lpm_all: List[str] = Field(
+    lpm_all: list[str] = Field(
         default_factory=lambda: [
             "dirac",
             "dirac_double",
@@ -103,7 +103,7 @@ class SystemCheckConfig(_BaseCfg):
             "mix_exp_shifted",
         ]
     )
-    lpm_calib: List[str] = Field(
+    lpm_calib: list[str] = Field(
         default_factory=lambda: [
             "dirac_double",
             "exp_shifted",
@@ -115,7 +115,7 @@ class SystemCheckConfig(_BaseCfg):
             "dirac",
         ]
     )
-    tracers_all: List[str] = Field(
+    tracers_all: list[str] = Field(
         default_factory=lambda: [
             "Li",
             "sf6",
@@ -128,13 +128,13 @@ class SystemCheckConfig(_BaseCfg):
             "39Ar",
         ]
     )
-    tracers_conv: List[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
-    tracers_calib: List[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
+    tracers_conv: list[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
+    tracers_calib: list[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
     reachable_resolution: int = Field(default=1000, ge=1)
 
 
 # ---------------------------------------------------------------------------
-# launcher.py (single-date) config models
+# Single-date workflow config models
 # ---------------------------------------------------------------------------
 
 class LauncherDatasetCfg(_BaseCfg):
@@ -208,20 +208,28 @@ class LauncherSimplexCfg(_BaseCfg):
 
 
 class LauncherConfig(_BaseCfg):
-    """Full YAML schema for launcher.py."""
-    dataset: LauncherDatasetCfg = LauncherDatasetCfg()
-    lpm: LauncherLpmCfg = LauncherLpmCfg()
-    tracers: LauncherTracerCfg = LauncherTracerCfg()
-    run: LauncherRunCfg = LauncherRunCfg()
-    reachable_concentrations: LauncherReachableCfg = LauncherReachableCfg()
-    objective_function: LauncherObjectiveCfg = LauncherObjectiveCfg()
-    calibration_metropolis_hastings: LauncherMetropolisCfg = LauncherMetropolisCfg()
-    calibration_simplex: LauncherSimplexCfg = LauncherSimplexCfg()
+    """Full YAML schema for the single-date workflow."""
+    dataset: LauncherDatasetCfg = Field(default_factory=LauncherDatasetCfg)
+    lpm: LauncherLpmCfg = Field(default_factory=LauncherLpmCfg)
+    tracers: LauncherTracerCfg = Field(default_factory=LauncherTracerCfg)
+    run: LauncherRunCfg = Field(default_factory=LauncherRunCfg)
+    reachable_concentrations: LauncherReachableCfg = Field(
+        default_factory=LauncherReachableCfg
+    )
+    objective_function: LauncherObjectiveCfg = Field(
+        default_factory=LauncherObjectiveCfg
+    )
+    calibration_metropolis_hastings: LauncherMetropolisCfg = Field(
+        default_factory=LauncherMetropolisCfg
+    )
+    calibration_simplex: LauncherSimplexCfg = Field(
+        default_factory=LauncherSimplexCfg
+    )
 
 
 class LauncherParams(_BaseCfg):
-    """Flattened parameters consumed by launcher.py."""
-    model_config = ConfigDict(frozen=True)
+    """Flattened parameters consumed by the single-date workflow."""
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     dataset_name: str
     dataset_label: str | None
@@ -309,11 +317,11 @@ class TemporalResultsCfg(_BaseCfg):
 class TemporalParams(_BaseCfg):
     """Top-level configuration for a temporal calibration workflow."""
     dataset: TemporalDatasetCfg
-    calibration: TemporalCalibrationCfg = TemporalCalibrationCfg()
-    figures: TemporalFiguresCfg = TemporalFiguresCfg()
-    workflow: TemporalWorkflowCfg = TemporalWorkflowCfg()
-    lpm_models: TemporalLpmModelsCfg = TemporalLpmModelsCfg()
-    results: TemporalResultsCfg = TemporalResultsCfg()
+    calibration: TemporalCalibrationCfg = Field(default_factory=TemporalCalibrationCfg)
+    figures: TemporalFiguresCfg = Field(default_factory=TemporalFiguresCfg)
+    workflow: TemporalWorkflowCfg = Field(default_factory=TemporalWorkflowCfg)
+    lpm_models: TemporalLpmModelsCfg = Field(default_factory=TemporalLpmModelsCfg)
+    results: TemporalResultsCfg = Field(default_factory=TemporalResultsCfg)
 
 
 __all__ = [

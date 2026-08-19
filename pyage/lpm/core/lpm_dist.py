@@ -12,17 +12,11 @@ visualize parameter/concentration distributions, and write outputs to disk.
 """
 
 import copy
-import matplotlib.pyplot as plt         # Plots
 import numpy as np                      # Arrays
-import os
 import pandas as pd                     # Tables-Arrays
 
-import pyage.global_parameters as gp
-import pyage.tools.figures_additional as figadd
-import pyage.tools.dist_hist as dist_hist
-from pathlib import Path
+from pyage.config.runtime import arange_n
 
-from IPython.display import display
 
 
 
@@ -58,6 +52,11 @@ class LpmDist:
         self.__lpm_template = lpm
         self.__c_names = c_names
         self.__dist = pd.DataFrame(columns = self.__lpm_template.get_param_names() + ['obj_function'] + c_names)
+
+    @property
+    def lpm_template(self):
+        """Return the model template used to interpret stored samples."""
+        return self.__lpm_template
 
 
     def dist(self):
@@ -135,9 +134,9 @@ class LpmDist:
         for t in self.__lpm_template.p:
             row[t]=[params[t]]
         row['obj_function']=[obj_function]
-        if param_in_bounds != None : 
+        if param_in_bounds is not None:
             row['param_in_bounds']=[param_in_bounds]
-        if concentrations != None :
+        if concentrations is not None:
             for elt, i in zip(self.__c_names, range(len(concentrations))):
                 row[elt]=[concentrations[i]] 
         if self.__dist.empty: 
@@ -161,9 +160,11 @@ class LpmDist:
         concentrations : sequence[float], optional
             Concentration values aligned with ``__c_names``.
         """
-        params_dic={}; k=0
+        params_dic = {}
+        k = 0
         for t in self.__lpm_template.p:
-            params_dic[t]=params[k]; k=k+1
+            params_dic[t] = params[k]
+            k += 1
         self.dist_append(params_dic,obj_function=obj_function,param_in_bounds=param_in_bounds,concentrations=concentrations)
         
 
@@ -264,11 +265,9 @@ class LpmDist:
         """
         Plot a simple scatter of the first two parameters.
         """
-        x=[]
-        for key in self.__lpm_template.p:
-            x.append(self.__dist[key])
-        if len(x)==2: 
-            plt.scatter(x[1][1:600],x[0][1:600],c='black',s=3,marker='.')
+        from pyage.lpm.distribution_plotting import plot_points
+
+        plot_points(self)
          
             
     def display_param_vs_param(self, keyx, keyy): 
@@ -283,7 +282,9 @@ class LpmDist:
             Name of parameter for the ordinate
 
         """
-        plt.scatter(self.__dist[keyx], self.__dist[keyy], marker='+', c = 'red', s=10, label="model")
+        from pyage.lpm.distribution_plotting import plot_parameter_pair
+
+        plot_parameter_pair(self, keyx, keyy)
         
 
     def display_parameters_dist(self, self_method="", lpm_reference=None, bins=30, lpm_2nd=None, lpm_2nd_method="", directory=None, display_text=False):
@@ -307,47 +308,18 @@ class LpmDist:
         display_text : bool, optional
             If True, print section labels to stdout.
         """
-        # Shows histogram of the parameters
-        if display_text:
-            print("DISTRIBUTION OF PARAMETERS")
-        for key in self.__lpm_template.p:
-            self._plot_param_histogram(
-                key,
-                self_method,
-                lpm_reference,
-                lpm_2nd,
-                lpm_2nd_method,
-                directory,
-            )
-        
-        # 2D plots parameter/obj-function
-        if display_text:
-            print("OBJECTIVE FUNCTION")
-        for key in self.__lpm_template.p:
-            self._plot_obj_vs_param(
-                key,
-                self_method,
-                lpm_reference,
-                lpm_2nd,
-                lpm_2nd_method,
-                directory,
-            )
-            
-        # 2D plots between parameters
-        if display_text:
-            print("PARAMETERS")
-        if len(self.__lpm_template.p) >= 2:
-            names = list(self.__lpm_template.p.keys())
-            for i in range(len(self.__lpm_template.p)):
-                self._plot_param_pair(
-                    names,
-                    i,
-                    self_method,
-                    lpm_reference,
-                    lpm_2nd,
-                    lpm_2nd_method,
-                    directory,
-                )
+        from pyage.lpm.distribution_plotting import display_parameter_distributions
+
+        display_parameter_distributions(
+            self,
+            self_method,
+            lpm_reference,
+            bins,
+            lpm_2nd,
+            lpm_2nd_method,
+            directory,
+            display_text,
+        )
 
 
     def display_parameters_dist_comp_apriori(self, lpm_reference=None, bins=30, lpm_2nd=None, lpm_2nd_method="", directory=None, display_text=False, prior=""):
@@ -371,18 +343,18 @@ class LpmDist:
         prior : object, optional
             Prior distribution structure used for overlay.
         """
-        # Shows histogram of the parameters
-        if display_text:
-            print("DISTRIBUTION OF PARAMETERS")
-        for key in self.__lpm_template.p:
-            self._plot_param_histogram_apriori(
-                key,
-                lpm_reference,
-                lpm_2nd,
-                lpm_2nd_method,
-                directory,
-                prior,
-            )
+        from pyage.lpm.distribution_plotting import display_parameter_priors
+
+        display_parameter_priors(
+            self,
+            lpm_reference,
+            bins,
+            lpm_2nd,
+            lpm_2nd_method,
+            directory,
+            display_text,
+            prior,
+        )
 
 
     def display_concentrations_dist(self, self_method="", concentrations_reference=None, lpm_2nd=None, lpm_2nd_method="", directory=None):
@@ -402,18 +374,16 @@ class LpmDist:
         directory : str | Path, optional
             Output directory for saved figures.
         """
-        # Loop other successive concentrations
-        for i in range(len(self.__c_names)):
-            i1 = (i + 1) % len(self.__c_names)
-            self._plot_concentration_pair(
-                i,
-                i1,
-                self_method,
-                concentrations_reference,
-                lpm_2nd,
-                lpm_2nd_method,
-                directory,
-            )
+        from pyage.lpm.distribution_plotting import display_concentration_distributions
+
+        display_concentration_distributions(
+            self,
+            self_method,
+            concentrations_reference,
+            lpm_2nd,
+            lpm_2nd_method,
+            directory,
+        )
 
 
     def stats_distribution(self):
@@ -444,283 +414,17 @@ class LpmDist:
         tuple
             (t_grid, pdf_array, pdf_colname) for PDF assembly.
         """
-        t_grid = gp.arange_n(0, 70, array_resolution - 1)
+        t_grid = arange_n(0, 70, array_resolution - 1)
         pdf_array = np.empty((lpm_number + 1, array_resolution))
         pdf_array[0, :] = t_grid
         return t_grid, pdf_array, ["t"]
 
 
-    def _plot_param_histogram(
-        self,
-        key,
-        self_method,
-        lpm_reference,
-        lpm_2nd,
-        lpm_2nd_method,
-        directory,
-    ):
-        """
-        Plot a histogram for one parameter, with optional overlays.
-        """
-        values = np.asarray(self.__dist[key].tolist(), dtype=float)
-        values = values[np.isfinite(values)]
-        if values.size == 0:
-            return
-        figadd.figure_init(xlab=key, ylab="Count", figname=self.__lpm_template.name)
-        binwidth = self.__lpm_template.get_param_range(key) / 100
-        if not np.isfinite(binwidth) or binwidth <= 0:
-            return
-        bins = np.arange(
-            min(max(values) / 2, self.__lpm_template.get_p_min(key)),
-            self.__lpm_template.get_p_max(key) + binwidth,
-            binwidth,
-        )
-        if bins.size < 2:
-            return
-        plt.hist(
-            values,
-            density=True,
-            bins=bins,
-            histtype="barstacked",
-            label=self_method,
-        )
-        if lpm_reference is not None:
-            plt.axvline(lpm_reference.p[key], c="k", linewidth=2.0, label="reference")
-        if lpm_2nd is not None:
-            values_2nd = np.asarray(lpm_2nd.__dist[key].tolist(), dtype=float)
-            values_2nd = values_2nd[np.isfinite(values_2nd)]
-            if values_2nd.size > 0:
-                plt.hist(
-                    values_2nd,
-                    density=True,
-                    bins=bins,
-                    histtype="barstacked",
-                    label=lpm_2nd_method,
-                )
-        plt.xlim(self.__lpm_template.get_p_min(key), self.__lpm_template.get_p_max(key))
-        plt.legend()
-        if directory is not None:
-            figadd.figure_close(filename=os.path.join(directory, "comp_" + key))
-
-
-    def _plot_obj_vs_param(
-        self,
-        key,
-        self_method,
-        lpm_reference,
-        lpm_2nd,
-        lpm_2nd_method,
-        directory,
-    ):
-        """
-        Plot objective function values against a parameter.
-        """
-        figadd.figure_init(xlab=key, ylab="obj_function", figname=self.__lpm_template.name)
-        plt.scatter(
-            self.__dist[key].tolist(),
-            self.__dist["obj_function"].tolist(),
-            marker="x",
-            c="blue",
-            s=10,
-            label=self_method,
-        )
-        if lpm_reference is not None:
-            plt.axvline(lpm_reference.p[key], c="k", linewidth=2.0, label="reference")
-        if lpm_2nd is not None:
-            plt.scatter(
-                lpm_2nd.__dist[key],
-                lpm_2nd.__dist["obj_function"],
-                marker="+",
-                c="red",
-                s=10,
-                label=lpm_2nd_method,
-            )
-        plt.legend()
-        if directory is not None:
-            figadd.figure_close(filename=os.path.join(directory, "objfunction_" + key))
-
-
-    def _plot_param_pair(
-        self,
-        names,
-        index,
-        self_method,
-        lpm_reference,
-        lpm_2nd,
-        lpm_2nd_method,
-        directory,
-    ):
-        """
-        Plot a pairwise parameter scatter/histogram comparison.
-        """
-        i1 = (index + 1) % len(self.__lpm_template.p)
-        if lpm_2nd is None:
-            histo = False
-            histox = None
-            histoy = None
-        else:
-            histo = True
-            histox = lpm_2nd.__dist[names[index]]
-            histoy = lpm_2nd.__dist[names[i1]]
-        scatter = True
-        scatterx = self.__dist[names[index]].tolist()
-        scattery = self.__dist[names[i1]].tolist()
-        if len(scatterx) == 0:
-            scatterx = None
-            scattery = None
-        if lpm_reference is None:
-            refx = None
-            refy = None
-        else:
-            refx = lpm_reference.p[names[index]]
-            refy = lpm_reference.p[names[i1]]
-        figadd.hist_scatter(
-            histo=histo,
-            histox=histox,
-            histoy=histoy,
-            histolegend=lpm_2nd_method,
-            scatter=scatter,
-            scatterx=scatterx,
-            scattery=scattery,
-            scatterlegend=self_method,
-            refx=refx,
-            refy=refy,
-            reflegend="reference",
-            namex=names[index],
-            namey=names[i1],
-            namefig=self.__lpm_template.name,
-            directory=directory,
-            file="comp2D_" + names[index] + "_" + names[i1],
-        )
-
-
-    def _plot_param_histogram_apriori(
-        self,
-        key,
-        lpm_reference,
-        lpm_2nd,
-        lpm_2nd_method,
-        directory,
-        prior,
-    ):
-        """
-        Plot parameter histogram with an apriori distribution overlay.
-        """
-        values = np.asarray(self.__dist[key].tolist(), dtype=float)
-        values = values[np.isfinite(values)]
-        if values.size == 0:
-            return
-        figadd.figure_init(xlab=key, ylab="Count", figname=self.__lpm_template.name)
-        binwidth = self.__lpm_template.get_param_range(key) / 100
-        if not np.isfinite(binwidth) or binwidth <= 0:
-            return
-        bins = np.arange(
-            min(max(values) / 2, self.__lpm_template.get_p_min(key)),
-            self.__lpm_template.get_p_max(key) + binwidth,
-            binwidth,
-        )
-        if bins.size < 2:
-            return
-        temp = plt.hist(
-            values,
-            density=True,
-            bins=bins,
-            histtype="barstacked",
-            label="MH",
-        )
-        rescaling = (prior.MHapriori_para[key][2, 0] - prior.MHapriori_para[key][2 - 1, 0]) / (
-            temp[1][2] - temp[1][2 - 1]
-        )
-        rescaling = 1 / rescaling
-        rescaling = np.mean(temp[0] != 0) / np.mean(prior.MHapriori_para[key][:, 1] != 0)
-        rescaling = np.mean(temp[0][temp[0][:] != 0]) / np.mean(
-            prior.MHapriori_para[key][prior.MHapriori_para[key][:, 1] != 0, 1]
-        )
-        plt.plot(prior.MHapriori_para[key][:, 0], prior.MHapriori_para[key][:, 1] * rescaling)
-        if lpm_reference is not None:
-            plt.axvline(lpm_reference.p[key], c="k", linewidth=2.0, label="reference")
-        if lpm_2nd is not None:
-            values_2nd = np.asarray(lpm_2nd.__dist[key].tolist(), dtype=float)
-            values_2nd = values_2nd[np.isfinite(values_2nd)]
-            if values_2nd.size > 0:
-                plt.hist(
-                    values_2nd,
-                    density=True,
-                    bins=bins,
-                    histtype="barstacked",
-                    label=lpm_2nd_method,
-                )
-        plt.xlim(self.__lpm_template.get_p_min(key), self.__lpm_template.get_p_max(key))
-        plt.legend()
-        if directory is not None:
-            figadd.figure_close(filename=os.path.join(directory, "comp_apriori" + key))
-
-
-    def _plot_concentration_pair(
-        self,
-        index,
-        index_next,
-        self_method,
-        concentrations_reference,
-        lpm_2nd,
-        lpm_2nd_method,
-        directory,
-    ):
-        """
-        Plot a pair of concentrations with optional overlays.
-        """
-        if lpm_2nd is None:
-            histo = False
-            histox = None
-            histoy = None
-        else:
-            histo = True
-            histox = lpm_2nd.__dist[self.__c_names[index]]
-            histoy = lpm_2nd.__dist[self.__c_names[index_next]]
-        scatter = True
-        if self.__c_names[index] in self.__dist:
-            scatterx = self.__dist[self.__c_names[index]]
-            scattery = self.__dist[self.__c_names[index_next]]
-            if concentrations_reference is None:
-                refx = None
-                refy = None
-            else:
-                refx = concentrations_reference.cv["concentration"][index]
-                refy = concentrations_reference.cv["concentration"][index_next]
-            figadd.hist_scatter(
-                histo=histo,
-                histox=histox,
-                histoy=histoy,
-                histolegend=lpm_2nd_method,
-                scatter=scatter,
-                scatterx=scatterx,
-                scattery=scattery,
-                scatterlegend=self_method,
-                refx=refx,
-                refy=refy,
-                reflegend="reference",
-                namex=self.__c_names[index],
-                namey=self.__c_names[index_next],
-                namefig=self.__lpm_template.name,
-                directory=directory,
-                file="concentrations2D_" + str(index),
-            )
-        
-
-    def _write_df(self, frame: pd.DataFrame, file_path, include_index: bool = True) -> None:
-        """
-        Write a dataframe to a TSV file, ensuring parent directories exist.
-        """
-        path = Path(file_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        frame.to_csv(path, sep="\t", index=include_index)
-
-
     def compute_dist(self):
         """
-        Return the current distribution dataframe.
+        Return the current distribution dataframe (compatibility alias).
         """
-        return self.__dist
+        return self.dist()
 
 
     def write_dist(self, file):
@@ -732,7 +436,9 @@ class LpmDist:
         file : str | Path
             Target file path for the distribution table.
         """
-        self._write_df(self.compute_dist(), file, include_index=True)
+        from pyage.data_io.lpm_distribution import write_distribution
+
+        write_distribution(self, file)
 
 
     def _histogram_for_param(self, param_name, nb_bins):
@@ -742,14 +448,6 @@ class LpmDist:
         values = self.__dist.loc[:, param_name]
         hist, bins = np.histogram(values, bins=nb_bins, density="True")
         return hist, bins
-
-
-    def _output_path(self, base_file, suffix):
-        """
-        Build an output path by inserting a suffix before the extension.
-        """
-        base_path = Path(base_file)
-        return base_path.with_name(f"{base_path.stem}_{suffix}{base_path.suffix}")
 
 
     def compute_histograms(self, nb_bins=100):
@@ -772,15 +470,9 @@ class LpmDist:
         file : str | Path
             Base output path. Parameter names are inserted into the filename.
         """
-        file_path = Path(file)
-        histograms = self.compute_histograms()
-        for key, payload in histograms.items():
-            out_path = self._output_path(file_path, key)
-            self._write_df(
-                pd.DataFrame({'val': payload["bins"][:-1], 'hist': payload["hist"]}),
-                out_path,
-                include_index=False,
-            )
+        from pyage.data_io.lpm_distribution import write_histograms
+
+        write_histograms(self, file)
 
         
     def compute_stats(self):
@@ -829,32 +521,8 @@ class LpmDist:
         file : str | Path
             Target file path for the statistics table.
         """
-        self._write_df(self.compute_stats(), file, include_index=True)
+        from pyage.data_io.lpm_distribution import write_statistics
+
+        write_statistics(self, file)
         
-        
-    def compute_dist_params(self):
-        """
-        Compute the multidimensional distribution formed by the parameters.
-        """
-        values = self.__dist.to_numpy()[:, 0:len(self.__lpm_template.p)]
-        names = self.__lpm_template.get_param_names()
-        if values.shape[1] != len(names):
-            raise ValueError("Mismatch between parameter names and distribution columns.")
-        return dist_hist.dist_hist(names, values)
-
-
-    def computes_and_writes_dist_params(self, file):
-        """
-        Computes and writes the multidimensional distribution formed by the parameters 
-        It is obtained as an histograme and output as a fully functional distribution 
-        from which probabilities can be dervived. 
-        
-        Such a distribution might be used as prior for the Metropholis Hastings algorithm, for example
-
-        Arguments
-        ---------
-        file : str | Path
-        """
-        dh = self.compute_dist_params()
-
         

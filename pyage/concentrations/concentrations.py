@@ -14,7 +14,12 @@ import numpy as np
 import pandas as pd    
 import matplotlib.pyplot as plt                                     
 
-import pyage.global_parameters as gp                              # Global variables
+from pyage.concentrations.schema import (
+    CONCENTRATION_COLUMN,
+    ELEMENT_COLUMN,
+    ERROR_COLUMN,
+    REFERENCE_COLUMNS,
+)
 
 
 def name_date(name: str, date: float) -> str:
@@ -29,7 +34,7 @@ class Concentrations:
     Container for tracer concentrations and their metadata.
 
     The underlying data is stored in `cv` (a pandas DataFrame) with reference
-    columns defined by `gp.REFERENCE_COLUMNS` (e.g. element, concentration,
+    columns defined by `REFERENCE_COLUMNS` (e.g. element, concentration,
     error, unit, date).
     """
     def __init__(
@@ -48,10 +53,10 @@ class Concentrations:
             dataframe_load: Load concentrations from a DataFrame if True.
             dataframe_concentration: DataFrame holding concentration data.
         """
-        if file_load == True:
+        if file_load:
             # Loads data from file.
             self.__load_file(file_name)
-        elif dataframe_load == True:
+        elif dataframe_load:
             # Concentrations from dataframe.
             self.cv = dataframe_concentration
         else:
@@ -92,9 +97,11 @@ class Concentrations:
             mean_value: Mean value per tracer.
             fraction: Fraction of the mean value used as error.
         """
-        for i in range(len(self.cv.values[:,gp.ERROR])):
-            if self.cv.iloc[i,gp.ERROR] == 0 :
-                self.cv.iloc[i,gp.ERROR] = mean_value[i] * fraction
+        mean_array = np.asarray(mean_value, dtype=float)
+        missing_error = self.cv[ERROR_COLUMN].to_numpy(dtype=float) == 0.0
+        self.cv.loc[missing_error, ERROR_COLUMN] = (
+            mean_array[missing_error] * fraction
+        )
 
 
     def error_affect_from_value(self, fraction: float) -> None:
@@ -104,9 +111,9 @@ class Concentrations:
         Args:
             fraction: Fraction of the concentration used as error.
         """
-        self.cv = self.cv.astype({'error': float})
-        # Ensure we assign a 1D array of floats (avoid array-to-scalar warnings).
-        self.cv.iloc[:, gp.ERROR] = (fraction * self.cv.values[:, gp.CONCENTRATION]).astype(float)
+        self.cv[ERROR_COLUMN] = (
+            fraction * self.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
+        )
 
 
     def __unit_definition(self) -> None:
@@ -127,19 +134,19 @@ class Concentrations:
         Check column consistency and enforce column order.
 
         Ensures all reference columns exist, then reorders columns to the
-        canonical order in `gp.REFERENCE_COLUMNS`.
+        canonical order in `REFERENCE_COLUMNS`.
         """
         # Checks the column names
         error = 0
         missing = []
-        for i in range(len(gp.REFERENCE_COLUMNS)):
-            if (gp.REFERENCE_COLUMNS[i] in self.cv.columns) == False :
+        for column in REFERENCE_COLUMNS:
+            if column not in self.cv.columns:
                 print(
                     "\nColumn named is not defined and should be\t",
-                    gp.REFERENCE_COLUMNS[i],
+                    column,
                 )
                 error = 1
-                missing.append(gp.REFERENCE_COLUMNS[i])
+                missing.append(column)
         if error :
             print("critical error in the definition of concentrations")
             print("missing columns:", ", ".join(missing))
@@ -149,7 +156,7 @@ class Concentrations:
                     + ", ".join(missing)
                 )
         # Ensure columns are in the expected order for downstream code.
-        self.cv = self.cv[gp.REFERENCE_COLUMNS]
+        self.cv = self.cv[list(REFERENCE_COLUMNS)]
         return missing
 
 
@@ -173,9 +180,9 @@ class Concentrations:
         conc = copy.deepcopy(self)
         # Vectorized draw for all rows.
         draw = rng.standard_normal(size=len(conc.cv))
-        base = self.cv.values[:, gp.CONCENTRATION]
-        err = self.cv.values[:, gp.ERROR]
-        conc.cv.iloc[:, gp.CONCENTRATION] = (base + err * draw).astype(float)
+        base = self.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
+        err = self.cv[ERROR_COLUMN].to_numpy(dtype=float)
+        conc.cv[CONCENTRATION_COLUMN] = base + err * draw
         return conc
 
 
@@ -189,12 +196,14 @@ class Concentrations:
         Returns:
             float: Root mean quadratic difference.
         """
-        return np.sqrt(sum(np.square(self.cv.values[:,gp.CONCENTRATION]-c2.cv.values[:,gp.CONCENTRATION])/len(c2.cv.values[:,gp.CONCENTRATION])))
+        values = self.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
+        other = c2.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
+        return float(np.sqrt(np.mean(np.square(values - other))))
 
 
     def display(self, display_options) -> None:
         """Display the concentration table when text output is enabled."""
-        if display_options.text == True :
+        if display_options.text:
             print(self.cv)
 
 
@@ -251,7 +260,7 @@ class Concentrations:
 
     def export_to_dict(self) -> Dict[str, float]:
         """Export concentrations to a {name: concentration} dict."""
-        return dict(zip(self.cv.iloc[:, 0], self.cv.iloc[:, gp.CONCENTRATION]))
+        return dict(zip(self.cv[ELEMENT_COLUMN], self.cv[CONCENTRATION_COLUMN]))
     
     
     def cv_key_name_date(self) -> pd.DataFrame:

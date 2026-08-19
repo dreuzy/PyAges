@@ -76,12 +76,17 @@ class DiracDouble1SetLpm(LpmBase):
     
     def cdf(self, t):
         """Return the cumulative distribution function at time ``t``."""
-        return self.p["rate"] * (t > self.p["mufree"]).astype(int) + (1 - self.p["rate"]) * (t > self.__muset).astype(int)
+        values = np.asarray(t, dtype=float)
+        result = (
+            self.p["rate"] * (values >= self.p["mufree"]).astype(int)
+            + (1 - self.p["rate"]) * (values >= self.__muset).astype(int)
+        )
+        return float(result) if values.ndim == 0 else result
         
        
     def cdf_inv(self, p):
         """Return the inverse CDF (quantile) for probability ``p``."""
-        if p < self.p["rate"]:
+        if p <= self.p["rate"]:
             return self.p["mufree"]
         else:
             return self.__muset
@@ -94,8 +99,9 @@ class DiracDouble1SetLpm(LpmBase):
     
     def std(self):
         """Return the standard deviation of the distribution."""
-        if 0 < self.p["rate"] < 1:
-            return np.sqrt(self.p["rate"] * (1 - self.p["rate"]) * (self.__muset - self.p["mufree"]) ** 2)
-        else:
-            return 1
+        return np.sqrt(
+            self.p["rate"]
+            * (1 - self.p["rate"])
+            * (self.__muset - self.p["mufree"]) ** 2
+        )
    

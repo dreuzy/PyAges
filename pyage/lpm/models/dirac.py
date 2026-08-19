@@ -22,14 +22,7 @@ import pyage.lpm.core.tools_interpolation as tools_interpolation
 
 @register_lpm("dirac")
 class DiracLpm(LpmBase):
-    """
-    Lumped Parameter Model - Dirac distribution.
-
-    Methods
-    -------
-    get_dirac_time()
-        Return the Dirac spike time (mu).
-    """
+    """Lumped Parameter Model representing a single Dirac spike."""
 
     convolution_strategy = ConvolutionStrategy.DIRAC
 
@@ -75,7 +68,9 @@ class DiracLpm(LpmBase):
     
     def cdf(self, t):
         """Return the cumulative distribution function at time ``t``."""
-        return (t > self.p["mu"]).astype(int)
+        values = np.asarray(t, dtype=float)
+        result = (values >= self.p["mu"]).astype(float)
+        return float(result) if values.ndim == 0 else result
     
 
     def cdf_inv(self, p):

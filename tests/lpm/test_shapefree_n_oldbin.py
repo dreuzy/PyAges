@@ -121,6 +121,6 @@ def test_shapefree_n_oldbin_support_open_convolution_truncates_on_traceur_suppor
         concentration_fn=lambda date, time: np.asarray(time, dtype=float),
     )
 
-    value = Convolution(tracer, date=2010.0).convolution(lpm)
+    value = Convolution(tracer, date=2010.0).convolve(lpm)
 
     assert value == pytest.approx(8.75, abs=0.05)

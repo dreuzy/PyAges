@@ -95,7 +95,7 @@ def plot_concentration_chronicles(
     """
     conc_data.display(fig, axs, graph_type="scatter")
     for i, lpm in enumerate(lpm_list, start=1):
-        concentrations = tracers.convolution_date_range(lpm, start_year, end_year)
+        concentrations = tracers.convolve_date_range(lpm, start_year, end_year)
         conc_model = type(conc_data)(cv=concentrations)
         if plot_stride <= 1 or i % plot_stride == 0:
             conc_model.display(fig, axs, graph_type="line")
@@ -136,7 +136,7 @@ def plot_concentration_chronicles_summary(
     predictions: dict[str, list[np.ndarray]] = {}
     prediction_dates: dict[str, np.ndarray] = {}
     for lpm in lpm_list:
-        concentration_dict = tracers.convolution_date_range(lpm, start_year, end_year)
+        concentration_dict = tracers.convolve_date_range(lpm, start_year, end_year)
         for tracer_name, tracer_df in concentration_dict.items():
             ordered = tracer_df.sort_values("date")
             prediction_dates[tracer_name] = ordered["date"].to_numpy(dtype=float)

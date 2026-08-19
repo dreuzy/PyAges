@@ -15,7 +15,7 @@ import pytest
 import pyage.calibration.methods.metropolis_hastings as cMH
 import pyage.calibration.utils.systematic_sampling as cexp
 import pyage.calibration.workflows.synthetic_test as cst
-import pyage.global_parameters as gp
+from pyage.config.runtime import DisplayOptions
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -41,7 +41,7 @@ def _run_mh_one_case(
     prior_only: bool,
 ) -> dict:
     # Minimal, deterministic MH run to collect summary stats
-    display = gp.display_options()
+    display = DisplayOptions()
     display.figure = False
     display.text = False
     display.directory = work_dir
@@ -91,7 +91,7 @@ def _run_mh_one_case(
 
 def _run_reachconc_mean(lpm_type: str, work_dir: Path) -> dict:
     # Deterministic reachable concentrations mean values
-    display = gp.display_options()
+    display = DisplayOptions()
     display.figure = False
     display.text = False
     display.directory = work_dir
@@ -188,7 +188,7 @@ def test_calibration_mh_extensive(lpm_type, tmp_path):
 
     This test is opt-in via --run-extensive.
     """
-    display = gp.display_options()
+    display = DisplayOptions()
     display.figure = True
     display.text = True
     display.figure_save = True

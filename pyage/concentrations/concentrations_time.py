@@ -126,7 +126,7 @@ def display_concentration_times(
         Directories containing calibration outputs and concentrations.txt.
     lpm : LPM
         Template LPM structure.
-    display : display_options
+    display : DisplayOptions
         Controls figure save/close behavior.
     plot : bool, optional
         Whether to generate and save plots.
@@ -212,7 +212,7 @@ def display_concentration_chronicles(
         LPM parameter distribution.
     method : str
         Label used for output folder/filenames.
-    display : display_options
+    display : DisplayOptions
         Display options (save/close behavior).
     time_span_mode : str
         Selection mode for LPM sampling ("span" or "successive" variants).
@@ -224,10 +224,6 @@ def display_concentration_chronicles(
     One figure containing tracer subplots.
     """
     tracer_names = craw.cv["element"].unique()
-    n_tracers = len(tracer_names)
-    ncols = min(3, max(n_tracers, 1))
-    nrows = int(np.ceil(n_tracers / ncols))
-    fig, axs = plt.subplots(nrows, ncols, figsize=(6.3 * ncols, 4.0 * nrows))
 
     # Tracers
     tracers = convolution_tracers.ConvolutionTracers(
@@ -244,23 +240,36 @@ def display_concentration_chronicles(
 
     # merged_all_models accumulera toutes les colonnes des differents modeles
     merged_all_models = None
-    plot_concentration_chronicles_summary(
-        fig,
-        axs,
-        craw,
-        tracers,
-        lpm_list,
-        start_year=1960,
-        end_year=max(craw.cv["date"]),
-    )
+    if display.figure:
+        n_tracers = len(tracer_names)
+        ncols = min(3, max(n_tracers, 1))
+        nrows = int(np.ceil(n_tracers / ncols))
+        fig, axs = plt.subplots(
+            nrows,
+            ncols,
+            figsize=(6.3 * ncols, 4.0 * nrows),
+        )
+        plot_concentration_chronicles_summary(
+            fig,
+            axs,
+            craw,
+            tracers,
+            lpm_list,
+            start_year=1960,
+            end_year=max(craw.cv["date"]),
+        )
 
     for i, lpm in enumerate(lpm_list, start=1):
-        concentrations = tracers.convolution_date_range(lpm, 1960, max(craw.cv["date"]))
+        concentrations = tracers.convolve_date_range(lpm, 1960, max(craw.cv["date"]))
         cv_dict = to_cv_dict(concentrations)
         merged_all_models = merge_model_into_table(merged_all_models, cv_dict, model_id=i)
 
     # Finalisation: sauvegarde + fermeture via display_options
-    display.save_and_close(fig, filename=os.path.join(method, "concentration_times.png"))
+    if display.figure:
+        display.save_and_close(
+            fig,
+            filename=os.path.join(method, "concentration_times.png"),
+        )
 
     # Sauvegarde des donnees fusionnees
     outfile_data = os.path.join(display.directory, method, "concentrations_all_models.txt")

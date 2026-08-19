@@ -3,6 +3,8 @@
 Runtime configuration helpers (display and timing).
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 import time
 import warnings
@@ -10,14 +12,17 @@ import warnings
 import numpy as np
 
 
-class display_options:
-    """Display options for the tests."""
-    def __init__(self):
+class DisplayOptions:
+    """Display and figure-output options."""
+
+    __slots__ = ("text", "figure", "figure_close", "figure_save", "directory")
+
+    def __init__(self) -> None:
         self.text = False
         self.figure = False
         self.figure_close = True
         self.figure_save = False
-        self.directory = None
+        self.directory: str | Path | None = None
 
     def save_and_close(self, fig, filename, method="", dpi=300, ax=None, with_legend=False):
         """
@@ -70,8 +75,18 @@ def arange_n(pmin, pmax, n):
     return pmin + (pmax - pmin) * np.arange(0, n + 1) / n
 
 
-class simulation_time:
-    """Elapsed and remaining times of simulation."""
+class SimulationTimer:
+    """Track elapsed time and estimate remaining simulation time."""
+
+    __slots__ = (
+        "simul_total",
+        "time_start",
+        "time_inter_start",
+        "time_inter_end",
+        "simul_current",
+        "init_yes",
+    )
+
     def __init__(self, nsim=1):
         self.simul_total = nsim
         self.time_start = 0
@@ -99,3 +114,6 @@ class simulation_time:
         line = f"time elapsed = {elapsed:.4f} h | time remaining = {remaining:.4f} h"
         end_char = "\n" if self.simul_current >= self.simul_total else "\r"
         print(line, end=end_char, flush=True)
+
+
+__all__ = ["DisplayOptions", "SimulationTimer", "arange_n"]

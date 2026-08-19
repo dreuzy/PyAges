@@ -11,7 +11,7 @@ import pytest
 
 matplotlib.use("Agg", force=True)
 
-import pyage.global_parameters as gp
+from pyage.config.runtime import DisplayOptions
 from pyage.concentrations import concentrations_time as ct
 from pyage.lpm.core import lpm_dist as LPM_dist
 from pyage.lpm.lpm_build import lpm_build
@@ -52,7 +52,7 @@ def test_concentration_chronicles_smoke(tmp_path, update_golden):
     )
     craw = load_concentrations(data_path)
 
-    display = gp.display_options()
+    display = DisplayOptions()
     display.text = False
     display.figure = True
     display.figure_close = True

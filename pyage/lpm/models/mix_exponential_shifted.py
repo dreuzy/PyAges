@@ -12,20 +12,23 @@ Author
 Jean-Raynald de Dreuzy
 """
 
-import math
+import numpy as np
 
 from scipy.stats import expon
 
 from pyage.lpm.core.lpm_base import LpmBase
 from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyage.lpm.core.registry import register_lpm
+from pyage.lpm.models.exponential import (
+    cdf_and_partial_first_moment_from_scale_shift,
+)
 
 
 @register_lpm("mix_exp_shifted")
 class MixExponentialShiftedLpm(LpmBase):
     """Lumped Parameter Model - Mixed shifted exponential distribution."""
 
-    convolution_strategy = ConvolutionStrategy.MIX_DIRAC_EXPONENTIAL
+    convolution_strategy = ConvolutionStrategy.MIXED_DIRAC_CONTINUOUS
 
     def __init__(self, rate=0.5, mu1=10, mu2=10, shift=20, directory_lpm=None):
         """
@@ -53,7 +56,36 @@ class MixExponentialShiftedLpm(LpmBase):
         """ p=pdf(t)
             Probability Density Function 
         """
-        return (1-self.p['rate']) * expon.pdf(t,loc=self.p['mu1']+self.p['shift'],scale=self.p['mu2'])
+        return (1-self.p['rate']) * self.continuous_pdf(t)
+
+
+    def continuous_pdf(self, t):
+        """Return the normalized exponential component (mass one)."""
+        return expon.pdf(
+            t,
+            loc=self.p['mu1'] + self.p['shift'],
+            scale=self.p['mu2'],
+        )
+
+
+    def continuous_cdf(self, t):
+        """Return the CDF of the normalized exponential component."""
+        values, _ = self.continuous_cdf_and_partial_first_moment(t)
+        return values
+
+
+    def continuous_cdf_and_partial_first_moment(self, t):
+        """Return exact mass and moment of the normalized continuous component."""
+        return cdf_and_partial_first_moment_from_scale_shift(
+            t,
+            self.p['mu2'],
+            self.continuous_support_start(),
+        )
+
+
+    def continuous_support_start(self):
+        """Return the lower support bound of the continuous component."""
+        return self.p['mu1'] + self.p['shift']
     
     
     def get_dirac_time(self):
@@ -63,35 +95,74 @@ class MixExponentialShiftedLpm(LpmBase):
         return self.p['mu1']
     
     
-    def cdf(self,t):
-        """ p=cdf(t)
-            Cumulative density 
-        """
-        return self.p['rate'] * (t>self.p['mu1']).astype(int) + (1-self.p['rate']) * expon.cdf(t,loc=self.p['mu1']+self.p['shift'],scale=self.p['mu2'])
+    def cdf(self, t):
+        """Return the right-continuous CDF of the full mixed distribution."""
+        values = np.asarray(t, dtype=float)
+        rate = float(self.p['rate'])
+        result = (
+            rate * (values >= self.p['mu1']).astype(float)
+            + (1.0 - rate)
+            * expon.cdf(
+                values,
+                loc=self.continuous_support_start(),
+                scale=self.p['mu2'],
+            )
+        )
+        return float(result) if values.ndim == 0 else result
 
     
-    def cdf_inv(self,p):
-        """ Inverse of the Cumulative Density Function, t=cdf^-1(p)
-        #JR: should be checked
-        """
-        r = self.p['rate']
-        if p < r : 
-            return self.p['mu1']
-        else: 
-            return self.p['mu1'] + self.p['mu1'] + self.p['shift'] - self.p['mu2'] * math.log((p-r)/(1-r)) 
+    def cdf_inv(self, p):
+        """Return the generalized inverse CDF of the mixed distribution."""
+        probabilities = np.asarray(p, dtype=float)
+        if np.any(~np.isfinite(probabilities)) or np.any(
+            (probabilities < 0.0) | (probabilities > 1.0)
+        ):
+            raise ValueError(f"cdf_inv expects probabilities in [0, 1], got {p!r}")
+
+        rate = float(self.p['rate'])
+        scale = float(self.p['mu2'])
+        if not 0.0 <= rate <= 1.0:
+            raise ValueError(f"rate must be in [0, 1], got {rate}")
+        if scale <= 0.0:
+            raise ValueError(f"mu2 must be positive, got {scale}")
+
+        result = np.empty_like(probabilities, dtype=float)
+        if rate == 1.0:
+            result.fill(float(self.p['mu1']))
+        else:
+            dirac_mask = (probabilities <= rate) & (rate > 0.0)
+            result[dirac_mask] = float(self.p['mu1'])
+            tail_mask = ~dirac_mask
+            with np.errstate(divide='ignore'):
+                result[tail_mask] = (
+                    self.continuous_support_start()
+                    - scale
+                    * (
+                        np.log1p(-probabilities[tail_mask])
+                        - np.log1p(-rate)
+                    )
+                )
+        return float(result) if probabilities.ndim == 0 else result
     
     
     def mean(self):
-        """ 
-        Returns mean of distribution """
-        #JR: To implement
-        return self.p['rate'] * self.p['mu1'] + (1-self.p['rate']) * (self.p['shift'])
+        """Return the mean age of the full mixed distribution."""
+        rate = float(self.p['rate'])
+        continuous_mean = self.continuous_support_start() + self.p['mu2']
+        return rate * self.p['mu1'] + (1.0 - rate) * continuous_mean
     
     
     def std(self):
-        """ 
-        Returns std of distribution """
-        #JR: To implement
-        return 0
+        """Return the standard deviation of the full mixed distribution."""
+        rate = float(self.p['rate'])
+        dirac_mean = float(self.p['mu1'])
+        continuous_mean = self.continuous_support_start() + self.p['mu2']
+        mean = self.mean()
+        variance = (
+            rate * (dirac_mean - mean) ** 2
+            + (1.0 - rate)
+            * (self.p['mu2'] ** 2 + (continuous_mean - mean) ** 2)
+        )
+        return float(np.sqrt(max(0.0, variance)))
     
     

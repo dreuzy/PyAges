@@ -71,16 +71,22 @@ class DiracDoubleLpm(LpmBase):
         """ p=cdf(t)
             Cumulative density 
         """
-        return self.p['rate'] * (t>self.p['mu1']).astype(int) + (1-self.p['rate']) * (t>self.p['mu1']+self.p['mu2']).astype(int)
+        values = np.asarray(t, dtype=float)
+        result = (
+            self.p['rate'] * (values >= self.p['mu1']).astype(int)
+            + (1-self.p['rate'])
+            * (values >= self.p['mu1']+self.p['mu2']).astype(int)
+        )
+        return float(result) if values.ndim == 0 else result
         
        
     def cdf_inv(self,p):
         """ Inverse of the Cumulative Density Function, t=cdf^-1(p)
         """
-        if p < self.p['rate'] :
+        if p <= self.p['rate'] :
             return self.p['mu1']
         else : 
-            return self.p['mu2']
+            return self.p['mu1'] + self.p['mu2']
     
     
     def mean(self):

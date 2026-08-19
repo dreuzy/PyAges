@@ -28,9 +28,9 @@ class ConvolutionStrategy(Enum):
 
     Attributes
     ----------
-    CLASSIC : enum
-        Standard numerical integration using Simpson's rule.
-        Suitable for smooth distributions (uniform, gamma, inverse gaussian).
+    CONTINUOUS : enum
+        Cached tracer-response grid integrated with exact CDF bin masses and
+        partial first moments.
 
     DIRAC : enum
         Direct lookup in the recharge chronicle.
@@ -40,96 +40,12 @@ class ConvolutionStrategy(Enum):
         Weighted combination of two direct lookups.
         For bi-modal delta function distributions.
 
-    EXPONENTIAL : enum
-        Adapted discretization near the distribution discontinuity.
-        For exponential and shifted exponential distributions.
-
-    MIX_DIRAC_EXPONENTIAL : enum
-        Weighted combination of Dirac and exponential strategies.
-        For mixed distributions with both spike and tail components.
+    MIXED_DIRAC_CONTINUOUS : enum
+        Weighted combination of direct Dirac lookup and a normalized
+        continuous component.
     """
 
-    CLASSIC = auto()
+    CONTINUOUS = auto()
     DIRAC = auto()
     DIRAC_DOUBLE = auto()
-    EXPONENTIAL = auto()
-    MIX_DIRAC_EXPONENTIAL = auto()
-
-    def requires_dirac_time(self) -> bool:
-        """
-        Check if this strategy requires the get_dirac_time() method.
-
-        Returns
-        -------
-        bool
-            True if the LPM must implement get_dirac_time().
-        """
-        return self in {
-            ConvolutionStrategy.DIRAC,
-            ConvolutionStrategy.MIX_DIRAC_EXPONENTIAL,
-        }
-
-    def requires_dirac_double_time(self) -> bool:
-        """
-        Check if this strategy requires the get_dirac_double_time() method.
-
-        Returns
-        -------
-        bool
-            True if the LPM must implement get_dirac_double_time().
-        """
-        return self == ConvolutionStrategy.DIRAC_DOUBLE
-
-    def requires_shift_parameter(self) -> bool:
-        """
-        Check if this strategy requires a 'shift' parameter.
-
-        Returns
-        -------
-        bool
-            True if the LPM must have a 'shift' parameter.
-        """
-        return self in {
-            ConvolutionStrategy.EXPONENTIAL,
-            ConvolutionStrategy.MIX_DIRAC_EXPONENTIAL,
-        }
-
-    def is_special(self) -> bool:
-        """
-        Check if this strategy requires special handling (not classic).
-
-        Returns
-        -------
-        bool
-            True if this is not the CLASSIC strategy.
-        """
-        return self != ConvolutionStrategy.CLASSIC
-
-    @property
-    def description(self) -> str:
-        """
-        Human-readable description of the strategy.
-
-        Returns
-        -------
-        str
-            Description of what this strategy does.
-        """
-        descriptions = {
-            ConvolutionStrategy.CLASSIC: (
-                "Standard numerical integration (Simpson's rule) for smooth distributions"
-            ),
-            ConvolutionStrategy.DIRAC: (
-                "Direct chronicle lookup for delta function distributions"
-            ),
-            ConvolutionStrategy.DIRAC_DOUBLE: (
-                "Weighted combination of two chronicle lookups for bi-modal deltas"
-            ),
-            ConvolutionStrategy.EXPONENTIAL: (
-                "Adapted discretization near discontinuity for exponential distributions"
-            ),
-            ConvolutionStrategy.MIX_DIRAC_EXPONENTIAL: (
-                "Weighted combination of Dirac lookup and exponential integration"
-            ),
-        }
-        return descriptions.get(self, "Unknown strategy")
+    MIXED_DIRAC_CONTINUOUS = auto()

@@ -8,9 +8,7 @@ from YAML configuration files.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from typing import Any
 
 
 class ParameterManager:
@@ -26,7 +24,7 @@ class ParameterManager:
     """
 
     # Class-level cache shared across all instances to avoid repeated YAML loads.
-    _PARAMS_CACHE: dict[str, dict | None] = {}
+    _PARAMS_CACHE: dict[Path, dict | None] = {}
 
     def __init__(
         self,
@@ -53,11 +51,9 @@ class ParameterManager:
         self._p_max: dict[str, float] = {}
         self._load_bounds()
 
-    def _params_file_path(self, file_name: str = "params.yaml") -> str:
-        """
-        Return the full path to a parameter file for this model.
-        """
-        return os.path.join(self._directory_lpm, self._model_name, file_name)
+    def _params_file_path(self) -> Path:
+        """Return the canonical YAML parameter file for this model."""
+        return Path(self._directory_lpm) / self._model_name / "params.yaml"
 
     def _load_params_yaml(self) -> dict | None:
         """
@@ -73,7 +69,7 @@ class ParameterManager:
         path = self._params_file_path()
         if path in ParameterManager._PARAMS_CACHE:
             return ParameterManager._PARAMS_CACHE[path]
-        if not os.path.exists(path):
+        if not path.exists():
             return None
         data = lpm_params.load_params(self._model_name, Path(self._directory_lpm))
         ParameterManager._PARAMS_CACHE[path] = data
@@ -94,35 +90,23 @@ class ParameterManager:
                 self._p_min[param["name"]] = bounds[0]
                 self._p_max[param["name"]] = bounds[1]
 
-    def load_param_values(
-        self,
-        file_name: str,
-        target_params: dict[str, float]
-    ) -> None:
+    def load_initial_values(self, target_params: dict[str, float]) -> None:
         """
-        Load parameter values from file into target dict.
+        Load the initial values from params.yaml into a target dictionary.
 
         Parameters
         ----------
-        file_name : str
-            Name of the parameter file
         target_params : dict[str, float]
             Dictionary to update with loaded values
         """
-        if os.path.basename(file_name) == "simplex_init.txt":
-            params_yaml = self._load_params_yaml()
-            if not params_yaml or "parameters" not in params_yaml:
-                raise FileNotFoundError(
-                    f"Missing params.yaml for {self._model_name} (required for simplex init)."
-                )
-            for param in params_yaml["parameters"]:
-                if "init" in param:
-                    target_params[param["name"]] = param["init"]
-            return
-        raise FileNotFoundError(
-            f"Legacy parameter file not supported: {file_name}. "
-            f"Use params.yaml in {self._params_file_path()}."
-        )
+        params_yaml = self._load_params_yaml()
+        if not params_yaml or "parameters" not in params_yaml:
+            raise FileNotFoundError(
+                f"Missing params.yaml for {self._model_name} (required for initial values)."
+            )
+        for param in params_yaml["parameters"]:
+            if "init" in param:
+                target_params[param["name"]] = param["init"]
 
     def param_within_bounds(self, params: dict[str, float]) -> bool:
         """

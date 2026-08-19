@@ -6,15 +6,14 @@ Created on Wed Mar 24 20:35:54 2021
 """
 
 import copy as copy
-import math
 import numpy as np                                 
 from scipy.optimize import minimize
 import time
 
 import pyage.lpm.core.lpm_dist as LPM_dist
-import pyage.global_parameters as gp                          
 import pyage.calibration.utils.calibration_core as calbas
 from pyage.calibration.utils.objective_functions import RMSE
+from pyage.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
 
 
 class Simplex(calbas.CalibrationCore): 
@@ -69,7 +68,7 @@ class Simplex(calbas.CalibrationCore):
         self.fuq_n = fuq_n
         
         # Affectation of parent class 
-        if(calib_basis!=None): 
+        if calib_basis is not None:
             self.update_calibbasis(calib_basis)
     
     
@@ -106,7 +105,7 @@ class Simplex(calbas.CalibrationCore):
         elif self.method == "forward_uncertainty_quantification" :
             lpm_results = self.__forward_uncertainty_quantification()
         else:
-            print("option not defined in Simplex calibration method\t", self.method)
+            raise ValueError(f"Unknown simplex calibration method: {self.method}")
         end = time.time()
         self.time_perform = end - start
 
@@ -136,15 +135,16 @@ class Simplex(calbas.CalibrationCore):
 
         # -----------------INITIALIZATION -------------------------
         # Initial value of parameters: Adapation to the type of LPM
-        if (param==None):
+        if param is None:
             p0 = self.lpm.param_init()
         else: 
             p0 = param
             
         # -----------------OPTIMIZATION FUNCTION ------------------
         # Minimization function: Simplex Method
-        res = minimize(self.objective_function, p0, args=(self.cdata.cv.values[:,gp.CONCENTRATION], 
-                                                     self.cdata.cv.values[:,gp.ERROR]), 
+        res = minimize(self.objective_function, p0, args=(
+                self.cdata.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float),
+                self.cdata.cv[ERROR_COLUMN].to_numpy(dtype=float)),
                 method='nelder-mead', options={'xatol': self.__simplex_xatol, 'fatol': self.__simplex_fatol, 'disp': False}) # 'nelder-mead'
                 # method='BFGS', options={'disp': True})
                 
@@ -153,7 +153,7 @@ class Simplex(calbas.CalibrationCore):
         lpm_results = LPM_dist.LpmDist(lpm=self.lpm,c_names=self.cdata.names_dates())
         lpm_results.dist_append(self.lpm.p,
                                 obj_function= RMSE(res.fun, len(self.cdata.cv)),
-                                concentrations=self.tracers.convolution(self.lpm,prepare=True),
+                                concentrations=self.tracers.convolve(self.lpm),
                                 param_in_bounds=self.lpm.param_within_bounds(self.lpm.p))
         
         # returns objective function 

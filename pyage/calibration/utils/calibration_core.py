@@ -6,14 +6,13 @@ Defines the shared preparation flow (LPM + tracers + errors + sampling),
 the objective function used during calibration, and standardized outputs.
 """
 
-import os
 
-from pyage.calibration.utils.systematic_sampling import ParamSysSampling, SystematicSampling
+from pyage.calibration.utils.systematic_sampling import SystematicSampling
 from pyage.calibration.utils.objective_functions import L2_norm_diff
-import pyage.global_parameters as gp                         
+from pyage.config.paths import DIRECTORY_LPM_DATA
+from pyage.config.runtime import DisplayOptions
 import pyage.lpm.lpm_build as lpm_build_module                                        
 import pyage.convolution.convolution_tracers as convolution_tracers      
-import pyage.concentrations.concentrations as co 
 
 from pathlib import Path
 
@@ -88,8 +87,8 @@ class CalibrationCore(SystematicSampling):
         self,
         cdata,
         LPM_type,
-        display_options=gp.display_options(),
-        directory_lpm=gp.DIRECTORY_LPM_DATA,
+        display_options=None,
+        directory_lpm=DIRECTORY_LPM_DATA,
         tracer_data_dir=None,
         nmodels=1000,
         objfunc=True,
@@ -103,7 +102,7 @@ class CalibrationCore(SystematicSampling):
             Target concentrations and sampling dates.
         LPM_type : str
             LPM model identifier (e.g. exp, ig, gamma).
-        display_options : display_options
+        display_options : DisplayOptions
             Output settings for files and plots.
         directory_lpm : str
             Directory containing LPM data files.
@@ -124,7 +123,7 @@ class CalibrationCore(SystematicSampling):
         self.nmodels = nmodels
         self.objfunc = objfunc
         self.reachconc = reachconc
-        self.display_options = display_options
+        self.display_options = display_options or DisplayOptions()
 
         # Will be initialized in prepare()
         self.lpm = None
@@ -144,7 +143,7 @@ class CalibrationCore(SystematicSampling):
         # Definition of errors (if error == 0, takes mean chronicle value)
         self.cdata.error_affect_from_mean(self.tracers.mean_value(self.cdata.cv["date"].mean()))
         # Preparation of convolution
-        self.tracers.convolution_prepare(self.lpm.convolution_strategy)
+        self.tracers.prepare(self.lpm)
         # Init SystematicSampling
         SystematicSampling.__init__(
             self,
@@ -196,7 +195,10 @@ class CalibrationCore(SystematicSampling):
         # Modification of parameters in lpm
         self.lpm.set_param_from_array(param)
         # Concentration computed (this function without dataframe for performance issues)
-        model_c = self.tracers.convolution(self.lpm,prepare=True,opt=True)
+        model_c = self.tracers.convolve(
+            self.lpm,
+            apply_age_correction=True,
+        )
         # Squared difference
         #JRBUG
         if any(data_error==0):         
@@ -217,7 +219,10 @@ class CalibrationCore(SystematicSampling):
         self._ensure_prepared()
         self.lpm.display()
         self.cdata.display()
-        concentration_computed = self.tracers.convolution(self.lpm,return_type="concentrations_set",prepare=False)
+        concentration_computed = self.tracers.convolve(
+            self.lpm,
+            return_type="concentrations",
+        )
         concentration_computed.display()
         print("J=",self.cdata.sqrt_quadratic_mean_diff(concentration_computed))
   
@@ -227,7 +232,7 @@ class CalibrationCore(SystematicSampling):
 
         Parameters
         ----------
-        display_options : display_options
+        display_options : DisplayOptions
             Output configuration for figures and text.
         lpm_results : LpmDist
             Calibration results container.
@@ -238,9 +243,10 @@ class CalibrationCore(SystematicSampling):
         #JR: Should it be different
         if self.method == "Simplex" or self.method == "Simplex_init_multipes": 
             # Comparison of parameters
-            if display_options.text and lpm_reference != None : 
-                [exist,lpm]=lpm_results.get_best_lpm()
-                if exist: lpm.display_parameters(lpm_reference)
+            if display_options.text and lpm_reference is not None:
+                [exist, lpm] = lpm_results.get_best_lpm()
+                if exist:
+                    lpm.display_parameters(lpm_reference)
         if self.method == "forward_uncertainty_quantification" or self.method == "Metropolis_Hastings" :
             # Distribution of parameters
             if display_options.figure : 
@@ -269,19 +275,11 @@ class CalibrationCore(SystematicSampling):
             lpm_results.write_dist(base_dir / "lpm_dist_calibrated.txt")
             lpm_results.write_histograms(base_dir / "lpm_histo_calibrated.txt")
             lpm_results.write_stats(base_dir / "lpm_stats_calibrated.txt")
-            lpm_results.computes_and_writes_dist_params(
-                base_dir / "lpm_param_dist_calibrated.txt"
-            )
         if self.method == "Metropolis_Hastings" : 
             prior_dir = folder_prior_posterior(
                 self.display_options.directory, stageup=-5, folder_prior=folder_prior
             )
             lpm_results.write_histograms(prior_dir / f"{file_prior}.txt")
-        # Writes "best" lpm
-        # [exist,lpm]=lpm_results.get_best_lpm()
-        # if exist: lpm.write(os.path.join(self.display_options.directory,"lpm_calibrated.txt"),open_file=True)
-
-
     def write_results(self,file_name):
         """Write scalar calibration results to a text file.
 

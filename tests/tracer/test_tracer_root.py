@@ -184,7 +184,7 @@ def test_tracer_allows_metadata_block(tmp_path):
             [
                 "unit: TU",
                 "recharge_constant: 1.0",
-                "decay_time: 12.32",
+                "half_life: 12.32",
                 "datemin: 1950.0",
                 "datemax: 2021.0",
                 "metadata:",
