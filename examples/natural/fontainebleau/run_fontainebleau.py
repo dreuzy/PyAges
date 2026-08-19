@@ -6,43 +6,19 @@ Launcher/orchestrator for the Fontainebleau workflow.
 from __future__ import annotations
 
 import argparse
-import os
 from pathlib import Path
-import subprocess
-import sys
 
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-
-ensure_repo_imports()
-
-try:
-    from .fontainebleau_benchmark import (
-        build_pre_model_figures,
-        prepare_fontainebleau_case,
-        write_benchmark_summary,
-        write_prepared_tables,
-    )
-    from .fontainebleau_case import (
-        build_context,
-        write_effective_config,
-    )
-except ImportError:
-    from fontainebleau_benchmark import (
-        build_pre_model_figures,
-        prepare_fontainebleau_case,
-        write_benchmark_summary,
-        write_prepared_tables,
-    )
-    from fontainebleau_case import (
-        build_context,
-        write_effective_config,
-    )
+from examples.natural.fontainebleau.fontainebleau_benchmark import (
+    build_pre_model_figures,
+    prepare_fontainebleau_case,
+    write_benchmark_summary,
+    write_prepared_tables,
+)
+from examples.natural.fontainebleau.fontainebleau_case import (
+    build_context,
+    write_effective_config,
+)
+from scripts.launcher import run_workflow
 
 
 def _running_in_ipython() -> bool:
@@ -52,23 +28,6 @@ def _running_in_ipython() -> bool:
         return get_ipython() is not None
     except Exception:
         return False
-
-
-def _set_results_dir(option: str | None) -> Path | None:
-    if option is None:
-        return None
-    default_dir = Path.home() / "results" / "PyAge"
-    if option == "__ASK__":
-        user_value = input(f"PYAGE_RESULTS_DIR [{default_dir}]: ").strip()
-        results_dir = Path(user_value or str(default_dir))
-    else:
-        results_dir = Path(option)
-    os.environ["PYAGE_RESULTS_DIR"] = str(results_dir)
-    if os.name == "nt":
-        subprocess.run(["setx", "PYAGE_RESULTS_DIR", str(results_dir)], check=True)
-    else:
-        print("PYAGE_RESULTS_DIR set for current process only (non-Windows).")
-    return results_dir
 
 
 def _write_effective_launcher_config(
@@ -110,20 +69,10 @@ def write_benchmark_artifacts(prepared) -> None:
 
 
 def run_launcher(config_path: Path, inline: bool = False) -> Path:
-    root = Path(__file__).resolve().parents[3]
-    if inline or _running_in_ipython():
-        if str(root) not in sys.path:
-            sys.path.insert(0, str(root))
-        import scripts.launcher as launcher
-
-        output_dir = launcher.main(str(config_path), force_inline=True)
-        return Path(output_dir)
-
-    subprocess.run(
-        [sys.executable, str(root / "scripts" / "launcher.py"), str(config_path)],
-        check=True,
+    return run_workflow(
+        config_path,
+        force_inline=inline or _running_in_ipython(),
     )
-    return build_context(config_path).expected_results_dir
 
 
 def main() -> None:
@@ -155,17 +104,9 @@ def main() -> None:
         action="store_true",
         help="Force inline backend for the launcher (useful in notebooks).",
     )
-    parser.add_argument(
-        "--set-results-dir",
-        nargs="?",
-        const="__ASK__",
-        default=None,
-        help="Persist PYAGE_RESULTS_DIR before running the workflow.",
-    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
-    _set_results_dir(args.set_results_dir)
     effective_config = _resolve_effective_config(
         config_path,
         dataset_name=args.dataset.strip() or None,

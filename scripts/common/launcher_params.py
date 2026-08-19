@@ -15,29 +15,8 @@ from pydantic import ValidationError
 from pyage.config.models import LauncherConfig, LauncherParams
 
 
-
-def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
-    """
-    Purpose
-    -------
-    Load YAML parameters and resolve relative paths.
-
-    Parameters
-    ----------
-    root_dir : Path
-        Repository root used to resolve relative paths in the YAML.
-    params_path : Path
-        YAML file containing the example parameters.
-
-    Returns
-    -------
-    LauncherParams
-        Typed parameters used by the workflow.
-    """
-    data = yaml.safe_load(params_path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"Invalid params structure in {params_path}")
-
+def load_params_payload(root_dir: Path, data: dict) -> LauncherParams:
+    """Validate one launcher-only mapping and resolve its relative paths."""
     try:
         cfg = LauncherConfig.model_validate(data, context={"root_dir": root_dir})
     except ValidationError as exc:
@@ -66,3 +45,14 @@ def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
         simplex_init_multiples_n=cfg.calibration_simplex.init_multiples_n,
         simplex_fuq_n=cfg.calibration_simplex.fuq_n,
     )
+
+
+def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
+    """Load and validate a launcher-only YAML configuration."""
+    data = yaml.safe_load(params_path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"Invalid params structure in {params_path}")
+    return load_params_payload(root_dir, data)
+
+
+__all__ = ["LauncherParams", "load_params", "load_params_payload"]

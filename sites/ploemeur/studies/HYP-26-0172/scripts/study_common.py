@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -29,10 +30,33 @@ REQUIRED_COLUMNS = {
     "article_outputs",
     "notes",
 }
+PROFILE_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]{0,15}")
 
 
 def split_field(value: str) -> list[str]:
     return [item.strip() for item in value.split("+") if item.strip()]
+
+
+def validate_profile(value: str) -> str:
+    """Return a filesystem-safe campaign profile name."""
+    if not PROFILE_PATTERN.fullmatch(value):
+        raise ValueError(
+            "profile must contain 1-16 lowercase letters, digits, underscores, "
+            "or hyphens"
+        )
+    return value
+
+
+def profile_results_root(profile: str) -> Path:
+    """Return the isolated results root for a campaign profile."""
+    validate_profile(profile)
+    return RESULTS_ROOT if profile == "production" else RESULTS_ROOT / profile
+
+
+def profiled_experiment_id(experiment_id: str, profile: str) -> str:
+    """Return the run identifier used within a campaign profile."""
+    validate_profile(profile)
+    return experiment_id
 
 
 def load_matrix(path: Path = MATRIX_PATH) -> list[dict[str, str]]:
@@ -72,10 +96,38 @@ def input_files(row: dict[str, str], params_path: Path) -> Iterable[Path]:
         "sites/ploemeur/params/prior_pipeline_presets.yaml",
     ):
         yield REPO_ROOT / relative
+    tracer_root = REPO_ROOT / "data_core" / "data_tracer"
+    yield from sorted(path for path in tracer_root.rglob("*") if path.is_file())
+    lpm_root = REPO_ROOT / "sites" / "ploemeur" / "params_lpm"
+    for model in split_field(row["lpm_models"]):
+        yield lpm_root / model / "params.yaml"
     ori = REPO_ROOT / "sites" / "ploemeur" / "data" / "ori"
     for well in split_field(row["wells"]):
         for path in sorted(ori.glob(f"ori_ploemeur_{well}_*.txt")):
             yield path
+
+
+def source_files() -> Iterable[Path]:
+    """Yield source files that define the numerical workflow."""
+    yield REPO_ROOT / "pyproject.toml"
+    for relative_root in ("pyage", "scripts", "sites/ploemeur"):
+        root = REPO_ROOT / relative_root
+        yield from sorted(root.rglob("*.py"))
+
+
+def checksums(paths: Iterable[Path]) -> dict[str, str]:
+    """Return stable repository-relative SHA-256 checksums."""
+    return {
+        str(path.relative_to(REPO_ROOT)): sha256(path)
+        for path in paths
+        if path.is_file()
+    }
+
+
+def checksums_digest(values: dict[str, str]) -> str:
+    """Hash a checksum mapping into one compact campaign fingerprint."""
+    payload = json.dumps(values, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def write_json(path: Path, value: Any) -> None:

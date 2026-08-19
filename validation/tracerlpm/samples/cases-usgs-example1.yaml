@@ -1,0 +1,33 @@
+# Matrice de couverture issue du classeur officiel USGS TracerLPM Example 1.
+# Les modèles sont ceux documentés dans USGS Techniques and Methods 4-F3.
+# Seul le premier cas possède actuellement une baseline répétée et qualifiée.
+
+- case_id: example1-pfm-emm
+  # Valeur exacte de la liste Excel; inclut la date de prélèvement.
+  sample: PSW-1-17/08/2004
+  # Les modèles et axes sont sélectionnés par libellé, sans index codé en dur.
+  model1: PFM
+  model2: EMM
+  x_axis: 3H/3Ho
+  y_axis: SF6
+  # Baselines techniques répétées: elles prouvent la stabilité, pas la validité métier.
+  expected_model1_sha256: 2E14DA49ACB873C833A0FDFEBD23C26D6483498A7643C7B3DB3A90AB93946FB8
+  expected_model2_sha256: 2834E84BFD505DEA2E0CC04EBC7A72FF1C756D50AC5ED14B2D10A7E8E71EECC3
+
+# Cas de couverture des deux modèles continus à deux paramètres.
+- case_id: example1-epm-pem
+  sample: PSW-1-17/08/2004
+  model1: EPM
+  model2: PEM
+  x_axis: 3H/3Ho
+  y_axis: SF6
+  # Aucun hash attendu: le statut atteste seulement une exécution réussie.
+
+# Cas de couverture du modèle de dispersion et d'un mélange binaire.
+- case_id: example1-dm-binary-mix
+  sample: PSW-1-17/08/2004
+  model1: DM
+  model2: BMM-PFM-EMM
+  x_axis: 3H/3Ho
+  y_axis: SF6
+  # Aucun hash attendu tant que la répétabilité n'a pas été qualifiée.

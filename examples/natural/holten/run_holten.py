@@ -7,18 +7,9 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import sys
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from pyage.config.bootstrap import ensure_repo_imports
-
-
-ensure_repo_imports()
 
 import pandas as pd
+from pyage.config.paths import ROOT_DIRECTORY_RESULTS
 
 from examples.natural.holten.holten_benchmark import (
     build_article_reference_figures,
@@ -38,10 +29,8 @@ def _lpm_ready(context) -> bool:
 
 
 def existing_results_for_wells(prepared) -> dict[str, Path]:
-    import pyage.global_parameters as gp
-
     results: dict[str, Path] = {}
-    base = Path(gp.ROOT_DIRECTORY_RESULTS) / "test_cases"
+    base = ROOT_DIRECTORY_RESULTS / "test_cases"
     for well_id in prepared.context.selected_wells:
         result_dir = base / f"holten_2010_{well_id}.txt"
         if result_dir.exists():
@@ -50,7 +39,7 @@ def existing_results_for_wells(prepared) -> dict[str, Path]:
 
 
 def run_launcher_for_wells(prepared, inline: bool = False) -> dict[str, Path]:
-    import scripts.launcher as launcher
+    from scripts.launcher import run_workflow
 
     if not _lpm_ready(prepared.context):
         return {}
@@ -59,7 +48,7 @@ def run_launcher_for_wells(prepared, inline: bool = False) -> dict[str, Path]:
     prepared.context.paths.launcher_config_dir.mkdir(parents=True, exist_ok=True)
     for well_id in prepared.context.selected_wells:
         config_path = write_well_launcher_config(prepared.context, well_id)
-        results[well_id] = Path(launcher.main(str(config_path), force_inline=inline))
+        results[well_id] = Path(run_workflow(str(config_path), force_inline=inline))
     return results
 
 

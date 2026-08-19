@@ -1,0 +1,55 @@
+# Variante A/B de la campagne à 1 % : mêmes graines et paramètres, avec SF6.
+campaign_id: tracerlpm-inversion-monte-carlo-01-sf6-v1
+observation_year: 2020.0
+
+tracers:
+  - {name: cfc11, recharge: data_core/data_tracer/cfc11/recharge.csv, unit: pptv}
+  - {name: cfc12, recharge: data_core/data_tracer/cfc12/recharge.csv, unit: pptv}
+  - {name: cfc113, recharge: data_core/data_tracer/cfc113/recharge.csv, unit: pptv}
+  - {name: sf6, recharge: data_core/data_tracer/sf6/recharge.csv, unit: pptv}
+
+# Projection explicite dans le classeur TracerLPM quatre traceurs.
+tracerlpm:
+  input_history: tracerlpm-input-history.csv
+  target_tracers: [CFC-11, CFC-12, CFC-113, SF6]
+  source_columns:
+    CFC-11: cfc11
+    CFC-12: cfc12
+    CFC-113: cfc113
+    SF6: sf6
+  sample: PSW-1-17/08/2004
+  x_axis: CFC-11
+  y_axis: SF6
+
+# Les graines 201–230 sont rigoureusement identiques à la campagne trois CFC.
+# Le générateur effectue simplement un quatrième tirage pour le SF6.
+case_templates:
+  - case_id_pattern: mc01sf6-epm-tau20-r2-seed{seed}
+    seeds: [201, 202, 203, 204, 205, 206, 207, 208, 209, 210,
+            211, 212, 213, 214, 215, 216, 217, 218, 219, 220,
+            221, 222, 223, 224, 225, 226, 227, 228, 229, 230]
+    model: EPM
+    true_parameters: {tau: 20.0, eta: 3.0}
+    bounds: {tau: [0.1, 200.0], eta: [1.01, 11.0]}
+    initial_values: [[5.0, 1.5], [20.0, 3.0], [80.0, 10.0]]
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 0}
+
+  - case_id_pattern: mc01sf6-dm-tau20-dp0_2-seed{seed}
+    seeds: [201, 202, 203, 204, 205, 206, 207, 208, 209, 210,
+            211, 212, 213, 214, 215, 216, 217, 218, 219, 220,
+            221, 222, 223, 224, 225, 226, 227, 228, 229, 230]
+    model: DM
+    true_parameters: {tau: 20.0, DP: 0.2}
+    bounds: {tau: [0.1, 200.0], DP: [0.001, 3.0]}
+    initial_values: [[5.0, 0.02], [20.0, 0.2], [80.0, 1.0]]
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 0}
+
+objective:
+  relative_standard_deviation: 0.01
+  absolute_floor_fraction_of_tracer_maximum: 0.000001
+
+acceptance:
+  maximum_tau_absolute_error_years: 4.0
+  maximum_recalculated_relative_error: 0.03
+  maximum_tau_relative_error: 0.20
+  maximum_secondary_parameter_relative_error: 0.40

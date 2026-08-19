@@ -30,8 +30,3 @@ calibration_metropolis_hastings:
   likelihood: true
   monitor: false
   display_traj: false
-
-calibration_simplex:
-  # Unused by default, kept for compatibility with the launcher schema.
-  init_multiples_n: 1
-  fuq_n: 5

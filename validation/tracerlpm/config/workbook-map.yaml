@@ -1,0 +1,110 @@
+# Adaptateur entre le runner et la structure interne du classeur.
+# Toute nouvelle version du classeur doit avoir son propre mapping qualifié.
+
+# Hash exact du seul classeur auquel cette cartographie peut être appliquée.
+workbook_sha256: 92F1D717AF519B9E0A701438BC99061D7633FD71C90A0657B787A0C563DFB179
+
+# Feuille contenant l'interface graphique tracer–tracer.
+graph_sheet: TracerTracerGraphs
+# CodeName VBA, utilisé pour construire les noms complets des macros d'événement.
+graph_sheet_code_name: Sheet5
+# Cellule réellement consommée par les calculs de courbe pour la date modèle.
+graph_observation_year_cell: E13
+# Paramètre EPM/PEM/DM associé à chacun des deux emplacements de modèle.
+graph_model1_parameter_cell: K5
+graph_model2_parameter_cell: K7
+# Feuille cachée contenant les courbes numériques calculées.
+output_sheet: TracerTracerOutput
+# Feuille contenant les mesures de l'échantillon sélectionné.
+sample_sheet: Samples
+
+# Import contrôlé des chroniques communes dans la copie de travail.
+input_sheet: TracerInput
+# Grille de dates interne utilisée par les fonctions XLL du classeur.
+input_date_range: A19:A359
+# Colonnes disponibles dans cette configuration précise du classeur.
+input_value_columns:
+  3H: C
+  SF6: G
+  NO3-N: H
+# Lignes de métadonnées à neutraliser pour une chronique synthétique stable.
+input_unsaturated_time_row: 9
+input_half_life_row: 12
+input_decay_rate_row: 14
+input_scaling_factor_row: 17
+
+controls:
+  # ListBox des échantillons affichés sur le graphe.
+  samples_to_graph: GraphsLB1
+  # ComboBox de l'échantillon utilisé pour le calcul.
+  sample_to_model: SamplesCombo
+  # ComboBox du premier emplacement de modèle.
+  model1: ModelCombo1
+  # ComboBox du deuxième emplacement de modèle.
+  model2: ModelCombo2
+  # ComboBox du traceur porté sur l'axe horizontal.
+  x_axis: Graph1x
+  # ComboBox du traceur porté sur l'axe vertical.
+  y_axis: Graph1y
+
+# Ordre identique à l'enchaînement interactif validé dans Excel.
+event_macros:
+  # Met à jour l'échantillon actif et les cellules associées.
+  - SamplesCombo_Click
+  # Met à jour la sélection d'échantillons affichés.
+  - GraphsLB1_Change
+  # Met à jour le traceur horizontal.
+  - Graph1x_Click
+  # Met à jour le traceur vertical.
+  - Graph1y_Click
+  # Recalcule/configure le premier modèle après le choix des axes.
+  - ModelCombo1_Change
+  # Recalcule/configure le deuxième modèle après le choix des axes.
+  - ModelCombo2_Change
+
+output_ranges:
+  # Plages historiques conservées pour la compatibilité des anciens rapports.
+  model1: P3:Q63
+  model2: Z3:AA63
+  # Blocs complets : le runner résout les colonnes depuis les en-têtes de ligne 2.
+  model1_block: M:V
+  model2_block: W:AF
+  model_header_row: 2
+  model_first_data_row: 3
+  model_last_data_row: 63
+  # Couple X/Y mesuré pour l'échantillon actif.
+  sample: G6:H6
+  # Âges tau correspondant ligne à ligne aux 61 couples des modèles.
+  model_ages: K3:K63
+
+# Cartographie minimale de la feuille d’inversion tracer–tracer.
+fit:
+  sheet: TracerTracerFits
+  sheet_code_name: Sheet19
+  sample_control: SampleList
+  model_control: ModelListCombo
+  tracer_control: TracerList
+  observation_year_cell: E18
+  observation_cells:
+    3H: F6
+    SF6: J6
+    NO3-N: K6
+  age_cell: E12
+  age_lower_cell: F12
+  age_upper_cell: G12
+  model_parameter_cell: H12
+  model_parameter_lower_cell: I12
+  model_parameter_upper_cell: J12
+  # Valeurs optimisées directement par Solver; la ligne 33 n’est alimentée
+  # qu’après la boîte de dialogue interactive de la macro TracerLPM.
+  result_age_cell: E12
+  result_objective_cell: E27
+  tracer_selection_label_cell: F27
+  calculated_cells:
+    3H: F18
+    SF6: J18
+    NO3-N: K18
+  decay_rate_cells:
+    3H: F17
+    SF6: J17
+    NO3-N: K17

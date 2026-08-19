@@ -10,20 +10,11 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-import sys
 
 import pandas as pd
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from pyage.config.bootstrap import ensure_repo_imports
-
-
-ensure_repo_imports()
-
-from pyage.config.models import LauncherParams
+from pyage.config.models import LauncherConfig, LauncherParams
 from scripts.common.example_case_utils import (
     dump_yaml_dict as dump_yaml,
     load_yaml_dict as load_yaml,
@@ -33,7 +24,90 @@ from scripts.common.example_launcher_utils import (
     build_effective_launcher_config,
     generated_launcher_config_path,
 )
-from scripts.common.launcher_params import load_params
+from scripts.common.launcher_params import load_params_payload
+
+
+class _HoltenBaseConfig(BaseModel):
+    """Strict base for the example-local Holten configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class HoltenCampaignConfig(_HoltenBaseConfig):
+    label: str
+    selected_wells: list[str]
+
+
+class HoltenTracerConfig(_HoltenBaseConfig):
+    calibration: list[str]
+    source_directories: dict[str, Path]
+    prepared_data_dir: Path
+
+
+class HoltenPreparationConfig(_HoltenBaseConfig):
+    source_sampling_file: Path
+    source_tritium_file: Path
+    source_kr85_file: Path
+    generate_per_well_files: bool = True
+    aggregated_dataset: Path
+    date_round_decimals: int = Field(default=5, ge=0)
+
+
+class HoltenPreModelFigureConfig(_HoltenBaseConfig):
+    tracer_panels: bool = True
+    well_panels: bool = True
+
+
+class HoltenFigureConfig(_HoltenBaseConfig):
+    pre_model: HoltenPreModelFigureConfig = Field(
+        default_factory=HoltenPreModelFigureConfig
+    )
+
+
+class HoltenLauncherConfig(_HoltenBaseConfig):
+    enabled: bool = True
+    inline: bool = False
+
+
+class HoltenValidationConfig(_HoltenBaseConfig):
+    reference_results: Path
+    qualitative: bool = True
+    semi_quantitative: bool = True
+
+
+class HoltenOptionsConfig(_HoltenBaseConfig):
+    campaign: HoltenCampaignConfig
+    tracers: HoltenTracerConfig
+    preparation: HoltenPreparationConfig
+    figures: HoltenFigureConfig = Field(default_factory=HoltenFigureConfig)
+    launcher: HoltenLauncherConfig = Field(default_factory=HoltenLauncherConfig)
+    validation: HoltenValidationConfig
+
+
+class HoltenFileConfig(LauncherConfig):
+    """Combined strict schema for launcher and Holten-specific sections."""
+
+    holten: HoltenOptionsConfig
+
+
+def _validate_holten_config(payload: dict[str, Any], root: Path) -> None:
+    try:
+        HoltenFileConfig.model_validate(payload, context={"root_dir": root})
+    except ValidationError as exc:
+        raise ValueError(f"Invalid Holten config:\n{exc}") from exc
+
+
+def _launcher_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Select only fields belonging to the generic launcher schema."""
+    return {
+        name: payload[name]
+        for name in LauncherConfig.model_fields
+        if name in payload
+    }
+
+
+def _load_launcher_params(root: Path, payload: dict[str, Any]) -> LauncherParams:
+    return load_params_payload(root, _launcher_payload(payload))
 
 
 @dataclass(frozen=True)
@@ -137,7 +211,8 @@ def resolve_paths(config_path: Path | None = None) -> HoltenPaths:
     example_dir = Path(__file__).resolve().parent
     yaml_path = Path(config_path) if config_path is not None else (example_dir / "holten.yaml")
     cfg = load_yaml(yaml_path)
-    params = load_params(root, yaml_path)
+    _validate_holten_config(cfg, root)
+    params = _load_launcher_params(root, cfg)
     holten_cfg = cfg.get("holten", {})
     tracer_cfg = holten_cfg.get("tracers", {})
     prep_cfg = holten_cfg.get("preparation", {})
@@ -206,14 +281,17 @@ def resolve_paths(config_path: Path | None = None) -> HoltenPaths:
 
 
 def load_holten_config(config_path: Path | None = None) -> dict[str, Any]:
-    paths = resolve_paths(config_path)
-    return load_yaml(paths.yaml_path)
+    root = repo_root()
+    yaml_path = Path(config_path) if config_path is not None else Path(__file__).resolve().parent / "holten.yaml"
+    payload = load_yaml(yaml_path)
+    _validate_holten_config(payload, root)
+    return payload
 
 
 def build_context(config_path: Path | None = None) -> HoltenContext:
     paths = resolve_paths(config_path)
     cfg = load_holten_config(paths.yaml_path)
-    params = load_params(paths.repo_root, paths.yaml_path)
+    params = _load_launcher_params(paths.repo_root, cfg)
     holten_cfg = cfg.get("holten", {})
     campaign_cfg = holten_cfg.get("campaign", {})
     tracer_cfg = holten_cfg.get("tracers", {})
@@ -276,7 +354,7 @@ def build_effective_config(
     mh_nstep: int | None = None,
     overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    payload = load_holten_config(config_path)
+    payload = _launcher_payload(load_holten_config(config_path))
     return build_effective_launcher_config(
         payload,
         dataset_name=dataset_name,

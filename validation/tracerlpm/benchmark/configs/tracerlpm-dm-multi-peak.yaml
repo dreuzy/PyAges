@@ -1,0 +1,40 @@
+# Matrice DM du protocole sur la chronique synthétique multi-pics.
+# model_parameter est directement le paramètre de dispersion DP de TracerLPM.
+# Pour PyAge : mu=tau et sigma=tau*sqrt(2*DP).
+- case_id: synthetic-multi-peak-dm-dp-0_02
+  sample: PSW-1-17/08/2004
+  observation_year: 2004.6256830601094
+  tracerlpm_effective_observation_year: 2004.5
+  model1: DM
+  model2: DM
+  model_parameter: 0.02
+  x_axis: SF6
+  y_axis: NO3-N
+  input_history: &multi_peak_input
+    path: ../inputs/synthetic/multi_peak.csv
+    sha256: 84DCF2EED3EA98DEB1DF7BC052F82DC1DCB787C2692053125E8CB77879E5D993
+    target_tracers: [SF6, NO3-N]
+    before: 0.0
+    after: hold_last
+
+- case_id: synthetic-multi-peak-dm-dp-0_2
+  sample: PSW-1-17/08/2004
+  observation_year: 2004.6256830601094
+  tracerlpm_effective_observation_year: 2004.5
+  model1: DM
+  model2: DM
+  model_parameter: 0.2
+  x_axis: SF6
+  y_axis: NO3-N
+  input_history: *multi_peak_input
+
+- case_id: synthetic-multi-peak-dm-dp-1
+  sample: PSW-1-17/08/2004
+  observation_year: 2004.6256830601094
+  tracerlpm_effective_observation_year: 2004.5
+  model1: DM
+  model2: DM
+  model_parameter: 1.0
+  x_axis: SF6
+  y_axis: NO3-N
+  input_history: *multi_peak_input

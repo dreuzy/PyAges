@@ -17,8 +17,7 @@ from pyage.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[6]
 OUTPUT_DIRECTORY = (
-    REPOSITORY_ROOT / "results" / "HYP-26-0172" / "figures"
-    / "supporting_information"
+    REPOSITORY_ROOT / "results" / "HYP-26-0172" / "figures" / "supporting_information"
 )
 LPM_PARAMETER_DIRECTORY = REPOSITORY_ROOT / "sites" / "ploemeur" / "params_lpm"
 PLOT_POINTS = 5000
@@ -68,9 +67,10 @@ def inverse_gaussian_model(
     shift: float, mu_physical: float, lambda_physical: float
 ) -> InverseGaussianShiftedLpm:
     """Build the repository model from standard physical IG parameters."""
+    sigma_physical = np.sqrt(mu_physical**3 / lambda_physical)
     return InverseGaussianShiftedLpm(
-        mu=mu_physical / lambda_physical,
-        sigma=lambda_physical,
+        mu=mu_physical,
+        sigma=sigma_physical,
         shift=shift,
         directory_lpm=LPM_PARAMETER_DIRECTORY,
     )
@@ -101,7 +101,9 @@ def match_inverse_gaussian(
         residuals, initial, xtol=1e-13, ftol=1e-13, gtol=1e-13, max_nfev=500
     )
     if not solution.success:
-        raise RuntimeError(f"Quantile matching failed for pair {parameters.pair}: {solution.message}")
+        raise RuntimeError(
+            f"Quantile matching failed for pair {parameters.pair}: {solution.message}"
+        )
     mu_ig, lambda_ig = (float(value) for value in np.exp(solution.x))
     model = inverse_gaussian_model(parameters.shift, mu_ig, lambda_ig)
     _, median, _, iqr = quantiles(model)
@@ -111,12 +113,32 @@ def match_inverse_gaussian(
 
 
 def numerical_moments(model, shift: float) -> tuple[float, float, float]:
-    pdf = lambda value: float(model.pdf(value))
+    def pdf(value: float) -> float:
+        return float(model.pdf(value))
+
     integral = quad(pdf, shift, np.inf, epsabs=1e-11, epsrel=1e-11, limit=500)[0]
-    mean = quad(lambda value: value * pdf(value), shift, np.inf,
-                epsabs=1e-10, epsrel=1e-10, limit=500)[0] / integral
-    variance = quad(lambda value: (value - mean) ** 2 * pdf(value), shift, np.inf,
-                    epsabs=1e-9, epsrel=1e-9, limit=500)[0] / integral
+    mean = (
+        quad(
+            lambda value: value * pdf(value),
+            shift,
+            np.inf,
+            epsabs=1e-10,
+            epsrel=1e-10,
+            limit=500,
+        )[0]
+        / integral
+    )
+    variance = (
+        quad(
+            lambda value: (value - mean) ** 2 * pdf(value),
+            shift,
+            np.inf,
+            epsabs=1e-9,
+            epsrel=1e-9,
+            limit=500,
+        )[0]
+        / integral
+    )
     return integral, mean, variance
 
 
@@ -136,28 +158,55 @@ def calculate_rows():
             raise RuntimeError(f"Pair-level check failed for pair {parameters.pair}")
 
         for name, model, mu, lambda_value, values in (
-            ("shifted exponential", exp_model, parameters.mu, "not applicable",
-             (exp_q1, exp_median, exp_q3, exp_iqr)),
-            ("shifted inverse Gaussian", ig_model, mu_ig, lambda_ig,
-             (ig_q1, ig_median, ig_q3, ig_iqr)),
+            (
+                "shifted exponential",
+                exp_model,
+                parameters.mu,
+                "not applicable",
+                (exp_q1, exp_median, exp_q3, exp_iqr),
+            ),
+            (
+                "shifted inverse Gaussian",
+                ig_model,
+                mu_ig,
+                lambda_ig,
+                (ig_q1, ig_median, ig_q3, ig_iqr),
+            ),
         ):
-            density = np.asarray(model.pdf(np.linspace(parameters.shift, 300.0, PLOT_POINTS)))
+            density = np.asarray(
+                model.pdf(np.linspace(parameters.shift, 300.0, PLOT_POINTS))
+            )
             if np.any(~np.isfinite(density)) or np.any(density < 0.0):
-                raise RuntimeError(f"Invalid density for pair {parameters.pair}, {name}")
+                raise RuntimeError(
+                    f"Invalid density for pair {parameters.pair}, {name}"
+                )
             integral, mean, variance = numerical_moments(model, parameters.shift)
             if abs(integral - 1.0) >= 1e-3:
-                raise RuntimeError(f"Integral check failed for pair {parameters.pair}, {name}")
+                raise RuntimeError(
+                    f"Integral check failed for pair {parameters.pair}, {name}"
+                )
             q1, median, q3, iqr = values
             base = {
-                "pair": parameters.pair, "model": name, "shift": parameters.shift,
-                "mu": mu, "lambda": lambda_value, "q1": q1, "median": median,
-                "q3": q3, "iqr": iqr, "mean": mean, "variance": variance,
+                "pair": parameters.pair,
+                "model": name,
+                "shift": parameters.shift,
+                "mu": mu,
+                "lambda": lambda_value,
+                "q1": q1,
+                "median": median,
+                "q3": q3,
+                "iqr": iqr,
+                "mean": mean,
+                "variance": variance,
             }
             parameter_rows.append(base)
             check_rows.append(
-                {**base, "integral": integral,
-                 "median_error_within_pair": delta_median,
-                 "iqr_error_within_pair": delta_iqr}
+                {
+                    **base,
+                    "integral": integral,
+                    "median_error_within_pair": delta_median,
+                    "iqr_error_within_pair": delta_iqr,
+                }
             )
         matched_models.append((parameters.pair, exp_model, ig_model))
     return parameter_rows, check_rows, matched_models
@@ -165,15 +214,37 @@ def calculate_rows():
 
 def write_csv_files(parameter_rows, check_rows) -> tuple[Path, Path]:
     OUTPUT_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    parameter_path = OUTPUT_DIRECTORY / "LPM_distribution_families_matched_quantiles_parameters.csv"
+    parameter_path = (
+        OUTPUT_DIRECTORY / "LPM_distribution_families_matched_quantiles_parameters.csv"
+    )
     check_path = OUTPUT_DIRECTORY / "LPM_distribution_families_quantile_checks.csv"
     parameter_fields = [
-        "pair", "model", "shift", "mu", "lambda", "q1", "median", "q3",
-        "iqr", "mean", "variance",
+        "pair",
+        "model",
+        "shift",
+        "mu",
+        "lambda",
+        "q1",
+        "median",
+        "q3",
+        "iqr",
+        "mean",
+        "variance",
     ]
     check_fields = [
-        "pair", "model", "shift", "mu", "lambda", "integral", "q1", "median",
-        "q3", "iqr", "mean", "variance", "median_error_within_pair",
+        "pair",
+        "model",
+        "shift",
+        "mu",
+        "lambda",
+        "integral",
+        "q1",
+        "median",
+        "q3",
+        "iqr",
+        "mean",
+        "variance",
+        "median_error_within_pair",
         "iqr_error_within_pair",
     ]
     for path, rows, fields in (
@@ -207,9 +278,16 @@ def make_figure(matched_models) -> tuple[Path, Path]:
         axis.tick_params(direction="out", width=1.0)
     axes[0].set_ylabel("Probability density (year⁻¹)")
     fig.legend(
-        *axes[0].get_legend_handles_labels(), loc="lower center", ncol=6,
-        frameon=False, fontsize=5.6, handlelength=2.2, columnspacing=1.0,
-        title="Parameter set", title_fontsize=5.6, bbox_to_anchor=(0.5, -0.01),
+        *axes[0].get_legend_handles_labels(),
+        loc="lower center",
+        ncol=6,
+        frameon=False,
+        fontsize=5.6,
+        handlelength=2.2,
+        columnspacing=1.0,
+        title="Parameter set",
+        title_fontsize=5.6,
+        bbox_to_anchor=(0.5, -0.01),
     )
     fig.subplots_adjust(left=0.11, right=0.98, top=0.88, bottom=0.23, wspace=0.12)
     png_path = OUTPUT_DIRECTORY / "LPM_distribution_families_matched_quantiles.png"
@@ -222,8 +300,13 @@ def make_figure(matched_models) -> tuple[Path, Path]:
 
 def main() -> None:
     parameter_rows, check_rows, matched_models = calculate_rows()
-    outputs = (*make_figure(matched_models), *write_csv_files(parameter_rows, check_rows))
-    print("Pair | Model | Shift | Mu | Lambda | Q1 | Median | Q3 | IQR | Mean | Variance")
+    outputs = (
+        *make_figure(matched_models),
+        *write_csv_files(parameter_rows, check_rows),
+    )
+    print(
+        "Pair | Model | Shift | Mu | Lambda | Q1 | Median | Q3 | IQR | Mean | Variance"
+    )
     for row in parameter_rows:
         print(
             f"{row['pair']} | {row['model']} | {row['shift']:.6g} | {row['mu']:.9g} | "

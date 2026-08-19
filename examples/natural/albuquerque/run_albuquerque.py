@@ -1,35 +1,24 @@
 # -*- coding: utf-8 -*-
-"""
-Launcher for the workflow.
-"""
+"""Run the Albuquerque workflow through the canonical single-date launcher."""
 
-import sys
 from pathlib import Path
-import subprocess
-import runpy
+
+from scripts.launcher import run_workflow
 
 # Repository root is three levels up from this file (examples/natural/albuquerque/)
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def main():
-    root = REPO_ROOT
-    script = root / "scripts" / "launcher.py"
-    params = root / "examples" / "natural" / "albuquerque" / "exemple_albuquerque.yaml"
-    try:
-        from IPython import get_ipython
-        ipy = get_ipython()
-    except Exception:
-        ipy = None
-    if ipy is not None:
-        sys.path.insert(0, str(root / "scripts"))
-        sys.argv = [str(script), str(params), "--inline", "--set-results-dir"]
-        runpy.run_path(str(script), run_name="__main__")
-    else:
-        subprocess.run(
-            [sys.executable, str(script), str(params), "--set-results-dir"],
-            check=True,
-        )
+    params = (
+        REPO_ROOT
+        / "examples"
+        / "natural"
+        / "albuquerque"
+        / "exemple_albuquerque.yaml"
+    )
+    output_path = run_workflow(params)
+    print(f"Results written to: {output_path}")
 
 
 if __name__ == "__main__":

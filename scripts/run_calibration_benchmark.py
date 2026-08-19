@@ -13,24 +13,12 @@ Jean-Raynald de Dreuzy
 """
 
 import os
-import sys
-import time
-from pathlib import Path
-
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-ensure_repo_imports()
-
-import pyage.global_parameters as gp
 
 import pyage.calibration.workflows.synthetic_test as cst
 import pyage.calibration.methods.simplex as csimp
 import pyage.calibration.methods.metropolis_hastings as cMH
+from pyage.config.paths import ROOT_DIRECTORY_RESULTS, result_subdirectory, timestamp_name
+from pyage.config.runtime import DisplayOptions, SimulationTimer
 
 
 class comparison_MH_fuq:
@@ -39,7 +27,7 @@ class comparison_MH_fuq:
     """
     def __init__(self):
         self.models_calib = ['ig','dirac','exp','exp_shifted','ig_shifted','dirac_double','gamma','uniform']
-        self.display = gp.display_options()
+        self.display = DisplayOptions()
         self.display.text = False
         self.display.figure = True
         self.display.figure_close = True
@@ -47,8 +35,8 @@ class comparison_MH_fuq:
         self.fuq_n = 5 #50
         self.init_multiples_n = 1 #5
         self.MH_n = 2500
-        directory = gp.results_directory(gp.ROOT_DIRECTORY_RESULTS, "test_calib_comp")
-        self.directory_root = gp.results_directory(directory, gp.name_dhms())
+        directory = result_subdirectory(ROOT_DIRECTORY_RESULTS, "test_calib_comp")
+        self.directory_root = result_subdirectory(directory, timestamp_name())
 
 
     def perform(self, stime, ncase=3, error=0.04, tracer_names=["kr85","Li"], lpm_random=True, lpm_target=None,resolution=1000): 
@@ -57,10 +45,11 @@ class comparison_MH_fuq:
         """
         stime.initialize(len(self.models_calib))
         # OUTPUT File and Directory
-        self.display.directory = gp.results_directory(self.directory_root,"prec_"+str(error))
+        self.display.directory = result_subdirectory(self.directory_root,"prec_"+str(error))
         name = ""
-        for t in tracer_names : name = name + "_" + t
-        self.display.directory = gp.results_directory(self.display.directory,name) 
+        for tracer_name in tracer_names:
+            name = name + "_" + tracer_name
+        self.display.directory = result_subdirectory(self.display.directory, name)
         date = 2010
         
         print('\\COMPARISON: FORWARD UNCERTAINTY QUANTIFICATION AND METROPOLIS HASTINGS')
@@ -92,15 +81,14 @@ class comparison_MH_fuq:
             
             # Loop on the ncases cases
             for i in range(ncase):
-                start = time.time()
                 lpm_calibration=[None]*2
                 lpm_results=[None]*2
                 # Performs calibration
                 for j in range(len(calstrat)):
                     [lpm_target,lpm_calibration[j],concentration_sampled,lpm_results[j],_] = calstrat[j].perform_one_case(i,lpm_random=lpm_random,lpm_target=lpm_target)
                 # Outputs and Displays results
-                directory_common = gp.results_directory(self.display.directory,lpm)
-                directory_common = gp.results_directory(directory_common,str(i))
+                directory_common = result_subdirectory(self.display.directory,lpm)
+                directory_common = result_subdirectory(directory_common,str(i))
                 lpm_results[0].display_parameters_dist(self_method=lpm_calibration[0].method,
                                                                    lpm_reference=lpm_target,lpm_2nd=lpm_results[1],
                                                                    lpm_2nd_method=lpm_calibration[1].method,
@@ -130,7 +118,7 @@ class comparison_MH_fuq:
 
 def test_calibration_MH_fuq(): 
     comp = comparison_MH_fuq()
-    stime = gp.simulation_time(nsim=6)
+    stime = SimulationTimer(nsim=6)
     comp.perform(stime, ncase=2, error=0.04, tracer_names=["cfc11","kr85"],resolution=10000)
     comp.perform(stime, ncase=5, error=0.04, tracer_names=["kr85","Li"],resolution=10000)
     comp.perform(stime, ncase=5, error=0.001, tracer_names=["cfc11","kr85"],resolution=10000)

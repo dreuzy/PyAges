@@ -1,6 +1,6 @@
 unit: dpm/ccKr
 recharge: true
-decay_time: 10.76
+half_life: 10.76
 holten:
   reference: Visser et al. (2013)
   notes: Holten-specific radiometric convention for krypton-85.

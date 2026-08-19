@@ -1,21 +1,9 @@
-import sys
-from pathlib import Path
+"""Command-line entrypoint for the Ploemeur workflow."""
+
+from __future__ import annotations
+
 import argparse
-from typing import Optional
-
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-ensure_repo_imports()
-
-# -*- coding: utf-8 -*-
-"""
-Driver script for running the Ploemeur workflow.
-"""
+from pathlib import Path
 
 from pydantic import ValidationError
 
@@ -23,31 +11,24 @@ from sites.ploemeur.config.models import PloemeurDriverConfig
 from sites.ploemeur.site_api import PloemeurSite
 
 
-def _load_driver_config(params_path: Optional[str]) -> PloemeurDriverConfig:
-    data = {}
-    if params_path:
-        data["params"] = params_path
+def _load_driver_config(params_path: str | None) -> PloemeurDriverConfig:
+    data = {"params": params_path} if params_path else {}
     try:
         return PloemeurDriverConfig.model_validate(data)
     except ValidationError as exc:
-        raise SystemExit(f"Invalid Ploemeur driver config:\n{exc}") from exc
+        raise SystemExit(f"Invalid Ploemeur driver configuration:\n{exc}") from exc
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--params",
+        help="Repository-relative or absolute workflow YAML path.",
+    )
+    args = parser.parse_args()
+    config = _load_driver_config(args.params)
+    PloemeurSite().run(Path(config.params))
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run Ploemeur workflow.")
-    parser.add_argument(
-        "params",
-        nargs="?",
-        default=None,
-        help="Path to the workflow YAML file (positional).",
-    )
-    parser.add_argument(
-        "--params",
-        dest="params_opt",
-        default=None,
-        help="Path to the workflow YAML file.",
-    )
-    args = parser.parse_args()
-    params_path = args.params_opt or args.params
-    config = _load_driver_config(params_path)
-    PloemeurSite().run(Path(config.params))
+    main()

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,14 +22,7 @@ import pandas as pd
 from scipy.optimize import minimize
 from scipy.special import expit
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from pyage.config.bootstrap import ensure_repo_imports
-
-
-ensure_repo_imports()
+from pyage.tracer.decay import rate_from_config
 
 from examples.natural.holten.holten_benchmark import build_reference_curve
 from examples.natural.holten.holten_case import PreparedHoltenCase, build_context, load_yaml, tracer_yaml_path
@@ -44,7 +36,7 @@ BIN_DEFINITIONS = (
 )
 BIN_ORDER = [item["name"] for item in BIN_DEFINITIONS]
 FRACTION_COLUMNS = BIN_ORDER
-LOCAL_4BIN_TRACER_ORDER = ("3H", "3He_trit", "kr85", "39Ar")
+LOCAL_4BIN_TRACER_ORDER = ("3H", "kr85", "39Ar")
 
 
 def _reference_year(prepared: PreparedHoltenCase) -> float:
@@ -53,31 +45,6 @@ def _reference_year(prepared: PreparedHoltenCase) -> float:
 
 def _local_4bin_observations(prepared: PreparedHoltenCase, well_id: str) -> pd.DataFrame:
     obs = prepared.observed_by_well[well_id].copy()
-    helium = prepared.helium_diagnostics.loc[prepared.helium_diagnostics["well_id"] == well_id].copy()
-    if helium.empty:
-        raise ValueError(f"Missing helium diagnostics for well {well_id}")
-    helium_row = helium.iloc[0]
-    if pd.isna(helium_row["3He_trit_TU"]) or pd.isna(helium_row["3He_err"]):
-        raise ValueError(f"Missing 3He_trit observation for well {well_id}")
-
-    obs = pd.concat(
-        [
-            obs,
-            pd.DataFrame(
-                [
-                    {
-                        "element": "3He_trit",
-                        "concentration": float(helium_row["3He_trit_TU"]),
-                        "error": float(helium_row["3He_err"]),
-                        "unit": "TU",
-                        "date": float(helium_row["date"]),
-                    }
-                ]
-            ),
-        ],
-        ignore_index=True,
-    )
-
     order_map = {name: idx for idx, name in enumerate(LOCAL_4BIN_TRACER_ORDER)}
     obs["_local_order"] = obs["element"].map(order_map)
     if obs["_local_order"].isna().any():
@@ -114,21 +81,23 @@ def _old_endmember_value(prepared: PreparedHoltenCase, tracer_name: str, referen
         return float(holten_cfg["old_endmember"]["value"])
     if tracer_name == "3H":
         premodern = float(holten_cfg["premodern_input"]["value"])
-        decay_time = float(tracer_cfg["decay_time"])
+        decay_rate = rate_from_config(tracer_cfg)
+        assert decay_rate is not None
         # The old bin starts at >60 years. Using 60 years gives a conservative
         # upper estimate for present-day tritium in the old fraction, and the
         # resulting value is already extremely close to zero.
         age_years = max(60.0, reference_year - 1953.0)
-        return float(premodern * np.exp(-age_years / decay_time))
+        return float(premodern * np.exp(-decay_rate * age_years))
     raise ValueError(f"Unsupported tracer for Holten 4-bin fit: {tracer_name}")
 
 
 def _old_endmember_3he_trit(prepared: PreparedHoltenCase, reference_year: float) -> float:
     tracer_cfg = load_yaml(tracer_yaml_path(prepared.context, "3H"))
     premodern = float(tracer_cfg["holten"]["premodern_input"]["value"])
-    decay_time = float(tracer_cfg["decay_time"])
+    decay_rate = rate_from_config(tracer_cfg)
+    assert decay_rate is not None
     age_years = max(60.0, reference_year - 1953.0)
-    return float(premodern * (1.0 - np.exp(-age_years / decay_time)))
+    return float(premodern * (1.0 - np.exp(-decay_rate * age_years)))
 
 
 def _reference_curve_value(
@@ -145,11 +114,12 @@ def _reference_curve_value(
 
     missing = np.isnan(interp)
     if missing.any():
-        decay_time = float(tracer_cfg["decay_time"])
+        decay_rate = rate_from_config(tracer_cfg)
+        assert decay_rate is not None
         if tracer_name == "3H":
             premodern = float(tracer_cfg["holten"]["premodern_input"]["value"])
             ages = reference_year - recharge_year[missing]
-            interp[missing] = premodern * np.exp(-ages / decay_time)
+            interp[missing] = premodern * np.exp(-decay_rate * ages)
         elif tracer_name == "kr85":
             interp[missing] = float(tracer_cfg["holten"]["old_endmember"]["value"])
         elif tracer_name == "39Ar":
@@ -167,7 +137,6 @@ def build_4bin_endmembers(prepared: PreparedHoltenCase) -> pd.DataFrame:
         observed = prepared.observed_aggregated.loc[prepared.observed_aggregated["element"] == tracer_name].copy()
         display_history = build_reference_curve(prepared, tracer_name, raw_history, observed)
         tracer_cfg = load_yaml(tracer_yaml_path(prepared.context, tracer_name))
-        dates = display_history["date"].astype(float)
         unit = str(display_history["unit"].iloc[0])
 
         for spec in BIN_DEFINITIONS[:-1]:
@@ -203,45 +172,6 @@ def build_4bin_endmembers(prepared: PreparedHoltenCase) -> pd.DataFrame:
                 "unit": unit,
             }
         )
-
-    tritium_history = prepared.tracer_histories["3H"]
-    tritium_cfg = load_yaml(tracer_yaml_path(prepared.context, "3H"))
-    decay_time = float(tritium_cfg["decay_time"])
-    for spec in BIN_DEFINITIONS[:-1]:
-        age_min = float(spec["age_min"])
-        age_max = float(spec["age_max"])
-        lower_date = reference_year - age_max
-        upper_date = reference_year - age_min
-        sample_dates = np.linspace(lower_date, upper_date, 120)
-        ages = reference_year - sample_dates
-        tritium_input = _tritium_input_value(tritium_history, tritium_cfg, reference_year, sample_dates)
-        sample_values = tritium_input * (1.0 - np.exp(-ages / decay_time))
-        rows.append(
-            {
-                "tracer": "3He_trit",
-                "bin_name": spec["name"],
-                "bin_label": spec["label"],
-                "age_min": age_min,
-                "age_max": age_max,
-                "representative_age": spec["representative_age"],
-                "concentration": float(np.nanmean(sample_values)),
-                "unit": "TU",
-            }
-        )
-
-    old_spec = BIN_DEFINITIONS[-1]
-    rows.append(
-        {
-            "tracer": "3He_trit",
-            "bin_name": old_spec["name"],
-            "bin_label": old_spec["label"],
-            "age_min": old_spec["age_min"],
-            "age_max": np.nan,
-            "representative_age": old_spec["representative_age"],
-            "concentration": _old_endmember_3he_trit(prepared, reference_year),
-            "unit": "TU",
-        }
-    )
 
     return pd.DataFrame(rows)
 
@@ -300,7 +230,8 @@ def _optimize_well_4bin(obs: pd.DataFrame, endmembers: pd.DataFrame) -> tuple[np
         np.array([1.0, 0.0, 0.0], dtype=float),
         np.array([-1.0, 0.5, 0.0], dtype=float),
     )
-    objective = lambda z: _objective_from_matrix(matrix, y, sigma, z)
+    def objective(z):
+        return _objective_from_matrix(matrix, y, sigma, z)
 
     candidates: list[Any] = []
     for method in ("BFGS", "L-BFGS-B"):

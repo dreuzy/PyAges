@@ -10,7 +10,12 @@ results folders) so examples and site workflows share the same access logic.
 
 from pathlib import Path
 
-import pyage.global_parameters as gp
+from pyage.config.paths import (
+    ROOT_DIRECTORY,
+    ROOT_DIRECTORY_RESULTS,
+    result_subdirectory,
+    timestamp_name,
+)
 
 
 def ploemeur_data_folder(root: str | Path | None = None) -> str:
@@ -20,9 +25,9 @@ def ploemeur_data_folder(root: str | Path | None = None) -> str:
     Parameters
     ----------
     root : str or Path, optional
-        Repository root. Defaults to ``gp.ROOT_DIRECTORY``.
+        Repository root. Defaults to the canonical PyAge repository root.
     """
-    base = Path(root) if root is not None else Path(gp.ROOT_DIRECTORY)
+    base = Path(root) if root is not None else ROOT_DIRECTORY
     return str(base / "sites" / "ploemeur" / "data")
 
 
@@ -40,7 +45,7 @@ def ploemeur_ori_folder(root: str | Path | None = None) -> str:
     return str(Path(ploemeur_data_folder(root)) / "ori")
 
 
-def ploemeur_results_folder(file_root: str) -> list[str]:
+def ploemeur_results_folder(file_root: str) -> tuple[Path, Path, str]:
     """
     Build a timestamped results folder structure for a Ploemeur run.
 
@@ -49,9 +54,7 @@ def ploemeur_results_folder(file_root: str) -> list[str]:
     file_root : str
         Base name for the results folder.
     """
-    dir_root = gp.results_directory(gp.ROOT_DIRECTORY_RESULTS, file_root)
-    date_file = gp.name_dhms()
-    directory_results = gp.results_directory(dir_root, date_file)
-    return [directory_results, dir_root, date_file]
-
-
+    dir_root = result_subdirectory(ROOT_DIRECTORY_RESULTS, file_root)
+    date_file = timestamp_name()
+    directory_results = result_subdirectory(dir_root, date_file)
+    return directory_results, dir_root, date_file

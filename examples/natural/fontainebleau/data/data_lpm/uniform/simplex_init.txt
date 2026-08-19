@@ -1,2 +1,0 @@
-min,15,year
-range,20,year

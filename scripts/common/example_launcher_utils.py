@@ -9,6 +9,7 @@ import copy
 from pathlib import Path
 from typing import Any
 
+from pyage.config.models import LauncherConfig
 from scripts.common.example_case_utils import deep_update
 
 
@@ -81,6 +82,7 @@ def build_effective_launcher_config(
 
     if overrides:
         deep_update(payload, copy.deepcopy(overrides))
+    LauncherConfig.model_validate(payload)
     return payload
 
 

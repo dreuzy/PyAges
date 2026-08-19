@@ -1,0 +1,81 @@
+# Identifiant stable de la campagne. Il apparaît dans tous les manifestes.
+campaign_id: tracerlpm-targeted-v1
+
+# Unité commune de tous les âges et paramètres temporels.
+time_unit: year
+
+# Grille commune aux cinq fonctions d'entrée synthétiques.
+time_grid:
+  # Première année couverte, incluse.
+  start_year: 1900
+  # Dernière année couverte, incluse.
+  end_year: 2025
+  # Pas calendaire. La Phase 1 accepte uniquement "monthly".
+  frequency: monthly
+  # Chaque valeur est datée au milieu du mois, sous forme d'année décimale.
+  timestamp_convention: middle_of_month
+
+# Unité arbitraire : aucune conversion physique ne doit être appliquée.
+concentration_unit: au
+
+# Valeurs utilisées en dehors de la chronique par la référence indépendante.
+outside_domain:
+  before: 0.0
+  after: hold_last
+
+# Définition déterministe des fonctions d'entrée.
+synthetic_inputs:
+  constant:
+    value: 100.0
+  ramp:
+    start_value: 0.0
+    end_value: 100.0
+  step:
+    transition_year: 1960.0
+    low_value: 0.0
+    high_value: 100.0
+  rectangular_pulse:
+    start_year: 1960.0
+    end_year: 1965.0
+    baseline: 0.0
+    amplitude: 100.0
+  multi_peak:
+    baseline: 0.0
+    # Pics gaussiens : centre en année, largeur en années, amplitude en au.
+    peaks:
+      - {center_year: 1945.0, width_years: 2.0, amplitude: 25.0}
+      - {center_year: 1965.0, width_years: 4.0, amplitude: 100.0}
+      - {center_year: 1990.0, width_years: 7.0, amplitude: 55.0}
+
+# Dates candidates. Le constructeur de cas supprimera les redondances.
+observation_years: [1995.0, 2010.0, 2020.0]
+
+# Facteurs appliqués aux tolérances absolue et relative de la grille pilotée par
+# le traceur. Une valeur inférieure à 1 resserre les tolérances.
+pyage_grid_tolerance_scales: [4.0, 2.0, 1.0, 0.5, 0.25]
+
+# Paramétrisations proposées dans le protocole validé.
+models:
+  PFM:
+    tau: [1.0, 20.0, 80.0]
+  EMM:
+    tau: [1.0, 20.0, 80.0]
+  EPM:
+    tau: [10.0, 40.0]
+    eta: [1.5, 3.0, 10.0]
+  DM:
+    tau: [10.0, 40.0]
+    DP: [0.02, 0.2, 1.0]
+
+# Régimes d'observations synthétiques pour la future inversion.
+noise:
+  none:
+    kind: none
+  low_deterministic:
+    kind: gaussian_relative
+    relative_standard_deviation: 0.02
+    seed: 20260817
+  repeated:
+    kind: gaussian_relative
+    relative_standard_deviation: 0.05
+    seeds: [20260818, 20260819, 20260820]

@@ -65,7 +65,7 @@ def test_fontainebleau_article_table_4_values():
         ar39_concentration, ar39_error = expected["39Ar"]
         assert round(float(ar39_row["concentration"]) * 100.0, 12) == ar39_concentration
         assert round(float(ar39_row["error"]) * 100.0, 12) == ar39_error
-        assert str(ar39_row["unit"]) == "%modern"
+        assert str(ar39_row["unit"]) == "fraction_modern"
 
 
 def test_fontainebleau_sampling_campaign_year():

@@ -11,28 +11,19 @@ Jean-Raynald de Dreuzy
 """
 
 from pathlib import Path
-import sys
 import argparse
 from typing import Optional
-
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-ensure_repo_imports()
 
 import yaml
 from pydantic import ValidationError
 
-import pyage.global_parameters as gp
 import pyage.lpm.lpm_build as lpm_build_module
 import pyage.calibration.workflows.synthetic_test as cst
 import pyage.calibration.methods.simplex as csimp
 import pyage.calibration.methods.metropolis_hastings as cMH
 from pyage.config.models import SystemCheckConfig
+from pyage.config.paths import ROOT_DIRECTORY_RESULTS, result_subdirectory, timestamp_name
+from pyage.config.runtime import DisplayOptions
 
 
 class TestIntegration:
@@ -60,7 +51,7 @@ class TestIntegration:
         list of Tracers on which calibration functions are tested
     reachable_resolution : int
         Number of iteration allowed for the computation of reachable concentrations 
-    display: display_options
+    display: DisplayOptions
         display options 
     
     
@@ -81,7 +72,7 @@ class TestIntegration:
         # Reachable Concentrations
         self.reachable_resolution = cfg.reachable_resolution
         # Output options
-        self.display = gp.display_options()
+        self.display = DisplayOptions()
         self.display_set(single_all="all")
         self.__date = cfg.date
 
@@ -105,11 +96,11 @@ class TestIntegration:
     def folder_results(self,folder_name): 
         """
         Location and creation of results folder 
-            gp.ROOT_DIRECTORY_RESULTS//test//folder_name
+            ROOT_DIRECTORY_RESULTS / "test" / folder_name
         """
-        directory = gp.results_directory(gp.ROOT_DIRECTORY_RESULTS,"test")
-        directory = gp.results_directory(directory,folder_name)
-        self.display.directory = gp.results_directory(directory,gp.name_dhms())
+        directory = result_subdirectory(ROOT_DIRECTORY_RESULTS, "test")
+        directory = result_subdirectory(directory, folder_name)
+        self.display.directory = result_subdirectory(directory, timestamp_name())
 
 
     def check_lpms(self,single_all="all",single_name=""):
@@ -209,7 +200,7 @@ class TestIntegration:
                                                  date=date,lpm_type=lpm,display_options=self.display)
             calib.perform_ncase()
 
-        # Note: legacy MH prior test was removed; use pytest tests instead.
+        # Prior-only MH validation is covered by the pytest suite.
 
         
 

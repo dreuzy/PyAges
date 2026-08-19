@@ -25,13 +25,17 @@ def validate(directory: Path) -> list[str]:
             if min(dpi) < 599.5:
                 errors.append(f"{path.name}: resolution is {dpi}, expected 600 DPI")
             if image.mode != "RGB":
-                errors.append(f"{path.name}: mode is {image.mode}, expected flattened RGB")
+                errors.append(
+                    f"{path.name}: mode is {image.mode}, expected flattened RGB"
+                )
             if "A" in image.getbands():
                 errors.append(f"{path.name}: contains an alpha channel")
             if getattr(image, "n_frames", 1) != 1:
                 errors.append(f"{path.name}: contains {image.n_frames} frames")
             if image.info.get("compression") != "tiff_lzw":
-                errors.append(f"{path.name}: compression is {image.info.get('compression')}, expected tiff_lzw")
+                errors.append(
+                    f"{path.name}: compression is {image.info.get('compression')}, expected tiff_lzw"
+                )
     return errors
 
 
@@ -44,7 +48,9 @@ def main() -> int:
         for error in errors:
             print(f"ERROR: {error}")
         return 1
-    print(f"Validated {len(list(args.directory.glob('*.tif')))} flattened 600-DPI TIFF figures.")
+    print(
+        f"Validated {len(list(args.directory.glob('*.tif')))} flattened 600-DPI TIFF figures."
+    )
     return 0
 
 

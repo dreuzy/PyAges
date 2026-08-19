@@ -640,7 +640,7 @@ def plot_temporal_fit_comparison(
         )
         source_predictions: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         for lpm in lpm_list:
-            concentration_dict = tracers.convolution_date_range(lpm, start_year, end_year)
+            concentration_dict = tracers.convolve_date_range(lpm, start_year, end_year)
             for tracer_name, tracer_df in concentration_dict.items():
                 ordered = tracer_df.sort_values("date")
                 dates = ordered["date"].to_numpy(dtype=float)
@@ -1178,7 +1178,7 @@ def plot_temporal_fit_summary(
     predictions: dict[str, list[np.ndarray]] = {}
     prediction_dates: dict[str, np.ndarray] = {}
     for lpm in lpm_list:
-        concentration_dict = tracers.convolution_date_range(lpm, start_year, end_year)
+        concentration_dict = tracers.convolve_date_range(lpm, start_year, end_year)
         for tracer_name, tracer_df in concentration_dict.items():
             ordered = tracer_df.sort_values("date")
             prediction_dates[tracer_name] = ordered["date"].to_numpy(dtype=float)

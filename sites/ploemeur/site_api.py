@@ -27,7 +27,7 @@ class PloemeurSite(BaseSite):
 
     @property
     def default_params_path(self) -> Path:
-        return Path(__file__).resolve().parents[1] / "params" / "ploemeur_full.yaml"
+        return Path(__file__).resolve().parent / "params" / "ploemeur_full.yaml"
 
     def load_params(self, params_path: Path | None) -> Dict[str, Any]:
         if params_path is None:

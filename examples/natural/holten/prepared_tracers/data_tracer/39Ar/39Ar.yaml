@@ -1,6 +1,6 @@
-unit: '%modern'
+unit: fraction_modern
 recharge_constant: 1
-decay_time: 267
+half_life: 267
 datemin: 200
 datemax: 2021
 holten:
@@ -12,9 +12,9 @@ holten:
     observation_unit: pMC
   preparation:
     input_normalization: pMC_to_fraction_modern_divide_by_100
-    output_unit: '%modern'
+    output_unit: fraction_modern
     value_scale: fraction_of_modern
   old_endmember:
     value: 0.45
-    unit: '%modern'
+    unit: fraction_modern
     meaning: old fraction end-member; 0.45 = 45% modern

@@ -3,7 +3,7 @@
 Quick run:
 
 ```bash
-python examples/natural/ploemeur_temporal/run_ploemeur_temporal.py
+python -m examples.natural.ploemeur_temporal.run_ploemeur_temporal
 ```
 
 What it does:

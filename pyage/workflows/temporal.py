@@ -16,19 +16,13 @@ Workflow modes
 - successive: one calibration per observation date.
 
 Code architecture choices (why it is written this way)
-------------------------------------------------------
-1) Bootstrap execution (repo-direct vs installed)
-   - We attempt to import `pyage` normally.
-   - If that fails, we add the repo root to `sys.path`.
-   - This makes the script runnable both after `pip install -e .`
-     and directly from the repository.
-
-2) Pydantic configuration validation (strict + explicit)
+-------------------------------------------------------
+1) Pydantic configuration validation (strict + explicit)
    - YAML is parsed into a typed schema (DatasetCfg, CalibrationCfg, ...).
    - This gives early, clear errors for missing fields, wrong types, and bounds.
    - It prevents silent defaults from masking misconfigurations.
 
-3) Structured I/O + reproducibility
+2) Structured I/O + reproducibility
    - All paths are resolved relative to the repo root (if not absolute).
    - Results are written under a stable folder tree for regression testing.
 
@@ -44,14 +38,16 @@ from typing import Dict
 # YAML parsing for config files (raw load before validation).
 import yaml
 
-from pyage.config.repository import find_repo_root
-
-# Relative paths in configuration files are resolved from the repository when
-# running from a checkout, and from the current directory when installed.
-repo_root = find_repo_root()
+from pyage.config.paths import (
+    DIRECTORY_LPM_DATA,
+    ROOT_DIRECTORY,
+    ROOT_DIRECTORY_RESULTS,
+    result_subdirectory,
+)
+from pyage.config.runtime import DisplayOptions
+from pyage.concentrations.schema import ERROR_COLUMN
 
 # Core library imports (use pyage.* consistently to avoid duplicate modules).
-import pyage.global_parameters as gp
 import pyage.concentrations.concentrations as co
 from pyage.concentrations import concentrations_time as ct
 import pyage.calibration.utils.calibration_core as calbas
@@ -71,7 +67,6 @@ from pyage.config.models import (
     TemporalLpmModelsCfg,
     TemporalParams,
     TemporalResultsCfg,
-    TemporalWorkflowCfg,
     TEMPORAL_VALID_MODES,
 )
 
@@ -133,7 +128,7 @@ def _resolve_path(path_str: str) -> Path:
     """
     path = Path(path_str)
     if not path.is_absolute():
-        path = repo_root / path
+        path = ROOT_DIRECTORY / path
     return path
 
 
@@ -176,7 +171,7 @@ def _results_root(results_cfg: TemporalResultsCfg) -> Path:
         If use_default is false and directory is not provided.
     """
     if results_cfg.use_default:
-        return Path(gp.ROOT_DIRECTORY_RESULTS)
+        return ROOT_DIRECTORY_RESULTS
     directory = results_cfg.directory
     if not directory:
         raise ValueError("results.directory must be set when use_default is false.")
@@ -185,7 +180,7 @@ def _results_root(results_cfg: TemporalResultsCfg) -> Path:
     return results_path
 
 
-def _prepare_display(output_dir: Path, figures_cfg: TemporalFiguresCfg) -> gp.display_options:
+def _prepare_display(output_dir: Path, figures_cfg: TemporalFiguresCfg) -> DisplayOptions:
     """
     Create display options for a single calibration run.
 
@@ -200,10 +195,10 @@ def _prepare_display(output_dir: Path, figures_cfg: TemporalFiguresCfg) -> gp.di
 
     Returns
     -------
-    display_options
+    DisplayOptions
         Configured display options instance.
     """
-    display = gp.display_options()
+    display = DisplayOptions()
     display.text = False
     display.figure = bool(figures_cfg.temporal or figures_cfg.distributions)
     display.figure_save = True
@@ -343,6 +338,89 @@ def _run_calibration(
             )
 
 
+def _resolve_dataset(dataset_cfg: TemporalDatasetCfg) -> Path:
+    """Resolve and validate the temporal observation file."""
+    dataset_path = _resolve_path(dataset_cfg.file)
+    if not dataset_path.exists():
+        raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
+    return dataset_path
+
+
+def _resolve_lpms(lpm_cfg: TemporalLpmModelsCfg) -> tuple[list[str], Path]:
+    """Resolve the requested models and their parameter directory."""
+    models = lpm_cfg.list or DEFAULT_LPMS
+    if not models:
+        raise ValueError("lpm_models.list must be a non-empty list.")
+    directory = _resolve_path(lpm_cfg.directory or str(DIRECTORY_LPM_DATA))
+    if not directory.exists():
+        raise ValueError(f"lpm_models.directory does not exist: {directory}")
+    return models, directory
+
+
+def _load_concentrations(
+    dataset_path: Path,
+    error_rel: float | None,
+) -> co.Concentrations:
+    """Load observations and fill missing relative errors when requested."""
+    concentrations = co.Concentrations(file_load=True, file_name=str(dataset_path))
+    if error_rel is not None and concentrations.cv[ERROR_COLUMN].min() == 0:
+        concentrations.error_affect_from_value(float(error_rel))
+    return concentrations
+
+
+def _case_frames(cdata: co.Concentrations, mode: str):
+    """Return the observation subsets required by one workflow mode."""
+    if mode == "span":
+        return [("span_full", cdata.cv)]
+    return [
+        (
+            f"date_{_format_date_label(date)}",
+            cdata.cv[cdata.cv["date"] == date],
+        )
+        for date in sorted(cdata.cv["date"].unique())
+    ]
+
+
+def _run_temporal_cases(
+    cdata: co.Concentrations,
+    mode_root: Path,
+    mode: str,
+    models: list[str],
+    lpm_directory: Path,
+    cal_cfg: TemporalCalibrationCfg,
+    figures_cfg: TemporalFiguresCfg,
+) -> list[Path]:
+    """Execute every observation-subset and LPM combination."""
+    written_case_dirs = []
+    for date_label, frame in _case_frames(cdata, mode):
+        case_data = co.Concentrations(
+            dataframe_load=True,
+            dataframe_concentration=frame.copy(),
+        )
+        case_dir = result_subdirectory(mode_root, date_label)
+        written_case_dirs.append(case_dir)
+        if figures_cfg.temporal or figures_cfg.distributions:
+            figure = plot_observations_overview(
+                case_data,
+                filename=case_dir / "00_observations_overview.png",
+                title="Observed concentrations before calibration",
+            )
+            import matplotlib.pyplot as plt
+
+            plt.close(figure)
+        for lpm_type in models:
+            _run_calibration(
+                cdata=case_data,
+                lpm_type=lpm_type,
+                output_dir=result_subdirectory(case_dir, lpm_type),
+                lpm_directory=lpm_directory,
+                cal_cfg=cal_cfg,
+                figures_cfg=figures_cfg,
+                mode=mode,
+            )
+    return written_case_dirs
+
+
 def run_temporal(params_path: Path) -> Path:
     """
     Execute temporal MH calibration based on a YAML configuration.
@@ -387,7 +465,6 @@ def run_temporal(params_path: Path) -> Path:
               parameters_calibration.txt
               results_calibration.txt
               lpm_stats_calibrated.txt
-              lpm_param_dist_calibrated.txt
               Metropolis_Hastings/
                 concentration_times.png
                 concentrations_all_models.txt
@@ -405,84 +482,28 @@ def run_temporal(params_path: Path) -> Path:
     - lpm_models.list, lpm_models.directory
     - figures.temporal, figures.distributions
     """
-    # --- Load and validate configuration ---
     params = _load_params_validated(params_path)
-    dataset_cfg: TemporalDatasetCfg = params.dataset
-    cal_cfg: TemporalCalibrationCfg = params.calibration
-    figures_cfg: TemporalFiguresCfg = params.figures
-    workflow_cfg: TemporalWorkflowCfg = params.workflow
-    lpm_cfg: TemporalLpmModelsCfg = params.lpm_models
-    results_cfg: TemporalResultsCfg = params.results
-
-    dataset_file = dataset_cfg.file
-    if not dataset_file:
-        raise ValueError("dataset.file is required.")
-    dataset_path = _resolve_path(dataset_file)
-    if not dataset_path.exists():
-        raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
-
-    mode = workflow_cfg.mode
+    dataset_path = _resolve_dataset(params.dataset)
+    mode = params.workflow.mode
     if mode not in VALID_MODES:
         raise ValueError(f"workflow.mode must be one of {sorted(VALID_MODES)}.")
+    models, lpm_directory = _resolve_lpms(params.lpm_models)
+    cdata = _load_concentrations(dataset_path, params.dataset.error_rel)
 
-    # --- LPM model selection ---
-    lpm_list = lpm_cfg.list or DEFAULT_LPMS
-    if not isinstance(lpm_list, list) or not lpm_list:
-        raise ValueError("lpm_models.list must be a non-empty list.")
-
-    lpm_directory = lpm_cfg.directory or str(gp.DIRECTORY_LPM_DATA)
-    lpm_directory_path = _resolve_path(lpm_directory)
-    if not lpm_directory_path.exists():
-        raise ValueError(f"lpm_models.directory does not exist: {lpm_directory_path}")
-
-    # --- Load concentrations and apply errors if needed ---
-    cdata = co.Concentrations(file_load=True, file_name=str(dataset_path))
-    error_rel = dataset_cfg.error_rel
-    if error_rel is not None and min(cdata.cv.iloc[:, gp.ERROR]) == 0:
-        cdata.error_affect_from_value(float(error_rel))
-
-    # --- Build results tree ---
-    results_root = _results_root(results_cfg)
-    base_root = gp.results_directory(str(results_root), results_cfg.study_name)
-    file_root = gp.results_directory(base_root, dataset_path.stem)
-    mode_root = gp.results_directory(file_root, mode)
-
-    # --- Decide which data subsets to calibrate ---
-    if mode == "span":
-        date_sets = [("span_full", cdata.cv)]
-    else:
-        dates = sorted(cdata.cv["date"].unique())
-        date_sets = [
-            (f"date_{_format_date_label(date)}", cdata.cv[cdata.cv["date"] == date])
-            for date in dates
-        ]
-
-    # --- Run calibrations (each subset x each LPM) ---
-    written_case_dirs: list[Path] = []
-    for date_label, df in date_sets:
-        ccase = co.Concentrations(dataframe_load=True, dataframe_concentration=df.copy())
-        case_dir = Path(gp.results_directory(mode_root, date_label))
-        written_case_dirs.append(case_dir)
-        if figures_cfg.temporal or figures_cfg.distributions:
-            fig = plot_observations_overview(
-                ccase,
-                filename=case_dir / "00_observations_overview.png",
-                title="Observed concentrations before calibration",
-            )
-            import matplotlib.pyplot as plt
-            plt.close(fig)
-        for lpm_type in lpm_list:
-            lpm_dir = gp.results_directory(case_dir, lpm_type)
-            _run_calibration(
-                cdata=ccase,
-                lpm_type=lpm_type,
-                output_dir=Path(lpm_dir),
-                lpm_directory=lpm_directory_path,
-                cal_cfg=cal_cfg,
-                figures_cfg=figures_cfg,
-                mode=mode,
-            )
+    results_root = _results_root(params.results)
+    study_root = result_subdirectory(results_root, params.results.study_name)
+    file_root = result_subdirectory(study_root, dataset_path.stem)
+    mode_root = result_subdirectory(file_root, mode)
+    written_case_dirs = _run_temporal_cases(
+        cdata,
+        mode_root,
+        mode,
+        models,
+        lpm_directory,
+        params.calibration,
+        params.figures,
+    )
 
     if len(written_case_dirs) == 1:
         return written_case_dirs[0]
-    return Path(mode_root)
+    return mode_root

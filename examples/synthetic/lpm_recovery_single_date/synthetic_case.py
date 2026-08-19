@@ -7,20 +7,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 
 import numpy as np
 import pandas as pd
 import yaml
-
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-ensure_repo_imports()
 
 import pyage.concentrations.concentrations as co
 from pyage.convolution.convolution_tracers import ConvolutionTracers
@@ -116,10 +106,9 @@ def generate_synthetic_case(
         lpm.p[name] = value
 
     tracers = ConvolutionTracers(names=tracer_names, date=date)
-    true_concentrations = tracers.convolution(
+    true_concentrations = tracers.convolve(
         lpm,
-        return_type="concentrations_set",
-        prepare=False,
+        return_type="concentrations",
     )
     true_frame = true_concentrations.cv.copy()
     observed_frame = true_frame.copy()

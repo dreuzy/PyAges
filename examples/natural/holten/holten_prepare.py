@@ -7,19 +7,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-import sys
 
 import numpy as np
 import pandas as pd
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from pyage.config.bootstrap import ensure_repo_imports
-
-
-ensure_repo_imports()
+from pyage.tracer.decay import rate_from_config
 
 from examples.natural.holten.holten_case import (
     HoltenContext,
@@ -38,7 +29,7 @@ TRACER_REQUIRED_SECTIONS = {
     "kr85": ("old_endmember",),
     "39Ar": ("old_endmember",),
 }
-TRACER_OUTPUT_UNITS = {"3H": "TU", "kr85": "dpm/ccKr", "39Ar": "%modern"}
+TRACER_OUTPUT_UNITS = {"3H": "TU", "kr85": "dpm/ccKr", "39Ar": "fraction_modern"}
 TRITIUM_HALF_LIFE_YEARS = 12.32
 TRITIUM_MEAN_LIFETIME_YEARS = TRITIUM_HALF_LIFE_YEARS / np.log(2.0)
 
@@ -81,7 +72,7 @@ def _load_local_tracer_yaml(tracer_name: str, context: HoltenContext) -> tuple[P
 
 
 def _validate_tracer_payload_shape(payload: dict[str, Any], yaml_path: Path) -> None:
-    for key in ("unit", "decay_time"):
+    for key in ("unit", "half_life"):
         if key not in payload:
             raise ValueError(f"{yaml_path}: missing top-level key '{key}'")
 
@@ -92,8 +83,10 @@ def _validate_tracer_payload_shape(payload: dict[str, Any], yaml_path: Path) -> 
             f"{yaml_path}: exactly one of 'recharge' or 'recharge_constant' must be defined"
         )
 
-    if float(payload["decay_time"]) <= 0:
-        raise ValueError(f"{yaml_path}: decay_time must be > 0")
+    try:
+        rate_from_config(payload)
+    except ValueError as exc:
+        raise ValueError(f"{yaml_path}: {exc}") from exc
 
     if has_constant:
         for key in ("datemin", "datemax"):
@@ -219,13 +212,15 @@ def _prepare_kr85_history(tracer_cfg: dict[str, Any], context: HoltenContext) ->
 
 
 def _prepare_39ar_history(tracer_cfg: dict[str, Any], reference_year: float) -> pd.DataFrame:
-    decay_time = float(tracer_cfg["decay_time"])
+    decay_rate = rate_from_config(tracer_cfg)
+    assert decay_rate is not None
+    mean_lifetime = 1.0 / decay_rate
     recharge_constant = float(tracer_cfg["recharge_constant"])
     old_endmember = float(tracer_cfg["holten"]["old_endmember"]["value"])
-    min_age_to_show = max(350.0, -1.25 * decay_time * np.log(max(old_endmember, 1e-6)))
+    min_age_to_show = max(350.0, -1.25 * mean_lifetime * np.log(max(old_endmember, 1e-6)))
     start_year = max(float(tracer_cfg["datemin"]), reference_year - min_age_to_show)
     dates = np.linspace(start_year, reference_year, 360)
-    concentrations = recharge_constant * np.exp(-(reference_year - dates) / decay_time)
+    concentrations = recharge_constant * np.exp(-decay_rate * (reference_year - dates))
     history = pd.DataFrame(
         {
             "date": dates,
@@ -295,7 +290,7 @@ def convert_39ar_record(row: pd.Series) -> dict[str, Any]:
         "element": "39Ar",
         "concentration": float(row["Ar39_pMC"]) / 100.0,
         "error": float(row["Ar39_err"]) / 100.0,
-        "unit": "%modern",
+        "unit": "fraction_modern",
         "date": float(row["Date_decimal"]),
     }
 

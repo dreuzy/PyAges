@@ -1,0 +1,15 @@
+# Dernier cas EMM : chronique irrégulière à trois pics, proche d'un traceur réel.
+- case_id: synthetic-multi-peak-emm
+  sample: PSW-1-17/08/2004
+  observation_year: 2004.6256830601094
+  tracerlpm_effective_observation_year: 2004.5
+  model1: EMM
+  model2: EMM
+  x_axis: SF6
+  y_axis: NO3-N
+  input_history:
+    path: ../inputs/synthetic/multi_peak.csv
+    sha256: 84DCF2EED3EA98DEB1DF7BC052F82DC1DCB787C2692053125E8CB77879E5D993
+    target_tracers: [SF6, NO3-N]
+    before: 0.0
+    after: hold_last

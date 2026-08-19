@@ -16,22 +16,10 @@ This script exercises a full calibration workflow on a selected dataset:
 Configuration is provided by the caller (YAML path passed to main()).
 """
 
-import sys
 import os
 import copy
-import argparse
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parent.parent
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-ensure_repo_imports()
 
 # This script runs a full example workflow:
 # 1) load concentration data,
@@ -40,7 +28,9 @@ ensure_repo_imports()
 # 4) compare synthetic figures and objective function,
 # 5) save outputs and optionally show live figures.
 
-from scripts.common.launcher_paths import results_directory
+from pyage.config.paths import result_subdirectory
+from pyage.config.runtime import DisplayOptions
+from scripts.common.launcher_paths import dataset_results_directory
 from scripts.common.launcher_params import LauncherParams, load_params
 from scripts.common.plotting_helpers import configure_backend, enable_interactive, show_figures
 from scripts.common.example_summary_plots import (
@@ -53,16 +43,14 @@ from scripts.common.example_summary_plots import (
 IN_INTERACTIVE = False
 
 
-def make_display(gp, directory, save_figures):
+def make_display(directory, save_figures):
     """
     Purpose
     -------
-    Build a display_options instance for live or saved figures.
+    Build a DisplayOptions instance for live or saved figures.
 
     Parameters
     ----------
-    gp : module
-        global_parameters module with display_options.
     directory : str or None
         Output folder for figures; None disables saving.
     save_figures : bool
@@ -71,7 +59,7 @@ def make_display(gp, directory, save_figures):
     # Centralize display options for either live plots or saved figures.
     # - directory=None -> no saving, keep figures open
     # - directory set  -> save figures to disk
-    display = gp.display_options()
+    display = DisplayOptions()
     display.text = True
     display.figure = True
     display.figure_save = save_figures
@@ -80,7 +68,7 @@ def make_display(gp, directory, save_figures):
     return display
 
 
-def build_display_set(gp, results_dir):
+def build_display_set(results_dir):
     """
     Purpose
     -------
@@ -88,8 +76,6 @@ def build_display_set(gp, results_dir):
 
     Parameters
     ----------
-    gp : module
-        global_parameters module.
     results_dir : str
         Base directory for saved outputs.
 
@@ -98,8 +84,8 @@ def build_display_set(gp, results_dir):
     tuple
         (display_live, display_save) configured for interactive and saved plots.
     """
-    display_live = make_display(gp, directory=None, save_figures=False)
-    display_save = make_display(gp, directory=results_dir, save_figures=True)
+    display_live = make_display(directory=None, save_figures=False)
+    display_save = make_display(directory=results_dir, save_figures=True)
     return display_live, display_save
 
 
@@ -117,7 +103,7 @@ def build_calibration_core(params, concentration_sampled, calbas, display_run):
         Observed concentrations used for calibration.
     calbas : module
         calibration.utils.calibration_core module.
-    display_run : display_options
+    display_run : DisplayOptions
         Display options for outputs.
 
     Returns
@@ -177,7 +163,7 @@ def load_concentration_data(params: LauncherParams, co, display_live):
         Parsed parameters (expects dataset_name/dataset_data_dir).
     co : module
         concentrations.concentrations module (data container + loader).
-    display_live : display_options
+    display_live : DisplayOptions
         Live display settings for plotting/preview.
 
     Returns
@@ -200,7 +186,6 @@ def run_reachable_concentration_analysis(
     display_live,
     display_save,
     show_figures,
-    gp,
 ):
     """
     Purpose
@@ -215,22 +200,19 @@ def run_reachable_concentration_analysis(
         Observed concentrations to compare against.
     calibration_exploration : module
         calibration.utils.systematic_sampling module.
-    display_live : display_options
+    display_live : DisplayOptions
         Live display settings.
-    display_save : display_options
+    display_save : DisplayOptions
         Saving display settings.
     show_figures : callable
         Helper to flush figures in interactive mode.
-    gp : module
-        global_parameters module (for results_directory).
-
     Notes
     -----
     The analysis stores the systematic sampling results used later for the
     didactic summary figure.
     """
     display_reach_save = copy.deepcopy(display_save)
-    display_reach_save.directory_results = gp.results_directory(
+    display_reach_save.directory = result_subdirectory(
         display_save.directory, "reachable_concentrations"
     )
     cr = calibration_exploration.SystematicSampling(
@@ -253,7 +235,6 @@ def run_calibration_simplex(
     display_save,
     calbas,
     csimp,
-    gp,
 ):
     """
     Purpose
@@ -266,7 +247,7 @@ def run_calibration_simplex(
         Parsed parameters (expects simplex_* and LPM settings).
     concentration_sampled : Concentrations
         Observed concentrations used for calibration.
-    display_save : display_options
+    display_save : DisplayOptions
         Saving display settings.
     calbas : module
         calibration.utils.calibration_core module.
@@ -283,7 +264,7 @@ def run_calibration_simplex(
         init_multiples_n=params.simplex_init_multiples_n,
         fuq_n=params.simplex_fuq_n,
     )
-    directory_calibration = gp.results_directory(
+    directory_calibration = result_subdirectory(
         display_save.directory, strategy.method
     )
     display_run = copy.deepcopy(display_save)
@@ -306,7 +287,6 @@ def run_calibration_metropolis_hastings(
     display_save,
     calbas,
     cMH,
-    gp,
 ):
     """
     Purpose
@@ -319,7 +299,7 @@ def run_calibration_metropolis_hastings(
         Parsed parameters (expects MH_* and LPM settings).
     concentration_sampled : Concentrations
         Observed concentrations used for calibration.
-    display_save : display_options
+    display_save : DisplayOptions
         Saving display settings.
     calbas : module
         calibration.utils.calibration_core module.
@@ -340,7 +320,7 @@ def run_calibration_metropolis_hastings(
     )
     strategy = cMH.MetropolisHastings(config=mh_config)
     strategy.MH_step.define_by_value()  # Use default proposal steps.
-    directory_calibration = gp.results_directory(
+    directory_calibration = result_subdirectory(
         display_save.directory, strategy.method
     )
     display_run = copy.deepcopy(display_save)
@@ -374,7 +354,7 @@ def render_summary_figures(
     ----------
     concentration_sampled : Concentrations
         Observed concentrations for overlay.
-    display_save : display_options
+    display_save : DisplayOptions
         Saving display settings.
     show_figures : callable
         Helper to flush figures in interactive mode.
@@ -451,9 +431,9 @@ def run_objective_function_analysis(
         Observed concentrations for objective function evaluation.
     calibration_exploration : module
         calibration.utils.systematic_sampling module.
-    display_live : display_options
+    display_live : DisplayOptions
         Live display settings.
-    display_save : display_options
+    display_save : DisplayOptions
         Saving display settings.
     show_figures : callable
         Helper to flush figures in interactive mode.
@@ -521,7 +501,7 @@ def run_concentration_outputs(params, lpm_build, ct, display_save):
         Factory function that builds an LPM by name.
     ct : module
         concentrations.concentrations_time module.
-    display_save : display_options
+    display_save : DisplayOptions
         Saving display settings for output directory.
     """
     lpm = lpm_build(
@@ -557,7 +537,6 @@ def run_workflow(params_path, force_inline=False):
 
     import pyage.concentrations.concentrations as co
     from pyage.concentrations import concentrations_time as ct
-    import pyage.global_parameters as gp
     from pyage.lpm.lpm_build import lpm_build
     import pyage.calibration.utils.systematic_sampling as calibration_exploration
     import pyage.calibration.utils.calibration_core as calbas
@@ -574,12 +553,12 @@ def run_workflow(params_path, force_inline=False):
 
     # ---------------- OUTPUT DIRECTORY ----------------------
     # Results are stored under results/test_cases/<dataset_name>/...
-    directory_results = results_directory(gp, params.dataset_name)
+    directory_results = dataset_results_directory(params.dataset_name)
 
     # ---- DISPLAY OPTIONS + ROOT OUTPUT DIRECTORY ------------
     # display_live: show plots on screen
     # display_save: save plots to disk
-    display_live, display_save = build_display_set(gp, directory_results)
+    display_live, display_save = build_display_set(directory_results)
 
     # ---------------- CONCENTRATIONS DATA ------------------
     concentration_sampled = load_concentration_data(params, co, display_live)
@@ -606,7 +585,6 @@ def run_workflow(params_path, force_inline=False):
             context.display_live,
             context.display_save,
             show_fig,
-            gp,
         )
 
     # ---------------- CALIBRATION ----------------
@@ -622,7 +600,6 @@ def run_workflow(params_path, force_inline=False):
             context.display_save,
             calbas,
             csimp,
-            gp,
         )
     if context.params.run_calibration_metropolis_hastings:
         strategy_mh, results_mh = run_calibration_metropolis_hastings(
@@ -631,7 +608,6 @@ def run_workflow(params_path, force_inline=False):
             context.display_save,
             calbas,
             cMH,
-            gp,
         )
 
     posterior_results = {}
@@ -668,45 +644,3 @@ def run_workflow(params_path, force_inline=False):
     if not IN_INTERACTIVE:
         plt.show(block=True)
     return Path(display_save.directory)
-
-
-def main(params_path, force_inline=False):
-    """CLI wrapper for run_workflow."""
-    return run_workflow(params_path, force_inline=force_inline)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the example workflow.")
-    parser.add_argument(
-        "params_path",
-        help="Path to the YAML parameters file.",
-    )
-    parser.add_argument(
-        "--inline",
-        action="store_true",
-        help="Force inline backend (useful when launching from an interactive window).",
-    )
-    parser.add_argument(
-        "--set-results-dir",
-        nargs="?",
-        const="__ASK__",
-        default=None,
-        help="Persist PYAGE_RESULTS_DIR for the user (prompts if no path provided).",
-    )
-    args = parser.parse_args()
-    if args.set_results_dir is not None:
-        default_dir = Path.home() / "results" / "PyAge"
-        if args.set_results_dir == "__ASK__":
-            prompt = f"PYAGE_RESULTS_DIR [{default_dir}]: "
-            user_value = input(prompt).strip()
-            results_dir = user_value or str(default_dir)
-        else:
-            results_dir = args.set_results_dir
-        os.environ["PYAGE_RESULTS_DIR"] = results_dir
-        if os.name == "nt":
-            subprocess.run(["setx", "PYAGE_RESULTS_DIR", results_dir], check=True)
-        else:
-            print("PYAGE_RESULTS_DIR set for current process only (non-Windows).")
-    output_dir = main(args.params_path, force_inline=args.inline)
-    if output_dir is not None:
-        print(output_dir)

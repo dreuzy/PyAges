@@ -1,0 +1,31 @@
+campaign_id: tracerlpm-targeted-v1
+generator: validation.tracerlpm.benchmark.scripts.generate_inputs
+campaign_config_sha256: E88B6AA81C71BFFA9F1A97E29F879605423E570070D5D273A85D4C576ACDFA33
+time_unit: year
+concentration_unit: au
+timestamp_convention: middle_of_month
+environment:
+  python: 3.12.4
+  numpy: 2.1.2
+  pyyaml: 6.0.3
+files:
+- name: constant
+  path: inputs/synthetic/constant.csv
+  rows: 1512
+  sha256: 36D557389A15AE4BE6AE30AC88C34A82E67C70859D398D35790D9286CFFD6B66
+- name: ramp
+  path: inputs/synthetic/ramp.csv
+  rows: 1512
+  sha256: 50954D5A31BAF9663B370DCCECD96BB7C8395697ED4D1E3894188B71874B8894
+- name: step
+  path: inputs/synthetic/step.csv
+  rows: 1512
+  sha256: A3A19D4905CF578D570DE25426E11BA97E312BA8D13539BCC147211D553C541D
+- name: rectangular_pulse
+  path: inputs/synthetic/rectangular_pulse.csv
+  rows: 1512
+  sha256: 4404A2E49E1D42E0115F30D276050237F092114EB97FF108C45EEBBDECBE7CC2
+- name: multi_peak
+  path: inputs/synthetic/multi_peak.csv
+  rows: 1512
+  sha256: 84DCF2EED3EA98DEB1DF7BC052F82DC1DCB787C2692053125E8CB77879E5D993

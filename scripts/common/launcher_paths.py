@@ -1,14 +1,10 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Mar 24 20:35:54 2021
+"""Helpers for launcher output paths."""
 
-@author: Jean-Raynald de Dreuzy
-
-Helper functions for launcher output paths.
-"""
+from pyage.config.paths import ROOT_DIRECTORY_RESULTS, result_subdirectory
 
 
-def results_directory(gp, dataset_name):
+def dataset_results_directory(dataset_name: str):
     """
     Purpose
     -------
@@ -16,8 +12,6 @@ def results_directory(gp, dataset_name):
 
     Parameters
     ----------
-    gp : module
-        global_parameters module.
     dataset_name : str
         Dataset identifier used to name the output folder.
 
@@ -26,5 +20,5 @@ def results_directory(gp, dataset_name):
     str
         Full output path for results/test_cases/<dataset_name>.
     """
-    base = gp.results_directory(gp.ROOT_DIRECTORY_RESULTS, "test_cases")
-    return gp.results_directory(base, dataset_name)
+    base = result_subdirectory(ROOT_DIRECTORY_RESULTS, "test_cases")
+    return result_subdirectory(base, dataset_name)

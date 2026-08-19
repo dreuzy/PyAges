@@ -10,20 +10,12 @@ import shutil
 import subprocess
 import tempfile
 from typing import Any
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from pyage.config.bootstrap import ensure_repo_imports
-
-
-ensure_repo_imports()
+from pyage.tracer.decay import rate_from_config
 
 from examples.natural.holten.holten_case import PreparedHoltenCase, build_context, load_yaml, tracer_yaml_path
 
@@ -75,6 +67,12 @@ def build_article_reference_figures(context=None, output_dir: Path | None = None
     output_root = output_dir or (ctx.paths.benchmark_dir / "article_reference")
     output_root.mkdir(parents=True, exist_ok=True)
     pdf_path = ctx.paths.doc_dir / "Visser et al, 2013.pdf"
+    if not pdf_path.is_file():
+        raise RuntimeError(
+            "The Visser et al. (2013) publisher PDF is not distributed with PyAge; "
+            "obtain it via https://doi.org/10.1002/2013WR014012 and place it in "
+            f"{ctx.paths.doc_dir} to extract the article figures."
+        )
     pdftoppm = shutil.which("pdftoppm")
     if pdftoppm is None:
         raise RuntimeError("pdftoppm is required to extract article figures from the local PDF.")
@@ -133,10 +131,11 @@ def build_reference_curve(
     tracer_cfg = load_yaml(yaml_path)
 
     if tracer_name in {"3H", "kr85"}:
-        decay_time = float(tracer_cfg["decay_time"])
+        decay_rate = rate_from_config(tracer_cfg)
+        assert decay_rate is not None
         display = display.loc[display["date"].astype(float) <= reference_year].copy()
         ages = reference_year - display["date"].astype(float)
-        display["concentration"] = display["concentration"].astype(float) * np.exp(-ages / decay_time)
+        display["concentration"] = display["concentration"].astype(float) * np.exp(-decay_rate * ages)
         display.attrs["display_kind"] = "reference_decay"
         display.attrs["reference_year"] = reference_year
         display.attrs["display_label"] = f"Input history after decay to {reference_year:.2f}"
@@ -460,14 +459,17 @@ def _bootstrap_modeled_value(prepared: PreparedHoltenCase, row: pd.Series, mid_a
     if tracer == "39Ar":
         tracer_cfg = _load_tracer_cfg(prepared, "39Ar")
         recharge_constant = float(tracer_cfg["recharge_constant"])
-        decay_time = float(tracer_cfg["decay_time"])
-        return float(recharge_constant * np.exp(-mid_age / decay_time))
+        decay_rate = rate_from_config(tracer_cfg)
+        assert decay_rate is not None
+        return float(recharge_constant * np.exp(-decay_rate * mid_age))
 
     if tracer in {"3H", "kr85"}:
         tracer_cfg = _load_tracer_cfg(prepared, tracer)
         history = prepared.tracer_histories[tracer]
         recharge = _recharge_value_at_age(history, float(row["date"]), mid_age)
-        return float(recharge * np.exp(-mid_age / float(tracer_cfg["decay_time"])))
+        decay_rate = rate_from_config(tracer_cfg)
+        assert decay_rate is not None
+        return float(recharge * np.exp(-decay_rate * mid_age))
 
     raise ValueError(f"Unsupported tracer for Holten bootstrap RMSE: {tracer}")
 

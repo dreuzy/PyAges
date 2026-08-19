@@ -6,25 +6,14 @@ Pre-model figures and lightweight benchmark helpers for Fontainebleau.
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-
-ensure_repo_imports()
-
-try:
-    from .fontainebleau_case import PreparedFontainebleauCase, build_context
-except ImportError:
-    from fontainebleau_case import PreparedFontainebleauCase, build_context
+from examples.natural.fontainebleau.fontainebleau_case import (
+    PreparedFontainebleauCase,
+    build_context,
+)
 
 
 REQUIRED_COLUMNS = {"element", "concentration", "error", "unit", "date"}
@@ -208,7 +197,7 @@ def write_benchmark_summary(prepared: PreparedFontainebleauCase, output_dir: Pat
         f"available_lpm_models: {', '.join(prepared.context.available_lpm_models)}",
         f"sampling_date: {float(selected_row['sampling_date']):g}",
         f"tracers: {selected_row['tracers']}",
-        "39Ar_storage: fraction_of_modern_numeric_under_%modern_label",
+        "39Ar_storage: fraction_of_modern_numeric_under_fraction_modern_label",
         f"mean_concentration: {float(selected_row['mean_concentration']):.6g}",
         f"mean_error: {float(selected_row['mean_error']):.6g}",
     ]

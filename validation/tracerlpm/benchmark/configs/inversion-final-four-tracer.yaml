@@ -1,0 +1,47 @@
+# Final no-noise qualification: all models use the same four tracers.
+campaign_id: tracerlpm-inversion-final-four-tracer-v1
+observation_year: 2020.0
+
+tracers:
+  - {name: cfc11, recharge: data_core/data_tracer/cfc11/recharge.csv, unit: pptv}
+  - {name: cfc12, recharge: data_core/data_tracer/cfc12/recharge.csv, unit: pptv}
+  - {name: cfc113, recharge: data_core/data_tracer/cfc113/recharge.csv, unit: pptv}
+  - {name: sf6, recharge: data_core/data_tracer/sf6/recharge.csv, unit: pptv}
+
+tracerlpm:
+  input_history: tracerlpm-input-history.csv
+  target_tracers: [CFC-11, CFC-12, CFC-113, SF6]
+  source_columns: {CFC-11: cfc11, CFC-12: cfc12, CFC-113: cfc113, SF6: sf6}
+  sample: PSW-1-17/08/2004
+  x_axis: CFC-11
+  y_axis: SF6
+
+cases:
+  - case_id: final4-emm-tau20-no-noise
+    model: EMM
+    true_parameters: {tau: 20.0}
+    bounds: {tau: [0.1, 200.0]}
+    initial_values: {tau: [5.0, 20.0, 80.0]}
+    noise: {kind: none}
+  - case_id: final4-epm-tau20-r2-no-noise
+    model: EPM
+    true_parameters: {tau: 20.0, eta: 3.0}
+    bounds: {tau: [0.1, 200.0], eta: [1.01, 11.0]}
+    initial_values: [[5.0, 1.5], [20.0, 3.0], [80.0, 10.0]]
+    noise: {kind: none}
+  - case_id: final4-dm-tau20-dp0p2-no-noise
+    model: DM
+    true_parameters: {tau: 20.0, DP: 0.2}
+    bounds: {tau: [0.1, 200.0], DP: [0.001, 3.0]}
+    initial_values: [[5.0, 0.02], [20.0, 0.2], [80.0, 1.0]]
+    noise: {kind: none}
+
+objective:
+  relative_standard_deviation: 0.01
+  absolute_floor_fraction_of_tracer_maximum: 0.000001
+
+acceptance:
+  maximum_tau_absolute_error_years: 0.5
+  maximum_recalculated_relative_error: 0.01
+  maximum_tau_relative_error: 0.05
+  maximum_secondary_parameter_relative_error: 0.10

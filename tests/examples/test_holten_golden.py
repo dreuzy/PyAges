@@ -8,13 +8,11 @@ from tests.examples.holten_test_support import (
     build_local_4bin_record,
     build_prepare_record,
     build_reference_comparison_record,
-    holten_sandbox,
-    local_4bin_mh_outputs,
-    local_4bin_outputs,
-    prepared_holten_case,
-    reference_comparison,
 )
 from tests.utils import golden as golden_utils
+
+
+pytest_plugins = ("tests.examples.holten_fixtures",)
 
 
 GOLDEN_PATH = Path(__file__).resolve().parents[2] / "tests" / "golden" / "holten_example_values.json"

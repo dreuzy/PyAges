@@ -1,0 +1,9 @@
+campaign_id: tracerlpm-targeted-v1
+kind: independent_forward_reference
+row_count: 270
+campaign_config_sha256: E88B6AA81C71BFFA9F1A97E29F879605423E570070D5D273A85D4C576ACDFA33
+forward_reference_sha256: 8DE69F2DBE70B475788C015BF908DA559B129DD5A5C31CE97ADB56222522999A
+numerics:
+  method: scipy.integrate.quad split at every monthly interpolation knot
+  absolute_tolerance: 1.0e-08
+  relative_tolerance: 1.0e-09

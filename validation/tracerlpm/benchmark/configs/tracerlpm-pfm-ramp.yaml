@@ -1,0 +1,14 @@
+# Deuxième pilote : la rampe rend visibles les erreurs de date et d'interpolation.
+- case_id: synthetic-ramp-pfm
+  sample: PSW-1-17/08/2004
+  observation_year: 2004.6256830601094
+  model1: PFM
+  model2: PFM
+  x_axis: SF6
+  y_axis: NO3-N
+  input_history:
+    path: ../inputs/synthetic/ramp.csv
+    sha256: 50954D5A31BAF9663B370DCCECD96BB7C8395697ED4D1E3894188B71874B8894
+    target_tracers: [SF6, NO3-N]
+    before: 0.0
+    after: hold_last

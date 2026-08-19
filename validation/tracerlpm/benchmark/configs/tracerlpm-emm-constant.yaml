@@ -1,0 +1,16 @@
+# Premier cas continu : EMM avec la chronique constante déjà qualifiée en PFM.
+- case_id: synthetic-constant-emm
+  sample: PSW-1-17/08/2004
+  observation_year: 2004.6256830601094
+  # Valeur mise en évidence indépendamment par le test PFM avec rampe.
+  tracerlpm_effective_observation_year: 2004.5
+  model1: EMM
+  model2: EMM
+  x_axis: SF6
+  y_axis: NO3-N
+  input_history:
+    path: ../inputs/synthetic/constant.csv
+    sha256: 36D557389A15AE4BE6AE30AC88C34A82E67C70859D398D35790D9286CFFD6B66
+    target_tracers: [SF6, NO3-N]
+    before: 0.0
+    after: hold_last

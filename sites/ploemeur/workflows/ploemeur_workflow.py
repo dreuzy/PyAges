@@ -3,39 +3,42 @@
 Ploemeur workflow orchestration.
 
 Coordinates the loading of observation data, construction of calibration jobs,
-execution of Metropolis-Hastings/Simplex strategies, and postprocessing of
-results for the Ploemeur site.
+and execution of Metropolis-Hastings calibrations for the Ploemeur site.
 
 Copyright (c) 2025 Jean-Raynald de Dreuzy, CNRS
 Author: Jean-Raynald de Dreuzy
 """
 
-from pathlib import Path
-
-repo_root = Path(__file__).resolve().parents[3]
-
 import copy
-import functools
-import math
 import multiprocessing as mp
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any
 
 import yaml
-import pyage.global_parameters as gp
 import pyage.concentrations.concentrations as co
 from pyage.concentrations import concentrations_time as ct
 
 import pyage.calibration.utils.calibration_core as calbas
-import pyage.calibration.methods.simplex as csimp
 import pyage.calibration.methods.metropolis_hastings as cMH
 
 from sites.ploemeur.observations import ploemeur as ploemeur_obs
-from sites.ploemeur.postprocessing import appli_ploemeur_results_comparison as aprc
 from sites.ploemeur.workflows.job_builder import build_jobs
 from pyage.observations.loader import (
     build_observation_path,
     load_observation_concentrations,
+)
+from pyage.concentrations.schema import ERROR_COLUMN
+from pyage.config.paths import (
+    ROOT_DIRECTORY,
+    ROOT_DIRECTORY_RESULTS,
+    result_subdirectory,
+)
+from pyage.config.runtime import DisplayOptions
+from sites.ploemeur.config.models import (
+    ObservationMetadataConfig,
+    PloemeurWorkflowConfig,
+    PriorPipelinePresets,
+    WellDateConfig,
 )
 from sites.ploemeur.workflows.path_helpers import (
     calibrated_prior_name,
@@ -45,7 +48,6 @@ from sites.ploemeur.workflows.path_helpers import (
     results_dir_for_case,
     results_folder,
     workflow_temp_folder,
-    workflow_temp_file_path,
 )
 
 TIME_SPAN_AND_PRIOR_MODES = {
@@ -57,80 +59,101 @@ TIME_SPAN_AND_PRIOR_MODES = {
 }
 
 
-def load_yaml_file(path: Path) -> Dict[str, Any]:
-    """Load a YAML file if it exists, returning a dict."""
-    if not path or not Path(path).exists():
-        return {}
-    with Path(path).open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
+def load_yaml_file(path: Path) -> dict[str, Any]:
+    """Load a required YAML mapping."""
+    yaml_path = Path(path)
+    if not yaml_path.is_file():
+        raise FileNotFoundError(f"YAML file not found: {yaml_path}")
+    with yaml_path.open("r", encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected a YAML mapping in {yaml_path}")
+    return payload
 
 
-def resolve_lpm_directory(path_str: str) -> Path:
+def resolve_lpm_directory(path_str: str | Path) -> Path:
     """Resolve an LPM parameter directory, allowing repo-relative paths."""
     path = Path(path_str)
     if not path.is_absolute():
-        path = repo_root / path
-    return path
+        path = ROOT_DIRECTORY / path
+    return path.resolve()
 
 
-def resolve_results_directory(path_str: str) -> Path:
+def resolve_results_directory(path_str: str | Path) -> Path:
     """Resolve a results directory, allowing repo-relative paths."""
     path = Path(path_str)
     if not path.is_absolute():
-        path = repo_root / path
-    return path
+        path = ROOT_DIRECTORY / path
+    return path.resolve()
 
 
 def validate_time_span_and_prior_mode(mode: str) -> None:
     """Validate that a time-span mode is recognized."""
     if mode not in TIME_SPAN_AND_PRIOR_MODES:
         allowed = ", ".join(sorted(TIME_SPAN_AND_PRIOR_MODES))
-        raise ValueError(f"Unknown time_span_and_prior mode '{mode}'. Allowed: {allowed}.")
+        raise ValueError(
+            f"Unknown time_span_and_prior mode '{mode}'. Allowed: {allowed}."
+        )
 
 
 def load_concentrations(
-    file_path: str,
+    file_path: str | Path,
     error_concentrations: float,
     display,
-    output_dir: str,
+    output_dir: str | Path,
 ) -> co.Concentrations:
     """Load concentrations, apply relative errors, display, and write outputs."""
     cdata = co.Concentrations(file_load=True, file_name=file_path)
-    if min(cdata.cv.iloc[:, gp.ERROR]) == 0:
+    if cdata.cv[ERROR_COLUMN].min() == 0:
         cdata.error_affect_from_value(error_concentrations)
     cdata.display(display)
-    cdata.cv.to_csv(data_file_path(output_dir, "concentrations.txt"), sep="\t", index=False)
+    cdata.cv.to_csv(
+        data_file_path(output_dir, "concentrations.txt"), sep="\t", index=False
+    )
     return cdata
 
 
-def load_observations_well_dates(params: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
+def load_observations_well_dates(
+    params: dict[str, Any],
+) -> dict[str, dict[str, int]]:
     """Load well date ranges from params or the shared observations YAML."""
     observations = params.get("observations", {})
     well_dates = observations.get("well_dates") or {}
-    if not well_dates:
-        observations_path = repo_root / "sites" / "ploemeur" / "params" / "ploemeur_observations.yaml"
-        observations_data = load_yaml_file(observations_path)
-        if observations_path.exists() and not observations_data:
-            raise ValueError(f"Failed to load observations from {observations_path}")
-        well_dates = observations_data.get("well_dates", {})
-    return well_dates
+    if well_dates:
+        return {
+            well: WellDateConfig.model_validate(date_range).model_dump()
+            for well, date_range in well_dates.items()
+        }
+    observations_path = (
+        ROOT_DIRECTORY / "sites" / "ploemeur" / "params" / "ploemeur_observations.yaml"
+    )
+    metadata = ObservationMetadataConfig.model_validate(
+        load_yaml_file(observations_path)
+    )
+    return {
+        well: date_range.model_dump()
+        for well, date_range in metadata.well_dates.items()
+    }
 
 
-def load_prior_pipeline_presets() -> Dict[str, Any]:
+def load_prior_pipeline_presets():
     """Load shared prior pipeline presets from YAML."""
-    presets_path = repo_root / "sites" / "ploemeur" / "params" / "prior_pipeline_presets.yaml"
-    presets = load_yaml_file(presets_path)
-    if presets_path.exists() and not presets:
-        raise ValueError(f"Failed to load presets from {presets_path}")
-    return presets
+    presets_path = (
+        ROOT_DIRECTORY / "sites" / "ploemeur" / "params" / "prior_pipeline_presets.yaml"
+    )
+    return PriorPipelinePresets.model_validate(load_yaml_file(presets_path)).root
 
 
-def validate_well_dates(wells: List[str], well_dates: Dict[str, Dict[str, int]]) -> None:
+def validate_well_dates(
+    wells: list[str], well_dates: dict[str, dict[str, int]]
+) -> None:
     """Validate that well_dates cover wells and point to existing data files."""
     if not wells:
         return
     if not well_dates:
-        raise ValueError("observations.well_dates must be provided when observations.wells is set.")
+        raise ValueError(
+            "observations.well_dates must be provided when observations.wells is set."
+        )
     missing_dates = [well for well in wells if well not in well_dates]
     if missing_dates:
         raise ValueError(f"Missing well_dates entries for wells: {missing_dates}")
@@ -159,263 +182,72 @@ def validate_well_dates(wells: List[str], well_dates: Dict[str, Dict[str, int]])
         )
 
 
-@dataclass
-class ObservationsConfig:
-    """Observation settings loaded from YAML."""
-    conc_error_rel: Optional[List[float]] = None
-    wells: Optional[List[str]] = None
-    well_dates: Optional[Dict[str, Dict[str, int]]] = None
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ObservationsConfig":
-        return cls(
-            conc_error_rel=data.get("conc_error_rel"),
-            wells=data.get("wells"),
-            well_dates=data.get("well_dates"),
-        )
+# Proxy function for parallel simulation
+def _perform_pod(pod):
+    """Execute one calibration job in a worker process."""
+    pod.perform()
 
 
-@dataclass
-class WorkflowConfig:
-    """Workflow-level configuration settings."""
-    breakups: Optional[List[int]] = None
-    prior_pipeline: Optional[List[str]] = None
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WorkflowConfig":
-        return cls(
-            breakups=data.get("breakups"),
-            prior_pipeline=data.get("prior_pipeline"),
-        )
-
-
-@dataclass
-class ExecutionConfig:
-    """Execution settings (parallelization, worker selection)."""
-    parallel: Optional[bool] = None
-    auto_proc_nb: Optional[bool] = None
-    proc_nb: Optional[int] = None
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ExecutionConfig":
-        return cls(
-            parallel=data.get("parallel"),
-            auto_proc_nb=data.get("auto_proc_nb"),
-            proc_nb=data.get("proc_nb"),
-        )
-
-
-@dataclass
-class ResultsConfig:
-    """Results output configuration."""
-    use_default: Optional[bool] = None
-    directory: Optional[str] = None
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ResultsConfig":
-        return cls(
-            use_default=data.get("use_default"),
-            directory=data.get("directory"),
-        )
-
-
-@dataclass
-class CalibrationConfig:
-    """Calibration settings used by Metropolis-Hastings and FUQ."""
-    explo_res: Optional[int] = None
-    mh_nsteps: Optional[int] = None
-    lpm_number: Optional[int] = None
-    seed_enabled: Optional[bool] = None
-    seed: Optional[int] = None
-    initial_params: Optional[Dict[str, float]] = None
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CalibrationConfig":
-        return cls(
-            explo_res=data.get("explo_res"),
-            mh_nsteps=data.get("mh_nsteps"),
-            lpm_number=data.get("lpm_number"),
-            seed_enabled=data.get("seed_enabled"),
-            seed=data.get("seed"),
-            initial_params=data.get("initial_params"),
-        )
-
-
-# Proxy function for parallel simulation 
-def perform(pod,i): 
-    pod[i].perform()
-
-
-class SimulationStrategy: 
+class SimulationStrategy:
     """
     Ploemeur workflow configuration and execution engine.
 
     Reads parameters from YAML, expands the selected prior pipeline presets into
     per-step options, builds jobs, and runs the calibration workflow.
     """
-    
-    def __init__(self, prior_pipeline = None, params=None):
+
+    def __init__(self, prior_pipeline=None, params=None):
         """Initialize a workflow strategy for a given prior pipeline preset."""
         if prior_pipeline is None:
             raise ValueError("prior_pipeline must be provided.")
+        if params is None:
+            raise ValueError("params must be provided.")
 
+        config = validate_workflow_params(params)
         self.prior_pipeline = prior_pipeline
-        self.__apply_prior_pipeline_preset(prior_pipeline, params)
+        self._apply_prior_pipeline_preset(prior_pipeline)
 
-        self.observations_cfg = ObservationsConfig()
-        self.workflow_cfg = WorkflowConfig()
-        self.execution_cfg = ExecutionConfig()
-        self.results_cfg = ResultsConfig()
-        self.calibration_cfg = CalibrationConfig()
-        self.lpm_types_default = []
-        self.lpm_types_by_well = {}
-        self.results_root = str(gp.ROOT_DIRECTORY_RESULTS)
-
-        if params:
-            self.__apply_params(params)
-
-
-    def __apply_params(self, params):
-        """Apply YAML parameters to the workflow configuration."""
-        sim = params.get("observations", {})
-        calibration = params.get("calibration", {})
-        execution = params.get("execution", {})
-        results = params.get("results", {})
-        lpm_models = params.get("lpm_models", {})
-        workflow_cfg = params.get("workflows", {})
-
-        obs_cfg = ObservationsConfig.from_dict(sim)
-        cal_cfg = CalibrationConfig.from_dict(calibration)
-        exec_cfg = ExecutionConfig.from_dict(execution)
-        res_cfg = ResultsConfig.from_dict(results)
-        wf_cfg = WorkflowConfig.from_dict(workflow_cfg)
-
-        well_dates = obs_cfg.well_dates or load_observations_well_dates(params)
-        if not well_dates:
-            raise ValueError(
-                "observations.well_dates must be provided in the YAML configuration or "
-            "sites/ploemeur/params/ploemeur_observations.yaml."
-            )
-        if not obs_cfg.conc_error_rel:
-            raise ValueError("observations.conc_error_rel must be provided in the YAML configuration.")
-        if not obs_cfg.wells:
-            raise ValueError("observations.wells must be provided in the YAML configuration.")
-        if not wf_cfg.prior_pipeline:
-            raise ValueError("workflows.prior_pipeline must be provided in the YAML configuration.")
-        if cal_cfg.lpm_number:
-            lpm_number = cal_cfg.lpm_number
-        elif cal_cfg.mh_nsteps:
-            lpm_number = max(min(int(cal_cfg.mh_nsteps/50),5000),10)
+        self.observations_cfg = config.observations
+        self.workflow_cfg = config.workflows
+        self.execution_cfg = config.execution
+        self.results_cfg = config.results
+        lpm_number = config.calibration.lpm_number or max(
+            min(config.calibration.mh_nsteps // 50, 5000), 10
+        )
+        self.calibration_cfg = config.calibration.model_copy(
+            update={"lpm_number": lpm_number}
+        )
+        self.lpm_types_default = config.lpm_models.default
+        self.lpm_types_by_well = config.lpm_models.by_well
+        self.lpm_directory = str(resolve_lpm_directory(config.lpm_models.directory))
+        if config.results.use_default:
+            self.results_root = str(ROOT_DIRECTORY_RESULTS)
         else:
-            lpm_number = 0
-
-        if cal_cfg.explo_res is None or cal_cfg.explo_res <= 0:
-            raise ValueError("calibration.explo_res must be provided in the YAML configuration.")
-        if cal_cfg.mh_nsteps is None or cal_cfg.mh_nsteps <= 0:
-            raise ValueError("calibration.mh_nsteps must be provided in the YAML configuration.")
-        if lpm_number <= 0:
-            raise ValueError(
-                "calibration.lpm_number must be provided (>0) or inferred from mh_nsteps."
-            )
-        seed_enabled = bool(cal_cfg.seed_enabled) if cal_cfg.seed_enabled is not None else False
-        if seed_enabled and cal_cfg.seed is None:
-            raise ValueError(
-                "calibration.seed must be provided when calibration.seed_enabled is true."
-            )
-        seed_value = cal_cfg.seed if seed_enabled else None
-        initial_params = cal_cfg.initial_params
-        if initial_params is not None:
-            if not isinstance(initial_params, dict) or not initial_params:
-                raise ValueError("calibration.initial_params must be a non-empty mapping.")
-            try:
-                initial_params = {
-                    str(name): float(value) for name, value in initial_params.items()
-                }
-            except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    "calibration.initial_params values must be numeric."
-                ) from exc
-            if not all(math.isfinite(value) for value in initial_params.values()):
-                raise ValueError("calibration.initial_params values must be finite.")
-
-        if "default" in lpm_models:
-            self.lpm_types_default = lpm_models["default"]
-        if "by_well" in lpm_models:
-            self.lpm_types_by_well = lpm_models["by_well"]
-        if not self.lpm_types_default:
-            raise ValueError("lpm_models.default must be provided in the YAML configuration.")
-
-        directory_lpm = lpm_models.get("directory") or str(gp.DIRECTORY_LPM_DATA)
-        lpm_path = resolve_lpm_directory(directory_lpm)
-        if not lpm_path.exists():
-            raise ValueError(f"lpm_models.directory does not exist: {lpm_path}")
-
-        self.observations_cfg = ObservationsConfig(
-            conc_error_rel=obs_cfg.conc_error_rel,
-            wells=obs_cfg.wells,
-            well_dates=well_dates,
-        )
-        self.workflow_cfg = WorkflowConfig(
-            breakups=wf_cfg.breakups,
-            prior_pipeline=wf_cfg.prior_pipeline,
-        )
-        self.execution_cfg = ExecutionConfig(
-            parallel=exec_cfg.parallel,
-            auto_proc_nb=exec_cfg.auto_proc_nb,
-            proc_nb=exec_cfg.proc_nb,
-        )
-        self.results_cfg = ResultsConfig(
-            use_default=res_cfg.use_default,
-            directory=res_cfg.directory,
-        )
-        self.calibration_cfg = CalibrationConfig(
-            explo_res=cal_cfg.explo_res,
-            mh_nsteps=cal_cfg.mh_nsteps,
-            lpm_number=lpm_number,
-            seed_enabled=seed_enabled,
-            seed=seed_value,
-            initial_params=initial_params,
-        )
-        self.lpm_directory = str(lpm_path)
-        if res_cfg.use_default is None or res_cfg.use_default:
-            self.results_root = str(gp.ROOT_DIRECTORY_RESULTS)
-        else:
-            if not res_cfg.directory:
-                raise ValueError(
-                    "results.directory must be provided when results.use_default is false."
-                )
-            results_path = resolve_results_directory(res_cfg.directory)
+            results_path = resolve_results_directory(config.results.directory)
             results_path.mkdir(parents=True, exist_ok=True)
             self.results_root = str(results_path)
 
-
-    def __apply_prior_pipeline_preset(self, prior_pipeline, params):
-        """Apply prior pipeline presets from YAML if available, else fallback."""
+    def _apply_prior_pipeline_preset(self, prior_pipeline):
+        """Apply one strictly validated prior-pipeline preset."""
         presets = load_prior_pipeline_presets()
         if prior_pipeline in presets:
             preset = presets[prior_pipeline]
-            steps = preset.get("steps")
-            if steps:
-                self.time_span_and_prior = [step["time_span_and_prior"] for step in steps]
-                self.prior = [step["prior"] for step in steps]
-                self.likelihood = [step["likelihood"] for step in steps]
-                self.prior_folder = [step["prior_folder"] for step in steps]
-            else:
-                self.time_span_and_prior = preset["time_span_and_prior"]
-                self.prior = preset["prior"]
-                self.likelihood = preset["likelihood"]
-                self.prior_folder = preset["prior_folder"]
-            self.folder = preset["folder"]
+            self.time_span_and_prior = [
+                step.time_span_and_prior for step in preset.steps
+            ]
+            self.prior = [step.prior for step in preset.steps]
+            self.likelihood = [step.likelihood for step in preset.steps]
+            self.prior_folder = [step.prior_folder for step in preset.steps]
+            self.folder = preset.folder
             return
         available = ", ".join(sorted(presets))
         raise ValueError(
             f"Unknown prior_pipeline preset '{prior_pipeline}'. "
             f"Available presets: {available}"
         )
-        
-        
-    def execute(self): 
-        """ 
+
+    def execute(self):
+        """
         Execute the workflow across all requested wells, modes, and errors.
         """
         jobs = build_jobs(
@@ -432,9 +264,9 @@ class SimulationStrategy:
         )
         total_jobs = len(jobs)
         for idx, job in enumerate(jobs, start=1):
-            self.__execute_parallel(*job, run_index=idx, run_total=total_jobs)
+            self._execute_job(*job, run_index=idx, run_total=total_jobs)
 
-    def __execute_parallel(
+    def _execute_job(
         self,
         well,
         dates,
@@ -449,11 +281,9 @@ class SimulationStrategy:
         run_total: int,
     ):
         """
-        Parallelizable Execution over all combibations of 
-            - dates 
-            - lpms 
+        Prepare and execute all date/LPM cases in one workflow job.
         """
-        self.__print_run_summary(
+        self._print_run_summary(
             well=well,
             dates=dates,
             lpm_types=lpm_types,
@@ -466,7 +296,7 @@ class SimulationStrategy:
             run_index=run_index,
             run_total=run_total,
         )
-        run_ctx = self.__prepare_run(
+        pods = self._prepare_run(
             well,
             dates,
             lpm_types,
@@ -477,14 +307,13 @@ class SimulationStrategy:
             likelihood,
             prior_folder,
         )
-        self.__run_pods(run_ctx["pods"])
-        self.__postprocess(run_ctx["lpm_types"], run_ctx["date_file"], run_ctx["dir_root"])
+        self._run_pods(pods)
 
-    def __print_run_summary(
+    def _print_run_summary(
         self,
         well: str,
         dates: str,
-        lpm_types: List[str],
+        lpm_types: list[str],
         time_span_and_prior_mode: str,
         conc_error_rel: float,
         prior: bool,
@@ -508,7 +337,7 @@ class SimulationStrategy:
             f"lpm={lpm_display}"
         )
 
-    def __prepare_run(
+    def _prepare_run(
         self,
         well,
         dates,
@@ -521,9 +350,11 @@ class SimulationStrategy:
         prior_folder,
     ):
         """Prepare inputs and pods for a single (well, mode) run."""
-        files = files_years(well, dates, time_span_and_prior_mode, self.workflow_cfg.breakups)
-        if self.__mode_requires_prior(time_span_and_prior_mode):
-            prior_corresp = correspondance_matrix(
+        files = _observation_files(
+            well, dates, time_span_and_prior_mode, self.workflow_cfg.breakups
+        )
+        if self._mode_requires_prior(time_span_and_prior_mode):
+            prior_corresp = _build_prior_correspondence(
                 well,
                 dates,
                 time_span_and_prior_mode,
@@ -532,7 +363,7 @@ class SimulationStrategy:
         else:
             prior_corresp = None
 
-        dir_out, dir_root, date_file = results_folder(file_root, self.results_root)
+        dir_out, _, _ = results_folder(file_root, self.results_root)
 
         pods = []
         for lpm in lpm_types:
@@ -548,7 +379,7 @@ class SimulationStrategy:
                     )
                 else:
                     prior_file = ""
-                pod = ploemeur_one_date(
+                pod = PloemeurSingleRun(
                     dir_out,
                     well_date,
                     conc_error_rel,
@@ -567,48 +398,34 @@ class SimulationStrategy:
                 )
                 pods.append(pod)
 
-        return {
-            "pods": pods,
-            "lpm_types": lpm_types,
-            "dir_root": dir_root,
-            "date_file": date_file,
-        }
+        return pods
 
     @staticmethod
-    def __mode_requires_prior(time_span_and_prior_mode):
+    def _mode_requires_prior(time_span_and_prior_mode):
         """Return True when the workflow mode relies on a prior file."""
         return time_span_and_prior_mode in ("successive_with_prior", "span_with_prior")
 
-    def __run_pods(self, pods):
+    def _run_pods(self, pods):
         """Run prepared pods either in parallel or sequentially."""
-        if self.execution_cfg.parallel == True:
+        if self.execution_cfg.parallel:
             proc_nb = (
                 int(mp.cpu_count())
                 if self.execution_cfg.auto_proc_nb
                 else self.execution_cfg.proc_nb
             )
-            pool = mp.Pool(proc_nb)
-            for i in range(len(pods)):
-                pool.apply_async(perform, args=(pods, i))
-            pool.close()
-            pool.join()
+            with mp.Pool(proc_nb) as pool:
+                pool.map(_perform_pod, pods)
         else:
             for pod in pods:
                 pod.perform()
 
-    def __postprocess(self, lpm_types, date_file, dir_root):
-        """Aggregate outputs and trigger postprocessing figures."""
-        for lpm in lpm_types:
-            aprc.load_and_display(date_file, lpm, dir_root)
 
-
-
-def ploemeur_data_selection(well,dates,start,end):
-    """ 
+def _write_observation_selection(well, dates, start, end):
+    """
     Selection of concentrations by year
-        + Stores selected data in another file     
+        + Stores selected data in another file
         + Returns output file (same directory)
-        
+
     Parameters
     ----------
     well: str
@@ -616,10 +433,10 @@ def ploemeur_data_selection(well,dates,start,end):
     dates: str
         Min_Max years in the format: 2005_2020
     start, end: int
-        Go by pairs 
+        Go by pairs
         start: 2015
         end:   2018
-    
+
     Returns
     -------
     file_out: str
@@ -627,10 +444,10 @@ def ploemeur_data_selection(well,dates,start,end):
         eg 'F09_2005_2005'
 
     """
-    
+
     directory = workflow_temp_folder()
-    # Loads concentrations 
-    cdata=load_observation_concentrations(
+    # Loads concentrations
+    cdata = load_observation_concentrations(
         ploemeur_obs.ploemeur_ori_folder(),
         "ori_ploemeur_",
         well,
@@ -638,16 +455,16 @@ def ploemeur_data_selection(well,dates,start,end):
     )
     df = cdata.cv
     # Selects concentrations within the given age range
-    dfselec = df.loc[(df['date'] >= start) & (df['date'] <= (end+1))]
-    # Writes data in a file 
+    dfselec = df.loc[(df["date"] >= start) & (df["date"] <= (end + 1))]
+    # Writes data in a file
     file_out = data_selection_filename(well, start, max(dfselec["date"]))
-    dfselec.to_csv(data_file_path(directory, file_out), sep='\t', index=False)
+    dfselec.to_csv(data_file_path(directory, file_out), sep="\t", index=False)
     return file_out
 
 
-def periods_years(well,dates,time_span_and_prior_mode,breakups=[]): 
+def _periods_years(well, dates, time_span_and_prior_mode, breakups=()):
     """
-    Sampling years avialble for this well
+    Sampling years available for this well
     # years: array of int, List of years
     #        ex. [2005, 2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
 
@@ -655,52 +472,60 @@ def periods_years(well,dates,time_span_and_prior_mode,breakups=[]):
         cumulative, successive, span_full, successive_with_prior, span_with_prior.
     """
     validate_time_span_and_prior_mode(time_span_and_prior_mode)
-    cdata=load_observation_concentrations(
+    cdata = load_observation_concentrations(
         ploemeur_obs.ploemeur_ori_folder(),
         "ori_ploemeur_",
         well,
         dates,
     )
-    sampling_years=sorted(functools.reduce(lambda l, x: l.append(int(x)) or l if int(x) not in l else l, cdata.cv['date'], []))
-    
-    start=[];end=[]
-    if time_span_and_prior_mode == "span_full" or time_span_and_prior_mode =="span_with_prior": 
+    sampling_years = sorted({int(value) for value in cdata.cv["date"]})
+
+    start = []
+    end = []
+    if (
+        time_span_and_prior_mode == "span_full"
+        or time_span_and_prior_mode == "span_with_prior"
+    ):
         # start: [2005,2005,2012]
         # end:   [2020,2012,2020]
-        if time_span_and_prior_mode == "span_full" : 
+        if time_span_and_prior_mode == "span_full":
             start.append(sampling_years[0])
             end.append(sampling_years[-1])
-        for breakyear in breakups: 
-            if breakyear > sampling_years[0] and breakyear < sampling_years[-1]: 
-                start = start + [sampling_years[0],breakyear]
-                end = end + [breakyear,sampling_years[-1]]    
-        if len(start)==0:
+        for breakyear in breakups:
+            if breakyear > sampling_years[0] and breakyear < sampling_years[-1]:
+                start = start + [sampling_years[0], breakyear]
+                end = end + [breakyear, sampling_years[-1]]
+        if len(start) == 0:
             start.append(sampling_years[0])
             end.append(sampling_years[-1])
-    else: 
-        for i in range(len(sampling_years)-1):
-            if time_span_and_prior_mode == "successive" or time_span_and_prior_mode == "successive_with_prior":
+    else:
+        for i in range(len(sampling_years) - 1):
+            if (
+                time_span_and_prior_mode == "successive"
+                or time_span_and_prior_mode == "successive_with_prior"
+            ):
                 # start: [2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005]
                 # end:   [2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
-                start.append(sampling_years[i])  
-                end.append(sampling_years[i+1])   
+                start.append(sampling_years[i])
+                end.append(sampling_years[i + 1])
             elif time_span_and_prior_mode == "cumulative":
                 # start: [2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005]
                 # end:   [2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
-                start.append(sampling_years[0])  
-                end.append(sampling_years[i+1])
+                start.append(sampling_years[0])
+                end.append(sampling_years[i + 1])
             else:
-                raise ValueError(f"Unsupported time_span_and_prior_mode '{time_span_and_prior_mode}'.")
+                raise ValueError(
+                    f"Unsupported time_span_and_prior_mode '{time_span_and_prior_mode}'."
+                )
 
-    return start,end,sampling_years
+    return start, end, sampling_years
 
 
-
-def files_years(well,dates,time_span_and_prior_mode,breakups=[]): 
+def _observation_files(well, dates, time_span_and_prior_mode, breakups=()):
     """
     Creates and Returns list of files according to time_span_and_prior_mode "cumulative" or "successive"
-    
-    Parameters 
+
+    Parameters
     ----------
     time_span_and_prior_mode: str
         cumulative: all years from start to end of dates
@@ -710,37 +535,33 @@ def files_years(well,dates,time_span_and_prior_mode,breakups=[]):
         span_with_prior: span_full with a prior from a previous stage
     breakups: list of int
         years of breakup at which hydrological regimes have changed (objectivally), eg. drastic changes of pumping rates
-    
+
     Returns
     -------
     files: array of str
-        List of corresponding file names, eg: 
+        List of corresponding file names, eg:
         ['F09_2005_2005', 'F09_2005_2006', 'F09_2005_2007', 'F09_2005_2010', 'F09_2005_2013', 'F09_2005_2014', 'F09_2005_2015', 'F09_2005_2016', 'F09_2005_2017', 'F09_2005_2018', 'F09_2005_2019']
-        
+
     """
     validate_time_span_and_prior_mode(time_span_and_prior_mode)
 
-    start,end=periods_years(well,dates,time_span_and_prior_mode,breakups)[0:2]
-
-    # Corresponding file names for each pair of years
-    # cumulative: ['F09_2005_2005', 'F09_2005_2006', 'F09_2005_2007', 'F09_2005_2010', 'F09_2005_2013', 'F09_2005_2014', 'F09_2005_2015', 'F09_2005_2016', 'F09_2005_2017', 'F09_2005_2018', 'F09_2005_2019']
-    # successive: ['F09_2005_2005', 'F09_2006_2006', 'F09_2007_2007', 'F09_2010_2010', 'F09_2013_2013', 'F09_2014_2014', 'F09_2015_2015', 'F09_2016_2016', 'F09_2017_2017', 'F09_2018_2018', 'F09_2019_2019']
-    files = []
-    for k in range(len(start)):
-        files.append(ploemeur_data_selection(well,dates,start[k],end[k]))
-    return files
+    start, end = _periods_years(well, dates, time_span_and_prior_mode, breakups)[0:2]
+    return [
+        _write_observation_selection(well, dates, first_year, last_year)
+        for first_year, last_year in zip(start, end)
+    ]
 
 
-def correspondance_matrix(well,dates,time_span_and_prior_mode,breakups=[]): 
+def _build_prior_correspondence(well, dates, time_span_and_prior_mode, breakups=()):
     """
     Correspondance matrix between
         - single years
         - multiple years that should give the a priori for the single years
-    Assumes that breakups is of size 1 and only 1!!!
+    At most one hydrological breakup is supported.
     Valid for modes: successive_with_prior, span_with_prior.
     Returns
     -------
-    dataframe such as :         
+    dataframe such as :
             file_current     file_prior
         0  F09_2005_2005  F09_2005_2010
         0  F09_2006_2006  F09_2005_2010
@@ -756,35 +577,38 @@ def correspondance_matrix(well,dates,time_span_and_prior_mode,breakups=[]):
         0  F09_2020_2020  F09_2012_2020
     """
     # Successive years start, end and files
-    if time_span_and_prior_mode == "span_with_prior": 
-        start_suc,end_suc,sampling_years_suc=periods_years(well,dates,"span_with_prior",breakups)
-        files_suc = files_years(well,dates,"span_with_prior",breakups)
-    else : 
-        start_suc,end_suc,sampling_years_suc=periods_years(well,dates,"successive",breakups)
-        files_suc = files_years(well,dates,"successive",breakups)
-    # Prior year span start, end and files
-    start_prior,end_prior,sampling_years_prior=periods_years(well,dates,"span_full",breakups)
-    files_prior = files_years(well,dates,"span_full",breakups)
-    # df: correspondance matrix 
-    dic = {}
-    for file, start, end in zip (files_suc, start_suc, end_suc):
-        if time_span_and_prior_mode == "span_with_prior": 
+    if len(breakups) > 1:
+        raise ValueError("At most one hydrological breakup is supported.")
+    if time_span_and_prior_mode == "span_with_prior":
+        start_suc, end_suc, _ = _periods_years(well, dates, "span_with_prior", breakups)
+        files_suc = _observation_files(well, dates, "span_with_prior", breakups)
+    elif time_span_and_prior_mode == "successive_with_prior":
+        start_suc, end_suc, _ = _periods_years(well, dates, "successive", breakups)
+        files_suc = _observation_files(well, dates, "successive", breakups)
+    else:
+        raise ValueError(
+            "Prior correspondence requires successive_with_prior or span_with_prior."
+        )
+    files_prior = _observation_files(well, dates, "span_full", breakups)
+    correspondence = {}
+    for filename, start, _ in zip(files_suc, start_suc, end_suc):
+        if time_span_and_prior_mode == "span_with_prior":
             temp = files_prior[0]
-        elif time_span_and_prior_mode == "successive_with_prior": 
-            if len(files_prior) != 3: 
-                temp=files_prior[0]
-            else: 
-                if start < breakups[0] : 
+        elif time_span_and_prior_mode == "successive_with_prior":
+            if len(files_prior) != 3:
+                temp = files_prior[0]
+            else:
+                if start < breakups[0]:
                     temp = files_prior[1]
-                else : 
+                else:
                     temp = files_prior[2]
-        dic[file]=temp
-        
-    return dic
+        correspondence[filename] = temp
 
-        
-class ploemeur_one_date:
-    """ 
+    return correspondence
+
+
+class PloemeurSingleRun:
+    """
     Run a single calibration case for one well and one date range.
 
     Parameters
@@ -799,7 +623,7 @@ class ploemeur_one_date:
         LPM model name for the calibration.
     explo_res: int
         Number of models used for exploration/forward uncertainty.
-    MH_nsteps: int
+    mh_nsteps: int
         Number of MH steps for the Metropolis-Hastings run.
     prior: bool
         Whether to include a prior in the calibration.
@@ -813,6 +637,7 @@ class ploemeur_one_date:
         Mode describing the time span and prior usage for this run.
 
     """
+
     def __init__(
         self,
         directory_results,
@@ -820,7 +645,7 @@ class ploemeur_one_date:
         error_concentrations,
         lpm_type,
         explo_res,
-        MH_nsteps,
+        mh_nsteps,
         prior,
         likelihood,
         lpm_number,
@@ -835,8 +660,7 @@ class ploemeur_one_date:
         validate_time_span_and_prior_mode(time_span_and_prior_mode)
         self.time_span_and_prior_mode = time_span_and_prior_mode
         # ---------------- CONCENTRATIONS DATA ------------------
-        # Concentration data 
-        self.directory_ploemeur = ploemeur_obs.ploemeur_data_folder()
+        # Concentration data
         self.file_ploemeur = data_file_path(workflow_temp_folder(), well_date)
         self.file_stem = Path(self.file_ploemeur).name
         self.error_concentrations = error_concentrations
@@ -846,12 +670,12 @@ class ploemeur_one_date:
         self.directory_lpm = directory_lpm
 
         # ---------------- METROPOLIS HASTINGS --------------------
-        # Method and Parameters  
+        # Method and Parameters
         mh_kwargs = {}
         if seed_enabled:
             mh_kwargs["seed"] = seed
         mh_config = cMH.MHConfig(
-            nstep=MH_nsteps,
+            nstep=mh_nsteps,
             prior_option=prior,
             likelihood=likelihood,
             lpm_number=lpm_number,
@@ -862,32 +686,20 @@ class ploemeur_one_date:
             initial_params=initial_params,
             **mh_kwargs,
         )
-        self.calstrat_MH = cMH.MetropolisHastings(config=mh_config)  # JR: 250000
-        # self.calstrat[1].MH_step.define_by_prop(0.005)
-        self.calstrat_MH.MH_step.define_by_value()
-        # self.calstrat_MH.set_nmodels(explo_res)
+        self.calibration_strategy = cMH.MetropolisHastings(config=mh_config)
+        self.calibration_strategy.MH_step.define_by_value()
+        self.nmodels = explo_res
 
-        
-        # ---------------- FORWARD UNCERTAINTY QUANTIFICATION -----------------------------
-        self.calstrat_FUQ = csimp.Simplex("forward_uncertainty_quantification",
-                                                    init_multiples_n=2,fuq_n=2) #JR: 5,50
-        
-                
-        # ---------------- CALIBRATION ANALYSIS --------------------
-        self.__nmodels = explo_res
-        
-        # ---- DISPLAY OPTIONS + ROOT OUTPUT DIRECTORY ------------
-        # Output options
-        self.display = gp.display_options()
+        self.display = DisplayOptions()
         self.display.text = False
         self.display.figure = True
         self.display.figure_close = True
-        self.display.figure_save = True    
-        self.display.directory = results_dir_for_case(directory_results, self.file_stem, lpm_type)
-        self.display_reachconc = False
+        self.display.figure_save = True
+        self.display.directory = results_dir_for_case(
+            directory_results, self.file_stem, lpm_type
+        )
 
-
-    def concentration_preparation(self): 
+    def concentration_preparation(self):
         """
         Load and prepare concentration data for a single case.
 
@@ -901,89 +713,67 @@ class ploemeur_one_date:
             display=self.display,
             output_dir=self.display.directory,
         )
-    
-    
-    def calibration(self, cdata, calstrat):
-        """Run a calibration with the provided strategy (MH or FUQ)."""
-    
-        # Préparer display_options
+
+    def calibrate(self, cdata):
+        """Run the configured Metropolis-Hastings calibration."""
+        strategy = self.calibration_strategy
+
+        # Prepare case-specific display options.
         display_options_case = copy.deepcopy(self.display)
-        display_options_case.directory = gp.results_directory(self.display.directory, calstrat.method)
-    
+        display_options_case.directory = result_subdirectory(
+            self.display.directory, strategy.method
+        )
+
         # Calibration
         calib_basis = calbas.CalibrationCore(
             cdata,
             self.lpm_type,
             display_options=display_options_case,
             directory_lpm=self.directory_lpm,
-            nmodels=self.__nmodels,
-            reachconc=self.display_reachconc,
+            nmodels=self.nmodels,
+            reachconc=False,
         )
         calib_basis.prepare()
-        calstrat.update_calibbasis(calib_basis)
-        lpm_results = calstrat.perform()
-        calstrat.write_calibrated_lpm(
+        strategy.update_calibbasis(calib_basis)
+        lpm_results = strategy.perform()
+        strategy.write_calibrated_lpm(
             lpm_results,
             file_prior=calibrated_prior_name(
                 self.file_stem, self.error_concentrations, self.lpm_type
             ),
             folder_prior=self.time_span_and_prior_mode,
         )
-        calstrat.analysis_calibration(lpm_results)
-    
+        strategy.analysis_calibration(lpm_results)
+
         # Tracers + distributions
         ct.display_concentration_chronicles(
             cdata,
             lpm_results,
-            calstrat.method,
+            strategy.method,
             self.display,
             time_span_mode=self.time_span_and_prior_mode,
-            lpm_number=self.calstrat_MH.config.lpm_number,
+            lpm_number=strategy.config.lpm_number,
         )
-        if self.display_reachconc: 
-            lpm_results.display_parameters_dist(self_method=calstrat.method, directory=display_options_case.directory)
-        if calstrat.method == "Metropolis_Hastings" and calstrat.prior.option: 
-            lpm_results.display_parameters_dist_comp_apriori(directory=display_options_case.directory, prior=calstrat.prior)
-        if self.display_reachconc: 
-            lpm_results.display_concentrations_dist(self_method=calstrat.method, concentrations_reference=cdata, directory=display_options_case.directory)
-    
+        if strategy.prior.option:
+            lpm_results.display_parameters_dist_comp_apriori(
+                directory=display_options_case.directory,
+                prior=strategy.prior,
+            )
+
         return lpm_results
-        
-        
 
-    def perform(self): 
-        """ 
-        Run a single Metropolis-Hastings calibration.
-        """
-        # ---------------- CONCENTRATIONS------------------------
+    def perform(self):
+        """Run a single Metropolis-Hastings calibration."""
         cdata = self.concentration_preparation()
-        # ---------------- CALIBRATION with MH -----------------
-        self.calibration(cdata,self.calstrat_MH)
+        self.calibrate(cdata)
 
-
-    def perform_method_comparison(self): 
-        """ 
-        Run MH + FUQ and compare their outputs.
-        """
-        
-        # ---------------- CONCENTRATIONS------------------------
-        cdata = self.concentration_preparation()
-        
-        # ---------------- CALIBRATION --------------------------
-        lpm_results=[None]*2
-        lpm_results[0]=self.calibration(cdata,self.calstrat_MH)
-        lpm_results[1]=self.calibration(cdata,self.calstrat_FUQ)
-        
-        # ---------------- SYNTHETIC FIGURES --------------------
-        lpm_results[0].display_parameters_dist(self_method=self.calstrat_MH.method,lpm_reference=None,lpm_2nd=lpm_results[1],lpm_2nd_method=self.calstrat_FUQ.method,directory=self.display.directory)
-        lpm_results[0].display_concentrations_dist(self_method=self.calstrat_MH.method,concentrations_reference=cdata,lpm_2nd=lpm_results[1],lpm_2nd_method=self.calstrat_FUQ.method,directory=self.display.directory)
-        
 
 # ----------------------------------------------
 # ----------------- LAUNCHERS ------------------
 # ----------------------------------------------
 
-def load_workflow_params(params_path: Path):
+
+def load_workflow_params(params_path: Path) -> dict[str, Any]:
     """
     Load workflow parameters from YAML.
 
@@ -997,67 +787,66 @@ def load_workflow_params(params_path: Path):
     dict
         Parsed YAML content.
     """
-    if not params_path:
-        return {}
-    return load_yaml_file(Path(params_path))
+    if params_path is None:
+        raise ValueError("params_path is required")
+    config = PloemeurWorkflowConfig.model_validate(load_yaml_file(Path(params_path)))
+    return config.model_dump(mode="python")
 
 
-def validate_workflow_params(params: Dict[str, Any]) -> None:
+def validate_workflow_params(
+    params: dict[str, Any] | PloemeurWorkflowConfig,
+) -> PloemeurWorkflowConfig:
     """
-    Validate minimal consistency of workflow parameters.
+    Validate the complete workflow configuration and referenced files.
 
     Checks that wells and date ranges are defined, presets exist, and data files
     referenced by the observations are available on disk.
     """
-    observations = params.get("observations", {})
-    workflow_cfg = params.get("workflows", {})
-    lpm_models = params.get("lpm_models", {})
-    results_cfg = params.get("results", {})
+    config = PloemeurWorkflowConfig.model_validate(params)
+    raw_params = config.model_dump(mode="python")
+    well_dates = load_observations_well_dates(raw_params)
+    observations = config.observations.model_copy(
+        update={
+            "well_dates": {
+                well: WellDateConfig.model_validate(date_range)
+                for well, date_range in well_dates.items()
+            }
+        }
+    )
+    config = config.model_copy(update={"observations": observations})
+    validate_well_dates(
+        observations.wells,
+        {
+            well: date_range.model_dump()
+            for well, date_range in observations.well_dates.items()
+        },
+    )
 
-    if "prior_pipeline_presets" in params:
-        raise ValueError(
-            "prior_pipeline_presets must be defined in "
-            "sites/ploemeur/params/prior_pipeline_presets.yaml (no local override)."
-        )
+    presets = load_prior_pipeline_presets()
+    unknown = [name for name in config.workflows.prior_pipeline if name not in presets]
+    if unknown:
+        raise ValueError(f"Unknown prior_pipeline presets: {unknown}")
 
-    wells = observations.get("wells", [])
-    well_dates = observations.get("well_dates", {}) or load_observations_well_dates(params)
-    validate_well_dates(wells, well_dates)
-
-    prior_pipeline = workflow_cfg.get("prior_pipeline", [])
-    if prior_pipeline:
-        presets = load_prior_pipeline_presets()
-        unknown = [name for name in prior_pipeline if name not in presets]
-        if unknown:
-            raise ValueError(f"Unknown prior_pipeline presets: {unknown}")
-        for name in prior_pipeline:
-            preset = presets.get(name, {})
-            steps = preset.get("steps", [])
-            for step in steps:
-                mode = step.get("time_span_and_prior")
-                if mode is not None:
-                    validate_time_span_and_prior_mode(mode)
-
-    by_well = lpm_models.get("by_well", {})
-    if wells and by_well:
-        extra = [well for well in by_well.keys() if well not in wells]
-        if extra:
-            raise ValueError(f"lpm_models.by_well has wells not listed in observations.wells: {extra}")
-
-    if lpm_models.get("directory"):
-        lpm_path = resolve_lpm_directory(lpm_models["directory"])
-        if not lpm_path.exists():
-            raise ValueError(f"lpm_models.directory does not exist: {lpm_path}")
-
-    if results_cfg.get("use_default") is False:
-        results_dir = results_cfg.get("directory")
-        if not results_dir:
-            raise ValueError(
-                "results.directory must be provided when results.use_default is false."
+    lpm_path = resolve_lpm_directory(config.lpm_models.directory)
+    if not lpm_path.is_dir():
+        raise ValueError(f"lpm_models.directory does not exist: {lpm_path}")
+    missing_lpm_configs = [
+        model
+        for model in sorted(
+            set(config.lpm_models.default).union(
+                *map(set, config.lpm_models.by_well.values())
             )
+        )
+        if not (lpm_path / model / "params.yaml").is_file()
+    ]
+    if missing_lpm_configs:
+        raise ValueError(
+            f"Missing params.yaml for configured LPMs: {missing_lpm_configs}"
+        )
+    return config
 
 
-def run_workflow(params_path: Path = None):
+def run_workflow(params_path: Path) -> None:
     """
     Run the Ploemeur workflow using the provided YAML parameters.
 
@@ -1068,26 +857,6 @@ def run_workflow(params_path: Path = None):
     """
     mp.freeze_support()
     params = load_workflow_params(params_path)
-    validate_workflow_params(params)
-    workflow_cfg = params.get("workflows", {})
-    prior_pipeline = workflow_cfg.get("prior_pipeline")
-    if not prior_pipeline:
-        raise ValueError("workflows.prior_pipeline must be provided in the YAML configuration.")
-
-    for pipeline in prior_pipeline:
-        simulstart = SimulationStrategy(prior_pipeline=pipeline, params=params)
-        # Execution de la simulation
-        simulstart.execute()
-
-
-if __name__ == "__main__":
-    run_workflow()
-    
-    
-    
-
-
-
-
-
-
+    config = validate_workflow_params(params)
+    for pipeline in config.workflows.prior_pipeline:
+        SimulationStrategy(prior_pipeline=pipeline, params=config).execute()

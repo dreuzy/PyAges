@@ -14,11 +14,10 @@ from scripts.common.launcher_params import load_params
 from tests.examples.holten_test_support import (
     EXPECTED_PRE_MODEL_FIGURES,
     EXPECTED_SELECTED_WELLS,
-    holten_sandbox,
-    local_4bin_outputs,
-    prepared_holten_case,
-    reference_comparison,
 )
+
+
+pytest_plugins = ("tests.examples.holten_fixtures",)
 
 
 def test_holten_context_smoke(holten_sandbox):
@@ -67,6 +66,17 @@ def test_generated_launcher_yaml_uses_prepared_tracer_directory(prepared_holten_
     params = load_params(prepared.context.paths.repo_root, config_path)
 
     assert params.tracer_data_dir == prepared.context.paths.prepared_tracer_dir
+    assert "holten" not in load_yaml(config_path)
+
+
+def test_unknown_holten_configuration_key_is_rejected(holten_sandbox):
+    config_path = holten_sandbox["example_dir"] / "holten_unknown_key.yaml"
+    payload = load_yaml(holten_sandbox["config_path"])
+    payload["holten"]["launcher"]["obsolete_option"] = True
+    dump_yaml(config_path, payload)
+
+    with pytest.raises(ValueError, match="Invalid Holten config"):
+        build_context(config_path)
 
 
 def test_prepare_can_skip_per_well_files_when_launcher_disabled(holten_sandbox):
