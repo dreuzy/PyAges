@@ -8,14 +8,17 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-import pytest
 import yaml
 
 from pyage.workflows.temporal import run_temporal
 from tests.utils import golden as golden_utils
 
-
-GOLDEN_PATH = Path(__file__).resolve().parents[2] / "tests" / "golden" / "ploemeur_temporal_values.json"
+GOLDEN_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "tests"
+    / "golden"
+    / "ploemeur_temporal_values.json"
+)
 PARAMS_PATH = (
     Path(__file__).resolve().parents[2]
     / "examples"
@@ -71,18 +74,24 @@ def _load_params(path: Path) -> Dict:
 
 def _assert_record_close(actual: Dict, expected: Dict, tol: float = 1e-4) -> None:
     """Assert that two nested dicts of numeric values are close within tolerance."""
-    assert actual.keys() == expected.keys(), f"Golden keys mismatch: {actual.keys()} vs {expected.keys()}"
+    assert actual.keys() == expected.keys(), (
+        f"Golden keys mismatch: {actual.keys()} vs {expected.keys()}"
+    )
     for key, actual_value in actual.items():
         expected_value = expected[key]
         if isinstance(actual_value, dict) and isinstance(expected_value, dict):
             _assert_record_close(actual_value, expected_value, tol=tol)
             continue
-        if isinstance(actual_value, (int, float)) and isinstance(expected_value, (int, float)):
+        if isinstance(actual_value, (int, float)) and isinstance(
+            expected_value, (int, float)
+        ):
             assert np.isclose(actual_value, expected_value, atol=0, rtol=tol), (
                 f"Value mismatch for {key}: {actual_value} != {expected_value} (tol={tol})"
             )
             continue
-        assert actual_value == expected_value, f"Value mismatch for {key}: {actual_value} != {expected_value}"
+        assert actual_value == expected_value, (
+            f"Value mismatch for {key}: {actual_value} != {expected_value}"
+        )
 
 
 def test_ploemeur_temporal_golden(update_golden, tmp_path: Path) -> None:

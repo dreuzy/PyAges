@@ -13,11 +13,9 @@ from scipy.integrate import quad
 from pyage.lpm.models.exponential_shifted import ExponentialShiftedLpm
 from pyage.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[6]
 OUTPUT_DIRECTORY = (
-    REPOSITORY_ROOT / "results" / "HYP-26-0172" / "figures"
-    / "supporting_information"
+    REPOSITORY_ROOT / "results" / "HYP-26-0172" / "figures" / "supporting_information"
 )
 LPM_PARAMETER_DIRECTORY = REPOSITORY_ROOT / "sites" / "ploemeur" / "params_lpm"
 PLOT_T_MAX = 300.0
@@ -61,16 +59,18 @@ plt.rcParams.update(
 def build_models(parameters: CurveParameters):
     """Return both LPMs for one numbered physical parameter set."""
     exponential = ExponentialShiftedLpm(
-        mu=parameters.mu, shift=parameters.shift,
+        mu=parameters.mu,
+        shift=parameters.shift,
         directory_lpm=LPM_PARAMETER_DIRECTORY,
     )
 
-    # scipy.stats.invgauss uses shape=mean/lambda and scale=lambda.
-    # The repository exposes these arguments as ``mu`` and ``sigma``.
-    mu_code = parameters.mu / parameters.shape_lambda
-    sigma_code = parameters.shape_lambda
+    # PyAge exposes the physical mean and standard deviation.  In the common
+    # IG(mean, lambda) parameterization, variance = mean**3 / lambda.
+    sigma_physical = np.sqrt(parameters.mu**3 / parameters.shape_lambda)
     inverse_gaussian = InverseGaussianShiftedLpm(
-        mu=mu_code, sigma=sigma_code, shift=parameters.shift,
+        mu=parameters.mu,
+        sigma=sigma_physical,
+        shift=parameters.shift,
         directory_lpm=LPM_PARAMETER_DIRECTORY,
     )
     return exponential, inverse_gaussian
@@ -78,12 +78,33 @@ def build_models(parameters: CurveParameters):
 
 def numerical_moments(model, shift: float) -> tuple[float, float, float]:
     """Numerically integrate mass, mean, and variance on the full support."""
-    pdf = lambda value: float(model.pdf(value))
+
+    def pdf(value: float) -> float:
+        return float(model.pdf(value))
+
     integral = quad(pdf, shift, np.inf, epsabs=1e-11, epsrel=1e-11, limit=500)[0]
-    mean = quad(lambda value: value * pdf(value), shift, np.inf,
-                epsabs=1e-10, epsrel=1e-10, limit=500)[0] / integral
-    variance = quad(lambda value: (value - mean) ** 2 * pdf(value), shift, np.inf,
-                    epsabs=1e-9, epsrel=1e-9, limit=500)[0] / integral
+    mean = (
+        quad(
+            lambda value: value * pdf(value),
+            shift,
+            np.inf,
+            epsabs=1e-10,
+            epsrel=1e-10,
+            limit=500,
+        )[0]
+        / integral
+    )
+    variance = (
+        quad(
+            lambda value: (value - mean) ** 2 * pdf(value),
+            shift,
+            np.inf,
+            epsabs=1e-9,
+            epsrel=1e-9,
+            limit=500,
+        )[0]
+        / integral
+    )
     return integral, mean, variance
 
 
@@ -103,33 +124,70 @@ def validate_and_write_tables() -> list[dict[str, float | str]]:
             probe = np.linspace(parameters.shift, PLOT_T_MAX, PLOT_POINTS)
             density = np.asarray(model.pdf(probe), dtype=float)
             if not np.all(np.isfinite(density)) or np.any(density < 0.0):
-                raise ValueError(f"Invalid density values for curve {parameters.number}")
+                raise ValueError(
+                    f"Invalid density values for curve {parameters.number}"
+                )
             integral, mean, variance = numerical_moments(model, parameters.shift)
             if abs(integral - 1.0) >= 1e-3 or abs(mean - expected_mean) >= 0.1:
                 raise ValueError(f"Moment check failed for curve {parameters.number}")
-            q1, median, q3 = (float(value) for value in model.cdf_inv([0.25, 0.5, 0.75]))
+            q1, median, q3 = (
+                float(value) for value in model.cdf_inv([0.25, 0.5, 0.75])
+            )
             control_rows.append(
-                {"curve_number": parameters.number, "model": name,
-                 "shift": parameters.shift, "mu": parameters.mu, "lambda": lambda_value,
-                 "integral": integral, "mean": mean, "variance": variance,
-                 "q1": q1, "median": median, "q3": q3,
-                 "interquartile_range": q3 - q1}
+                {
+                    "curve_number": parameters.number,
+                    "model": name,
+                    "shift": parameters.shift,
+                    "mu": parameters.mu,
+                    "lambda": lambda_value,
+                    "integral": integral,
+                    "mean": mean,
+                    "variance": variance,
+                    "q1": q1,
+                    "median": median,
+                    "q3": q3,
+                    "interquartile_range": q3 - q1,
+                }
             )
             parameter_rows.append(
-                {"curve_number": parameters.number, "model": name,
-                 "mean_total": expected_mean, "shift": parameters.shift,
-                 "mu": parameters.mu, "lambda": lambda_value}
+                {
+                    "curve_number": parameters.number,
+                    "model": name,
+                    "mean_total": expected_mean,
+                    "shift": parameters.shift,
+                    "mu": parameters.mu,
+                    "lambda": lambda_value,
+                }
             )
 
     for filename, rows, fields in (
-        ("LPM_distribution_families_parameters.csv", parameter_rows,
-         ["curve_number", "model", "mean_total", "shift", "mu", "lambda"]),
-        ("LPM_distribution_families_numerical_checks.csv", control_rows,
-         ["curve_number", "model", "shift", "mu", "lambda",
-          "integral", "mean", "variance",
-          "q1", "median", "q3", "interquartile_range"]),
+        (
+            "LPM_distribution_families_parameters.csv",
+            parameter_rows,
+            ["curve_number", "model", "mean_total", "shift", "mu", "lambda"],
+        ),
+        (
+            "LPM_distribution_families_numerical_checks.csv",
+            control_rows,
+            [
+                "curve_number",
+                "model",
+                "shift",
+                "mu",
+                "lambda",
+                "integral",
+                "mean",
+                "variance",
+                "q1",
+                "median",
+                "q3",
+                "interquartile_range",
+            ],
+        ),
     ):
-        with (OUTPUT_DIRECTORY / filename).open("w", newline="", encoding="utf-8") as stream:
+        with (OUTPUT_DIRECTORY / filename).open(
+            "w", newline="", encoding="utf-8"
+        ) as stream:
             writer = csv.DictWriter(stream, fieldnames=fields)
             writer.writeheader()
             writer.writerows(rows)
@@ -147,8 +205,14 @@ def make_figure() -> tuple[Path, Path]:
         exponential, inverse_gaussian = build_models(parameters)
         for axis, model in zip(axes, (exponential, inverse_gaussian)):
             density = np.asarray(model.pdf(times), dtype=float)
-            axis.plot(times, density, color=color, linestyle="-",
-                      linewidth=1.7, label=str(parameters.number))
+            axis.plot(
+                times,
+                density,
+                color=color,
+                linestyle="-",
+                linewidth=1.7,
+                label=str(parameters.number),
+            )
             global_max = max(global_max, float(np.max(density)))
 
     for axis, title in zip(
@@ -160,10 +224,18 @@ def make_figure() -> tuple[Path, Path]:
         axis.set_ylim(0.0, global_max * 1.08)
         axis.tick_params(direction="out", width=1.0)
     axes[0].set_ylabel("Probability density (year⁻¹)")
-    fig.legend(*axes[0].get_legend_handles_labels(), loc="lower center", ncol=6,
-               frameon=False, fontsize=5.6, handlelength=2.2,
-               columnspacing=1.0, title="Curve number", title_fontsize=5.6,
-               bbox_to_anchor=(0.5, -0.01))
+    fig.legend(
+        *axes[0].get_legend_handles_labels(),
+        loc="lower center",
+        ncol=6,
+        frameon=False,
+        fontsize=5.6,
+        handlelength=2.2,
+        columnspacing=1.0,
+        title="Curve number",
+        title_fontsize=5.6,
+        bbox_to_anchor=(0.5, -0.01),
+    )
     fig.subplots_adjust(left=0.11, right=0.98, top=0.88, bottom=0.23, wspace=0.12)
 
     png_path = OUTPUT_DIRECTORY / "LPM_distribution_families.png"
@@ -177,7 +249,9 @@ def make_figure() -> tuple[Path, Path]:
 def main() -> None:
     controls = validate_and_write_tables()
     outputs = make_figure()
-    print("No. | Model | Shift | mu | lambda | Integral | Mean | Variance | Q1 | Median | Q3 | IQR")
+    print(
+        "No. | Model | Shift | mu | lambda | Integral | Mean | Variance | Q1 | Median | Q3 | IQR"
+    )
     for row in controls:
         print(
             f"{row['curve_number']} | {row['model']} | {row['shift']:g} | "

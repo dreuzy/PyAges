@@ -4,12 +4,14 @@ Tracer template generator.
 Generates boilerplate configuration files for new tracers.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
 
 import click
 
-TRACER_CONFIG_TEMPLATE = '''\
+TRACER_CONFIG_TEMPLATE = """\
 # {name_upper} Tracer Configuration
 #
 # This file configures the {name} tracer for groundwater age dating.
@@ -62,9 +64,9 @@ recharge: {has_chronicle}
 # These are auto-determined from recharge.csv when recharge: true
 # Only specify manually if recharge: false
 {date_range}
-'''
+"""
 
-RECHARGE_CSV_TEMPLATE = '''\
+RECHARGE_CSV_TEMPLATE = """\
 # =============================================================================
 # {name_upper} Atmospheric Recharge Chronicle
 # =============================================================================
@@ -89,7 +91,7 @@ date,concentration
 {middate2},1.0
 {middate3},0.8
 {datemax},0.6
-'''
+"""
 
 
 def generate_tracer_template(
@@ -108,16 +110,13 @@ def generate_tracer_template(
     with_decay : bool
         If True, include radioactive decay configuration.
     """
-    # Find repository root
-    cli_dir = Path(__file__).resolve().parent.parent
-    pyage_dir = cli_dir.parent
-    repo_root = pyage_dir.parent
+    project_root = Path.cwd()
 
     # Default output location
     if output is None:
-        tracer_output = repo_root / "data_core" / "data_tracer"
+        tracer_output = project_root / "data_core" / "data_tracer"
     else:
-        tracer_output = Path(output)
+        tracer_output = Path(output).resolve()
 
     tracer_dir = tracer_output / name
     tracer_dir.mkdir(parents=True, exist_ok=True)
@@ -138,9 +137,9 @@ def generate_tracer_template(
             "# recharge_constant: 1.0" if with_chronicle else "recharge_constant: 1.0"
         ),
         decay_line=(
-            "decay_time: 17.77  # Example: customize for your tracer"
+            "half_life: 12.32  # Years; replace with the isotope's published half-life"
             if with_decay
-            else "# decay_time: 17.77"
+            else "# half_life: 12.32"
         ),
         date_range=(
             "# datemin: 1940.0\n# datemax: 2025.0"
@@ -192,7 +191,7 @@ def generate_tracer_template(
     click.echo(f"  1. Edit {config_file}")
     click.echo("     - Set the correct unit for your tracer")
     if with_decay:
-        click.echo("     - Adjust decay_time for your specific isotope")
+        click.echo("     - Adjust half_life for your specific isotope")
     if with_chronicle:
         click.echo(f"  2. Edit {tracer_dir / 'recharge.csv'}")
         click.echo("     - Replace placeholder data with actual atmospheric chronicle")

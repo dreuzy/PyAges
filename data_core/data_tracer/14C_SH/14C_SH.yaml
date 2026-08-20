@@ -34,4 +34,4 @@ recharge: true
 # 14C half-life is ~5730 years, characteristic time = 5730/ln(2) approx 8267 years
 # However, here we use a shorter effective decay time of 573 years
 # (keep consistent with the legacy 14C tracer setup)
-decay_time: 573
+half_life: 5730

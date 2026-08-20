@@ -6,7 +6,7 @@ lumped-parameter models (LPMs), convolution, and calibration workflows.
 For a local build:
 
 ```bash
-pip install -e .[docs]
+python -m pip install -c install/constraints.txt -e ".[docs]"
 python -m sphinx -b html docs docs/_build/html
 ```
 
@@ -26,8 +26,19 @@ reference/index
 scientific-overview
 figures/figure1_overview
 examples/index
-ARCHITECTURE_COMPLETE
+architecture
 uml/index
 dev/index
 api/index
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Scientific Audits and Migration Notes
+
+convolution-method-evolution-report
+scientific-migration-ig-decay
+pyage-scientific-audit
+pyage-tracerlpm-targeted-comparison
+tracerlpm-visual-studio-feasibility
 ```

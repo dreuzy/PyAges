@@ -70,7 +70,11 @@ Thumbs.db
 figures_out/
 results/
 tmp_path/
+/.env
+/package-lock.json
+/holten_helium_requalification.md
 /sites/ploemeur/data/temp/
+/examples/**/generated/
 /examples/natural/ploemeur/*.html
 *.log
 *.tmp
@@ -78,4 +82,22 @@ tmp_path/
 nul
 docs/_build/
 docs/api/generated/
-/examples/natural/fontainebleau/doc/Water Resources Research - 2003 - Castro - Calibration of regional groundwater flow models  Working toward a better.pdf
+/validation/tracerlpm/config/*.local.yaml
+/validation/tracerlpm/bin/
+/validation/tracerlpm/output/
+/validation/tracerlpm/work/
+/validation/tracerlpm/src/**/bin/
+/validation/tracerlpm/src/**/obj/
+/validation/tracerlpm/benchmark/generated/
+/validation/tracerlpm/benchmark/observations/
+/validation/tracerlpm/benchmark/tracerlpm_exports_raw/
+/validation/tracerlpm/benchmark/configs/tracerlpm-inversion-monte-carlo-01*.yaml
+/validation/tracerlpm/benchmark/configs/tracerlpm-inversion-noisy-campaign.yaml
+/validation/tracerlpm/benchmark/configs/tracerlpm-inversion-sf6-*-30.yaml
+/validation/tracerlpm/benchmark/configs/tracerlpm-inversion-sf6-*-remaining-*.yaml
+/validation/tracerlpm/benchmark/configs/tracerlpm-robustness-*.yaml
+
+# Third-party publications are referenced by DOI instead of redistributed.
+/examples/natural/fontainebleau/doc/*.pdf
+/examples/natural/holten/doc/*.pdf
+/examples/natural/holten/doc/*.pptx

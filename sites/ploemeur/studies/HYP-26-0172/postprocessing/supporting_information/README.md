@@ -6,14 +6,14 @@ comparison without running a calibration or a Bayesian simulation.
 Run from the repository root:
 
 ```powershell
-python sites/ploemeur/studies/HYP-26-0172/postprocessing/supporting_information/plot_lpm_distribution_families.py
+python -m sites.ploemeur.studies.HYP-26-0172.postprocessing.supporting_information.plot_lpm_distribution_families
 ```
 
 The matched-median/matched-IQR variant is generated without overwriting the
 original outputs:
 
 ```powershell
-python sites/ploemeur/studies/HYP-26-0172/postprocessing/supporting_information/plot_lpm_distribution_families_matched_quantiles.py
+python -m sites.ploemeur.studies.HYP-26-0172.postprocessing.supporting_information.plot_lpm_distribution_families_matched_quantiles
 ```
 
 Matched-quantile caption: Representative transit-time distributions for the
@@ -56,7 +56,7 @@ The direct four-panel comparison for parameter sets 1, 2, 4, and 6 is generated
 from the matched-quantile CSV files with:
 
 ```powershell
-python sites/ploemeur/studies/HYP-26-0172/postprocessing/supporting_information/plot_lpm_pairwise_comparison.py
+python -m sites.ploemeur.studies.HYP-26-0172.postprocessing.supporting_information.plot_lpm_pairwise_comparison
 ```
 
 The pairwise figure is also exported as a flattened, LZW-compressed TIFF at

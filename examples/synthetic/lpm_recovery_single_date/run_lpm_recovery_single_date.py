@@ -6,19 +6,12 @@ Run the synthetic single-date recovery example end to end.
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-ensure_repo_imports()
-
-from scripts.launcher import run_workflow
-from synthetic_case import build_truth_aware_figures, case_paths, generate_synthetic_case
+from examples.synthetic.lpm_recovery_single_date.synthetic_case import (
+    build_truth_aware_figures,
+    generate_synthetic_case,
+)
+from pyage.workflows.single_date import run_workflow
 
 
 def main(force_inline: bool = False) -> Path:

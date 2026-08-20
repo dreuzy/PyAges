@@ -15,7 +15,6 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-
 TEMPORAL_VALID_MODES = {"span", "successive"}
 
 
@@ -27,16 +26,19 @@ def _resolve_path(value: Path, info):
 
 
 class _BaseCfg(BaseModel):
-    """Base config: ignore unknown keys to keep legacy YAML compatible."""
-    model_config = ConfigDict(extra="ignore")
+    """Strict base for all user-facing configuration models."""
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
 
 
 # ---------------------------------------------------------------------------
 # CLI config models
 # ---------------------------------------------------------------------------
 
+
 class CliRunParams(_BaseCfg):
     """Validated CLI parameters for `pyage run`."""
+
     config: Path
     transient: bool = False
     inline: bool = False
@@ -78,6 +80,7 @@ class CliRunParams(_BaseCfg):
 
 class CliCheckParams(_BaseCfg):
     """Validated CLI parameters for `pyage check`."""
+
     verbose: bool = False
 
 
@@ -85,10 +88,12 @@ class CliCheckParams(_BaseCfg):
 # run_system_check.py (manual integration script) config models
 # ---------------------------------------------------------------------------
 
+
 class SystemCheckConfig(_BaseCfg):
     """Configuration for the integration test script."""
+
     date: float = 2010
-    lpm_all: List[str] = Field(
+    lpm_all: list[str] = Field(
         default_factory=lambda: [
             "dirac",
             "dirac_double",
@@ -103,7 +108,7 @@ class SystemCheckConfig(_BaseCfg):
             "mix_exp_shifted",
         ]
     )
-    lpm_calib: List[str] = Field(
+    lpm_calib: list[str] = Field(
         default_factory=lambda: [
             "dirac_double",
             "exp_shifted",
@@ -115,7 +120,7 @@ class SystemCheckConfig(_BaseCfg):
             "dirac",
         ]
     )
-    tracers_all: List[str] = Field(
+    tracers_all: list[str] = Field(
         default_factory=lambda: [
             "Li",
             "sf6",
@@ -128,17 +133,19 @@ class SystemCheckConfig(_BaseCfg):
             "39Ar",
         ]
     )
-    tracers_conv: List[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
-    tracers_calib: List[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
+    tracers_conv: list[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
+    tracers_calib: list[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
     reachable_resolution: int = Field(default=1000, ge=1)
 
 
 # ---------------------------------------------------------------------------
-# launcher.py (single-date) config models
+# Single-date workflow config models
 # ---------------------------------------------------------------------------
+
 
 class LauncherDatasetCfg(_BaseCfg):
     """Dataset section of the single-date launcher YAML."""
+
     name: str = "example_dataset"
     label: str | None = None
     year: int = 2010
@@ -153,6 +160,7 @@ class LauncherDatasetCfg(_BaseCfg):
 
 class LauncherLpmCfg(_BaseCfg):
     """LPM section of the single-date launcher YAML."""
+
     model_name: str = "dirac_double"
     data_directory: Path = Path("data_core/data_lpm")
 
@@ -164,6 +172,7 @@ class LauncherLpmCfg(_BaseCfg):
 
 class LauncherTracerCfg(_BaseCfg):
     """Optional tracer data override for single-date launcher workflows."""
+
     data_directory: Path | None = None
 
     @field_validator("data_directory")
@@ -176,6 +185,7 @@ class LauncherTracerCfg(_BaseCfg):
 
 class LauncherRunCfg(_BaseCfg):
     """Run flags for each step of the workflow."""
+
     reachable_concentrations: bool = True
     objective_function: bool = True
     calibration_metropolis_hastings: bool = True
@@ -184,16 +194,19 @@ class LauncherRunCfg(_BaseCfg):
 
 class LauncherReachableCfg(_BaseCfg):
     """Reachable concentrations sampling options."""
+
     nmodels: int = Field(default=5000, ge=1)
 
 
 class LauncherObjectiveCfg(_BaseCfg):
     """Objective function sampling options."""
+
     nmodels: int = Field(default=10000, ge=1)
 
 
 class LauncherMetropolisCfg(_BaseCfg):
     """Metropolis-Hastings configuration (single-date launcher)."""
+
     nstep: int = Field(default=5000, ge=1)
     prior_option: bool = False
     likelihood: bool = True
@@ -203,25 +216,34 @@ class LauncherMetropolisCfg(_BaseCfg):
 
 class LauncherSimplexCfg(_BaseCfg):
     """Simplex calibration options."""
+
     init_multiples_n: int = Field(default=3, ge=1)
     fuq_n: int = Field(default=30, ge=1)
 
 
 class LauncherConfig(_BaseCfg):
-    """Full YAML schema for launcher.py."""
-    dataset: LauncherDatasetCfg = LauncherDatasetCfg()
-    lpm: LauncherLpmCfg = LauncherLpmCfg()
-    tracers: LauncherTracerCfg = LauncherTracerCfg()
-    run: LauncherRunCfg = LauncherRunCfg()
-    reachable_concentrations: LauncherReachableCfg = LauncherReachableCfg()
-    objective_function: LauncherObjectiveCfg = LauncherObjectiveCfg()
-    calibration_metropolis_hastings: LauncherMetropolisCfg = LauncherMetropolisCfg()
-    calibration_simplex: LauncherSimplexCfg = LauncherSimplexCfg()
+    """Full YAML schema for the single-date workflow."""
+
+    dataset: LauncherDatasetCfg = Field(default_factory=LauncherDatasetCfg)
+    lpm: LauncherLpmCfg = Field(default_factory=LauncherLpmCfg)
+    tracers: LauncherTracerCfg = Field(default_factory=LauncherTracerCfg)
+    run: LauncherRunCfg = Field(default_factory=LauncherRunCfg)
+    reachable_concentrations: LauncherReachableCfg = Field(
+        default_factory=LauncherReachableCfg
+    )
+    objective_function: LauncherObjectiveCfg = Field(
+        default_factory=LauncherObjectiveCfg
+    )
+    calibration_metropolis_hastings: LauncherMetropolisCfg = Field(
+        default_factory=LauncherMetropolisCfg
+    )
+    calibration_simplex: LauncherSimplexCfg = Field(default_factory=LauncherSimplexCfg)
 
 
 class LauncherParams(_BaseCfg):
-    """Flattened parameters consumed by launcher.py."""
-    model_config = ConfigDict(frozen=True)
+    """Flattened parameters consumed by the single-date workflow."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     dataset_name: str
     dataset_label: str | None
@@ -250,14 +272,17 @@ class LauncherParams(_BaseCfg):
 # Generic temporal workflow (multi-date) config models
 # ---------------------------------------------------------------------------
 
+
 class TemporalDatasetCfg(_BaseCfg):
     """Dataset inputs (file path + optional relative error)."""
+
     file: str = Field(..., min_length=1)
     error_rel: float | None = Field(default=None, ge=0.0, lt=1.0)
 
 
 class TemporalCalibrationCfg(_BaseCfg):
     """Metropolis-Hastings configuration with bounds and defaults."""
+
     mh_nsteps: int = Field(default=1000, gt=100)
     burn_in: float = Field(default=0.2, ge=0.0, lt=0.5)
     nskip: int = Field(default=10, ge=1)
@@ -269,6 +294,7 @@ class TemporalCalibrationCfg(_BaseCfg):
 
 class TemporalFiguresCfg(_BaseCfg):
     """Toggle plot outputs."""
+
     temporal: bool = False
     distributions: bool = False
     concentrations_2d: bool = False
@@ -276,27 +302,34 @@ class TemporalFiguresCfg(_BaseCfg):
 
 class TemporalWorkflowCfg(_BaseCfg):
     """Workflow control (span vs successive)."""
+
     mode: str = "span"
 
     @field_validator("mode")
     @classmethod
     def _validate_mode(cls, value: str) -> str:
         if value not in TEMPORAL_VALID_MODES:
-            raise ValueError(f"workflow.mode must be one of {sorted(TEMPORAL_VALID_MODES)}")
+            raise ValueError(
+                f"workflow.mode must be one of {sorted(TEMPORAL_VALID_MODES)}"
+            )
         return value
 
 
 class TemporalLpmModelsCfg(_BaseCfg):
     """LPM selection and optional parameter directory override."""
+
     list: List[str] | None = None
     directory: str | None = None
 
 
 class TemporalResultsCfg(_BaseCfg):
     """Results location (default root or explicit directory)."""
+
     use_default: bool = True
     directory: str | None = None
-    study_name: str = Field(default="temporal", min_length=1, pattern=r"^[A-Za-z0-9_.-]+$")
+    study_name: str = Field(
+        default="temporal", min_length=1, pattern=r"^[A-Za-z0-9_.-]+$"
+    )
 
     @field_validator("directory")
     @classmethod
@@ -308,12 +341,13 @@ class TemporalResultsCfg(_BaseCfg):
 
 class TemporalParams(_BaseCfg):
     """Top-level configuration for a temporal calibration workflow."""
+
     dataset: TemporalDatasetCfg
-    calibration: TemporalCalibrationCfg = TemporalCalibrationCfg()
-    figures: TemporalFiguresCfg = TemporalFiguresCfg()
-    workflow: TemporalWorkflowCfg = TemporalWorkflowCfg()
-    lpm_models: TemporalLpmModelsCfg = TemporalLpmModelsCfg()
-    results: TemporalResultsCfg = TemporalResultsCfg()
+    calibration: TemporalCalibrationCfg = Field(default_factory=TemporalCalibrationCfg)
+    figures: TemporalFiguresCfg = Field(default_factory=TemporalFiguresCfg)
+    workflow: TemporalWorkflowCfg = Field(default_factory=TemporalWorkflowCfg)
+    lpm_models: TemporalLpmModelsCfg = Field(default_factory=TemporalLpmModelsCfg)
+    results: TemporalResultsCfg = Field(default_factory=TemporalResultsCfg)
 
 
 __all__ = [

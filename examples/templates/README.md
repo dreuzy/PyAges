@@ -5,12 +5,12 @@ and avoid interactive plotting.
 
 Single-date (fast):
 ```
-python scripts/launcher.py --params examples/templates/quickstart_single.yaml
+pyage run examples/templates/quickstart_single.yaml
 ```
 
 Multi-date / temporal (fast):
 ```
-python scripts/launcher_temporal.py --params examples/templates/quickstart_temporal.yaml
+pyage run --transient examples/templates/quickstart_temporal.yaml
 ```
 
 Tip: you can override key fields from the CLI:

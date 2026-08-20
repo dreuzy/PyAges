@@ -7,20 +7,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 
 import numpy as np
 import pandas as pd
 import yaml
-
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-ensure_repo_imports()
 
 import pyage.concentrations.concentrations as co
 from pyage.convolution.convolution_tracers import ConvolutionTracers
@@ -102,7 +92,9 @@ def generate_synthetic_case(
     add_noise = bool(generation_cfg.get("add_noise", True))
     relative_error = float(generation_cfg.get("relative_error", 0.04))
     date = float(generation_cfg.get("date", 2010.9))
-    tracer_names = list(generation_cfg.get("tracers", ["cfc11", "cfc12", "cfc113", "sf6"]))
+    tracer_names = list(
+        generation_cfg.get("tracers", ["cfc11", "cfc12", "cfc113", "sf6"])
+    )
     lpm_name = str(lpm_cfg.get("model_name", "exp_shifted"))
     parameter_values = {
         str(name): float(value)
@@ -111,15 +103,16 @@ def generate_synthetic_case(
     if not parameter_values:
         raise ValueError("Synthetic example requires explicit lpm.parameters values.")
 
-    lpm = lpm_build(lpm_name, directory_lpm=str(_repo_root() / "data_core" / "data_lpm"))
+    lpm = lpm_build(
+        lpm_name, directory_lpm=str(_repo_root() / "data_core" / "data_lpm")
+    )
     for name, value in parameter_values.items():
         lpm.p[name] = value
 
     tracers = ConvolutionTracers(names=tracer_names, date=date)
-    true_concentrations = tracers.convolution(
+    true_concentrations = tracers.convolve(
         lpm,
-        return_type="concentrations_set",
-        prepare=False,
+        return_type="concentrations",
     )
     true_frame = true_concentrations.cv.copy()
     observed_frame = true_frame.copy()
@@ -234,7 +227,8 @@ def build_truth_aware_figures(
     """
     truth = truth_payload or load_ground_truth()
     import matplotlib.pyplot as plt
-    from scripts.common.example_summary_plots import (
+
+    from pyage.workflows.summary_plots import (
         plot_objective_summary,
         plot_parameter_summary,
         plot_single_date_model_space,
@@ -242,7 +236,7 @@ def build_truth_aware_figures(
 
     paths = case_paths()
     observed_path = dataset_path or paths.dataset_path
-    observed = co.Concentrations(file_load=True, file_name=str(observed_path))
+    observed = co.Concentrations.from_file(observed_path)
     true_frame = true_concentration_frame(truth)
     posterior_frame = pd.read_csv(
         results_dir / method / "lpm_dist_calibrated.txt",
@@ -260,8 +254,7 @@ def build_truth_aware_figures(
 
     results_by_method = {method: posterior_frame}
     reference_params = {
-        str(name): float(value)
-        for name, value in truth["lpm"]["parameters"].items()
+        str(name): float(value) for name, value in truth["lpm"]["parameters"].items()
     }
     case_label = truth.get("example", {}).get("label", "Synthetic recovery example")
 

@@ -1,0 +1,24 @@
+# Pilote technique unique de Phase 2. Le runner travaille toujours sur une
+# copie du classeur qualifié et ne modifie jamais le fichier source.
+- case_id: synthetic-constant-pfm
+  # Échantillon existant utilisé uniquement pour sa date d'observation.
+  sample: PSW-1-17/08/2004
+  # Date décimale imposée pour éviter l'ambiguïté locale de la ComboBox VBA.
+  observation_year: 2004.6256830601094
+  # Deux emplacements PFM identiques permettent de contrôler la répétabilité.
+  model1: PFM
+  model2: PFM
+  # Colonnes stables déjà présentes dans la configuration Example 1.
+  x_axis: SF6
+  y_axis: NO3-N
+  input_history:
+    # Chemin résolu relativement à ce fichier YAML, quel que soit le terminal.
+    path: ../inputs/synthetic/constant.csv
+    # Empreinte du CSV généré par la Phase 1.
+    sha256: 36D557389A15AE4BE6AE30AC88C34A82E67C70859D398D35790D9286CFFD6B66
+    # Les deux axes reçoivent exactement la même chronique.
+    target_tracers: [SF6, NO3-N]
+    # Convention commune au benchmark avant le premier point disponible.
+    before: 0.0
+    # Après la chronique, conserver la dernière valeur.
+    after: hold_last

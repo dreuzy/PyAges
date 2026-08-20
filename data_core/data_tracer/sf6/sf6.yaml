@@ -30,9 +30,7 @@ recharge: true
 # Optional: Radioactive Decay
 # =============================================================================
 
-# Decay characteristic time in years (half-life / ln(2))
-# SF6 is stable (no radioactive decay)
-# decay_time: not applicable
+# SF6 is stable in this model; no half_life field is configured.
 
 # =============================================================================
 # Optional: Geoproduction

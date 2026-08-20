@@ -1,0 +1,81 @@
+# Mapping qualifié de la copie CFC-11/CFC-12/CFC-113/SF6.
+workbook_sha256: FB9022E683D6854B329AAD07EA76749C17BEF242EC2C703C7B7B5A293EC8E30F
+
+graph_sheet: TracerTracerGraphs
+graph_sheet_code_name: Sheet5
+graph_observation_year_cell: E13
+graph_model1_parameter_cell: K5
+graph_model2_parameter_cell: K7
+output_sheet: TracerTracerOutput
+sample_sheet: Samples
+
+input_sheet: TracerInput
+input_date_range: A19:A359
+input_value_columns:
+  CFC-11: C
+  CFC-12: D
+  CFC-113: E
+  SF6: F
+input_unsaturated_time_row: 9
+input_half_life_row: 12
+input_decay_rate_row: 14
+input_scaling_factor_row: 17
+
+controls:
+  samples_to_graph: GraphsLB1
+  sample_to_model: SamplesCombo
+  model1: ModelCombo1
+  model2: ModelCombo2
+  x_axis: Graph1x
+  y_axis: Graph1y
+
+event_macros:
+  - SamplesCombo_Click
+  - GraphsLB1_Change
+  - Graph1x_Click
+  - Graph1y_Click
+  - ModelCombo1_Change
+  - ModelCombo2_Change
+
+output_ranges:
+  model1: P3:Q63
+  model2: Z3:AA63
+  model1_block: M:V
+  model2_block: W:AF
+  model_header_row: 2
+  model_first_data_row: 3
+  model_last_data_row: 63
+  sample: G6:H6
+  model_ages: K3:K63
+
+fit:
+  sheet: TracerTracerFits
+  sheet_code_name: Sheet19
+  sample_control: SampleList
+  model_control: ModelListCombo
+  tracer_control: TracerList
+  observation_year_cell: E18
+  observation_cells:
+    CFC-11: F6
+    CFC-12: G6
+    CFC-113: H6
+    SF6: I6
+  age_cell: E12
+  age_lower_cell: F12
+  age_upper_cell: G12
+  model_parameter_cell: H12
+  model_parameter_lower_cell: I12
+  model_parameter_upper_cell: J12
+  result_age_cell: E12
+  result_objective_cell: E27
+  tracer_selection_label_cell: F27
+  calculated_cells:
+    CFC-11: F18
+    CFC-12: G18
+    CFC-113: H18
+    SF6: I18
+  decay_rate_cells:
+    CFC-11: F17
+    CFC-12: G17
+    CFC-113: H17
+    SF6: I17

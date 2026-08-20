@@ -119,8 +119,8 @@ Related files that help place this example in the repository:
   Minimal single-date configuration template.
 - [`examples/natural/ploemeur/`](../../natural/ploemeur)
   Natural single-date example used as the main field-data reference.
-- [`scripts/launcher.py`](../../../scripts/launcher.py)
-  Generic single-date launcher used by this example.
+- `pyage run`
+  Canonical single-date workflow used by this example.
 - [`scripts/common/example_summary_plots.py`](../../../scripts/common/example_summary_plots.py)
   Shared plotting helpers used to build the didactic summary figures.
 

@@ -1,9 +1,5 @@
 # LPM parameters for model "weibull"
-# This YAML mirrors the legacy files:
-# - bounds.txt (parameter bounds used by LPM_root.__load_bounds)
-# - simplex_init.txt (initial values used by calibration_simplex)
-# - MHstep.txt (proposal step sizes used by calibration_Metropolis_Hastings)
-# - MHapriori.txt (prior distributions used by calibration_Metropolis_Hastings)
+# Canonical schema for bounds, initialization, proposal steps, and priors.
 
 model: weibull
 version: 1

@@ -1,0 +1,8 @@
+campaign_id: tracerlpm-targeted-v1
+kind: synthetic_inversion_observations
+truth_row_count: 270
+noise_realization_count: 5
+observation_row_count: 1350
+forward_reference_sha256: A23657156CC4FCCD245E880F1801466BC5290F30AD3C318FA095DA3AE2E1E5E9
+synthetic_observations_sha256: FE88080E9B35539515D3CD9E9BE8DC74CC9B5CA0429526FB9EB79342DC6ED94F
+noise_model: multiplicative Gaussian; observed=true*(1+N(0, relative_standard_deviation))

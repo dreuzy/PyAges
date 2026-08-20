@@ -5,10 +5,15 @@ Smoke tests for the refactored Fontainebleau example helpers.
 
 from pathlib import Path
 
-from examples.natural.fontainebleau.fontainebleau_benchmark import prepare_fontainebleau_case
-from examples.natural.fontainebleau.fontainebleau_case import build_context, build_effective_config, write_effective_config
-from scripts.common.launcher_params import load_params
-
+from examples.natural.fontainebleau.fontainebleau_benchmark import (
+    prepare_fontainebleau_case,
+)
+from examples.natural.fontainebleau.fontainebleau_case import (
+    build_context,
+    build_effective_config,
+    write_effective_config,
+)
+from pyage.workflows.single_date_config import load_params
 
 CONFIG_PATH = (
     Path(__file__).resolve().parents[2]
@@ -64,7 +69,12 @@ def test_prepare_fontainebleau_case_smoke():
     prepared = prepare_fontainebleau_case(CONFIG_PATH)
 
     assert prepared.selected_observations.shape[0] == 4
-    assert set(prepared.selected_observations["element"]) == {"kr85", "3H", "39Ar", "14C"}
+    assert set(prepared.selected_observations["element"]) == {
+        "kr85",
+        "3H",
+        "39Ar",
+        "14C",
+    }
     assert prepared.dataset_summary["dataset_name"].nunique() >= 1
     assert "fontainebleau_CGEB" in prepared.dataset_summary["dataset_name"].tolist()
     assert set(prepared.tracer_summary["element"]) == {"kr85", "3H", "39Ar", "14C"}

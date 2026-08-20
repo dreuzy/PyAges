@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyage.lpm.lpm_build import lpm_build, list_available_lpms
+from pyage.lpm.lpm_build import list_available_lpms, lpm_build
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -91,13 +91,12 @@ def test_lpm_golden_pdf_cdf_cdf_inv(lpm_type, update_golden):
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:
-        pytest.fail(
-            f"Golden value missing for {key}. "
-            f"Run: pytest -s --update-golden"
-        )
+        pytest.fail(f"Golden value missing for {key}. Run: pytest -s --update-golden")
 
     expected = store[key]
     assert t0 == pytest.approx(expected["pdf"]["t"], rel=1e-6, abs=1e-6)
     assert pdf_val == pytest.approx(expected["pdf"]["value"], rel=1e-6, abs=1e-6)
     assert cdf_val == pytest.approx(expected["cdf"]["value"], rel=1e-6, abs=1e-6)
-    assert cdf_inv_val == pytest.approx(expected["cdf_inv"]["value"], rel=1e-6, abs=1e-6)
+    assert cdf_inv_val == pytest.approx(
+        expected["cdf_inv"]["value"], rel=1e-6, abs=1e-6
+    )

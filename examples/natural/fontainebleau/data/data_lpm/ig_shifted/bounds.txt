@@ -1,3 +1,0 @@
-mu,0,100,year
-scale,0,30,year
-shift,0,50,year

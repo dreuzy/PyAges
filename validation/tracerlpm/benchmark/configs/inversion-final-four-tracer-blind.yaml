@@ -1,0 +1,47 @@
+# Representative no-noise control with starts that exclude the true parameters.
+campaign_id: tracerlpm-inversion-final-four-tracer-blind-v1
+observation_year: 2020.0
+
+tracers:
+  - {name: cfc11, recharge: data_core/data_tracer/cfc11/recharge.csv, unit: pptv}
+  - {name: cfc12, recharge: data_core/data_tracer/cfc12/recharge.csv, unit: pptv}
+  - {name: cfc113, recharge: data_core/data_tracer/cfc113/recharge.csv, unit: pptv}
+  - {name: sf6, recharge: data_core/data_tracer/sf6/recharge.csv, unit: pptv}
+
+tracerlpm:
+  input_history: tracerlpm-input-history.csv
+  target_tracers: [CFC-11, CFC-12, CFC-113, SF6]
+  source_columns: {CFC-11: cfc11, CFC-12: cfc12, CFC-113: cfc113, SF6: sf6}
+  sample: PSW-1-17/08/2004
+  x_axis: CFC-11
+  y_axis: SF6
+
+cases:
+  - case_id: blind4-emm-tau20-no-noise
+    model: EMM
+    true_parameters: {tau: 20.0}
+    bounds: {tau: [0.1, 200.0]}
+    initial_values: {tau: [3.0, 37.0, 91.0]}
+    noise: {kind: none}
+  - case_id: blind4-epm-tau20-r2-no-noise
+    model: EPM
+    true_parameters: {tau: 20.0, eta: 3.0}
+    bounds: {tau: [0.1, 200.0], eta: [1.01, 11.0]}
+    initial_values: [[3.0, 1.4], [37.0, 4.2], [91.0, 9.2]]
+    noise: {kind: none}
+  - case_id: blind4-dm-tau20-dp0p2-no-noise
+    model: DM
+    true_parameters: {tau: 20.0, DP: 0.2}
+    bounds: {tau: [0.1, 200.0], DP: [0.001, 3.0]}
+    initial_values: [[3.0, 0.03], [37.0, 0.45], [91.0, 1.2]]
+    noise: {kind: none}
+
+objective:
+  relative_standard_deviation: 0.01
+  absolute_floor_fraction_of_tracer_maximum: 0.000001
+
+acceptance:
+  maximum_tau_absolute_error_years: 0.5
+  maximum_recalculated_relative_error: 0.01
+  maximum_tau_relative_error: 0.05
+  maximum_secondary_parameter_relative_error: 0.10

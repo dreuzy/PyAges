@@ -30,9 +30,8 @@ recharge: true
 # Optional: Radioactive Decay
 # =============================================================================
 
-# Decay characteristic time in years (half-life / ln(2))
-# Uncomment to enable radioactive decay
-# decay_time: 12.43
+# Optional radioactive half-life in years (CFC-12 is treated as stable here).
+# half_life: 12.43
 
 # =============================================================================
 # Optional: Geoproduction

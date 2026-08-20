@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import pytest
+
 from tests.utils import golden as golden_utils
 
 # ---------------------------------------------------------------------------
@@ -38,6 +39,7 @@ GOLDEN_PATH = REPO_ROOT / "tests" / "golden" / "tracer_values.json"
 # 3) Ajout d'une option de ligne de commande à pytest
 # ---------------------------------------------------------------------------
 
+
 def pytest_addoption(parser):
     """
     Hook pytest: permet d'ajouter des options à la commande `pytest ...`.
@@ -50,7 +52,7 @@ def pytest_addoption(parser):
     """
     parser.addoption(
         "--update-golden",
-        action="store_true",     # option booléenne: présente => True, absente => False
+        action="store_true",  # option booléenne: présente => True, absente => False
         default=False,
         help="Update golden reference values instead of asserting.",
     )
@@ -73,6 +75,7 @@ def pytest_configure(config):
 # ---------------------------------------------------------------------------
 # 4) Fixtures: accès aux options et aux données golden dans les tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def update_golden(request) -> bool:
@@ -129,6 +132,7 @@ def golden_store() -> dict:
 # ---------------------------------------------------------------------------
 # 5) Fonction utilitaire: sauvegarder les valeurs golden de manière sûre
 # ---------------------------------------------------------------------------
+
 
 def save_golden_store(store: dict) -> None:
     """

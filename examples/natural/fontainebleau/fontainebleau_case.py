@@ -8,33 +8,26 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-import sys
 
 import pandas as pd
 
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-
-ensure_repo_imports()
-
 from pyage.config.models import LauncherParams
+from pyage.workflows.single_date_config import load_params
 from scripts.common.example_case_utils import (
     deep_update,
-    dump_yaml_dict as dump_yaml,
-    load_yaml_dict as load_yaml,
     repo_root_from,
+)
+from scripts.common.example_case_utils import (
+    dump_yaml_dict as dump_yaml,
+)
+from scripts.common.example_case_utils import (
+    load_yaml_dict as load_yaml,
 )
 from scripts.common.example_launcher_utils import (
     build_effective_launcher_config,
     generated_launcher_config_path,
 )
-from scripts.common.launcher_params import load_params
-from scripts.common.launcher_paths import results_directory
+from scripts.common.launcher_paths import dataset_results_directory
 
 
 @dataclass(frozen=True)
@@ -46,7 +39,6 @@ class FontainebleauPaths:
     benchmark_dir: Path
     launcher_config_dir: Path
     yaml_path: Path
-    runner_path: Path
     notebook_path: Path
 
 
@@ -90,7 +82,6 @@ def resolve_paths(config_path: Path | None = None) -> FontainebleauPaths:
         benchmark_dir=benchmark_dir,
         launcher_config_dir=launcher_config_dir,
         yaml_path=yaml_path,
-        runner_path=example_dir / "run_fontainebleau.py",
         notebook_path=example_dir / "benchmark_fontainebleau.ipynb",
     )
 
@@ -103,7 +94,11 @@ def load_fontainebleau_config(config_path: Path | None = None) -> dict[str, Any]
 def list_available_datasets(data_dir: Path) -> list[str]:
     if not data_dir.exists():
         return []
-    return sorted(path.name for path in data_dir.iterdir() if path.is_file() and path.name.startswith("fontainebleau_"))
+    return sorted(
+        path.name
+        for path in data_dir.iterdir()
+        if path.is_file() and path.name.startswith("fontainebleau_")
+    )
 
 
 def list_available_lpm_models(lpm_dir: Path) -> list[str]:
@@ -113,9 +108,7 @@ def list_available_lpm_models(lpm_dir: Path) -> list[str]:
 
 
 def expected_results_dir(dataset_name: str) -> Path:
-    import pyage.global_parameters as gp
-
-    return Path(results_directory(gp, dataset_name))
+    return dataset_results_directory(dataset_name)
 
 
 def build_context(config_path: Path | None = None) -> FontainebleauContext:
@@ -163,7 +156,9 @@ def build_effective_config(
         if dataset_label is None and (
             not existing_label or existing_label == "Fontainebleau single-date example"
         ):
-            dataset_label = f"Fontainebleau {dataset_name.removeprefix('fontainebleau_')}"
+            dataset_label = (
+                f"Fontainebleau {dataset_name.removeprefix('fontainebleau_')}"
+            )
     return build_effective_launcher_config(
         payload,
         dataset_name=dataset_name,

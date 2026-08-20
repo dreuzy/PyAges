@@ -1,40 +1,12 @@
-# UML index
+# Architecture diagrams
 
-This folder contains per-package UML class diagrams.
+These are the only maintained structural diagrams: one package map and one
+runtime flow. Exhaustive UML class inventories would mostly repeat the API
+reference and quickly become obsolete as private implementation details change.
 
 ```{toctree}
 :maxdepth: 1
 
 architecture_overview
-scientific_core_classes
-classes_pyage_calibration
-classes_pyage_concentrations
-classes_pyage_config
-classes_pyage_convolution
-classes_pyage_data_io
-classes_pyage_lpm
-classes_pyage_site
-classes_pyage_tools
-classes_pyage_tracer
-classes_sites_ploemeur
+execution_flow
 ```
-
-## Architecture (article-ready)
-
-- docs/uml/architecture_overview.md
-- docs/uml/scientific_core_classes.md
-
-## Packages
-
-- pyage
-  - docs/uml/classes_pyage_calibration.md
-  - docs/uml/classes_pyage_concentrations.md
-  - docs/uml/classes_pyage_config.md
-  - docs/uml/classes_pyage_convolution.md
-  - docs/uml/classes_pyage_data_io.md
-  - docs/uml/classes_pyage_lpm.md
-  - docs/uml/classes_pyage_site.md
-  - docs/uml/classes_pyage_tools.md
-  - docs/uml/classes_pyage_tracer.md
-- sites
-  - docs/uml/classes_sites_ploemeur.md

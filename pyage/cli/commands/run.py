@@ -2,14 +2,17 @@
 PyAge run command - Execute simulations from YAML config.
 """
 
-from pathlib import Path
+from __future__ import annotations
+
 import sys
 import tempfile
+from pathlib import Path
 
 import click
 import yaml
 from pydantic import ValidationError
 
+from pyage.config.loading import load_yaml_mapping
 from pyage.config.models import CliRunParams
 
 
@@ -18,7 +21,7 @@ from pyage.config.models import CliRunParams
 @click.option(
     "--transient",
     is_flag=True,
-    help="Run in transient (multi-date) mode using launcher_temporal.",
+    help="Run the canonical multi-date temporal workflow.",
 )
 @click.option(
     "--inline",
@@ -108,6 +111,7 @@ def run(
         click.echo(f"Configuration file: {config}")
         click.echo(f"Mode: {'transient' if transient else 'single-date'}")
 
+    original_config = config
     config = _apply_overrides(
         config=config,
         transient=transient,
@@ -119,17 +123,18 @@ def run(
         verbose=verbose,
     )
 
-    if transient:
-        _run_transient(config, verbose)
-    else:
-        _run_single_date(config, inline, verbose)
+    try:
+        if transient:
+            _run_transient(config, verbose)
+        else:
+            _run_single_date(config, inline, verbose)
+    finally:
+        if config != original_config:
+            config.unlink(missing_ok=True)
 
 
 def _load_yaml(path: Path) -> dict:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"Invalid YAML structure in {path}")
-    return data
+    return load_yaml_mapping(path)
 
 
 def _apply_overrides(
@@ -148,40 +153,17 @@ def _apply_overrides(
     data = _load_yaml(config)
 
     if transient:
+        _apply_transient_overrides(data, lpm, mh_nsteps, data_file)
         if data_name or data_dir:
-            click.echo(
-                click.style(
-                    "Ignoring --data-name/--data-dir (single-date only) in transient mode.",
-                    fg="yellow",
-                )
-            )
-        if data_file:
-            data.setdefault("dataset", {})["file"] = str(data_file)
-        if lpm:
-            data.setdefault("lpm_models", {})["list"] = [lpm]
-        if mh_nsteps is not None:
-            data.setdefault("calibration", {})["mh_nsteps"] = int(mh_nsteps)
+            _warn("Ignoring --data-name/--data-dir (single-date only).")
     else:
+        _apply_single_date_overrides(data, lpm, mh_nsteps, data_name, data_dir)
         if data_file:
-            click.echo(
-                click.style(
-                    "Ignoring --data-file (transient only) in single-date mode.",
-                    fg="yellow",
-                )
-            )
-        if data_name:
-            data.setdefault("dataset", {})["name"] = data_name
-        if data_dir:
-            data.setdefault("dataset", {})["data_dir"] = str(data_dir)
-        if lpm:
-            data.setdefault("lpm", {})["model_name"] = lpm
-        if mh_nsteps is not None:
-            data.setdefault("calibration_metropolis_hastings", {})["nstep"] = int(mh_nsteps)
+            _warn("Ignoring --data-file (transient only).")
 
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".yaml")
-    tmp_path = Path(tmp.name)
-    tmp.close()
-    tmp_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    # Keep the temporary file beside the source configuration so all relative
+    # data paths retain the same resolution root after applying overrides.
+    tmp_path = _write_temporary_config(config, data)
 
     if verbose:
         click.echo(f"Using overridden config: {tmp_path}")
@@ -189,15 +171,59 @@ def _apply_overrides(
     return tmp_path
 
 
-def _run_single_date(config: Path, inline: bool, verbose: bool):
-    """Run single-date workflow via launcher.py."""
-    try:
-        # Import the launcher module
-        from scripts.launcher import run_workflow
+def _apply_transient_overrides(
+    data: dict, lpm: str | None, mh_nsteps: int | None, data_file: Path | None
+) -> None:
+    if data_file:
+        data.setdefault("dataset", {})["file"] = str(data_file)
+    if lpm:
+        data.setdefault("lpm_models", {})["list"] = [lpm]
+    if mh_nsteps is not None:
+        data.setdefault("calibration", {})["mh_nsteps"] = int(mh_nsteps)
 
-        click.echo(f"Running single-date workflow...")
+
+def _apply_single_date_overrides(
+    data: dict,
+    lpm: str | None,
+    mh_nsteps: int | None,
+    data_name: str | None,
+    data_dir: Path | None,
+) -> None:
+    if data_name:
+        data.setdefault("dataset", {})["name"] = data_name
+    if data_dir:
+        data.setdefault("dataset", {})["data_dir"] = str(data_dir)
+    if lpm:
+        data.setdefault("lpm", {})["model_name"] = lpm
+    if mh_nsteps is not None:
+        data.setdefault("calibration_metropolis_hastings", {})["nstep"] = int(mh_nsteps)
+
+
+def _warn(message: str) -> None:
+    click.echo(click.style(message, fg="yellow"))
+
+
+def _write_temporary_config(config: Path, data: dict) -> Path:
+    """Write overrides beside their source so relative paths remain stable."""
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        dir=config.parent,
+        prefix=f".{config.stem}-",
+        suffix=".yaml",
+    ) as tmp:
+        tmp_path = Path(tmp.name)
+    tmp_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    return tmp_path
+
+
+def _run_single_date(config: Path, inline: bool, verbose: bool):
+    """Run the canonical single-date workflow."""
+    try:
+        from pyage.workflows.single_date import run_single_date
+
+        click.echo("Running single-date workflow...")
         click.echo(f"Config: {config}")
-        run_workflow(str(config), force_inline=inline)
+        run_single_date(str(config), force_inline=inline)
 
     except ImportError as e:
         click.echo(click.style(f"Import error: {e}", fg="red"))
@@ -207,46 +233,29 @@ def _run_single_date(config: Path, inline: bool, verbose: bool):
         click.echo(click.style(f"Error running workflow: {e}", fg="red"))
         if verbose:
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 
 
 def _run_transient(config: Path, verbose: bool):
-    """Run transient (multi-date) workflow via launcher_temporal.py."""
+    """Run the canonical transient (multi-date) workflow."""
     try:
-        # Import the temporal launcher
-        from scripts.launcher_temporal import run_temporal_workflow
+        from pyage.workflows.temporal import run_temporal
 
-        click.echo(f"Running transient (multi-date) workflow...")
+        click.echo("Running transient (multi-date) workflow...")
         click.echo(f"Config: {config}")
-        run_temporal_workflow(str(config))
+        run_temporal(config)
 
     except ImportError as e:
-        # Fallback: try to import and call the main function directly
-        click.echo(click.style(f"Import error: {e}", fg="yellow"))
-        click.echo("Attempting alternative import...")
-
-        try:
-            import scripts.launcher_temporal as lt
-            # Check if there's a main-like function we can call
-            if hasattr(lt, "main"):
-                lt.main(str(config))
-            else:
-                click.echo(click.style(
-                    "Could not find entry point in launcher_temporal.py",
-                    fg="red"
-                ))
-                sys.exit(1)
-        except Exception as e2:
-            click.echo(click.style(f"Error: {e2}", fg="red"))
-            if verbose:
-                import traceback
-                traceback.print_exc()
-            sys.exit(1)
+        click.echo(click.style(f"Import error: {e}", fg="red"))
+        click.echo("Make sure you have installed pyage: pip install -e .")
+        sys.exit(1)
 
     except Exception as e:
         click.echo(click.style(f"Error running transient workflow: {e}", fg="red"))
         if verbose:
             import traceback
+
             traceback.print_exc()
         sys.exit(1)

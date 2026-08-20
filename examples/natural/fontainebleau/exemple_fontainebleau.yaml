@@ -9,17 +9,6 @@ dataset:
   # Print dataset path and summary at startup
   verbose: true
 
-fontainebleau:
-  source:
-    article: "Corcho Alvarado et al. (2007), Water Resources Research 43, W03427"
-    sampling_campaign: "October 2001"
-  tracers:
-    39Ar:
-      # Numerical values are stored as fraction of modern (0.73 = 73% modern)
-      # while the unit label remains %modern for PyAge compatibility.
-      unit_label: "%modern"
-      value_scale: "fraction_of_modern"
-
 lpm:
   # Default LPM model used for this example
   model_name: dirac_double

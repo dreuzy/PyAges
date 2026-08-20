@@ -3,7 +3,7 @@
 Quick run:
 
 ```bash
-python examples/natural/ploemeur/run_ploemeur.py
+python -m examples.natural.ploemeur.run_ploemeur
 ```
 
 What it does:

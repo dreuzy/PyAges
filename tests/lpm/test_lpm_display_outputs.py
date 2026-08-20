@@ -7,13 +7,13 @@ import pytest
 
 matplotlib.use("Agg", force=True)
 
-import pyage.global_parameters as gp
+from pyage.config.runtime import DisplayOptions
 from pyage.lpm.lpm_build import test as lpm_test
 
 
 @pytest.mark.parametrize("lpm_type", ["exp"])
 def test_lpm_display_outputs(tmp_path: Path, lpm_type: str) -> None:
-    display = gp.display_options()
+    display = DisplayOptions()
     display.figure = True
     display.figure_save = True
     display.figure_close = True

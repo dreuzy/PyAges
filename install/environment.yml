@@ -1,26 +1,17 @@
 name: pyage
 channels:
   - conda-forge
-  - defaults
+  - nodefaults
 dependencies:
   - python=3.12
-  - pandas
-  - openpyxl
-  - matplotlib
-  - scipy
-  - numpy
-  - spyder
-  - ipython
-  - jupyter
-  - imageio
-  - ffmpeg
-  - av
-  - imageio-ffmpeg
-  - pyyaml
-  - pydantic
-  - click
-  - pytest
-  - pip
-  - pip:
-    - empiricaldist
-  
+  - pip>=24
+  - numpy=1.26.4
+  - scipy=1.13.1
+  - pandas=2.2.3
+  - openpyxl=3.1.5
+  - matplotlib=3.9.2
+  - pyyaml=6.0.2
+  - click=8.1.7
+  - pydantic=2.9.2
+  - ipython=8.29.0
+  - jupyterlab=4.3.0

@@ -6,6 +6,24 @@ inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
 It provides reusable scientific components in `pyage/` and site-specific
 workflows in `sites/`, with examples and regression tests to support validation.
 
+Project status: **beta** (`0.1.0b1`). Public interfaces are documented and
+tested, but feedback may still lead to explicitly documented changes before
+the first stable release.
+
+Release maturity follows this policy:
+
+- **alpha**: exploratory behavior; features and interfaces may be incomplete;
+- **beta**: intended features are usable and tested, but pre-1.0 interfaces may
+  still change with a changelog entry;
+- **release candidate**: proposed final artifact, changed only for blocking
+  defects;
+- **stable**: supported public contract, with compatibility managed according
+  to semantic versioning.
+
+The current code is beta because the installable workflows and validation gates
+are in place, while broader natural-dataset qualification and final user
+feedback remain prerequisites for `1.0.0`.
+
 ## Quick start
 
 Create the conda environment:
@@ -18,7 +36,23 @@ conda activate pyage
 Install PyAge (enables the `pyage` CLI):
 
 ```
-pip install -e .
+python -m pip install -e .
+```
+
+The published distribution is named `pyage-groundwater`; the Python import
+and command remain `pyage`. The wheel contains the reusable library, its CLI,
+and core model data. Repository examples and site studies remain in the Git
+source tree. Once a release is available from the configured package index,
+install it with:
+
+```
+python -m pip install pyage-groundwater
+```
+
+Until a final release is published, pip users must opt into prereleases:
+
+```
+python -m pip install --pre pyage-groundwater
 ```
 
 Run the full test suite:
@@ -35,19 +69,19 @@ python run_tests.py update
 
 ## Quickstart (fast, no interactive plots)
 
-Use the minimal templates under `examples/templates/`:
+From a source checkout, use the minimal templates under `examples/templates/`:
 
 ```
-python scripts/launcher.py --params examples/templates/quickstart_single.yaml
-python scripts/launcher_temporal.py --params examples/templates/quickstart_temporal.yaml
+pyage run examples/templates/quickstart_single.yaml
+pyage run --transient examples/templates/quickstart_temporal.yaml
 ```
 
-## Execution modes (installed vs repo direct)
+## Installation and execution
 
 Recommended (installed package):
 
 ```
-pip install -e .
+python -m pip install -e .
 ```
 
 This makes `import pyage` work from any directory and enables the CLI:
@@ -58,10 +92,8 @@ pyage list lpms
 pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
-Repo-direct (no install):
-- You can still run scripts from the repo (e.g. `python scripts/launcher.py ...`).
-- Entry points include a small bootstrap fallback to add the repo root to `sys.path`
-  when `pyage` is not installed.
+The supported entry point is the installed `pyage` command. Direct execution
+of repository files is not part of the public interface.
 
 ## CLI (pyage)
 
@@ -109,7 +141,7 @@ setx PYAGE_RESULTS_DIR "D:\results\PyAge"
   - `pyage/convolution/`: convolution algorithms and tracer helpers
   - `pyage/concentrations/`: concentration data handling and time series helpers
   - `pyage/calibration/`: calibration methods, workflows, and objective functions
-  - `pyage/config/`: shared configuration (paths, runtime helpers, bootstrap)
+  - `pyage/config/`: validated configuration models, paths, and runtime helpers
   - `pyage/observations/`: generic dataset loaders and observation helpers
   - `pyage/tools/`: plotting and miscellaneous utilities used across modules
 - `data_core/`: shared model data for LPMs and tracers (not observations)
@@ -140,7 +172,7 @@ The Ploemeur workflow is parameterized by YAML files:
 Run the workflow:
 
 ```
-python sites/ploemeur/scripts/ploemeur_driver.py --params sites/ploemeur/params/ploemeur_full.yaml
+python -m sites.ploemeur.scripts.ploemeur_driver --params sites/ploemeur/params/ploemeur_full.yaml
 ```
 
 If you omit `--params`, the driver defaults to
@@ -174,7 +206,7 @@ concentration file (``ori_*.txt``) and produces temporal plots plus parameter
 and concentration distributions:
 
 ```
-python scripts/launcher_temporal.py --params examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 Supported modes:
@@ -205,26 +237,22 @@ Run extensive tests (opt-in):
 pytest -q tests --run-extensive
 ```
 
-## Scripts (manual entrypoints)
+## Workflows and diagnostics
 
-Manual scripts live under `scripts/` and are intended for interactive use
-outside pytest. The main entrypoints are:
+The supported workflow entrypoints are:
 
-- `scripts/launcher.py`: single-date workflow launcher (YAML-driven).
-- `scripts/launcher_temporal.py`: multi-date MH launcher (YAML-driven).
-- `scripts/run_system_check.py`: quick end-to-end sanity check.
-- `scripts/run_calibration_benchmark.py`: MH vs FUQ comparison run.
+- `pyage run`: single-date workflow driven by YAML.
+- `pyage.workflows.temporal`: canonical multi-date MH workflow, exposed by `pyage run --transient`.
+- `pyage check`: quick installation and data sanity check.
+
+Repository-only research and benchmark commands are catalogued in
+`scripts/README.md`; they are not public package entry points.
 
 Expected outputs (under `<results_root>`):
 
-- `launcher.py`: `test_cases/<dataset_name>/` (calibration files + `concentration_times.png`)
-- `launcher_temporal.py`: `ploemeur_temporal/<dataset_stem>/<mode>/<date>/<lpm_type>/`
+- single-date workflow: `test_cases/<dataset_name>/` (calibration files + `concentration_times.png`)
+- temporal workflow: `ploemeur_temporal/<dataset_stem>/<mode>/<date>/<lpm_type>/`
   (calibration files + temporal plots/tables)
-- `run_system_check.py`: `test/<check_name>/<timestamp>/`
-- `run_system_check.py` supports `--params <file.yaml>` to override defaults.
-- `run_calibration_benchmark.py`: `test_calib_comp/<timestamp>/prec_<error>/<tracers>/<lpm>/<case>/`
-
-See `scripts/README.md` for example commands and output locations.
 
 ## Notes
 
@@ -232,6 +260,10 @@ This is a research codebase; outputs and workflows evolve. If you change
 behaviour intentionally, update the associated tests and golden files to keep
 the regression suite stable.
 
+The supported public surface and compatibility policy are documented in
+`docs/reference/public-api.md`. Release changes are recorded in
+`CHANGELOG.md`.
+
 ## License
 
-PyAge is distributed under the CeCILL license (Copyright CNRS).
+PyAge is distributed under the CeCILL 2.1 license (Copyright CNRS).

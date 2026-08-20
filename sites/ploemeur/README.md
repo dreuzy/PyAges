@@ -3,21 +3,14 @@ Ploemeur workflow - quick run
 Run the main workflow with the default parameters:
 
 ```
-python sites/ploemeur/scripts/ploemeur_driver.py
+python -m sites.ploemeur.scripts.ploemeur_driver
 ```
 
 Run with a specific YAML (example: F09 only):
 
 ```
-python sites/ploemeur/scripts/ploemeur_driver.py --params sites/ploemeur/params/ploemeur_F09.yaml
+python -m sites.ploemeur.scripts.ploemeur_driver --params sites/ploemeur/params/ploemeur_F09.yaml
 ```
-
-Run with the positional YAML path:
-
-```
-python sites/ploemeur/scripts/ploemeur_driver.py sites/ploemeur/params/ploemeur_full.yaml
-```
-
 
 Overview
 
@@ -45,7 +38,6 @@ Directory map
   - `ori/`: cleaned/curated time series generated from brut
   - `temp/`: intermediate files produced by the workflow (recreated each run)
 - `params_lpm/`: site-level LPM parameter files (optional alternative to `data_core/data_lpm`)
-- `postprocessing/`: plotting and comparison utilities
 - `studies/`: self-contained, reproducible scientific studies
   - `HYP-26-0172/`: long-term CFC article, including its matrix, configurations,
     figure builders, scientific map, and archived development material
@@ -63,9 +55,7 @@ workflow generates -> data/temp (intermediate)
 See `sites/ploemeur/data/README.md` for details about data provenance.
 
 Article-specific configurations, journal export rules, figure numbers, and
-scientific claims do not belong in the site-level `params/` or
-`postprocessing/` directories. They live in the corresponding `studies/`
-subdirectory.
+scientific claims live in the corresponding `studies/` subdirectory.
 
 
 Choosing LPM parameter files

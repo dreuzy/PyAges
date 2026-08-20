@@ -15,10 +15,9 @@ import pytest
 import pyage.calibration.methods.metropolis_hastings as cMH
 import pyage.calibration.utils.systematic_sampling as cexp
 import pyage.calibration.workflows.synthetic_test as cst
-import pyage.global_parameters as gp
+from pyage.config.runtime import DisplayOptions
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
-
 
 # Test matrix
 LPM_TYPES = ["exp", "ig"]
@@ -41,7 +40,7 @@ def _run_mh_one_case(
     prior_only: bool,
 ) -> dict:
     # Minimal, deterministic MH run to collect summary stats
-    display = gp.display_options()
+    display = DisplayOptions()
     display.figure = False
     display.text = False
     display.directory = work_dir
@@ -83,7 +82,7 @@ def _run_mh_one_case(
         "obj_std": float(stats.loc["std"]["obj_function"]),
     }
     # Include parameter summaries for the current LPM type
-    for key in lpm_results._LpmDist__lpm_template.p.keys():  # noqa: SLF001
+    for key in lpm_results.lpm_template.p:
         record[f"{key}_mean"] = float(stats.loc["mean"][key])
         record[f"{key}_std"] = float(stats.loc["std"][key])
     return record
@@ -91,7 +90,7 @@ def _run_mh_one_case(
 
 def _run_reachconc_mean(lpm_type: str, work_dir: Path) -> dict:
     # Deterministic reachable concentrations mean values
-    display = gp.display_options()
+    display = DisplayOptions()
     display.figure = False
     display.text = False
     display.directory = work_dir
@@ -100,13 +99,13 @@ def _run_reachconc_mean(lpm_type: str, work_dir: Path) -> dict:
         lpm_type,
         REACHCONC_TRACERS,
         date=[2010] * len(REACHCONC_TRACERS),
-        nmodels=NMODELS,
+        sample_count=NMODELS,
         display_options=display,
-        reachconc=False,
+        explore_reachable=False,
     )
     cr.compute_concentrations()
 
-    concentrations = cr._SystematicSampling__concentrations  # noqa: SLF001
+    concentrations = cr.concentrations_frame()
     means = concentrations.mean()
     return {f"{name}_mean": float(value) for name, value in means.items()}
 
@@ -140,10 +139,7 @@ def test_calibration_mh_golden(
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:
-        pytest.fail(
-            f"Golden value missing for {key}. "
-            f"Run: pytest -s --update-golden"
-        )
+        pytest.fail(f"Golden value missing for {key}. Run: pytest -s --update-golden")
 
     expected = store[key]
     # Compare all stored keys
@@ -157,9 +153,7 @@ def test_reachconc_mean_golden(lpm_type, update_golden, tmp_path):
     record = _run_reachconc_mean(lpm_type, tmp_path / "reachconc")
 
     key = (
-        f"reachmean:{lpm_type}:"
-        f"tracers={','.join(REACHCONC_TRACERS)}:"
-        f"nmodels={NMODELS}"
+        f"reachmean:{lpm_type}:tracers={','.join(REACHCONC_TRACERS)}:nmodels={NMODELS}"
     )
     store = golden_utils.load_golden(_golden_path())
 
@@ -170,10 +164,7 @@ def test_reachconc_mean_golden(lpm_type, update_golden, tmp_path):
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:
-        pytest.fail(
-            f"Golden value missing for {key}. "
-            f"Run: pytest -s --update-golden"
-        )
+        pytest.fail(f"Golden value missing for {key}. Run: pytest -s --update-golden")
 
     expected = store[key]
     for k, v in record.items():
@@ -188,7 +179,7 @@ def test_calibration_mh_extensive(lpm_type, tmp_path):
 
     This test is opt-in via --run-extensive.
     """
-    display = gp.display_options()
+    display = DisplayOptions()
     display.figure = True
     display.text = True
     display.figure_save = True

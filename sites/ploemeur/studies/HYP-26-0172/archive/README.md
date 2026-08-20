@@ -1,7 +1,7 @@
 # Archived article-development material
 
-This directory preserves scripts and configurations that were used before the
-experiment matrix became the authoritative HYP-26-0172 workflow.
+This directory preserves configurations that were used before the experiment
+matrix became the authoritative HYP-26-0172 workflow.
 
 They are kept for provenance only. New runs and publication figures must use:
 
@@ -9,5 +9,5 @@ They are kept for provenance only. New runs and publication figures must use:
 - `../params/` for configurations;
 - `../postprocessing/build_products.py` for derived tables and figures.
 
-Legacy scripts may search historical output folders and therefore do not meet
-the reproducibility contract of the finalized study.
+No archived executable is retained: historical configurations are provenance
+records, not supported workflow entry points.

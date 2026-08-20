@@ -18,7 +18,9 @@ from tests.utils import paths as test_paths
 
 
 def _golden_path() -> Path:
-    return test_paths.repo_root() / "tests" / "golden" / "convolution_tracers_values.json"
+    return (
+        test_paths.repo_root() / "tests" / "golden" / "convolution_tracers_values.json"
+    )
 
 
 def _lpm_types() -> list[str]:
@@ -31,18 +33,22 @@ TRACER_NAMES = ["cfc11", "cfc12", "cfc113"]
 DATE = 2010.0
 
 
+def test_date_count_must_match_tracer_count() -> None:
+    with pytest.raises(ValueError, match="Expected 2 tracer dates, received 1"):
+        ConvolutionTracers(names=["cfc11", "cfc12"], date=[DATE])
+
+
 @pytest.mark.parametrize("lpm_name", LPM_NAMES)
 def test_convolution_tracers_golden(lpm_name, update_golden):
     rng = np.random.default_rng(12345)
     lpm = lpm_build_module.lpm_build_random_uniform(lpm_name, rng=rng)
     tracers = ConvolutionTracers(names=TRACER_NAMES, date=DATE)
 
-    concentrations = tracers.convolution(
+    concentrations = tracers.convolve(
         lpm,
-        return_type="concentrations_set",
-        prepare=False,
+        return_type="concentrations",
     )
-    df = tracers.convolution(lpm, return_type="dataframe", prepare=False)
+    df = tracers.convolve(lpm, return_type="dataframe")
 
     stats = {
         "mean_concentration": float(concentrations.cv["concentration"].mean()),
@@ -59,10 +65,7 @@ def test_convolution_tracers_golden(lpm_name, update_golden):
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:
-        pytest.fail(
-            f"Golden value missing for {key}. "
-            f"Run: pytest -s --update-golden"
-        )
+        pytest.fail(f"Golden value missing for {key}. Run: pytest -s --update-golden")
 
     expected = store[key]
     assert stats["mean_concentration"] == pytest.approx(

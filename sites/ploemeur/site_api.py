@@ -13,8 +13,8 @@ from typing import Any, Dict
 from pyage.site.base_site import BaseSite
 from sites.ploemeur.workflows.ploemeur_workflow import (
     load_workflow_params,
-    validate_workflow_params,
     run_workflow,
+    validate_workflow_params,
 )
 
 
@@ -27,7 +27,7 @@ class PloemeurSite(BaseSite):
 
     @property
     def default_params_path(self) -> Path:
-        return Path(__file__).resolve().parents[1] / "params" / "ploemeur_full.yaml"
+        return Path(__file__).resolve().parent / "params" / "ploemeur_full.yaml"
 
     def load_params(self, params_path: Path | None) -> Dict[str, Any]:
         if params_path is None:

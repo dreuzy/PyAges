@@ -1,6 +1,6 @@
 unit: TU
 recharge: true
-decay_time: 12.32
+half_life: 12.32
 holten:
   reference: Visser et al. (2013)
   notes: Local tritium chronicle for the Holten case.

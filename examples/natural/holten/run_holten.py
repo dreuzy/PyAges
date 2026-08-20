@@ -7,16 +7,6 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import sys
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from pyage.config.bootstrap import ensure_repo_imports
-
-
-ensure_repo_imports()
 
 import pandas as pd
 
@@ -27,9 +17,14 @@ from examples.natural.holten.holten_benchmark import (
     compare_with_reference_results,
     write_benchmark_summary,
 )
-from examples.natural.holten.holten_case import PreparedHoltenCase, build_context, write_well_launcher_config
+from examples.natural.holten.holten_case import (
+    PreparedHoltenCase,
+    build_context,
+    write_well_launcher_config,
+)
 from examples.natural.holten.holten_four_bin import run_local_4bin, run_local_4bin_mh
 from examples.natural.holten.holten_prepare import prepare_holten_inputs
+from pyage.config.paths import ROOT_DIRECTORY_RESULTS
 
 
 def _lpm_ready(context) -> bool:
@@ -38,10 +33,8 @@ def _lpm_ready(context) -> bool:
 
 
 def existing_results_for_wells(prepared) -> dict[str, Path]:
-    import pyage.global_parameters as gp
-
     results: dict[str, Path] = {}
-    base = Path(gp.ROOT_DIRECTORY_RESULTS) / "test_cases"
+    base = ROOT_DIRECTORY_RESULTS / "test_cases"
     for well_id in prepared.context.selected_wells:
         result_dir = base / f"holten_2010_{well_id}.txt"
         if result_dir.exists():
@@ -50,7 +43,7 @@ def existing_results_for_wells(prepared) -> dict[str, Path]:
 
 
 def run_launcher_for_wells(prepared, inline: bool = False) -> dict[str, Path]:
-    import scripts.launcher as launcher
+    from pyage.workflows.single_date import run_workflow
 
     if not _lpm_ready(prepared.context):
         return {}
@@ -59,7 +52,7 @@ def run_launcher_for_wells(prepared, inline: bool = False) -> dict[str, Path]:
     prepared.context.paths.launcher_config_dir.mkdir(parents=True, exist_ok=True)
     for well_id in prepared.context.selected_wells:
         config_path = write_well_launcher_config(prepared.context, well_id)
-        results[well_id] = Path(launcher.main(str(config_path), force_inline=inline))
+        results[well_id] = Path(run_workflow(str(config_path), force_inline=inline))
     return results
 
 
@@ -71,13 +64,21 @@ def write_prepared_artifacts(prepared: PreparedHoltenCase, output_dir: Path) -> 
     tracer_dir.mkdir(parents=True, exist_ok=True)
     wells_dir.mkdir(parents=True, exist_ok=True)
 
-    prepared.preparation_log.to_csv(prepared_dir / "preparation_log.txt", sep="\t", index=False)
-    prepared.observed_aggregated.to_csv(prepared_dir / "holten_2010_selected_wells.txt", sep="\t", index=False)
-    prepared.helium_diagnostics.to_csv(prepared_dir / "helium_diagnostics.txt", sep="\t", index=False)
+    prepared.preparation_log.to_csv(
+        prepared_dir / "preparation_log.txt", sep="\t", index=False
+    )
+    prepared.observed_aggregated.to_csv(
+        prepared_dir / "holten_2010_selected_wells.txt", sep="\t", index=False
+    )
+    prepared.helium_diagnostics.to_csv(
+        prepared_dir / "helium_diagnostics.txt", sep="\t", index=False
+    )
     for well_id, frame in prepared.observed_by_well.items():
         frame.to_csv(wells_dir / f"holten_{well_id}.txt", sep="\t", index=False)
     for tracer_name, frame in prepared.tracer_histories.items():
-        frame.to_csv(tracer_dir / f"{tracer_name}_local_prepared.txt", sep="\t", index=False)
+        frame.to_csv(
+            tracer_dir / f"{tracer_name}_local_prepared.txt", sep="\t", index=False
+        )
 
 
 def _selected_wells_from_args(config_path: Path, wells_arg: str) -> list[str]:
@@ -99,7 +100,9 @@ def _ensure_prepared(
     config_path: Path,
     selected_wells: list[str],
 ) -> PreparedHoltenCase:
-    return prepared if prepared is not None else _prepare_case(config_path, selected_wells)
+    return (
+        prepared if prepared is not None else _prepare_case(config_path, selected_wells)
+    )
 
 
 def _ensure_local_4bin_summary(
@@ -108,7 +111,9 @@ def _ensure_local_4bin_summary(
 ) -> pd.DataFrame:
     if local_4bin_summary is not None:
         return local_4bin_summary
-    _, summary, _, _ = run_local_4bin(prepared, prepared.context.paths.benchmark_dir / "four_bin")
+    _, summary, _, _ = run_local_4bin(
+        prepared, prepared.context.paths.benchmark_dir / "four_bin"
+    )
     return summary
 
 
@@ -128,7 +133,9 @@ def _run_prepare_phase(
     write_prepared_artifacts(prepared, benchmark_root)
     build_pre_model_figures(prepared, benchmark_root / "pre_model")
     try:
-        build_article_reference_figures(prepared.context, benchmark_root / "article_reference")
+        build_article_reference_figures(
+            prepared.context, benchmark_root / "article_reference"
+        )
     except Exception as exc:
         print(f"Article figure extraction skipped: {exc}")
     local_4bin_summary = _ensure_local_4bin_summary(prepared, local_4bin_summary)
@@ -162,14 +169,20 @@ def _run_compare_phase(
         results_by_well=results_by_well,
         local_4bin_summary=local_4bin_summary,
     )
-    build_reference_comparison_figures(prepared, comparison, prepared.context.paths.benchmark_dir / "benchmark")
-    write_benchmark_summary(comparison, prepared.context.paths.benchmark_dir / "benchmark")
+    build_reference_comparison_figures(
+        prepared, comparison, prepared.context.paths.benchmark_dir / "benchmark"
+    )
+    write_benchmark_summary(
+        comparison, prepared.context.paths.benchmark_dir / "benchmark"
+    )
     print(prepared.context.paths.benchmark_dir)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Holten benchmark workflow.")
-    parser.add_argument("--config", default=str(Path(__file__).resolve().parent / "holten.yaml"))
+    parser.add_argument(
+        "--config", default=str(Path(__file__).resolve().parent / "holten.yaml")
+    )
     parser.add_argument(
         "--mode",
         choices=("full", "prepare_only", "calibration_only", "compare_only"),

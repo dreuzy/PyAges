@@ -9,6 +9,7 @@ import copy
 from pathlib import Path
 from typing import Any
 
+from pyage.config.models import LauncherConfig
 from scripts.common.example_case_utils import deep_update
 
 
@@ -56,21 +57,21 @@ def build_effective_launcher_config(
     lpm_cfg = payload.setdefault("lpm", {})
     mh_cfg = payload.setdefault("calibration_metropolis_hastings", {})
 
-    if dataset_name is not None:
-        dataset_cfg["name"] = dataset_name
-    if dataset_label is not None:
-        dataset_cfg["label"] = dataset_label
-    if dataset_year is not None:
-        dataset_cfg["year"] = int(dataset_year)
-    if dataset_data_dir is not None:
-        dataset_cfg["data_dir"] = str(dataset_data_dir)
-    if dataset_verbose is not None:
-        dataset_cfg["verbose"] = bool(dataset_verbose)
-
-    if lpm_model_name is not None:
-        lpm_cfg["model_name"] = lpm_model_name
-    if lpm_data_directory is not None:
-        lpm_cfg["data_directory"] = str(lpm_data_directory)
+    _update_defined(
+        dataset_cfg,
+        name=dataset_name,
+        label=dataset_label,
+        year=None if dataset_year is None else int(dataset_year),
+        data_dir=None if dataset_data_dir is None else str(dataset_data_dir),
+        verbose=None if dataset_verbose is None else bool(dataset_verbose),
+    )
+    _update_defined(
+        lpm_cfg,
+        model_name=lpm_model_name,
+        data_directory=(
+            None if lpm_data_directory is None else str(lpm_data_directory)
+        ),
+    )
 
     if tracer_data_dir is not None:
         tracer_cfg = payload.setdefault("tracers", {})
@@ -81,7 +82,13 @@ def build_effective_launcher_config(
 
     if overrides:
         deep_update(payload, copy.deepcopy(overrides))
+    LauncherConfig.model_validate(payload)
     return payload
+
+
+def _update_defined(target: dict[str, Any], **values: Any) -> None:
+    """Update a mapping without replacing defaults with ``None``."""
+    target.update({key: value for key, value in values.items() if value is not None})
 
 
 __all__ = [

@@ -1,8 +1,10 @@
-"""
-PyAge check command - Verify installation and system health.
-"""
+"""Verify the PyAge installation and its core resources."""
+
+from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
+from importlib import import_module
 
 import click
 from pydantic import ValidationError
@@ -10,9 +12,130 @@ from pydantic import ValidationError
 from pyage.config.models import CliCheckParams
 
 
+@dataclass(frozen=True)
+class CheckResult:
+    """Number of successful and failed checks."""
+
+    passed: int = 0
+    failed: int = 0
+
+
+def _ok(message: str) -> None:
+    click.echo(click.style("[OK]", fg="green") + f" {message}")
+
+
+def _fail(message: str) -> None:
+    click.echo(click.style("[FAIL]", fg="red") + f" {message}")
+
+
+def _check_python() -> CheckResult:
+    version = (
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
+    if sys.version_info >= (3, 9):
+        _ok(f"Python version: {version}")
+        return CheckResult(passed=1)
+    _fail(f"Python version: {version} (requires >= 3.9)")
+    return CheckResult(failed=1)
+
+
+def _check_dependencies(verbose: bool) -> CheckResult:
+    dependencies = [
+        ("numpy", "numpy"),
+        ("scipy", "scipy"),
+        ("pandas", "pandas"),
+        ("matplotlib", "matplotlib"),
+        ("yaml", "pyyaml"),
+        ("click", "click"),
+    ]
+    passed = 0
+    failed = 0
+    for module_name, package_name in dependencies:
+        try:
+            module = import_module(module_name)
+        except ImportError:
+            _fail(f"{package_name} not installed")
+            failed += 1
+            continue
+        passed += 1
+        if verbose:
+            _ok(f"{package_name}: {getattr(module, '__version__', '?')}")
+    if not verbose and failed == 0:
+        _ok(f"Dependencies: {passed} packages found")
+    return CheckResult(passed=passed, failed=failed)
+
+
+def _check_lpm_registry(verbose: bool) -> CheckResult:
+    try:
+        from pyage.lpm.lpm_build import list_available_lpms
+
+        models = list_available_lpms()
+    except Exception as exc:
+        _fail(f"LPM registry: {exc}")
+        return CheckResult(failed=1)
+    _ok(f"LPM registry: {len(models)} models")
+    if verbose:
+        for model in models:
+            click.echo(f"       - {model}")
+    return CheckResult(passed=1)
+
+
+def _check_tracers(verbose: bool) -> CheckResult:
+    try:
+        from pyage.config.paths import DIRECTORY_TRACER_DATA
+
+        names = sorted(
+            path.name
+            for path in DIRECTORY_TRACER_DATA.iterdir()
+            if path.is_dir() and not path.name.startswith(".")
+        )
+    except Exception as exc:
+        _fail(f"Tracer data: {exc}")
+        return CheckResult(failed=1)
+    _ok(f"Tracers: {len(names)} found")
+    if verbose:
+        click.echo(f"       Location: {DIRECTORY_TRACER_DATA}")
+        for name in names:
+            click.echo(f"       - {name}")
+    return CheckResult(passed=1)
+
+
+def _check_paths(verbose: bool) -> CheckResult:
+    try:
+        from pyage.config.paths import (
+            DIRECTORY_LPM_DATA,
+            DIRECTORY_TRACER_DATA,
+            ROOT_DIRECTORY_RESULTS,
+        )
+    except Exception as exc:
+        _fail(f"Path config: {exc}")
+        return CheckResult(failed=1)
+    if verbose:
+        _ok(f"Results dir: {ROOT_DIRECTORY_RESULTS}")
+        _ok(f"LPM data: {DIRECTORY_LPM_DATA}")
+        _ok(f"Tracer data: {DIRECTORY_TRACER_DATA}")
+    else:
+        _ok("Data directories configured")
+    return CheckResult(passed=1)
+
+
+def _run_checks(verbose: bool) -> CheckResult:
+    results = [
+        _check_python(),
+        _check_dependencies(verbose),
+        _check_lpm_registry(verbose),
+        _check_tracers(verbose),
+        _check_paths(verbose),
+    ]
+    return CheckResult(
+        passed=sum(result.passed for result in results),
+        failed=sum(result.failed for result in results),
+    )
+
+
 @click.command()
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed check results")
-def check(verbose: bool):
+def check(verbose: bool) -> None:
     """Check PyAge installation and system health.
 
     \b
@@ -21,148 +144,28 @@ def check(verbose: bool):
       - Required dependencies are installed
       - LPM models can be loaded
       - Tracers can be discovered
-
-    \b
-    Example:
-        pyage check
-        pyage check --verbose
     """
     try:
         params = CliCheckParams.model_validate({"verbose": verbose})
     except ValidationError as exc:
-        click.echo(click.style(f"Invalid CLI arguments:\n{exc}", fg="red"))
-        sys.exit(1)
-
-    verbose = params.verbose
+        raise click.ClickException(f"Invalid CLI arguments:\n{exc}") from exc
 
     click.echo("PyAge Installation Check")
     click.echo("=" * 40)
+    result = _run_checks(params.verbose)
 
-    checks_passed = 0
-    checks_failed = 0
-
-    # Check 1: Python version
-    py_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-    if sys.version_info >= (3, 9):
-        click.echo(click.style("[OK]", fg="green") + f" Python version: {py_version}")
-        checks_passed += 1
-    else:
-        click.echo(
-            click.style("[FAIL]", fg="red")
-            + f" Python version: {py_version} (requires >= 3.9)"
-        )
-        checks_failed += 1
-
-    # Check 2: Core dependencies
-    deps = [
-        ("numpy", "numpy"),
-        ("scipy", "scipy"),
-        ("pandas", "pandas"),
-        ("matplotlib", "matplotlib"),
-        ("yaml", "pyyaml"),
-        ("click", "click"),
-    ]
-
-    for module_name, package_name in deps:
-        try:
-            mod = __import__(module_name)
-            version = getattr(mod, "__version__", "?")
-            if verbose:
-                click.echo(
-                    click.style("[OK]", fg="green") + f" {package_name}: {version}"
-                )
-            checks_passed += 1
-        except ImportError:
-            click.echo(
-                click.style("[FAIL]", fg="red") + f" {package_name} not installed"
-            )
-            checks_failed += 1
-
-    if not verbose:
-        click.echo(
-            click.style("[OK]", fg="green")
-            + f" Dependencies: {len(deps)} packages found"
-        )
-
-    # Check 3: LPM registry
-    try:
-        from pyage.lpm.lpm_build import list_available_lpms
-
-        lpms = list_available_lpms()
-        click.echo(
-            click.style("[OK]", fg="green") + f" LPM registry: {len(lpms)} models"
-        )
-        if verbose:
-            for lpm in lpms:
-                click.echo(f"       - {lpm}")
-        checks_passed += 1
-    except Exception as e:
-        click.echo(click.style("[FAIL]", fg="red") + f" LPM registry: {e}")
-        checks_failed += 1
-
-    # Check 4: Tracer directory
-    try:
-        from pyage.tracer.tracer_root import find_tracer_dir
-
-        tracer_dir = find_tracer_dir()
-        tracer_names = sorted(
-            [
-                d.name
-                for d in tracer_dir.iterdir()
-                if d.is_dir() and not d.name.startswith(".")
-            ]
-        )
-        click.echo(
-            click.style("[OK]", fg="green") + f" Tracers: {len(tracer_names)} found"
-        )
-        if verbose:
-            click.echo(f"       Location: {tracer_dir}")
-            for name in tracer_names:
-                click.echo(f"       - {name}")
-        checks_passed += 1
-    except Exception as e:
-        click.echo(click.style("[FAIL]", fg="red") + f" Tracer data: {e}")
-        checks_failed += 1
-
-    # Check 5: Data directories
-    try:
-        from pyage.config.paths import (
-            DIRECTORY_LPM_DATA,
-            DIRECTORY_TRACER_DATA,
-            ROOT_DIRECTORY_RESULTS,
-        )
-
-        if verbose:
-            click.echo(
-                click.style("[OK]", fg="green")
-                + f" Results dir: {ROOT_DIRECTORY_RESULTS}"
-            )
-            click.echo(
-                click.style("[OK]", fg="green") + f" LPM data: {DIRECTORY_LPM_DATA}"
-            )
-            click.echo(
-                click.style("[OK]", fg="green")
-                + f" Tracer data: {DIRECTORY_TRACER_DATA}"
-            )
-        else:
-            click.echo(click.style("[OK]", fg="green") + " Data directories configured")
-        checks_passed += 1
-    except Exception as e:
-        click.echo(click.style("[FAIL]", fg="red") + f" Path config: {e}")
-        checks_failed += 1
-
-    # Summary
     click.echo()
     click.echo("=" * 40)
-    total = checks_passed + checks_failed
-    if checks_failed == 0:
-        click.echo(
-            click.style(f"All {total} checks passed.", fg="green", bold=True)
-            + " PyAge is ready!"
+    total = result.passed + result.failed
+    if result.failed == 0:
+        message = click.style(f"All {total} checks passed.", fg="green", bold=True)
+        click.echo(f"{message} PyAge is ready!")
+        return
+    click.echo(
+        click.style(
+            f"{result.failed}/{total} checks failed.",
+            fg="red",
+            bold=True,
         )
-        sys.exit(0)
-    else:
-        click.echo(
-            click.style(f"{checks_failed}/{total} checks failed.", fg="red", bold=True)
-        )
-        sys.exit(1)
+    )
+    raise click.exceptions.Exit(1)

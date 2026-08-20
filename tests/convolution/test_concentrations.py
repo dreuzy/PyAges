@@ -16,8 +16,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import pyage.global_parameters as gp
 from pyage.concentrations.concentrations import Concentrations
+from pyage.concentrations.schema import REFERENCE_COLUMNS
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -42,10 +42,10 @@ def _golden_path() -> Path:
 )
 def test_concentrations_load_smoke(file_path):
     # Basic load + column normalization checks.
-    conc = Concentrations(file_load=True, file_name=str(file_path))
+    conc = Concentrations.from_file(file_path)
 
     # Columns are normalized and ordered
-    assert list(conc.cv.columns) == gp.REFERENCE_COLUMNS
+    assert list(conc.cv.columns) == list(REFERENCE_COLUMNS)
 
     # Basic sanity checks
     assert len(conc.cv) > 0
@@ -53,9 +53,9 @@ def test_concentrations_load_smoke(file_path):
 
 
 def test_concentrations_load_basic():
-    # Replacement for legacy test_load helper.
+    # Load through the explicit file constructor.
     file_path = _tests_data_dir() / "data_test_exp.txt"
-    conc = Concentrations(file_load=True, file_name=str(file_path))
+    conc = Concentrations.from_file(file_path)
     assert not conc.cv.empty
 
 
@@ -69,7 +69,7 @@ def test_concentrations_load_basic():
 )
 def test_concentrations_golden_stats(file_path, update_golden):
     # Golden aggregates for stability across refactors.
-    conc = Concentrations(file_load=True, file_name=str(file_path))
+    conc = Concentrations.from_file(file_path)
 
     # Deterministic sampling for regression checks
     rng = np.random.default_rng(12345)
@@ -91,10 +91,7 @@ def test_concentrations_golden_stats(file_path, update_golden):
         pytest.skip(f"Golden updated for {key}")
 
     if key not in store:
-        pytest.fail(
-            f"Golden value missing for {key}. "
-            f"Run: pytest -s --update-golden"
-        )
+        pytest.fail(f"Golden value missing for {key}. Run: pytest -s --update-golden")
 
     expected = store[key]
     assert stats["mean_concentration"] == pytest.approx(

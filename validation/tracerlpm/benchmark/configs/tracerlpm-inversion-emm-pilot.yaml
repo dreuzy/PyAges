@@ -1,0 +1,32 @@
+# Pilote Solver à un paramètre. La chronique CFC-11 est placée dans le canal
+# stable SF6/3H/NO3-N du classeur Example 1; les alias sont explicites et
+# n’appliquent aucune conversion physico-chimique.
+- case_id: inversion-emm-tau20-no-noise-tracerlpm-symmetric
+  sample: PSW-1-17/08/2004
+  observation_year: 2020.0
+  tracerlpm_effective_observation_year: 2020.0
+  model1: EMM
+  model2: EMM
+  x_axis: SF6
+  y_axis: NO3-N
+  input_history:
+    path: ../observations/tracerlpm-emm-pilot-three-cfcs.csv
+    sha256: C651D3F5AAF51B1EB0824D4A0AECF7CADC43A8FB9CECBDFD23E6B79877F49698
+    target_tracers: [SF6, 3H, NO3-N]
+    source_columns:
+      SF6: cfc11
+      3H: cfc12
+      NO3-N: cfc113
+    before: 0.0
+    after: hold_last
+  fit:
+    sample: PSW-1-17/08/2004
+    model: EMM
+    observations:
+      SF6: 214.962642021752       # alias CFC-11
+      3H: 455.531114668285        # alias CFC-12, décroissance neutralisée
+      NO3-N: 64.016909418023      # alias CFC-113
+    # Trois départs communs à PyAge et TracerLPM; le meilleur objectif est retenu.
+    initial_ages: [5.0, 20.0, 80.0]
+    age_lower: 0.1
+    age_upper: 200.0

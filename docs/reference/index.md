@@ -8,5 +8,6 @@ entrypoints, and CLI options.
 
 ../user-guide/cli-flags
 install
+public-api
 scripts
 ```

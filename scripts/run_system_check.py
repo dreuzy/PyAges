@@ -10,35 +10,30 @@ Author
 Jean-Raynald de Dreuzy
 """
 
-from pathlib import Path
-import sys
 import argparse
+from pathlib import Path
 from typing import Optional
-
-try:
-    from pyage.config.bootstrap import ensure_repo_imports
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root))
-    from pyage.config.bootstrap import ensure_repo_imports
-
-ensure_repo_imports()
 
 import yaml
 from pydantic import ValidationError
 
-import pyage.global_parameters as gp
-import pyage.lpm.lpm_build as lpm_build_module
-import pyage.calibration.workflows.synthetic_test as cst
-import pyage.calibration.methods.simplex as csimp
 import pyage.calibration.methods.metropolis_hastings as cMH
+import pyage.calibration.methods.simplex as csimp
+import pyage.calibration.workflows.synthetic_test as cst
+import pyage.lpm.lpm_build as lpm_build_module
 from pyage.config.models import SystemCheckConfig
+from pyage.config.paths import (
+    ROOT_DIRECTORY_RESULTS,
+    result_subdirectory,
+    timestamp_name,
+)
+from pyage.config.runtime import DisplayOptions
 
 
 class TestIntegration:
-    """ 
+    """
     Extensive tests for PyAge
-    
+
     Arguments
          ---------
     date: float
@@ -49,7 +44,7 @@ class TestIntegration:
     __date: float
         date(year) at which convolutions are computed taken
     LPM_all : array of str
-        list of all LPM models 
+        list of all LPM models
     LPM_calib : array of str
         list of LPM on which calibration is tested
     tracers_all : array of str
@@ -59,18 +54,18 @@ class TestIntegration:
     tracers_calib: array of str
         list of Tracers on which calibration functions are tested
     reachable_resolution : int
-        Number of iteration allowed for the computation of reachable concentrations 
-    display: display_options
-        display options 
-    
-    
+        Number of iteration allowed for the computation of reachable concentrations
+    display: DisplayOptions
+        display options
+
+
     Methods (principal)
     -------
     __init__(self)
-        Constructor: main parameter tests 
-        
+        Constructor: main parameter tests
+
     """
-    
+
     def __init__(self, config: Optional[SystemCheckConfig] = None):
         cfg = config or SystemCheckConfig()
         self.LPM_all = cfg.lpm_all
@@ -81,44 +76,41 @@ class TestIntegration:
         # Reachable Concentrations
         self.reachable_resolution = cfg.reachable_resolution
         # Output options
-        self.display = gp.display_options()
+        self.display = DisplayOptions()
         self.display_set(single_all="all")
         self.__date = cfg.date
 
-
-    def display_set(self,single_all="all"): 
+    def display_set(self, single_all="all"):
         """
         Display options for single or all tests
             single: all display options activated
             all: no options activated
         """
-        self.display.figure_save = True  
+        self.display.figure_save = True
         self.display.figure = True
-        if single_all == "single": 
+        if single_all == "single":
             self.display.text = True
-            self.display.figure_close = True 
-        else: 
+            self.display.figure_close = True
+        else:
             self.display.text = False
             self.display.figure_close = True
-            
 
-    def folder_results(self,folder_name): 
+    def folder_results(self, folder_name):
         """
-        Location and creation of results folder 
-            gp.ROOT_DIRECTORY_RESULTS//test//folder_name
+        Location and creation of results folder
+            ROOT_DIRECTORY_RESULTS / "test" / folder_name
         """
-        directory = gp.results_directory(gp.ROOT_DIRECTORY_RESULTS,"test")
-        directory = gp.results_directory(directory,folder_name)
-        self.display.directory = gp.results_directory(directory,gp.name_dhms())
+        directory = result_subdirectory(ROOT_DIRECTORY_RESULTS, "test")
+        directory = result_subdirectory(directory, folder_name)
+        self.display.directory = result_subdirectory(directory, timestamp_name())
 
-
-    def check_lpms(self,single_all="all",single_name=""):
-        """ 
+    def check_lpms(self, single_all="all", single_name=""):
+        """
         Checks lpms
-            Successive "GENERATE", "CONVOLUTION" and "REACHABLE CONCENTRATIONS" 
+            Successive "GENERATE", "CONVOLUTION" and "REACHABLE CONCENTRATIONS"
                 testing enables the modulation of the order of functionality tested
-            Method with single lpm is used typically when a new lpm is developed 
-            
+            Method with single lpm is used typically when a new lpm is developed
+
         Arguments
         ---------
         single_all: str
@@ -127,50 +119,49 @@ class TestIntegration:
         single_name: str
             Name of LPM tested
         """
-        
+
         # Nature of the test
         if single_all == "single":
-            lpm_list=[single_name]
-        else: 
-            lpm_list=self.LPM_all
-            
+            lpm_list = [single_name]
+        else:
+            lpm_list = self.LPM_all
+
         self.display_set(single_all)
-        self.folder_results("integration_LPMs")  
-        
-        print('\nGENERATE AND DISPLAY LPM') 
+        self.folder_results("integration_LPMs")
+
+        print("\nGENERATE AND DISPLAY LPM")
         for t in lpm_list:
             lpm_build_module.test(t, display_options=self.display)
-        
 
-    def check_calibration(self,single_all="all",single_name=""): 
-        """ 
+    def check_calibration(self, single_all="all", single_name=""):
+        """
         Checks calibration
             All calibration methods checked
-            
+
         Arguments
         ---------
         single_all: str
             "single": test for a single lpm
             "all": all calibrated models
         single_name: str
-            Name of lpm 
+            Name of lpm
         """
-                
+
         # Nature of the test
         if single_all == "single":
-            lpm_list=[single_name]
-        else: 
-            lpm_list=self.LPM_calib
-            
+            lpm_list = [single_name]
+        else:
+            lpm_list = self.LPM_calib
+
         self.display_set(single_all)
-        self.folder_results("integration_calibration") 
+        self.folder_results("integration_calibration")
 
-        tracer_names = ["cfc11","Li"]
-        # date for each of the tracers 
-        date = [1990,2010] 
+        tracer_names = ["cfc11", "Li"]
+        # date for each of the tracers
+        date = [1990, 2010]
 
-        print('\nCALIBRATION ON SYNTETIC CASES: METROPOLIS-HASTINGS')
-        for lpm in lpm_list:  
+        print("\nCALIBRATION ON SYNTETIC CASES: METROPOLIS-HASTINGS")
+        for lpm in lpm_list:
             mh_config = cMH.MHConfig(
                 nstep=2000,
                 prior_option=True,
@@ -180,42 +171,77 @@ class TestIntegration:
                 monitor=False,
             )
             calib_MH = cMH.MetropolisHastings(config=mh_config)
-            calib = cst.CalibrationSyntheticTest(calib_strategy=calib_MH,ncase=2,error=0.03,tracer_names=tracer_names,
-                                                 date=date,lpm_type=lpm,display_options=self.display,nmodels=500)
+            calib = cst.CalibrationSyntheticTest(
+                calib_strategy=calib_MH,
+                ncase=2,
+                error=0.03,
+                tracer_names=tracer_names,
+                date=date,
+                lpm_type=lpm,
+                display_options=self.display,
+                nmodels=500,
+            )
             calib.perform_ncase()
 
-        print('\nCALIBRATION ON SYNTETIC CASES: SIMPLEX_INIT_MULTIPLES')
-        lpm_list_simplex = [lpm for lpm in lpm_list if lpm not in ("ig_shifted", "uniform")]
+        print("\nCALIBRATION ON SYNTETIC CASES: SIMPLEX_INIT_MULTIPLES")
+        lpm_list_simplex = [
+            lpm for lpm in lpm_list if lpm not in ("ig_shifted", "uniform")
+        ]
         for lpm in lpm_list_simplex:
-            calib_simplex = csimp.Simplex("Simplex_init_multipes",init_multiples_n=10)
+            calib_simplex = csimp.Simplex("Simplex_init_multipes", init_multiples_n=10)
             # self.display.text = True
-            calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=2,error=0.001,tracer_names=tracer_names,
-                                                 date=date,lpm_type=lpm,display_options=self.display,nmodels=10)
+            calib = cst.CalibrationSyntheticTest(
+                calib_strategy=calib_simplex,
+                ncase=2,
+                error=0.001,
+                tracer_names=tracer_names,
+                date=date,
+                lpm_type=lpm,
+                display_options=self.display,
+                nmodels=10,
+            )
             calib.perform_ncase()
-            
-        print('\nCALIBRATION ON SYNTETIC CASES: SIMPLEX')
+
+        print("\nCALIBRATION ON SYNTETIC CASES: SIMPLEX")
         # Does not work for ig_shifted (3 parameters) and for uniform
         for lpm in lpm_list_simplex:
-            calib_simplex = csimp.Simplex("Simplex")            
+            calib_simplex = csimp.Simplex("Simplex")
             # self.display.text = True
-            calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=2,error=0.01,tracer_names=tracer_names,
-                                                 date=date,lpm_type=lpm,display_options=self.display,nmodels=10)
+            calib = cst.CalibrationSyntheticTest(
+                calib_strategy=calib_simplex,
+                ncase=2,
+                error=0.01,
+                tracer_names=tracer_names,
+                date=date,
+                lpm_type=lpm,
+                display_options=self.display,
+                nmodels=10,
+            )
             calib.perform_ncase()
 
-        print('\nCALIBRATION ON SYNTETIC CASES: FORWARD UNCERTAINTY QUANTIFICATION')
+        print("\nCALIBRATION ON SYNTETIC CASES: FORWARD UNCERTAINTY QUANTIFICATION")
         for lpm in lpm_list:
-            calib_simplex = csimp.Simplex("forward_uncertainty_quantification",init_multiples_n=2,fuq_n=2)
-            calib = cst.CalibrationSyntheticTest(calib_strategy=calib_simplex,ncase=2,error=0.04,tracer_names=tracer_names,
-                                                 date=date,lpm_type=lpm,display_options=self.display)
+            calib_simplex = csimp.Simplex(
+                "forward_uncertainty_quantification", init_multiples_n=2, fuq_n=2
+            )
+            calib = cst.CalibrationSyntheticTest(
+                calib_strategy=calib_simplex,
+                ncase=2,
+                error=0.04,
+                tracer_names=tracer_names,
+                date=date,
+                lpm_type=lpm,
+                display_options=self.display,
+            )
             calib.perform_ncase()
 
-        # Note: legacy MH prior test was removed; use pytest tests instead.
+        # Prior-only MH validation is covered by the pytest suite.
 
-        
 
 # ----------------------------------------------
 # ----------------- LAUNNCHERS -----------------
 # ----------------------------------------------
+
 
 def _load_config(path: Optional[Path]) -> SystemCheckConfig:
     """
@@ -241,24 +267,22 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def test_integration(config: Optional[SystemCheckConfig] = None): 
-   
-
+def test_integration(config: Optional[SystemCheckConfig] = None):
     # Simple test functions: exhaustive tracer or lpm
     ti = TestIntegration(config=config)
     ti.check_lpms(single_all="all")
 
     # Simple test functions: single tracer or lpm
     ti = TestIntegration(config=config)
-    ti.check_lpms(single_all="single",single_name="dirac_double_1_set")
+    ti.check_lpms(single_all="single", single_name="dirac_double_1_set")
 
-    # Checks calibration 
+    # Checks calibration
     ti = TestIntegration(config=config)
-    #ti.check_calibration(single_all="single",single_name="ig")
+    # ti.check_calibration(single_all="single",single_name="ig")
     ti.check_calibration(single_all="all")
     # ti.check_calibration(single_all="all")
-        
-    
+
+
 if __name__ == "__main__":
     args = _parse_args()
     cfg = _load_config(args.params)

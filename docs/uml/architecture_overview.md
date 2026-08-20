@@ -1,55 +1,28 @@
 # PyAge architecture overview
 
-```mermaid
-flowchart TB
-  subgraph Core["pyage (core library)"]
-    LPM[pyage/lpm]
-    TRACER[pyage/tracer]
-    CONV[pyage/convolution]
-    CAL[pyage/calibration]
-    CONC[pyage/concentrations]
-    CFG[pyage/config]
-    IO[pyage/data_io]
-    TOOLS[pyage/tools]
-  end
+```{mermaid}
+flowchart LR
+  DATA[data_core] --> TRACER[tracer]
+  DATA --> LPM[lpm]
 
-  subgraph Data["data_core (shared model data)"]
-    LPMDATA[data_core/data_lpm]
-    TRDATA[data_core/data_tracer]
-  end
+  CLI[cli] --> WF[workflows]
+  CONFIG[config] --> WF
+  CONC[concentrations] --> PROBLEM[CalibrationProblem]
+  WF --> CONC
+  WF --> PROBLEM
 
-  subgraph Sites["sites (site-specific workflows)"]
-    PLOEMEUR[sites/ploemeur]
-  end
-
-  subgraph Examples["examples (runnable examples)"]
-    EXPL[examples/natural/ploemeur]
-    EXFT[examples/natural/fontainebleau]
-    EXTMP[examples/templates]
-  end
-
-  subgraph Scripts["scripts (entry points)"]
-    LAUNCH[scripts/launcher.py]
-    LAUNCHT[scripts/launcher_temporal.py]
-    CHECK[scripts/run_system_check.py]
-  end
-
-  subgraph Tests["tests (regression + golden)"]
-    TESTS[tests/*]
-  end
-
-  LPMDATA --> LPM
-  TRDATA --> TRACER
-  TRACER --> CONV
+  TRACER --> CONV[convolution]
   LPM --> CONV
-  CONV --> CAL
-  CONC --> CAL
-  CFG --> CAL
-  IO --> LPM
-  IO --> TRACER
+  CONV --> PROBLEM
+  PROBLEM --> METHODS[calibration methods]
+  METHODS --> RESULT[LpmDist]
+  RESULT --> IO[data_io]
+  RESULT --> PLOTS[workflow plots]
 
-  Sites --> Core
-  Examples --> Core
-  Scripts --> Core
-  Tests --> Core
+  EXAMPLES[examples and sites] -. configure .-> CLI
+  TESTS[tests] -. qualify .-> CONV
+  TESTS -. qualify .-> METHODS
 ```
+
+Arrows represent runtime dependencies or data flow. `examples` and `sites`
+consume the installable core; the core does not import them.

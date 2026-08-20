@@ -5,28 +5,23 @@ Pre-model figures and benchmark helpers for Holten.
 
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 from typing import Any
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from pyage.config.bootstrap import ensure_repo_imports
-
-
-ensure_repo_imports()
-
-from examples.natural.holten.holten_case import PreparedHoltenCase, build_context, load_yaml, tracer_yaml_path
-
+from examples.natural.holten.holten_case import (
+    PreparedHoltenCase,
+    build_context,
+    load_yaml,
+    tracer_yaml_path,
+)
+from pyage.tracer.decay import rate_from_config
 
 ARTICLE_FIGURE_SPECS = {
     "figure_4": {
@@ -68,16 +63,26 @@ def load_reference_results(context=None) -> pd.DataFrame:
     return pd.read_csv(ctx.paths.reference_results_path, sep="\t")
 
 
-def build_article_reference_figures(context=None, output_dir: Path | None = None) -> dict[str, Path]:
+def build_article_reference_figures(
+    context=None, output_dir: Path | None = None
+) -> dict[str, Path]:
     from PIL import Image
 
     ctx = context or build_context()
     output_root = output_dir or (ctx.paths.benchmark_dir / "article_reference")
     output_root.mkdir(parents=True, exist_ok=True)
     pdf_path = ctx.paths.doc_dir / "Visser et al, 2013.pdf"
+    if not pdf_path.is_file():
+        raise RuntimeError(
+            "The Visser et al. (2013) publisher PDF is not distributed with PyAge; "
+            "obtain it via https://doi.org/10.1002/2013WR014012 and place it in "
+            f"{ctx.paths.doc_dir} to extract the article figures."
+        )
     pdftoppm = shutil.which("pdftoppm")
     if pdftoppm is None:
-        raise RuntimeError("pdftoppm is required to extract article figures from the local PDF.")
+        raise RuntimeError(
+            "pdftoppm is required to extract article figures from the local PDF."
+        )
 
     generated: dict[str, Path] = {}
     with tempfile.TemporaryDirectory() as tmp_dir_text:
@@ -133,14 +138,21 @@ def build_reference_curve(
     tracer_cfg = load_yaml(yaml_path)
 
     if tracer_name in {"3H", "kr85"}:
-        decay_time = float(tracer_cfg["decay_time"])
+        decay_rate = rate_from_config(tracer_cfg)
+        assert decay_rate is not None
         display = display.loc[display["date"].astype(float) <= reference_year].copy()
         ages = reference_year - display["date"].astype(float)
-        display["concentration"] = display["concentration"].astype(float) * np.exp(-ages / decay_time)
+        display["concentration"] = display["concentration"].astype(float) * np.exp(
+            -decay_rate * ages
+        )
         display.attrs["display_kind"] = "reference_decay"
         display.attrs["reference_year"] = reference_year
-        display.attrs["display_label"] = f"Input history after decay to {reference_year:.2f}"
-        display.attrs["display_title"] = f"{tracer_name}: reference curve brought to the {reference_year:.2f} sampling year"
+        display.attrs["display_label"] = (
+            f"Input history after decay to {reference_year:.2f}"
+        )
+        display.attrs["display_title"] = (
+            f"{tracer_name}: reference curve brought to the {reference_year:.2f} sampling year"
+        )
         display.attrs["x_label"] = "Equivalent recharge year"
         return display
 
@@ -164,8 +176,13 @@ def _apply_range_axis_scale(ax, min_val: float, max_val: float) -> None:
         ax.set_xscale("log")
 
 
-def _set_position_axis_limits(ax, history: pd.DataFrame, observed: pd.DataFrame) -> None:
-    values = history["concentration"].astype(float).tolist() + observed["concentration"].astype(float).tolist()
+def _set_position_axis_limits(
+    ax, history: pd.DataFrame, observed: pd.DataFrame
+) -> None:
+    values = (
+        history["concentration"].astype(float).tolist()
+        + observed["concentration"].astype(float).tolist()
+    )
     if ax.get_xscale() == "log":
         positive = [value for value in values if value > 0]
         if not positive:
@@ -179,12 +196,25 @@ def _set_position_axis_limits(ax, history: pd.DataFrame, observed: pd.DataFrame)
     ax.set_xlim(min_val - pad, max_val + pad)
 
 
-def _plot_value_range_position(ax, tracer_name: str, history: pd.DataFrame, observed: pd.DataFrame) -> None:
+def _plot_value_range_position(
+    ax, tracer_name: str, history: pd.DataFrame, observed: pd.DataFrame
+) -> None:
     summary = _history_summary(history)
     y0 = 0.0
-    ax.hlines(y0, summary["min"], summary["max"], color="#c7d2e2", linewidth=10, zorder=1)
-    ax.hlines(y0, summary["q05"], summary["q95"], color="#7f95b8", linewidth=10, zorder=2)
-    ax.vlines(summary["median"], y0 - 0.18, y0 + 0.18, color="#23395d", linewidth=2.2, zorder=3)
+    ax.hlines(
+        y0, summary["min"], summary["max"], color="#c7d2e2", linewidth=10, zorder=1
+    )
+    ax.hlines(
+        y0, summary["q05"], summary["q95"], color="#7f95b8", linewidth=10, zorder=2
+    )
+    ax.vlines(
+        summary["median"],
+        y0 - 0.18,
+        y0 + 0.18,
+        color="#23395d",
+        linewidth=2.2,
+        zorder=3,
+    )
 
     y_positions = np.linspace(-0.14, 0.14, max(len(observed), 1))
     for y_pos, (_, row) in zip(y_positions, observed.iterrows()):
@@ -209,21 +239,45 @@ def _plot_value_range_position(ax, tracer_name: str, history: pd.DataFrame, obse
     _apply_range_axis_scale(ax, summary["min"], summary["max"])
     _set_position_axis_limits(ax, history, observed)
     ax.set_yticks([])
-    ax.set_title(f"{tracer_name}: sampled values within the range of the reference curve")
+    ax.set_title(
+        f"{tracer_name}: sampled values within the range of the reference curve"
+    )
     ax.set_xlabel(f"Concentration [{history['unit'].iloc[0]}]")
     ax.grid(axis="x", alpha=0.25)
-    ax.text(summary["min"], 0.22, "min", fontsize=8, ha="left", va="bottom", color="#4b5f83")
-    ax.text(summary["median"], 0.22, "median", fontsize=8, ha="center", va="bottom", color="#23395d")
-    ax.text(summary["max"], 0.22, "max", fontsize=8, ha="right", va="bottom", color="#4b5f83")
+    ax.text(
+        summary["min"], 0.22, "min", fontsize=8, ha="left", va="bottom", color="#4b5f83"
+    )
+    ax.text(
+        summary["median"],
+        0.22,
+        "median",
+        fontsize=8,
+        ha="center",
+        va="bottom",
+        color="#23395d",
+    )
+    ax.text(
+        summary["max"],
+        0.22,
+        "max",
+        fontsize=8,
+        ha="right",
+        va="bottom",
+        color="#4b5f83",
+    )
 
 
-def _build_helium_diagnostic_figures(prepared: PreparedHoltenCase, output_dir: Path) -> list[Path]:
+def _build_helium_diagnostic_figures(
+    prepared: PreparedHoltenCase, output_dir: Path
+) -> list[Path]:
     diagnostics = prepared.helium_diagnostics.copy()
     if diagnostics.empty:
         return []
 
     generated: list[Path] = []
-    diagnostics = diagnostics.sort_values("H3_He_age_yr", na_position="last").reset_index(drop=True)
+    diagnostics = diagnostics.sort_values(
+        "H3_He_age_yr", na_position="last"
+    ).reset_index(drop=True)
     x = np.arange(len(diagnostics))
 
     fig, axes = plt.subplots(1, 2, figsize=(12.4, 4.8))
@@ -296,13 +350,25 @@ def _build_helium_diagnostic_figures(prepared: PreparedHoltenCase, output_dir: P
             capsize=3,
         )
         bounds = [
-            float(min(ratio_check["H3_He_age_yr"].min(), ratio_check["H3_He_age_ratio_yr"].min())),
-            float(max(ratio_check["H3_He_age_yr"].max(), ratio_check["H3_He_age_ratio_yr"].max())),
+            float(
+                min(
+                    ratio_check["H3_He_age_yr"].min(),
+                    ratio_check["H3_He_age_ratio_yr"].min(),
+                )
+            ),
+            float(
+                max(
+                    ratio_check["H3_He_age_yr"].max(),
+                    ratio_check["H3_He_age_ratio_yr"].max(),
+                )
+            ),
         ]
         pad = max(1.0, 0.05 * (bounds[1] - bounds[0]))
         low = max(0.0, bounds[0] - pad)
         high = bounds[1] + pad
-        ax.plot([low, high], [low, high], linestyle="--", color="#4b5f83", linewidth=1.2)
+        ax.plot(
+            [low, high], [low, high], linestyle="--", color="#4b5f83", linewidth=1.2
+        )
         for _, row in ratio_check.iterrows():
             ax.annotate(
                 row["well_id"],
@@ -326,10 +392,16 @@ def _build_helium_diagnostic_figures(prepared: PreparedHoltenCase, output_dir: P
     return generated
 
 
-def build_pre_model_figures(prepared: PreparedHoltenCase, output_dir: Path) -> list[Path]:
+def build_pre_model_figures(
+    prepared: PreparedHoltenCase, output_dir: Path
+) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     generated: list[Path] = []
-    pre_model_cfg = prepared.context.config.get("holten", {}).get("figures", {}).get("pre_model", {})
+    pre_model_cfg = (
+        prepared.context.config.get("holten", {})
+        .get("figures", {})
+        .get("pre_model", {})
+    )
     tracer_panels_enabled = bool(pre_model_cfg.get("tracer_panels", True))
     well_panels_enabled = bool(pre_model_cfg.get("well_panels", True))
 
@@ -338,11 +410,18 @@ def build_pre_model_figures(prepared: PreparedHoltenCase, output_dir: Path) -> l
             observed = prepared.observed_aggregated.loc[
                 prepared.observed_aggregated["element"] == tracer_name
             ].copy()
-            display_history = build_reference_curve(prepared, tracer_name, history, observed)
+            display_history = build_reference_curve(
+                prepared, tracer_name, history, observed
+            )
             line_label = display_history.attrs.get("display_label", "Recharge history")
-            title = display_history.attrs.get("display_title", f"{tracer_name}: recharge history and Holten observations")
+            title = display_history.attrs.get(
+                "display_title",
+                f"{tracer_name}: recharge history and Holten observations",
+            )
             x_label = display_history.attrs.get("x_label", "Decimal year")
-            fig, axes = plt.subplots(2, 1, figsize=(10, 7.2), gridspec_kw={"height_ratios": [2.0, 1.0]})
+            fig, axes = plt.subplots(
+                2, 1, figsize=(10, 7.2), gridspec_kw={"height_ratios": [2.0, 1.0]}
+            )
             ax = axes[0]
             ax.plot(
                 display_history["date"],
@@ -399,9 +478,25 @@ def build_pre_model_figures(prepared: PreparedHoltenCase, output_dir: Path) -> l
             for ax, (_, row) in zip(axes, frame.iterrows()):
                 tracer_name = row["element"]
                 raw_history = prepared.tracer_histories[tracer_name]
-                display_history = build_reference_curve(prepared, tracer_name, raw_history, frame.loc[frame["element"] == tracer_name])
-                ax.plot(display_history["date"], display_history["concentration"], color="#1f4b99", linewidth=1.5)
-                ax.scatter([row["date"]], [row["concentration"]], s=60, color="#c13b31", zorder=3)
+                display_history = build_reference_curve(
+                    prepared,
+                    tracer_name,
+                    raw_history,
+                    frame.loc[frame["element"] == tracer_name],
+                )
+                ax.plot(
+                    display_history["date"],
+                    display_history["concentration"],
+                    color="#1f4b99",
+                    linewidth=1.5,
+                )
+                ax.scatter(
+                    [row["date"]],
+                    [row["concentration"]],
+                    s=60,
+                    color="#c13b31",
+                    zorder=3,
+                )
                 ax.set_ylabel(f"{tracer_name} [{row['unit']}]")
                 ax.grid(alpha=0.25)
             axes[0].set_title(f"Well {well_id}: multi-tracer panel")
@@ -415,7 +510,9 @@ def build_pre_model_figures(prepared: PreparedHoltenCase, output_dir: Path) -> l
     return generated
 
 
-def _reference_subset(reference: pd.DataFrame, selected_wells: list[str]) -> pd.DataFrame:
+def _reference_subset(
+    reference: pd.DataFrame, selected_wells: list[str]
+) -> pd.DataFrame:
     subset = reference.loc[reference["Well"].isin(selected_wells)].copy()
     score_cols = [
         "3bin_chi2",
@@ -450,37 +547,54 @@ def _bootstrap_mid_age(stats: pd.DataFrame) -> float:
     return tmin + 0.5 * delta
 
 
-def _recharge_value_at_age(history: pd.DataFrame, sample_date: float, age_years: float) -> float:
+def _recharge_value_at_age(
+    history: pd.DataFrame, sample_date: float, age_years: float
+) -> float:
     target_year = sample_date - age_years
-    return float(np.interp(target_year, history["date"], history["concentration"], left=0.0, right=0.0))
+    return float(
+        np.interp(
+            target_year, history["date"], history["concentration"], left=0.0, right=0.0
+        )
+    )
 
 
-def _bootstrap_modeled_value(prepared: PreparedHoltenCase, row: pd.Series, mid_age: float) -> float:
+def _bootstrap_modeled_value(
+    prepared: PreparedHoltenCase, row: pd.Series, mid_age: float
+) -> float:
     tracer = str(row["element"])
     if tracer == "39Ar":
         tracer_cfg = _load_tracer_cfg(prepared, "39Ar")
         recharge_constant = float(tracer_cfg["recharge_constant"])
-        decay_time = float(tracer_cfg["decay_time"])
-        return float(recharge_constant * np.exp(-mid_age / decay_time))
+        decay_rate = rate_from_config(tracer_cfg)
+        assert decay_rate is not None
+        return float(recharge_constant * np.exp(-decay_rate * mid_age))
 
     if tracer in {"3H", "kr85"}:
         tracer_cfg = _load_tracer_cfg(prepared, tracer)
         history = prepared.tracer_histories[tracer]
         recharge = _recharge_value_at_age(history, float(row["date"]), mid_age)
-        return float(recharge * np.exp(-mid_age / float(tracer_cfg["decay_time"])))
+        decay_rate = rate_from_config(tracer_cfg)
+        assert decay_rate is not None
+        return float(recharge * np.exp(-decay_rate * mid_age))
 
     raise ValueError(f"Unsupported tracer for Holten bootstrap RMSE: {tracer}")
 
 
-def _compute_bootstrap_rmse(prepared: PreparedHoltenCase, well_id: str, stats: pd.DataFrame | None) -> float | None:
+def _compute_bootstrap_rmse(
+    prepared: PreparedHoltenCase, well_id: str, stats: pd.DataFrame | None
+) -> float | None:
     if stats is None or "mean" not in stats.index:
         return None
     if prepared.context.lpm_name != "uniform":
         return None
     mid_age = _bootstrap_mid_age(stats)
     obs = prepared.observed_by_well[well_id].copy()
-    modeled = [_bootstrap_modeled_value(prepared, row, mid_age) for _, row in obs.iterrows()]
-    residuals = obs["concentration"].to_numpy(dtype=float) - np.asarray(modeled, dtype=float)
+    modeled = [
+        _bootstrap_modeled_value(prepared, row, mid_age) for _, row in obs.iterrows()
+    ]
+    residuals = obs["concentration"].to_numpy(dtype=float) - np.asarray(
+        modeled, dtype=float
+    )
     return float(np.sqrt(np.mean(np.square(residuals))))
 
 
@@ -489,17 +603,22 @@ def compare_with_reference_results(
     results_by_well: dict[str, Path] | None = None,
     local_4bin_summary: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    reference = _reference_subset(load_reference_results(prepared.context), prepared.context.selected_wells)
+    reference = _reference_subset(
+        load_reference_results(prepared.context), prepared.context.selected_wells
+    )
     rows: list[dict[str, Any]] = []
     results_by_well = results_by_well or {}
-    local_4bin_summary = local_4bin_summary if local_4bin_summary is not None else pd.DataFrame()
+    local_4bin_summary = (
+        local_4bin_summary if local_4bin_summary is not None else pd.DataFrame()
+    )
     for well_id in prepared.context.selected_wells:
         ref_row = reference.loc[reference["Well"] == well_id].iloc[0]
         result_dir = results_by_well.get(well_id)
         stats = _load_stats_if_available(result_dir)
         local_row = (
             local_4bin_summary.loc[local_4bin_summary["well_id"] == well_id].iloc[0]
-            if not local_4bin_summary.empty and (local_4bin_summary["well_id"] == well_id).any()
+            if not local_4bin_summary.empty
+            and (local_4bin_summary["well_id"] == well_id).any()
             else None
         )
         rows.append(
@@ -508,13 +627,27 @@ def compare_with_reference_results(
                 "reference_4bin_chi2": float(ref_row["4bin_chi2"]),
                 "reference_4bin_pchi2": float(ref_row["4bin_pchi2"]),
                 "reference_best_model": str(ref_row["reference_best_model"]),
-                "local_4bin_chi2": float(local_row["chi2_local_4bin"]) if local_row is not None else np.nan,
-                "local_4bin_rmse": float(local_row["rmse_local_4bin"]) if local_row is not None else np.nan,
-                "local_4bin_mean_age": float(local_row["mean_age_local_4bin"]) if local_row is not None else np.nan,
-                "local_4bin_f_0_20": float(local_row["f_0_20"]) if local_row is not None else np.nan,
-                "local_4bin_f_20_40": float(local_row["f_20_40"]) if local_row is not None else np.nan,
-                "local_4bin_f_40_60": float(local_row["f_40_60"]) if local_row is not None else np.nan,
-                "local_4bin_f_old": float(local_row["f_old"]) if local_row is not None else np.nan,
+                "local_4bin_chi2": float(local_row["chi2_local_4bin"])
+                if local_row is not None
+                else np.nan,
+                "local_4bin_rmse": float(local_row["rmse_local_4bin"])
+                if local_row is not None
+                else np.nan,
+                "local_4bin_mean_age": float(local_row["mean_age_local_4bin"])
+                if local_row is not None
+                else np.nan,
+                "local_4bin_f_0_20": float(local_row["f_0_20"])
+                if local_row is not None
+                else np.nan,
+                "local_4bin_f_20_40": float(local_row["f_20_40"])
+                if local_row is not None
+                else np.nan,
+                "local_4bin_f_40_60": float(local_row["f_40_60"])
+                if local_row is not None
+                else np.nan,
+                "local_4bin_f_old": float(local_row["f_old"])
+                if local_row is not None
+                else np.nan,
                 "bootstrap_lpm": prepared.context.lpm_name if result_dir else "",
                 "bootstrap_result_dir": str(result_dir) if result_dir else "",
                 "bootstrap_rmse": _compute_bootstrap_rmse(prepared, well_id, stats),
@@ -551,7 +684,9 @@ def build_reference_comparison_figures(
     )
     ax.set_xticks(x, comparison["well_id"].tolist())
     ax.set_ylabel("chi2")
-    ax.set_title("Holten 4-bin fit quality: published benchmark vs local implementation")
+    ax.set_title(
+        "Holten 4-bin fit quality: published benchmark vs local implementation"
+    )
     ax.grid(axis="y", alpha=0.25)
     ax.legend(loc="best")
     fig.tight_layout()
@@ -560,8 +695,12 @@ def build_reference_comparison_figures(
     plt.close(fig)
     generated["local_vs_reference_4bin_chi2"] = out_path
 
-    reference = _reference_subset(load_reference_results(prepared.context), prepared.context.selected_wells)
-    fig, axes = plt.subplots(1, len(reference), figsize=(4.6 * len(reference), 4.4), sharey=True)
+    reference = _reference_subset(
+        load_reference_results(prepared.context), prepared.context.selected_wells
+    )
+    fig, axes = plt.subplots(
+        1, len(reference), figsize=(4.6 * len(reference), 4.4), sharey=True
+    )
     if len(reference) == 1:
         axes = [axes]
     x_positions = np.arange(len(REFERENCE_MODEL_COLUMNS))
@@ -581,7 +720,12 @@ def build_reference_comparison_figures(
             ha="right",
             va="top",
             fontsize=9,
-            bbox={"boxstyle": "round,pad=0.25", "fc": "white", "ec": "#b0b0b0", "alpha": 0.9},
+            bbox={
+                "boxstyle": "round,pad=0.25",
+                "fc": "white",
+                "ec": "#b0b0b0",
+                "alpha": 0.9,
+            },
         )
     axes[0].set_ylabel("Published chi2 (log scale)")
     fig.suptitle("Published model scores for the selected Holten wells", y=1.02)
@@ -593,7 +737,9 @@ def build_reference_comparison_figures(
     return generated
 
 
-def write_benchmark_summary(comparison: pd.DataFrame, output_dir: Path) -> tuple[Path, Path]:
+def write_benchmark_summary(
+    comparison: pd.DataFrame, output_dir: Path
+) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = output_dir / "comparison_by_well.csv"
     txt_path = output_dir / "benchmark_summary.txt"

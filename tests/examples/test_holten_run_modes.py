@@ -7,8 +7,12 @@ from examples.natural.holten import run_holten
 
 
 def _patch_main_dependencies(monkeypatch, calls: list[str]) -> None:
-    monkeypatch.setattr(run_holten, "_selected_wells_from_args", lambda *_args: ["67-19"])
-    monkeypatch.setattr(run_holten, "_ensure_prepared", lambda prepared, *_args: prepared or object())
+    monkeypatch.setattr(
+        run_holten, "_selected_wells_from_args", lambda *_args: ["67-19"]
+    )
+    monkeypatch.setattr(
+        run_holten, "_ensure_prepared", lambda prepared, *_args: prepared or object()
+    )
     monkeypatch.setattr(
         run_holten,
         "_run_prepare_phase",
@@ -36,7 +40,13 @@ def test_run_holten_prepare_only_runs_prepare_phase_only(monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["run_holten.py", "--config", str(Path("dummy.yaml")), "--mode", "prepare_only"],
+        [
+            "run_holten.py",
+            "--config",
+            str(Path("dummy.yaml")),
+            "--mode",
+            "prepare_only",
+        ],
     )
 
     run_holten.main()
@@ -50,7 +60,13 @@ def test_run_holten_calibration_only_runs_calibration_phase_only(monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["run_holten.py", "--config", str(Path("dummy.yaml")), "--mode", "calibration_only"],
+        [
+            "run_holten.py",
+            "--config",
+            str(Path("dummy.yaml")),
+            "--mode",
+            "calibration_only",
+        ],
     )
 
     run_holten.main()
@@ -64,7 +80,13 @@ def test_run_holten_compare_only_runs_compare_phase_only(monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["run_holten.py", "--config", str(Path("dummy.yaml")), "--mode", "compare_only"],
+        [
+            "run_holten.py",
+            "--config",
+            str(Path("dummy.yaml")),
+            "--mode",
+            "compare_only",
+        ],
     )
 
     run_holten.main()

@@ -8,16 +8,18 @@ from tests.examples.holten_test_support import (
     build_local_4bin_record,
     build_prepare_record,
     build_reference_comparison_record,
-    holten_sandbox,
-    local_4bin_mh_outputs,
-    local_4bin_outputs,
-    prepared_holten_case,
-    reference_comparison,
 )
 from tests.utils import golden as golden_utils
 
+pytest_plugins = ("tests.examples.holten_fixtures",)
 
-GOLDEN_PATH = Path(__file__).resolve().parents[2] / "tests" / "golden" / "holten_example_values.json"
+
+GOLDEN_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "tests"
+    / "golden"
+    / "holten_example_values.json"
+)
 
 
 def test_holten_golden(
@@ -30,7 +32,9 @@ def test_holten_golden(
     record = {
         "prepare": build_prepare_record(prepared_holten_case),
         "local_4bin": build_local_4bin_record(local_4bin_outputs),
-        "local_4bin_mh_nstep_600_seed_12345": build_local_4bin_mh_record(local_4bin_mh_outputs),
+        "local_4bin_mh_nstep_600_seed_12345": build_local_4bin_mh_record(
+            local_4bin_mh_outputs
+        ),
         "reference_comparison": build_reference_comparison_record(reference_comparison),
     }
 

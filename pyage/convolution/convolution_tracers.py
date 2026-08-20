@@ -1,115 +1,81 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar 23 03:23:24 2021
+"""Batch convolution of multiple groundwater tracers."""
 
-@author: Jean-Raynald de Dreuzy
-
-Purpose
--------
-High-level wrapper around multiple tracers for convolution workflows.
-Builds and manages a list of `Convolution` instances, dispatches
-convolution calls for each tracer, and aggregates results into arrays
-or structured outputs (dataframes, Concentrations objects) for
-calibration and analysis.
-"""
 from __future__ import annotations
 
-import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
 
-import pyage.global_parameters as gp
-import pyage.convolution.convolution as convolution
-import pyage.concentrations.concentrations as concentrations
-import pyage.tracer.tracer_root as tracer_module
+from pyage.concentrations.concentrations import Concentrations, name_date
+from pyage.config.paths import DIRECTORY_TRACER_DATA
+from pyage.config.runtime import DisplayOptions
+from pyage.convolution.convolution import Convolution
+from pyage.convolution.settings import TracerGridSettings
+from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
+from pyage.tracer.tracer_root import Tracer
 
 if TYPE_CHECKING:
     from pyage.lpm.core.lpm_base import LpmBase as LPM
-    from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
-
 
 
 class ConvolutionTracers:
-    """
-    Collection of Convolution instances for multiple tracers.
+    """Prepare and evaluate a collection of tracer convolutions."""
 
-    Manages convolution operations across a set of tracers, providing
-    batch operations for preparing and executing convolution.
-
-    Attributes
-    ----------
-    elements : list[Convolution]
-        List of Convolution instances, one per tracer.
-
-    Methods
-    -------
-    convolution
-        Compute convolution for all tracers with a given LPM.
-    convolution_prepare
-        Pre-compute convolution data for all tracers.
-    convolution_date_range
-        Compute convolution over a date range for all tracers.
-    element_names
-        Get list of tracer names.
-    units
-        Get list of tracer units.
-    """
-    
     def __init__(
         self,
-        names: list[str] | None = None,
-        date: float | list[float] = 2010,
+        names: Iterable[str] | None = None,
+        date: float | Iterable[float] = 2010,
         tracer_data_dir: str | Path | None = None,
+        grid_settings: TracerGridSettings | None = None,
     ) -> None:
-        """
-        Constructor
-
-        Arguments
-        ---------
-        names: array of str
-            name of tracers to be loaded
-        """
-        if names is None:
-            names = ["cfc11", "kr85"]
-        resolved_tracer_dir = Path(tracer_data_dir) if tracer_data_dir is not None else Path(gp.DIRECTORY_TRACER_DATA)
-        # Create element list and loads each element
-        date_temp = [date] * len(names) if np.isscalar(date) else date
-        self.elements: list[convolution.Convolution] = [
-            convolution.Convolution(
-                tracer_module.Tracer(resolved_tracer_dir, name),
-                date=date_temp[k]
+        names = list(names) if names is not None else ["cfc11", "kr85"]
+        dates = self._normalize_dates(date, len(names))
+        resolved_tracer_dir = (
+            Path(tracer_data_dir)
+            if tracer_data_dir is not None
+            else DIRECTORY_TRACER_DATA
+        )
+        self.elements: list[Convolution] = [
+            Convolution(
+                Tracer(resolved_tracer_dir, name),
+                date=tracer_date,
+                grid_settings=grid_settings,
             )
-            for k, name in enumerate(names)
+            for name, tracer_date in zip(names, dates)
         ]
-    
-    
-    def display(self, display_options: gp.display_options) -> None:
+
+    @staticmethod
+    def _normalize_dates(date: float | Iterable[float], size: int) -> list[float]:
+        if np.isscalar(date):
+            return [float(date)] * size
+        dates = [float(value) for value in date]
+        if len(dates) != size:
+            raise ValueError(f"Expected {size} tracer dates, received {len(dates)}")
+        return dates
+
+    def display(self, display_options: DisplayOptions) -> None:
         """Displays the tracers."""
         for x in self.elements:
             x.display(display_options)
-
 
     def write_name(self, file) -> None:
         """Write tracer names to file."""
         file.write("tracers")
         for t in self.element_names():
-            file.write('\t')
+            file.write("\t")
             file.write(t)
-        file.write('\n')
-
+        file.write("\n")
 
     def element_names(self) -> list[str]:
         """Gets the list of element names."""
         return [x.name for x in self.elements]
 
-
     def element_names_dates(self) -> list[str]:
         """Gets the list of element names with dates."""
-        return [concentrations.name_date(x.name, x.date) for x in self.elements]
-
+        return [name_date(x.name, x.date) for x in self.elements]
 
     def mean_value(self, date: float) -> list[float]:
         """
@@ -126,26 +92,27 @@ class ConvolutionTracers:
             Mean value for each element concentration.
         """
         return [x.mean_value(date) for x in self.elements]
-    
-    
-    def convolution_prepare(self, strategy: "ConvolutionStrategy") -> None:
-        """Prepares convolution for all tracers using the given strategy."""
-        for t in self.elements:
-            t.convolution_prepare(strategy)
 
+    def prepare(self, lpm: LPM | None = None) -> None:
+        """Eagerly prepare grids when the requested LPM has a continuous part."""
+        if lpm is not None and lpm.convolution_strategy not in {
+            ConvolutionStrategy.CONTINUOUS,
+            ConvolutionStrategy.MIXED_DIRAC_CONTINUOUS,
+        }:
+            return
+        for t in self.elements:
+            t.prepare()
 
     def units(self) -> list[str]:
         """Gets units of tracers."""
-        return [t.unit for t in self.elements]        
+        return [t.unit for t in self.elements]
 
-    
-    def convolution(
+    def convolve(
         self,
         lpm: LPM,
-        return_type: str = "array",
-        prepare: bool = False,
-        opt: bool = False
-    ) -> list[float] | concentrations.Concentrations | pd.DataFrame:
+        return_type: Literal["array", "concentrations", "dataframe"] = "array",
+        apply_age_correction: bool = False,
+    ) -> list[float] | Concentrations | pd.DataFrame:
         """
         Convolution between a LPM and the tracers at configured dates.
 
@@ -156,12 +123,9 @@ class ConvolutionTracers:
         return_type : str
             Format of convolution return:
             - "array": list of concentrations
-            - "concentrations_set": Concentrations object
-            - "dataframe_columns": DataFrame with tracer names as columns
+            - "concentrations": Concentrations object
             - "dataframe": DataFrame with element/concentration columns
-        prepare : bool
-            Whether convolution was prepared beforehand.
-        opt : bool
+        apply_age_correction : bool
             Enable age correction for optimization.
 
         Returns
@@ -174,38 +138,41 @@ class ConvolutionTracers:
         ValueError
             If return_type is not recognized.
         """
-        conc = [t.convolution(lpm, prepare=prepare, opt=opt) for t in self.elements]
-        date_vec = [t.date for t in self.elements]
+        values = [
+            t.convolve(lpm, apply_age_correction=apply_age_correction)
+            for t in self.elements
+        ]
 
         if return_type == "array":
-            return conc
-        elif return_type == "concentrations_set":
-            data_temp = pd.DataFrame({
-                "element": self.element_names(),
-                "concentration": conc,
-                "unit": self.units(),
-                "date": date_vec
-            }, columns=["element", "concentration", "unit", "date"])
-            return concentrations.Concentrations(dataframe_load=True, dataframe_concentration=data_temp)
-        elif return_type == "dataframe_columns":
-            data = pd.DataFrame(columns=self.element_names())
-            data.loc[len(data.index)] = conc
-            return data
-        elif return_type == "dataframe":
-            return pd.DataFrame({
-                "element": self.element_names(),
-                "concentration": conc,
-                "date": date_vec
-            }, columns=["element", "concentration"])
-        else:
-            raise ValueError(f"Unknown return_type: {return_type}")
-    
-    
-    def convolution_date_range(
+            return values
+        if return_type == "concentrations":
+            frame = pd.DataFrame(
+                {
+                    "element": self.element_names(),
+                    "concentration": values,
+                    "unit": self.units(),
+                    "date": [tracer.date for tracer in self.elements],
+                },
+                columns=["element", "concentration", "unit", "date"],
+            )
+            return Concentrations.from_dataframe(frame)
+        if return_type == "dataframe":
+            return pd.DataFrame(
+                {
+                    "element": self.element_names(),
+                    "concentration": values,
+                },
+                columns=["element", "concentration"],
+            )
+        raise ValueError(f"Unknown return_type: {return_type}")
+
+    def convolve_date_range(
         self,
         lpm: LPM,
         date1: float,
-        date2: float
+        date2: float,
+        *,
+        resolution: int = 50,
     ) -> dict[str, pd.DataFrame]:
         """
         Convolution on the range of dates given by [date1, date2].
@@ -218,34 +185,20 @@ class ConvolutionTracers:
             Start date (year).
         date2 : float
             End date (year).
+        resolution : int
+            Number of equal intervals, shared by every tracer.
 
         Returns
         -------
         dict[str, pd.DataFrame]
             Dictionary mapping tracer names to their convolution DataFrames.
         """
-        return {t.name: t.convolution_date_range(lpm, date1, date2) for t in self.elements}
-
-
-def write_file_conc_lpm(date,concentrations,lpm,directory):
-    """ 
-    Write the tracers in the files
-    #JR: definition in concentration classes rather than here? 
-    """
-    # Write date and lpm    
-    name_tracers = ""
-    for t in concentrations.iloc[:,0]: name_tracers = name_tracers + "_" + t
-    root_name = os.path.join(directory,"convol_" + lpm.name + "_" + name_tracers)
-    file = open(root_name +" _lpm" + ".txt", "w")
-    file.write("date\t")
-    file.write(str(date))
-    file.write("\n")
-    lpm.write(file,open_file=False)
-    file.close()
-    # Write concentrations
-    concentrations.to_csv(root_name +" _concentrations" + ".txt",sep='\t') #, header=None, index=None, sep=',', mode='w')
-
-
-    
-    
-    
+        return {
+            tracer.name: tracer.convolve_date_range(
+                lpm,
+                date1,
+                date2,
+                resolution=resolution,
+            )
+            for tracer in self.elements
+        }

@@ -8,6 +8,8 @@ Provide small, dataset-agnostic helpers to load concentration tables used
 across examples and site workflows.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from pyage.concentrations.concentrations import Concentrations
@@ -28,7 +30,7 @@ def build_observation_path(
     base_dir : str or Path
         Root folder containing observation files.
     prefix : str
-        Filename prefix (e.g., "ori_ploemeur_").
+        Filename prefix (e.g., ``ori_ploemeur_``).
     well : str
         Well name (or station identifier).
     dates : str
@@ -59,7 +61,7 @@ def build_observation_file(
     base_dir : str or Path
         Root folder containing observation files.
     prefix : str
-        Filename prefix (e.g., "ori_ploemeur_").
+        Filename prefix (e.g., ``ori_ploemeur_``).
     well : str
         Well name (or station identifier).
     dates : str
@@ -85,7 +87,7 @@ def load_observation_concentrations(
     base_dir : str or Path
         Root folder containing observation files.
     prefix : str
-        Filename prefix (e.g., "ori_ploemeur_").
+        Filename prefix (e.g., ``ori_ploemeur_``).
     well : str
         Well name (or station identifier).
     dates : str
@@ -114,4 +116,4 @@ def load_concentrations(file_path: str | Path) -> Concentrations:
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"Concentration file not found: {path}")
-    return Concentrations(file_load=True, file_name=str(path))
+    return Concentrations.from_file(path)

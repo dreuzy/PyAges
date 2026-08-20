@@ -1,0 +1,30 @@
+# Inversion DM à deux paramètres avec les trois CFC communs.
+- case_id: inversion-dm-tau20-dp0_2-no-noise-tracerlpm
+  sample: PSW-1-17/08/2004
+  observation_year: 2020.0
+  tracerlpm_effective_observation_year: 2020.0
+  model1: DM
+  model2: DM
+  model_parameter: 0.2
+  x_axis: SF6
+  y_axis: NO3-N
+  input_history:
+    path: ../observations/tracerlpm-emm-pilot-three-cfcs.csv
+    sha256: C651D3F5AAF51B1EB0824D4A0AECF7CADC43A8FB9CECBDFD23E6B79877F49698
+    target_tracers: [SF6, 3H, NO3-N]
+    source_columns: {SF6: cfc11, 3H: cfc12, NO3-N: cfc113}
+    before: 0.0
+    after: hold_last
+  fit:
+    sample: PSW-1-17/08/2004
+    model: DM
+    observations:
+      SF6: 234.263245744231
+      3H: 490.629190879653
+      NO3-N: 70.704237367376
+    initial_ages: [5.0, 20.0, 80.0]
+    initial_model_parameters: [0.02, 0.2, 1.0]
+    age_lower: 0.1
+    age_upper: 200.0
+    model_parameter_lower: 0.001
+    model_parameter_upper: 3.0

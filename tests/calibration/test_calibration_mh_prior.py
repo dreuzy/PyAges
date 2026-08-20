@@ -5,21 +5,15 @@ Based on calibration.test_calibration_MH_prior, but with reduced settings
 to keep the test fast and deterministic.
 """
 
-import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SRC_DIR = REPO_ROOT / "pyage"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-
-import pyage.global_parameters as gp
-from pyage.calibration.methods.metropolis_hastings import MHConfig, MetropolisHastings
+from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
 from pyage.calibration.workflows import synthetic_test as cst
+from pyage.config.runtime import DisplayOptions
 
 
 def test_calibration_mh_prior_smoke(tmp_path: Path):
-    display = gp.display_options()
+    display = DisplayOptions()
     display.figure = False
     display.text = False
     display.figure_save = False

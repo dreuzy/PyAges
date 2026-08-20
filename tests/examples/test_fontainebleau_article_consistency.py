@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 DATA_DIR = (
     Path(__file__).resolve().parents[2]
     / "examples"
@@ -27,13 +26,48 @@ CONFIG_PATH = (
 # Table 4 in:
 # Corcho Alvarado et al. (2007), Water Resources Research 43, W03427.
 ARTICLE_TABLE_4 = {
-    "SM": {"kr85": (43.0, 5.0), "3H": (10.0, 0.8), "39Ar": (79.0, 7.0), "14C": (80.2, 0.6)},
-    "CGEB": {"kr85": (6.8, 0.7), "3H": (8.5, 0.8), "39Ar": (73.0, 5.0), "14C": (75.1, 0.6)},
-    "SA": {"kr85": (16.1, 4.1), "3H": (15.1, 0.8), "39Ar": (69.0, 5.0), "14C": (84.2, 0.6)},
-    "LRN10": {"kr85": (6.1, 4.8), "3H": (7.8, 0.8), "39Ar": (77.0, 5.0), "14C": (73.7, 0.6)},
-    "IMR": {"kr85": (2.9, 0.4), "3H": (3.1, 0.8), "39Ar": (55.0, 5.0), "14C": (69.8, 0.6)},
-    "SLP4": {"kr85": (6.2, 2.5), "3H": (7.8, 0.8), "39Ar": (59.0, 5.0), "14C": (75.5, 0.6)},
-    "SLP5": {"kr85": (5.6, 2.8), "3H": (4.0, 0.8), "39Ar": (51.0, 5.0), "14C": (73.8, 0.6)},
+    "SM": {
+        "kr85": (43.0, 5.0),
+        "3H": (10.0, 0.8),
+        "39Ar": (79.0, 7.0),
+        "14C": (80.2, 0.6),
+    },
+    "CGEB": {
+        "kr85": (6.8, 0.7),
+        "3H": (8.5, 0.8),
+        "39Ar": (73.0, 5.0),
+        "14C": (75.1, 0.6),
+    },
+    "SA": {
+        "kr85": (16.1, 4.1),
+        "3H": (15.1, 0.8),
+        "39Ar": (69.0, 5.0),
+        "14C": (84.2, 0.6),
+    },
+    "LRN10": {
+        "kr85": (6.1, 4.8),
+        "3H": (7.8, 0.8),
+        "39Ar": (77.0, 5.0),
+        "14C": (73.7, 0.6),
+    },
+    "IMR": {
+        "kr85": (2.9, 0.4),
+        "3H": (3.1, 0.8),
+        "39Ar": (55.0, 5.0),
+        "14C": (69.8, 0.6),
+    },
+    "SLP4": {
+        "kr85": (6.2, 2.5),
+        "3H": (7.8, 0.8),
+        "39Ar": (59.0, 5.0),
+        "14C": (75.5, 0.6),
+    },
+    "SLP5": {
+        "kr85": (5.6, 2.8),
+        "3H": (4.0, 0.8),
+        "39Ar": (51.0, 5.0),
+        "14C": (73.8, 0.6),
+    },
 }
 
 
@@ -65,7 +99,7 @@ def test_fontainebleau_article_table_4_values():
         ar39_concentration, ar39_error = expected["39Ar"]
         assert round(float(ar39_row["concentration"]) * 100.0, 12) == ar39_concentration
         assert round(float(ar39_row["error"]) * 100.0, 12) == ar39_error
-        assert str(ar39_row["unit"]) == "%modern"
+        assert str(ar39_row["unit"]) == "fraction_modern"
 
 
 def test_fontainebleau_sampling_campaign_year():

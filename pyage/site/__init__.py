@@ -1,1 +1,1 @@
-﻿"""Site integration interfaces."""
+"""Site integration interfaces."""

@@ -3,21 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 
 from PIL import Image
 
-POSTPROCESSING_DIRECTORY = Path(__file__).resolve().parent
-if str(POSTPROCESSING_DIRECTORY) not in sys.path:
-    sys.path.insert(0, str(POSTPROCESSING_DIRECTORY))
-
-from plot_cfc11_vs_cfc12 import make_figure
-
+from .plot_cfc11_vs_cfc12 import make_figure
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
-SUBMISSION_DIRECTORY = (
-    REPOSITORY_ROOT / "results" / "HYP-26-0172" / "figures"
-)
+SUBMISSION_DIRECTORY = REPOSITORY_ROOT / "results" / "HYP-26-0172" / "figures"
 SOURCE_F11 = SUBMISSION_DIRECTORY / "Figure_F11_atmospheric_inputs.tif"
 SOURCE_F09 = SUBMISSION_DIRECTORY / "Figure_F09_atmospheric_inputs.tif"
 
@@ -39,9 +31,15 @@ def build_figure2() -> Path:
     f11, dpi_f11 = _load_flattened_rgb(SOURCE_F11)
     f09, dpi_f09 = _load_flattened_rgb(SOURCE_F09)
     if f11.width != f09.width:
-        raise ValueError(f"Figure 2 bands have different widths: {f11.width}, {f09.width}")
-    if tuple(round(value) for value in dpi_f11) != tuple(round(value) for value in dpi_f09):
-        raise ValueError(f"Figure 2 bands have different resolutions: {dpi_f11}, {dpi_f09}")
+        raise ValueError(
+            f"Figure 2 bands have different widths: {f11.width}, {f09.width}"
+        )
+    if tuple(round(value) for value in dpi_f11) != tuple(
+        round(value) for value in dpi_f09
+    ):
+        raise ValueError(
+            f"Figure 2 bands have different resolutions: {dpi_f11}, {dpi_f09}"
+        )
 
     # A small white gutter separates the two rows while retaining every source
     # pixel. F11 is the top row and F09 the bottom row, matching the manuscript.

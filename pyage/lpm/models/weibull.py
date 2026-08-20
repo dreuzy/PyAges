@@ -11,6 +11,10 @@ Author
 Jean-Raynald de Dreuzy
 """
 
+import numpy as np
+import numpy.typing as npt
+from scipy.special import gamma as gamma_function
+from scipy.special import gammainc
 from scipy.stats import weibull_min
 
 from pyage.lpm.core.lpm_scipy import LpmScipy
@@ -42,3 +46,29 @@ class WeibullLpm(LpmScipy):
 
     def _scipy_params(self):
         return (self.p["k"],), 0, self.p["lambda"]  # (args), loc, scale
+
+    def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
+        """Return exact cumulative mass and truncated first moment."""
+        shape = float(self.p["k"])
+        scale = float(self.p["lambda"])
+        if not np.isfinite(shape) or shape <= 0.0:
+            raise ValueError(f"Weibull shape must be positive and finite, got {shape}")
+        if not np.isfinite(scale) or scale <= 0.0:
+            raise ValueError(f"Weibull scale must be positive and finite, got {scale}")
+
+        values = np.asarray(t, dtype=float)
+        cdf = np.asarray(self.cdf(values), dtype=float)
+        first_moment = np.zeros_like(values, dtype=float)
+        positive = values > 0.0
+        if np.any(positive):
+            with np.errstate(over="ignore", invalid="ignore"):
+                reduced_age = np.power(values[positive] / scale, shape)
+            moment_shape = 1.0 + 1.0 / shape
+            first_moment[positive] = (
+                scale
+                * gamma_function(moment_shape)
+                * gammainc(moment_shape, reduced_age)
+            )
+        if values.ndim == 0:
+            return float(cdf), float(first_moment)
+        return cdf, first_moment

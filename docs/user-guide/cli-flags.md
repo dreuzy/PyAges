@@ -48,7 +48,7 @@ Runs a workflow from a YAML configuration file.
 
 | Flag | Type | Description |
 | --- | --- | --- |
-| `--transient` | flag | Run multi‑date temporal workflow via `launcher_temporal.py`. |
+| `--transient` | flag | Run the canonical multi-date temporal workflow. |
 | `--inline` | flag | Force inline matplotlib backend (useful in notebooks/IDEs). |
 | `--lpm <name>` | option | Override LPM model name (single‑date) or list (transient). |
 | `--mh-nsteps <int>` | option | Override Metropolis‑Hastings iteration count. |

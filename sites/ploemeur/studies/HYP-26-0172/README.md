@@ -62,26 +62,26 @@ derived products; the `article_outputs` column records all intended consumers.
 Validate the matrix and referenced YAML files without running a calibration:
 
 ```powershell
-python sites/ploemeur/studies/HYP-26-0172/scripts/validate_study.py
+python -m sites.ploemeur.studies.HYP-26-0172.scripts.validate_study
 ```
 
 List the commands selected for Figure 6:
 
 ```powershell
-python sites/ploemeur/studies/HYP-26-0172/scripts/run_matrix.py --select article_outputs=Figure6
+python -m sites.ploemeur.studies.HYP-26-0172.scripts.run_matrix --select article_outputs=Figure6
 ```
 
 Run one experiment explicitly:
 
 ```powershell
-python sites/ploemeur/studies/HYP-26-0172/scripts/run_matrix.py `
+python -m sites.ploemeur.studies.HYP-26-0172.scripts.run_matrix `
   --experiment-id regime_F11_exp_3cfc_err20_seed12345 --execute
 ```
 
 Run the same experiment with an isolated 100-step smoke profile:
 
 ```powershell
-python sites/ploemeur/studies/HYP-26-0172/scripts/run_matrix.py `
+python -m sites.ploemeur.studies.HYP-26-0172.scripts.run_matrix `
   --experiment-id regime_F11_exp_3cfc_err20_seed12345 `
   --profile smoke --execute
 ```
@@ -89,15 +89,30 @@ python sites/ploemeur/studies/HYP-26-0172/scripts/run_matrix.py `
 After the selected runs finish, build derived CSV files and available figures:
 
 ```powershell
-python sites/ploemeur/studies/HYP-26-0172/postprocessing/build_products.py --profile smoke
+python -m sites.ploemeur.studies.HYP-26-0172.postprocessing.build_products --profile smoke
 ```
 
 Launch all enabled 40,000-step production experiments with two concurrent
 six-process workflows:
 
 ```powershell
-python sites/ploemeur/studies/HYP-26-0172/scripts/supervise_runs.py --max-workers 2
+python -m sites.ploemeur.studies.HYP-26-0172.scripts.supervise_runs --max-workers 2
 ```
+
+When an earlier production campaign must be preserved, use a named isolated
+profile consistently for execution and postprocessing:
+
+```powershell
+python -m sites.ploemeur.studies.HYP-26-0172.scripts.supervise_runs `
+  --profile cdf_v2 --max-workers 2
+python -m sites.ploemeur.studies.HYP-26-0172.postprocessing.build_products `
+  --profile cdf_v2
+```
+
+Each schema-v2 run manifest records separate fingerprints for numerical source
+files and scientific inputs, plus the complete installed-package environment.
+The profile directory already provides isolation, so experiment identifiers are
+not suffixed; this keeps deeply nested Windows figure paths below 260 characters.
 
 Progress is recorded in `results/HYP-26-0172/supervisor_status.json`; per-run
 stdout and stderr are kept in `results/HYP-26-0172/logs`.
@@ -147,7 +162,7 @@ and the submission artifact (`.tif`). Submission TIFF files are flattened RGB,
 single-frame, LZW-compressed graphs at 600 DPI. Validate them with:
 
 ```powershell
-python sites/ploemeur/studies/HYP-26-0172/postprocessing/validate_submission_figures.py
+python -m sites.ploemeur.studies.HYP-26-0172.postprocessing.validate_submission_figures
 ```
 
 ## Figure-to-experiment map
@@ -177,8 +192,8 @@ python sites/ploemeur/studies/HYP-26-0172/postprocessing/validate_submission_fig
    `postprocessing/validate_submission_figures.py`.
 
 Record the Git revision and environment manifests produced with each run.
-Historical pre-matrix configurations and the old newest-folder Figure 4
-builder are retained under `archive/` only to explain earlier outputs.
+Historical pre-matrix configurations are retained under `archive/` only to
+explain earlier outputs. No archived executable is part of the workflow.
 
 ## Closure and limitations
 

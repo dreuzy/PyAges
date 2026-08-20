@@ -2,16 +2,9 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+from sites.ploemeur.workflows.ploemeur_workflow import validate_workflow_params
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[4]
-sys.path.insert(0, str(SCRIPT_DIR))
-sys.path.insert(0, str(REPO_ROOT))
-
-from study_common import load_matrix, load_yaml, resolve_repo_path, split_field  # noqa: E402
-from sites.ploemeur.workflows.ploemeur_workflow import validate_workflow_params  # noqa: E402
+from .study_common import load_matrix, load_yaml, resolve_repo_path, split_field
 
 
 def validate_row(row: dict[str, str]) -> list[str]:
@@ -33,12 +26,16 @@ def validate_row(row: dict[str, str]) -> list[str]:
     expected_wells = split_field(row["wells"])
     actual_wells = [str(value) for value in params["observations"]["wells"]]
     if expected_wells != actual_wells:
-        errors.append(f"{experiment_id}: matrix wells {expected_wells} != YAML wells {actual_wells}")
+        errors.append(
+            f"{experiment_id}: matrix wells {expected_wells} != YAML wells {actual_wells}"
+        )
 
     expected_errors = [float(value) for value in split_field(row["relative_errors"])]
     actual_errors = [float(value) for value in params["observations"]["conc_error_rel"]]
     if expected_errors != actual_errors:
-        errors.append(f"{experiment_id}: matrix errors {expected_errors} != YAML errors {actual_errors}")
+        errors.append(
+            f"{experiment_id}: matrix errors {expected_errors} != YAML errors {actual_errors}"
+        )
 
     expected_pipelines = split_field(row["prior_pipeline"])
     actual_pipelines = [str(value) for value in params["workflows"]["prior_pipeline"]]
@@ -50,7 +47,9 @@ def validate_row(row: dict[str, str]) -> list[str]:
     expected_seeds = [int(value) for value in split_field(row["seeds"])]
     actual_seed = int(params["calibration"]["seed"])
     if expected_seeds != [actual_seed]:
-        errors.append(f"{experiment_id}: matrix seeds {expected_seeds} != YAML seed {actual_seed}")
+        errors.append(
+            f"{experiment_id}: matrix seeds {expected_seeds} != YAML seed {actual_seed}"
+        )
 
     expected_results = f"results/HYP-26-0172/runs/{experiment_id}/workflow"
     actual_results = params["results"].get("directory", "").replace("\\", "/")
@@ -62,7 +61,11 @@ def validate_row(row: dict[str, str]) -> list[str]:
 def main() -> int:
     rows = load_matrix()
     ids = [row["experiment_id"] for row in rows]
-    errors = [f"duplicate experiment_id: {value}" for value in sorted(set(ids)) if ids.count(value) > 1]
+    errors = [
+        f"duplicate experiment_id: {value}"
+        for value in sorted(set(ids))
+        if ids.count(value) > 1
+    ]
     for row in rows:
         errors.extend(validate_row(row))
     if errors:

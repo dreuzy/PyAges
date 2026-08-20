@@ -80,11 +80,11 @@ python examples/natural/albuquerque/run_albuquerque.py
 Or directly with the launcher:
 
 ```bash
-python scripts/launcher.py --params examples/natural/albuquerque/exemple_albuquerque.yaml
+pyage run examples/natural/albuquerque/exemple_albuquerque.yaml
 ```
 
 Shape-free open-old-bin variant:
 
 ```bash
-python scripts/launcher.py --params examples/natural/albuquerque/exemple_albuquerque_shapefree.yaml
+pyage run examples/natural/albuquerque/exemple_albuquerque_shapefree.yaml
 ```

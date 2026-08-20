@@ -1,0 +1,45 @@
+# Généré depuis inversion-noisy-campaign.yaml et les CSV d'observation.
+- case_id: mc01sf6-epm-tau20-r2-seed201-tracerlpm
+  sample: PSW-1-17/08/2004
+  observation_year: 2020.0
+  tracerlpm_effective_observation_year: 2020.0
+  model1: EPM
+  model2: EPM
+  model_parameter: 2.0
+  x_axis: CFC-11
+  y_axis: SF6
+  input_history:
+    path: ../observations/tracerlpm-input-history.csv
+    sha256: AD2724CFA14E7C55CA82ECE721FE3F72A3E6E7CAF7A8B1AB9CF42A4BB2886786
+    target_tracers:
+    - CFC-11
+    - CFC-12
+    - CFC-113
+    - SF6
+    source_columns:
+      CFC-11: cfc11
+      CFC-12: cfc12
+      CFC-113: cfc113
+      SF6: sf6
+    before: 0.0
+    after: hold_last
+  fit:
+    sample: PSW-1-17/08/2004
+    model: EPM
+    observations:
+      CFC-11: 255.988947636655
+      CFC-12: 518.70717798086
+      CFC-113: 75.974115410593
+      SF6: 4.495803397101
+    initial_ages:
+    - 5.0
+    - 20.0
+    - 80.0
+    initial_model_parameters:
+    - 0.5
+    - 2.0
+    - 9.0
+    age_lower: 0.1
+    age_upper: 200.0
+    model_parameter_lower: 0.01
+    model_parameter_upper: 10.0

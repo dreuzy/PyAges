@@ -26,23 +26,23 @@ Prérequis :
   tests/golden/tracer_values.json
 """
 
-from pathlib import Path
 import math
+from pathlib import Path
 
 import pytest
-
-# Import du code à tester
-from pyage.tracer.tracer_root import Tracer
 
 # Fonction utilitaire de sauvegarde des golden values
 # NOTE: importer depuis conftest.py marche, mais à long terme il est souvent plus propre
 #       de placer cette fonction dans tests/utils_golden.py et d'importer depuis là.
 from conftest import save_golden_store
 
+# Import du code à tester
+from pyage.tracer.tracer_root import Tracer
 
 # ---------------------------------------------------------------------------
 # Utilitaire : localiser les données de tests
 # ---------------------------------------------------------------------------
+
 
 def _data_tracer_dir() -> Path:
     """
@@ -89,6 +89,7 @@ def _tracer_names(exclude=None) -> list[str]:
 # ---------------------------------------------------------------------------
 # Tests de cohérence (smoke tests)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("tracer_name", _tracer_names(exclude=["NO3"]))
 def test_tracer_smoke_all(tracer_name):
@@ -184,7 +185,7 @@ def test_tracer_allows_metadata_block(tmp_path):
             [
                 "unit: TU",
                 "recharge_constant: 1.0",
-                "decay_time: 12.32",
+                "half_life: 12.32",
                 "datemin: 1950.0",
                 "datemax: 2021.0",
                 "metadata:",
@@ -206,6 +207,7 @@ def test_tracer_allows_metadata_block(tmp_path):
 # ---------------------------------------------------------------------------
 # Test Golden (valeur de référence / non-régression)
 # ---------------------------------------------------------------------------
+
 
 def _golden_key(tracer_name: str, date: float, time: float) -> str:
     """
@@ -268,13 +270,14 @@ def test_tracer_get_concentration_golden(tracer_name, update_golden, golden_stor
         # plutôt que de laisser le test passer sans vérifier quoi que ce soit.
         if key not in golden_store:
             pytest.fail(
-                f"Golden value missing for {key}. "
-                f"Run: pytest -s --update-golden"
+                f"Golden value missing for {key}. Run: pytest -s --update-golden"
             )
 
         expected = float(golden_store[key])
 
         # Comparaison tolérante pour flottants.
         # rel = tolérance relative, abs = tolérance absolue.
-        print(f"[golden] comparing {key}: computed={value:.12e} expected={expected:.12e}")
+        print(
+            f"[golden] comparing {key}: computed={value:.12e} expected={expected:.12e}"
+        )
         assert value == pytest.approx(expected, rel=1e-6, abs=1e-6)

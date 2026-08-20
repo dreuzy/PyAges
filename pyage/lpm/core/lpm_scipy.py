@@ -7,8 +7,6 @@ reducing code duplication across exponential, gamma, inverse gaussian,
 and uniform models.
 """
 
-from abc import abstractmethod
-from typing import Any
 import warnings
 
 import numpy as np
@@ -63,12 +61,12 @@ class LpmScipy(LpmBase):
     def mean(self) -> float:
         """Return mean of distribution."""
         args, loc, scale = self._scipy_params()
-        return abs(self.scipy_dist.stats(*args, loc=loc, scale=scale, moments='m'))
+        return abs(self.scipy_dist.stats(*args, loc=loc, scale=scale, moments="m"))
 
     def std(self) -> float:
         """Return standard deviation of distribution."""
         args, loc, scale = self._scipy_params()
-        return np.sqrt(self.scipy_dist.stats(*args, loc=loc, scale=scale, moments='v'))
+        return np.sqrt(self.scipy_dist.stats(*args, loc=loc, scale=scale, moments="v"))
 
 
 class LpmScipySafe(LpmScipy):

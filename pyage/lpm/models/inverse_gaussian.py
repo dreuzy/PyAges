@@ -17,10 +17,59 @@ Author
 Jean-Raynald de Dreuzy
 """
 
+import numpy as np
+import numpy.typing as npt
+from scipy.special import log_ndtr, ndtr
 from scipy.stats import invgauss
 
 from pyage.lpm.core.lpm_scipy import LpmScipySafe
 from pyage.lpm.core.registry import register_lpm
+
+
+def scipy_params_from_mean_std(mean_age: float, std_age: float) -> tuple[float, float]:
+    """Convert physical mean/std (years) to SciPy invgauss shape/scale."""
+    if mean_age <= 0:
+        raise ValueError(f"Inverse Gaussian mean_age must be positive, got {mean_age}")
+    if std_age <= 0:
+        raise ValueError(f"Inverse Gaussian std_age must be positive, got {std_age}")
+    shape = (std_age / mean_age) ** 2
+    scale = mean_age**3 / std_age**2
+    return shape, scale
+
+
+def cdf_and_partial_first_moment_from_mean_std(
+    t: npt.ArrayLike,
+    mean_age: float,
+    std_age: float,
+) -> tuple[npt.ArrayLike, npt.ArrayLike]:
+    """Return ``F(t)`` and ``E[X 1(X <= t)]`` for a physical IG model."""
+    scipy_params_from_mean_std(mean_age, std_age)
+    values = np.asarray(t, dtype=float)
+    cdf = np.zeros_like(values, dtype=float)
+    first_moment = np.zeros_like(values, dtype=float)
+    positive_finite = (values > 0.0) & np.isfinite(values)
+    if np.any(positive_finite):
+        ages = values[positive_finite]
+        shape_parameter = mean_age**3 / std_age**2
+        root = np.sqrt(shape_parameter / ages)
+        direct = ndtr(root * (ages / mean_age - 1.0))
+        reflected_log = 2.0 * shape_parameter / mean_age + log_ndtr(
+            -root * (ages / mean_age + 1.0)
+        )
+        reflected = np.exp(np.minimum(reflected_log, 0.0))
+        cdf[positive_finite] = np.clip(direct + reflected, 0.0, 1.0)
+        first_moment[positive_finite] = np.clip(
+            mean_age * (direct - reflected),
+            0.0,
+            mean_age,
+        )
+    positive_infinite = np.isposinf(values)
+    if np.any(positive_infinite):
+        cdf[positive_infinite] = 1.0
+        first_moment[positive_infinite] = mean_age
+    if values.ndim == 0:
+        return float(cdf), float(first_moment)
+    return cdf, first_moment
 
 
 @register_lpm("ig")
@@ -36,15 +85,24 @@ class InverseGaussianLpm(LpmScipySafe):
         Parameters
         ----------
         mu : float
-            Mean parameter of the inverse Gaussian distribution.
+            Mean transit time in years.
         sigma : float
-            Scale parameter of the inverse Gaussian distribution.
+            Standard deviation of transit time in years.
         directory_lpm : str
             Directory for LPM parameter files.
         """
-        parameter_values = {'mu': mu, 'sigma': sigma}
-        parameter_units = {'mu': 'year', 'sigma': 'year'}
+        parameter_values = {"mu": mu, "sigma": sigma}
+        parameter_units = {"mu": "year", "sigma": "year"}
         super().__init__("ig", parameter_values, parameter_units, directory_lpm)
 
     def _scipy_params(self):
-        return (self.p['mu'],), 0, self.p['sigma']  # (args), loc, scale
+        shape, scale = scipy_params_from_mean_std(self.p["mu"], self.p["sigma"])
+        return (shape,), 0, scale
+
+    def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
+        """Return the CDF and truncated first moment on the requested ages."""
+        return cdf_and_partial_first_moment_from_mean_std(
+            t,
+            self.p["mu"],
+            self.p["sigma"],
+        )

@@ -8,8 +8,7 @@ This module implements numerical convolution between tracer recharge
 chronicles and Lumped Parameter Model (LPM) transit time distributions.
 It provides a `Convolution` class that accepts any tracer implementing
 the TracerProtocol interface, evaluates convolutions at a given date,
-and supports specialized algorithms for Dirac, exponential, and mixed
-distributions.
+and supports continuous, discrete, and mixed distributions.
 
 The convolution algorithm is selected based on the LPM's declared
 `convolution_strategy` attribute, enabling new LPM types to be added
@@ -35,31 +34,26 @@ from typing import TYPE_CHECKING, Union
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from scipy import integrate
 
-import pyage.global_parameters as gp
+from pyage.config.runtime import arange_n
+from pyage.convolution.continuous import (
+    convolve_prepared_grid,
+    prepare_adaptive_grid,
+)
+from pyage.convolution.models import (
+    ConvolutionDiagnostics,
+    ConvolutionError,
+    PreparedTracerGrid,
+)
+from pyage.convolution.settings import (
+    DEFAULT_TRACER_GRID_SETTINGS,
+    TracerGridSettings,
+)
 from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyage.tracer.tracer_protocol import TracerProtocol
 
 if TYPE_CHECKING:
-    from pathlib import Path
     from pyage.lpm.core.lpm_base import LpmBase as LPM
-
-
-IG_SHIFTED_PIECEWISE_Q10_THRESHOLD = 0.75
-IG_SHIFTED_PIECEWISE_Q50_THRESHOLD = 2.5
-IG_SHIFTED_PIECEWISE_SEGMENTS = (
-    (0.10, 60, 2.8),
-    (0.50, 60, 1.6),
-    (0.90, 40, 1.2),
-    (0.99, 20, 1.0),
-)
-IG_SHIFTED_PIECEWISE_TAIL_POINTS = 10
-
-
-class ConvolutionError(Exception):
-    """Exception raised for convolution preparation/execution errors."""
-    pass
 
 
 class Convolution:
@@ -71,11 +65,10 @@ class Convolution:
 
     The convolution algorithm is automatically selected based on the LPM's
     `convolution_strategy` attribute:
-    - CLASSIC: Standard numerical integration (Simpson's rule)
+    - CONTINUOUS: Cached tracer grid with exact CDF masses and first moments
     - DIRAC: Direct chronicle lookup for single spike
     - DIRAC_DOUBLE: Weighted combination of two lookups
-    - EXPONENTIAL: Adapted discretization near discontinuity
-    - MIX_DIRAC_EXPONENTIAL: Weighted Dirac + exponential
+    - MIXED_DIRAC_CONTINUOUS: Weighted Dirac + continuous component
 
     Attributes
     ----------
@@ -89,19 +82,20 @@ class Convolution:
         >>> from pyage.tracer.tracer_root import Tracer
         >>> tracer = Tracer(dir_tracer, name="cfc11")
         >>> conv = Convolution(tracer, date=2010)
-        >>> result = conv.convolution(lpm)
+        >>> result = conv.convolve(lpm)
 
         >>> # With synthetic tracer for testing
         >>> from pyage.tracer.tracer_protocol import SyntheticTracer
         >>> synth = SyntheticTracer(concentration_fn=lambda d, t: 100 * np.exp(-t/20))
         >>> conv = Convolution(synth, date=2010)
-        >>> result = conv.convolution(lpm)
+        >>> result = conv.convolve(lpm)
     """
 
     def __init__(
         self,
         tracer: TracerProtocol,
         date: float = 2010,
+        grid_settings: TracerGridSettings | None = None,
     ) -> None:
         """
         Initialize Convolution with a tracer instance.
@@ -113,6 +107,8 @@ class Convolution:
             (Tracer, SyntheticTracer, ConstantTracer, DecayTracer, etc.).
         date : float
             Date (year) at which convolution will be computed.
+        grid_settings : TracerGridSettings, optional
+            Accuracy and safety controls for the cached tracer-response grid.
 
         Examples
         --------
@@ -124,12 +120,15 @@ class Convolution:
             >>> synth = SyntheticTracer(concentration_fn=lambda d, t: 100 * np.exp(-t/20))
             >>> conv = Convolution(synth, date=2010)
         """
+        if not isinstance(tracer, TracerProtocol):
+            raise TypeError(
+                "tracer must implement the complete TracerProtocol contract"
+            )
         self._tracer: TracerProtocol = tracer
         self._date: float = date
-        self._prepare_times: npt.NDArray[np.floating] | list = []
-        self._prepare_conc: npt.NDArray[np.floating] | list = []
-        self._prepare: bool = False
-        self._prepared_strategy: ConvolutionStrategy | None = None
+        self._grid_settings = grid_settings or DEFAULT_TRACER_GRID_SETTINGS
+        self._prepared_grid: PreparedTracerGrid | None = None
+        self._last_diagnostics: ConvolutionDiagnostics | None = None
 
     @property
     def tracer(self) -> TracerProtocol:
@@ -170,10 +169,7 @@ class Convolution:
         float
             Mean value at the given date.
         """
-        if hasattr(self._tracer, 'mean_value'):
-            return self._tracer.mean_value(date)
-        # Fallback: return concentration at date with time=0
-        return float(self._tracer.get_concentration(date, 0.0))
+        return self._tracer.mean_value(date)
 
     def get_concentration(
         self,
@@ -185,13 +181,7 @@ class Convolution:
 
     def max_value(self) -> float:
         """Get maximum concentration value from pyage.tracer."""
-        # If tracer has max_value method, use it; otherwise estimate
-        if hasattr(self._tracer, 'max_value'):
-            return self._tracer.max_value()
-        # Fallback: sample some values and return max
-        times = np.linspace(0, 100, 100)
-        concs = self._tracer.get_concentration(self._date - times, times)
-        return float(np.max(concs))
+        return self._tracer.max_value()
 
     @property
     def date(self) -> float:
@@ -201,180 +191,214 @@ class Convolution:
     @date.setter
     def date(self, value: float) -> None:
         """Set the date (needed for date range calculations)."""
-        self._date = value
+        if value != self._date:
+            self._date = value
+            self._prepared_grid = None
+            self._last_diagnostics = None
 
     # -------------------------------------------------------------------------
-    # Classic convolution (numerical integration)
+    # CDF/partial-moment convolution (tracer-driven cached grid)
     # -------------------------------------------------------------------------
 
-    def _convolution_classic_prepare(self, strategy: ConvolutionStrategy) -> None:
-        """
-        Prepare convolution sampling between datemin and current date.
-
-        Parameters
-        ----------
-        strategy : ConvolutionStrategy
-            Strategy to determine sampling resolution.
-        """
-        # Higher resolution for IG distributions (smoother near origin)
-        if strategy == ConvolutionStrategy.CLASSIC:
-            resolution = gp.RESOLUTION_CONVOLUTION
-        else:
-            resolution = min(25 * gp.RESOLUTION_CONVOLUTION, 5000)
-
-        dates = self.datemin + (self._date - self.datemin) * np.arange(0, 1, 1 / resolution)
-        self._prepare_times = self._date - dates
-        self._prepare_conc = self._tracer.get_concentration(dates, self._date - dates)
-
-    def _convolution_classic_perform(self, lpm: LPM) -> float:
-        """
-        Execute prepared convolution using Simpson integration.
-
-        Parameters
-        ----------
-        lpm : LPM
-            Lumped Parameter Model providing the PDF.
-
-        Returns
-        -------
-        float
-            Convolution result (tracer concentration).
-        """
-        return -integrate.simpson(
-            self._prepare_conc * lpm.pdf(self._prepare_times),
-            x=self._prepare_times
-        )
-
-    def _ig_shifted_piecewise_profile(self, lpm: LPM) -> dict[str, float] | None:
-        """
-        Return a piecewise-integration profile for very sharp ig_shifted cases.
-
-        The special path is intentionally narrow: it is only enabled when the
-        distribution starts just after the shift and reaches its median quickly.
-        Broader ig_shifted cases stay on the regular classic workflow.
-        """
-        if lpm.name != "ig_shifted":
-            return None
-
-        shift = float(lpm.p.get("shift", np.nan))
-        if not np.isfinite(shift):
-            return None
-
-        q10 = float(lpm.cdf_inv(0.10))
-        q50 = float(lpm.cdf_inv(0.50))
-        if not (np.isfinite(q10) and np.isfinite(q50)):
-            return None
-        if (q10 - shift) > IG_SHIFTED_PIECEWISE_Q10_THRESHOLD:
-            return None
-        if (q50 - shift) > IG_SHIFTED_PIECEWISE_Q50_THRESHOLD:
-            return None
-
-        q90 = float(lpm.cdf_inv(0.90))
-        q99 = float(lpm.cdf_inv(0.99))
-        if not (np.isfinite(q90) and np.isfinite(q99)):
-            return None
-
-        return {
-            "shift": shift,
-            "q10": q10,
-            "q50": q50,
-            "q90": q90,
-            "q99": q99,
-        }
-
-    @staticmethod
-    def _piecewise_segment(
-        start: float,
-        end: float,
-        npts: int,
-        power: float = 1.0,
-    ) -> npt.NDArray[np.float64]:
-        """Return a monotonic segment with optional clustering near the start."""
-        if npts <= 0 or not np.isfinite(start) or not np.isfinite(end) or end <= start:
-            return np.array([], dtype=float)
-        sampling = np.linspace(0.0, 1.0, npts, endpoint=False)
-        return start + (end - start) * np.power(sampling, power)
-
-    def _convolution_ig_shifted_piecewise(
+    def _evaluate_tracer_response(
         self,
-        lpm: LPM,
-        profile: dict[str, float],
-    ) -> float:
-        """
-        Integrate sharp ig_shifted kernels on a piecewise time grid.
-
-        The grid concentrates points between the shift and the main mass of the
-        distribution, then relaxes through the long tail.
-        """
-        tmax = float(self._date - self.datemin)
-        shift = max(float(profile["shift"]), 0.0)
-        if not np.isfinite(tmax) or tmax <= shift:
-            return 0.0
-
-        quantiles = np.array(
-            [profile["q10"], profile["q50"], profile["q90"], profile["q99"]],
+        ages: npt.ArrayLike,
+    ) -> npt.NDArray[np.float64]:
+        """Evaluate K(age), preserving a vector result for scalar tracers."""
+        ages_array = np.asarray(ages, dtype=float)
+        values = np.asarray(
+            self.get_concentration(self._date - ages_array, ages_array),
             dtype=float,
         )
-        quantiles = np.clip(quantiles, shift, tmax)
-        q10, q50, q90, q99 = np.maximum.accumulate(quantiles)
+        if values.ndim == 0:
+            values = np.full(ages_array.shape, float(values), dtype=float)
+        else:
+            try:
+                values = np.asarray(
+                    np.broadcast_to(values, ages_array.shape), dtype=float
+                )
+            except ValueError as exc:
+                raise ConvolutionError(
+                    "Tracer response shape does not match the requested age grid: "
+                    f"{values.shape} versus {ages_array.shape}"
+                ) from exc
+        if not np.all(np.isfinite(values)):
+            raise ConvolutionError("Tracer response contains non-finite values")
+        return values
 
-        grid_parts = []
-        current = shift
-        for boundary, npts, power in (
-            (q10, *IG_SHIFTED_PIECEWISE_SEGMENTS[0][1:]),
-            (q50, *IG_SHIFTED_PIECEWISE_SEGMENTS[1][1:]),
-            (q90, *IG_SHIFTED_PIECEWISE_SEGMENTS[2][1:]),
-            (q99, *IG_SHIFTED_PIECEWISE_SEGMENTS[3][1:]),
-        ):
-            grid_parts.append(self._piecewise_segment(current, boundary, npts, power=power))
-            current = boundary
+    def _initial_tracer_age_edges(self) -> npt.NDArray[np.float64]:
+        """Build initial bin edges from chronicle nodes when available."""
+        tmax = float(self._date - self.datemin)
+        if not np.isfinite(tmax) or tmax < 0.0:
+            raise ConvolutionError(
+                f"Invalid convolution window [0, {tmax}] for date={self._date} "
+                f"and datemin={self.datemin}"
+            )
+        if tmax == 0.0:
+            return np.array([0.0], dtype=float)
 
-        grid_parts.append(self._piecewise_segment(current, tmax, IG_SHIFTED_PIECEWISE_TAIL_POINTS))
-        grid_parts.append(np.array([tmax], dtype=float))
+        dates = self._tracer.convolution_dates
 
-        times = np.unique(np.concatenate(grid_parts))
-        if times.size < 2:
-            return 0.0
+        edges = np.array([0.0, tmax], dtype=float)
+        if dates is not None:
+            dates_array = np.asarray(dates, dtype=float).reshape(-1)
+            ages = self._date - dates_array
+            ages = ages[np.isfinite(ages) & (ages > 0.0) & (ages < tmax)]
+            if ages.size:
+                edges = np.concatenate((edges, ages))
+        else:
+            initial_bins = int(self._tracer.convolution_initial_bins)
+            if initial_bins < 1:
+                raise ConvolutionError(
+                    "tracer.convolution_initial_bins must be at least 1"
+                )
+            if initial_bins > self._grid_settings.max_bins:
+                raise ConvolutionError(
+                    "tracer.convolution_initial_bins exceeds "
+                    f"grid_settings.max_bins={self._grid_settings.max_bins}"
+                )
+            edges = np.linspace(0.0, tmax, initial_bins + 1)
+        edges = np.unique(edges)
+        if edges.size - 1 > self._grid_settings.max_bins:
+            raise ConvolutionError(
+                f"Initial tracer grid has {edges.size - 1} bins, exceeding "
+                f"grid_settings.max_bins={self._grid_settings.max_bins}"
+            )
+        return edges
 
-        concentrations = self.get_concentration(self._date - times, times)
-        return float(integrate.simpson(concentrations * lpm.pdf(times), x=times))
+    def _prepare_tracer_grid(self) -> PreparedTracerGrid:
+        """Build and cache the tracer-only adaptive grid."""
+        initial_edges = self._initial_tracer_age_edges()
+        if initial_edges.size == 1:
+            empty = np.array([], dtype=float)
+            grid = PreparedTracerGrid(
+                date=self._date,
+                edges=initial_edges,
+                k_left=empty,
+                k_mid=empty,
+                k_right=empty,
+            )
+            self._prepared_grid = grid
+            return grid
 
-    # -------------------------------------------------------------------------
-    # Exponential convolution (adapted discretization)
-    # -------------------------------------------------------------------------
+        edge_values = self._evaluate_tracer_response(initial_edges)
+        right_edge_values = edge_values[1:].copy()
 
-    def _convolution_exponential(self, lpm: LPM) -> float:
-        """
-        Convolution for exponential distributions.
-
-        Uses adapted discretization starting at the distribution discontinuity,
-        with refined sampling close to the discontinuity.
-
-        Parameters
-        ----------
-        lpm : LPM
-            Exponential-type LPM (exp, exp_shifted, etc.).
-
-        Returns
-        -------
-        float
-            Convolution result (tracer concentration).
-        """
-        # Get shift parameter (0 for pure exponential)
-        shift = lpm.p.get("shift", 0.0)
-        maxdate = self._date - shift
-
-        if maxdate < self.datemin:
-            return 0.0
-
-        # Power-law sampling for refined discretization near discontinuity
-        sampling = (np.arange(0, 1, 1 / gp.RESOLUTION_CONVOLUTION)) ** 4
-        t2 = maxdate - (maxdate - self.datemin) * sampling
-
-        return -integrate.simpson(
-            self.get_concentration(t2, self._date - t2) * lpm.pdf(self._date - t2),
-            x=t2
+        # File chronicles are zero outside their declared date range. When a
+        # convolution date is newer than datemax, K(age) therefore jumps at
+        # age=date-datemax. That age is already a chronicle-derived bin edge,
+        # but the two adjacent bins need different one-sided values there.
+        boundary_dates = self._tracer.convolution_dates
+        has_newest_boundary = boundary_dates is not None and np.any(
+            np.asarray(boundary_dates, dtype=float) == float(self.datemax)
         )
+        newest_boundary_age = float(self._date - self.datemax)
+        if has_newest_boundary and 0.0 < newest_boundary_age < initial_edges[-1]:
+            outside_bins = np.flatnonzero(initial_edges[1:] == newest_boundary_age)
+            if outside_bins.size:
+                outside_date = np.nextafter(float(self.datemax), np.inf)
+                outside_age = float(self._date - outside_date)
+                outside_value = float(self.get_concentration(outside_date, outside_age))
+                right_edge_values[outside_bins] = outside_value
+
+        grid = prepare_adaptive_grid(
+            date=self._date,
+            initial_edges=initial_edges,
+            edge_values=edge_values,
+            right_edge_values=right_edge_values,
+            evaluate=self._evaluate_tracer_response,
+            settings=self._grid_settings,
+        )
+        self._prepared_grid = grid
+        return grid
+
+    def _convolve_continuous(
+        self,
+        lpm: LPM,
+        *,
+        cdf_moment_provider=None,
+        distribution_name: str | None = None,
+    ) -> float:
+        """Convolve a continuous law using its CDF and partial first moment."""
+        grid = self._prepared_grid
+        if grid is None or grid.date != self._date:
+            grid = self._prepare_tracer_grid()
+        distribution_name = distribution_name or lpm.name
+        if grid.edges.size == 1:
+            self._last_diagnostics = ConvolutionDiagnostics(0.0, 0, 0.0, 0)
+            return 0.0
+
+        if cdf_moment_provider is None:
+            cdf_moment_provider = getattr(
+                lpm,
+                "cdf_and_partial_first_moment",
+                None,
+            )
+        if not callable(cdf_moment_provider):
+            raise ConvolutionError(
+                f"Continuous LPM '{distribution_name}' must implement "
+                "cdf_and_partial_first_moment()"
+            )
+        result, diagnostics = convolve_prepared_grid(
+            grid,
+            cdf_moment_provider,
+            distribution_name,
+            self._grid_settings,
+        )
+        self._last_diagnostics = diagnostics
+        return result
+
+    def window_mass(self, lpm: LPM) -> float:
+        """Return the LPM mass represented inside the closed age window."""
+        tmax = max(0.0, float(self._date - self.datemin))
+        strategy = lpm.convolution_strategy
+        if strategy == ConvolutionStrategy.DIRAC:
+            return float(0.0 <= float(lpm.get_dirac_time()) <= tmax)
+        if strategy == ConvolutionStrategy.DIRAC_DOUBLE:
+            first, second = lpm.get_dirac_double_time()
+            rate = float(lpm.p["rate"])
+            return rate * float(0.0 <= float(first) <= tmax) + (1.0 - rate) * float(
+                0.0 <= float(second) <= tmax
+            )
+        if strategy == ConvolutionStrategy.MIXED_DIRAC_CONTINUOUS:
+            rate = float(lpm.p["rate"])
+            dirac_mass = float(0.0 <= float(lpm.get_dirac_time()) <= tmax)
+            values, _ = lpm.continuous_cdf_and_partial_first_moment(
+                np.array([0.0, tmax])
+            )
+            values = np.asarray(values, dtype=float)
+            if values.shape != (2,) or not np.all(np.isfinite(values)):
+                raise ConvolutionError(
+                    f"LPM '{lpm.name}' continuous component cannot provide "
+                    "a finite window mass"
+                )
+            continuous_mass = float(values[1] - values[0])
+            return rate * dirac_mass + (1.0 - rate) * continuous_mass
+        if strategy != ConvolutionStrategy.CONTINUOUS:
+            raise ConvolutionError(
+                f"Unsupported convolution strategy {strategy!r} for LPM '{lpm.name}'"
+            )
+        values = np.asarray(lpm.cdf(np.array([0.0, tmax])), dtype=float)
+        if values.shape != (2,) or not np.all(np.isfinite(values)):
+            raise ConvolutionError(
+                f"LPM '{lpm.name}' CDF cannot provide a finite window mass"
+            )
+        return float(values[1] - values[0])
+
+    @property
+    def diagnostics(self) -> ConvolutionDiagnostics | None:
+        """Return diagnostics from the latest continuous or mixed convolution."""
+        return self._last_diagnostics
+
+    @property
+    def prepared_grid(self) -> PreparedTracerGrid | None:
+        """Return the cached tracer grid, if one has been prepared."""
+        return self._prepared_grid
+
+    @property
+    def grid_settings(self) -> TracerGridSettings:
+        """Return the immutable tracer-grid settings used by this instance."""
+        return self._grid_settings
 
     # -------------------------------------------------------------------------
     # Dirac convolution (direct lookup)
@@ -394,8 +418,15 @@ class Convolution:
         float
             Convolution result (tracer concentration).
         """
-        time = lpm.get_dirac_time()
-        return self.get_concentration(self._date - time, time)
+        return self._dirac_concentration(lpm.get_dirac_time())
+
+    def _dirac_concentration(self, time: float) -> float:
+        """Return a point-mass contribution only inside the tracer window."""
+        age = float(time)
+        tmax = float(self._date - self.datemin)
+        if not np.isfinite(age) or age < 0.0 or age > tmax:
+            return 0.0
+        return float(self.get_concentration(self._date - age, age))
 
     def _convolution_dirac_double(self, lpm: LPM) -> float:
         """
@@ -412,15 +443,15 @@ class Convolution:
             Weighted sum of two Dirac lookups.
         """
         [time1, time2] = lpm.get_dirac_double_time()
-        convol1 = self.get_concentration(self._date - time1, time1)
-        convol2 = self.get_concentration(self._date - time2, time2)
-        return lpm.p['rate'] * convol1 + (1 - lpm.p['rate']) * convol2
+        convol1 = self._dirac_concentration(time1)
+        convol2 = self._dirac_concentration(time2)
+        return lpm.p["rate"] * convol1 + (1 - lpm.p["rate"]) * convol2
 
     # -------------------------------------------------------------------------
-    # Mixed convolution (Dirac + exponential)
+    # Mixed convolution (Dirac + normalized continuous component)
     # -------------------------------------------------------------------------
 
-    def _convolution_mix_dirac_exponential(self, lpm: LPM) -> float:
+    def _convolve_mixed_dirac_continuous(self, lpm: LPM) -> float:
         """
         Convolution for mixed Dirac and shifted exponential distributions.
 
@@ -435,35 +466,59 @@ class Convolution:
             Weighted sum of Dirac and exponential convolution.
         """
         dirac_part = self._convolution_dirac(lpm)
-        exp_part = self._convolution_exponential(lpm)
-        return lpm.p["rate"] * dirac_part + (1 - lpm.p["rate"]) * exp_part
+        # The model PDF represents the weighted continuous part of the full
+        # mixture.  Integrate its normalized component here, then apply the
+        # mixture weight exactly once below.
+        continuous_part = self._convolve_continuous(
+            lpm,
+            cdf_moment_provider=lpm.continuous_cdf_and_partial_first_moment,
+            distribution_name=f"{lpm.name} continuous component",
+        )
+        continuous_diagnostics = self._last_diagnostics
+        if continuous_diagnostics is None:
+            raise ConvolutionError("Continuous mixture diagnostics are missing")
+        rate = float(lpm.p["rate"])
+        tmax = float(self._date - self.datemin)
+        dirac_mass = float(0.0 <= float(lpm.get_dirac_time()) <= tmax)
+        self._last_diagnostics = ConvolutionDiagnostics(
+            window_mass=(
+                rate * dirac_mass + (1.0 - rate) * continuous_diagnostics.window_mass
+            ),
+            n_bins=continuous_diagnostics.n_bins,
+            min_weight=(1.0 - rate) * continuous_diagnostics.min_weight,
+            clipped_weight_count=continuous_diagnostics.clipped_weight_count,
+        )
+        return rate * dirac_part + (1.0 - rate) * continuous_part
 
     # -------------------------------------------------------------------------
     # Public API
     # -------------------------------------------------------------------------
 
-    def convolution_prepare(self, strategy: ConvolutionStrategy) -> None:
-        """
-        Pre-compute convolution data for classic distributions.
+    def prepare(self) -> PreparedTracerGrid:
+        """Eagerly build and return the tracer-response grid."""
+        return self._prepare_tracer_grid()
 
-        Parameters
-        ----------
-        strategy : ConvolutionStrategy
-            Convolution strategy for the requested LPM.
-            Special types (Dirac, exponential) are skipped.
-        """
-        # Only prepare for CLASSIC strategy (others compute on-the-fly)
-        if strategy == ConvolutionStrategy.CLASSIC:
-            self._convolution_classic_prepare(strategy)
-            self._prepare = True
-            self._prepared_strategy = strategy
+    def _convolve_once(self, lpm: LPM) -> float:
+        """Dispatch one convolution without applying age-constraint penalties."""
+        self._last_diagnostics = None
+        strategy = lpm.convolution_strategy
 
-    def convolution(
+        if strategy == ConvolutionStrategy.CONTINUOUS:
+            return self._convolve_continuous(lpm)
+        if strategy == ConvolutionStrategy.DIRAC:
+            return self._convolution_dirac(lpm)
+        if strategy == ConvolutionStrategy.DIRAC_DOUBLE:
+            return self._convolution_dirac_double(lpm)
+        if strategy == ConvolutionStrategy.MIXED_DIRAC_CONTINUOUS:
+            return self._convolve_mixed_dirac_continuous(lpm)
+        raise ConvolutionError(
+            f"Unsupported convolution strategy {strategy!r} for LPM '{lpm.name}'"
+        )
+
+    def convolve(
         self,
         lpm: LPM,
-        prepare: bool = False,
-        reg: bool = False,
-        opt: bool = False
+        apply_age_correction: bool = False,
     ) -> float:
         """
         Compute convolution between tracer and LPM at the configured date.
@@ -475,11 +530,7 @@ class Convolution:
         ----------
         lpm : LPM
             Lumped Parameter Model defining the transit time distribution.
-        prepare : bool
-            Expected preparation state for consistency check (CLASSIC only).
-        reg : bool
-            Internal flag to prevent recursive age correction.
-        opt : bool
+        apply_age_correction : bool
             Enable age correction for young/old distributions during optimization.
 
         Returns
@@ -487,53 +538,19 @@ class Convolution:
         float
             Convolution result (tracer concentration).
 
-        Raises
-        ------
-        ConvolutionError
-            If preparation state is inconsistent with prepare parameter.
         """
-        strategy = lpm.convolution_strategy
-
-        # Dispatch based on strategy
-        match strategy:
-            case ConvolutionStrategy.DIRAC:
-                convol = self._convolution_dirac(lpm)
-
-            case ConvolutionStrategy.DIRAC_DOUBLE:
-                convol = self._convolution_dirac_double(lpm)
-
-            case ConvolutionStrategy.EXPONENTIAL:
-                convol = self._convolution_exponential(lpm)
-
-            case ConvolutionStrategy.MIX_DIRAC_EXPONENTIAL:
-                convol = self._convolution_mix_dirac_exponential(lpm)
-
-            case ConvolutionStrategy.CLASSIC | _:
-                piecewise_profile = self._ig_shifted_piecewise_profile(lpm)
-                if piecewise_profile is not None:
-                    convol = self._convolution_ig_shifted_piecewise(lpm, piecewise_profile)
-                else:
-                    # Classic convolution with preparation check
-                    if self._prepare != prepare:
-                        raise ConvolutionError(
-                            f"Inconsistent preparation state: prepare={prepare}, "
-                            f"but _prepare={self._prepare}"
-                        )
-                    if not self._prepare:
-                        self._convolution_classic_prepare(strategy)
-                    convol = self._convolution_classic_perform(lpm)
-
-        # Apply age correction for young/old distributions during optimization
-        if opt and not reg:
-            convol = self._apply_age_correction(convol, lpm, prepare)
-
-        return convol
+        value = self._convolve_once(lpm)
+        if not apply_age_correction:
+            return value
+        diagnostics = self._last_diagnostics
+        corrected = self._apply_age_correction(value, lpm)
+        self._last_diagnostics = diagnostics
+        return corrected
 
     def _apply_age_correction(
         self,
         convol: float,
         lpm: LPM,
-        prepare: bool
     ) -> float:
         """
         Apply penalty correction for young/old distribution constraints.
@@ -548,23 +565,20 @@ class Convolution:
             Original convolution result.
         lpm : LPM
             LPM with name ending in 'young' or 'old'.
-        prepare : bool
-            Preparation state for recursive convolution call.
-
         Returns
         -------
         float
             Corrected convolution result (penalized if on wrong side).
         """
-        is_young = lpm.name.endswith('young')
-        is_old = lpm.name.endswith('old')
+        is_young = lpm.name.endswith("young")
+        is_old = lpm.name.endswith("old")
 
         if not (is_young or is_old):
             return convol
 
         lpm2 = copy.deepcopy(lpm)
         lpm2.shift_upward()
-        convol2 = self.convolution(lpm2, prepare, reg=True)
+        convol2 = self._convolve_once(lpm2)
 
         # Young: convol2 should be >= convol (aging increases concentration)
         # Old: convol2 should be <= convol (aging decreases concentration)
@@ -575,14 +589,15 @@ class Convolution:
 
         return convol
 
-    def convolution_date_range(
+    def convolve_date_range(
         self,
         lpm: LPM,
         date1: float,
-        date2: float
+        date2: float,
+        *,
+        resolution: int = 50,
     ) -> pd.DataFrame:
-        """
-        Compute convolution over a range of dates.
+        """Compute convolution over a range without changing :attr:`date`.
 
         Parameters
         ----------
@@ -592,24 +607,38 @@ class Convolution:
             Start date (year).
         date2 : float
             End date (year).
+        resolution : int
+            Number of equal intervals; the returned frame has one additional
+            row because both endpoints are included.
 
         Returns
         -------
         pd.DataFrame
             DataFrame with columns: 'date', 'concentration', 'element'.
         """
-        resolution = 50
-        date = gp.arange_n(date1, date2, resolution)
-        conc = []
-        for i in date:
-            self._date = i
-            conc.append(self.convolution(lpm))
-        data = [date, conc]
-        df = pd.DataFrame(data=data)
-        df = df.T
-        df.columns = ['date', 'concentration']
-        df['element'] = self.name
-        return df
+        if resolution < 1:
+            raise ValueError("resolution must be at least 1")
+        dates = arange_n(date1, date2, resolution)
+        original_date = self.date
+        try:
+            concentrations = []
+            for sample_date in dates:
+                self.date = float(sample_date)
+                concentrations.append(self.convolve(lpm))
+        finally:
+            self.date = original_date
+        return pd.DataFrame(
+            {
+                "date": dates,
+                "concentration": concentrations,
+                "element": self.name,
+            }
+        )
 
 
-__all__ = ["Convolution", "ConvolutionError"]
+__all__ = [
+    "Convolution",
+    "ConvolutionDiagnostics",
+    "ConvolutionError",
+    "PreparedTracerGrid",
+]

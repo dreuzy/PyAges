@@ -4,8 +4,9 @@ LPM model template generator.
 Generates boilerplate code for new LPM models.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from textwrap import dedent
 
 import click
 
@@ -77,15 +78,22 @@ class LPM_{name}({base_class}):
         Examples for common distributions:
         - Exponential: return (), 0, self.p["mu"]
         - Gamma: return (self.p["alpha"],), 0, self.p["beta"]
-        - Inverse Gaussian: return (self.p["mu"],), 0, self.p["sigma"]
+        - Physical inverse Gaussian:
+          return ((self.p["sigma"] / self.p["mu"])**2,), 0, self.p["mu"]**3 / self.p["sigma"]**2
         - Normal: return (), self.p["mu"], self.p["sigma"]
         - Lognormal: return (self.p["sigma"],), 0, np.exp(self.p["mu"])
         """
         # TODO: Customize based on your distribution
         return (), self.p["mu"], self.p["sigma"]
+
+    def cdf_and_partial_first_moment(self, t):
+        """Return F(t) and E[T 1(T <= t)] for continuous convolution."""
+        raise NotImplementedError(
+            "Implement a vectorized analytical partial first moment"
+        )
 '''
 
-LPM_PARAMS_TEMPLATE = '''\
+LPM_PARAMS_TEMPLATE = """\
 # LPM parameters for model "{name}"
 #
 # This YAML defines bounds, initial values, proposal steps, and priors
@@ -126,7 +134,7 @@ parameters:
 notes: |
   This is a template file. Customize the parameters based on your
   distribution's requirements.
-'''
+"""
 
 
 def generate_lpm_template(name: str, output: str | None, base: str) -> None:
@@ -149,16 +157,13 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
     }
     base_module, base_class, default_scipy = base_map[base]
 
-    # Find repository root
-    cli_dir = Path(__file__).resolve().parent.parent
-    pyage_dir = cli_dir.parent
-    repo_root = pyage_dir.parent
+    project_root = Path.cwd()
 
     # Default output location for model file
     if output is None:
-        model_output = pyage_dir / "lpm" / "models"
+        model_output = project_root / "pyage" / "lpm" / "models"
     else:
-        model_output = Path(output)
+        model_output = Path(output).resolve()
 
     model_output.mkdir(parents=True, exist_ok=True)
 
@@ -189,7 +194,7 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
     click.echo(click.style("Created:", fg="green") + f" {model_file}")
 
     # Generate params.yaml
-    lpm_data_dir = repo_root / "data_core" / "data_lpm" / name
+    lpm_data_dir = project_root / "data_core" / "data_lpm" / name
     lpm_data_dir.mkdir(parents=True, exist_ok=True)
 
     params_content = LPM_PARAMS_TEMPLATE.format(name=name)
@@ -209,9 +214,12 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
     click.echo()
     click.echo(click.style("Next steps:", fg="cyan", bold=True))
     click.echo(f"  1. Edit {model_file}")
-    click.echo("     - Set the correct scipy_dist (e.g., norm, gamma, lognorm, invgauss)")
+    click.echo(
+        "     - Set the correct scipy_dist (e.g., norm, gamma, lognorm, invgauss)"
+    )
     click.echo("     - Update __init__ parameters if needed")
     click.echo("     - Implement _scipy_params() method for your distribution")
+    click.echo("     - Implement cdf_and_partial_first_moment()")
     click.echo(f"  2. Edit {params_file}")
     click.echo("     - Adjust parameter bounds, init values, and priors")
     click.echo(f"  3. Verify: pyage list lpms | grep {name}")

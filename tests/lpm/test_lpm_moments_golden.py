@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyage.lpm.lpm_build import lpm_build, list_available_lpms
+from pyage.lpm.lpm_build import list_available_lpms, lpm_build
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 

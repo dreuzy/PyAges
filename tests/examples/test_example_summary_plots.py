@@ -9,10 +9,84 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import pyage.concentrations.concentrations as co
-from scripts.common.example_summary_plots import (
+from pyage.workflows.summary_plots import (
+    plot_objective_solution_map,
+    plot_objective_summary,
+    plot_observations_overview,
     plot_parameter_distribution_comparison,
+    plot_parameter_summary,
+    plot_single_date_model_space,
     plot_temporal_fit_comparison,
 )
+
+
+def test_core_summary_plots_smoke(tmp_path: Path) -> None:
+    observed = pd.DataFrame(
+        {
+            "element": ["cfc11", "cfc12"],
+            "concentration": [230.0, 470.0],
+            "error": [10.0, 15.0],
+            "unit": ["pptv", "pptv"],
+            "date": [2010.0, 2010.0],
+        }
+    )
+    concentrations = co.Concentrations.from_dataframe(observed)
+    concentration_names = concentrations.names_dates()
+    posterior = pd.DataFrame(
+        {
+            "mu": [8.0, 10.0, 12.0],
+            "shift": [1.0, 2.0, 3.0],
+            "obj_function": [1.5, 0.8, 1.1],
+            concentration_names[0]: [220.0, 230.0, 240.0],
+            concentration_names[1]: [455.0, 470.0, 485.0],
+        }
+    )
+    reachable = pd.DataFrame(
+        {
+            "cfc11-2010_0": [210.0, 230.0, 250.0],
+            "cfc12-2010_0": [440.0, 470.0, 500.0],
+        }
+    )
+    objective = pd.DataFrame(
+        {
+            "mu": [8.0, 8.0, 12.0, 12.0],
+            "shift": [1.0, 3.0, 1.0, 3.0],
+            "log-ojf": [1.4, 1.1, 1.2, 0.7],
+        }
+    )
+    figures = [
+        plot_observations_overview(
+            concentrations,
+            filename=tmp_path / "observations.png",
+        ),
+        plot_single_date_model_space(
+            concentrations,
+            reachable,
+            {"posterior": posterior},
+            filename=tmp_path / "model_space.png",
+        ),
+        plot_parameter_summary(
+            {"posterior": posterior},
+            ["mu", "shift"],
+            filename=tmp_path / "parameters.png",
+        ),
+        plot_objective_summary(
+            objective,
+            {"posterior": posterior},
+            ["mu", "shift"],
+            filename=tmp_path / "objective.png",
+        ),
+        plot_objective_solution_map(
+            objective,
+            posterior,
+            ["mu", "shift"],
+            filename=tmp_path / "objective_solutions.png",
+        ),
+    ]
+
+    assert len(list(tmp_path.glob("*.png"))) == len(figures)
+    for figure in figures:
+        plt.close(figure)
 
 
 def test_plot_parameter_distribution_comparison_smoke(tmp_path: Path) -> None:
@@ -55,7 +129,7 @@ def test_plot_temporal_fit_comparison_smoke(tmp_path: Path) -> None:
             "unit": ["TU", "TU", "pmc", "pmc"],
         }
     )
-    cdata = co.Concentrations(dataframe_load=True, dataframe_concentration=observed)
+    cdata = co.Concentrations.from_dataframe(observed)
     transient = pd.DataFrame(
         {
             "mu": [12.0, 13.5, 14.0, 15.0, 16.0, 16.5],

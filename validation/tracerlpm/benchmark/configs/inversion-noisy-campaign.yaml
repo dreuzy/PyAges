@@ -1,0 +1,66 @@
+# Campagne bruitée reproductible EPM/DM.
+campaign_id: tracerlpm-inversion-noisy-v1
+observation_year: 2020.0
+
+# Les trois chroniques sont identiques pour PyAge, la référence indépendante
+# et TracerLPM. Les concentrations sont déjà exprimées en recharge (pptv).
+tracers:
+  - {name: cfc11, recharge: data_core/data_tracer/cfc11/recharge.csv, unit: pptv}
+  - {name: cfc12, recharge: data_core/data_tracer/cfc12/recharge.csv, unit: pptv}
+  - {name: cfc113, recharge: data_core/data_tracer/cfc113/recharge.csv, unit: pptv}
+
+# Chaque cas reçoit trois tirages indépendants N(0, 0.01), un par CFC.
+# observed = true_concentration * (1 + tirage). La graine rend chaque fichier
+# strictement reproductible. Cinq réalisations constituent un premier test de
+# robustesse, pas encore une caractérisation statistique définitive.
+cases:
+  - &epm
+    case_id: inversion-epm-tau20-r2-noise01-seed101
+    model: EPM
+    true_parameters: {tau: 20.0, eta: 3.0}  # r TracerLPM = eta - 1 = 2
+    bounds: {tau: [0.1, 200.0], eta: [1.01, 11.0]}
+    initial_values: [[5.0, 1.5], [20.0, 3.0], [80.0, 10.0]]
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 101}
+  - <<: *epm
+    case_id: inversion-epm-tau20-r2-noise01-seed102
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 102}
+  - <<: *epm
+    case_id: inversion-epm-tau20-r2-noise01-seed103
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 103}
+  - <<: *epm
+    case_id: inversion-epm-tau20-r2-noise01-seed104
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 104}
+  - <<: *epm
+    case_id: inversion-epm-tau20-r2-noise01-seed105
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 105}
+
+  - &dm
+    case_id: inversion-dm-tau20-dp0_2-noise01-seed101
+    model: DM
+    true_parameters: {tau: 20.0, DP: 0.2}
+    bounds: {tau: [0.1, 200.0], DP: [0.001, 3.0]}
+    initial_values: [[5.0, 0.02], [20.0, 0.2], [80.0, 1.0]]
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 101}
+  - <<: *dm
+    case_id: inversion-dm-tau20-dp0_2-noise01-seed102
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 102}
+  - <<: *dm
+    case_id: inversion-dm-tau20-dp0_2-noise01-seed103
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 103}
+  - <<: *dm
+    case_id: inversion-dm-tau20-dp0_2-noise01-seed104
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 104}
+  - <<: *dm
+    case_id: inversion-dm-tau20-dp0_2-noise01-seed105
+    noise: {kind: gaussian_relative, relative_standard_deviation: 0.01, seed: 105}
+
+# L'objectif suppose une incertitude analytique relative égale au bruit injecté.
+objective:
+  relative_standard_deviation: 0.01
+  absolute_floor_fraction_of_tracer_maximum: 0.000001
+
+acceptance:
+  maximum_tau_absolute_error_years: 2.0
+  maximum_recalculated_relative_error: 0.02
+  maximum_tau_relative_error: 0.10
+  maximum_secondary_parameter_relative_error: 0.20

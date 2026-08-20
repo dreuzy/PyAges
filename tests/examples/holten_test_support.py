@@ -25,7 +25,6 @@ from examples.natural.holten.holten_four_bin import (
 )
 from examples.natural.holten.holten_prepare import prepare_holten_inputs
 
-
 SOURCE_EXAMPLE_DIR = (
     Path(__file__).resolve().parents[2] / "examples" / "natural" / "holten"
 )
@@ -75,8 +74,12 @@ def _copy_example_tree(repo_root: Path) -> Path:
     return example_dir
 
 
-def _sandboxed_paths(example_dir: Path, repo_root: Path, config_path: Path | None = None) -> HoltenPaths:
-    yaml_path = Path(config_path) if config_path is not None else (example_dir / "holten.yaml")
+def _sandboxed_paths(
+    example_dir: Path, repo_root: Path, config_path: Path | None = None
+) -> HoltenPaths:
+    yaml_path = (
+        Path(config_path) if config_path is not None else (example_dir / "holten.yaml")
+    )
     data_dir = example_dir / "data"
     doc_dir = example_dir / "doc"
     generated_dir = example_dir / "generated"
@@ -135,7 +138,10 @@ def frame_records(
             payload[helper] = payload[column_name].map(mapping)
             sort_by = [helper if key == column_name else key for key in sort_by]
     payload = payload.sort_values(sort_by).reset_index(drop=True)
-    payload = payload.drop(columns=[col for col in payload.columns if col.startswith("__order_")], errors="ignore")
+    payload = payload.drop(
+        columns=[col for col in payload.columns if col.startswith("__order_")],
+        errors="ignore",
+    )
     records: list[dict[str, Any]] = []
     for _, row in payload.iterrows():
         records.append({column: _normalize_value(row[column]) for column in columns})
@@ -209,11 +215,19 @@ def build_prepare_record(prepared) -> dict[str, Any]:
 
 
 def build_local_4bin_record(outputs: dict[str, Any]) -> dict[str, Any]:
-    endmember_order = {"tracer": {name: idx for idx, name in enumerate(LOCAL_4BIN_TRACER_ORDER)}}
+    endmember_order = {
+        "tracer": {name: idx for idx, name in enumerate(LOCAL_4BIN_TRACER_ORDER)}
+    }
     return {
         "endmembers": frame_records(
             outputs["endmembers"],
-            columns=["tracer", "bin_name", "representative_age", "concentration", "unit"],
+            columns=[
+                "tracer",
+                "bin_name",
+                "representative_age",
+                "concentration",
+                "unit",
+            ],
             sort_by=["tracer", "bin_name"],
             order_map=endmember_order,
         ),
@@ -307,16 +321,22 @@ def build_reference_comparison_record(comparison: pd.DataFrame) -> list[dict[str
     )
 
 
-def assert_nested_close(actual: Any, expected: Any, *, tol: float = 1e-4, path: str = "root") -> None:
+def assert_nested_close(
+    actual: Any, expected: Any, *, tol: float = 1e-4, path: str = "root"
+) -> None:
     if isinstance(actual, dict) and isinstance(expected, dict):
         assert actual.keys() == expected.keys(), f"{path}: keys mismatch"
         for key in actual:
-            assert_nested_close(actual[key], expected[key], tol=tol, path=f"{path}.{key}")
+            assert_nested_close(
+                actual[key], expected[key], tol=tol, path=f"{path}.{key}"
+            )
         return
     if isinstance(actual, list) and isinstance(expected, list):
         assert len(actual) == len(expected), f"{path}: list length mismatch"
         for idx, (actual_item, expected_item) in enumerate(zip(actual, expected)):
-            assert_nested_close(actual_item, expected_item, tol=tol, path=f"{path}[{idx}]")
+            assert_nested_close(
+                actual_item, expected_item, tol=tol, path=f"{path}[{idx}]"
+            )
         return
     if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
         assert np.isclose(actual, expected, atol=0.0, rtol=tol), (
@@ -355,7 +375,9 @@ def prepared_holten_case(holten_sandbox):
 @pytest.fixture(scope="module")
 def local_4bin_outputs(prepared_holten_case, holten_sandbox):
     output_dir = holten_sandbox["example_dir"] / "generated" / "benchmark" / "four_bin"
-    endmembers, summary, fit_df, paths = run_local_4bin(prepared_holten_case, output_dir)
+    endmembers, summary, fit_df, paths = run_local_4bin(
+        prepared_holten_case, output_dir
+    )
     return {
         "endmembers": endmembers,
         "summary": summary,

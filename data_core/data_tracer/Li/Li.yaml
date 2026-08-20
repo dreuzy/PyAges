@@ -27,8 +27,7 @@ unit: mol/l
 # Optional: Radioactive Decay
 # =============================================================================
 
-# Lithium is stable (no radioactive decay)
-# decay_time: not applicable
+# Lithium is stable; no half_life field is configured.
 
 # =============================================================================
 # Geoproduction

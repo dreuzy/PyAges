@@ -10,58 +10,48 @@
     "mean_error": 0.0
   },
   "dirac_double_1_set:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 91.45111588406833,
-    "mean_concentration": 91.45111588406833,
+    "dataframe_mean_concentration": 91.52854993890122,
+    "mean_concentration": 91.52854993890122,
     "mean_error": 0.0
   },
   "exp:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 214.48708533403985,
-    "mean_concentration": 214.48708533403985,
+    "dataframe_mean_concentration": 214.4982407215332,
+    "mean_concentration": 214.4982407215332,
     "mean_error": 0.0
   },
   "exp_shifted:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 118.77285424923546,
-    "mean_concentration": 118.77285424923546,
-    "mean_error": 0.0
-  },
-  "exp_shifted_old:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 118.77285424923546,
-    "mean_concentration": 118.77285424923546,
-    "mean_error": 0.0
-  },
-  "exp_shifted_young:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 270.16687915785263,
-    "mean_concentration": 270.16687915785263,
+    "dataframe_mean_concentration": 118.77940948045485,
+    "mean_concentration": 118.77940948045485,
     "mean_error": 0.0
   },
   "gamma:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 78.52919315561647,
-    "mean_concentration": 78.52919315561647,
+    "dataframe_mean_concentration": 78.53455264655516,
+    "mean_concentration": 78.53455264655516,
     "mean_error": 0.0
   },
   "ig:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 122.8843422952766,
-    "mean_concentration": 122.8843422952766,
+    "dataframe_mean_concentration": 250.0722430870047,
+    "mean_concentration": 250.0722430870047,
     "mean_error": 0.0
   },
   "ig_shifted:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 13.077212225378277,
-    "mean_concentration": 13.077212225378277,
+    "dataframe_mean_concentration": 3.9641618232828377,
+    "mean_concentration": 3.9641618232828377,
     "mean_error": 0.0
   },
   "shapefree_n_oldbin:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 31.05022166730517,
-    "mean_concentration": 31.05022166730517,
+    "dataframe_mean_concentration": 31.555265934595127,
+    "mean_concentration": 31.555265934595127,
     "mean_error": 0.0
   },
   "uniform:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 93.00067287051642,
-    "mean_concentration": 93.00067287051642,
+    "dataframe_mean_concentration": 92.7136470409119,
+    "mean_concentration": 92.7136470409119,
     "mean_error": 0.0
   },
   "weibull:date=2010.0:tracers=cfc11,cfc12,cfc113": {
-    "dataframe_mean_concentration": 178.63488217155836,
-    "mean_concentration": 178.63488217155836,
+    "dataframe_mean_concentration": 178.64388343963319,
+    "mean_concentration": 178.64388343963319,
     "mean_error": 0.0
   }
 }

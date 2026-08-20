@@ -1,6 +1,6 @@
 # Figure 1 — PyAge scientific workflow (overview)
 
-```mermaid
+```{mermaid}
 flowchart TB
   %% Increase font size for publication
   %% Mermaid theme variables are supported by mermaid-cli
