@@ -82,7 +82,7 @@ def _run_mh_one_case(
         "obj_std": float(stats.loc["std"]["obj_function"]),
     }
     # Include parameter summaries for the current LPM type
-    for key in lpm_results._LpmDist__lpm_template.p.keys():  # noqa: SLF001
+    for key in lpm_results.lpm_template.p:
         record[f"{key}_mean"] = float(stats.loc["mean"][key])
         record[f"{key}_std"] = float(stats.loc["std"][key])
     return record

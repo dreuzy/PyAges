@@ -20,7 +20,7 @@ def write_frame(frame: pd.DataFrame, target: str | Path, *, index: bool) -> None
 
 def write_distribution(distribution: "LpmDist", target: str | Path) -> None:
     """Write all stored samples."""
-    write_frame(distribution.dist(), target, index=True)
+    write_frame(distribution.frame, target, index=True)
 
 
 def write_histograms(distribution: "LpmDist", target: str | Path) -> None:

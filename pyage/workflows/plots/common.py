@@ -48,7 +48,7 @@ def _ensure_frame(result) -> pd.DataFrame:
     if isinstance(result, pd.DataFrame):
         return result.copy()
     if hasattr(result, "dist"):
-        return result.dist().copy()
+        return result.frame.copy()
     raise TypeError("Expected a pandas DataFrame or an object exposing dist().")
 
 

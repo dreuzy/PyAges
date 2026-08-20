@@ -1007,7 +1007,7 @@ def run_table3(output: Path, steps: int = 10_000, skip: int = 5) -> dict[str, ob
             frame = pd.read_csv(final_chain_path)
         else:
             _, posterior = _run_table3_chain(observations, output, 12345, steps, skip)
-            frame = posterior.dist().copy()
+            frame = posterior.frame.copy()
             frame.to_csv(final_chain_path, index=False)
         rows.append(
             _summary_row(

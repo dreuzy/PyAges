@@ -275,7 +275,7 @@ def build_residual_table(
 ) -> tuple[pd.DataFrame, dict[str, float]]:
     """Report individual residuals and recompute J for the best MH row."""
 
-    posterior_frame = posterior.dist()
+    posterior_frame = posterior.frame
     best = posterior.best_row()
     if best is None:
         raise RuntimeError("Metropolis-Hastings returned no posterior samples")
@@ -326,7 +326,7 @@ def write_outputs(
 ) -> tuple[Path, Path]:
     """Write data needed to audit or redraw the figure independently."""
 
-    posterior_frame = posterior.dist().copy()
+    posterior_frame = posterior.frame.copy()
     residuals, best_summary = build_residual_table(observations, posterior)
     objective_values = posterior_frame["obj_function"].astype(float)
 
@@ -394,7 +394,7 @@ def reproduce(config: Figure2Config, output_directory: Path) -> dict[str, Path]:
         output_directory,
     )
     grid = build_objective_grid(calibration)
-    posterior_frame = posterior.dist()
+    posterior_frame = posterior.frame
     png_path, pdf_path, tiff_path = plot_figure2(
         config,
         grid,

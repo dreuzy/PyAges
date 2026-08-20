@@ -55,7 +55,7 @@ def test_method_is_bound_explicitly_to_the_problem(tmp_path):
     results = method.run(problem)
 
     assert method.problem is problem
-    assert len(results.dist()) == 1
+    assert len(results.frame) == 1
     assert np.isfinite(results.best_row()["obj_function"])
 
 

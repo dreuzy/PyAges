@@ -20,7 +20,7 @@ def _output_path(directory: str | Path | None, filename: str) -> str | None:
 
 def plot_points(distribution: "LpmDist") -> None:
     """Plot the first two parameters when the model has exactly two."""
-    frame = distribution.dist()
+    frame = distribution.frame
     values = [frame[name] for name in distribution.get_param_names()]
     if len(values) == 2:
         plt.scatter(values[1][1:600], values[0][1:600], c="black", s=3, marker=".")
@@ -28,7 +28,7 @@ def plot_points(distribution: "LpmDist") -> None:
 
 def plot_parameter_pair(distribution: "LpmDist", keyx: str, keyy: str) -> None:
     """Plot one stored parameter against another."""
-    frame = distribution.dist()
+    frame = distribution.frame
     plt.scatter(frame[keyx], frame[keyy], marker="+", c="red", s=10, label="model")
 
 
@@ -137,7 +137,7 @@ def display_concentration_distributions(
 
 
 def _finite_parameter_values(distribution: "LpmDist", name: str) -> np.ndarray:
-    values = np.asarray(distribution.dist()[name].tolist(), dtype=float)
+    values = np.asarray(distribution.frame[name].tolist(), dtype=float)
     return values[np.isfinite(values)]
 
 
@@ -202,7 +202,7 @@ def _plot_obj_vs_param(
     directory: str | Path | None,
 ) -> None:
     model = distribution.lpm_template
-    frame = distribution.dist()
+    frame = distribution.frame
     figadd.figure_init(xlab=name, ylab="obj_function", figname=model.name)
     plt.scatter(
         frame[name].tolist(),
@@ -215,7 +215,7 @@ def _plot_obj_vs_param(
     if lpm_reference is not None:
         plt.axvline(lpm_reference.p[name], c="k", linewidth=2.0, label="reference")
     if lpm_2nd is not None:
-        other = lpm_2nd.dist()
+        other = lpm_2nd.frame
         plt.scatter(
             other[name],
             other["obj_function"],
@@ -241,8 +241,8 @@ def _plot_param_pair(
     directory: str | Path | None,
 ) -> None:
     index_next = (index + 1) % len(names)
-    frame = distribution.dist()
-    other = None if lpm_2nd is None else lpm_2nd.dist()
+    frame = distribution.frame
+    other = None if lpm_2nd is None else lpm_2nd.frame
     scatterx = frame[names[index]].tolist() or None
     scattery = frame[names[index_next]].tolist() if scatterx is not None else None
     refx = None if lpm_reference is None else lpm_reference.p[names[index]]
@@ -322,10 +322,10 @@ def _plot_concentration_pair(
     directory: str | Path | None,
 ) -> None:
     names = distribution.get_concentration_names()
-    frame = distribution.dist()
+    frame = distribution.frame
     if names[index] not in frame:
         return
-    other = None if lpm_2nd is None else lpm_2nd.dist()
+    other = None if lpm_2nd is None else lpm_2nd.frame
     refx = (
         None
         if concentrations_reference is None

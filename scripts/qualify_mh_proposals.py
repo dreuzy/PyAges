@@ -219,7 +219,7 @@ def _run_chain(
     start = time.perf_counter()
     posterior = mh.run(problem)
     elapsed = time.perf_counter() - start
-    frame = posterior.dist().copy()
+    frame = posterior.frame.copy()
     frame["t0"] = frame["shift"]
     frame["mtt"] = frame["mu"] + frame["t0"]
     return mh, frame, elapsed
