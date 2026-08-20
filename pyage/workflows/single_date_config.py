@@ -9,9 +9,9 @@ Parameter loader for the packaged single-date workflow (Pydantic-validated).
 
 from pathlib import Path
 
-import yaml
 from pydantic import ValidationError
 
+from pyage.config.loading import load_yaml_mapping
 from pyage.config.models import LauncherConfig, LauncherParams
 
 
@@ -20,7 +20,7 @@ def load_params_payload(root_dir: Path, data: dict) -> LauncherParams:
     try:
         cfg = LauncherConfig.model_validate(data, context={"root_dir": root_dir})
     except ValidationError as exc:
-        raise ValueError(f"Invalid launcher config:\n{exc}") from exc
+        raise ValueError(f"Invalid single-date workflow configuration:\n{exc}") from exc
 
     return LauncherParams(
         dataset_name=cfg.dataset.name,
@@ -49,10 +49,7 @@ def load_params_payload(root_dir: Path, data: dict) -> LauncherParams:
 
 def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
     """Load and validate a launcher-only YAML configuration."""
-    data = yaml.safe_load(params_path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"Invalid params structure in {params_path}")
-    return load_params_payload(root_dir, data)
+    return load_params_payload(root_dir, load_yaml_mapping(params_path))
 
 
 __all__ = ["LauncherParams", "load_params", "load_params_payload"]

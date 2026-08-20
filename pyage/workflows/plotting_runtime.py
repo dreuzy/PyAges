@@ -7,6 +7,11 @@ Created on Wed Mar 24 20:35:54 2021
 Matplotlib runtime helpers for packaged workflows.
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
 
 def configure_backend(force_inline=False):
     """
@@ -59,3 +64,40 @@ def show_figures(plt, is_interactive):
     """
     if is_interactive:
         plt.show()
+
+
+@dataclass(frozen=True)
+class PlotSession:
+    """Local plotting state for one workflow execution."""
+
+    pyplot: Any
+    interactive: bool
+
+    @classmethod
+    def start(cls, force_inline: bool = False) -> "PlotSession":
+        interactive = configure_backend(force_inline=force_inline)
+        import matplotlib.pyplot as plt
+
+        enable_interactive(plt)
+        return cls(pyplot=plt, interactive=interactive)
+
+    def show(self) -> None:
+        """Flush the current figure when the workflow is interactive."""
+        show_figures(self.pyplot, self.interactive)
+
+    def close(self, figure) -> None:
+        """Close a completed figure."""
+        self.pyplot.close(figure)
+
+    def finish(self) -> None:
+        """Block on figures only for a non-interactive desktop run."""
+        if not self.interactive:
+            self.pyplot.show(block=True)
+
+
+__all__ = [
+    "PlotSession",
+    "configure_backend",
+    "enable_interactive",
+    "show_figures",
+]

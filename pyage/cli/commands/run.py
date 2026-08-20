@@ -12,6 +12,7 @@ import click
 import yaml
 from pydantic import ValidationError
 
+from pyage.config.loading import load_yaml_mapping
 from pyage.config.models import CliRunParams
 
 
@@ -133,10 +134,7 @@ def run(
 
 
 def _load_yaml(path: Path) -> dict:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"Invalid YAML structure in {path}")
-    return data
+    return load_yaml_mapping(path)
 
 
 def _apply_overrides(

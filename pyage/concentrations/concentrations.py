@@ -11,6 +11,7 @@ Copyright (c) 2025 Jean-Raynald de Dreuzy, CNRS
 from __future__ import annotations
 
 import copy as copy
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
@@ -77,6 +78,16 @@ class Concentrations:
         self.__unit_definition()
         # Checks consistency of the data
         self.validate()
+
+    @classmethod
+    def from_file(cls, path: str | Path) -> "Concentrations":
+        """Load observations from a tab-separated file."""
+        return cls(file_load=True, file_name=str(path))
+
+    @classmethod
+    def from_dataframe(cls, frame: pd.DataFrame) -> "Concentrations":
+        """Build observations from an existing dataframe copy."""
+        return cls(dataframe_load=True, dataframe_concentration=frame)
 
     def __load_file(self, file_name: str) -> None:
         """

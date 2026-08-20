@@ -32,12 +32,9 @@ Author: Jean-Raynald de Dreuzy
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
-
-# YAML parsing for config files (raw load before validation).
-import yaml
-from pydantic import ValidationError
+from typing import cast
 
 import pyage.calibration.methods.metropolis_hastings as cMH
 
@@ -46,6 +43,7 @@ import pyage.concentrations.concentrations as co
 from pyage.calibration.problem import CalibrationProblem
 from pyage.concentrations import concentrations_time as ct
 from pyage.concentrations.schema import ERROR_COLUMN
+from pyage.config.loading import resolve_from, validate_yaml_model
 
 # Shared Pydantic schemas live in pyage.config.models to keep launchers consistent.
 from pyage.config.models import (
@@ -74,62 +72,31 @@ DEFAULT_LPMS = ["exp_shifted", "ig", "ig_shifted"]
 VALID_MODES = TEMPORAL_VALID_MODES
 
 
-def _load_yaml(path: Path) -> Dict:
-    """
-    Load a YAML file and return its contents as a dict.
+@dataclass(frozen=True)
+class TemporalContext:
+    """Resolved configuration and inputs for one temporal workflow."""
 
-    Parameters
-    ----------
-    path : Path
-        Path to the YAML configuration file.
-
-    Returns
-    -------
-    dict
-        Parsed YAML content.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the YAML file does not exist.
-    """
-    if not path or not path.exists():
-        raise FileNotFoundError(f"Missing params file: {path}")
-    with path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
+    config_path: Path
+    configuration_directory: Path
+    params: TemporalParams
+    dataset_path: Path
+    mode: str
+    models: list[str]
+    lpm_directory: Path
+    observations: co.Concentrations
+    output_directory: Path
 
 
 def _load_params_validated(path: Path) -> TemporalParams:
-    """
-    Load params and validate with Pydantic.
-    """
-    data = _load_yaml(path)
-    # Pydantic raises a structured ValidationError that we convert to ValueError
-    # for a cleaner CLI error message.
-    try:
-        return TemporalParams.model_validate(data)
-    except ValidationError as exc:
-        raise ValueError(f"Invalid temporal workflow config:\n{exc}") from exc
-
-
-def _resolve_path(path_str: str, configuration_directory: Path) -> Path:
-    """
-    Resolve repo-relative or absolute paths into an absolute Path.
-
-    Parameters
-    ----------
-    path_str : str
-        Absolute path or repo-relative path.
-
-    Returns
-    -------
-    Path
-        Absolute path resolved against the repository root if needed.
-    """
-    path = Path(path_str)
-    if not path.is_absolute():
-        path = configuration_directory / path
-    return path
+    """Load and validate a temporal workflow configuration."""
+    return cast(
+        TemporalParams,
+        validate_yaml_model(
+            path,
+            TemporalParams,
+            label="temporal workflow configuration",
+        ),
+    )
 
 
 def _format_date_label(date_value: float) -> str:
@@ -178,7 +145,7 @@ def _results_root(
     directory = results_cfg.directory
     if not directory:
         raise ValueError("results.directory must be set when use_default is false.")
-    results_path = _resolve_path(directory, configuration_directory)
+    results_path = resolve_from(configuration_directory, directory)
     results_path.mkdir(parents=True, exist_ok=True)
     return results_path
 
@@ -347,7 +314,7 @@ def _resolve_dataset(
     configuration_directory: Path,
 ) -> Path:
     """Resolve and validate the temporal observation file."""
-    dataset_path = _resolve_path(dataset_cfg.file, configuration_directory)
+    dataset_path = resolve_from(configuration_directory, dataset_cfg.file)
     if not dataset_path.exists():
         raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
     return dataset_path
@@ -361,9 +328,9 @@ def _resolve_lpms(
     models = lpm_cfg.list or DEFAULT_LPMS
     if not models:
         raise ValueError("lpm_models.list must be a non-empty list.")
-    directory = _resolve_path(
-        lpm_cfg.directory or str(DIRECTORY_LPM_DATA),
+    directory = resolve_from(
         configuration_directory,
+        lpm_cfg.directory or DIRECTORY_LPM_DATA,
     )
     if not directory.exists():
         raise ValueError(f"lpm_models.directory does not exist: {directory}")
@@ -434,6 +401,48 @@ def _run_temporal_cases(
     return written_case_dirs
 
 
+def _prepare_context(params_path: str | Path) -> TemporalContext:
+    """Resolve a temporal configuration into immutable runtime context."""
+    config_path = Path(params_path).resolve()
+    configuration_directory = configuration_root(config_path)
+    params = _load_params_validated(config_path)
+    dataset_path = _resolve_dataset(params.dataset, configuration_directory)
+    models, lpm_directory = _resolve_lpms(
+        params.lpm_models,
+        configuration_directory,
+    )
+    observations = _load_concentrations(dataset_path, params.dataset.error_rel)
+    results_root = _results_root(params.results, configuration_directory)
+    output_directory = result_subdirectory(
+        result_subdirectory(
+            result_subdirectory(results_root, params.results.study_name),
+            dataset_path.stem,
+        ),
+        params.workflow.mode,
+    )
+    write_result_manifest(
+        output_directory,
+        workflow="temporal",
+        config_name=config_path.name,
+        details={
+            "dataset": dataset_path.name,
+            "mode": params.workflow.mode,
+            "lpms": models,
+        },
+    )
+    return TemporalContext(
+        config_path=config_path,
+        configuration_directory=configuration_directory,
+        params=params,
+        dataset_path=dataset_path,
+        mode=params.workflow.mode,
+        models=models,
+        lpm_directory=lpm_directory,
+        observations=observations,
+        output_directory=output_directory,
+    )
+
+
 def run_temporal(params_path: Path) -> Path:
     """
     Execute temporal MH calibration based on a YAML configuration.
@@ -495,43 +504,17 @@ def run_temporal(params_path: Path) -> Path:
     - lpm_models.list, lpm_models.directory
     - figures.temporal, figures.distributions
     """
-    params_path = Path(params_path).resolve()
-    configuration_directory = configuration_root(params_path)
-    params = _load_params_validated(params_path)
-    dataset_path = _resolve_dataset(params.dataset, configuration_directory)
-    mode = params.workflow.mode
-    if mode not in VALID_MODES:
-        raise ValueError(f"workflow.mode must be one of {sorted(VALID_MODES)}.")
-    models, lpm_directory = _resolve_lpms(
-        params.lpm_models,
-        configuration_directory,
-    )
-    cdata = _load_concentrations(dataset_path, params.dataset.error_rel)
-
-    results_root = _results_root(params.results, configuration_directory)
-    study_root = result_subdirectory(results_root, params.results.study_name)
-    file_root = result_subdirectory(study_root, dataset_path.stem)
-    mode_root = result_subdirectory(file_root, mode)
-    write_result_manifest(
-        mode_root,
-        workflow="temporal",
-        config_name=Path(params_path).name,
-        details={
-            "dataset": dataset_path.name,
-            "mode": mode,
-            "lpms": models,
-        },
-    )
+    context = _prepare_context(params_path)
     written_case_dirs = _run_temporal_cases(
-        cdata,
-        mode_root,
-        mode,
-        models,
-        lpm_directory,
-        params.calibration,
-        params.figures,
+        context.observations,
+        context.output_directory,
+        context.mode,
+        context.models,
+        context.lpm_directory,
+        context.params.calibration,
+        context.params.figures,
     )
 
     if len(written_case_dirs) == 1:
         return written_case_dirs[0]
-    return mode_root
+    return context.output_directory
