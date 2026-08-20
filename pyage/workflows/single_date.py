@@ -127,10 +127,10 @@ def _reachable_concentrations(context: WorkflowContext) -> pd.DataFrame | None:
         context.params.lpm_model_name,
         context.observations.names(),
         date=context.observations.cv["date"],
-        nmodels=context.params.reachable_concentration_nmodels,
+        sample_count=context.params.reachable_concentration_nmodels,
         display_options=display,
-        directory_lpm=context.params.directory_lpm,
-        tracer_data_dir=context.params.tracer_data_dir,
+        lpm_directory=context.params.directory_lpm,
+        tracer_data_directory=context.params.tracer_data_dir,
     )
     sampling.compute_concentrations()
     sampling.output()
@@ -233,13 +233,13 @@ def _run_objective_analysis(
         context.params.lpm_model_name,
         context.observations.names(),
         date=context.observations.cv["date"],
-        cdata=context.observations,
-        nmodels=context.params.objective_function_nmodels,
+        observations=context.observations,
+        sample_count=context.params.objective_function_nmodels,
         display_options=context.live_display,
-        objfunc=True,
-        reachconc=False,
-        directory_lpm=context.params.directory_lpm,
-        tracer_data_dir=context.params.tracer_data_dir,
+        explore_objective=True,
+        explore_reachable=False,
+        lpm_directory=context.params.directory_lpm,
+        tracer_data_directory=context.params.tracer_data_dir,
     )
     sampling.compute_concentrations()
     sampling.objective_function_build()

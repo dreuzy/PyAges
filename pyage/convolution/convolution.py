@@ -589,9 +589,15 @@ class Convolution:
 
         return convol
 
-    def convolve_date_range(self, lpm: LPM, date1: float, date2: float) -> pd.DataFrame:
-        """
-        Compute convolution over a range of dates.
+    def convolve_date_range(
+        self,
+        lpm: LPM,
+        date1: float,
+        date2: float,
+        *,
+        resolution: int = 50,
+    ) -> pd.DataFrame:
+        """Compute convolution over a range without changing :attr:`date`.
 
         Parameters
         ----------
@@ -601,24 +607,33 @@ class Convolution:
             Start date (year).
         date2 : float
             End date (year).
+        resolution : int
+            Number of equal intervals; the returned frame has one additional
+            row because both endpoints are included.
 
         Returns
         -------
         pd.DataFrame
             DataFrame with columns: 'date', 'concentration', 'element'.
         """
-        resolution = 50
-        date = arange_n(date1, date2, resolution)
-        conc = []
-        for i in date:
-            self.date = i
-            conc.append(self.convolve(lpm))
-        data = [date, conc]
-        df = pd.DataFrame(data=data)
-        df = df.T
-        df.columns = ["date", "concentration"]
-        df["element"] = self.name
-        return df
+        if resolution < 1:
+            raise ValueError("resolution must be at least 1")
+        dates = arange_n(date1, date2, resolution)
+        original_date = self.date
+        try:
+            concentrations = []
+            for sample_date in dates:
+                self.date = float(sample_date)
+                concentrations.append(self.convolve(lpm))
+        finally:
+            self.date = original_date
+        return pd.DataFrame(
+            {
+                "date": dates,
+                "concentration": concentrations,
+                "element": self.name,
+            }
+        )
 
 
 __all__ = [

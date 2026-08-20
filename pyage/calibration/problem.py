@@ -62,22 +62,34 @@ class CalibrationProblem:
 
     @property
     def is_prepared(self) -> bool:
-        """Whether the LPM, tracers and exploration helper are ready."""
-        return (
-            self.lpm is not None
-            and self.tracers is not None
-            and self._sampling is not None
-        )
+        """Whether the scientific model and tracer convolutions are ready."""
+        return self.lpm is not None and self.tracers is not None
 
     @property
     def sampling(self) -> SystematicSampling:
-        """Return the systematic exploration associated with this problem."""
+        """Create and return this problem's optional systematic exploration."""
         self.ensure_prepared()
-        assert self._sampling is not None
+        if self._sampling is None:
+            self._sampling = self._build_sampling()
         return self._sampling
 
+    def _build_sampling(self) -> SystematicSampling:
+        """Build systematic exploration only when a caller requests it."""
+        return SystematicSampling(
+            self.lpm_type,
+            self.observations.names(),
+            date=self.observations.cv["date"],
+            observations=self.observations,
+            sample_count=self.sample_count,
+            explore_objective=self.explore_objective,
+            explore_reachable=self.explore_reachable,
+            display_options=self.display_options,
+            lpm_directory=self.lpm_directory,
+            tracer_data_directory=self.tracer_data_directory,
+        )
+
     def initialize(self) -> None:
-        """Build the LPM, tracer collection and systematic exploration."""
+        """Build the LPM and tracer collection required by calibration."""
         self.lpm = lpm_build(self.lpm_type, self.lpm_directory)
         self.tracers = ConvolutionTracers(
             names=self.observations.cv.iloc[:, 0],
@@ -88,18 +100,7 @@ class CalibrationProblem:
             self.tracers.mean_value(self.observations.cv["date"].mean())
         )
         self.tracers.prepare(self.lpm)
-        self._sampling = SystematicSampling(
-            self.lpm_type,
-            self.observations.names(),
-            date=self.observations.cv["date"],
-            cdata=self.observations,
-            nmodels=self.sample_count,
-            objfunc=self.explore_objective,
-            reachconc=self.explore_reachable,
-            display_options=self.display_options,
-            directory_lpm=self.lpm_directory,
-            tracer_data_dir=self.tracer_data_directory,
-        )
+        self._sampling = None
 
     def ensure_prepared(self) -> None:
         """Raise a clear error when the problem has not been initialized."""

@@ -33,6 +33,11 @@ TRACER_NAMES = ["cfc11", "cfc12", "cfc113"]
 DATE = 2010.0
 
 
+def test_date_count_must_match_tracer_count() -> None:
+    with pytest.raises(ValueError, match="Expected 2 tracer dates, received 1"):
+        ConvolutionTracers(names=["cfc11", "cfc12"], date=[DATE])
+
+
 @pytest.mark.parametrize("lpm_name", LPM_NAMES)
 def test_convolution_tracers_golden(lpm_name, update_golden):
     rng = np.random.default_rng(12345)

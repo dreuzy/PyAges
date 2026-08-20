@@ -99,13 +99,13 @@ def _run_reachconc_mean(lpm_type: str, work_dir: Path) -> dict:
         lpm_type,
         REACHCONC_TRACERS,
         date=[2010] * len(REACHCONC_TRACERS),
-        nmodels=NMODELS,
+        sample_count=NMODELS,
         display_options=display,
-        reachconc=False,
+        explore_reachable=False,
     )
     cr.compute_concentrations()
 
-    concentrations = cr._SystematicSampling__concentrations  # noqa: SLF001
+    concentrations = cr.concentrations_frame()
     means = concentrations.mean()
     return {f"{name}_mean": float(value) for name, value in means.items()}
 

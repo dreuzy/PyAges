@@ -22,6 +22,18 @@ Before 1.0, incompatible public changes are identified explicitly below.
   qualification coverage.
 - Split remaining high-branching core, example, site, and validation functions;
   Ruff now enforces a maximum cyclomatic complexity of 10 repository-wide.
+- Separated regular parameter grids, systematic scientific evaluation, and
+  sampling plots; parameter grids now support any positive dimension count.
+- Calibration problems now create their optional systematic exploration only
+  when requested, avoiding duplicate tracer and LPM loading in ordinary runs.
+- Simplified multi-tracer convolution construction and added an explicit error
+  for mismatched tracer and sampling-date counts.
+- Date-range convolution now exposes its resolution and restores the original
+  convolution date after evaluating the requested range.
+- The top-level calibration package now loads its public problem class lazily,
+  keeping lightweight utility imports independent from the scientific stack.
+- Systematic exploration now uses the same explicit parameter names as
+  `CalibrationProblem` (`observations`, `sample_count`, and data directories).
 
 ### Fixed
 

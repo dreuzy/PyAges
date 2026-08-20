@@ -47,10 +47,20 @@ def test_convolve_date_range_dataframe():
     tracer = tracer_module.Tracer(test_paths.tracer_data_dir(), "cfc11")
     conv = Convolution(tracer, date=2010.0)
 
-    df = conv.convolve_date_range(lpm, 2000.0, 2005.0)
+    df = conv.convolve_date_range(lpm, 2000.0, 2005.0, resolution=5)
     assert list(df.columns) == ["date", "concentration", "element"]
-    assert len(df) > 0
+    assert len(df) == 6
     assert np.all(np.isfinite(df["concentration"].to_numpy()))
+    assert conv.date == 2010.0
+
+
+def test_convolve_date_range_rejects_invalid_resolution():
+    lpm = lpm_build("exp", directory_lpm=str(test_paths.lpm_data_dir()))
+    tracer = tracer_module.Tracer(test_paths.tracer_data_dir(), "cfc11")
+    conv = Convolution(tracer, date=2010.0)
+
+    with pytest.raises(ValueError, match="at least 1"):
+        conv.convolve_date_range(lpm, 2000.0, 2005.0, resolution=0)
 
 
 @pytest.mark.parametrize("lpm_type", _lpm_types())

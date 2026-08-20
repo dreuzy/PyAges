@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 
@@ -37,6 +39,7 @@ def test_problem_uses_composition_and_preserves_the_target_objective(tmp_path):
 
     assert not isinstance(problem, SystematicSampling)
     assert isinstance(problem.sampling, SystematicSampling)
+    assert problem.sampling is problem.sampling
     objective, modeled = problem.objective_function(
         problem.lpm.get_parameters_to_array(),
         problem.observations.cv["concentration"].to_numpy(dtype=float),
@@ -46,6 +49,17 @@ def test_problem_uses_composition_and_preserves_the_target_objective(tmp_path):
 
     assert objective == pytest.approx(0.0, abs=1e-12)
     assert np.allclose(modeled, problem.observations.cv["concentration"])
+
+
+def test_systematic_exploration_is_built_only_when_requested(tmp_path):
+    with patch("pyage.calibration.problem.SystematicSampling") as sampling_class:
+        problem = _prepared_problem(tmp_path)
+        sampling_class.assert_not_called()
+
+        sampling = problem.sampling
+
+        sampling_class.assert_called_once()
+        assert problem.sampling is sampling
 
 
 def test_method_is_bound_explicitly_to_the_problem(tmp_path):
