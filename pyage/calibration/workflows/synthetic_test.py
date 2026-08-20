@@ -11,9 +11,9 @@ import os
 import numpy as np
 import pandas as pd
 
-import pyage.calibration.utils.calibration_core as calbas
 import pyage.convolution.convolution_tracers as convolution_tracers
 import pyage.lpm.lpm_build as lpm_build_module
+from pyage.calibration.problem import CalibrationProblem
 from pyage.concentrations import concentrations_time as ct
 from pyage.config.paths import result_subdirectory
 from pyage.config.runtime import DisplayOptions
@@ -206,17 +206,14 @@ class CalibrationSyntheticTest:
         cdata.error_affect_from_value(self.__error)
 
         # 3. CALIBRATION : Use these data to calibrate a lpm of the same type with the calibration properties defined in __calib_strategy
-        calib_basis = calbas.CalibrationCore(
+        problem = CalibrationProblem(
             cdata,
             self.__lpm_type,
             display_options=display_options_case,
-            nmodels=self.__nmodels,
-        )
-        calib_basis.prepare()
-        # Updates parent class CalibBasis of __calib_strategy (with new cdata)
-        self.__calib_strategy.update_calibbasis(calib_basis)
+            sample_count=self.__nmodels,
+        ).prepare()
         # 4a. Performs calibration
-        lpm_results = self.__calib_strategy.perform()
+        lpm_results = self.__calib_strategy.run(problem)
         # 4b. Analysis of Calibration Problem (reachable concentrations and objective function)
         self.__calib_strategy.analysis_calibration(lpm_results)
 

@@ -22,8 +22,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-import pyage.calibration.utils.calibration_core as calbas
 import pyage.lpm.core.lpm_dist as LPM_dist
+from pyage.calibration.methods.base import CalibrationMethod
 from pyage.calibration.methods.prior import Prior, gauss, make_prior_expo, moments_histo
 from pyage.calibration.methods.trajectory import (
     MH_step,
@@ -48,7 +48,7 @@ __all__ = [
 ]
 
 
-class MetropolisHastings(calbas.CalibrationCore):
+class MetropolisHastings(CalibrationMethod):
     """Calibrate an LPM with a Metropolis-Hastings Markov chain.
 
     The immutable :class:`MHConfig` controls sampling, prior and monitoring.
@@ -58,6 +58,7 @@ class MetropolisHastings(calbas.CalibrationCore):
 
     def __init__(self, config: MHConfig | None = None, **kwargs):
         """Constructor: definition of  MH parameters"""
+        super().__init__()
         # Parameters
         self.method = "Metropolis_Hastings"
         if config is None:
@@ -86,18 +87,6 @@ class MetropolisHastings(calbas.CalibrationCore):
         self.prior_validation_stats = None
         self.time_perform = 0
         self._proposal: GaussianRandomWalk | None = None
-
-    def update_calibbasis(self, calib_basis: calbas.CalibrationCore) -> None:
-        """
-        Updates parent class CalibrationCore with calib_basis
-
-        Arguments
-        ---------
-        calib_basis: CalibrationCore
-            Base Class Calibration Problem
-
-        """
-        super(MetropolisHastings, self).__dict__.update(calib_basis.__dict__)
 
     def __param_inc(
         self, p0: List[float], lpm: Any, rng: np.random.Generator

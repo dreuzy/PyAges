@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from types import SimpleNamespace
 
 import numpy as np
 from scipy.stats import multivariate_normal
@@ -82,11 +83,17 @@ def test_target_and_bounds_do_not_depend_on_proposal_choice():
         )
     )
     for sampler in (legacy, transformed):
-        sampler.lpm = _BoundedTarget()
-        sampler.objective_function = lambda params, *_args, **_kwargs: (
-            float(params[0] ** 2 + 0.5 * params[1] ** 2),
-            [1.0],
+
+        def objective_function(params, *_args, return_concentrations=False, **_kwargs):
+            result = float(params[0] ** 2 + 0.5 * params[1] ** 2)
+            return (result, [1.0]) if return_concentrations else result
+
+        problem = SimpleNamespace(
+            lpm=_BoundedTarget(),
+            objective_function=objective_function,
+            ensure_prepared=lambda: None,
         )
+        sampler._bind_problem(problem)
     args = ([10.0, 30.0], np.array([1.0]), np.array([1.0]))
     legacy_target = legacy._MetropolisHastings__log_posterior_eval(*args)  # noqa: SLF001
     transformed_target = transformed._MetropolisHastings__log_posterior_eval(*args)  # noqa: SLF001

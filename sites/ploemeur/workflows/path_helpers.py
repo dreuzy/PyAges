@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pyage.calibration.utils.calibration_core as calbas
+from pyage.calibration.outputs import posterior_directory, posterior_file_stem
 from pyage.config.paths import result_subdirectory, timestamp_name
 from sites.ploemeur.observations import ploemeur as ploemeur_obs
 
@@ -28,18 +28,16 @@ def prior_file_path(
     prior_folder: str,
 ) -> str:
     """Build the prior file path for a given well/date and model."""
-    temp_file = calbas.file_prior_posterior(
-        prior_corresp[well_date], conc_error_rel, lpm
-    )
-    temp_folder = calbas.folder_prior_posterior(
-        dir_out, stageup=-2, folder_prior=prior_folder
+    temp_file = posterior_file_stem(prior_corresp[well_date], conc_error_rel, lpm)
+    temp_folder = posterior_directory(
+        dir_out, parent_levels=2, subdirectory=prior_folder
     )
     return str(Path(temp_folder) / temp_file)
 
 
 def calibrated_prior_name(well_date: str, conc_error_rel: float, lpm_type: str) -> str:
     """Build the filename for a calibrated prior from a run."""
-    return calbas.file_prior_posterior(well_date, conc_error_rel, lpm_type)
+    return posterior_file_stem(well_date, conc_error_rel, lpm_type)
 
 
 def data_file_path(directory: str, filename: str) -> str:

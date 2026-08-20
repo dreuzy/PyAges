@@ -19,8 +19,8 @@ from typing import Any
 import yaml
 
 import pyage.calibration.methods.metropolis_hastings as cMH
-import pyage.calibration.utils.calibration_core as calbas
 import pyage.concentrations.concentrations as co
+from pyage.calibration.problem import CalibrationProblem
 from pyage.concentrations import concentrations_time as ct
 from pyage.concentrations.schema import ERROR_COLUMN
 from pyage.config.paths import (
@@ -726,17 +726,15 @@ class PloemeurSingleRun:
         )
 
         # Calibration
-        calib_basis = calbas.CalibrationCore(
+        problem = CalibrationProblem(
             cdata,
             self.lpm_type,
             display_options=display_options_case,
-            directory_lpm=self.directory_lpm,
-            nmodels=self.nmodels,
-            reachconc=False,
-        )
-        calib_basis.prepare()
-        strategy.update_calibbasis(calib_basis)
-        lpm_results = strategy.perform()
+            lpm_directory=self.directory_lpm,
+            sample_count=self.nmodels,
+            explore_reachable=False,
+        ).prepare()
+        lpm_results = strategy.run(problem)
         strategy.write_calibrated_lpm(
             lpm_results,
             file_prior=calibrated_prior_name(

@@ -37,7 +37,7 @@ from pyage.calibration.mh_proposals import (  # noqa: E402
     regularize_empirical_covariance,
     sum_difference_log_abs_det_jacobian,
 )
-from pyage.calibration.utils.calibration_core import CalibrationCore  # noqa: E402
+from pyage.calibration.problem import CalibrationProblem  # noqa: E402
 from pyage.config.runtime import DisplayOptions  # noqa: E402
 from pyage.convolution import ConvolutionTracers  # noqa: E402
 from pyage.lpm.lpm_build import lpm_build  # noqa: E402
@@ -182,15 +182,14 @@ def _run_chain(
     output: Path,
 ) -> tuple[MetropolisHastings, pd.DataFrame, float]:
     observations = _observations(mu, t0)
-    calibration = CalibrationCore(
+    problem = CalibrationProblem(
         observations,
         "exp_shifted",
         display_options=_display(output),
-        nmodels=10_000,
-        objfunc=False,
-        reachconc=False,
-    )
-    calibration.prepare()
+        sample_count=10_000,
+        explore_objective=False,
+        explore_reachable=False,
+    ).prepare()
     kwargs: dict[str, Any] = {
         "proposal_kind": configuration["kind"],
         "proposal_multiplier": float(configuration.get("multiplier", 1.0)),
@@ -217,9 +216,8 @@ def _run_chain(
         )
     )
     mh.MH_step.define_by_value()
-    mh.update_calibbasis(calibration)
     start = time.perf_counter()
-    posterior = mh.perform()
+    posterior = mh.run(problem)
     elapsed = time.perf_counter() - start
     frame = posterior.dist().copy()
     frame["t0"] = frame["shift"]

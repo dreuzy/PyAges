@@ -1,277 +1,138 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Mar 24 20:35:54 2021
+"""Nelder-Mead calibration methods."""
 
-@author: Jean-Raynald de Dreuzy
-"""
+from __future__ import annotations
 
-import copy as copy
+import copy
 import time
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 from scipy.optimize import minimize
 
-import pyage.calibration.utils.calibration_core as calbas
-import pyage.lpm.core.lpm_dist as LPM_dist
+from pyage.calibration.methods.base import CalibrationMethod
+from pyage.calibration.outputs import write_key_values
 from pyage.calibration.utils.objective_functions import RMSE
 from pyage.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
+from pyage.lpm.core.lpm_dist import LpmDist
+
+SIMPLEX = "Simplex"
+MULTI_START = "Simplex_init_multipes"
+FORWARD_UNCERTAINTY = "forward_uncertainty_quantification"
+VALID_METHODS = {SIMPLEX, MULTI_START, FORWARD_UNCERTAINTY}
 
 
-class Simplex(calbas.CalibrationCore):
-    """
-    Simplex calibration method
-
-    Inheritance
-    -----------
-    CalibrationCore:
-        Base class for calibration containing the problem to calibrate
-
-    Attributes
-    ----------
-    method: str
-        Precise calibration method (simplex, simplex_init_multiples)
-    __simplex_xatol: float
-        Absolute Tolerance of simplex method
-    __simplex_fatol: float
-        Relative Tolerance of simplex method
-    simplex_init_multiples_n: int
-        Number of simplex problems to run
-    simplex_init_multiples_seed_rng: int
-        Seed of the random number generator for the initial positions of the simplex
-
-    Methods
-    -------
-    update_calibbasis(self,calib_basis):
-        Updates parent class CalibrationCore with calib_basis
-    perform(self):
-        Performs calibration with the selected method
-    """
+class Simplex(CalibrationMethod):
+    """Calibrate an LPM with Nelder-Mead and optional repeated starts."""
 
     def __init__(
-        self, calibration_method, calib_basis=None, init_multiples_n=2, fuq_n=10
-    ):
-        """
-        Constructor
-
-        Parameters
-        ----------
-        calibration_method: str
-            Precise calibration method (simplex, simplex_init_multiples)
-        """
-
+        self,
+        calibration_method: str,
+        *,
+        init_multiples_n: int = 2,
+        fuq_n: int = 10,
+    ) -> None:
+        super().__init__()
+        if calibration_method not in VALID_METHODS:
+            raise ValueError(
+                f"Unknown simplex calibration method: {calibration_method}"
+            )
         self.method = calibration_method
-        # Simplex Parameters
-        self.__simplex_xatol = 1e-8
-        self.__simplex_fatol = 1e-8
-        # Simplex multiple init point Parameters
-        self.simplex_init_multiples_n = init_multiples_n
-        self.simplex_init_multiples_seed_rng = 12345
-        # forward_uncertainty_quantification parameters
-        self.fuq_seed_rng = 123456
-        self.fuq_n = fuq_n
+        self.x_tolerance = 1e-8
+        self.function_tolerance = 1e-8
+        self.initialization_count = init_multiples_n
+        self.initialization_seed = 12345
+        self.uncertainty_seed = 123456
+        self.uncertainty_sample_count = fuq_n
 
-        # Affectation of parent class
-        if calib_basis is not None:
-            self.update_calibbasis(calib_basis)
-
-    def update_calibbasis(self, calib_basis):
-        """
-        Updates parent class CalibrationCore with calib_basis
-
-        Arguments
-        ---------
-        calib_basis: CalibrationCore
-            Base Class Calibration Problem
-
-        """
-        super(Simplex, self).__dict__.update(calib_basis.__dict__)
-
-    def perform(self):
-        """
-        Performs calibration with the selected method
-            Monitor run time necessary
-
-        Returns
-        -------
-        float (#JP: update comment)
-            Minimal value of objective function
-
-        """
+    def perform(self) -> LpmDist:
+        """Execute the configured Simplex variant on the bound problem."""
         start = time.time()
-        # Performs calibration with the right option
-        if self.method == "Simplex":
-            lpm_results = self.__Simplex()
-        elif self.method == "Simplex_init_multipes":
-            lpm_results = self.__Simplex_init_multipes()
-        elif self.method == "forward_uncertainty_quantification":
-            lpm_results = self.__forward_uncertainty_quantification()
+        if self.method == SIMPLEX:
+            results = self._run_single()
+        elif self.method == MULTI_START:
+            results = self._run_multiple()
         else:
-            raise ValueError(f"Unknown simplex calibration method: {self.method}")
-        end = time.time()
-        self.time_perform = end - start
+            results = self._run_forward_uncertainty()
+        self.time_perform = time.time() - start
+        return results.stats_distribution()
 
-        # Adds statistical characteritics to the stored distributions
-        lpm_results = lpm_results.stats_distribution()
-
-        return lpm_results
-
-    def __Simplex(self, param=None):
-        """
-        Simplex calibration method
-            Values and Errors stored in self.cdata.cv.values
-            Tracer parameters
-
-        Arguments
-        ---------
-        param: array of floats
-            Initial conditions of the simplex
-            == None : initial parameters red from LPM file
-
-        Returns
-        -------
-        lpm_results (modification of lpm attribute)
-            Optimal model found
-        """
-
-        # -----------------INITIALIZATION -------------------------
-        # Initial value of parameters: Adapation to the type of LPM
-        if param is None:
-            p0 = self.lpm.param_init()
-        else:
-            p0 = param
-
-        # -----------------OPTIMIZATION FUNCTION ------------------
-        # Minimization function: Simplex Method
-        res = minimize(
+    def _run_single(self, parameters=None) -> LpmDist:
+        """Run one Nelder-Mead optimization."""
+        initial = self.lpm.param_init() if parameters is None else parameters
+        optimization = minimize(
             self.objective_function,
-            p0,
+            initial,
             args=(
-                self.cdata.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float),
-                self.cdata.cv[ERROR_COLUMN].to_numpy(dtype=float),
+                self.observations.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float),
+                self.observations.cv[ERROR_COLUMN].to_numpy(dtype=float),
             ),
             method="nelder-mead",
             options={
-                "xatol": self.__simplex_xatol,
-                "fatol": self.__simplex_fatol,
+                "xatol": self.x_tolerance,
+                "fatol": self.function_tolerance,
                 "disp": False,
             },
-        )  # 'nelder-mead'
-        # method='BFGS', options={'disp': True})
-
-        # -----------------POSTPROCESSING -------------------------
-        # Stores the solution "res.x" provided by "minimize"
-        lpm_results = LPM_dist.LpmDist(lpm=self.lpm, c_names=self.cdata.names_dates())
-        lpm_results.dist_append(
+        )
+        results = LpmDist(self.lpm, c_names=self.observations.names_dates())
+        results.dist_append(
             self.lpm.p,
-            obj_function=RMSE(res.fun, len(self.cdata.cv)),
+            obj_function=RMSE(optimization.fun, len(self.observations.cv)),
             concentrations=self.tracers.convolve(self.lpm),
             param_in_bounds=self.lpm.param_within_bounds(self.lpm.p),
         )
+        return results
 
-        # returns objective function
-        return lpm_results
-
-    def __Simplex_init_multipes(self):
-        """
-        Simplex with multiple initiation points
-            Runs the Simplex method with multiple initial points
-
-        Arguments
-        ---------
-
-        Returns
-        -------
-        lpm_results: LpmDist
-            Optimal models found
-        """
-
-        # Initialization of results structure
-        lpm_results = LPM_dist.LpmDist(self.lpm, c_names=self.cdata.names_dates())
-        # Random Number Generator
-        rng = np.random.default_rng(self.simplex_init_multiples_seed_rng)
-        # Loop over the initial conditions for the parameters
-        for _ in range(self.simplex_init_multiples_n):
-            # Random choice of lpm in self.lpm
+    def _run_multiple(self) -> LpmDist:
+        """Run Nelder-Mead from several reproducible random starts."""
+        results = LpmDist(self.lpm, c_names=self.observations.names_dates())
+        rng = np.random.default_rng(self.initialization_seed)
+        for _ in range(self.initialization_count):
             self.lpm.random_uniform(rng=rng)
-            # Performs optimization
-            lpm_results.append(self.__Simplex(param=self.lpm.get_parameters_to_array()))
-        return lpm_results
+            results.append(self._run_single(self.lpm.get_parameters_to_array()))
+        return results
 
-    def __forward_uncertainty_quantification(self):
-        """
-        Forward_uncertainty_quantification strochastic sampling Algorihm
-            to calibrate lpm accounting for uncertainty in the data
-
-        Calibration itself uses the classical Simplex algorithm
-
-        Parameters
-        ----------
-        self.fuq_n: int
-            number of concentration samples, of the order of 10^(1-3 * number of parameters)
-
-        Returns
-        -------
-        self.lpm.p_dist (modification of attribute)
-            All Optimal models found
-
-        """
-        # Initialization of results structure
-        lpm_results = LPM_dist.LpmDist(self.lpm, c_names=self.cdata.names_dates())
-        # Surrogate calibration structure for the simplex method used for each of the sampled data set
-        lpm_simplex = copy.deepcopy(self)
-        # Calibration is performed with the classical Simplex algorithm
-        lpm_simplex.method = "Simplex_init_multipes"
-        # Initialization of random number generator
-        rng_fuq = np.random.default_rng(self.fuq_seed_rng)
-        rng_simp = np.random.default_rng(self.simplex_init_multiples_seed_rng)
-        # Loop to sample the uncertainty range
-        for _ in range(self.fuq_n):
-            # Samples randomly uncertainty in the data
-            lpm_simplex.cdata = self.cdata.sample_concentrations_with_errors(rng_fuq)
-            for _ in range(self.simplex_init_multiples_n):
-                # Random choice of lpm in self.lpm
-                if self.simplex_init_multiples_n == 1:
+    def _run_forward_uncertainty(self) -> LpmDist:
+        """Calibrate several observation draws within measurement errors."""
+        results = LpmDist(self.lpm, c_names=self.observations.names_dates())
+        sampled_method = copy.deepcopy(self)
+        sampled_method.method = MULTI_START
+        uncertainty_rng = np.random.default_rng(self.uncertainty_seed)
+        initialization_rng = np.random.default_rng(self.initialization_seed)
+        for _ in range(self.uncertainty_sample_count):
+            sampled_method.problem.observations = (
+                self.observations.sample_concentrations_with_errors(uncertainty_rng)
+            )
+            for _ in range(self.initialization_count):
+                if self.initialization_count == 1:
                     self.lpm.param_init()
                 else:
-                    self.lpm.random_uniform(rng=rng_simp)
-                # Calibration with this set of concentrations
-                lpm_results.append(
-                    lpm_simplex.__Simplex(param=self.lpm.get_parameters_to_array())
+                    self.lpm.random_uniform(rng=initialization_rng)
+                results.append(
+                    sampled_method._run_single(self.lpm.get_parameters_to_array())
                 )
-        return lpm_results
+        return results
 
-    def write_parameters(self, file_name):
-        """
-        Writes parameters of calibration
-        """
-        data = {}
-        data["method"] = self.method
-        if (
-            self.method == "Simplex"
-            or self.method == "Simplex_init_multipes"
-            or self.method == "forward_uncertainty_quantification"
-        ):
-            data["xatol"] = self.__simplex_xatol
-            data["fatol"] = self.__simplex_fatol
-        if (
-            self.method == "Simplex_init_multipes"
-            or self.method == "forward_uncertainty_quantification"
-        ):
-            data["init_mutiples"] = self.simplex_init_multiples_n
-        if self.method == "forward_uncertainty_quantification":
-            data["fuq_n"] = self.fuq_n
-        with open(file_name, "w", encoding="utf-8") as file:
-            for key, val in data.items():
-                file.write(key + "\t" + str(val) + "\n")
+    def write_parameters(self, file_name: str | Path) -> None:
+        """Write the selected Simplex settings."""
+        values: dict[str, Any] = {
+            "method": self.method,
+            "xatol": self.x_tolerance,
+            "fatol": self.function_tolerance,
+        }
+        if self.method in {MULTI_START, FORWARD_UNCERTAINTY}:
+            values["init_mutiples"] = self.initialization_count
+        if self.method == FORWARD_UNCERTAINTY:
+            values["fuq_n"] = self.uncertainty_sample_count
+        write_key_values(file_name, values)
 
-    def write_results_spec(self, data):
-        """
-        Specific contribution of the daughter class to the calibration results
+    def write_results_spec(self, data: dict[str, Any]) -> None:
+        """Simplex currently has no additional scalar run result."""
 
-        Argumments
-        ----------
-        data: dictionary
-            results to be stored
 
-        """
-        pass
+__all__ = [
+    "FORWARD_UNCERTAINTY",
+    "MULTI_START",
+    "SIMPLEX",
+    "Simplex",
+]

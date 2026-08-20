@@ -1,5 +1,7 @@
 """Tests for optional explicit Metropolis-Hastings initial parameters."""
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -40,7 +42,8 @@ def _initialize(initial_params):
             initial_params=initial_params,
         )
     )
-    mh.lpm = _FakeLpm()
+    problem = SimpleNamespace(lpm=_FakeLpm(), ensure_prepared=lambda: None)
+    mh._bind_problem(problem)
     mh.MH_step.value = {"mu": 1.5, "shift": 1.5}
     params, *_ = mh._MetropolisHastings__initialize_state(  # noqa: SLF001
         np.array([]), np.array([])

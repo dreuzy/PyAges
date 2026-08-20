@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 
 from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyage.calibration.utils.calibration_core import CalibrationCore
+from pyage.calibration.problem import CalibrationProblem
 from pyage.config.paths import ROOT_DIRECTORY_RESULTS
 from pyage.config.runtime import DisplayOptions
 from pyage.convolution.convolution_tracers import ConvolutionTracers
@@ -128,15 +128,14 @@ def run_metropolis_hastings(
     display.figure_close = True
     display.directory = output_directory
 
-    calibration = CalibrationCore(
+    problem = CalibrationProblem(
         observations,
         LPM_NAME,
         display_options=display,
-        nmodels=config.grid_resolution,
-        objfunc=True,
-        reachconc=False,
-    )
-    calibration.prepare()
+        sample_count=config.grid_resolution,
+        explore_objective=True,
+        explore_reachable=False,
+    ).prepare()
 
     mh = MetropolisHastings(
         config=MHConfig(
@@ -151,17 +150,17 @@ def run_metropolis_hastings(
         )
     )
     mh.MH_step.define_by_value()
-    mh.update_calibbasis(calibration)
-    posterior = mh.perform()
+    posterior = mh.run(problem)
     return mh, posterior
 
 
 def build_objective_grid(calibration: MetropolisHastings) -> pd.DataFrame:
     """Evaluate ``sqrt(J_data / m)`` on the model grid."""
 
-    calibration.compute_concentrations()
-    calibration.objective_function_build()
-    grid = calibration.objective_function_frame()
+    sampling = calibration.problem.sampling
+    sampling.compute_concentrations()
+    sampling.objective_function_build()
+    grid = sampling.objective_function_frame()
     grid = grid.rename(columns={"log-ojf": "half_log_J"})
     grid["J"] = np.exp(2.0 * grid["half_log_J"].to_numpy(dtype=float))
     grid["m"] = len(TRACERS)

@@ -17,18 +17,18 @@ Configuration is provided by the caller (YAML path passed to main()).
 """
 
 import copy
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
-# This script runs a full example workflow:
-# 1) load concentration data,
-# 2) explore reachable concentrations,
-# 3) run two calibration strategies,
-# 4) compare synthetic figures and objective function,
-# 5) save outputs and optionally show live figures.
+from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyage.calibration.methods.simplex import FORWARD_UNCERTAINTY, Simplex
+from pyage.calibration.problem import CalibrationProblem
+from pyage.calibration.utils.systematic_sampling import SystematicSampling
+from pyage.concentrations import concentrations_time
+from pyage.concentrations.concentrations import Concentrations
 from pyage.config.paths import result_subdirectory
 from pyage.config.runtime import DisplayOptions
+from pyage.lpm.lpm_build import lpm_build
 from pyage.workflows.plotting_runtime import (
     configure_backend,
     enable_interactive,
@@ -96,37 +96,19 @@ def build_display_set(results_dir):
     return display_live, display_save
 
 
-def build_calibration_core(params, concentration_sampled, calbas, display_run):
-    """
-    Purpose
-    -------
-    Construct and prepare a CalibrationCore instance.
-
-    Parameters
-    ----------
-    params : LauncherParams
-        Parsed parameters (expects LPM settings).
-    concentration_sampled : Concentrations
-        Observed concentrations used for calibration.
-    calbas : module
-        calibration.utils.calibration_core module.
-    display_run : DisplayOptions
-        Display options for outputs.
-
-    Returns
-    -------
-    CalibrationCore
-        Prepared calibration core ready for strategies.
-    """
-    calib_basis = calbas.CalibrationCore(
-        concentration_sampled,
+def build_calibration_problem(
+    params: LauncherParams,
+    observations: Concentrations,
+    display_options: DisplayOptions,
+) -> CalibrationProblem:
+    """Build the prepared problem shared by one calibration method."""
+    return CalibrationProblem(
+        observations,
         params.lpm_model_name,
-        display_options=display_run,
-        directory_lpm=str(params.directory_lpm),
-        tracer_data_dir=str(params.tracer_data_dir) if params.tracer_data_dir else None,
-    )
-    calib_basis.prepare()  # Build tracers, LPM structure, and sampling tools.
-    return calib_basis
+        display_options=display_options,
+        lpm_directory=params.directory_lpm,
+        tracer_data_directory=params.tracer_data_dir,
+    ).prepare()
 
 
 def build_show_figures(plt):
@@ -160,7 +142,10 @@ class WorkflowContext:
     concentration_sampled: object
 
 
-def load_concentration_data(params: LauncherParams, co, display_live):
+def load_concentration_data(
+    params: LauncherParams,
+    display_live: DisplayOptions,
+) -> Concentrations:
     """
     Purpose
     -------
@@ -170,8 +155,6 @@ def load_concentration_data(params: LauncherParams, co, display_live):
     ----------
     params : LauncherParams
         Parsed parameters (expects dataset_name/dataset_data_dir).
-    co : module
-        concentrations.concentrations module (data container + loader).
     display_live : DisplayOptions
         Live display settings for plotting/preview.
 
@@ -183,7 +166,7 @@ def load_concentration_data(params: LauncherParams, co, display_live):
     filename = str(params.dataset_data_dir / params.dataset_name)
     if params.verbose:
         print("Data file location: ", filename)
-    concentration_sampled = co.Concentrations(file_load=True, file_name=filename)
+    concentration_sampled = Concentrations(file_load=True, file_name=filename)
     concentration_sampled.display(display_live)  # Quick visual check of input data.
     return concentration_sampled
 
@@ -191,7 +174,6 @@ def load_concentration_data(params: LauncherParams, co, display_live):
 def run_reachable_concentration_analysis(
     params,
     concentration_sampled,
-    calibration_exploration,
     display_live,
     display_save,
     show_figures,
@@ -207,8 +189,6 @@ def run_reachable_concentration_analysis(
         Parsed parameters (expects model name and nmodels).
     concentration_sampled : Concentrations
         Observed concentrations to compare against.
-    calibration_exploration : module
-        calibration.utils.systematic_sampling module.
     display_live : DisplayOptions
         Live display settings.
     display_save : DisplayOptions
@@ -224,7 +204,7 @@ def run_reachable_concentration_analysis(
     display_reach_save.directory = result_subdirectory(
         display_save.directory, "reachable_concentrations"
     )
-    cr = calibration_exploration.SystematicSampling(
+    cr = SystematicSampling(
         params.lpm_model_name,
         concentration_sampled.names(),
         date=concentration_sampled.cv["date"],
@@ -242,8 +222,6 @@ def run_calibration_simplex(
     params,
     concentration_sampled,
     display_save,
-    calbas,
-    csimp,
 ):
     """
     Purpose
@@ -258,32 +236,25 @@ def run_calibration_simplex(
         Observed concentrations used for calibration.
     display_save : DisplayOptions
         Saving display settings.
-    calbas : module
-        calibration.utils.calibration_core module.
-    csimp : module
-        calibration.methods.simplex module.
-
     Returns
     -------
     tuple
         (strategy, lpm_results) for subsequent comparisons.
     """
-    strategy = csimp.Simplex(
-        "forward_uncertainty_quantification",
+    strategy = Simplex(
+        FORWARD_UNCERTAINTY,
         init_multiples_n=params.simplex_init_multiples_n,
         fuq_n=params.simplex_fuq_n,
     )
     directory_calibration = result_subdirectory(display_save.directory, strategy.method)
     display_run = copy.deepcopy(display_save)
     display_run.directory = directory_calibration
-    calib_basis = build_calibration_core(
+    problem = build_calibration_problem(
         params,
         concentration_sampled,
-        calbas,
         display_run,
     )
-    strategy.update_calibbasis(calib_basis)
-    lpm_results = strategy.perform()
+    lpm_results = strategy.run(problem)
     strategy.write_calibrated_lpm(lpm_results)  # Persist calibrated distributions.
     return strategy, lpm_results
 
@@ -292,8 +263,6 @@ def run_calibration_metropolis_hastings(
     params,
     concentration_sampled,
     display_save,
-    calbas,
-    cMH,
 ):
     """
     Purpose
@@ -308,36 +277,29 @@ def run_calibration_metropolis_hastings(
         Observed concentrations used for calibration.
     display_save : DisplayOptions
         Saving display settings.
-    calbas : module
-        calibration.utils.calibration_core module.
-    cMH : module
-        calibration.methods.metropolis_hastings module.
-
     Returns
     -------
     tuple
         (strategy, lpm_results) for subsequent comparisons.
     """
-    mh_config = cMH.MHConfig(
+    mh_config = MHConfig(
         nstep=params.mh_nstep,
         prior_option=params.mh_prior_option,
         likelihood=params.mh_likelihood,
         monitor=params.mh_monitor,
         display_traj=params.mh_display_traj,
     )
-    strategy = cMH.MetropolisHastings(config=mh_config)
+    strategy = MetropolisHastings(config=mh_config)
     strategy.MH_step.define_by_value()  # Use default proposal steps.
     directory_calibration = result_subdirectory(display_save.directory, strategy.method)
     display_run = copy.deepcopy(display_save)
     display_run.directory = directory_calibration
-    calib_basis = build_calibration_core(
+    problem = build_calibration_problem(
         params,
         concentration_sampled,
-        calbas,
         display_run,
     )
-    strategy.update_calibbasis(calib_basis)
-    lpm_results = strategy.perform()
+    lpm_results = strategy.run(problem)
     strategy.write_calibrated_lpm(lpm_results)  # Persist calibrated distributions.
     return strategy, lpm_results
 
@@ -417,7 +379,6 @@ def render_summary_figures(
 def run_objective_function_analysis(
     params,
     concentration_sampled,
-    calibration_exploration,
     display_live,
     display_save,
     show_figures,
@@ -434,8 +395,6 @@ def run_objective_function_analysis(
         Parsed parameters (expects objective_function_nmodels).
     concentration_sampled : Concentrations
         Observed concentrations for objective function evaluation.
-    calibration_exploration : module
-        calibration.utils.systematic_sampling module.
     display_live : DisplayOptions
         Live display settings.
     display_save : DisplayOptions
@@ -450,7 +409,7 @@ def run_objective_function_analysis(
     """
     import matplotlib.pyplot as plt
 
-    ss = calibration_exploration.SystematicSampling(
+    ss = SystematicSampling(
         params.lpm_model_name,
         concentration_sampled.names(),
         date=concentration_sampled.cv["date"],
@@ -492,7 +451,7 @@ def run_objective_function_analysis(
     plt.close(fig)
 
 
-def run_concentration_outputs(params, lpm_build, ct, display_save):
+def run_concentration_outputs(params, display_save):
     """
     Purpose
     -------
@@ -502,10 +461,6 @@ def run_concentration_outputs(params, lpm_build, ct, display_save):
     ----------
     params : LauncherParams
         Parsed parameters (expects lpm_model_name and directory_lpm).
-    lpm_build : callable
-        Factory function that builds an LPM by name.
-    ct : module
-        concentrations.concentrations_time module.
     display_save : DisplayOptions
         Saving display settings for output directory.
     """
@@ -513,7 +468,9 @@ def run_concentration_outputs(params, lpm_build, ct, display_save):
         params.lpm_model_name,
         directory_lpm=str(params.directory_lpm),
     )
-    ct.display_concentration_times([display_save.directory], lpm, display_save)
+    concentrations_time.display_concentration_times(
+        [display_save.directory], lpm, display_save
+    )
 
 
 def run_workflow(params_path, force_inline=False):
@@ -534,14 +491,6 @@ def run_workflow(params_path, force_inline=False):
 
     enable_interactive(plt)
     show_fig = build_show_figures(plt)
-
-    import pyage.calibration.methods.metropolis_hastings as cMH
-    import pyage.calibration.methods.simplex as csimp
-    import pyage.calibration.utils.calibration_core as calbas
-    import pyage.calibration.utils.systematic_sampling as calibration_exploration
-    import pyage.concentrations.concentrations as co
-    from pyage.concentrations import concentrations_time as ct
-    from pyage.lpm.lpm_build import lpm_build
 
     # Load parameters from the YAML file provided to main().
     if params_path is None:
@@ -569,9 +518,9 @@ def run_workflow(params_path, force_inline=False):
     )
 
     # ---------------- CONCENTRATIONS DATA ------------------
-    concentration_sampled = load_concentration_data(params, co, display_live)
+    concentration_sampled = load_concentration_data(params, display_live)
     concentration_sampled.cv.to_csv(
-        os.path.join(display_save.directory, "concentrations.txt"), sep="\t"
+        Path(display_save.directory) / "concentrations.txt", sep="\t"
     )
     print("parameters for the calibration are in directory:\n\t", params.directory_lpm)
 
@@ -589,7 +538,6 @@ def run_workflow(params_path, force_inline=False):
         reachable_sampler = run_reachable_concentration_analysis(
             context.params,
             context.concentration_sampled,
-            calibration_exploration,
             context.display_live,
             context.display_save,
             show_fig,
@@ -606,16 +554,12 @@ def run_workflow(params_path, force_inline=False):
             context.params,
             context.concentration_sampled,
             context.display_save,
-            calbas,
-            csimp,
         )
     if context.params.run_calibration_metropolis_hastings:
         strategy_mh, results_mh = run_calibration_metropolis_hastings(
             context.params,
             context.concentration_sampled,
             context.display_save,
-            calbas,
-            cMH,
         )
 
     posterior_results = {}
@@ -641,7 +585,6 @@ def run_workflow(params_path, force_inline=False):
         run_objective_function_analysis(
             context.params,
             context.concentration_sampled,
-            calibration_exploration,
             context.display_live,
             context.display_save,
             show_fig,
@@ -649,7 +592,7 @@ def run_workflow(params_path, force_inline=False):
         )
 
     # ------------- CONCENTRATION OUTPUTS ----------------------
-    run_concentration_outputs(context.params, lpm_build, ct, context.display_save)
+    run_concentration_outputs(context.params, context.display_save)
 
     if not IN_INTERACTIVE:
         plt.show(block=True)

@@ -40,10 +40,10 @@ import yaml
 from pydantic import ValidationError
 
 import pyage.calibration.methods.metropolis_hastings as cMH
-import pyage.calibration.utils.calibration_core as calbas
 
 # Core library imports (use pyage.* consistently to avoid duplicate modules).
 import pyage.concentrations.concentrations as co
+from pyage.calibration.problem import CalibrationProblem
 from pyage.concentrations import concentrations_time as ct
 from pyage.concentrations.schema import ERROR_COLUMN
 
@@ -295,22 +295,20 @@ def _run_calibration(
         lpm_number = max(min(int(mh_nsteps / 50), 5000), 10)
 
     # Core calibration setup (data, model, solver options).
-    calib_basis = calbas.CalibrationCore(
+    problem = CalibrationProblem(
         cdata,
         lpm_type,
         display_options=display,
-        directory_lpm=str(lpm_directory),
-        nmodels=explo_res,
-        reachconc=False,
-    )
-    calib_basis.prepare()
+        lpm_directory=lpm_directory,
+        sample_count=explo_res,
+        explore_reachable=False,
+    ).prepare()
 
     # Metropolis-Hastings setup and execution.
     mh_config = _build_mh_config(cal_cfg, lpm_number)
     calstrat = cMH.MetropolisHastings(config=mh_config)
     calstrat.MH_step.define_by_value()
-    calstrat.update_calibbasis(calib_basis)
-    lpm_results = calstrat.perform()
+    lpm_results = calstrat.run(problem)
     # Persist calibrated distributions/statistics.
     calstrat.write_calibrated_lpm(lpm_results)
 

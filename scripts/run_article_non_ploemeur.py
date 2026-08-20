@@ -32,7 +32,7 @@ from numpy.polynomial.legendre import leggauss
 from scipy import integrate, stats
 
 from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyage.calibration.utils.calibration_core import CalibrationCore
+from pyage.calibration.problem import CalibrationProblem
 from pyage.config.paths import DIRECTORY_LPM_DATA, DIRECTORY_TRACER_DATA
 from pyage.config.runtime import DisplayOptions
 from pyage.convolution.convolution import Convolution
@@ -835,15 +835,14 @@ def _run_table3_chain(
     steps: int,
     skip: int,
 ):
-    calibration = CalibrationCore(
+    problem = CalibrationProblem(
         observations,
         "exp_shifted",
         display_options=_display(output),
-        nmodels=10000,
-        objfunc=False,
-        reachconc=False,
-    )
-    calibration.prepare()
+        sample_count=10000,
+        explore_objective=False,
+        explore_reachable=False,
+    ).prepare()
     mh = MetropolisHastings(
         config=MHConfig(
             nstep=steps,
@@ -858,8 +857,7 @@ def _run_table3_chain(
         )
     )
     mh.MH_step.define_by_value()
-    mh.update_calibbasis(calibration)
-    return mh, mh.perform()
+    return mh, mh.run(problem)
 
 
 def _historical_tracers(output: Path) -> list[Tracer]:
