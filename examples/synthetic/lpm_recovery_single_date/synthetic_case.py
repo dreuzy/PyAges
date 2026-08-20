@@ -236,7 +236,7 @@ def build_truth_aware_figures(
 
     paths = case_paths()
     observed_path = dataset_path or paths.dataset_path
-    observed = co.Concentrations(file_load=True, file_name=str(observed_path))
+    observed = co.Concentrations.from_file(observed_path)
     true_frame = true_concentration_frame(truth)
     posterior_frame = pd.read_csv(
         results_dir / method / "lpm_dist_calibrated.txt",

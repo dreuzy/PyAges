@@ -129,7 +129,7 @@ def test_plot_temporal_fit_comparison_smoke(tmp_path: Path) -> None:
             "unit": ["TU", "TU", "pmc", "pmc"],
         }
     )
-    cdata = co.Concentrations(dataframe_load=True, dataframe_concentration=observed)
+    cdata = co.Concentrations.from_dataframe(observed)
     transient = pd.DataFrame(
         {
             "mu": [12.0, 13.5, 14.0, 15.0, 16.0, 16.5],

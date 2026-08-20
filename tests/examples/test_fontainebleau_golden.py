@@ -43,7 +43,7 @@ def _record_from_data(frame: pd.DataFrame) -> dict:
 
 
 def test_fontainebleau_golden(update_golden):
-    conc = co.Concentrations(file_load=True, file_name=str(DATA_PATH))
+    conc = co.Concentrations.from_file(DATA_PATH)
     record = _record_from_data(conc.cv)
 
     store = golden_utils.load_golden(GOLDEN_PATH)

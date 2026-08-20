@@ -13,6 +13,7 @@ Jean-Raynald de Dreuzy
 """
 
 import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -145,10 +146,7 @@ def display_concentration_times(
                 continue
 
             # --- Load concentration data ---
-            craw = c.Concentrations(
-                file_load=True,
-                file_name=os.path.join(dn, "concentrations.txt"),
-            )
+            craw = c.Concentrations.from_file(Path(dn) / "concentrations.txt")
             n_tracers = len(craw.cv["element"].unique())
             ncols = 2
             nrows = int(np.ceil(n_tracers / ncols))

@@ -104,7 +104,7 @@ def load_concentrations(
     output_dir: str | Path,
 ) -> co.Concentrations:
     """Load concentrations, apply relative errors, display, and write outputs."""
-    cdata = co.Concentrations(file_load=True, file_name=file_path)
+    cdata = co.Concentrations.from_file(file_path)
     if cdata.cv[ERROR_COLUMN].min() == 0:
         cdata.error_affect_from_value(error_concentrations)
     cdata.display(display)

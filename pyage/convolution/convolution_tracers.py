@@ -180,9 +180,7 @@ class ConvolutionTracers:
                 },
                 columns=["element", "concentration", "unit", "date"],
             )
-            return concentrations.Concentrations(
-                dataframe_load=True, dataframe_concentration=data_temp
-            )
+            return concentrations.Concentrations.from_dataframe(data_temp)
         elif return_type == "dataframe":
             return pd.DataFrame(
                 {

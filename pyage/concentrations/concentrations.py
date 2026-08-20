@@ -10,9 +10,7 @@ Copyright (c) 2025 Jean-Raynald de Dreuzy, CNRS
 
 from __future__ import annotations
 
-import copy as copy
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -28,9 +26,7 @@ from pyage.concentrations.schema import (
 
 def name_date(name: str, date: float) -> str:
     """Build a stable key from a tracer name and date."""
-    temp = name + "-" + str("{:.{}f}".format(date, 1))
-    temp = temp.replace(".", "_")
-    return temp
+    return f"{name}-{date:.1f}".replace(".", "_")
 
 
 class Concentrations:
@@ -42,68 +38,24 @@ class Concentrations:
     error, unit, date).
     """
 
-    def __init__(
-        self,
-        file_load: bool = False,
-        file_name: str = "",
-        dataframe_load: bool = False,
-        dataframe_concentration: pd.DataFrame | None = None,
-    ) -> None:
-        """
-        Initialize a Concentrations container.
-
-        Args:
-            file_load: Load concentrations from a file if True.
-            file_name: Path to the file to load when file_load is True.
-            dataframe_load: Load concentrations from a DataFrame if True.
-            dataframe_concentration: DataFrame holding concentration data.
-        """
-        if file_load and dataframe_load:
-            raise ValueError("Choose either file_load or dataframe_load, not both")
-        if file_load:
-            # Loads data from file.
-            self.__load_file(file_name)
-        elif dataframe_load:
-            # Concentrations from dataframe.
-            if dataframe_concentration is None:
-                raise ValueError(
-                    "dataframe_concentration is required when dataframe_load=True"
-                )
-            self.cv = dataframe_concentration.copy()
-        else:
-            raise ValueError("Set file_load=True or dataframe_load=True")
-        # Definition of errors
-        self.__error_definition()
-        # Definition of units
-        self.__unit_definition()
-        # Checks consistency of the data
+    def __init__(self, frame: pd.DataFrame) -> None:
+        """Normalize and validate a copy of an observation dataframe."""
+        if not isinstance(frame, pd.DataFrame):
+            raise TypeError("frame must be a pandas DataFrame")
+        self.cv = frame.copy().reset_index(drop=True)
+        self.__ensure_column(ERROR_COLUMN, 0.0)
+        self.__ensure_column("unit", "mol/l")
         self.validate()
 
     @classmethod
     def from_file(cls, path: str | Path) -> "Concentrations":
         """Load observations from a tab-separated file."""
-        return cls(file_load=True, file_name=str(path))
+        return cls(pd.read_table(path, sep="\t", header=0))
 
     @classmethod
     def from_dataframe(cls, frame: pd.DataFrame) -> "Concentrations":
         """Build observations from an existing dataframe copy."""
-        return cls(dataframe_load=True, dataframe_concentration=frame)
-
-    def __load_file(self, file_name: str) -> None:
-        """
-        Load concentrations data from a tab-separated file.
-
-        Args:
-            file_name: Path to the data file.
-        """
-        # Creates and reads data
-        self.cv = pd.read_table(file_name, sep="\t", header=0)
-
-    def __error_definition(self) -> None:
-        """
-        Ensure an error column exists; default to zeros.
-        """
-        self.__ensure_column("error", 0)
+        return cls(frame)
 
     def error_affect_from_mean(
         self, mean_value: np.ndarray, fraction: float = 0.01
@@ -130,49 +82,19 @@ class Concentrations:
             dtype=float
         )
 
-    def __unit_definition(self) -> None:
-        """
-        Ensure a unit column exists; default to mol/l.
-        """
-        self.__ensure_column("unit", "mol/l")
-
     def __ensure_column(self, name: str, default_value) -> None:
         """Ensure a column exists in cv; insert a default when missing."""
         if name not in self.cv.columns:
             self.cv[name] = default_value
 
-    def __check_consistency(self, strict: bool = False) -> List[str]:
-        """
-        Check column consistency and enforce column order.
-
-        Ensures all reference columns exist, then reorders columns to the
-        canonical order in `REFERENCE_COLUMNS`.
-        """
-        # Checks the column names
-        error = 0
-        missing = []
-        for column in REFERENCE_COLUMNS:
-            if column not in self.cv.columns:
-                print(
-                    "\nColumn named is not defined and should be\t",
-                    column,
-                )
-                error = 1
-                missing.append(column)
-        if error:
-            print("critical error in the definition of concentrations")
-            print("missing columns:", ", ".join(missing))
-            if strict:
-                raise ValueError(
-                    "Missing required columns in concentrations: " + ", ".join(missing)
-                )
-        # Ensure columns are in the expected order for downstream code.
+    def validate(self) -> None:
+        """Require the canonical columns and normalize their order."""
+        missing = [column for column in REFERENCE_COLUMNS if column not in self.cv]
+        if missing:
+            raise ValueError(
+                "Missing required columns in concentrations: " + ", ".join(missing)
+            )
         self.cv = self.cv[list(REFERENCE_COLUMNS)]
-        return missing
-
-    def validate(self, strict: bool = False) -> List[str]:
-        """Validate column consistency and optionally raise on errors."""
-        return self.__check_consistency(strict=strict)
 
     def sample_concentrations_with_errors(
         self, rng: np.random.Generator
@@ -186,13 +108,12 @@ class Concentrations:
         Returns:
             Concentrations: Sampled concentrations using the error distribution.
         """
-        conc = copy.deepcopy(self)
-        # Vectorized draw for all rows.
-        draw = rng.standard_normal(size=len(conc.cv))
+        sampled = self.from_dataframe(self.cv)
+        draw = rng.standard_normal(size=len(sampled.cv))
         base = self.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
         err = self.cv[ERROR_COLUMN].to_numpy(dtype=float)
-        conc.cv[CONCENTRATION_COLUMN] = base + err * draw
-        return conc
+        sampled.cv[CONCENTRATION_COLUMN] = base + err * draw
+        return sampled
 
     def sqrt_quadratic_mean_diff(self, c2: "Concentrations") -> float:
         """
@@ -217,8 +138,8 @@ class Concentrations:
         self,
         i1: int,
         i2: int,
-        label_x: Optional[str] = None,
-        label_y: Optional[str] = None,
+        label_x: str | None = None,
+        label_y: str | None = None,
     ) -> None:
         """Plot a scatter of two concentration values by row index."""
         if i1 >= len(self.cv) or i2 >= len(self.cv):
@@ -235,11 +156,11 @@ class Concentrations:
         if label_y:
             plt.ylabel(label_y)
 
-    def names(self) -> List[str]:
+    def names(self) -> list[str]:
         """Return tracer names as a list."""
         return [self.cv.iloc[i, 0] for i in range(len(self.cv.iloc[:, 0]))]
 
-    def names_dates(self) -> List[str]:
+    def names_dates(self) -> list[str]:
         """Return tracer names combined with date and index."""
         return [
             self.cv.iloc[i, 0] + "_" + str(self.cv.loc[i]["date"]) + "_" + str(i)
@@ -260,7 +181,7 @@ class Concentrations:
         joined = sep.join(names)
         return f"{sep}{joined}" if prefix else joined
 
-    def export_to_dict(self) -> Dict[str, float]:
+    def export_to_dict(self) -> dict[str, float]:
         """Export concentrations to a {name: concentration} dict."""
         return dict(zip(self.cv[ELEMENT_COLUMN], self.cv[CONCENTRATION_COLUMN]))
 

@@ -116,4 +116,4 @@ def load_concentrations(file_path: str | Path) -> Concentrations:
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"Concentration file not found: {path}")
-    return Concentrations(file_load=True, file_name=str(path))
+    return Concentrations.from_file(path)

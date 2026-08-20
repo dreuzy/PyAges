@@ -342,7 +342,7 @@ def _load_concentrations(
     error_rel: float | None,
 ) -> co.Concentrations:
     """Load observations and fill missing relative errors when requested."""
-    concentrations = co.Concentrations(file_load=True, file_name=str(dataset_path))
+    concentrations = co.Concentrations.from_file(dataset_path)
     if error_rel is not None and concentrations.cv[ERROR_COLUMN].min() == 0:
         concentrations.error_affect_from_value(float(error_rel))
     return concentrations
@@ -373,10 +373,7 @@ def _run_temporal_cases(
     """Execute every observation-subset and LPM combination."""
     written_case_dirs = []
     for date_label, frame in _case_frames(cdata, mode):
-        case_data = co.Concentrations(
-            dataframe_load=True,
-            dataframe_concentration=frame.copy(),
-        )
+        case_data = co.Concentrations.from_dataframe(frame)
         case_dir = result_subdirectory(mode_root, date_label)
         written_case_dirs.append(case_dir)
         if figures_cfg.temporal or figures_cfg.distributions:
