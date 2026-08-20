@@ -57,7 +57,7 @@ imports without putting plotting decisions back into the workflows.
 | `pyage.tracer` | Typed tracer configuration and recharge histories |
 | `pyage.lpm` | Model registry, transit-time models, and sample analysis |
 | `pyage.convolution` | Forward scientific model |
-| `pyage.calibration` | Problems, methods, priors, proposals, and outputs |
+| `pyage.calibration` | Problems, methods, priors, parameter grids, and outputs |
 | `pyage.workflows` | Single-date and temporal orchestration |
 | `pyage.data_io` | Stable tabular serialization boundaries |
 | `pyage.cli` | Installed command-line entry point |

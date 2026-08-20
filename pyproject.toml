@@ -55,8 +55,8 @@ examples = [
 ]
 
 [project.urls]
-Homepage = "https://gitlab.univ-rennes1.fr/aupepin/pyage.git"
-Repository = "https://gitlab.univ-rennes1.fr/aupepin/pyage.git"
+Homepage = "https://gitlab.com/dreuzy/pyage"
+Repository = "https://gitlab.com/dreuzy/pyage.git"
 
 [project.scripts]
 pyage = "pyage.cli.main:main"

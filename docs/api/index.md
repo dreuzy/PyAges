@@ -12,6 +12,8 @@ promise is {doc}`../reference/public-api`.
 
    pyage.config
    pyage.calibration.problem
+   pyage.calibration.utils.parameter_grid
+   pyage.calibration.utils.systematic_sampling
    pyage.convolution
    pyage.observations
    pyage.lpm.lpm_build
