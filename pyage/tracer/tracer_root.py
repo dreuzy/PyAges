@@ -23,25 +23,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import yaml
 from scipy import interpolate
 
-from pyage.config.paths import DIRECTORY_TRACER_DATA
 from pyage.config.runtime import DisplayOptions
-from pyage.tracer.decay import rate_from_config
-
-
-# Custom Exceptions
-class TracerConfigError(Exception):
-    """Raised when tracer configuration is invalid or incomplete."""
-
-    pass
-
-
-class TracerDataError(Exception):
-    """Raised when tracer data files are missing or cannot be read."""
-
-    pass
+from pyage.tracer.config import load_tracer_config
+from pyage.tracer.errors import TracerConfigError, TracerDataError
 
 
 class Tracer:
@@ -99,27 +85,26 @@ class Tracer:
         TracerConfigError
             If configuration is invalid or incomplete
         """
-        # Initialize all attributes with default values
+        root = Path(dir_tracer)
+        config = load_tracer_config(root / name / f"{name}.yaml", name)
+
         self.__name = name
-        self.__unit = "unknown"
-        self.__recharge_constant = 0.0
-        self.__has_constant_recharge = False
-        self.__has_chronicle = False
-        self.__geoproduction_enabled = False
-        self.__geoproduction_rate = 0.0
-        self.__decay_enabled = False
-        self.__decay_rate = None
-        self.datemin = None
-        self.datemax = None
+        self.__unit = config.unit
+        self.__recharge_constant = config.recharge_constant or 0.0
+        self.__has_constant_recharge = config.recharge_constant is not None
+        self.__has_chronicle = config.has_chronicle
+        self.__geoproduction_enabled = config.production_rate is not None
+        self.__geoproduction_rate = config.production_rate or 0.0
+        self.__decay_enabled = config.decay_rate is not None
+        self.__decay_rate = config.decay_rate
+        self.datemin = config.datemin
+        self.datemax = config.datemax
         self.__recharge_chronicle_file = None
         self.__recharge_chronicle_interp = None
 
-        # Load configuration file (YAML format).
-        self._load_config(Path(dir_tracer), name)
-
         # Load recharge chronicle if specified
         if self.__has_chronicle:
-            recharge_file = dir_tracer / name / "recharge.csv"
+            recharge_file = root / name / "recharge.csv"
             try:
                 # Read CSV, skipping comment lines starting with #
                 self.__recharge_chronicle_file = pd.read_csv(recharge_file, comment="#")
@@ -157,109 +142,6 @@ class Tracer:
             raise TracerConfigError(
                 f"Tracer {name}: datemin ({self.datemin}) must be less than datemax ({self.datemax})"
             )
-
-    def _load_config(self, dir_tracer: Path, name: str) -> None:
-        """
-        Load configuration file in YAML format.
-
-        Parameters
-        ----------
-        dir_tracer : Path
-            Root directory where tracers are stored
-        name : str
-            Tracer name
-
-        Raises
-        ------
-        TracerDataError
-            If YAML configuration file is not found
-        """
-        yaml_file = dir_tracer / name / f"{name}.yaml"
-
-        if not yaml_file.exists():
-            raise TracerDataError(
-                f"YAML configuration file not found: {yaml_file}\n"
-                f"Please create a .yaml configuration file for tracer '{name}'"
-            )
-
-        self._load_yaml_config(yaml_file, name)
-
-    def _load_yaml_config(self, config_file: Path, name: str) -> None:
-        """
-        Load configuration from YAML file.
-
-        Parameters
-        ----------
-        config_file : Path
-            Path to YAML configuration file
-        name : str
-            Tracer name for error messages
-
-        Raises
-        ------
-        TracerDataError
-            If YAML file cannot be read
-        TracerConfigError
-            If YAML structure is invalid
-        """
-        try:
-            with open(config_file, "r", encoding="utf-8") as f:
-                config = yaml.safe_load(f)
-        except FileNotFoundError as exc:
-            raise TracerDataError(
-                f"YAML configuration file not found: {config_file}"
-            ) from exc
-        except yaml.YAMLError as e:
-            raise TracerDataError(
-                f"Error parsing YAML configuration {config_file}: {e}"
-            ) from e
-        except Exception as e:
-            raise TracerDataError(
-                f"Error reading YAML configuration {config_file}: {e}"
-            ) from e
-
-        if not isinstance(config, dict):
-            raise TracerConfigError(
-                f"YAML configuration must be a dictionary, got {type(config).__name__}"
-            )
-
-        try:
-            self.__decay_rate = rate_from_config(config)
-            self.__decay_enabled = self.__decay_rate is not None
-        except ValueError as exc:
-            raise TracerConfigError(f"Tracer {name}: {exc}") from exc
-
-        # Parse each configuration parameter
-        for param_name, value in config.items():
-            if param_name == "recharge_constant":
-                self.__recharge_constant = float(value)
-                self.__has_constant_recharge = True
-            elif param_name == "recharge":
-                self.__has_chronicle = bool(value)
-            elif param_name == "production_rate":
-                self.__geoproduction_enabled = True
-                self.__geoproduction_rate = float(value)
-                if self.__geoproduction_rate < 0:
-                    raise TracerConfigError(
-                        f"Tracer {name}: Geoproduction rate must be non-negative, "
-                        f"got {self.__geoproduction_rate}"
-                    )
-            elif param_name in {"half_life", "decay_mean_lifetime"}:
-                continue
-            elif param_name == "unit":
-                self.__unit = str(value)
-            elif param_name == "datemin":
-                self.datemin = float(value)
-            elif param_name == "datemax":
-                self.datemax = float(value)
-            elif isinstance(value, (dict, list)):
-                # Allow example/site metadata blocks while keeping strict
-                # validation on the core scalar configuration keys.
-                continue
-            else:
-                raise TracerConfigError(
-                    f"Unknown parameter in {name}.yaml: '{param_name}'"
-                )
 
     @property
     def unit(self) -> str:
@@ -451,73 +333,3 @@ class Tracer:
         ax.plot(date, c, "r", label=self.__name)
 
         display_options.figure_close_fx(self.__name + "_chronicle")
-
-
-# ------------------------------------------------------
-# Main - Example usage
-# ------------------------------------------------------
-def main() -> None:
-    """
-    Main function demonstrating tracer loading and display.
-
-    Automatically discovers and loads all available tracers.
-    """
-    tracer_dir = DIRECTORY_TRACER_DATA
-    if not tracer_dir.exists():
-        raise FileNotFoundError(f"Tracer data directory not found: {tracer_dir}")
-
-    # Automatically discover all available tracers by listing subdirectories
-    print(f"Scanning tracer directory: {tracer_dir}")
-    tracer_names = sorted(
-        [
-            d.name
-            for d in tracer_dir.iterdir()
-            if d.is_dir() and not d.name.startswith(".")
-        ]
-    )
-
-    if not tracer_names:
-        print("No tracers found in directory.")
-        return
-
-    print(f"Found {len(tracer_names)} tracers: {', '.join(tracer_names)}\n")
-
-    # Configure display options
-    display_options = DisplayOptions()
-    display_options.text = True
-    display_options.figure_save = False
-    display_options.figure_close = False
-
-    # Statistics
-    success_count = 0
-    error_count = 0
-
-    # Load and display each tracer
-    for name in tracer_names:
-        print(f"\n{'=' * 50}")
-        print(f"Loading tracer: {name}")
-        print(f"{'=' * 50}")
-
-        try:
-            tracer = Tracer(tracer_dir, name=name)
-            print(f"  Name: {tracer.name}")
-            print(f"  Unit: {tracer.unit}")
-            print(f"  Date range: {tracer.datemin} - {tracer.datemax}")
-            tracer.display(display_options)
-            success_count += 1
-
-        except (TracerDataError, TracerConfigError) as e:
-            print(f"  Error loading tracer '{name}': {e}")
-            error_count += 1
-
-    # Summary
-    print(f"\n{'=' * 50}")
-    print("SUMMARY")
-    print(f"{'=' * 50}")
-    print(f"Successfully loaded: {success_count}/{len(tracer_names)} tracers")
-    if error_count > 0:
-        print(f"Errors: {error_count}")
-
-
-if __name__ == "__main__":
-    main()
