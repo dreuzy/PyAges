@@ -31,8 +31,7 @@ def sample_decimal_year(sample: str) -> float:
     return date.year + (date - start).total_seconds() / (end - start).total_seconds()
 
 
-def compare(run_json: Path) -> dict:
-    run = json.loads(run_json.read_text(encoding="utf-8-sig"))
+def _validate_model_pair(run: dict) -> None:
     if run["model1"] != run["model2"] or run["model1"] not in {
         "PFM",
         "EMM",
@@ -42,18 +41,54 @@ def compare(run_json: Path) -> dict:
         raise ValueError(
             "Le comparateur pilote accepte PFM, EMM, EPM ou DM par paires identiques"
         )
+
+
+def _set_lpm_parameters(lpm, model: str, age: float, parameter, epm_eta) -> None:
+    if model == "EPM":
+        mapped = epm_to_shifted_exponential(age, epm_eta)
+        lpm.p.update({"mu": mapped.mu, "shift": mapped.shift})
+    elif model == "DM":
+        mapped = dm_to_inverse_gaussian(age, float(parameter))
+        lpm.p.update({"mu": mapped.mu, "sigma": mapped.sigma})
+    else:
+        lpm.p["mu"] = age
+
+
+def _axis_rows(
+    age: float, point: dict, reference: float, effective_reference: float, pyage: float
+) -> list[dict]:
+    rows = []
+    for axis in ("x", "y"):
+        tracer_lpm = float(point[axis])
+        rows.append(
+            {
+                "age": age,
+                "axis": axis,
+                "reference": reference,
+                "effective_date_reference": effective_reference,
+                "pyage": pyage,
+                "tracerlpm": tracer_lpm,
+                "pyage_minus_reference": pyage - reference,
+                "tracerlpm_minus_reference": tracer_lpm - reference,
+                "tracerlpm_minus_effective_date_reference": tracer_lpm
+                - effective_reference,
+                "tracerlpm_minus_pyage": tracer_lpm - pyage,
+            }
+        )
+    return rows
+
+
+def _prepare_run_files(run_json: Path, run: dict) -> tuple[Path, Path]:
     input_path = Path(run["inputHistoryPath"])
     if not input_path.is_file():
         raise FileNotFoundError(input_path)
     import hashlib
 
-    if (
-        hashlib.sha256(input_path.read_bytes()).hexdigest().upper()
-        != run["inputHistorySha256"]
-    ):
+    digest = hashlib.sha256(input_path.read_bytes()).hexdigest().upper()
+    if digest != run["inputHistorySha256"]:
         raise ValueError("Hash de chronique inattendu")
     if run["model1Points"] != run["model2Points"]:
-        raise ValueError("Les deux emplacements PFM ne sont pas répétables")
+        raise ValueError("Les deux emplacements de modèle ne sont pas répétables")
 
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     archived_json = RAW_DIR / f"{run['runId']}.json"
@@ -61,26 +96,25 @@ def compare(run_json: Path) -> dict:
     series_source = run_json.with_name(run_json.stem + "-series.csv")
     if series_source.exists():
         shutil.copy2(series_source, RAW_DIR / series_source.name)
+    return input_path, archived_json
 
-    input_data = np.genfromtxt(input_path, delimiter=",", names=True)
-    years = np.asarray(input_data["date"])
-    values = np.asarray(input_data["concentration"])
-    observation_year = float(
-        run.get("observationYear") or sample_decimal_year(run["sample"])
-    )
-    effective_year = float(
-        run.get("tracerlpmEffectiveObservationYear") or observation_year
-    )
+
+def _build_comparison_rows(
+    run: dict,
+    input_path: Path,
+    years: np.ndarray,
+    values: np.ndarray,
+    observation_year: float,
+    effective_year: float,
+) -> tuple[list[dict], str, float | None]:
     tracer = load_tracer(input_path)
     model = run["model1"]
     lpm = lpm_build(
         {"PFM": "dirac", "EMM": "exp", "EPM": "exp_shifted", "DM": "ig"}[model]
     )
     model_parameter = run.get("modelParameter")
-    if model == "EPM" and model_parameter is None:
-        raise ValueError("Le ratio EPM TracerLPM est absent du rapport EPM")
-    if model == "DM" and model_parameter is None:
-        raise ValueError("Le paramètre de dispersion DP est absent du rapport DM")
+    if model in {"EPM", "DM"} and model_parameter is None:
+        raise ValueError(f"Le paramètre secondaire {model} est absent du rapport")
     epm_eta = 1.0 + float(model_parameter) if model == "EPM" else None
 
     def input_function(year):
@@ -109,32 +143,32 @@ def compare(run_json: Path) -> dict:
             effective_year - years[0],
             effective_year - years,
         )[0]
-        if model == "EPM":
-            mapped = epm_to_shifted_exponential(float(age), epm_eta)
-            lpm.p.update({"mu": mapped.mu, "shift": mapped.shift})
-        elif model == "DM":
-            mapped = dm_to_inverse_gaussian(float(age), float(model_parameter))
-            lpm.p.update({"mu": mapped.mu, "sigma": mapped.sigma})
-        else:
-            lpm.p["mu"] = float(age)
+        _set_lpm_parameters(lpm, model, float(age), model_parameter, epm_eta)
         pyage = float(Convolution(tracer, date=observation_year).convolve(lpm))
-        for axis in ("x", "y"):
-            tracer_lpm = float(point[axis])
-            rows.append(
-                {
-                    "age": float(age),
-                    "axis": axis,
-                    "reference": reference,
-                    "effective_date_reference": effective_reference,
-                    "pyage": pyage,
-                    "tracerlpm": tracer_lpm,
-                    "pyage_minus_reference": pyage - reference,
-                    "tracerlpm_minus_reference": tracer_lpm - reference,
-                    "tracerlpm_minus_effective_date_reference": tracer_lpm
-                    - effective_reference,
-                    "tracerlpm_minus_pyage": tracer_lpm - pyage,
-                }
-            )
+        rows.extend(
+            _axis_rows(float(age), point, reference, effective_reference, pyage)
+        )
+    return rows, model, epm_eta
+
+
+def compare(run_json: Path) -> dict:
+    run = json.loads(run_json.read_text(encoding="utf-8-sig"))
+    _validate_model_pair(run)
+    input_path, archived_json = _prepare_run_files(run_json, run)
+
+    input_data = np.genfromtxt(input_path, delimiter=",", names=True)
+    years = np.asarray(input_data["date"])
+    values = np.asarray(input_data["concentration"])
+    observation_year = float(
+        run.get("observationYear") or sample_decimal_year(run["sample"])
+    )
+    effective_year = float(
+        run.get("tracerlpmEffectiveObservationYear") or observation_year
+    )
+    model_parameter = run.get("modelParameter")
+    rows, model, epm_eta = _build_comparison_rows(
+        run, input_path, years, values, observation_year, effective_year
+    )
 
     case_output_dir = OUTPUT_DIR / run["caseId"]
     case_output_dir.mkdir(parents=True, exist_ok=True)
