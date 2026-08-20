@@ -7,6 +7,27 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ## Unreleased
 
+### Changed
+
+- Replaced calibration inheritance and attribute copying with explicit
+  `CalibrationProblem` and `CalibrationMethod` composition.
+- Introduced typed workflow contexts and split plotting helpers by purpose.
+- Replaced the flag-based `Concentrations` constructor with explicit
+  `from_file()` and `from_dataframe()` constructors.
+- Reduced `LpmDist` to sample storage and orchestration; analysis, plotting,
+  and serialization now live in focused modules. `dist()` remains available
+  as a compatibility alias for `frame`.
+- Isolated tracer YAML parsing in an immutable `TracerConfig` model.
+- Added fixed and adaptive Metropolis-Hastings proposal modes with explicit
+  qualification coverage.
+
+### Fixed
+
+- `LpmDist.get_best_lpm()` now builds a model from the single row with the best
+  objective instead of combining independent column minima.
+- Invalid observation tables and tracer configuration values now fail early
+  with contextual exceptions.
+
 ## 0.1.0b1 - 2026-08-19
 
 ### Changed

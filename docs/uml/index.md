@@ -1,12 +1,12 @@
 # Architecture diagrams
 
-These diagrams explain the stable architecture and the scientific execution
-flow. They intentionally avoid exhaustive class inventories, which quickly
-become obsolete as implementation details change.
+These are the only maintained structural diagrams: one package map and one
+runtime flow. Exhaustive UML class inventories would mostly repeat the API
+reference and quickly become obsolete as private implementation details change.
 
 ```{toctree}
 :maxdepth: 1
 
 architecture_overview
-scientific_core_classes
+execution_flow
 ```

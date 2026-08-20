@@ -368,7 +368,7 @@ C_prod = (production_rate / β) × (1 - exp(-βτ))  (with decay)
 
 - Check directory name matches tracer name
 - Verify YAML file is named `<tracer>/<tracer>.yaml`
-- Run: `python -m scripts.run_system_check`
+- Run `pyage check` and `pyage list tracers`.
 
 ### "FileNotFoundError: recharge.csv"
 

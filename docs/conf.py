@@ -42,7 +42,6 @@ extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
-    "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
@@ -82,13 +81,6 @@ autodoc_typehints = "description"
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
 napoleon_use_ivar = True
-
-intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None),
-    "numpy": ("https://numpy.org/doc/stable/", None),
-    "pandas": ("https://pandas.pydata.org/docs/", None),
-    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
-}
 
 html_title = "PyAge documentation"
 html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")

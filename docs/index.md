@@ -26,7 +26,7 @@ reference/index
 scientific-overview
 figures/figure1_overview
 examples/index
-ARCHITECTURE_COMPLETE
+architecture
 uml/index
 dev/index
 api/index

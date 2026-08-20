@@ -1,8 +1,8 @@
-# API Reference
+# Selected API reference
 
-The API reference focuses on supported entry points. Internal implementation
-modules are intentionally omitted: their structure may change without being a
-public compatibility promise.
+This reference covers supported entry points and a small number of contributor
+interfaces needed to extend the scientific core. The definitive compatibility
+promise is {doc}`../reference/public-api`.
 
 ## Core packages
 
@@ -11,6 +11,7 @@ public compatibility promise.
    :toctree: generated
 
    pyage.config
+   pyage.calibration.problem
    pyage.convolution
    pyage.observations
    pyage.lpm.lpm_build
@@ -18,6 +19,7 @@ public compatibility promise.
    pyage.lpm.core.lpm_dist
    pyage.lpm.core.registry
    pyage.tracer.tracer_protocol
+   pyage.tracer.config
    pyage.tracer.tracer_root
    pyage.concentrations.concentrations
    pyage.concentrations.concentrations_time

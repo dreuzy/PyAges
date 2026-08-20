@@ -142,15 +142,10 @@ notes: |
 The `@register_lpm("weibull")` decorator automatically registers the model. Verify with:
 
 ```bash
-python -m scripts.run_system_check
+pyage list lpms
 ```
 
 Your new model should appear in the list of available LPMs.
-
-You can also list models with:
-```bash
-pyage list lpms
-```
 
 ## Minimal checklist (what must exist)
 
@@ -275,10 +270,10 @@ concentration = conv.compute_convolution(lpm)
 print(f"CFC-11 concentration: {concentration:.2f} pptv")
 ```
 
-### Run System Check
+### Run the system check
 
 ```bash
-python -m scripts.run_system_check
+pyage check
 ```
 
 ---

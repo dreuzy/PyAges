@@ -243,19 +243,16 @@ The supported workflow entrypoints are:
 
 - `pyage run`: single-date workflow driven by YAML.
 - `pyage.workflows.temporal`: canonical multi-date MH workflow, exposed by `pyage run --transient`.
-- `python -m scripts.run_system_check`: quick end-to-end sanity check.
-- `python -m scripts.run_calibration_benchmark`: MH vs FUQ comparison run.
+- `pyage check`: quick installation and data sanity check.
+
+Repository-only research and benchmark commands are catalogued in
+`scripts/README.md`; they are not public package entry points.
 
 Expected outputs (under `<results_root>`):
 
 - single-date workflow: `test_cases/<dataset_name>/` (calibration files + `concentration_times.png`)
 - temporal workflow: `ploemeur_temporal/<dataset_stem>/<mode>/<date>/<lpm_type>/`
   (calibration files + temporal plots/tables)
-- `run_system_check.py`: `test/<check_name>/<timestamp>/`
-- `run_system_check.py` supports `--params <file.yaml>` to override defaults.
-- `run_calibration_benchmark.py`: `test_calib_comp/<timestamp>/prec_<error>/<tracers>/<lpm>/<case>/`
-
-See `scripts/README.md` for example commands and output locations.
 
 ## Notes
 

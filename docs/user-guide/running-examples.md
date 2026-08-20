@@ -377,7 +377,7 @@ Check that:
 
 ### "Unknown LPM type"
 
-Run `python -m scripts.run_system_check` to see available LPM models.
+Run `pyage list lpms` to see available LPM models.
 
 ### "Tracer not found"
 
