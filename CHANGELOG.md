@@ -20,6 +20,8 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Isolated tracer YAML parsing in an immutable `TracerConfig` model.
 - Added fixed and adaptive Metropolis-Hastings proposal modes with explicit
   qualification coverage.
+- Split remaining high-branching core, example, site, and validation functions;
+  Ruff now enforces a maximum cyclomatic complexity of 10 repository-wide.
 
 ### Fixed
 
