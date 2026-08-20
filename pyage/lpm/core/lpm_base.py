@@ -459,38 +459,29 @@ class LpmBase(abc.ABC):
         tuple[bool, dict[str, int]]
             (success, chosen_lines) - success flag and dict of param -> line index
         """
-        if len(dist.index) == 0:
+        row_count = len(dist.index)
+        if row_count == 0:
             return (False, {})
 
         if rng is None:
             rng = np.random.default_rng()
 
-        chosen_lines: dict[str, int] = {}
-
+        parameter_names = list(self.p)
         if option == "random_line":
-            line = int(rng.integers(len(dist.index)))
-            for key in self.p.keys():
-                self.p[key] = dist[key].iloc[line]
-                chosen_lines[key] = line
-
+            line = int(rng.integers(row_count))
+            chosen_lines = dict.fromkeys(parameter_names, line)
         elif option == "line":
-            if line_no >= len(dist.index):
-                line_no = len(dist.index) - 1
-            for key in self.p.keys():
-                self.p[key] = dist[key].iloc[line_no]
-                chosen_lines[key] = line_no
-
+            line = min(line_no, row_count - 1)
+            chosen_lines = dict.fromkeys(parameter_names, line)
         elif option == "random_each":
-            for key in self.p.keys():
-                line = int(rng.integers(len(dist.index)))
-                self.p[key] = dist[key].iloc[line]
-                chosen_lines[key] = line
-
+            chosen_lines = {
+                key: int(rng.integers(row_count)) for key in parameter_names
+            }
         else:
-            for key in self.p.keys():
-                self.p[key] = dist[key].iloc[0]
-                chosen_lines[key] = 0
+            chosen_lines = dict.fromkeys(parameter_names, 0)
 
+        for key, line in chosen_lines.items():
+            self.p[key] = dist[key].iloc[line]
         return (True, chosen_lines)
 
     def moments_name(self) -> list[str]:

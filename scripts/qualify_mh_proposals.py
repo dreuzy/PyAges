@@ -455,7 +455,7 @@ def _load_chain(path: Path) -> dict[str, Any]:
         return {name: data[name].copy() for name in data.files}
 
 
-def analyze(output: Path, steps: int = PRODUCTION_STEPS) -> dict[str, Path]:
+def _collect_analysis_tables(output: Path, steps: int):
     summary_rows, run_rows, acf_rows = [], [], []
     chain_cache: dict[tuple[str, str, int], dict[str, Any]] = {}
     for case_name, target_mu, target_t0 in CASES:
@@ -529,11 +529,19 @@ def analyze(output: Path, steps: int = PRODUCTION_STEPS) -> dict[str, Path]:
                         ),
                     }
                 )
-    summaries = pd.DataFrame(summary_rows)
-    runs = pd.DataFrame(run_rows)
-    acfs = pd.DataFrame(acf_rows)
+    return (
+        pd.DataFrame(summary_rows),
+        pd.DataFrame(run_rows),
+        pd.DataFrame(acf_rows),
+        chain_cache,
+    )
 
-    rhat_rows = []
+
+def _split_rhat_table(
+    summaries: pd.DataFrame,
+    chain_cache: dict[tuple[str, str, int], dict[str, Any]],
+) -> pd.DataFrame:
+    rows = []
     for (case_name, configuration, parameter), group in summaries.groupby(
         ["case", "configuration", "parameter"]
     ):
@@ -541,7 +549,7 @@ def analyze(output: Path, steps: int = PRODUCTION_STEPS) -> dict[str, Path]:
             chain_cache[(case_name, configuration, int(seed))][parameter]
             for seed in group["seed"]
         ]
-        rhat_rows.append(
+        rows.append(
             {
                 "case": case_name,
                 "configuration": configuration,
@@ -549,7 +557,12 @@ def analyze(output: Path, steps: int = PRODUCTION_STEPS) -> dict[str, Path]:
                 "split_rhat": split_rhat(chains),
             }
         )
-    rhats = pd.DataFrame(rhat_rows)
+    return pd.DataFrame(rows)
+
+
+def analyze(output: Path, steps: int = PRODUCTION_STEPS) -> dict[str, Path]:
+    summaries, runs, acfs, chain_cache = _collect_analysis_tables(output, steps)
+    rhats = _split_rhat_table(summaries, chain_cache)
 
     variability = (
         summaries.groupby(

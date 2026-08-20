@@ -102,47 +102,72 @@ def _validate_tracer_payload_shape(payload: dict[str, Any], yaml_path: Path) -> 
 def _validate_holten_sections(
     payload: dict[str, Any], yaml_path: Path, context: HoltenContext
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    holten = payload.get("holten")
-    if not isinstance(holten, dict):
-        raise ValueError(f"{yaml_path}: missing 'holten' section")
-    source = holten.get("source")
-    preparation = holten.get("preparation")
-    if not isinstance(source, dict):
-        raise ValueError(f"{yaml_path}: missing 'holten.source'")
-    if not isinstance(preparation, dict):
-        raise ValueError(f"{yaml_path}: missing 'holten.preparation'")
-
-    for key in ("reference",):
-        if key not in holten:
-            raise ValueError(f"{yaml_path}: missing 'holten.{key}'")
-    for key in ("observation_table", "observation_field", "observation_unit"):
-        if key not in source:
-            raise ValueError(f"{yaml_path}: missing 'holten.source.{key}'")
-    for key in ("input_normalization", "output_unit"):
-        if key not in preparation:
-            raise ValueError(f"{yaml_path}: missing 'holten.preparation.{key}'")
+    holten = _required_mapping(payload, "holten", yaml_path)
+    source = _required_mapping(holten, "source", yaml_path, prefix="holten")
+    preparation = _required_mapping(holten, "preparation", yaml_path, prefix="holten")
+    _require_keys(holten, ("reference",), yaml_path, "holten")
+    _require_keys(
+        source,
+        ("observation_table", "observation_field", "observation_unit"),
+        yaml_path,
+        "holten.source",
+    )
+    _require_keys(
+        preparation,
+        ("input_normalization", "output_unit"),
+        yaml_path,
+        "holten.preparation",
+    )
 
     if str(preparation["output_unit"]) != str(payload["unit"]):
         raise ValueError(f"{yaml_path}: holten.preparation.output_unit must match unit")
 
-    observation_table = _resolve_repo_relative(
-        str(source["observation_table"]), context
+    _require_existing_source(
+        source, "observation_table", yaml_path, context, "observation table"
     )
-    if not observation_table.exists():
-        raise FileNotFoundError(
-            f"{yaml_path}: observation table not found: {observation_table}"
-        )
 
     if bool(payload.get("recharge", False)):
-        for key in ("recharge_file", "recharge_unit"):
-            if key not in source:
-                raise ValueError(f"{yaml_path}: missing 'holten.source.{key}'")
-        recharge_path = _resolve_repo_relative(str(source["recharge_file"]), context)
-        if not recharge_path.exists():
-            raise FileNotFoundError(
-                f"{yaml_path}: recharge file not found: {recharge_path}"
-            )
+        _require_keys(
+            source,
+            ("recharge_file", "recharge_unit"),
+            yaml_path,
+            "holten.source",
+        )
+        _require_existing_source(
+            source, "recharge_file", yaml_path, context, "recharge file"
+        )
     return holten, preparation
+
+
+def _required_mapping(
+    parent: dict[str, Any], key: str, path: Path, prefix: str = ""
+) -> dict[str, Any]:
+    value = parent.get(key)
+    qualified = f"{prefix}.{key}" if prefix else key
+    if not isinstance(value, dict):
+        raise ValueError(f"{path}: missing '{qualified}' section")
+    return value
+
+
+def _require_keys(
+    section: dict[str, Any], keys: tuple[str, ...], path: Path, prefix: str
+) -> None:
+    for key in keys:
+        if key not in section:
+            raise ValueError(f"{path}: missing '{prefix}.{key}'")
+
+
+def _require_existing_source(
+    source: dict[str, Any],
+    key: str,
+    yaml_path: Path,
+    context: HoltenContext,
+    label: str,
+) -> Path:
+    path = _resolve_repo_relative(str(source[key]), context)
+    if not path.exists():
+        raise FileNotFoundError(f"{yaml_path}: {label} not found: {path}")
+    return path
 
 
 def _validate_tracer_specific_rules(
@@ -507,8 +532,16 @@ def validate_converted_dataset(
     if missing:
         raise ValueError(f"Converted dataset missing columns: {missing}")
 
-    expected_elements = set(VALID_TRACERS)
-    if set(frame["element"]) != expected_elements:
+    _validate_converted_values(frame)
+    _validate_converted_units_and_dates(frame)
+    if aggregated_file:
+        _validate_aggregated_rows(frame, selected_wells)
+    else:
+        _validate_per_well_rows(frame)
+
+
+def _validate_converted_values(frame: pd.DataFrame) -> None:
+    if set(frame["element"]) != set(VALID_TRACERS):
         raise ValueError(f"Unexpected tracer set: {sorted(set(frame['element']))}")
     if frame["concentration"].isna().any() or frame["error"].isna().any():
         raise ValueError("Converted dataset contains missing numeric values")
@@ -521,6 +554,8 @@ def validate_converted_dataset(
             "39Ar values appear to still be in pMC, not fraction of modern"
         )
 
+
+def _validate_converted_units_and_dates(frame: pd.DataFrame) -> None:
     for element, expected_unit in TRACER_OUTPUT_UNITS.items():
         got = frame.loc[frame["element"] == element, "unit"].iloc[0]
         if got != expected_unit:
@@ -530,27 +565,26 @@ def validate_converted_dataset(
     if not ((dates >= 2010.0) & (dates < 2011.0)).all():
         raise ValueError("Converted dataset contains dates outside the 2010 campaign")
 
-    if aggregated_file:
-        allowed_wells = set(selected_wells)
-        unexpected_wells = sorted(set(frame["well_id"]).difference(allowed_wells))
-        if unexpected_wells:
-            raise ValueError(
-                f"Unexpected wells in aggregated dataset: {unexpected_wells}"
-            )
-        if frame.duplicated(["well_id", "element", "date"]).any():
-            raise ValueError(
-                "Duplicate well_id/element/date rows in aggregated dataset"
-            )
-        if len(frame) != len(selected_wells) * len(VALID_TRACERS):
-            raise ValueError(
-                "Aggregated dataset does not contain the expected number of rows "
-                f"({len(selected_wells)} wells x {len(VALID_TRACERS)} tracers)"
-            )
-    else:
-        if frame.duplicated(["element", "date"]).any():
-            raise ValueError("Duplicate element/date rows in per-well dataset")
-        if len(frame) != len(VALID_TRACERS):
-            raise ValueError("Per-well dataset must contain exactly 3 V1 rows")
+
+def _validate_aggregated_rows(frame: pd.DataFrame, selected_wells: list[str]) -> None:
+    unexpected_wells = sorted(set(frame["well_id"]).difference(selected_wells))
+    if unexpected_wells:
+        raise ValueError(f"Unexpected wells in aggregated dataset: {unexpected_wells}")
+    if frame.duplicated(["well_id", "element", "date"]).any():
+        raise ValueError("Duplicate well_id/element/date rows in aggregated dataset")
+    expected_count = len(selected_wells) * len(VALID_TRACERS)
+    if len(frame) != expected_count:
+        raise ValueError(
+            "Aggregated dataset does not contain the expected number of rows "
+            f"({len(selected_wells)} wells x {len(VALID_TRACERS)} tracers)"
+        )
+
+
+def _validate_per_well_rows(frame: pd.DataFrame) -> None:
+    if frame.duplicated(["element", "date"]).any():
+        raise ValueError("Duplicate element/date rows in per-well dataset")
+    if len(frame) != len(VALID_TRACERS):
+        raise ValueError("Per-well dataset must contain exactly 3 V1 rows")
 
 
 def write_aggregated_dataset(frame: pd.DataFrame, context: HoltenContext) -> Path:

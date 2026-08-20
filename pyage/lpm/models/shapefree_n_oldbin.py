@@ -88,9 +88,18 @@ def _load_shape_spec(spec: dict[str, Any]) -> ShapeFreeSpec:
             f"{MODEL_NAME}: unsupported shapefree.mode={mode!r}, expected one of {sorted(VALID_MODES)}"
         )
 
-    edges = _as_float_array(
-        list(shapefree_cfg.get("edges", [])), field_name="shapefree.edges"
+    edges = _validated_edges(shapefree_cfg)
+    if mode == "bounded":
+        return ShapeFreeSpec(mode=mode, edges=edges)
+    return ShapeFreeSpec(
+        mode=mode,
+        edges=edges,
+        support_end_max=_validated_support_end(shapefree_cfg, edges[-1]),
     )
+
+
+def _validated_edges(config: dict[str, Any]) -> np.ndarray:
+    edges = _as_float_array(list(config.get("edges", [])), field_name="shapefree.edges")
     if edges.size < 2:
         raise ValueError(
             f"{MODEL_NAME}: shapefree.edges must define at least two edges"
@@ -102,10 +111,11 @@ def _load_shape_spec(spec: dict[str, Any]) -> ShapeFreeSpec:
     if not np.isclose(edges[0], 0.0):
         raise ValueError(f"{MODEL_NAME}: shapefree.edges must start at 0.0")
 
-    if mode == "bounded":
-        return ShapeFreeSpec(mode=mode, edges=edges)
+    return edges
 
-    support_end_max = shapefree_cfg.get("support_end_max")
+
+def _validated_support_end(config: dict[str, Any], old_bin_start: float) -> float:
+    support_end_max = config.get("support_end_max")
     if support_end_max is None:
         raise ValueError(
             f"{MODEL_NAME}: support_open mode requires shapefree.support_end_max"
@@ -118,12 +128,12 @@ def _load_shape_spec(spec: dict[str, Any]) -> ShapeFreeSpec:
         ) from exc
     if not np.isfinite(support_end_max):
         raise ValueError(f"{MODEL_NAME}: shapefree.support_end_max must be finite")
-    if support_end_max <= edges[-1]:
+    if support_end_max <= old_bin_start:
         raise ValueError(
             f"{MODEL_NAME}: shapefree.support_end_max ({support_end_max}) "
-            f"must be greater than the open old-bin start ({edges[-1]})"
+            f"must be greater than the open old-bin start ({old_bin_start})"
         )
-    return ShapeFreeSpec(mode=mode, edges=edges, support_end_max=support_end_max)
+    return support_end_max
 
 
 def _parameter_defaults(

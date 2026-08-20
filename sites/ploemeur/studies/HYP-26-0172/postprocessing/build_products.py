@@ -380,42 +380,9 @@ def plot_figure3(
     root: Path, figures: Path, window: tuple[int, int] = (2018, 2019)
 ) -> list[Path]:
     tracers = ("cfc11", "cfc12", "cfc113")
-    payload = {}
-    for well in ("F09", "F11"):
-        independent = _find_main_output(root, well, "successive")
-        conditioned = _find_main_output(root, well, "successive_with_prior")
-        full = _find_main_output(root, well, "span_full")
-        if not independent or not conditioned or not full:
-            return []
-        full_cases = sorted(
-            full.glob(f"{well}_????_????"),
-            key=lambda path: (
-                int(path.name.rsplit("_", 1)[1]) - int(path.name.rsplit("_", 2)[1])
-            ),
-            reverse=True,
-        )
-        if not full_cases:
-            return []
-        files = {
-            "independent": _prediction_file(independent, well, window),
-            "conditioned": _prediction_file(conditioned, well, window),
-            "full": full_cases[0]
-            / "exp_shifted"
-            / "Metropolis_Hastings"
-            / "concentrations_all_models.txt",
-        }
-        if not all(path and path.is_file() for path in files.values()):
-            return []
-        obs_file = (
-            independent
-            / f"{well}_{window[0]}_{window[1]}"
-            / "exp_shifted"
-            / "concentrations.txt"
-        )
-        payload[well] = (
-            {name: pd.read_csv(path, sep="\t") for name, path in files.items()},
-            pd.read_csv(obs_file, sep="\t"),
-        )
+    payload = _figure3_payload(root, window)
+    if payload is None:
+        return []
 
     fig, axes = plt.subplots(
         2, 3, figsize=(13, 7), sharex=True, constrained_layout=True
@@ -424,31 +391,7 @@ def plot_figure3(
         predictions, observations = payload[well]
         for col, tracer in enumerate(tracers):
             ax = axes[row, col]
-            for name, color, alpha in (
-                ("full", FULL_SERIES, 0.15),
-                ("independent", UNCONSTRAINED, 0.25),
-                ("conditioned", CONDITIONED, 0.25),
-            ):
-                data = predictions[name]
-                columns = [column for column in data if column.startswith(f"{tracer}_")]
-                for column in columns:
-                    ax.plot(
-                        data["date"],
-                        data[column],
-                        color=color,
-                        alpha=alpha,
-                        linewidth=0.8,
-                    )
-            obs = observations[observations["element"].str.lower().eq(tracer)]
-            ax.errorbar(
-                obs["date"],
-                obs["concentration"],
-                yerr=obs["error"],
-                fmt="o",
-                color=OBSERVATIONS,
-                markersize=3,
-                capsize=2,
-            )
+            _plot_figure3_panel(ax, predictions, observations, tracer)
             if row == 0:
                 ax.set_title(tracer.upper().replace("CFC", "CFC-"))
             if col == 0:
@@ -458,6 +401,69 @@ def plot_figure3(
     for ax in axes[-1]:
         ax.set_xlabel("Date")
     return export_figure(fig, figures, "Figure3")
+
+
+def _figure3_payload(root: Path, window: tuple[int, int]) -> dict | None:
+    payload = {}
+    for well in ("F09", "F11"):
+        outputs = {
+            "independent": _find_main_output(root, well, "successive"),
+            "conditioned": _find_main_output(root, well, "successive_with_prior"),
+            "full": _find_main_output(root, well, "span_full"),
+        }
+        if not all(outputs.values()):
+            return None
+        full_cases = sorted(
+            outputs["full"].glob(f"{well}_????_????"),
+            key=lambda path: (
+                int(path.name.rsplit("_", 1)[1]) - int(path.name.rsplit("_", 2)[1])
+            ),
+            reverse=True,
+        )
+        if not full_cases:
+            return None
+        files = {
+            "independent": _prediction_file(outputs["independent"], well, window),
+            "conditioned": _prediction_file(outputs["conditioned"], well, window),
+            "full": full_cases[0]
+            / "exp_shifted"
+            / "Metropolis_Hastings"
+            / "concentrations_all_models.txt",
+        }
+        if not all(path and path.is_file() for path in files.values()):
+            return None
+        observations = (
+            outputs["independent"]
+            / f"{well}_{window[0]}_{window[1]}"
+            / "exp_shifted"
+            / "concentrations.txt"
+        )
+        payload[well] = (
+            {name: pd.read_csv(path, sep="\t") for name, path in files.items()},
+            pd.read_csv(observations, sep="\t"),
+        )
+    return payload
+
+
+def _plot_figure3_panel(ax, predictions: dict, observations: pd.DataFrame, tracer: str):
+    for name, color, alpha in (
+        ("full", FULL_SERIES, 0.15),
+        ("independent", UNCONSTRAINED, 0.25),
+        ("conditioned", CONDITIONED, 0.25),
+    ):
+        data = predictions[name]
+        for column in (item for item in data if item.startswith(f"{tracer}_")):
+            ax.plot(data["date"], data[column], color=color, alpha=alpha, linewidth=0.8)
+    observed = observations[observations["element"].str.lower().eq(tracer)]
+    ax.errorbar(
+        observed["date"],
+        observed["concentration"],
+        yerr=observed["error"],
+        fmt="o",
+        color=OBSERVATIONS,
+        markersize=3,
+        capsize=2,
+    )
 
 
 def build(profile: str, allow_partial: bool = False) -> list[Path]:

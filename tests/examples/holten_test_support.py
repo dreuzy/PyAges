@@ -339,9 +339,9 @@ def assert_nested_close(
             )
         return
     if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
-        assert np.isclose(
-            actual, expected, atol=0.0, rtol=tol
-        ), f"{path}: {actual} != {expected} (tol={tol})"
+        assert np.isclose(actual, expected, atol=0.0, rtol=tol), (
+            f"{path}: {actual} != {expected} (tol={tol})"
+        )
         return
     assert actual == expected, f"{path}: {actual!r} != {expected!r}"
 

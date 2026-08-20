@@ -153,40 +153,58 @@ def _apply_overrides(
     data = _load_yaml(config)
 
     if transient:
+        _apply_transient_overrides(data, lpm, mh_nsteps, data_file)
         if data_name or data_dir:
-            click.echo(
-                click.style(
-                    "Ignoring --data-name/--data-dir (single-date only) in transient mode.",
-                    fg="yellow",
-                )
-            )
-        if data_file:
-            data.setdefault("dataset", {})["file"] = str(data_file)
-        if lpm:
-            data.setdefault("lpm_models", {})["list"] = [lpm]
-        if mh_nsteps is not None:
-            data.setdefault("calibration", {})["mh_nsteps"] = int(mh_nsteps)
+            _warn("Ignoring --data-name/--data-dir (single-date only).")
     else:
+        _apply_single_date_overrides(data, lpm, mh_nsteps, data_name, data_dir)
         if data_file:
-            click.echo(
-                click.style(
-                    "Ignoring --data-file (transient only) in single-date mode.",
-                    fg="yellow",
-                )
-            )
-        if data_name:
-            data.setdefault("dataset", {})["name"] = data_name
-        if data_dir:
-            data.setdefault("dataset", {})["data_dir"] = str(data_dir)
-        if lpm:
-            data.setdefault("lpm", {})["model_name"] = lpm
-        if mh_nsteps is not None:
-            data.setdefault("calibration_metropolis_hastings", {})["nstep"] = int(
-                mh_nsteps
-            )
+            _warn("Ignoring --data-file (transient only).")
 
     # Keep the temporary file beside the source configuration so all relative
     # data paths retain the same resolution root after applying overrides.
+    tmp_path = _write_temporary_config(config, data)
+
+    if verbose:
+        click.echo(f"Using overridden config: {tmp_path}")
+
+    return tmp_path
+
+
+def _apply_transient_overrides(
+    data: dict, lpm: str | None, mh_nsteps: int | None, data_file: Path | None
+) -> None:
+    if data_file:
+        data.setdefault("dataset", {})["file"] = str(data_file)
+    if lpm:
+        data.setdefault("lpm_models", {})["list"] = [lpm]
+    if mh_nsteps is not None:
+        data.setdefault("calibration", {})["mh_nsteps"] = int(mh_nsteps)
+
+
+def _apply_single_date_overrides(
+    data: dict,
+    lpm: str | None,
+    mh_nsteps: int | None,
+    data_name: str | None,
+    data_dir: Path | None,
+) -> None:
+    if data_name:
+        data.setdefault("dataset", {})["name"] = data_name
+    if data_dir:
+        data.setdefault("dataset", {})["data_dir"] = str(data_dir)
+    if lpm:
+        data.setdefault("lpm", {})["model_name"] = lpm
+    if mh_nsteps is not None:
+        data.setdefault("calibration_metropolis_hastings", {})["nstep"] = int(mh_nsteps)
+
+
+def _warn(message: str) -> None:
+    click.echo(click.style(message, fg="yellow"))
+
+
+def _write_temporary_config(config: Path, data: dict) -> Path:
+    """Write overrides beside their source so relative paths remain stable."""
     with tempfile.NamedTemporaryFile(
         delete=False,
         dir=config.parent,
@@ -195,10 +213,6 @@ def _apply_overrides(
     ) as tmp:
         tmp_path = Path(tmp.name)
     tmp_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
-
-    if verbose:
-        click.echo(f"Using overridden config: {tmp_path}")
-
     return tmp_path
 
 

@@ -274,16 +274,7 @@ def independent_reference(tracer: Tracer, model, date: float) -> float:
     """Independent segmented Gauss-Legendre expectation."""
     name, p = model.name, model.p
     tmax = float(date - tracer.datemin)
-    chronology_dates = tracer.convolution_dates
-    age_breaks = np.array([0.0, tmax], dtype=float)
-    if chronology_dates is not None:
-        chronology_ages = date - np.asarray(chronology_dates, dtype=float).reshape(-1)
-        chronology_ages = chronology_ages[
-            np.isfinite(chronology_ages)
-            & (chronology_ages > 0.0)
-            & (chronology_ages < tmax)
-        ]
-        age_breaks = np.unique(np.concatenate((age_breaks, chronology_ages)))
+    age_breaks = _chronology_age_breaks(tracer, date, tmax)
 
     def response(age):
         age = np.asarray(age)
@@ -296,50 +287,62 @@ def independent_reference(tracer: Tracer, model, date: float) -> float:
         age = p["mu"]
         return float(response(age)) if 0.0 <= age <= tmax else 0.0
     if name == "dirac_double":
-        ages = (p["mu1"], p["mu1"] + p["mu2"])
-        weights = (p["rate"], 1.0 - p["rate"])
-        return sum(
-            weight * float(response(age))
-            for age, weight in zip(ages, weights)
-            if 0.0 <= age <= tmax
-        )
+        return _double_dirac_reference(response, p, tmax)
     if name == "mix_exp_shifted":
         dirac = p["rate"] * float(response(p["mu1"])) if p["mu1"] <= tmax else 0.0
         distribution = stats.expon(loc=p["mu1"] + p["shift"], scale=p["mu2"])
         continuous = _quantile_reference(response, distribution, tmax, age_breaks)
         return dirac + (1.0 - p["rate"]) * continuous
     if name == "shapefree_n_oldbin":
-        total = 0.0
-        for left, right, fraction in zip(
-            model.bin_edges()[:-1], model.bin_edges()[1:], model.fractions()
-        ):
-            upper = min(float(right), tmax)
-            if upper > left:
-                local_edges = np.unique(
-                    np.concatenate(
-                        (
-                            np.array([float(left), upper]),
-                            age_breaks[(age_breaks > left) & (age_breaks < upper)],
-                        )
-                    )
-                )
-                for segment_left, segment_right in zip(
-                    local_edges[:-1], local_edges[1:]
-                ):
-                    total += (
-                        fraction
-                        / (right - left)
-                        * _gauss_interval(
-                            response,
-                            float(segment_left),
-                            float(segment_right),
-                        )
-                    )
-        return float(total)
+        return _shapefree_reference(response, model, tmax, age_breaks)
     distribution = _independent_distribution(name, p)
     if distribution is None:
         raise ValueError(f"No independent reference for {name}")
     return _quantile_reference(response, distribution, tmax, age_breaks)
+
+
+def _chronology_age_breaks(tracer: Tracer, date: float, tmax: float) -> np.ndarray:
+    dates = tracer.convolution_dates
+    if dates is None:
+        return np.array([0.0, tmax], dtype=float)
+    ages = date - np.asarray(dates, dtype=float).reshape(-1)
+    ages = ages[np.isfinite(ages) & (ages > 0.0) & (ages < tmax)]
+    return np.unique(np.concatenate(([0.0, tmax], ages)))
+
+
+def _double_dirac_reference(response, parameters: dict, tmax: float) -> float:
+    ages = (parameters["mu1"], parameters["mu1"] + parameters["mu2"])
+    weights = (parameters["rate"], 1.0 - parameters["rate"])
+    return sum(
+        weight * float(response(age))
+        for age, weight in zip(ages, weights)
+        if 0.0 <= age <= tmax
+    )
+
+
+def _shapefree_reference(response, model, tmax: float, age_breaks: np.ndarray) -> float:
+    total = 0.0
+    for left, right, fraction in zip(
+        model.bin_edges()[:-1], model.bin_edges()[1:], model.fractions()
+    ):
+        upper = min(float(right), tmax)
+        if upper <= left:
+            continue
+        local_edges = np.unique(
+            np.concatenate(
+                (
+                    np.array([float(left), upper]),
+                    age_breaks[(age_breaks > left) & (age_breaks < upper)],
+                )
+            )
+        )
+        for segment_left, segment_right in zip(local_edges[:-1], local_edges[1:]):
+            total += (
+                fraction
+                / (right - left)
+                * _gauss_interval(response, float(segment_left), float(segment_right))
+            )
+    return float(total)
 
 
 def _quantile_reference(
