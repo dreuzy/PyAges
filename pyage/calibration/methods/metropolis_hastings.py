@@ -31,6 +31,7 @@ from pyage.calibration.methods.trajectory import (
     MHConfig,
     TrajOptions,
 )
+from pyage.calibration.mh_proposals import GaussianRandomWalk
 from pyage.calibration.utils.objective_functions import RMSE
 from pyage.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
 
@@ -84,6 +85,7 @@ class MetropolisHastings(calbas.CalibrationCore):
         self.__initialization_source = ""
         self.prior_validation_stats = None
         self.time_perform = 0
+        self._proposal: GaussianRandomWalk | None = None
 
     def update_calibbasis(self, calib_basis: calbas.CalibrationCore) -> None:
         """
@@ -103,15 +105,59 @@ class MetropolisHastings(calbas.CalibrationCore):
         """Increment parameters
         Metropolis_Hastings
         """
-        # Required deepcopy to avoid p0 to be modified if not chosen eventually
-        p1 = []
-        k = 0
-        # pf = self.MH_step.delta()
-        for key in lpm.p.keys():
-            # Perturbation factor of the MCMC MH algorithm, key of the convergence of the algorihm
-            p1.append(p0[k] + self.MH_step.value[key] * rng.standard_normal())
-            k = k + 1
-        return p1
+        if self._proposal is not None:
+            return self._proposal.draw(p0, rng).tolist()
+        # Preserve the historical RNG stream and proposal exactly by default.
+        return [
+            p0[k] + self.MH_step.value[key] * rng.standard_normal()
+            for k, key in enumerate(lpm.p.keys())
+        ]
+
+    def __prepare_proposal(self) -> None:
+        """Resolve an optional fixed Gaussian proposal after model setup."""
+        kind = self.config.proposal_kind
+        if kind == "legacy_diagonal":
+            if (
+                any(
+                    value is not None
+                    for value in (
+                        self.config.proposal_scales,
+                        self.config.proposal_covariance,
+                    )
+                )
+                or self.config.proposal_multiplier != 1.0
+            ):
+                raise ValueError(
+                    "legacy_diagonal does not accept explicit proposal parameters"
+                )
+            self._proposal = None
+            return
+        dimension = len(self.lpm.p)
+        multiplier = float(self.config.proposal_multiplier)
+        if not math.isfinite(multiplier) or multiplier <= 0.0:
+            raise ValueError("proposal_multiplier must be finite and positive")
+        if kind in {"diagonal", "sum_difference"}:
+            if self.config.proposal_scales is None:
+                raise ValueError(f"{kind} requires proposal_scales")
+            if len(self.config.proposal_scales) != dimension:
+                raise ValueError("proposal_scales dimension does not match the LPM")
+            coordinate_system = (
+                "sum_difference" if kind == "sum_difference" else "native"
+            )
+            self._proposal = GaussianRandomWalk.diagonal(
+                np.asarray(self.config.proposal_scales, dtype=float) * multiplier,
+                coordinate_system=coordinate_system,
+            )
+            return
+        if kind == "correlated":
+            if self.config.proposal_covariance is None:
+                raise ValueError("correlated requires proposal_covariance")
+            covariance = np.asarray(self.config.proposal_covariance, dtype=float)
+            if covariance.shape != (dimension, dimension):
+                raise ValueError("proposal_covariance dimension does not match the LPM")
+            self._proposal = GaussianRandomWalk(covariance * multiplier**2)
+            return
+        raise ValueError(f"Unknown proposal_kind: {kind!r}")
 
     def __log_posterior_eval(
         self,
@@ -263,6 +309,7 @@ class MetropolisHastings(calbas.CalibrationCore):
         data_error = self.cdata.cv[ERROR_COLUMN].to_numpy(dtype=float)
         # Initialization of stepping interval
         self.MH_step.prepare(self.lpm)
+        self.__prepare_proposal()
         # Trajectory monitoring
         traj = (
             MH_Trajectory(self.lpm.p.keys(), self.config.nstep)
@@ -482,6 +529,8 @@ class MetropolisHastings(calbas.CalibrationCore):
         self.MH_step.save_param(data)
         data["seed"] = self.config.seed
         data["initialization_source"] = self.__initialization_source
+        data["proposal_kind"] = self.config.proposal_kind
+        data["proposal_multiplier"] = self.config.proposal_multiplier
         for param, value in self.__initial_params_used.items():
             data[f"initial_{param}"] = value
         return data

@@ -29,6 +29,10 @@ class MHConfig:
     lpm_number: int = 10
     seed: int = 12345
     initial_params: dict[str, float] | None = None
+    proposal_kind: str = "legacy_diagonal"
+    proposal_scales: tuple[float, ...] | None = None
+    proposal_covariance: tuple[tuple[float, ...], ...] | None = None
+    proposal_multiplier: float = 1.0
 
 
 @dataclass(frozen=True)
