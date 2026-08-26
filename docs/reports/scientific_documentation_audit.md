@@ -83,11 +83,14 @@ turning source files into a duplicate manuscript.
   checkout lacks the external evidence.
 - Freeze the exact reviewed commit and dependency environment used for every
   final figure and table.
-- Run and archive a tolerance-sensitivity result for any non-default
-  ``TracerGridSettings`` used by the article.
-- Report chain count, retained draws, $\hat R$, effective sample size, Monte
-  Carlo uncertainty, and the actual proposal configuration for each Bayesian
-  result; burn-in and thinning alone are insufficient.
+- The default-grid qualification is archived in
+  {doc}`convolution_grid_sensitivity_2026-08-26`; no current production or
+  article path overrides ``TracerGridSettings``. Repeat it if a future article
+  calculation introduces non-default settings.
+- Restore or import the raw MCMC evidence, then archive chain count, retained
+  draws, $\hat R$, effective sample size, MCSE, and the actual proposal
+  configuration for each Bayesian result; burn-in and thinning alone are
+  insufficient.
 - Replace manuscript wording that says only “objective” with the exact symbol
   and transformation used.
 - Mint the DOI only from the immutable public release/archive; then update

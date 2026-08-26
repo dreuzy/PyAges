@@ -56,6 +56,48 @@ def _artifact(
 
 ARTIFACTS = (
     _artifact(
+        "figure1_svg",
+        "figure",
+        "docs/figures/figure1_overview.svg",
+        "figures/figure1_overview.svg",
+        "Figure 1, conceptual workflow",
+    ),
+    _artifact(
+        "table3_cases",
+        "table",
+        "validation/tracerlpm/benchmark/generated/robustness-study/results.csv",
+        "tables/table3_pyage_tracerlpm_cases.csv",
+        "Table 3 and Supplement S2 paired PyAge-TracerLPM cases",
+    ),
+    _artifact(
+        "table3_summary",
+        "table",
+        "validation/tracerlpm/benchmark/generated/robustness-study/summary.json",
+        "tables/table3_pyage_tracerlpm_summary.json",
+        "Table 3 and Supplement S2 machine-readable summary",
+    ),
+    _artifact(
+        "tracerlpm_report",
+        "report",
+        "validation/tracerlpm/benchmark/generated/robustness-study/summary.md",
+        "reports/00_pyage_tracerlpm.md",
+        "Paired PyAge-TracerLPM robustness report",
+    ),
+    _artifact(
+        "forward_results",
+        "supporting_data",
+        "validation/tracerlpm/benchmark/generated/pyage_comparison/case_results.csv",
+        "supporting_data/supplement_s1_forward_results.csv",
+        "Supplement S1 independent-forward comparison cases",
+    ),
+    _artifact(
+        "forward_summary",
+        "diagnostic",
+        "validation/tracerlpm/benchmark/generated/pyage_comparison/summary.json",
+        "diagnostics/supplement_s1_forward_summary.json",
+        "Supplement S1 independent-forward summary",
+    ),
+    _artifact(
         "figure2_png",
         "figure",
         "results/final_article_simulations/shifted_exponential/figure2_shifted_exponential_final.png",
@@ -107,16 +149,16 @@ ARTIFACTS = (
     _artifact(
         "table4_csv",
         "table",
-        "results/final_article_simulations/shifted_exponential/table3_final.csv",
+        "results/final_article_simulations/shifted_exponential/table4_final.csv",
         "tables/table4.csv",
-        "Table 4, machine-readable (historical source: table3_final.csv)",
+        "Table 4, machine-readable",
     ),
     _artifact(
         "table4_markdown",
         "table",
-        "results/final_article_simulations/shifted_exponential/table3_final.md",
+        "results/final_article_simulations/shifted_exponential/table4_final.md",
         "tables/table4.md",
-        "Table 4, formatted (historical source: table3_final.md)",
+        "Table 4, formatted",
     ),
     _artifact(
         "shifted_posterior_summary",
@@ -149,9 +191,9 @@ ARTIFACTS = (
     _artifact(
         "ploemeur_ig_summary",
         "table",
-        "results/ploemeur_targeted_ig_reproduction/ploemeur_targeted_nonregression_results.csv",
-        "tables/ploemeur_ig_nonregression.csv",
-        "Ploemeur physical-IG non-regression summary",
+        "results/ploemeur_targeted_ig_reproduction/ploemeur_ig_stabilized_results.csv",
+        "tables/ploemeur_ig_stabilized.csv",
+        "Ploemeur stabilized physical-IG summary",
     ),
     _artifact(
         "shifted_report",
@@ -177,16 +219,9 @@ ARTIFACTS = (
     _artifact(
         "ploemeur_ig_report",
         "report",
-        "results/ploemeur_targeted_ig_reproduction/PLOEMEUR_TARGETED_IG_REPRODUCTION.md",
-        "reports/04_ploemeur_ig_nonregression.md",
-        "Ploemeur physical-IG reproduction",
-    ),
-    _artifact(
-        "overall_status",
-        "report",
-        "article/reports/final_article_simulations_status.md",
-        "reports/00_overall_status.md",
-        "Consolidated article simulation status",
+        "results/ploemeur_targeted_ig_reproduction/PLOEMEUR_IG_STABILIZED.md",
+        "reports/04_ploemeur_ig_stabilized.md",
+        "Ploemeur stabilized physical-IG campaign",
     ),
     _artifact(
         "shifted_convergence",
@@ -394,6 +429,55 @@ ARTIFACTS = (
 )
 
 
+def artifacts_for_campaign(campaign_root: Path) -> tuple[Artifact, ...]:
+    """Rebase generated artifacts from ``results/`` to a fresh campaign."""
+    campaign_root = campaign_root.resolve()
+    prefixes = {
+        ROOT / "results/final_article_simulations/shifted_exponential": campaign_root
+        / "shifted_exponential",
+        ROOT / "results/final_article_simulations/holten_h4_final": campaign_root
+        / "holten_h4",
+        ROOT
+        / "results/final_article_simulations/ploemeur_shifted_exponential_final": campaign_root
+        / "ploemeur_shifted_exponential",
+        ROOT / "results/ploemeur_targeted_ig_reproduction": campaign_root
+        / "ploemeur_physical_ig",
+        ROOT / "validation/tracerlpm/benchmark/generated/robustness-study": campaign_root
+        / "tracerlpm/benchmark/generated/robustness-study",
+        ROOT / "validation/tracerlpm/benchmark/generated/pyage_comparison": campaign_root
+        / "forward",
+    }
+    rebased = []
+    for artifact in ARTIFACTS:
+        source = artifact.source
+        for source_root, current_root in prefixes.items():
+            try:
+                source = current_root / source.relative_to(source_root)
+                break
+            except ValueError:
+                continue
+        rebased.append(
+            Artifact(
+                artifact.identifier,
+                artifact.category,
+                source,
+                artifact.destination,
+                artifact.description,
+            )
+        )
+    return tuple(rebased)
+
+
+def source_manifests_for_campaign(campaign_root: Path) -> dict[str, Path]:
+    campaign_root = campaign_root.resolve()
+    return {
+        "shifted_exponential": campaign_root / "shifted_exponential/manifest.json",
+        "holten_h4": campaign_root / "holten_h4/manifest.json",
+        "ploemeur_shifted_exponential": campaign_root
+        / "ploemeur_shifted_exponential/manifest.json",
+    }
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -492,6 +576,13 @@ def _standard_diagnostic(path: Path, group: str, ess_column: str) -> dict[str, o
     }
 
 
+def _artifact_source(identifier: str) -> Path:
+    for artifact in ARTIFACTS:
+        if artifact.identifier == identifier:
+            return artifact.source
+    raise KeyError(f"Unknown article artifact: {identifier}")
+
+
 def scientific_summary() -> dict[str, object]:
     ig_rows = []
     for artifact in ARTIFACTS:
@@ -501,23 +592,39 @@ def scientific_summary() -> dict[str, object]:
             frame = pd.read_csv(artifact.source)
             ig_rows.append(frame)
     ig = pd.concat(ig_rows, ignore_index=True)
+    tracerlpm = pd.read_csv(_artifact_source("table3_cases"))
+    forward = json.loads(_artifact_source("forward_summary").read_text(encoding="utf-8"))
     return {
         "thresholds": {"split_rhat_lt": 1.01, "ess_gte": 300.0},
+        "pyage_tracerlpm": {
+            "paired_cases": int(len(tracerlpm)),
+            "pyage_successful": int(
+                tracerlpm["pyage_success"].astype(str).str.lower().eq("true").sum()
+            ),
+            "tracerlpm_successful": int(
+                tracerlpm["tracerlpm_success"]
+                .astype(str)
+                .str.lower()
+                .eq("true")
+                .sum()
+            ),
+        },
+        "forward_verification": {
+            "case_count": int(forward["case_count"]),
+            "status": forward["status"],
+        },
         "shifted_exponential": _standard_diagnostic(
-            ROOT
-            / "results/final_article_simulations/shifted_exponential/convergence_diagnostics.csv",
+            _artifact_source("shifted_convergence"),
             "case",
             "ess_sum_chains",
         ),
         "holten_h4": _standard_diagnostic(
-            ROOT
-            / "results/final_article_simulations/holten_h4_final/convergence_diagnostics.csv",
+            _artifact_source("holten_convergence"),
             "well",
             "ess_sum_chains",
         ),
         "ploemeur_shifted_exponential": _standard_diagnostic(
-            ROOT
-            / "results/final_article_simulations/ploemeur_shifted_exponential_final/convergence_diagnostics.csv",
+            _artifact_source("ploemeur_shifted_convergence"),
             "case",
             "ESS",
         ),
@@ -531,16 +638,23 @@ def scientific_summary() -> dict[str, object]:
                 and (ig["bulk_ess"] >= 300.0).all()
                 and (ig["tail_ess"] >= 300.0).all()
             ),
-            "article_nonregression_reproduced": True,
+            "stabilized_campaign_converged": bool(
+                (ig["split_rhat"] < 1.01).all()
+                and (ig["bulk_ess"] >= 300.0).all()
+                and (ig["tail_ess"] >= 300.0).all()
+            ),
         },
     }
 
 
 def _readme(summary: dict[str, object]) -> str:
     shifted = summary["shifted_exponential"]
+    tracerlpm = summary["pyage_tracerlpm"]
+    forward = summary["forward_verification"]
     holten = summary["holten_h4"]
     ploemeur = summary["ploemeur_shifted_exponential"]
     ig = summary["ploemeur_physical_ig"]
+    ig_campaign_converged = ig["stabilized_campaign_converged"]
     return f"""# PyAge — paquet de résultats pour l'article
 
 Ce dossier est le point d'entrée unique pour les résultats finaux de l'article.
@@ -551,16 +665,22 @@ qui soutiennent les affirmations et la provenance exacte de chaque fichier.
 
 | Élément | Fichier principal | Source quantitative |
 | --- | --- | --- |
+| Figure 1 | `figures/figure1_overview.svg` | conceptual workflow, no simulation |
+| Table 3 | `tables/table3_pyage_tracerlpm_cases.csv` | `tables/table3_pyage_tracerlpm_summary.json` |
 | Table 4 | `tables/table4.md` | `tables/table4.csv` |
 | Figure 2 | `figures/figure2_shifted_exponential.pdf` | `supporting_data/figure2_objective_grid.csv` |
 | Figure 3 | `figures/figure3_holten_h4.pdf` | `tables/holten_visser_vs_pyage.csv` |
 | Figure 4 | `figures/figure4_ploemeur_shifted_exponential.pdf` | `supporting_data/figure4_prediction_intervals.csv` |
 
-La Figure 1, conceptuelle, ne dépend pas des simulations finales et n'est pas
-dupliquée ici.
+La Figure 1 est conceptuelle et ne dépend pas des simulations finales; son SVG
+versionné est néanmoins inclus pour que le jeu des figures soit complet.
 
 ## Statut scientifique encapsulé
 
+- Forward indépendant : {forward["case_count"]} cas, statut `{forward["status"]}`.
+- PyAge–TracerLPM : {tracerlpm["paired_cases"]} cas appariés,
+  {tracerlpm["pyage_successful"]} succès PyAge et
+  {tracerlpm["tracerlpm_successful"]} succès TracerLPM.
 - Shifted exponential : {shifted["groups"]}/19 cas, split-Rhat maximal
   `{shifted["max_split_rhat"]:.5f}`, ESS minimal `{shifted["min_ess"]:.1f}`.
 - Holten H4 : {holten["groups"]}/7 puits, split-Rhat maximal
@@ -570,8 +690,8 @@ dupliquée ici.
   `{ploemeur["min_ess"]:.1f}`.
 - Ploemeur IG physique : {ig["posterior_sets"]}/6 ensembles, split-Rhat maximal
   `{ig["max_split_rhat"]:.5f}`, ESS bulk/tail minimaux
-  `{ig["min_bulk_ess"]:.1f}/{ig["min_tail_ess"]:.1f}`; non-régression article
-  reproduite.
+  `{ig["min_bulk_ess"]:.1f}/{ig["min_tail_ess"]:.1f}`; campagne stabilisée
+  convergée : `{ig_campaign_converged}`.
 
 ## Organisation
 
@@ -583,9 +703,9 @@ dupliquée ici.
 - `provenance/` : manifests sources, code de génération et environnement.
 
 Les chaînes MCMC brutes ne sont pas dupliquées dans ce paquet éditorial. Elles
-restent sous `results/final_article_simulations/` et
-`results/ploemeur_targeted_ig_reproduction/`. Les résumés, diagnostics et
-données tracées nécessaires à l'audit de l'article sont inclus ici.
+restent dans les dossiers de la campagne et sont incluses dans l'archive GMD
+complète construite par `scripts.build_reproduction_archive`. Les résumés,
+diagnostics et données tracées nécessaires à l'audit sont inclus ici.
 
 Les sources exactes enregistrées par chaque manifest d'exécution sont copiées
 dans `provenance/execution_source/`. Si le fichier de travail a évolué après un
@@ -729,14 +849,32 @@ def replace_package(
 
 
 def main() -> int:
+    global ARTIFACTS, SOURCE_MANIFESTS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--campaign-root",
+        type=Path,
+        help="fresh campaign root containing all newly generated results",
+    )
     parser.add_argument("--validate-only", type=Path)
     parser.add_argument("--replace", action="store_true")
+    parser.add_argument(
+        "--reuse-valid",
+        action="store_true",
+        help="accept an existing package only after full hash validation",
+    )
     args = parser.parse_args()
+    if args.campaign_root is not None:
+        ARTIFACTS = artifacts_for_campaign(args.campaign_root)
+        SOURCE_MANIFESTS = source_manifests_for_campaign(args.campaign_root)
     if args.validate_only is not None:
         payload = validate_package(args.validate_only)
         print(f"Validated {len(payload['artifacts'])} packaged artifacts")
+        return 0
+    if args.reuse_valid and args.output.exists():
+        payload = validate_package(args.output)
+        print(f"Reused valid package with {len(payload['artifacts'])} artifacts")
         return 0
     output = (
         replace_package(args.output) if args.replace else build_package(args.output)

@@ -79,6 +79,13 @@ def _guard_output(path: Path) -> Path:
     return resolved
 
 
+def _path_label(path: Path, base: Path = ROOT) -> str:
+    try:
+        return path.resolve().relative_to(base.resolve()).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
+
+
 def _pilot_seed(well_index: int) -> int:
     return 510_000 + well_index
 
@@ -490,49 +497,6 @@ def _comparison(
     return comparison, metrics
 
 
-def _old_new(summaries: pd.DataFrame, output: Path) -> pd.DataFrame:
-    old_path = (
-        ROOT
-        / "results"
-        / "article_non_ploemeur_final"
-        / "holten"
-        / "helium_reproduction"
-        / "mh_samples.csv.gz"
-    )
-    old = pd.read_csv(old_path)
-    old = old.loc[old["scenario"] == "corrected_4_observables"]
-    rows = []
-    for well in old["well_id"].drop_duplicates():
-        new = summaries.loc[
-            (summaries["well"] == well) & summaries["parameter"].isin(BIN_ORDER)
-        ].set_index("parameter")
-        for fraction in BIN_ORDER:
-            old_stats = _summary(
-                old.loc[old["well_id"] == well, fraction].to_numpy(float)
-            )
-            row: dict[str, Any] = {"well": well, "fraction": fraction}
-            for statistic in (
-                "mean",
-                "median",
-                "sd",
-                "q025",
-                "q10",
-                "q25",
-                "q75",
-                "q90",
-                "q975",
-            ):
-                old_value = old_stats[statistic]
-                new_value = float(new.loc[fraction, statistic])
-                row[f"old_{statistic}"] = old_value
-                row[f"new_{statistic}"] = new_value
-                row[f"delta_{statistic}"] = new_value - old_value
-            rows.append(row)
-    frame = pd.DataFrame(rows)
-    frame.to_csv(output / "holten_h4_final_old_new.csv", index=False)
-    return frame
-
-
 def _figure3(comparison: pd.DataFrame, output: Path) -> None:
     wells = comparison["well"].drop_duplicates().tolist()
     tab10 = plt.get_cmap("tab10").colors
@@ -691,11 +655,11 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
             "thinning_for_diagnostics": 1,
         },
         "source_sha256": {
-            str(path.relative_to(ROOT)): _sha256(path) for path in sources
+            _path_label(path): _sha256(path) for path in sources
         },
-        "input_sha256": {str(path.relative_to(ROOT)): _sha256(path) for path in inputs},
+        "input_sha256": {_path_label(path): _sha256(path) for path in inputs},
         "artifact_sha256": {
-            str(path.relative_to(ROOT)): _sha256(path) for path in artifacts
+            _path_label(path, output): _sha256(path) for path in artifacts
         },
     }
     (output / "manifest.json").write_text(
@@ -724,7 +688,6 @@ def analyze_and_extend(output: Path) -> dict[str, pd.DataFrame]:
     predictions = _posterior_predictions(output, lengths, tables["convergence"])
     predictions.to_csv(output / "posterior_modeled_concentrations.csv", index=False)
     comparison, metrics = _comparison(tables["summaries"], output)
-    _old_new(tables["summaries"], output)
     if bool(tables["convergence"]["converged"].all()):
         _figure3(comparison, output)
     summary = (

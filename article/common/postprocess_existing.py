@@ -96,13 +96,13 @@ def ploemeur() -> None:
     diagnostics.to_csv(output / "convergence_diagnostics.csv", index=False)
     summaries.to_csv(output / "posterior_summaries.csv", index=False)
     chain_table.to_csv(output / "chain_diagnostics.csv", index=False)
-    compact, nonregression = runner._compact_and_nonregression(
+    compact, quality = runner._compact_and_quality(
         output, lengths, diagnostics, summaries, chain_table
     )
     intervals = runner._figure4(output, lengths)
     tracer_fit = runner._tracer_fit_diagnostics(output, intervals)
     pairing = runner._pairing_effect_diagnostics(output)
-    runner._report(output, compact, nonregression, tracer_fit, pairing)
+    runner._report(output, compact, quality, tracer_fit, pairing)
 
 
 def robustness() -> None:

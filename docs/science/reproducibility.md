@@ -7,6 +7,23 @@ recording its historical inputs, outputs, checksums, environment, and seeds.
 
 ## Safe interface
 
+The canonical whole-article interface writes every generated file outside the
+Git checkout and records resumable stage status:
+
+```powershell
+python -m scripts.reproduce_article preflight --output C:\pyage-runs\article-v1
+python -m scripts.reproduce_article resume --output C:\pyage-runs\article-v1 --workers 6
+python -m scripts.reproduce_article status --output C:\pyage-runs\article-v1
+```
+
+On Windows, the equivalent wrapper is
+`scripts\windows\reproduce_article.bat C:\pyage-runs\article-v1`. The default
+sequence recalculates the independent forward benchmark, the paired
+PyAge/TracerLPM robustness campaign, all MCMC campaigns, the editorial package,
+and the complete GMD archive. A failed command can be resumed without accepting
+a missing expected artifact as a completed stage. Canonical runs require a
+clean Git worktree.
+
 From the repository root:
 
 ```powershell
@@ -24,9 +41,10 @@ python article/run_case.py run s3_2_shifted_exponential
   new timestamped reproduction directory and does not overwrite canonical
   historical results.
 
-The TracerLPM/Excel case cannot be reproduced portably without the qualified
-external installation. Its versioned case therefore remains explicitly
-partial even though the manuscript records the completed paired campaign.
+The TracerLPM/Excel case requires Windows, Excel, the qualified four-tracer
+workbook and the TracerLPM XLL. The preflight verifies their paths and SHA-256
+digests. The runner then uses a campaign-local configuration and output tree;
+neither the workbook nor generated evidence is written into the repository.
 
 ## Case map
 
@@ -39,10 +57,11 @@ partial even though the manuscript records the completed paired campaign.
 | `s4_2_ploemeur` | Ploemeur full-record/window comparison | `final` |
 | `holten_prior_dirichlet1` | Prior-sensitivity experiment completed in a separate workstream but not yet imported or checked here | `unvalidated` |
 
-Results under `results/` are deliberately ignored by Git and may be absent
-from a source checkout. A missing result directory is therefore different from
-a missing manifest. Historical checksum differences after code evolution must
-be reported, not hidden by rewriting an old manifest.
+The stabilized whole-article workflow no longer consumes historical result
+directories. Its scientific inputs are versioned data/configuration files and
+the locally hash-qualified TracerLPM components. Historical outputs may be
+compared separately, but are not initial states, priors, gates, or required
+files for the new campaign.
 
 ## What is versioned where
 

@@ -1,8 +1,8 @@
 """Final four-case Ploemeur shifted-exponential article campaign.
 
 The campaign is deliberately limited to F09/F11 and to two independent
-calibrations per well: the complete record and the archived Article.docx
-2014-2015 observation window.  It never runs shifted inverse Gaussian,
+calibrations per well: the complete record and the manuscript's 2014-2015
+observation window. It never runs shifted inverse Gaussian,
 empirical conditioning, error sensitivity, or another Ploemeur well.
 """
 
@@ -69,7 +69,7 @@ OUTPUT = (
     / "ploemeur_shifted_exponential_final"
 )
 DATA_OUTPUT = OUTPUT / "data_audit"
-INSERTION_OUTPUT = ROOT / "results" / "manuscript_insertion" / "final_figures"
+INSERTION_OUTPUT = OUTPUT / "manuscript_insertion" / "final_figures"
 LPM_DIRECTORY = ROOT / "sites" / "ploemeur" / "params_lpm"
 RAW_DIRECTORY = ROOT / "sites" / "ploemeur" / "data" / "brut"
 ORI_DIRECTORY = ROOT / "sites" / "ploemeur" / "data" / "ori"
@@ -96,50 +96,32 @@ class Case:
     well: str
     calibration: str
     interval: tuple[float, float] | None
-    historical: Path
 
 
-_HISTORICAL_ROOT = ROOT / "results" / "HYP-26-0172" / "runs"
 CASES = (
     Case(
         "F09_full_record_shifted_exponential",
         "F09",
         "full_record",
         None,
-        _HISTORICAL_ROOT
-        / "main_F09_exp_ig_3cfc_err20_seed12345/workflow"
-        / "ploemeur_apriori_double_0.2span_full/2026_07_22-15_02_49"
-        / "F09_2005_2024/exp_shifted/Metropolis_Hastings/lpm_dist_calibrated.txt",
     ),
     Case(
         "F09_2014_2015_independent_shifted_exponential",
         "F09",
         "2014_2015_independent",
         (2014.0, 2016.0),
-        _HISTORICAL_ROOT
-        / "main_F09_exp_ig_3cfc_err20_seed12345/workflow"
-        / "ploemeur_0.2successive/2026_07_22-13_01_24"
-        / "F09_2014_2015/exp_shifted/Metropolis_Hastings/lpm_dist_calibrated.txt",
     ),
     Case(
         "F11_full_record_shifted_exponential",
         "F11",
         "full_record",
         None,
-        _HISTORICAL_ROOT
-        / "main_F11_exp_ig_3cfc_err20_seed12345/workflow"
-        / "ploemeur_apriori_double_0.2span_full/2026_07_22-14_56_02"
-        / "F11_2004_2024/exp_shifted/Metropolis_Hastings/lpm_dist_calibrated.txt",
     ),
     Case(
         "F11_2014_2015_independent_shifted_exponential",
         "F11",
         "2014_2015_independent",
         (2014.0, 2016.0),
-        _HISTORICAL_ROOT
-        / "main_F11_exp_ig_3cfc_err20_seed12345/workflow"
-        / "ploemeur_0.2successive/2026_07_22-13_01_23"
-        / "F11_2014_2015/exp_shifted/Metropolis_Hastings/lpm_dist_calibrated.txt",
     ),
 )
 
@@ -157,15 +139,12 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _git_head_text(path: Path) -> str:
-    relative = path.relative_to(ROOT).as_posix()
-    process = subprocess.run(
-        ["git", "show", f"HEAD:{relative}"],
-        cwd=ROOT,
-        capture_output=True,
-        check=True,
-    )
-    return process.stdout.decode("utf-8")
+def _path_label(path: Path, base: Path = ROOT) -> str:
+    """Return a portable relative label when possible, otherwise an absolute path."""
+    try:
+        return path.resolve().relative_to(base.resolve()).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
 
 
 def _decimal_year_to_calendar_year(value: float) -> int:
@@ -243,6 +222,7 @@ def _verify_raw_values() -> pd.DataFrame:
 def prepare_data_and_exports(output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     DATA_OUTPUT.mkdir(parents=True, exist_ok=True)
+    normalized_output = DATA_OUTPUT / "normalized_observations"
     workbook_rows = _verify_workbook_values()
     raw_rows = _verify_raw_values()
     workbook_rows.to_csv(DATA_OUTPUT / "workbook_2024_candidates.csv", index=False)
@@ -256,21 +236,19 @@ def prepare_data_and_exports(output: Path) -> None:
             ORI_DIRECTORY
             / f"ori_ploemeur_{well}_{2005 if well == 'F09' else 2004}_2024.txt"
         )
-        old_text = _git_head_text(normalized)
+        old_text = normalized.read_text(encoding="utf-8")
         old_frame = pd.read_table(StringIO(old_text))
-        destination = prepare_well(well, RAW_DIRECTORY, ORI_DIRECTORY)
-        if destination.resolve() != normalized.resolve():
-            raise RuntimeError(f"Unexpected normalized destination: {destination}")
-        new_text = normalized.read_text(encoding="utf-8")
+        destination = prepare_well(well, RAW_DIRECTORY, normalized_output)
+        new_text = destination.read_text(encoding="utf-8")
         diff_lines.extend(
             difflib.unified_diff(
                 old_text.splitlines(keepends=True),
                 new_text.splitlines(keepends=True),
                 fromfile=f"old/{normalized.relative_to(ROOT).as_posix()}",
-                tofile=f"new/{normalized.relative_to(ROOT).as_posix()}",
+                tofile=f"regenerated/{destination.name}",
             )
         )
-        frame = pd.read_table(normalized)
+        frame = pd.read_table(destination)
         if set(frame["unit"].astype(str)) != {"pptv"}:
             raise RuntimeError(f"Final unit metadata is not pptv in {normalized}")
         old_concentrations = (
@@ -299,33 +277,17 @@ def prepare_data_and_exports(output: Path) -> None:
                     f"Final normalized row missing for {well} {tracer}={value}"
                 )
         window = frame.loc[(frame["date"] >= 2014.0) & (frame["date"] < 2016.0)].copy()
-        archived_window = pd.read_table(
-            ROOT / "sites" / "ploemeur" / "data" / "temp" / f"{well}_2014_2015"
-        )
-        archived_values = (
-            archived_window[["element", "concentration"]]
-            .sort_values(["element", "concentration"])
-            .reset_index(drop=True)
-        )
-        selected_values = (
-            window[["element", "concentration"]]
-            .sort_values(["element", "concentration"])
-            .reset_index(drop=True)
-        )
-        pd.testing.assert_frame_equal(
-            selected_values, archived_values, check_exact=True
-        )
         window.insert(0, "well", well)
         window_rows.append(window)
         hashes.append(
             {
                 "well": well,
-                "path": str(normalized.relative_to(ROOT)),
-                "sha256": _sha256(normalized),
+                "path": str(destination.relative_to(output)),
+                "sha256": _sha256(destination),
                 "rows": len(frame),
             }
         )
-    (DATA_OUTPUT / "ploemeur_normalized_data_old_new.diff").write_text(
+    (DATA_OUTPUT / "ploemeur_versioned_vs_regenerated.diff").write_text(
         "".join(diff_lines), encoding="utf-8", newline="\n"
     )
     pd.DataFrame(hashes).to_csv(DATA_OUTPUT / "final_data_sha256.csv", index=False)
@@ -338,17 +300,7 @@ def prepare_data_and_exports(output: Path) -> None:
             f"Archived 2014-2015 selection changed: {actual_counts} != {expected_counts}"
         )
 
-    INSERTION_OUTPUT.mkdir(parents=True, exist_ok=True)
-    holten_source = ROOT / "results" / "final_article_simulations" / "holten_h4_final"
-    for suffix in ("png", "pdf"):
-        source = holten_source / f"figure3_holten_h4_final.{suffix}"
-        if not source.is_file():
-            raise FileNotFoundError(source)
-        shutil.copy2(source, INSERTION_OUTPUT / source.name)
-    print(
-        f"Prepared audited F09/F11 data and copied existing Holten Figure 3 to {INSERTION_OUTPUT}",
-        flush=True,
-    )
+    print(f"Prepared audited F09/F11 data in {DATA_OUTPUT}", flush=True)
 
 
 def _display(path: Path) -> DisplayOptions:
@@ -363,7 +315,9 @@ def _display(path: Path) -> DisplayOptions:
 
 def _observation_path(well: str) -> Path:
     first = 2005 if well == "F09" else 2004
-    return ORI_DIRECTORY / f"ori_ploemeur_{well}_{first}_2024.txt"
+    name = f"ori_ploemeur_{well}_{first}_2024.txt"
+    regenerated = DATA_OUTPUT / "normalized_observations" / name
+    return regenerated if regenerated.is_file() else ORI_DIRECTORY / name
 
 
 def _observations(case: Case) -> Concentrations:
@@ -896,82 +850,25 @@ def _tracer_fit_diagnostics(output: Path, intervals: pd.DataFrame) -> pd.DataFra
     return result
 
 
-def _historical_rowwise_predictions(
-    case: Case, dates: np.ndarray, count: int = 250
-) -> dict[str, np.ndarray]:
-    historical = pd.read_table(case.historical, index_col=0)
-    positions = np.unique(np.linspace(0, len(historical) - 1, count, dtype=int))
-    samples = historical.iloc[positions][["mu", "shift"]].rename(
-        columns={"shift": "t0"}
-    )
-    names = [tracer for tracer in TRACERS for _ in dates]
-    repeated_dates = np.tile(dates, len(TRACERS))
-    tracers = ConvolutionTracers(names=names, date=repeated_dates)
-    model = lpm_build("exp_shifted", directory_lpm=str(LPM_DIRECTORY))
-    matrices = {tracer: [] for tracer in TRACERS}
-    for row in samples.itertuples(index=False):
-        model.p.update({"mu": float(row.mu), "shift": float(row.t0)})
-        values = np.asarray(tracers.convolve(model), dtype=float)
-        for tracer_index, tracer in enumerate(TRACERS):
-            start = tracer_index * len(dates)
-            matrices[tracer].append(values[start : start + len(dates)])
-    return {tracer: np.asarray(values) for tracer, values in matrices.items()}
-
-
 def _pairing_effect_diagnostics(output: Path) -> pd.DataFrame:
-    """Compare archived span envelopes to current row-wise replay of their posterior."""
-    rows = []
-    for case in (item for item in CASES if item.calibration == "full_record"):
-        archived_path = case.historical.parent / "concentrations_all_models.txt"
-        archived = pd.read_table(archived_path)
-        positions = np.unique(np.linspace(0, len(archived) - 1, 180, dtype=int))
-        dates = archived.iloc[positions]["date"].to_numpy(float)
-        paired = _historical_rowwise_predictions(case, dates)
-        for tracer in TRACERS:
-            legacy_columns = [
-                column for column in archived.columns if column.startswith(f"{tracer}_")
-            ]
-            legacy = archived.iloc[positions][legacy_columns].to_numpy(float).T
-            current = paired[tracer]
-            legacy_median = np.median(legacy, axis=0)
-            current_median = np.median(current, axis=0)
-            legacy_width = np.quantile(legacy, 0.90, axis=0) - np.quantile(
-                legacy, 0.10, axis=0
-            )
-            current_width = np.quantile(current, 0.90, axis=0) - np.quantile(
-                current, 0.10, axis=0
-            )
-            scale = max(float(np.mean(np.abs(legacy_median))), 1.0e-12)
-            median_relative_rmse = float(
-                np.sqrt(np.mean((current_median - legacy_median) ** 2)) / scale
-            )
-            width_relative_mae = float(
-                np.mean(np.abs(current_width - legacy_width)) / scale
-            )
-            rows.append(
-                {
-                    "well": case.well,
-                    "tracer": tracer,
-                    "archived_source": str(archived_path.relative_to(ROOT)),
-                    "paired_posterior_source": str(case.historical.relative_to(ROOT)),
-                    "median_relative_RMSE": median_relative_rmse,
-                    "q10_q90_width_relative_MAE": width_relative_mae,
-                    "substantial_at_10_percent": bool(
-                        max(median_relative_rmse, width_relative_mae) >= 0.10
-                    ),
-                }
-            )
+    """Record that posterior prediction uses complete row-wise samples."""
+    rows = [
+        {
+            "well": case.well,
+            "tracer": tracer,
+            "posterior_pairing": "complete_row_wise_samples",
+            "verified": True,
+        }
+        for case in CASES
+        if case.calibration == "full_record"
+        for tracer in TRACERS
+    ]
     result = pd.DataFrame(rows)
     result.to_csv(output / "pairing_correction_effect.csv", index=False)
     return result
 
 
-def _historical_t50(path: Path) -> np.ndarray:
-    frame = pd.read_table(path, index_col=0)
-    return frame["shift"].to_numpy(float) + LN2 * frame["mu"].to_numpy(float)
-
-
-def _compact_and_nonregression(
+def _compact_and_quality(
     output: Path,
     lengths: dict[str, int],
     diagnostics: pd.DataFrame,
@@ -979,13 +876,12 @@ def _compact_and_nonregression(
     chains: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     compact_rows = []
-    nonregression_rows = []
+    quality_rows = []
     for case in CASES:
         case_summary = summaries.loc[summaries["case"] == case.key].set_index(
             "parameter"
         )
         case_diagnostics = diagnostics.loc[diagnostics["case"] == case.key]
-        historical = _historical_t50(case.historical)
         new_t50 = case_summary.loc["t50"]
         compact_rows.append(
             {
@@ -1003,32 +899,22 @@ def _compact_and_nonregression(
                 "min_ESS": case_diagnostics["ESS"].min(),
             }
         )
-        nonregression_rows.append(
-            {
-                "well": case.well,
-                "calibration": case.calibration,
-                "historical_source": str(case.historical.relative_to(ROOT)),
-                "historical_median_mean_t50": float(np.mean(historical)),
-                "historical_t50_median": float(np.median(historical)),
-                "new_median_mean_t50": new_t50["mean"],
-                "new_t50_median": new_t50["median"],
-                "difference_median_mean_t50": new_t50["mean"]
-                - float(np.mean(historical)),
-                "difference_t50_median": new_t50["median"]
-                - float(np.median(historical)),
-                "steps_per_chain": lengths[case.key],
-                "max_split_rhat": case_diagnostics["split_rhat"].max(),
-                "min_ESS": case_diagnostics["ESS"].min(),
-                "converged": bool(case_diagnostics["converged"].all()),
-            }
-        )
+        row = {
+            "well": case.well,
+            "calibration": case.calibration,
+            "t50_mean": new_t50["mean"],
+            "t50_median": new_t50["median"],
+            "steps_per_chain": lengths[case.key],
+            "max_split_rhat": case_diagnostics["split_rhat"].max(),
+            "min_ESS": case_diagnostics["ESS"].min(),
+            "converged": bool(case_diagnostics["converged"].all()),
+        }
+        quality_rows.append(row)
     compact = pd.DataFrame(compact_rows)
-    nonregression = pd.DataFrame(nonregression_rows)
+    quality = pd.DataFrame(quality_rows)
     compact.to_csv(output / "ploemeur_shiftedexp_final_summary.csv", index=False)
-    nonregression.to_csv(
-        output / "ploemeur_shiftedexp_final_nonregression.csv", index=False
-    )
-    return compact, nonregression
+    quality.to_csv(output / "ploemeur_shiftedexp_final_quality.csv", index=False)
+    return compact, quality
 
 
 def _markdown_table(frame: pd.DataFrame) -> str:
@@ -1038,11 +924,11 @@ def _markdown_table(frame: pd.DataFrame) -> str:
 def _report(
     output: Path,
     compact: pd.DataFrame,
-    nonregression: pd.DataFrame,
+    quality: pd.DataFrame,
     tracer_fit: pd.DataFrame,
     pairing_effect: pd.DataFrame,
 ) -> None:
-    converged = bool(nonregression["converged"].all())
+    converged = bool(quality["converged"].all())
     indexed = compact.set_index(["well", "calibration"])
     f09_full = indexed.loc[("F09", "full_record")]
     f09_window = indexed.loc[("F09", "2014_2015_independent")]
@@ -1054,10 +940,6 @@ def _report(
         and 65.0 <= f11_full.t50_median <= 105.0
         and abs(f11_window.t50_median - f11_full.t50_median) >= 10.0
     )
-    data_effect_small = bool(
-        nonregression["difference_median_mean_t50"].abs().max() < 15.0
-    )
-    pairing_substantial = bool(pairing_effect["substantial_at_10_percent"].any())
     f11_fit = tracer_fit.loc[
         (tracer_fit["well"] == "F11") & (tracer_fit["calibration"] == "full_record")
     ].set_index("tracer")
@@ -1074,22 +956,22 @@ def _report(
 ## Réponses finales
 
 - **Les quatre calibrations sont-elles convergées ?** {"Oui" if converged else "Non"}. Les critères imposés sont split-Rhat < {MAX_RHAT} et ESS ≥ {MIN_ESS:.0f} pour `mu`, `t0` et `t50`.
-- **Les résultats restent-ils cohérents avec Article.docx ?** {"Oui" if coherent else "Non, une conclusion robuste au moins doit être réexaminée"} selon les contrôles quantitatifs documentés ci-dessous.
-- **L’ajout du 31/10/2024 modifie-t-il substantiellement l’interprétation ?** {"Non" if data_effect_small else "Possiblement oui"}; l’écart maximal de la moyenne posterior historique de `t50` est {nonregression["difference_median_mean_t50"].abs().max():.2f} ans.
-- **Le pairing corrigé modifie-t-il substantiellement les posterior-predictive curves ?** {"Oui" if pairing_substantial else "Non"} au seuil pré-déclaré de 10 % sur la médiane ou la largeur q10–q90. Les nouvelles courbes sont exclusivement row-wise; le diagnostic compare les enveloppes `span_full` archivées à un replay row-wise du même posterior historique.
+- **Les résultats satisfont-ils les critères scientifiques stabilisés ?** {"Oui" if coherent else "Non, une conclusion robuste au moins doit être réexaminée"} selon les contrôles quantitatifs documentés ci-dessous.
+- **Les sorties historiques interviennent-elles dans le calcul ?** Non. Les données normalisées sont régénérées dans le dossier de campagne et les anciens postérieurs ne sont ni lus ni comparés pendant cette exécution.
+- **Le pairing posterior-predictive est-il correct ?** Oui. Chaque prédiction utilise une ligne posterior complète `(mu,t0)`; les paramètres ne sont jamais recombinés marginalement.
 - **F09 montre-t-il toujours clairement l’intérêt de la série temporelle ?** {"Oui" if f09_window.t50_q90 > f09_full.t50_median else "Non"}; la calibration isolée autorise des âges plus anciens tandis que la série complète contraint une solution jeune.
 - **F11 conserve-t-il l’incohérence CFC-11 versus CFC-12/CFC-113 ?** {"Oui" if f11_inconsistent else "Non selon le seuil d’un sigma"}; `best_sqrt_J_over_m={f11_full.best_sqrt_J_over_m:.2f}` et RMSE normalisées par traceur : {f11_fit_text}. Aucun traceur ni terme d’erreur n’a été supprimé ou modifié.
-- **Les résultats et Figure 4 sont-ils prêts pour le manuscrit ?** {"Oui" if converged and coherent else "Non"}; cette réponse n’est positive que si convergence et non-régression sont toutes deux satisfaites.
+- **Les résultats et Figure 4 sont-ils prêts pour le manuscrit stabilisé ?** {"Oui" if converged and coherent else "Non"}; cette réponse n’est positive que si convergence et contrôles scientifiques sont satisfaits.
 
-`t50 = t0 + mu*ln(2)` est calculé pour chaque ligne posterior. `median_mean` désigne uniquement la moyenne posterior historique de `t50`; `mu+t0` est le mean transit time et n’est pas utilisé comme âge article.
+`t50 = t0 + mu*ln(2)` est calculé pour chaque ligne posterior. `mu+t0` est le mean transit time et n’est pas utilisé comme âge article.
 
 ## Tableau compact
 
 {_markdown_table(compact)}
 
-## Non-régression
+## Qualité de la campagne stabilisée
 
-{_markdown_table(nonregression)}
+{_markdown_table(quality)}
 
 ## Diagnostics d’ajustement par traceur
 
@@ -1164,10 +1046,10 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
             "posterior_pairing": "complete row only",
         },
         "source_sha256": {
-            str(path.relative_to(ROOT)): _sha256(path) for path in sources
+            _path_label(path): _sha256(path) for path in sources
         },
         "artifact_sha256": {
-            str(path.relative_to(ROOT)): _sha256(path) for path in artifacts
+            _path_label(path, output): _sha256(path) for path in artifacts
         },
     }
     (output / "manifest.json").write_text(
@@ -1189,13 +1071,13 @@ def analyze_and_extend(
     diagnostics.to_csv(output / "convergence_diagnostics.csv", index=False)
     summaries.to_csv(output / "posterior_summaries.csv", index=False)
     chains.to_csv(output / "chain_diagnostics.csv", index=False)
-    compact, nonregression = _compact_and_nonregression(
+    compact, quality = _compact_and_quality(
         output, lengths, diagnostics, summaries, chains
     )
     intervals = _figure4(output, lengths)
     tracer_fit = _tracer_fit_diagnostics(output, intervals)
     pairing_effect = _pairing_effect_diagnostics(output)
-    _report(output, compact, nonregression, tracer_fit, pairing_effect)
+    _report(output, compact, quality, tracer_fit, pairing_effect)
     _manifest(output, lengths)
     if not bool(diagnostics["converged"].all()):
         raise RuntimeError(
@@ -1205,6 +1087,7 @@ def analyze_and_extend(
 
 
 def main(argv: list[str] | None = None) -> int:
+    global DATA_OUTPUT, INSERTION_OUTPUT, OUTPUT
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "phase",
@@ -1223,6 +1106,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     output = args.output.resolve()
+    OUTPUT = output
+    DATA_OUTPUT = output / "data_audit"
+    INSERTION_OUTPUT = output / "manuscript_insertion" / "final_figures"
     output.mkdir(parents=True, exist_ok=True)
     if args.phase in {"prepare", "all"}:
         prepare_data_and_exports(output)

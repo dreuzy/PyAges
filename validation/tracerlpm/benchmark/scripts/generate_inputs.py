@@ -4,13 +4,18 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import os
 import platform
 from pathlib import Path
 
 import numpy as np
 import yaml
 
-BENCHMARK_ROOT = Path(__file__).resolve().parents[1]
+BENCHMARK_ROOT = Path(
+    os.environ.get(
+        "PYAGE_TRACERLPM_BENCHMARK_ROOT", Path(__file__).resolve().parents[1]
+    )
+).resolve()
 DEFAULT_CONFIG = BENCHMARK_ROOT / "configs" / "campaign.yaml"
 DEFAULT_OUTPUT = BENCHMARK_ROOT / "inputs" / "synthetic"
 DEFAULT_MANIFEST = BENCHMARK_ROOT / "inputs" / "manifest.yaml"

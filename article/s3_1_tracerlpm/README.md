@@ -5,11 +5,12 @@
 - **Inputs/config:** `validation/tracerlpm/benchmark/configs/` and `inputs/`.
 - **Check:** `python article/run_case.py check s3_1_tracerlpm`
 - **Post-process:** `python article/run_case.py postprocess s3_1_tracerlpm`.
-- **Full run:** `python article/run_case.py run s3_1_tracerlpm` (**costly and only partial without the external TracerLPM/Excel execution**).
-- **Historical canonical result:** `results/article_non_ploemeur_final/`.
+- **Full stabilized run:** `python -m scripts.reproduce_article resume --output <external-directory>` (**costly and requires the hash-qualified TracerLPM/Excel installation**).
+- **Stabilized campaign output:** `<campaign>/tracerlpm/`.
 
-The historical folder names `table3/` and `figure2/` predate the current
-manuscript numbering. They are retained unchanged.
+Table 3 evidence is exported explicitly as
+`article_package/tables/table3_pyage_tracerlpm_cases.csv`; no historical folder
+alias is needed by the stabilized campaign.
 
 Canonical campaign configurations and inputs remain under
 `validation/tracerlpm/benchmark/`; external workbook mappings remain under

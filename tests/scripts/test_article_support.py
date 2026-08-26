@@ -18,6 +18,15 @@ def _summary():
     }
     return {
         "thresholds": {"split_rhat_lt": 1.01, "ess_gte": 300.0},
+        "pyage_tracerlpm": {
+            "paired_cases": 480,
+            "pyage_successful": 480,
+            "tracerlpm_successful": 480,
+        },
+        "forward_verification": {
+            "case_count": 270,
+            "status": "measured_not_yet_qualified",
+        },
         "shifted_exponential": baseline,
         "holten_h4": baseline,
         "ploemeur_shifted_exponential": baseline,
@@ -27,7 +36,7 @@ def _summary():
             "min_bulk_ess": 1000.0,
             "min_tail_ess": 1000.0,
             "all_converged": True,
-            "article_nonregression_reproduced": True,
+            "stabilized_campaign_converged": True,
         },
     }
 
@@ -92,7 +101,7 @@ def test_article_package_is_atomic_and_hash_validated(monkeypatch, tmp_path):
         package.validate_package(output)
 
 
-def test_publication_package_maps_historical_table3_files_to_table4():
+def test_publication_package_uses_current_table4_names():
     table_artifacts = {
         artifact.identifier: artifact
         for artifact in package.ARTIFACTS
@@ -100,9 +109,9 @@ def test_publication_package_maps_historical_table3_files_to_table4():
     }
 
     assert set(table_artifacts) == {"table4_csv", "table4_markdown"}
-    assert table_artifacts["table4_csv"].source.name == "table3_final.csv"
+    assert table_artifacts["table4_csv"].source.name == "table4_final.csv"
     assert table_artifacts["table4_csv"].destination == Path("tables/table4.csv")
-    assert table_artifacts["table4_markdown"].source.name == "table3_final.md"
+    assert table_artifacts["table4_markdown"].source.name == "table4_final.md"
     assert table_artifacts["table4_markdown"].destination == Path("tables/table4.md")
     assert all(
         "Table 4" in artifact.description for artifact in table_artifacts.values()
@@ -110,7 +119,7 @@ def test_publication_package_maps_historical_table3_files_to_table4():
 
     readme = package._readme(_summary())
     assert "| Table 4 | `tables/table4.md` | `tables/table4.csv` |" in readme
-    assert "Table 3" not in readme
+    assert "table3_final" not in readme
 
 
 def test_shifted_exponential_production_text_uses_current_table_number():

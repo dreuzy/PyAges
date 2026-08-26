@@ -6,13 +6,13 @@
 - **Check:** `python article/run_case.py check s3_2_shifted_exponential`
 - **Post-process:** `python article/run_case.py postprocess s3_2_shifted_exponential`.
 - **Full run:** `python article/run_case.py run s3_2_shifted_exponential` (**costly: 19 pilots and 95 production chains**).
-- **Historical canonical result:** `results/final_article_simulations/shifted_exponential/`.
+- **Stabilized campaign output:** `<campaign>/shifted_exponential/`.
 
-Historical files named `table3_final.*` correspond to Table 4 in the current
-manuscript mapping; they are intentionally not renamed.
+The generated Table 4 files are named `table4_final.csv` and
+`table4_final.md`; no historical Table 3 alias is produced.
 
 The canonical model configuration is
 `data_core/data_lpm/exp_shifted/params.yaml`; tracer inputs remain under
 `data_core/data_tracer/{cfc11,cfc12,cfc113,sf6}/`. The scientific runner is
-`scripts/run_final_shifted_exponential.py`, with run parameters frozen in the
-historical manifest.
+`scripts/run_final_shifted_exponential.py`, with run parameters frozen in each
+new campaign manifest.

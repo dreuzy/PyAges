@@ -17,4 +17,5 @@ that evidence can be reproduced.
 mh_proposal_qualification
 scientific_documentation_audit
 documentation_remaining_work_audit_2026-08-26
+convolution_grid_sensitivity_2026-08-26
 ```

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -13,10 +14,11 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def _fresh_output(case_id: str, under_robustness: bool = False) -> Path:
     stamp = datetime.now().astimezone().strftime("%Y%m%dT%H%M%S%z")
-    base = (
-        ROOT
-        / "results"
-        / ("robustness/reproductions" if under_robustness else "article_reproductions")
+    external_root = Path(
+        os.environ.get("PYAGE_ARTICLE_RESULTS_DIR", ROOT.parent / "pyage-article-results")
+    ).resolve()
+    base = external_root / (
+        "robustness/reproductions" if under_robustness else "article_reproductions"
     )
     output = base / case_id / stamp
     if output.exists():
@@ -27,7 +29,7 @@ def _fresh_output(case_id: str, under_robustness: bool = False) -> Path:
 def _subprocess(script: str, case_id: str) -> int:
     output = _fresh_output(case_id)
     command = [sys.executable, script, "all", "--output", str(output)]
-    print("Fresh full-run output:", output.relative_to(ROOT), flush=True)
+    print("Fresh full-run output:", output, flush=True)
     return subprocess.run(command, cwd=ROOT, check=False).returncode
 
 
@@ -63,7 +65,7 @@ def main() -> int:
 
     output = _fresh_output(args.case, under_robustness=True)
     runner.OUTPUT = output
-    print("Fresh full-run output:", output.relative_to(ROOT), flush=True)
+    print("Fresh full-run output:", output, flush=True)
     return runner.main()
 
 

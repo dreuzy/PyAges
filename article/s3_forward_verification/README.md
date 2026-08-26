@@ -6,7 +6,7 @@
 - **Check:** `python article/run_case.py check s3_forward_verification`
 - **Post-process:** `python article/run_case.py postprocess s3_forward_verification` (rebuilds the summary from existing case rows; no forward calculation or MCMC).
 - **Full run:** `python article/run_case.py run s3_forward_verification`.
-- **Historical canonical result:** `results/article_non_ploemeur_final/supplement_s1/`.
+- **Stabilized campaign output:** `<campaign>/forward/`.
 
 The archived Supplement S1 itself is final, but its original consolidator did
 not preserve every intermediate table separately; see the organization report.

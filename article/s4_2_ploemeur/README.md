@@ -6,7 +6,8 @@
 - **Check:** `python article/run_case.py check s4_2_ploemeur`
 - **Post-process:** `python article/run_case.py postprocess s4_2_ploemeur`.
 - **Full run:** `python article/run_case.py run s4_2_ploemeur` (**costly: four five-chain calibrations**).
-- **Historical canonical result:** `results/final_article_simulations/ploemeur_shifted_exponential_final/`.
+- **Stabilized campaign outputs:** `<campaign>/ploemeur_shifted_exponential/`
+  and `<campaign>/ploemeur_physical_ig/`.
 
 `results/ploemeur_figure4_final/` is an older, separate Figure 4 generation and
 is not silently substituted for the canonical shifted-exponential campaign.

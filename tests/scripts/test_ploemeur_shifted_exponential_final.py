@@ -9,7 +9,7 @@ from scripts import run_ploemeur_shifted_exponential_final as runner
 def test_tracer_fit_preserves_duplicate_observations_and_float_roundtrip(
     monkeypatch, tmp_path
 ):
-    case = runner.Case("case", "F11", "full_record", None, tmp_path / "unused")
+    case = runner.Case("case", "F11", "full_record", None)
     observations = pd.DataFrame(
         {
             "element": ["cfc11", "cfc11"],

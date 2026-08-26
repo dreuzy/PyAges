@@ -11,6 +11,18 @@ ni copie du code scientifique de `pyage`, ni copie des données distribuées de
 `data_core`, ni lien symbolique. Les résultats historiques restent à leur
 emplacement canonique sous `results/` et sont décrits par les manifestes de cas.
 
+Pour recalculer l'ensemble avec la version stabilisée, utiliser le lanceur
+global et un dossier extérieur au dépôt :
+
+```powershell
+python -m scripts.reproduce_article preflight --output C:\pyage-runs\article-v1
+python -m scripts.reproduce_article resume --output C:\pyage-runs\article-v1 --workers 6
+```
+
+Ce parcours est la référence pour une nouvelle archive GMD. Il ne dépend pas
+des anciens dossiers `results/HYP-26-0172`; ceux-ci ne servent, le cas échéant,
+qu'à une comparaison historique distincte.
+
 | Manuscript section | Case | Main output | Reproduce |
 | --- | --- | --- | --- |
 | Section 3 / Supplement S1 | `s3_forward_verification` | Supplement S1 | `python article/run_case.py run s3_forward_verification` |
@@ -34,10 +46,10 @@ python article/run_case.py run s3_2_shifted_exponential
 `check` ne lance aucun code scientifique. `postprocess` exige que les chaînes
 ou sorties brutes existent déjà et refuse de les créer ou de les prolonger.
 `run` est la seule action autorisée à lancer un calcul complet et affiche un
-avertissement de durée avant exécution. Les campagnes MCMC sont toujours
-écrites dans un nouveau dossier horodaté sous `results/article_reproductions/`
-(ou `results/robustness/reproductions/`) afin de ne pas réutiliser ni écraser
-les résultats canoniques.
+avertissement de durée avant exécution. Les campagnes individuelles sont
+écrites par défaut sous le dossier externe `pyage-article-results` voisin du
+dépôt (modifiable par `PYAGE_ARTICLE_RESULTS_DIR`) afin de ne pas réutiliser ni
+écraser les résultats canoniques.
 
 Les garde-fous communs sont regroupés sous `article/common/` :
 

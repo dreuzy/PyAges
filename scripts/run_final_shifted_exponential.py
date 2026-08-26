@@ -78,6 +78,13 @@ def _guard_output(path: Path) -> Path:
     return resolved
 
 
+def _path_label(path: Path, base: Path = ROOT) -> str:
+    try:
+        return path.resolve().relative_to(base.resolve()).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
+
+
 def _seed(case_index: int, chain: int) -> int:
     return 420_000 + 100 * case_index + chain
 
@@ -516,55 +523,14 @@ def _table4(
         )
         rows.append(row)
     table = pd.DataFrame(rows)
-    table.to_csv(output / "table3_final.csv", index=False)
-    (output / "table3_final.md").write_text(
+    table.to_csv(output / "table4_final.csv", index=False)
+    (output / "table4_final.md").write_text(
         "# Table 4 — shifted exponential\n\n"
         "Production corrélée finale; `MTT = mu + t0`.\n\n" + _markdown(table),
         encoding="utf-8",
         newline="\n",
     )
     return table
-
-
-def _old_new(output: Path, summaries: pd.DataFrame) -> pd.DataFrame:
-    old_root = ROOT / "results" / "article_non_ploemeur_final" / "table3" / "chains"
-    rows = []
-    for case_index, target_mu, target_t0 in CASES:
-        old_path = (
-            old_root / f"case_{case_index:02d}_mu{target_mu:g}_t0{target_t0:g}.csv"
-        )
-        old = pd.read_csv(old_path)
-        old["t0"] = old["shift"]
-        old["mtt"] = old["mu"] + old["t0"]
-        new = summaries.loc[summaries["case"] == case_index].set_index("parameter")
-        for parameter in ("mu", "t0", "mtt"):
-            old_stats = _summary(old[parameter].to_numpy(float))
-            row: dict[str, Any] = {
-                "case": case_index,
-                "target_mu": target_mu,
-                "target_t0": target_t0,
-                "parameter": parameter,
-            }
-            for statistic in (
-                "mean",
-                "median",
-                "sd",
-                "q025",
-                "q10",
-                "q25",
-                "q75",
-                "q90",
-                "q975",
-            ):
-                old_value = old_stats[statistic]
-                new_value = float(new.loc[parameter, statistic])
-                row[f"old_{statistic}"] = old_value
-                row[f"new_{statistic}"] = new_value
-                row[f"delta_{statistic}"] = new_value - old_value
-            rows.append(row)
-    comparison = pd.DataFrame(rows)
-    comparison.to_csv(output / "shifted_exponential_final_old_new.csv", index=False)
-    return comparison
 
 
 def _figure2(output: Path, lengths: dict[int, int]) -> None:
@@ -723,10 +689,10 @@ def _manifest(output: Path, lengths: dict[int, int]) -> None:
             "thinning_for_diagnostics": 1,
         },
         "source_sha256": {
-            str(path.relative_to(ROOT)): _sha256(path) for path in sources
+            _path_label(path): _sha256(path) for path in sources
         },
         "artifact_sha256": {
-            str(path.relative_to(ROOT)): _sha256(path) for path in artifacts
+            _path_label(path, output): _sha256(path) for path in artifacts
         },
     }
     (output / "manifest.json").write_text(
@@ -758,7 +724,6 @@ def analyze_and_extend(output: Path, workers: int) -> dict[str, pd.DataFrame]:
         output / "autocorrelation_functions.csv.gz", index=False, compression="gzip"
     )
     _table4(output, tables, lengths)
-    _old_new(output, tables["summaries"])
     if bool(tables["convergence"]["converged"].all()):
         _figure2(output, lengths)
     else:

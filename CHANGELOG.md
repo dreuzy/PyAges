@@ -76,6 +76,12 @@ Before 1.0, incompatible public changes are identified explicitly below.
   scientific archive carries the numerical results needed to audit the paper.
 - Added drift tests that validate the documented YAML examples and keep the
   documented LPM inventory synchronized with the runtime registry.
+- Added a resumable whole-article campaign that writes outside the Git checkout,
+  verifies the qualified TracerLPM workbook/XLL, rebuilds all article evidence,
+  and produces both an editorial package and a hash-validated GMD archive.
+- Removed mandatory historical-result inputs from the stabilized Ploemeur,
+  shifted-exponential, and Holten campaigns; archived posteriors are no longer
+  used for initialization, gates, or report generation.
 
 ### Fixed
 
@@ -84,8 +90,7 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Invalid observation tables and tracer configuration values now fail early
   with contextual exceptions.
 - Corrected the current shifted-exponential generator and article package to
-  label the publication output as Table 4 while retaining historical
-  `table3_final.*` source filenames for provenance.
+  label and name the publication output consistently as Table 4.
 - Parametric and empirical priors now return exact zero density outside their
   support instead of flooring it to `1e-300` before log evaluation.
 - Simplex now enforces LPM bounds, rejects unsuccessful optimizer termination,
