@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest an improvement to PyAGE
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Scientific or user need
+      description: Explain the problem or workflow that the proposal should address.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behavior and, where relevant, its scientific basis.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe current workarounds or alternative designs.
+
