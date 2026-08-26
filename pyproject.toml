@@ -54,7 +54,7 @@ examples = [
 
 [project.urls]
 Homepage = "https://github.com/dreuzy/pyage"
-Documentation = "https://pyage-groundwater.readthedocs.io/en/latest/"
+Documentation = "https://pyage-gw.readthedocs.io/en/latest/"
 Repository = "https://github.com/dreuzy/pyage.git"
 
 [project.scripts]
