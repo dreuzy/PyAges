@@ -79,7 +79,14 @@ napoleon_use_ivar = True
 
 html_title = "PyAge documentation"
 html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
-html_show_sourcelink = False
+html_show_sourcelink = True
+html_context = {
+    "display_github": True,
+    "github_user": "dreuzy",
+    "github_repo": "pyage",
+    "github_version": "main",
+    "conf_py_path": "/docs/",
+}
 
 # Wiley resolves these valid AGU/Wiley DOIs for browsers but returns HTTP 403
 # to the automated Sphinx checker. Keep every user-facing DOI while excluding

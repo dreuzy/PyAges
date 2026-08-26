@@ -1,5 +1,7 @@
 # PyAge
 
+[![CI](https://github.com/dreuzy/pyage/actions/workflows/ci.yml/badge.svg)](https://github.com/dreuzy/pyage/actions/workflows/ci.yml)
+[![License: CeCILL 2.1](https://img.shields.io/badge/license-CeCILL--2.1-blue.svg)](https://github.com/dreuzy/pyage/blob/main/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/pyage-gw/badge/?version=latest)](https://pyage-gw.readthedocs.io/en/latest/?badge=latest)
 
 PyAge is a research codebase for groundwater age modeling and tracer-based
@@ -41,7 +43,7 @@ Install PyAge (enables the `pyage` CLI):
 python -m pip install -e .
 ```
 
-The published distribution is named `pyage-groundwater`; the Python import
+The distribution is named `pyage-groundwater`; the Python import
 and command remain `pyage`. The wheel contains the reusable library, its CLI,
 and core model data. Repository examples and site studies remain in the Git
 source tree. Once a release is available from the configured package index,
@@ -265,6 +267,15 @@ the regression suite stable.
 The supported public surface and compatibility policy are documented in
 `docs/reference/public-api.md`. Release changes are recorded in
 `CHANGELOG.md`.
+
+Repository services:
+
+- [documentation sources](https://github.com/dreuzy/pyage/blob/main/docs/index.md)
+- [issues](https://github.com/dreuzy/pyage/issues)
+- [discussions](https://github.com/dreuzy/pyage/discussions)
+- [contribution guide](https://github.com/dreuzy/pyage/blob/main/CONTRIBUTING.md)
+- [security policy](https://github.com/dreuzy/pyage/blob/main/SECURITY.md)
+- [citation metadata](https://github.com/dreuzy/pyage/blob/main/CITATION.cff)
 
 ## License
 
