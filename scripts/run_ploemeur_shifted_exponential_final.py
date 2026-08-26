@@ -1045,9 +1045,7 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
             "diagnostic_thinning": 1,
             "posterior_pairing": "complete row only",
         },
-        "source_sha256": {
-            _path_label(path): _sha256(path) for path in sources
-        },
+        "source_sha256": {_path_label(path): _sha256(path) for path in sources},
         "artifact_sha256": {
             _path_label(path, output): _sha256(path) for path in artifacts
         },

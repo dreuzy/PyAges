@@ -17,12 +17,10 @@ def test_fresh_campaign_rebases_every_generated_article_artifact(tmp_path):
     )
     assert by_id["figure3_pdf"] == tmp_path / "holten_h4/figure3_holten_h4_final.pdf"
     assert by_id["figure4_pdf"] == (
-        tmp_path
-        / "ploemeur_shifted_exponential/figure4_ploemeur_shiftedexp_final.pdf"
+        tmp_path / "ploemeur_shifted_exponential/figure4_ploemeur_shiftedexp_final.pdf"
     )
     assert by_id["ploemeur_ig_summary"] == (
-        tmp_path
-        / "ploemeur_physical_ig/ploemeur_ig_stabilized_results.csv"
+        tmp_path / "ploemeur_physical_ig/ploemeur_ig_stabilized_results.csv"
     )
 
 

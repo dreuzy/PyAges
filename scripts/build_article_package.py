@@ -442,9 +442,11 @@ def artifacts_for_campaign(campaign_root: Path) -> tuple[Artifact, ...]:
         / "ploemeur_shifted_exponential",
         ROOT / "results/ploemeur_targeted_ig_reproduction": campaign_root
         / "ploemeur_physical_ig",
-        ROOT / "validation/tracerlpm/benchmark/generated/robustness-study": campaign_root
+        ROOT
+        / "validation/tracerlpm/benchmark/generated/robustness-study": campaign_root
         / "tracerlpm/benchmark/generated/robustness-study",
-        ROOT / "validation/tracerlpm/benchmark/generated/pyage_comparison": campaign_root
+        ROOT
+        / "validation/tracerlpm/benchmark/generated/pyage_comparison": campaign_root
         / "forward",
     }
     rebased = []
@@ -593,7 +595,9 @@ def scientific_summary() -> dict[str, object]:
             ig_rows.append(frame)
     ig = pd.concat(ig_rows, ignore_index=True)
     tracerlpm = pd.read_csv(_artifact_source("table3_cases"))
-    forward = json.loads(_artifact_source("forward_summary").read_text(encoding="utf-8"))
+    forward = json.loads(
+        _artifact_source("forward_summary").read_text(encoding="utf-8")
+    )
     return {
         "thresholds": {"split_rhat_lt": 1.01, "ess_gte": 300.0},
         "pyage_tracerlpm": {
@@ -602,11 +606,7 @@ def scientific_summary() -> dict[str, object]:
                 tracerlpm["pyage_success"].astype(str).str.lower().eq("true").sum()
             ),
             "tracerlpm_successful": int(
-                tracerlpm["tracerlpm_success"]
-                .astype(str)
-                .str.lower()
-                .eq("true")
-                .sum()
+                tracerlpm["tracerlpm_success"].astype(str).str.lower().eq("true").sum()
             ),
         },
         "forward_verification": {

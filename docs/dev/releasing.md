@@ -81,5 +81,5 @@ published reference artifact.
     checked, add it to `CITATION.cff`, validate the CFF, and update the article
     citation and reproducibility manifests. Never publish a placeholder DOI.
 
-The GitLab pipeline implements the standard checks and retains the built
-artifacts. Uploading remains a deliberate maintainer action.
+The GitHub Actions workflows implement the standard checks and retain the
+built artifacts. Uploading remains a deliberate maintainer action.

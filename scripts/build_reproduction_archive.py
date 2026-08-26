@@ -55,9 +55,7 @@ def validate_archive(output: Path) -> dict[str, object]:
     return payload
 
 
-def build_archive(
-    campaign: Path, output: Path, *, allow_dirty: bool = False
-) -> Path:
+def build_archive(campaign: Path, output: Path, *, allow_dirty: bool = False) -> Path:
     campaign = campaign.resolve()
     output = output.resolve()
     if not (campaign / "campaign_manifest.json").is_file():
@@ -70,7 +68,9 @@ def build_archive(
     if output.exists():
         raise FileExistsError(f"Refusing to replace existing archive: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=f".{output.name}.staging-", dir=output.parent))
+    staging = Path(
+        tempfile.mkdtemp(prefix=f".{output.name}.staging-", dir=output.parent)
+    )
     try:
         campaign_copy = staging / "campaign"
         for source, relative in _campaign_files(campaign):
@@ -82,7 +82,14 @@ def build_archive(
         source_dir.mkdir(parents=True)
         head = _git("rev-parse", "HEAD")
         subprocess.run(
-            ["git", "archive", "--format=zip", "-o", str(source_dir / "pyage-source.zip"), head],
+            [
+                "git",
+                "archive",
+                "--format=zip",
+                "-o",
+                str(source_dir / "pyage-source.zip"),
+                head,
+            ],
             cwd=ROOT,
             check=True,
         )

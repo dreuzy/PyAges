@@ -69,8 +69,7 @@ def _stage_map(output: Path, workers: int, tracer_config: Path, allow_dirty: boo
     python = sys.executable
     archive = output.with_name(f"{output.name}-gmd-archive")
     shifted_summary = (
-        output
-        / "ploemeur_shifted_exponential/ploemeur_shiftedexp_final_summary.csv"
+        output / "ploemeur_shifted_exponential/ploemeur_shiftedexp_final_summary.csv"
     )
     dirty_flag = ("--allow-dirty",) if allow_dirty else ()
     return {
@@ -241,10 +240,14 @@ def preflight(
         errors.append(f"campaign output must be outside the Git repository: {output}")
     if sys.version_info < (3, 12):
         errors.append(f"Python 3.12+ required, found {platform.python_version()}")
-    errors.extend(f"missing input: {path}" for path in _required_inputs() if not path.is_file())
+    errors.extend(
+        f"missing input: {path}" for path in _required_inputs() if not path.is_file()
+    )
     dirty = _git("status", "--short")
     if dirty and not allow_dirty:
-        errors.append("Git worktree is dirty; commit/stash changes or pass --allow-dirty")
+        errors.append(
+            "Git worktree is dirty; commit/stash changes or pass --allow-dirty"
+        )
     if "tracerlpm" in selected:
         errors.extend(_check_tracer_config(tracer_config))
     report = {
@@ -327,7 +330,9 @@ def run_campaign(
         if resume and existing.get("status") == "success" and _stage_complete(stage):
             print(f"SKIP {name}: validated successful stage")
             continue
-        print(f"{'DRY  ' if dry_run else 'RUN  '} {name}: {subprocess.list2cmdline(stage.command)}")
+        print(
+            f"{'DRY  ' if dry_run else 'RUN  '} {name}: {subprocess.list2cmdline(stage.command)}"
+        )
         if dry_run:
             continue
         started = time.perf_counter()
@@ -350,7 +355,9 @@ def run_campaign(
         )
         _write_json_atomic(manifest_path, manifest)
         if not complete:
-            print(f"FAILED {name}; see {output / 'logs' / f'{name}.log'}", file=sys.stderr)
+            print(
+                f"FAILED {name}; see {output / 'logs' / f'{name}.log'}", file=sys.stderr
+            )
             return code or 1
     if not dry_run:
         manifest["completed_at"] = _now()
@@ -372,12 +379,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("preflight", "run", "resume", "status"))
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--workers", type=int, default=max(1, min(6, os.cpu_count() or 1)))
+    parser.add_argument(
+        "--workers", type=int, default=max(1, min(6, os.cpu_count() or 1))
+    )
     parser.add_argument("--stages", help="comma-separated subset in execution order")
     parser.add_argument(
         "--tracerlpm-config",
         type=Path,
-        default=ROOT / "validation/tracerlpm/config/runner-config.robustness.local.yaml",
+        default=ROOT
+        / "validation/tracerlpm/config/runner-config.robustness.local.yaml",
     )
     parser.add_argument("--allow-dirty", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -387,7 +397,9 @@ def main(argv: list[str] | None = None) -> int:
         selected = _selected_stages(args.stages)
     except ValueError as error:
         parser.error(str(error))
-    stages = _stage_map(output, args.workers, args.tracerlpm_config.resolve(), args.allow_dirty)
+    stages = _stage_map(
+        output, args.workers, args.tracerlpm_config.resolve(), args.allow_dirty
+    )
     if args.action == "status":
         path = output / "campaign_manifest.json"
         if not path.is_file():
@@ -395,7 +407,9 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(path.read_text(encoding="utf-8"), end="")
         return 0
-    report = preflight(output, selected, args.tracerlpm_config.resolve(), args.allow_dirty)
+    report = preflight(
+        output, selected, args.tracerlpm_config.resolve(), args.allow_dirty
+    )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     if args.action == "preflight":
         return 0 if report["passed"] else 1

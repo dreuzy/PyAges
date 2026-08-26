@@ -15,7 +15,9 @@ ROOT = Path(__file__).resolve().parents[2]
 def _fresh_output(case_id: str, under_robustness: bool = False) -> Path:
     stamp = datetime.now().astimezone().strftime("%Y%m%dT%H%M%S%z")
     external_root = Path(
-        os.environ.get("PYAGE_ARTICLE_RESULTS_DIR", ROOT.parent / "pyage-article-results")
+        os.environ.get(
+            "PYAGE_ARTICLE_RESULTS_DIR", ROOT.parent / "pyage-article-results"
+        )
     ).resolve()
     base = external_root / (
         "robustness/reproductions" if under_robustness else "article_reproductions"

@@ -688,9 +688,7 @@ def _manifest(output: Path, lengths: dict[int, int]) -> None:
             "final_steps_by_case": lengths,
             "thinning_for_diagnostics": 1,
         },
-        "source_sha256": {
-            _path_label(path): _sha256(path) for path in sources
-        },
+        "source_sha256": {_path_label(path): _sha256(path) for path in sources},
         "artifact_sha256": {
             _path_label(path, output): _sha256(path) for path in artifacts
         },
