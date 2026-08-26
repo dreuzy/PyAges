@@ -9,6 +9,7 @@ Matplotlib runtime helpers for packaged workflows.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -25,6 +26,11 @@ def configure_backend(force_inline=False):
         True when running inside an IPython kernel.
     """
     import matplotlib
+
+    configured_backend = os.environ.get("MPLBACKEND")
+    if configured_backend:
+        matplotlib.use(configured_backend)
+        return False
 
     try:
         from IPython import get_ipython
