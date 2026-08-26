@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/dreuzy/pyage/actions/workflows/ci.yml/badge.svg)](https://github.com/dreuzy/pyage/actions/workflows/ci.yml)
 [![License: CeCILL 2.1](https://img.shields.io/badge/license-CeCILL--2.1-blue.svg)](https://github.com/dreuzy/pyage/blob/main/LICENSE)
+[![Documentation Status](https://readthedocs.org/projects/pyage-gw/badge/?version=latest)](https://pyage-gw.readthedocs.io/en/latest/?badge=latest)
 
 PyAge is a research codebase for groundwater age modeling and tracer-based
 calibration using lumped-parameter models (LPMs), convolution operators, and
