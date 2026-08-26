@@ -32,10 +32,10 @@ def _check_python() -> CheckResult:
     version = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
-    if sys.version_info >= (3, 9):
+    if sys.version_info >= (3, 12):
         _ok(f"Python version: {version}")
         return CheckResult(passed=1)
-    _fail(f"Python version: {version} (requires >= 3.9)")
+    _fail(f"Python version: {version} (requires >= 3.12)")
     return CheckResult(failed=1)
 
 
@@ -140,7 +140,7 @@ def check(verbose: bool) -> None:
 
     \b
     Verifies:
-      - Python version >= 3.9
+      - Python version >= 3.12
       - Required dependencies are installed
       - LPM models can be loaded
       - Tracers can be discovered

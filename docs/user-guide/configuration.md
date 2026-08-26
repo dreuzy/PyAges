@@ -90,6 +90,10 @@ objective_function:
 |-------|------|---------|-------------|
 | `nmodels` | integer | 10000 | Number of points in parameter grid |
 
+The mapped column ``half_log_chi_square`` is $\tfrac12\log(\chi^2)$, not the likelihood or
+the normalized residual norm stored in calibration result tables. See
+{doc}`../scientific-methods` for the exact objective conventions.
+
 ### Metropolis-Hastings Section
 
 ```yaml
@@ -108,6 +112,11 @@ calibration_metropolis_hastings:
 | `likelihood` | boolean | true | Use likelihood function |
 | `monitor` | boolean | false | Monitor and display acceptance rates |
 | `display_traj` | boolean | false | Generate trajectory plots (slow) |
+
+These launcher fields do not by themselves demonstrate MCMC convergence.
+Acceptance, retention, prior, and proposal equations are given in
+{doc}`../scientific-methods`; article results additionally require the
+multiple-chain diagnostics described in {doc}`../science/inference`.
 
 ### Simplex Section
 
@@ -263,11 +272,16 @@ notes: "Optional notes about the model."
 
 ```yaml
 prior:
-  type: uniform                     # Currently only 'uniform' supported
+  type: uniform                     # 'uniform' or 'normal'/'gaussian'
   min: 0.0                          # Prior minimum
   max: 100.0                        # Prior maximum
   unit: year                        # Unit (for documentation)
 ```
+
+For a normal prior, replace `min` and `max` with `mean` and `std`. Parameter
+bounds remain active independently of the prior and define the admissible
+calibration domain. Scientific analyses should report both the bounds and the
+prior actually used.
 
 ---
 

@@ -74,8 +74,8 @@ class WeibullLpm(LpmScipy):
             Directory for LPM parameter files.
         """
         # Map parameter names to values
-        parameter_values = {'k': k, 'lambda': lambda_}
-        parameter_units = {'k': '-', 'lambda': 'year'}
+        parameter_values = {"k": k, "lambda": lambda_}
+        parameter_units = {"k": "-", "lambda": "year"}
 
         super().__init__("weibull", parameter_values, parameter_units, directory_lpm)
 
@@ -90,7 +90,7 @@ class WeibullLpm(LpmScipy):
         """
         # weibull_min takes: c (shape), loc, scale
         # Our k = shape, lambda = scale
-        return (self.p['k'],), 0, self.p['lambda']
+        return (self.p["k"],), 0, self.p["lambda"]
 ```
 
 ### Step 2: Create the Parameter File
@@ -184,8 +184,8 @@ Common patterns:
 # Gamma with shape α and scale θ (mean = α×θ)
 def _scipy_params(self):
     # scipy.gamma(a, loc, scale) where a=shape
-    alpha = self.p['mu']**2 / self.p['sigma']**2
-    theta = self.p['sigma']**2 / self.p['mu']
+    alpha = self.p["mu"] ** 2 / self.p["sigma"] ** 2
+    theta = self.p["sigma"] ** 2 / self.p["mu"]
     return (alpha,), 0, theta
 ```
 
@@ -208,13 +208,13 @@ must provide a vectorized `cdf_and_partial_first_moment(t)` returning
 ```python
 from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
 
+
 @register_lpm("my_special_lpm")
 class MySpecialLpm(LpmScipy):
     scipy_dist = some_dist
     convolution_strategy = ConvolutionStrategy.CONTINUOUS
 
-    def cdf_and_partial_first_moment(self, t):
-        ...
+    def cdf_and_partial_first_moment(self, t): ...
 ```
 
 Available strategies:
@@ -242,6 +242,7 @@ print(f"Parameters: {lpm.p}")
 
 # Test PDF
 import numpy as np
+
 t = np.linspace(0, 50, 100)
 pdf = lpm.pdf(t)
 print(f"PDF integral: {np.trapz(pdf, t):.4f}")  # Should be ~1.0
@@ -344,18 +345,19 @@ class LognormalLpm(LpmScipy):
         sigma : float
             Standard deviation of transit time (years).
         """
-        parameter_values = {'mu': mu, 'sigma': sigma}
-        parameter_units = {'mu': 'year', 'sigma': 'year'}
+        parameter_values = {"mu": mu, "sigma": sigma}
+        parameter_units = {"mu": "year", "sigma": "year"}
         super().__init__("lognormal", parameter_values, parameter_units, directory_lpm)
 
     def _scipy_params(self):
         # Convert mean/std to lognormal parameters
         import numpy as np
-        mu = self.p['mu']
-        sigma = self.p['sigma']
+
+        mu = self.p["mu"]
+        sigma = self.p["sigma"]
 
         # Underlying normal distribution parameters
-        sigma_ln = np.sqrt(np.log(1 + (sigma/mu)**2))
+        sigma_ln = np.sqrt(np.log(1 + (sigma / mu) ** 2))
         mu_ln = np.log(mu) - 0.5 * sigma_ln**2
 
         # scipy.lognorm(s, loc, scale) where s=sigma_ln, scale=exp(mu_ln)

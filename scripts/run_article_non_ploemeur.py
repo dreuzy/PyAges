@@ -315,7 +315,7 @@ def _double_dirac_reference(response, parameters: dict, tmax: float) -> float:
     weights = (parameters["rate"], 1.0 - parameters["rate"])
     return sum(
         weight * float(response(age))
-        for age, weight in zip(ages, weights)
+        for age, weight in zip(ages, weights, strict=False)
         if 0.0 <= age <= tmax
     )
 
@@ -323,7 +323,7 @@ def _double_dirac_reference(response, parameters: dict, tmax: float) -> float:
 def _shapefree_reference(response, model, tmax: float, age_breaks: np.ndarray) -> float:
     total = 0.0
     for left, right, fraction in zip(
-        model.bin_edges()[:-1], model.bin_edges()[1:], model.fractions()
+        model.bin_edges()[:-1], model.bin_edges()[1:], model.fractions(), strict=False
     ):
         upper = min(float(right), tmax)
         if upper <= left:
@@ -336,7 +336,9 @@ def _shapefree_reference(response, model, tmax: float, age_breaks: np.ndarray) -
                 )
             )
         )
-        for segment_left, segment_right in zip(local_edges[:-1], local_edges[1:]):
+        for segment_left, segment_right in zip(
+            local_edges[:-1], local_edges[1:], strict=False
+        ):
             total += (
                 fraction
                 / (right - left)
@@ -371,7 +373,7 @@ def _quantile_reference(
                 np.concatenate((probability_edges, chronology_probabilities))
             )
     total = 0.0
-    for left, right in zip(probability_edges[:-1], probability_edges[1:]):
+    for left, right in zip(probability_edges[:-1], probability_edges[1:], strict=False):
         if right - left <= probability_tolerance:
             continue
         total += _gauss_interval(
@@ -439,7 +441,9 @@ def _independent_invariant_values(model) -> dict[str, float | bool]:
         probe = float(0.5 * (edges[2] + edges[3]))
         cdf_expected = 0.0
         moment_expected = 0.0
-        for left, right, fraction in zip(edges[:-1], edges[1:], fractions):
+        for left, right, fraction in zip(
+            edges[:-1], edges[1:], fractions, strict=False
+        ):
             upper = min(probe, float(right))
             if upper > left:
                 cdf_expected += fraction * (upper - left) / (right - left)
@@ -859,7 +863,7 @@ def _run_table3_chain(
             initial_params={"mu": 10.0, "shift": 10.0},
         )
     )
-    mh.MH_step.define_by_value()
+    mh.proposal_step.define_by_value()
     return mh, mh.run(problem)
 
 
@@ -941,7 +945,7 @@ def _historical_chain(
             record.update(
                 {
                     f"{name}_{DATE:g}": value
-                    for name, value in zip(TABLE3_TRACERS, concentrations)
+                    for name, value in zip(TABLE3_TRACERS, concentrations, strict=False)
                 }
             )
             records.append(record)
@@ -971,7 +975,9 @@ def _summary_row(
         if hasattr(observations, "cv")
         else np.asarray(observations, dtype=float)
     )
-    for tracer_name, concentration in zip(TABLE3_TRACERS, observed_values):
+    for tracer_name, concentration in zip(
+        TABLE3_TRACERS, observed_values, strict=False
+    ):
         row[f"C_{tracer_name}"] = float(concentration)
     for parameter in ("mu", "shift"):
         values = frame[parameter].to_numpy(dtype=float)
@@ -1050,7 +1056,7 @@ def run_table3(output: Path, steps: int = 10_000, skip: int = 5) -> dict[str, ob
     comparison_rows = []
     for column in table.select_dtypes(include=[np.number]).columns:
         for case, old_value, new_value in zip(
-            table["case"], old_table[column], table[column]
+            table["case"], old_table[column], table[column], strict=False
         ):
             absolute = abs(float(new_value - old_value))
             comparison_rows.append(

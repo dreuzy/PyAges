@@ -38,7 +38,7 @@ def test_convolution_value_finite(lpm_type, tracer_name):
 
     tracer = tracer_module.Tracer(test_paths.tracer_data_dir(), tracer_name)
     conv = Convolution(tracer, date=2010.0)
-    value = conv.convolve(lpm, apply_age_correction=True)
+    value = conv.convolve(lpm)
     assert math.isfinite(float(value))
 
 
@@ -74,7 +74,7 @@ def test_convolution_golden_at_date_2010(lpm_type, tracer_name, update_golden):
 
     tracer = tracer_module.Tracer(test_paths.tracer_data_dir(), tracer_name)
     conv = Convolution(tracer, date=2010.0)
-    value = float(conv.convolve(lpm, apply_age_correction=True))
+    value = float(conv.convolve(lpm))
 
     key = f"{lpm_type}:{tracer_name}:date=2010.0"
     store = golden_utils.load_golden(_golden_path())

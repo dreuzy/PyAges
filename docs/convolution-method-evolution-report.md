@@ -1,6 +1,10 @@
 # Rapport d’évolution des méthodes de convolution de PyAge
 
-**État au 19 août 2026 — moteur générique validé, réanalyse de Ploemeur non encore effectuée**
+> **Statut : rapport d’évolution historique rédigé le 19 août 2026.** La
+> réanalyse Ploemeur annoncée ici comme future a ensuite été terminée le
+> 22 août 2026. Le contrat scientifique actuel est synthétisé dans
+> {doc}`science/forward-model` et les résultats de qualification dans
+> {doc}`science/validation`.
 
 ## 1. Résumé exécutif
 
@@ -724,8 +728,10 @@ Le texte suivant peut servir de base à une version anglaise du manuscrit :
 > components were normalized and weighted exactly once. The tracer-response
 > grid was cached and reused throughout repeated calibration evaluations.
 
-Ce paragraphe devra être complété par les tolérances numériques, les familles
-de LPM effectivement retenues et les résultats du benchmark Ploemeur final.
+Ce texte était une proposition de travail au 19 août 2026. Les tolérances, les
+familles de LPM retenues et les qualifications finales ont depuis été précisées
+dans la révision v14 du manuscrit ; leur synthèse maintenue se trouve dans
+{doc}`science/forward-model` et {doc}`science/validation`.
 
 ## 17. Traçabilité dans le dépôt
 
@@ -743,7 +749,8 @@ Les principaux éléments sont accessibles dans :
 - `docs/scientific-migration-ig-decay.md` : note séparée sur la gaussienne
   inverse et la décroissance radioactive.
 
-Ce rapport décrit l’état de travail actuel. Il devra être complété par un
-rapport de migration Ploemeur contenant les anciens et nouveaux résultats, la
-décomposition de leurs écarts et la décision finale sur les éléments du
-manuscrit à remplacer.
+Ce rapport conserve l’état du chantier au 19 août 2026. La campagne Ploemeur
+ultérieure, ses résultats finaux et son périmètre d’interprétation sont décrits
+dans la couche `article/` et dans {doc}`science/case-studies`. Les formulations
+prospectives ci-dessus doivent donc être lues comme l’historique de la méthode,
+pas comme l’état courant du manuscrit.

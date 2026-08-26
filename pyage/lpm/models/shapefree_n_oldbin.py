@@ -213,7 +213,7 @@ class ShapeFreeNOldBinLpm(LpmBase):
         fractions = self.fractions()
         n_bins = len(widths)
         for idx, (left, right, width, fraction) in enumerate(
-            zip(edges[:-1], edges[1:], widths, fractions)
+            zip(edges[:-1], edges[1:], widths, fractions, strict=False)
         ):
             if fraction <= 0.0 or width <= 0.0:
                 continue
@@ -240,7 +240,7 @@ class ShapeFreeNOldBinLpm(LpmBase):
         cumulative_before = 0.0
         widths = np.diff(edges)
         for left, right, width, fraction in zip(
-            edges[:-1], edges[1:], widths, fractions
+            edges[:-1], edges[1:], widths, fractions, strict=False
         ):
             if width <= 0.0:
                 continue
@@ -274,6 +274,7 @@ class ShapeFreeNOldBinLpm(LpmBase):
             edges[1:],
             np.diff(edges),
             self.fractions(),
+            strict=False,
         ):
             if fraction <= 0.0 or width <= 0.0:
                 continue
@@ -297,7 +298,7 @@ class ShapeFreeNOldBinLpm(LpmBase):
         fractions = self.fractions()
         widths = np.diff(edges)
         cumulative_before = 0.0
-        for idx, (width, fraction) in enumerate(zip(widths, fractions)):
+        for idx, (width, fraction) in enumerate(zip(widths, fractions, strict=False)):
             cumulative_after = cumulative_before + fraction
             if width <= 0.0:
                 cumulative_before = cumulative_after

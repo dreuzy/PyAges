@@ -34,11 +34,6 @@ class CalibrationMethod(ABC):
         return self.problem.observations
 
     @property
-    def cdata(self):
-        """Compatibility name for the observation container."""
-        return self.observations
-
-    @property
     def lpm(self):
         self.problem.ensure_prepared()
         return self.problem.lpm

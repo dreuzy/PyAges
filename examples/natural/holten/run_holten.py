@@ -43,7 +43,7 @@ def existing_results_for_wells(prepared) -> dict[str, Path]:
 
 
 def run_launcher_for_wells(prepared, inline: bool = False) -> dict[str, Path]:
-    from pyage.workflows.single_date import run_workflow
+    from pyage.workflows.single_date import run_single_date
 
     if not _lpm_ready(prepared.context):
         return {}
@@ -52,7 +52,7 @@ def run_launcher_for_wells(prepared, inline: bool = False) -> dict[str, Path]:
     prepared.context.paths.launcher_config_dir.mkdir(parents=True, exist_ok=True)
     for well_id in prepared.context.selected_wells:
         config_path = write_well_launcher_config(prepared.context, well_id)
-        results[well_id] = Path(run_workflow(str(config_path), force_inline=inline))
+        results[well_id] = Path(run_single_date(str(config_path), force_inline=inline))
     return results
 
 

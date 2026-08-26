@@ -16,6 +16,7 @@ from pyage.calibration.utils.sampling_plotting import (
 )
 from pyage.config.runtime import DisplayOptions
 from pyage.convolution.convolution_tracers import ConvolutionTracers
+from pyage.data_io.lpm_results import write_lpm_name
 from pyage.lpm.lpm_build import lpm_build
 
 if TYPE_CHECKING:
@@ -69,10 +70,7 @@ class SystematicSampling:
         self._tracers.prepare(self._lpm)
         for index, parameters in enumerate(points):
             self._lpm.set_param_from_array(parameters)
-            values[index, :] = self._tracers.convolve(
-                self._lpm,
-                apply_age_correction=True,
-            )
+            values[index, :] = self._tracers.convolve(self._lpm)
         self._concentrations = pd.DataFrame(values, columns=columns)
         self._objective = None
         return self.concentrations_frame()
@@ -101,7 +99,7 @@ class SystematicSampling:
             "w", encoding="utf-8"
         ) as stream:
             stream.write(f"date\t{self._date}\n")
-            self._lpm.write_name(stream)
+            write_lpm_name(self._lpm, stream)
             self._tracers.write_name(stream)
             stream.write(f"nmodels\t{self._target_size}\n")
         self._require_concentrations().to_csv(
@@ -136,14 +134,14 @@ class SystematicSampling:
         data = np.column_stack((self._grid.points(), half_log_norm))
         self._objective = pd.DataFrame(
             data,
-            columns=[*self._grid.names, "log-ojf"],
+            columns=[*self._grid.names, "half_log_chi_square"],
         )
         return self.objective_function_frame()
 
     def objective_function_display(self, lpm_results=None) -> None:
         """Plot the gridded objective values when figures are enabled."""
         objective = self._require_objective()
-        values = self._grid.reshape(objective["log-ojf"].to_numpy())
+        values = self._grid.reshape(objective["half_log_chi_square"].to_numpy())
         plot_parameter_grid(
             self._grid,
             values,
@@ -168,12 +166,6 @@ class SystematicSampling:
     def parameter_names(self) -> list[str]:
         """Return the ordered parameter names of the sampled LPM."""
         return list(self._grid.names)
-
-    def analysis_reach_conc(self) -> None:
-        """Compute and optionally plot reachable concentrations."""
-        self.compute_concentrations()
-        if self.display_reachable:
-            self.display_concentrations_with_data()
 
     def analysis_calibration(self, lpm_results=None) -> None:
         """Compute the configured reachable and objective analyses."""

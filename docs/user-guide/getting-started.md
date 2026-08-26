@@ -1,6 +1,6 @@
 # Getting started
 
-PyAge supports Python 3.9 through 3.13. Conda is convenient for a reproducible
+PyAge supports Python 3.12 through 3.14. Conda is convenient for a qualified
 source environment; pip is sufficient for an installed release.
 
 ## Install from a source checkout

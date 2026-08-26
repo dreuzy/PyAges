@@ -18,7 +18,7 @@ from examples.natural.fontainebleau.fontainebleau_case import (
     build_context,
     write_effective_config,
 )
-from pyage.workflows.single_date import run_workflow
+from pyage.workflows.single_date import run_single_date
 
 
 def _running_in_ipython() -> bool:
@@ -69,7 +69,7 @@ def write_benchmark_artifacts(prepared) -> None:
 
 
 def run_launcher(config_path: Path, inline: bool = False) -> Path:
-    return run_workflow(
+    return run_single_date(
         config_path,
         force_inline=inline or _running_in_ipython(),
     )

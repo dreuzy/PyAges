@@ -14,7 +14,36 @@ import pandas as pd
 
 @dataclass(frozen=True)
 class MHConfig:
-    """Configuration of one Metropolis-Hastings calibration."""
+    """Reproducibility controls for one Metropolis-Hastings chain.
+
+    ``nstep`` counts transitions, including rejected proposals. Samples are
+    retained when the zero-based iteration ``i`` satisfies both
+    ``i > burn_in * nstep`` and ``i % nskip == 0``; rejected transitions retain
+    the previous state. ``burn_in`` is a fraction, ``nskip`` is the thinning
+    interval, and ``seed`` initializes NumPy's ``default_rng``.
+
+    With ``likelihood=True``, the target contains
+    ``exp(-chi_square / 2)`` under independent Gaussian errors. With
+    ``prior_option=True``, the configured prior density is multiplied into the
+    target. Parameter bounds have zero target density.
+
+    ``proposal_kind`` selects the coordinate system and covariance convention:
+    ``componentwise`` draws one scalar normal increment per native parameter,
+    using either configured steps or fractions of parameter ranges;
+    ``diagonal`` and ``correlated`` use fixed native-coordinate Gaussian
+    proposals; ``sum_difference`` is a two-parameter linear transform; and
+    ``scipy_ig_correlated`` proposes in SciPy IG shape/scale/shift coordinates
+    with the state-dependent Hastings correction. ``proposal_scales`` are
+    standard deviations in the selected coordinates, while
+    ``proposal_covariance`` contains squared coordinate units.
+
+    Notes
+    -----
+    Burn-in and thinning do not establish convergence or effective sample
+    size. Publication analyses must report independent-chain diagnostics in
+    addition to these settings; see ``docs/scientific-methods.md`` and
+    ``docs/reports/mh_proposal_qualification.md``.
+    """
 
     nstep: int = 10000
     burn_in: float = 0.2
@@ -29,7 +58,7 @@ class MHConfig:
     lpm_number: int = 10
     seed: int = 12345
     initial_params: dict[str, float] | None = None
-    proposal_kind: str = "legacy_diagonal"
+    proposal_kind: str = "componentwise"
     proposal_scales: tuple[float, ...] | None = None
     proposal_covariance: tuple[tuple[float, ...], ...] | None = None
     proposal_multiplier: float = 1.0
@@ -94,7 +123,6 @@ class MHStep:
         self.method = "prop"
         self.value: int | dict[str, float] = 1
         self.prop = 0.1
-        self.interval: int | dict[str, float] = 0
 
     def define_by_value(self) -> None:
         """Load explicit proposal steps from the model configuration."""
@@ -105,15 +133,14 @@ class MHStep:
         self.method = "prop"
         self.prop = prop
 
-    def define_value_by_interval(self, lpm: Any) -> None:
+    def _derive_from_bounds(self, lpm: Any) -> None:
         """Compute proposal steps from model parameter ranges."""
         intervals = {name: lpm.get_param_range(name) for name in lpm.p}
-        self.interval = intervals
         self.value = {
             name: self.prop * interval for name, interval in intervals.items()
         }
 
-    def load_MHsteps(self, lpm: Any) -> None:
+    def _load_configured_values(self, lpm: Any) -> None:
         """Load explicit proposal steps from ``params.yaml``."""
         from pyage.data_io import lpm_params
 
@@ -126,11 +153,11 @@ class MHStep:
     def prepare(self, lpm: Any) -> None:
         """Resolve proposal values for a concrete model."""
         if self.method == "prop":
-            self.define_value_by_interval(lpm)
+            self._derive_from_bounds(lpm)
         else:
-            self.load_MHsteps(lpm)
+            self._load_configured_values(lpm)
 
-    def save_param(self, data: dict[str, Any]) -> None:
+    def add_metadata(self, data: dict[str, Any]) -> None:
         """Append proposal-step settings to a result mapping."""
         data["MH_delta_method"] = self.method
         if not isinstance(self.value, dict):
@@ -139,15 +166,9 @@ class MHStep:
             data[f"MH_delta_{name}"] = value
 
 
-# Compatibility aliases retained for existing callers.
-MH_Trajectory = MHTrajectory
-MH_step = MHStep
-
 __all__ = [
     "MHConfig",
     "MHStep",
     "MHTrajectory",
-    "MH_Trajectory",
-    "MH_step",
     "TrajOptions",
 ]

@@ -367,7 +367,7 @@ def _mean_age_local_4bin(fractions: dict[str, float]) -> float:
     return float(
         sum(
             fractions[name] * spec["representative_age"]
-            for name, spec in zip(BIN_ORDER, BIN_DEFINITIONS)
+            for name, spec in zip(BIN_ORDER, BIN_DEFINITIONS, strict=False)
         )
     )
 
@@ -630,7 +630,7 @@ def sample_well_4bin_mh(
                 **fractions,
             }
             for tracer_name, modeled_value, observed_value, sigma_value in zip(
-                tracer_order, modeled, y, sigma
+                tracer_order, modeled, y, sigma, strict=False
             ):
                 record[f"{tracer_name}_modeled"] = float(modeled_value)
                 record[f"{tracer_name}_observed"] = float(observed_value)
@@ -710,7 +710,7 @@ def _plot_fraction_bars(summary: pd.DataFrame, output_dir: Path) -> Path:
     bottom = np.zeros(len(summary), dtype=float)
     colors = ["#4c78a8", "#72b7b2", "#f2cf5b", "#d95f5f"]
     labels = [spec["label"] for spec in BIN_DEFINITIONS]
-    for color, frac_name, label in zip(colors, BIN_ORDER, labels):
+    for color, frac_name, label in zip(colors, BIN_ORDER, labels, strict=False):
         values = summary[frac_name].to_numpy(dtype=float)
         ax.bar(x, values, bottom=bottom, color=color, label=label)
         bottom += values
@@ -740,7 +740,7 @@ def _plot_modeled_vs_observed(fit_df: pd.DataFrame, output_dir: Path) -> Path:
     )
     axes_array = np.atleast_1d(axes).reshape(nrows, ncols)
     flat_axes = axes_array.ravel()
-    for ax, tracer_name in zip(flat_axes, tracers):
+    for ax, tracer_name in zip(flat_axes, tracers, strict=False):
         subset = fit_df.loc[fit_df["tracer"] == tracer_name].copy()
         x = np.arange(len(subset))
         ax.errorbar(
@@ -890,7 +890,7 @@ def _plot_fraction_interval_comparison(
     if len(FRACTION_COLUMNS) == 1:
         axes = [axes]
     y = np.arange(len(comparison))
-    for ax, frac in zip(axes, FRACTION_COLUMNS):
+    for ax, frac in zip(axes, FRACTION_COLUMNS, strict=False):
         lower = comparison[f"{frac}_posterior_q10"].astype(float)
         median = comparison[f"{frac}_posterior_median"].astype(float)
         upper = comparison[f"{frac}_posterior_q90"].astype(float)

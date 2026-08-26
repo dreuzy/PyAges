@@ -109,7 +109,7 @@ def _objective_scales(
                 relative_std * value,
                 floor_fraction * tracers[row["tracer"]].max_value(),
             )
-            for row, value in zip(observations, observed)
+            for row, value in zip(observations, observed, strict=False)
         ]
     )
 
@@ -202,7 +202,7 @@ def _concentration_rows(
     observations: list[dict], calculated: np.ndarray, scales: np.ndarray
 ) -> list[dict]:
     rows = []
-    for source, value, scale in zip(observations, calculated, scales):
+    for source, value, scale in zip(observations, calculated, scales, strict=False):
         observed = float(source["observed_concentration"])
         rows.append(
             {
@@ -224,7 +224,9 @@ def _build_summary(
     initial_values: list[list[float]],
     rows: list[dict],
 ) -> dict:
-    estimated = {name: float(value) for name, value in zip(parameter_names, best.x)}
+    estimated = {
+        name: float(value) for name, value in zip(parameter_names, best.x, strict=False)
+    }
     truth = {name: float(case["true_parameters"][name]) for name in parameter_names}
     true_tau = float(case["true_parameters"]["tau"])
     maximum_relative_error = max(
@@ -254,7 +256,7 @@ def _build_summary(
                 "objective": float(result.fun),
                 "success": bool(result.success),
             }
-            for initial, result in zip(initial_values, attempts)
+            for initial, result in zip(initial_values, attempts, strict=False)
         ],
     }
 

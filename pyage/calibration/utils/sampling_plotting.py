@@ -10,6 +10,7 @@ import pandas as pd
 import pyage.tools.figures_additional as figures
 from pyage.calibration.utils.parameter_grid import ParameterGrid
 from pyage.config.runtime import DisplayOptions
+from pyage.lpm.distribution_plotting import plot_parameter_pair
 
 
 def _finish(display: DisplayOptions, name: str) -> None:
@@ -28,7 +29,7 @@ def _plot_line(
     plot.plot(axis, values)
     plot.set_yscale("log")
     if results is not None:
-        results.display_param_vs_param(parameter_name, "obj_function")
+        plot_parameter_pair(results, parameter_name, "obj_function")
     _finish(display, name)
 
 
@@ -46,7 +47,7 @@ def _plot_surface(
     image = plot.pcolormesh(x, y, values.T, cmap=figures.cmap_white_jet())
     figure.colorbar(image, ax=plot)
     if results is not None:
-        results.display_param_vs_param(x_name, y_name)
+        plot_parameter_pair(results, x_name, y_name)
     _finish(display, name)
 
 

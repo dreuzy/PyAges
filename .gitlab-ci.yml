@@ -23,12 +23,28 @@ ruff:
     - python -m ruff check .
     - python -m ruff format --check .
 
+dependency-audit:
+  stage: quality
+  script:
+    - python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
+    - python -m pip check
+    - python -m pip_audit --local --skip-editable --progress-spinner off
+
+conda-environment:
+  stage: quality
+  image:
+    name: mambaorg/micromamba:2.9.0
+    entrypoint: [""]
+  before_script: []
+  script:
+    - micromamba create --dry-run --yes --name pyage-audit --file install/environment.yml
+
 tests:
   stage: test
   image: "python:${PYTHON_VERSION}-slim"
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+      - PYTHON_VERSION: ["3.12", "3.13", "3.14"]
   script:
     - python -m pip install -c install/constraints.txt -e ".[dev]"
     - python -m pytest -q

@@ -1,5 +1,11 @@
 # Audit des notebooks et des figures
 
+> **Statut : audit historique.** Plusieurs recommandations de cette note ont
+> été intégrées dans les figures synthétiques et les workflows actuels. Pour le
+> comportement maintenu, consulter `examples/natural/ploemeur/README.md` et le
+> guide d’exécution des exemples. Les constats ci-dessous décrivent l’état
+> observé au moment de l’audit.
+
 ## Perimetre
 
 Audit realise sur les elements suivants :

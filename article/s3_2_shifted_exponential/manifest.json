@@ -1,0 +1,17 @@
+{
+  "case_id": "s3_2_shifted_exponential",
+  "git_commit": "e77691e5c957b2ac650642e89cb9dd3c9d030c57",
+  "release_tag": "1.0",
+  "requested_v1.0_tag": null,
+  "calculated_at": "2026-08-21T00:51:36.708158+02:00",
+  "environment": {"source": "results/final_article_simulations/shifted_exponential/manifest.json#versions"},
+  "seeds": {"rule": "pilot=410000+case; production=420000+100*case+zero_based_chain"},
+  "parameters": {"source": "results/final_article_simulations/shifted_exponential/manifest.json#protocol"},
+  "historical_manifest": "results/final_article_simulations/shifted_exponential/manifest.json",
+  "inputs": [{"path": "data_core/data_lpm/exp_shifted/params.yaml", "sha256": "ac9ac131e6fc090169e45af107fda1f789763945f8267ab94c8ab90e3be1bffe"}],
+  "scripts": [{"path": "scripts/run_final_shifted_exponential.py", "sha256": "6169f2ed63d607ffbb5e54a46edb6aada90b91c3f5cf143f5ee37dfabae4d77e"}],
+  "canonical_outputs": ["results/final_article_simulations/shifted_exponential/figure2_shifted_exponential_final.pdf", "results/final_article_simulations/shifted_exponential/table3_final.csv", "results/final_article_simulations/shifted_exponential/posterior_summaries.csv"],
+  "large_outputs": ["results/final_article_simulations/shifted_exponential/chains/", "results/final_article_simulations/shifted_exponential/pilots/"],
+  "required_paths": ["results/final_article_simulations/shifted_exponential/chains/", "results/final_article_simulations/shifted_exponential/pilots/"],
+  "resources": []
+}

@@ -121,7 +121,7 @@ def _build_comparison_rows(
         return np.interp(year, years, values, left=0.0, right=values[-1])
 
     rows = []
-    for age, point in zip(run["modelAges"], run["model1Points"]):
+    for age, point in zip(run["modelAges"], run["model1Points"], strict=False):
         parameters = {"tau": float(age)}
         if model == "EPM":
             parameters["eta"] = epm_eta

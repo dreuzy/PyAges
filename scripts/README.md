@@ -61,6 +61,10 @@ You can override this with `PYAGE_RESULTS_DIR` (see the root `README.md`).
 - `run_calibration_benchmark.py`
   Compare Metropolis-Hastings and forward-uncertainty quantification runs.
 
+Windows-only wrappers for the two long Ploemeur article campaigns are grouped
+under `scripts/windows/`. They resolve the repository root before invoking the
+canonical Python or PowerShell runner.
+
 ---
 
 ## Add a New Data File (choose LPM + tracers)

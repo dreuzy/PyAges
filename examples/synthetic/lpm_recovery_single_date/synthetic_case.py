@@ -228,7 +228,7 @@ def build_truth_aware_figures(
     truth = truth_payload or load_ground_truth()
     import matplotlib.pyplot as plt
 
-    from pyage.workflows.summary_plots import (
+    from pyage.workflows.plots import (
         plot_objective_summary,
         plot_parameter_summary,
         plot_single_date_model_space,

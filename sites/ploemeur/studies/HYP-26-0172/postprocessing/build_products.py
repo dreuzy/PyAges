@@ -171,7 +171,7 @@ def collect_diagnostics(root: Path, derived: Path) -> Path:
         ):
             frame = pd.read_csv(result_file, sep="\t")
             values = (
-                dict(zip(frame.iloc[:, 0], frame.iloc[:, 1]))
+                dict(zip(frame.iloc[:, 0], frame.iloc[:, 1], strict=False))
                 if len(frame.columns) >= 2
                 else {}
             )
@@ -207,7 +207,7 @@ def plot_figure4(frame: pd.DataFrame, figures: Path) -> list[Path]:
     if frame.empty:
         return []
     fig, axes = plt.subplots(2, 1, figsize=(8, 7), sharex=True, constrained_layout=True)
-    for ax, well in zip(axes, ("F11", "F09")):
+    for ax, well in zip(axes, ("F11", "F09"), strict=False):
         subset = frame[frame["well"].eq(well)]
         for mode, color, label in (
             ("successive_with_prior", CONDITIONED, "Conditioned"),
@@ -235,24 +235,27 @@ def plot_figure5(frame: pd.DataFrame, figures: Path) -> list[Path]:
     if frame.empty:
         return []
     fig, axes = plt.subplots(2, 1, figsize=(8, 7), sharex=True, constrained_layout=True)
-    for ax, well in zip(axes, ("F11", "F09")):
+    for ax, well in zip(axes, ("F11", "F09"), strict=False):
         subset = frame[frame["well"].eq(well)]
         for model, label in (
             ("exp_shifted", "Shifted exponential"),
             ("ig_shifted", "Shifted inverse Gaussian"),
         ):
             data = subset[subset["lpm"].eq(model)].sort_values("date")
-            ax.plot(
+            ax.errorbar(
                 data["date"],
                 data["median_mean"],
-                "o--",
+                yerr=data["median_std"],
+                fmt="o--",
+                capsize=3,
                 color=MODEL_COLORS[model],
                 label=label,
             )
         ax.set_title(well, loc="left", fontweight="bold")
         ax.grid(alpha=0.25)
-    axes[0].legend(frameon=False)
-    axes[-1].set_xlabel("Date")
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper center", ncol=2, frameon=False)
+    axes[-1].set_xlabel("Sampling year")
     fig.supylabel("Median transit time (years)")
     return export_figure(fig, figures, "Figure5")
 
@@ -335,7 +338,7 @@ def plot_figure_a1(frame: pd.DataFrame, figures: Path) -> list[Path]:
     if frame.empty:
         return []
     fig, axes = plt.subplots(2, 1, figsize=(8, 7), sharex=True, constrained_layout=True)
-    for ax, well in zip(axes, ("F11", "F09")):
+    for ax, well in zip(axes, ("F11", "F09"), strict=False):
         subset = frame[frame["well"].eq(well)]
         grouped = subset.groupby(["relative_error", "lpm"], as_index=False)[
             "median_mean"

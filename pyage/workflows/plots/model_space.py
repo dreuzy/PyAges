@@ -132,7 +132,7 @@ def plot_single_date_model_space(
     )
     axs = axs.flatten()
 
-    for ax_index, ((i0, i1), ax) in enumerate(zip(pairs, axs)):
+    for ax_index, ((i0, i1), ax) in enumerate(zip(pairs, axs, strict=False)):
         xcol = concentration_columns[i0]
         ycol = concentration_columns[i1]
         xcol_reach = reachable_columns[i0]

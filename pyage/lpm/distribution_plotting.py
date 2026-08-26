@@ -18,14 +18,6 @@ def _output_path(directory: str | Path | None, filename: str) -> str | None:
     return None if directory is None else str(Path(directory) / filename)
 
 
-def plot_points(distribution: "LpmDist") -> None:
-    """Plot the first two parameters when the model has exactly two."""
-    frame = distribution.frame
-    values = [frame[name] for name in distribution.get_param_names()]
-    if len(values) == 2:
-        plt.scatter(values[1][1:600], values[0][1:600], c="black", s=3, marker=".")
-
-
 def plot_parameter_pair(distribution: "LpmDist", keyx: str, keyy: str) -> None:
     """Plot one stored parameter against another."""
     frame = distribution.frame
@@ -36,14 +28,12 @@ def display_parameter_distributions(
     distribution: "LpmDist",
     self_method: str = "",
     lpm_reference: Any = None,
-    bins: int = 30,
     lpm_2nd: "LpmDist | None" = None,
     lpm_2nd_method: str = "",
     directory: str | Path | None = None,
     display_text: bool = False,
 ) -> None:
     """Display parameter histograms, objectives, and pairwise projections."""
-    del bins  # Kept in the compatibility API; plots use model-aware bin widths.
     names = distribution.get_param_names()
     if display_text:
         print("DISTRIBUTION OF PARAMETERS")
@@ -90,7 +80,6 @@ def display_parameter_distributions(
 def display_parameter_priors(
     distribution: "LpmDist",
     lpm_reference: Any = None,
-    bins: int = 30,
     lpm_2nd: "LpmDist | None" = None,
     lpm_2nd_method: str = "",
     directory: str | Path | None = None,
@@ -98,7 +87,6 @@ def display_parameter_priors(
     prior: Any = None,
 ) -> None:
     """Display parameter histograms with prior-density overlays."""
-    del bins
     if display_text:
         print("DISTRIBUTION OF PARAMETERS")
     for name in distribution.get_param_names():

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import pyage.concentrations.concentrations as co
-from pyage.workflows.summary_plots import (
+from pyage.workflows.plots import (
     plot_objective_solution_map,
     plot_objective_summary,
     plot_observations_overview,
@@ -51,7 +51,7 @@ def test_core_summary_plots_smoke(tmp_path: Path) -> None:
         {
             "mu": [8.0, 8.0, 12.0, 12.0],
             "shift": [1.0, 3.0, 1.0, 3.0],
-            "log-ojf": [1.4, 1.1, 1.2, 0.7],
+            "half_log_chi_square": [1.4, 1.1, 1.2, 0.7],
         }
     )
     figures = [
@@ -154,10 +154,6 @@ def test_plot_temporal_fit_comparison_smoke(tmp_path: Path) -> None:
         },
         lpm_name="exp_shifted",
         lpm_directory="data_core/data_lpm",
-        selection_modes={
-            "Transient posterior": "span",
-            "Single-date posterior": "single_date",
-        },
         lpm_number=6,
         filename=out_path,
         title="Temporal fit comparison",

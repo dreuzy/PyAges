@@ -247,7 +247,12 @@ class Prior:
             probability = self.__evaluate_empirical(lpm, params)
         else:
             raise ValueError(f"Unsupported prior type: {self.typ}")
-        return max(probability, 1e-300)
+        return probability
+
+    def log_evaluate(self, lpm: Any, params: list[float]) -> float:
+        """Evaluate the prior log-density with exact zero support."""
+        probability = self.evaluate(lpm, params)
+        return -math.inf if probability <= 0.0 else math.log(probability)
 
     def validation_MH_prior(
         self,

@@ -44,7 +44,7 @@ class ConvolutionTracers:
                 date=tracer_date,
                 grid_settings=grid_settings,
             )
-            for name, tracer_date in zip(names, dates)
+            for name, tracer_date in zip(names, dates, strict=True)
         ]
 
     @staticmethod
@@ -111,7 +111,6 @@ class ConvolutionTracers:
         self,
         lpm: LPM,
         return_type: Literal["array", "concentrations", "dataframe"] = "array",
-        apply_age_correction: bool = False,
     ) -> list[float] | Concentrations | pd.DataFrame:
         """
         Convolution between a LPM and the tracers at configured dates.
@@ -125,9 +124,6 @@ class ConvolutionTracers:
             - "array": list of concentrations
             - "concentrations": Concentrations object
             - "dataframe": DataFrame with element/concentration columns
-        apply_age_correction : bool
-            Enable age correction for optimization.
-
         Returns
         -------
         list[float] | Concentrations | pd.DataFrame
@@ -138,10 +134,7 @@ class ConvolutionTracers:
         ValueError
             If return_type is not recognized.
         """
-        values = [
-            t.convolve(lpm, apply_age_correction=apply_age_correction)
-            for t in self.elements
-        ]
+        values = [t.convolve(lpm) for t in self.elements]
 
         if return_type == "array":
             return values

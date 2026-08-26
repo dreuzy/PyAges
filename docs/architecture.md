@@ -45,8 +45,7 @@ A single-date or temporal workflow performs the same sequence:
 
 The workflow modules own orchestration only. Their immutable context objects
 make resolved paths and runtime options explicit. Plot modules are grouped by
-purpose under `pyage.workflows.plots`; compatibility facades retain older
-imports without putting plotting decisions back into the workflows.
+purpose under the canonical `pyage.workflows.plots` import path.
 
 ## Package map
 
@@ -87,7 +86,59 @@ tests. Result filenames and `result_manifest.json` form the workflow output
 contract. Supported Python imports and the deprecation policy are listed in
 {doc}`reference/public-api`.
 
-The two diagrams in {doc}`uml/index` show the package dependencies and runtime
-flow. Exhaustive UML class diagrams are intentionally omitted: they duplicate
-the API reference, expose private details, and become stale without improving
+The maintained diagrams below summarize package dependencies and runtime flow.
+Exhaustive UML class diagrams are intentionally omitted: they duplicate the API
+reference, expose private details, and become stale without improving
 understanding of this pipeline-oriented design.
+
+## Package dependency diagram
+
+```{mermaid}
+flowchart LR
+  DATA[data_core] --> TRACER[tracer]
+  DATA --> LPM[lpm]
+
+  CLI[cli] --> WF[workflows]
+  CONFIG[config] --> WF
+  CONC[concentrations] --> PROBLEM[CalibrationProblem]
+  WF --> CONC
+  WF --> PROBLEM
+
+  TRACER --> CONV[convolution]
+  LPM --> CONV
+  CONV --> PROBLEM
+  PROBLEM --> METHODS[calibration methods]
+  METHODS --> RESULT[LpmDist]
+  RESULT --> IO[data_io]
+  RESULT --> PLOTS[workflow plots]
+
+  EXAMPLES[examples and sites] -. configure .-> CLI
+  TESTS[tests] -. qualify .-> CONV
+  TESTS -. qualify .-> METHODS
+```
+
+Arrows represent runtime dependencies or data flow. `examples` and `sites`
+consume the installable core; the core does not import them.
+
+## Runtime diagram
+
+```{mermaid}
+flowchart LR
+  YAML[YAML] --> CFG[Validated config]
+  OBSFILE[Observation table] --> OBS[Concentrations]
+  CFG --> CTX[WorkflowContext]
+  OBS --> PROBLEM[CalibrationProblem]
+  CTX --> PROBLEM
+  TR[Tracer] --> CONV[Convolution]
+  LPM[LPM] --> CONV
+  CONV --> PROBLEM
+  PROBLEM --> METHOD[CalibrationMethod]
+  METHOD --> SAMPLES[LpmDist.frame]
+  SAMPLES --> STATS[Analysis]
+  SAMPLES --> FILES[TSV + manifest]
+  SAMPLES --> FIGS[Optional figures]
+```
+
+The same core flow is used by single-date and temporal workflows. Site code
+prepares configuration and observations but does not replace the scientific
+components shown here.

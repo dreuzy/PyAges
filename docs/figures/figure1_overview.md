@@ -1,5 +1,9 @@
 # Figure 1 — PyAge scientific workflow (overview)
 
+The Mermaid diagram below is the editable source used by the HTML
+documentation. A standalone [SVG export](figure1_overview.svg) is retained for
+article and review workflows that cannot render Mermaid directly.
+
 ```{mermaid}
 flowchart TB
   %% Increase font size for publication
@@ -18,11 +22,11 @@ flowchart TB
   LPM["LPMs<br/>Dirac, Exponential"]:::main
   TRACER["Tracers<br/>CFCs, SF6, 3H"]:::main
   CONV["Convolution"]:::main
-  MODEL["Modeled concentrations"]:::main
+  MODEL["Modeled tracer values"]:::main
   CAL["Calibration (Metropolis-Hastings)"]:::main
 
   %% External data / outputs
-  OBS["Observed concentrations"]:::side
+  OBS["Tracer observations"]:::side
   OUT1["Posterior parameter distributions"]:::output
   %% (removed) Model diagnostics box
 

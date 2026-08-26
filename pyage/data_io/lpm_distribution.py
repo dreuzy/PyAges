@@ -26,7 +26,7 @@ def write_distribution(distribution: "LpmDist", target: str | Path) -> None:
 def write_histograms(distribution: "LpmDist", target: str | Path) -> None:
     """Write one histogram table per model parameter."""
     base_path = Path(target)
-    for name, payload in distribution.compute_histograms().items():
+    for name, payload in distribution.histograms().items():
         output = base_path.with_name(f"{base_path.stem}_{name}{base_path.suffix}")
         values, histogram = _histogram_values(payload)
         frame = pd.DataFrame({"val": values, "hist": histogram})
@@ -40,4 +40,4 @@ def _histogram_values(payload: dict[str, Any]) -> tuple[Any, Any]:
 
 def write_statistics(distribution: "LpmDist", target: str | Path) -> None:
     """Write descriptive statistics for all numeric sample columns."""
-    write_frame(distribution.compute_stats(), target, index=True)
+    write_frame(distribution.statistics(), target, index=True)

@@ -162,7 +162,7 @@ def _run_metropolis_hastings(context: WorkflowContext) -> tuple[str, LpmDist]:
             display_traj=context.params.mh_display_traj,
         )
     )
-    method.MH_step.define_by_value()
+    method.proposal_step.define_by_value()
     problem = _calibration_problem(
         context,
         result_subdirectory(context.output_directory, method.method),
@@ -194,7 +194,7 @@ def _render_summary(
 ) -> None:
     if not calibrated:
         return
-    from pyage.workflows.summary_plots import (
+    from pyage.workflows.plots import (
         plot_parameter_summary,
         plot_single_date_model_space,
     )
@@ -227,7 +227,7 @@ def _run_objective_analysis(
 ) -> None:
     if not context.params.run_objective_function:
         return
-    from pyage.workflows.summary_plots import plot_objective_summary
+    from pyage.workflows.plots import plot_objective_summary
 
     sampling = SystematicSampling(
         context.params.lpm_model_name,
@@ -272,7 +272,7 @@ def _write_concentration_outputs(context: WorkflowContext) -> None:
     )
 
 
-def run_workflow(params_path: str | Path, force_inline: bool = False) -> Path:
+def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path:
     """Run every enabled step from a single-date YAML configuration."""
     if params_path is None:
         raise ValueError("params_path is required for the launcher")
@@ -286,9 +286,4 @@ def run_workflow(params_path: str | Path, force_inline: bool = False) -> Path:
     return context.output_directory
 
 
-def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path:
-    """Run the supported single-date workflow."""
-    return run_workflow(params_path, force_inline=force_inline)
-
-
-__all__ = ["run_single_date", "run_workflow"]
+__all__ = ["run_single_date"]

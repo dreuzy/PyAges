@@ -74,7 +74,7 @@ def _run_mh_one_case(
 
     # Run one synthetic case and extract stats
     _, _, _, lpm_results, _ = calib.perform_one_case(0)
-    stats = lpm_results.get_stats()
+    stats = lpm_results.statistics()
 
     # Record stable summary values for golden checks
     record = {

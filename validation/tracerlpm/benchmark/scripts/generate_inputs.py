@@ -78,7 +78,7 @@ def _write_csv(path: Path, years: np.ndarray, values: np.ndarray) -> None:
     with path.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.writer(stream, lineterminator="\n")
         writer.writerow(["date", "concentration"])
-        for year, value in zip(years, values):
+        for year, value in zip(years, values, strict=False):
             writer.writerow([f"{year:.12f}", f"{value:.12f}"])
 
 

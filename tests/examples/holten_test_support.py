@@ -322,25 +322,40 @@ def build_reference_comparison_record(comparison: pd.DataFrame) -> list[dict[str
 
 
 def assert_nested_close(
-    actual: Any, expected: Any, *, tol: float = 1e-4, path: str = "root"
+    actual: Any,
+    expected: Any,
+    *,
+    tol: float = 1e-4,
+    atol: float = 0.0,
+    path: str = "root",
 ) -> None:
     if isinstance(actual, dict) and isinstance(expected, dict):
         assert actual.keys() == expected.keys(), f"{path}: keys mismatch"
         for key in actual:
             assert_nested_close(
-                actual[key], expected[key], tol=tol, path=f"{path}.{key}"
+                actual[key],
+                expected[key],
+                tol=tol,
+                atol=atol,
+                path=f"{path}.{key}",
             )
         return
     if isinstance(actual, list) and isinstance(expected, list):
         assert len(actual) == len(expected), f"{path}: list length mismatch"
-        for idx, (actual_item, expected_item) in enumerate(zip(actual, expected)):
+        for idx, (actual_item, expected_item) in enumerate(
+            zip(actual, expected, strict=False)
+        ):
             assert_nested_close(
-                actual_item, expected_item, tol=tol, path=f"{path}[{idx}]"
+                actual_item,
+                expected_item,
+                tol=tol,
+                atol=atol,
+                path=f"{path}[{idx}]",
             )
         return
     if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
-        assert np.isclose(actual, expected, atol=0.0, rtol=tol), (
-            f"{path}: {actual} != {expected} (tol={tol})"
+        assert np.isclose(actual, expected, atol=atol, rtol=tol), (
+            f"{path}: {actual} != {expected} (rtol={tol}, atol={atol})"
         )
         return
     assert actual == expected, f"{path}: {actual!r} != {expected!r}"

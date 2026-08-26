@@ -12,12 +12,12 @@ from scipy.optimize import minimize
 
 from pyage.calibration.methods.base import CalibrationMethod
 from pyage.calibration.outputs import write_key_values
-from pyage.calibration.utils.objective_functions import RMSE
+from pyage.calibration.utils.objective_functions import normalized_residual_norm
 from pyage.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
 from pyage.lpm.core.lpm_dist import LpmDist
 
 SIMPLEX = "Simplex"
-MULTI_START = "Simplex_init_multipes"
+MULTI_START = "Simplex_multi_start"
 FORWARD_UNCERTAINTY = "forward_uncertainty_quantification"
 VALID_METHODS = {SIMPLEX, MULTI_START, FORWARD_UNCERTAINTY}
 
@@ -55,7 +55,7 @@ class Simplex(CalibrationMethod):
         else:
             results = self._run_forward_uncertainty()
         self.time_perform = time.time() - start
-        return results.stats_distribution()
+        return results.add_moments()
 
     def _run_single(self, parameters=None) -> LpmDist:
         """Run one Nelder-Mead optimization."""
@@ -75,9 +75,11 @@ class Simplex(CalibrationMethod):
             },
         )
         results = LpmDist(self.lpm, c_names=self.observations.names_dates())
-        results.dist_append(
+        results.append_sample(
             self.lpm.p,
-            obj_function=RMSE(optimization.fun, len(self.observations.cv)),
+            obj_function=normalized_residual_norm(
+                optimization.fun, len(self.observations.cv)
+            ),
             concentrations=self.tracers.convolve(self.lpm),
             param_in_bounds=self.lpm.param_within_bounds(self.lpm.p),
         )
@@ -121,7 +123,7 @@ class Simplex(CalibrationMethod):
             "fatol": self.function_tolerance,
         }
         if self.method in {MULTI_START, FORWARD_UNCERTAINTY}:
-            values["init_mutiples"] = self.initialization_count
+            values["initialization_count"] = self.initialization_count
         if self.method == FORWARD_UNCERTAINTY:
             values["fuq_n"] = self.uncertainty_sample_count
         write_key_values(file_name, values)

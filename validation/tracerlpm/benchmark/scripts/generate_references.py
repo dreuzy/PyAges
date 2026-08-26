@@ -21,7 +21,7 @@ DEFAULT_MANIFEST = BENCHMARK_ROOT / "references" / "manifest.yaml"
 def _parameter_sets(model: str, grid: dict) -> list[dict]:
     names = list(grid)
     return [
-        dict(zip(names, values))
+        dict(zip(names, values, strict=False))
         for values in itertools.product(*(grid[name] for name in names))
     ]
 

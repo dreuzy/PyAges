@@ -6,5 +6,6 @@ authors:
   - family-names: "de Dreuzy"
     given-names: "Jean-Raynald"
 version: "0.1.0b1"
+date-released: 2026-08-19
 repository-code: "https://gitlab.com/dreuzy/pyage.git"
 license: CECILL-2.1

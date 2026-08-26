@@ -262,13 +262,13 @@ def make_figure(matched_models) -> tuple[Path, Path]:
     colors = plt.get_cmap("viridis")(np.linspace(0.02, 0.98, len(matched_models)))
     fig, axes = plt.subplots(1, 2, figsize=(7.1, 3.45), sharex=True, sharey=True)
     global_max = 0.0
-    for (pair, exp_model, ig_model), color in zip(matched_models, colors):
-        for axis, model in zip(axes, (exp_model, ig_model)):
+    for (pair, exp_model, ig_model), color in zip(matched_models, colors, strict=False):
+        for axis, model in zip(axes, (exp_model, ig_model), strict=False):
             density = np.asarray(model.pdf(times), dtype=float)
             axis.plot(times, density, color=color, linewidth=1.7, label=str(pair))
             global_max = max(global_max, float(np.max(density)))
     for axis, title in zip(
-        axes, ("(a) Shifted exponential", "(b) Shifted inverse Gaussian")
+        axes, ("(a) Shifted exponential", "(b) Shifted inverse Gaussian"), strict=False
     ):
         axis.set_title(title)
         axis.set_xlabel("Transit time (years)")

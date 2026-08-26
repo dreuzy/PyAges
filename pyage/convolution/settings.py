@@ -8,7 +8,51 @@ from math import isfinite
 
 @dataclass(frozen=True)
 class TracerGridSettings:
-    """Accuracy and safety controls for the cached tracer-response grid."""
+    r"""Accuracy and safety controls for the cached tracer-response grid.
+
+    The adaptive grid resolves the tracer response :math:`K(\tau)`, not the
+    LPM probability density. A bin is accepted when the range of the left,
+    midpoint, and right responses satisfies
+
+    .. math::
+
+       \Delta K \leq f_a\max(K_g,\epsilon) + f_r K_{\mathrm{local}}.
+
+    Here ``absolute_tolerance_factor`` is :math:`f_a`,
+    ``relative_tolerance`` is :math:`f_r`, and :math:`K_g` is the largest
+    absolute response encountered so far. These dimensionless controls apply
+    to tracer concentrations in the tracer's declared unit; ages and bin
+    widths are decimal years.
+
+    Parameters
+    ----------
+    absolute_tolerance_factor : float
+        Global response-scale factor :math:`f_a`. The default is ``5e-4``.
+    relative_tolerance : float
+        Local response-scale factor :math:`f_r`. The default is ``2e-2``.
+    linear_curvature_factor : float
+        Fraction of the preceding acceptance tolerance allowed for midpoint
+        curvature before integration falls back from the affine formula to a
+        midpoint contribution. The default is ``0.1``.
+    max_subdivisions : int
+        Maximum bisection depth per initial tracer interval. Exhaustion raises
+        :class:`~pyage.convolution.models.ConvolutionError`; it never silently
+        accepts an unresolved bin.
+    max_bins : int
+        Hard upper bound on prepared bins, limiting memory and run time.
+    floating_weight_epsilon_factor : float
+        Multiplier of machine epsilon used only to clip round-off-sized
+        negative CDF differences or partial moments. Larger inconsistencies
+        remain errors.
+
+    Notes
+    -----
+    These settings are numerical controls, not physical model parameters and
+    not a formal bound on total convolution error. Record non-default values
+    and test sensitivity for publication calculations. The algorithm and its
+    validation are described in ``docs/scientific-methods.md`` and
+    ``docs/convolution-method-evolution-report.md``.
+    """
 
     absolute_tolerance_factor: float = 5.0e-4
     relative_tolerance: float = 2.0e-2

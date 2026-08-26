@@ -70,7 +70,7 @@ def test_concentration_chronicles_smoke(tmp_path, update_golden):
     # Build a minimal LpmDist with one parameter set to exercise plotting path.
     lpm = lpm_build("exp_shifted")
     lpm_results = LPM_dist.LpmDist(lpm, craw.names_dates())
-    lpm_results.dist_append(
+    lpm_results.append_sample(
         lpm.p,
         obj_function=0.0,
         concentrations=[0.0] * len(craw.names_dates()),
@@ -80,7 +80,6 @@ def test_concentration_chronicles_smoke(tmp_path, update_golden):
         lpm_results,
         "smoke",
         display,
-        "successive",
         lpm_number=1,
     )
 

@@ -47,7 +47,6 @@ from pyage.config.loading import resolve_from, validate_yaml_model
 
 # Shared Pydantic schemas live in pyage.config.models to keep launchers consistent.
 from pyage.config.models import (
-    TEMPORAL_VALID_MODES,
     TemporalCalibrationCfg,
     TemporalDatasetCfg,
     TemporalFiguresCfg,
@@ -61,7 +60,8 @@ from pyage.config.paths import (
     result_subdirectory,
 )
 from pyage.config.runtime import DisplayOptions
-from pyage.workflows.plotting import (
+from pyage.lpm.distribution_plotting import display_concentration_distributions
+from pyage.workflows.plots import (
     plot_observations_overview,
     plot_parameter_summary,
 )
@@ -69,7 +69,6 @@ from pyage.workflows.result_manifest import write_result_manifest
 from pyage.workflows.single_date_paths import configuration_root
 
 DEFAULT_LPMS = ["exp_shifted", "ig", "ig_shifted"]
-VALID_MODES = TEMPORAL_VALID_MODES
 
 
 @dataclass(frozen=True)
@@ -223,7 +222,6 @@ def _run_calibration(
     lpm_directory: Path,
     cal_cfg: TemporalCalibrationCfg,
     figures_cfg: TemporalFiguresCfg,
-    mode: str,
 ):
     """
     Run one MH calibration for a given dataset, LPM, and mode.
@@ -242,8 +240,6 @@ def _run_calibration(
         Calibration parameters (mh_nsteps, burn_in, nskip, lpm_number, seed...).
     figures_cfg : dict
         Figure options (temporal/distributions).
-    mode : str
-        Workflow mode: span or successive.
     Notes
     -----
     This function performs the full MH workflow:
@@ -274,7 +270,7 @@ def _run_calibration(
     # Metropolis-Hastings setup and execution.
     mh_config = _build_mh_config(cal_cfg, lpm_number)
     calstrat = cMH.MetropolisHastings(config=mh_config)
-    calstrat.MH_step.define_by_value()
+    calstrat.proposal_step.define_by_value()
     lpm_results = calstrat.run(problem)
     # Persist calibrated distributions/statistics.
     calstrat.write_calibrated_lpm(lpm_results)
@@ -286,7 +282,6 @@ def _run_calibration(
             lpm_results,
             calstrat.method,
             display,
-            time_span_mode=mode,
             lpm_number=lpm_number,
         )
 
@@ -302,7 +297,8 @@ def _run_calibration(
 
         plt.close(fig)
         if figures_cfg.concentrations_2d:
-            lpm_results.display_concentrations_dist(
+            display_concentration_distributions(
+                lpm_results,
                 self_method=calstrat.method,
                 concentrations_reference=cdata,
                 directory=display.directory,
@@ -393,7 +389,6 @@ def _run_temporal_cases(
                 lpm_directory=lpm_directory,
                 cal_cfg=cal_cfg,
                 figures_cfg=figures_cfg,
-                mode=mode,
             )
     return written_case_dirs
 

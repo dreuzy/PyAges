@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 import os
-import shutil
+import tomllib
 from pathlib import Path
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.9/3.10 docs builds
-    import tomli as tomllib
 
 from pygments.lexers.special import TextLexer
 from sphinx.highlighting import lexers
@@ -17,11 +12,11 @@ from pyage import __version__
 DOCS_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = DOCS_ROOT.parent
 
-# Autosummary pages are build artifacts. Removing the previous build prevents
-# deleted or renamed modules from remaining discoverable as stale source files.
-AUTOSUMMARY_ROOT = DOCS_ROOT / "api" / "generated"
-if AUTOSUMMARY_ROOT.is_dir():
-    shutil.rmtree(AUTOSUMMARY_ROOT)
+# Autosummary pages are ignored build artifacts. Do not remove them while
+# loading the configuration: Sphinx may reuse its environment during an
+# incremental build and still need the generated sources. Clean release and CI
+# builds start from a clean checkout; maintainers can use ``make clean`` when a
+# removed API module leaves a stale local page.
 
 project_metadata = tomllib.loads(
     (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")

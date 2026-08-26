@@ -22,7 +22,7 @@ _EXPORTS = {
     "timestamp_name": ("pyage.config.paths", "timestamp_name"),
     "DisplayOptions": ("pyage.config.runtime", "DisplayOptions"),
     "SimulationTimer": ("pyage.config.runtime", "SimulationTimer"),
-    "arange_n": ("pyage.config.runtime", "arange_n"),
+    "subdivide_interval": ("pyage.config.runtime", "subdivide_interval"),
 }
 
 __all__ = list(_EXPORTS)

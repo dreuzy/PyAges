@@ -1,5 +1,8 @@
 # Ploemeur data workflow
 
+For provenance, attribution, and redistribution conditions, see
+[`NOTICE-DATA.md`](../../../NOTICE-DATA.md).
+
 Data lifecycle (source → outputs):
 
 ```

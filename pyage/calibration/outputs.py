@@ -5,6 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pyage.data_io.lpm_distribution import (
+    write_distribution,
+    write_histograms,
+    write_statistics,
+)
+from pyage.lpm.distribution_plotting import display_parameter_distributions
+from pyage.lpm.presentation import display_parameters
+
 if TYPE_CHECKING:
     from pyage.calibration.methods.base import CalibrationMethod
     from pyage.calibration.problem import CalibrationProblem
@@ -36,7 +44,7 @@ def posterior_directory(
 
 
 def posterior_file_stem(case: str, concentration_error: float, lpm_type: str) -> str:
-    """Build the historical prior/posterior filename stem."""
+    """Build the filename stem used by the Ploemeur prior pipeline."""
     return f"{case}_err_{concentration_error}_lpm_{lpm_type}"
 
 
@@ -55,11 +63,11 @@ def display_calibrated_models(
     reference=None,
 ) -> None:
     """Render the method-appropriate calibrated model comparison."""
-    if method.method in {"Simplex", "Simplex_init_multipes"}:
+    if method.method in {"Simplex", "Simplex_multi_start"}:
         if display_options.text and reference is not None:
-            exists, lpm = results.get_best_lpm()
-            if exists:
-                lpm.display_parameters(reference)
+            lpm = results.best_model()
+            if lpm is not None:
+                display_parameters(lpm, reference)
         return
     if (
         method.method
@@ -69,10 +77,10 @@ def display_calibrated_models(
         }
         and display_options.figure
     ):
-        results.display_parameters_dist(
+        display_parameter_distributions(
+            results,
             self_method=method.method,
             lpm_reference=reference,
-            bins=100,
             directory=problem.display_options.directory,
         )
 
@@ -91,16 +99,16 @@ def write_calibrated_result(
     method.write_parameters(base_directory / "parameters_calibration.txt")
     method.write_results(base_directory / "results_calibration.txt")
     if method.method != "Simplex":
-        results.write_dist(base_directory / "lpm_dist_calibrated.txt")
-        results.write_histograms(base_directory / "lpm_histo_calibrated.txt")
-        results.write_stats(base_directory / "lpm_stats_calibrated.txt")
+        write_distribution(results, base_directory / "lpm_dist_calibrated.txt")
+        write_histograms(results, base_directory / "lpm_histo_calibrated.txt")
+        write_statistics(results, base_directory / "lpm_stats_calibrated.txt")
     if method.method == "Metropolis_Hastings":
         destination = posterior_directory(
             problem.display_options.directory,
             parent_levels=5,
             subdirectory=prior_folder,
         )
-        results.write_histograms(destination / f"{prior_file}.txt")
+        write_histograms(results, destination / f"{prior_file}.txt")
 
 
 __all__ = [

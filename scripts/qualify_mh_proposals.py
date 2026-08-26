@@ -64,7 +64,7 @@ CONFIGURATIONS = (
     {
         "name": "historical_1p5",
         "strategy": "historical",
-        "kind": "legacy_diagonal",
+        "kind": "componentwise",
         "scale": "(1.5,1.5)",
     },
     {
@@ -215,7 +215,7 @@ def _run_chain(
             **kwargs,
         )
     )
-    mh.MH_step.define_by_value()
+    mh.proposal_step.define_by_value()
     start = time.perf_counter()
     posterior = mh.run(problem)
     elapsed = time.perf_counter() - start
@@ -838,7 +838,7 @@ def make_figure2_diagnostics(
     plt.close(figure)
 
     figure, axes = plt.subplots(1, 2, figsize=(11, 5), constrained_layout=True)
-    for axis, configuration in zip(axes, configurations):
+    for axis, configuration in zip(axes, configurations, strict=True):
         for seed in SEEDS:
             chain = chains[("figure2", configuration, seed)]
             axis.scatter(chain["mu"][::8], chain["t0"][::8], s=2, alpha=0.18)
@@ -1104,7 +1104,8 @@ Ces écarts doivent être interprétés conjointement avec l'ESS, Rhat et la var
 
 Résultat : **{test_result}**. Les tests ciblés couvrent symétrie/covariance, transformation aller-retour, Jacobien, reproductibilité, régularisation, rejet aux bounds et invariance de la cible. Aucun test ni golden Ploemeur n'est inclus dans la commande de validation.
 """
-    path = ROOT / "mh_proposal_qualification.md"
+    path = ROOT / "docs" / "reports" / "mh_proposal_qualification.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(report, encoding="utf-8", newline="\n")
     return path
 

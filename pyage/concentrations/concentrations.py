@@ -18,7 +18,6 @@ import pandas as pd
 
 from pyage.concentrations.schema import (
     CONCENTRATION_COLUMN,
-    ELEMENT_COLUMN,
     ERROR_COLUMN,
     REFERENCE_COLUMNS,
 )
@@ -115,20 +114,6 @@ class Concentrations:
         sampled.cv[CONCENTRATION_COLUMN] = base + err * draw
         return sampled
 
-    def sqrt_quadratic_mean_diff(self, c2: "Concentrations") -> float:
-        """
-        Computes sqrt of quadratic mean differnces of self.cv and c2.cv
-
-        Args:
-            c2: Concentrations with the same structure as self.
-
-        Returns:
-            float: Root mean quadratic difference.
-        """
-        values = self.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
-        other = c2.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
-        return float(np.sqrt(np.mean(np.square(values - other))))
-
     def display(self, display_options) -> None:
         """Display the concentration table when text output is enabled."""
         if display_options.text:
@@ -166,24 +151,6 @@ class Concentrations:
             self.cv.iloc[i, 0] + "_" + str(self.cv.loc[i]["date"]) + "_" + str(i)
             for i in range(len(self.cv.iloc[:, 0]))
         ]
-
-    def names_list(self, sep: str = "_", prefix: bool = True) -> str:
-        """
-        Return tracer names concatenated into a single string.
-
-        Args:
-            sep: Separator between tracer names.
-            prefix: If True, prepend the separator to the result.
-        """
-        names = self.names()
-        if not names:
-            return ""
-        joined = sep.join(names)
-        return f"{sep}{joined}" if prefix else joined
-
-    def export_to_dict(self) -> dict[str, float]:
-        """Export concentrations to a {name: concentration} dict."""
-        return dict(zip(self.cv[ELEMENT_COLUMN], self.cv[CONCENTRATION_COLUMN]))
 
     def cv_key_name_date(self) -> pd.DataFrame:
         """

@@ -42,7 +42,7 @@ def plot_observations_overview(
     highlight_array = np.asarray(highlight_dates or [], dtype=float)
     highlighted_any = False
 
-    for ax, tracer in zip(axs.flatten(), tracers):
+    for ax, tracer in zip(axs.flatten(), tracers, strict=False):
         tracer_df = df[df["element"] == tracer].sort_values("date")
         has_error = "error" in tracer_df.columns and np.any(
             pd.to_numeric(tracer_df["error"], errors="coerce") > 0

@@ -1,9 +1,9 @@
-"""Symmetric random-walk proposals for Metropolis--Hastings calibration.
+"""Fixed random-walk proposals for Metropolis--Hastings calibration.
 
-All proposals in this module are state-independent Gaussian random walks.
-Consequently their Hastings log-ratio is zero.  The sum/difference proposal
-uses a linear coordinate change whose inverse Jacobian has constant absolute
-determinant 1/2, so that factor also cancels from every acceptance ratio.
+Native-space proposals are symmetric. The sum/difference proposal uses a
+linear coordinate change whose constant Jacobian cancels. A proposal in
+SciPy's inverse-Gaussian ``(shape, scale, shift)`` coordinates has a
+state-dependent Jacobian and therefore supplies its exact Hastings correction.
 """
 
 from __future__ import annotations
@@ -13,6 +13,11 @@ from dataclasses import dataclass
 from typing import Sequence
 
 import numpy as np
+
+from pyage.calibration.ig_parameterization import (
+    physical_to_scipy_coordinates,
+    scipy_to_physical_coordinates,
+)
 
 
 def native_to_sum_difference(theta: Sequence[float]) -> np.ndarray:
@@ -59,7 +64,19 @@ def regularize_empirical_covariance(
 
 @dataclass(frozen=True)
 class GaussianRandomWalk:
-    """A fixed symmetric Gaussian random walk in native or ``(m,d)`` space."""
+    r"""Fixed Gaussian random walk in a declared coordinate system.
+
+    ``covariance`` is expressed in squared units of ``coordinate_system`` and
+    is held constant throughout the chain; no adaptation occurs. Native and
+    linear sum/difference proposals are symmetric in physical parameters. For
+    ``scipy_ig``, the Gaussian is symmetric in SciPy
+    ``(shape, scale, shift)`` coordinates, but transformation to physical
+    ``(M, S, shift)`` coordinates makes the proposal asymmetric.
+
+    Since ``|d(shape, scale)/d(M, S)| = 2/S``, the SciPy-IG Hastings term is
+    ``log(S_proposed / S_current)``. Physical LPM bounds are checked by the
+    target after drawing; this class does not truncate or reflect proposals.
+    """
 
     covariance: np.ndarray
     coordinate_system: str = "native"
@@ -74,23 +91,28 @@ class GaussianRandomWalk:
             raise ValueError("proposal covariance must be symmetric")
         if np.any(np.linalg.eigvalsh(covariance) <= 0.0):
             raise ValueError("proposal covariance must be positive definite")
-        if self.coordinate_system not in {"native", "sum_difference"}:
-            raise ValueError("coordinate_system must be 'native' or 'sum_difference'")
+        if self.coordinate_system not in {"native", "sum_difference", "scipy_ig"}:
+            raise ValueError(
+                "coordinate_system must be 'native', 'sum_difference' or 'scipy_ig'"
+            )
         if self.coordinate_system == "sum_difference" and covariance.shape != (2, 2):
             raise ValueError("sum/difference proposals require a 2x2 covariance")
+        if self.coordinate_system == "scipy_ig" and covariance.shape != (3, 3):
+            raise ValueError("SciPy IG proposals require a 3x3 covariance")
         object.__setattr__(self, "covariance", covariance.copy())
 
     @classmethod
     def diagonal(
         cls, scales: Sequence[float], coordinate_system: str = "native"
     ) -> "GaussianRandomWalk":
+        """Build a diagonal covariance from coordinate standard deviations."""
         values = np.asarray(scales, dtype=float)
         if values.ndim != 1 or np.any(values <= 0.0) or not np.all(np.isfinite(values)):
             raise ValueError("proposal scales must be finite positive values")
         return cls(np.diag(values**2), coordinate_system=coordinate_system)
 
     def draw(self, current: Sequence[float], rng: np.random.Generator) -> np.ndarray:
-        """Draw one proposal; physical bounds are checked by the target."""
+        """Draw one unbounded proposal in the declared coordinate system."""
         state = np.asarray(current, dtype=float)
         if state.shape != (self.covariance.shape[0],):
             raise ValueError("current state and proposal covariance dimensions differ")
@@ -100,14 +122,36 @@ class GaussianRandomWalk:
                 np.zeros(len(state)), self.covariance
             )
             return sum_difference_to_native(proposed)
+        if self.coordinate_system == "scipy_ig":
+            transformed = physical_to_scipy_coordinates(state)
+            proposed = transformed + rng.multivariate_normal(
+                np.zeros(len(state)), self.covariance
+            )
+            return scipy_to_physical_coordinates(proposed)
         return state + rng.multivariate_normal(np.zeros(len(state)), self.covariance)
 
-    @staticmethod
     def log_hastings_ratio(
-        current: Sequence[float], proposed: Sequence[float]
+        self, current: Sequence[float], proposed: Sequence[float]
     ) -> float:
-        """Fixed Gaussian random walks are symmetric in either coordinate system."""
-        del current, proposed
+        r"""Return ``log q(current|proposed) - log q(proposed|current)``.
+
+        The value is zero for native and sum/difference coordinates. For
+        ``scipy_ig`` it is ``log(S_proposed / S_current)`` from the nonlinear
+        inverse-Gaussian coordinate Jacobian.
+        """
+        if self.coordinate_system == "scipy_ig":
+            current_values = np.asarray(current, dtype=float)
+            proposed_values = np.asarray(proposed, dtype=float)
+            if (
+                current_values.shape != (3,)
+                or proposed_values.shape != (3,)
+                or current_values[1] <= 0.0
+                or proposed_values[1] <= 0.0
+                or not np.all(np.isfinite(proposed_values))
+            ):
+                return 0.0
+            # |d(shape,scale)/d(M,S)|=2/S.
+            return math.log(proposed_values[1] / current_values[1])
         return 0.0
 
 
