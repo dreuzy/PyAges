@@ -2,6 +2,7 @@ import json
 
 from scripts import build_article_package, reproduce_article
 from scripts import run_ploemeur_shifted_exponential_final as ploemeur_shifted
+from validation.tracerlpm.benchmark.scripts import generate_inputs
 
 
 def test_fresh_campaign_rebases_every_generated_article_artifact(tmp_path):
@@ -55,5 +56,28 @@ def test_campaign_resume_requires_status_and_expected_artifacts(monkeypatch, tmp
     assert calls == [True]
 
 
+def test_campaign_manifest_tracks_revision_used_by_each_stage(monkeypatch, tmp_path):
+    manifest = {
+        "schema_version": 1,
+        "git_head": "initial-revision",
+        "stages": {"forward": {"status": "success"}},
+    }
+    path = tmp_path / "campaign_manifest.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(reproduce_article, "_git", lambda *unused: "current-revision")
+
+    loaded = reproduce_article._load_manifest(path, tmp_path)
+
+    assert loaded["initial_git_head"] == "initial-revision"
+    assert loaded["git_head"] == "current-revision"
+    assert loaded["stages"]["forward"]["git_head"] == "initial-revision"
+
+
 def test_ploemeur_stabilized_cases_have_no_required_historical_outputs():
     assert all(not hasattr(case, "historical") for case in ploemeur_shifted.CASES)
+
+
+def test_tracerlpm_source_inputs_are_independent_from_campaign_output(monkeypatch):
+    monkeypatch.setenv("PYAGE_TRACERLPM_BENCHMARK_ROOT", r"C:\external\campaign")
+
+    assert generate_inputs.SOURCE_REPOSITORY_ROOT == reproduce_article.ROOT

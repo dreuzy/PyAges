@@ -274,12 +274,23 @@ def _write_json_atomic(path: Path, payload: dict[str, object]) -> None:
 
 
 def _load_manifest(path: Path, output: Path) -> dict[str, object]:
+    current_head = _git("rev-parse", "HEAD")
     if path.is_file():
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        previous_head = str(payload.get("git_head", current_head))
+        payload.setdefault("initial_git_head", previous_head)
+        records = payload.get("stages", {})
+        if isinstance(records, dict):
+            for record in records.values():
+                if isinstance(record, dict):
+                    record.setdefault("git_head", previous_head)
+        payload["git_head"] = current_head
+        return payload
     return {
         "schema_version": 1,
         "created_at": _now(),
-        "git_head": _git("rev-parse", "HEAD"),
+        "git_head": current_head,
+        "initial_git_head": current_head,
         "campaign_root": str(output),
         "stages": {},
     }
@@ -339,6 +350,7 @@ def run_campaign(
         records[name] = {
             "status": "running",
             "started_at": _now(),
+            "git_head": _git("rev-parse", "HEAD"),
             "command": list(stage.command),
             "expected": [str(path) for path in stage.expected],
         }

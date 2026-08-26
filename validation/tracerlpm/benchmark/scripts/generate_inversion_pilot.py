@@ -13,10 +13,10 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from .generate_inputs import BENCHMARK_ROOT
+from .generate_inputs import BENCHMARK_ROOT, SOURCE_REPOSITORY_ROOT
 from .reference import forward
 
-REPO_ROOT = BENCHMARK_ROOT.parents[2]
+REPO_ROOT = SOURCE_REPOSITORY_ROOT
 DEFAULT_CONFIG = BENCHMARK_ROOT / "configs" / "inversion-campaign.yaml"
 OUTPUT_DIR = BENCHMARK_ROOT / "observations"
 

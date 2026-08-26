@@ -356,8 +356,8 @@ def collect_diagnostics(
                     "acceptance_rate": float(data["acceptance"]),
                     "runtime_seconds": float(data["runtime"]),
                     "best_sqrt_J_data_over_m": float(np.min(data["objective"])),
-                    "chain_file": str(
-                        _chain_path(output, case_index, chain, steps).relative_to(ROOT)
+                    "chain_file": _path_label(
+                        _chain_path(output, case_index, chain, steps), output
                     ),
                 }
             )
