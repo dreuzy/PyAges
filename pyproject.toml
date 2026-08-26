@@ -55,6 +55,8 @@ examples = [
 [project.urls]
 Homepage = "https://github.com/dreuzy/pyage"
 Repository = "https://github.com/dreuzy/pyage.git"
+Issues = "https://github.com/dreuzy/pyage/issues"
+Changelog = "https://github.com/dreuzy/pyage/blob/main/CHANGELOG.md"
 
 [project.scripts]
 pyage = "pyage.cli.main:main"
