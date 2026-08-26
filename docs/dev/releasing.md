@@ -10,8 +10,10 @@ published reference artifact.
 2. Confirm that every modified, deleted, and untracked file is intentional.
    Install the qualified direct dependency set with
    `python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"`.
-   Run `python -m scripts.check_project_metadata` to verify the qualified pip
-   and Conda versions and the release identity files.
+   Run `python -m scripts.check_project_metadata` to verify that the qualified
+   pip and Conda pins satisfy the declared compatibility ranges and that the
+   release identity files agree. Ecosystem-specific micro versions may differ
+   when a release is not yet available from both package indexes.
 3. Update `pyage/_version.py`, `CITATION.cff`, `CHANGELOG.md`, and the
    development-status classifier together. Confirm that README and Sphinx show
    the same release and follow {doc}`versioning-citation`; the manuscript label

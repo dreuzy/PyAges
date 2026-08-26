@@ -8,6 +8,8 @@ import tomllib
 from pathlib import Path
 
 import yaml
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -51,22 +53,26 @@ def _qualified_conda_versions() -> dict[str, str]:
 
 def dependency_alignment_errors() -> list[str]:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    runtime_names = {
-        _dependency_name(item) for item in project["project"]["dependencies"]
+    runtime_requirements = {
+        _dependency_name(item): Requirement(item)
+        for item in project["project"]["dependencies"]
     }
     pip_versions = _qualified_pip_versions()
     conda_versions = _qualified_conda_versions()
     errors = []
-    for name in sorted(runtime_names):
+    for name, requirement in sorted(runtime_requirements.items()):
         if name not in pip_versions:
             errors.append(f"runtime dependency missing from constraints: {name}")
         if name not in conda_versions:
             errors.append(f"runtime dependency missing from Conda environment: {name}")
-        if name in pip_versions and name in conda_versions:
-            if pip_versions[name] != conda_versions[name]:
+        for source, versions in (("pip", pip_versions), ("conda", conda_versions)):
+            if (
+                name in versions
+                and Version(versions[name]) not in requirement.specifier
+            ):
                 errors.append(
-                    f"qualified version mismatch for {name}: "
-                    f"pip={pip_versions[name]}, conda={conda_versions[name]}"
+                    f"qualified {source} version for {name} is outside "
+                    f"{requirement.specifier}: {versions[name]}"
                 )
     return errors
 

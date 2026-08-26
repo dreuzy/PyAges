@@ -4,7 +4,7 @@ from scripts.check_project_metadata import (
 )
 
 
-def test_qualified_runtime_dependencies_are_aligned():
+def test_qualified_runtime_dependencies_are_compatible():
     assert dependency_alignment_errors() == []
 
 
