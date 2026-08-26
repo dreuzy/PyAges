@@ -73,6 +73,14 @@ jobs:
           environment-name: pyage-audit
           environment-file: install/environment.yml
           cache-environment: true
+      - name: Install and smoke-test PyAge in the Conda environment
+        run: |
+          micromamba run -n pyage-audit python -m pip install --no-deps -e .
+          micromamba run -n pyage-audit python -m pip check
+          micromamba run -n pyage-audit python -c "import pyage; print(pyage.__version__)"
+          micromamba run -n pyage-audit pyage --version
+          micromamba run -n pyage-audit pyage list lpms
+          micromamba run -n pyage-audit pyage list tracers
 
   tests:
     name: Tests (Python ${{ matrix.python-version }})
