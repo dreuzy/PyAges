@@ -6,7 +6,7 @@ source environment; pip is sufficient for an installed release.
 ## Install from a source checkout
 
 ```bash
-git clone https://gitlab.com/dreuzy/pyage.git
+git clone https://github.com/dreuzy/pyage.git
 cd pyage
 conda env create -f install/environment.yml
 conda activate pyage

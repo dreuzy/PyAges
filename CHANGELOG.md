@@ -13,6 +13,7 @@ Before 1.0, incompatible public changes are identified explicitly below.
   runtime, development, documentation, and notebook dependency baselines.
 - Added CI gates for complete extra resolution, dependency auditing, and a
   dry-run solve of the reference Conda environment.
+- Migrated repository automation and project links from GitLab to GitHub.
 - Replaced calibration inheritance and attribute copying with explicit
   `CalibrationProblem` and `CalibrationMethod` composition.
 - Introduced typed workflow contexts and split plotting helpers by purpose.

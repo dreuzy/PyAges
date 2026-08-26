@@ -34,7 +34,14 @@ def _sha256(path: Path) -> str:
 def _copy_versioned_inputs(destination: Path) -> None:
     prefix = "validation/tracerlpm/benchmark/"
     process = subprocess.run(
-        ["git", "ls-files", "-z", f"{prefix}configs", f"{prefix}inputs", f"{prefix}references"],
+        [
+            "git",
+            "ls-files",
+            "-z",
+            f"{prefix}configs",
+            f"{prefix}inputs",
+            f"{prefix}references",
+        ],
         cwd=ROOT,
         capture_output=True,
         check=True,
@@ -177,14 +184,20 @@ def run(output: Path, config: Path, workers: int) -> None:
         raise FileNotFoundError(summary)
     manifest = {
         "git_head": subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip(),
         "cases_expected": queue["expected"],
         "cases_valid_before_resume": queue["valid"],
         "cases_run": queue["remaining"],
         "summary": str(summary.relative_to(output)),
         "summary_sha256": _sha256(summary),
-        "workbook_sha256": yaml.safe_load(config.read_text(encoding="utf-8"))["workbook_sha256"],
+        "workbook_sha256": yaml.safe_load(config.read_text(encoding="utf-8"))[
+            "workbook_sha256"
+        ],
         "xll_sha256": yaml.safe_load(config.read_text(encoding="utf-8"))["xll_sha256"],
     }
     (output / "manifest.json").write_text(

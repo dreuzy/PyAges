@@ -121,9 +121,7 @@ def _prepare_problem(well: str, interval: tuple[float, float] | None):
     return problem, observations
 
 
-def _bootstrap_samples(
-    well: str, interval: tuple[float, float] | None
-) -> pd.DataFrame:
+def _bootstrap_samples(well: str, interval: tuple[float, float] | None) -> pd.DataFrame:
     """Build deterministic, data-informed starts without archived posteriors."""
     problem, observations = _prepare_problem(well, interval)
     observed = observations.cv["concentration"].to_numpy(dtype=float)
@@ -515,8 +513,13 @@ def _write_full_series_gate() -> bool:
 def run_full_series(*, resume: bool = False) -> bool:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     for well in ("F09", "F11"):
-        if resume and (OUTPUT / "full_series" / well / "production_chains.npz").is_file():
-            print(f"[{well} full_series] reusing complete production chains", flush=True)
+        if (
+            resume
+            and (OUTPUT / "full_series" / well / "production_chains.npz").is_file()
+        ):
+            print(
+                f"[{well} full_series] reusing complete production chains", flush=True
+            )
             continue
         _run_adapted_stage(well, "full_series", None, None, None)
     return _write_full_series_gate()
@@ -656,7 +659,9 @@ def run_conditioned(*, resume: bool = False) -> None:
         span_name = "span_2012_2024_conditioned_on_full"
         span_path = OUTPUT / span_name / well / "production_chains.npz"
         if resume and span_path.is_file():
-            print(f"[{well} {span_name}] reusing complete production chains", flush=True)
+            print(
+                f"[{well} {span_name}] reusing complete production chains", flush=True
+            )
             span_chains = _load_stage_chains(span_name, well)
         else:
             span_chains = _run_adapted_stage(
@@ -669,11 +674,11 @@ def run_conditioned(*, resume: bool = False) -> None:
         window_name = "window_2014_2015_conditioned"
         window_path = OUTPUT / window_name / well / "production_chains.npz"
         if resume and window_path.is_file():
-            print(f"[{well} {window_name}] reusing complete production chains", flush=True)
-        else:
-            _run_adapted_stage(
-                well, window_name, (2014.0, 2016.0), span, span_prior
+            print(
+                f"[{well} {window_name}] reusing complete production chains", flush=True
             )
+        else:
+            _run_adapted_stage(well, window_name, (2014.0, 2016.0), span, span_prior)
 
 
 def _result_row(well: str, workflow: str, chains: np.ndarray) -> dict[str, Any]:
@@ -774,9 +779,7 @@ def finalize() -> None:
             "span_2012_2024_conditioned_on_full",
             "window_2014_2015_conditioned",
         ):
-            rows.append(
-                _result_row(well, workflow, _load_stage_chains(workflow, well))
-            )
+            rows.append(_result_row(well, workflow, _load_stage_chains(workflow, well)))
     results = pd.DataFrame(rows)
     results.to_csv(OUTPUT / "ploemeur_ig_stabilized_results.csv", index=False)
     verification = _distribution_verification()
