@@ -470,7 +470,7 @@ def _markdown(frame: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def _table3(
+def _table4(
     output: Path, tables: dict[str, pd.DataFrame], lengths: dict[int, int]
 ) -> pd.DataFrame:
     summaries = tables["summaries"]
@@ -518,7 +518,7 @@ def _table3(
     table = pd.DataFrame(rows)
     table.to_csv(output / "table3_final.csv", index=False)
     (output / "table3_final.md").write_text(
-        "# Table 3 — shifted exponential\n\n"
+        "# Table 4 — shifted exponential\n\n"
         "Production corrélée finale; `MTT = mu + t0`.\n\n" + _markdown(table),
         encoding="utf-8",
         newline="\n",
@@ -757,7 +757,7 @@ def analyze_and_extend(output: Path, workers: int) -> dict[str, pd.DataFrame]:
     tables["acf"].to_csv(
         output / "autocorrelation_functions.csv.gz", index=False, compression="gzip"
     )
-    _table3(output, tables, lengths)
+    _table4(output, tables, lengths)
     _old_new(output, tables["summaries"])
     if bool(tables["convergence"]["converged"].all()):
         _figure2(output, lengths)
@@ -779,7 +779,7 @@ def analyze_and_extend(output: Path, workers: int) -> dict[str, pd.DataFrame]:
     (output / "shifted_exponential_final.md").write_text(
         "# Production finale shifted-exponential\n\n"
         + _markdown(report_table)
-        + "\n\nLes chaînes ne sont poolées dans Table 3 que si tous les diagnostics finaux du cas satisfont split-Rhat < 1.01 et ESS ≥ 300.\n",
+        + "\n\nLes chaînes ne sont poolées dans Table 4 que si tous les diagnostics finaux du cas satisfont split-Rhat < 1.01 et ESS ≥ 300.\n",
         encoding="utf-8",
         newline="\n",
     )

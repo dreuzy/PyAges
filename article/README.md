@@ -55,3 +55,18 @@ réécrivant rétroactivement un manifeste historique.
 
 Le bilan consolidé de la campagne finale est conservé dans
 [`reports/final_article_simulations_status.md`](reports/final_article_simulations_status.md).
+
+## Code Git et archive scientifique
+
+Les résultats volumineux ne doivent pas être ajoutés au dépôt Git. En revanche,
+tout résultat nécessaire pour recalculer une figure, une table, un résidu, un
+intervalle ou un diagnostic publié doit être présent dans une archive
+scientifique immuable et identifiée par une version ou un DOI. Cela inclut les
+états retenus de chaque chaîne MCMC, avec les répétitions dues aux rejets, ainsi
+que les identifiants de chaîne, seeds, états initiaux, proposals et diagnostics.
+
+Git conserve le code, les configurations, les manifestes de cas et le pointeur
+exact vers cette archive. Le manifeste éditorial doit enregistrer, pour chaque
+partie externe, son URL pérenne, sa taille et son SHA-256. Les caches, essais
+abandonnés et rendus dupliqués qui ne soutiennent aucune affirmation publiée ne
+font pas partie des preuves obligatoires.

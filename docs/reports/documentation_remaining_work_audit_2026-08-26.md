@@ -7,6 +7,12 @@ avec arbre de travail non propre
 octets, SHA-256
 `5e4eca7fc2ec32fe92f86940d5e5a0900f18ac359baf4656c6201a33dc864711`
 
+> **Mise à jour après audit.** Le premier lot de robustesse, provenance et
+> documentation a été figé et poussé au commit `9c244ac`. La numérotation
+> Table 3/Table 4, le contrat d'archive et les tests de dérive documentaire ont
+> ensuite été corrigés. Les lacunes d'archives numériques décrites ci-dessous
+> restent inchangées.
+
 ## Conclusion exécutive
 
 La documentation scientifique générale est maintenant **assez approfondie**.
@@ -157,14 +163,13 @@ La révision v14 définit sans ambiguïté :
 - **Table 3** : comparaison PyAge--TracerLPM ;
 - **Table 4** : 19 cas shifted exponential.
 
-Le registre et les pages scientifiques utilisent cette numérotation. En
-revanche, le générateur de production shifted exponential écrit encore le
-titre et une phrase « Table 3 », et le constructeur du paquet article expose
-encore des identifiants, destinations, descriptions, README et un champ
-`scope` nommés « Table 3 ». Les fichiers historiques `table3_final.*` peuvent
-rester inchangés pour la provenance, mais toute métadonnée tournée vers le
-lecteur doit dire **Table 4**. Un test automatique doit interdire la
-réapparition de l'ancienne numérotation dans les sorties de production.
+Le registre et les pages scientifiques utilisent cette numérotation. Après
+l'audit, le générateur de production et le constructeur du paquet article ont
+été corrigés : titre, descriptions, README, `scope`, identifiants et
+destinations destinés au lecteur disent désormais **Table 4**. Les fichiers
+sources historiques `table3_final.*` restent inchangés pour la provenance. Un
+test automatique interdit la réapparition de « Table 3 » dans les sorties de
+production courantes.
 
 Les scripts plus anciens d'exploration ou de qualification peuvent conserver
 leur numérotation historique à condition d'être clairement marqués comme tels
@@ -223,14 +228,14 @@ tag, le paquet, l'archive, le DOI, `CITATION.cff` et le texte de disponibilité.
 | commande console `pyage` dans l'environnement courant | absente du `PATH`; elle devra être testée depuis la roue installée |
 | HTML Sphinx strict (`-E -a -W --keep-going`) | réussite, 66 sources, sortie `docs/_build/deep-doc-audit-20260826/` |
 | liens Sphinx stricts | réussite après contrôle de tous les liens ; quatre DOI Wiley valides sont exclus URL par URL pour réponse robot 403, cinq redirections valides sont consignées |
-| `ruff check` | échec : une complexité C901 et trois blocs d'import non triés dans les changements courants |
-| `ruff format --check` | échec : 9 fichiers seraient reformatés |
+| `ruff check` | réussite après correction des changements audités |
+| `ruff format --check` | réussite, 296 fichiers conformes |
 | contrôles des cas article | 0/6 réussis dans ce checkout |
 | validation du paquet article | échec : manifeste du paquet absent |
 
 La réussite de la suite de tests est rassurante pour le code courant. Elle ne
-compense pas l'absence des preuves de calcul, et le lint/formatage doit être
-remis au vert avant de figer un commit de publication.
+compense pas l'absence des preuves de calcul. Le lint et le formatage sont
+maintenant au vert, mais devront être rejoués au gate de publication.
 
 Ces contrôles ont utilisé l'environnement déjà actif, notamment Python 3.12.4,
 NumPy 2.1.2, SciPy 1.14.1, pandas 2.2.3 et Sphinx 7.4.7. Il ne correspond pas au
@@ -251,9 +256,9 @@ la matrice de dépendances de publication.
    `article/run_case.py check` jusqu'à six succès. Ne jamais remplacer une
    ancienne empreinte pour masquer une évolution : créer un nouveau manifeste
    de run relié à l'ancien.
-3. **Corriger Table 3/Table 4 dans les générateurs.** Conserver les noms de
-   fichiers historiques si nécessaire, mais produire Table 4 dans le rapport,
-   le README, le manifeste et le paquet final.
+3. **Terminé après audit — corriger Table 3/Table 4 dans les générateurs.** Les
+   noms de fichiers sources historiques sont conservés, tandis que le rapport,
+   le README, le manifeste et le paquet final exposent Table 4.
 4. **Reconstruire le paquet article.** Inclure les sorties permettant de
    recalculer figures, tables, résidus et diagnostics. Si les chaînes brutes
    sont stockées séparément, le paquet doit contenir leur URI immuable, taille,
@@ -269,9 +274,12 @@ la matrice de dépendances de publication.
 7. Ajouter aux suppléments les tables complètes de chaînes, proposals,
    rétention, split-$\hat R$, ESS, MCSE et résidus ; conserver dans le texte
    principal la synthèse déjà lisible.
-8. Ajouter des tests de dérive pour les numéros de tables, le registre des LPM,
-   les défauts Pydantic et les exemples YAML de la documentation.
-9. Remettre `ruff check` et `ruff format --check` au vert, puis exécuter la
+8. **Terminé après audit.** Des tests couvrent maintenant les numéros de
+   tables, le registre des LPM, la validité des exemples YAML et la concordance
+   des tables de valeurs par défaut avec les modèles Pydantic. Ils ont notamment
+   détecté puis corrigé le défaut documenté de `calibration.seed`, qui vaut
+   `null` tant qu'aucune seed explicite n'est configurée.
+9. `ruff check` et `ruff format --check` sont au vert. Il reste à exécuter la
    couverture, la suite `--run-extensive`, la construction des distributions et
    le smoke test de la roue sur les versions Python supportées.
 

@@ -42,7 +42,7 @@ def shifted() -> None:
     tables["acf"].to_csv(
         output / "autocorrelation_functions.csv.gz", index=False, compression="gzip"
     )
-    runner._table3(output, tables, lengths)
+    runner._table4(output, tables, lengths)
     runner._figure2(output, lengths)
 
 

@@ -105,18 +105,18 @@ ARTIFACTS = (
         "Figure 4, vector insertion file",
     ),
     _artifact(
-        "table3_csv",
+        "table4_csv",
         "table",
         "results/final_article_simulations/shifted_exponential/table3_final.csv",
-        "tables/table3.csv",
-        "Table 3, machine-readable",
+        "tables/table4.csv",
+        "Table 4, machine-readable (historical source: table3_final.csv)",
     ),
     _artifact(
-        "table3_markdown",
+        "table4_markdown",
         "table",
         "results/final_article_simulations/shifted_exponential/table3_final.md",
-        "tables/table3.md",
-        "Table 3, formatted",
+        "tables/table4.md",
+        "Table 4, formatted (historical source: table3_final.md)",
     ),
     _artifact(
         "shifted_posterior_summary",
@@ -193,7 +193,7 @@ ARTIFACTS = (
         "diagnostic",
         "results/final_article_simulations/shifted_exponential/convergence_diagnostics.csv",
         "diagnostics/shifted_exponential_convergence.csv",
-        "Figure 2 and Table 3 convergence",
+        "Figure 2 and Table 4 convergence",
     ),
     _artifact(
         "holten_convergence",
@@ -312,7 +312,7 @@ ARTIFACTS = (
         "provenance",
         "results/final_article_simulations/shifted_exponential/manifest.json",
         "provenance/source_manifests/shifted_exponential.json",
-        "Source manifest for Table 3 and Figure 2",
+        "Source manifest for Table 4 and Figure 2",
     ),
     _artifact(
         "holten_manifest",
@@ -333,7 +333,7 @@ ARTIFACTS = (
         "code",
         "scripts/run_final_shifted_exponential.py",
         "provenance/code/run_final_shifted_exponential.py",
-        "Table 3 and Figure 2 runner",
+        "Table 4 and Figure 2 runner",
     ),
     _artifact(
         "runner_holten",
@@ -551,7 +551,7 @@ qui soutiennent les affirmations et la provenance exacte de chaque fichier.
 
 | Élément | Fichier principal | Source quantitative |
 | --- | --- | --- |
-| Table 3 | `tables/table3.md` | `tables/table3.csv` |
+| Table 4 | `tables/table4.md` | `tables/table4.csv` |
 | Figure 2 | `figures/figure2_shifted_exponential.pdf` | `supporting_data/figure2_objective_grid.csv` |
 | Figure 3 | `figures/figure3_holten_h4.pdf` | `tables/holten_visser_vs_pyage.csv` |
 | Figure 4 | `figures/figure4_ploemeur_shifted_exponential.pdf` | `supporting_data/figure4_prediction_intervals.csv` |
@@ -676,7 +676,7 @@ def build_package(
             "created_at": datetime.now(ZoneInfo("Europe/Paris")).isoformat(),
             "git_head": _git("rev-parse", "HEAD"),
             "git_dirty": bool(_git("status", "--short")),
-            "scope": "Publication-facing Table 3 and Figures 2–4 with audit support",
+            "scope": "Publication-facing Table 4 and Figures 2–4 with audit support",
             "raw_mcmc_chains_included": False,
             "scientific_summary": summary,
             "execution_source_audit": source_audit,

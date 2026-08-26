@@ -221,7 +221,7 @@ calibration:
 | `nskip` | integer | 10 | Keep every nth sample (thinning) |
 | `lpm_number` | integer | 10 | Number of posterior draws used for distribution and concentration plots (0 = automatic) |
 | `seed_enabled` | boolean | false | Use the configured fixed random seed |
-| `seed` | integer | 12345 | Random seed value |
+| `seed` | integer or null | null | Random seed value; required for an explicit reproducible seed when `seed_enabled` is true |
 
 ### Figures Section
 

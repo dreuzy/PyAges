@@ -71,6 +71,11 @@ Before 1.0, incompatible public changes are identified explicitly below.
   diff, and complete tracked-workspace fingerprints.
 - Made componentwise MH proposal provenance immutable in `MHConfig`; removed
   the unused sampler-level `lpm_number` field and mutable step selectors.
+- Defined the publication evidence split explicitly: Git tracks code,
+  configurations, manifests, and archive pointers, while an immutable
+  scientific archive carries the numerical results needed to audit the paper.
+- Added drift tests that validate the documented YAML examples and keep the
+  documented LPM inventory synchronized with the runtime registry.
 
 ### Fixed
 
@@ -78,6 +83,9 @@ Before 1.0, incompatible public changes are identified explicitly below.
   objective instead of combining independent column minima.
 - Invalid observation tables and tracer configuration values now fail early
   with contextual exceptions.
+- Corrected the current shifted-exponential generator and article package to
+  label the publication output as Table 4 while retaining historical
+  `table3_final.*` source filenames for provenance.
 - Parametric and empirical priors now return exact zero density outside their
   support instead of flooring it to `1e-300` before log evaluation.
 - Simplex now enforces LPM bounds, rejects unsuccessful optimizer termination,

@@ -44,6 +44,30 @@ from a source checkout. A missing result directory is therefore different from
 a missing manifest. Historical checksum differences after code evolution must
 be reported, not hidden by rewriting an old manifest.
 
+## What is versioned where
+
+The evidence behind the manuscript must be frozen and version-identifiable,
+but large numerical results do not have to be committed to Git. The two layers
+have different roles:
+
+- Git tracks source code, configurations, distributed inputs permitted by their
+  licences, case manifests, small reference reports, and the exact pointer to
+  the scientific archive.
+- The immutable scientific archive stores every result needed to recalculate a
+  published figure, table, residual, interval, or convergence claim. For MCMC
+  cases this includes lossless per-chain retained states (including repeated
+  states after rejection), chain identifiers, seeds, initial states, proposal
+  settings, acceptance rates, diagnostics, and derived quantities.
+- The archive manifest records the archive version or DOI, permanent URL,
+  filenames, byte sizes, SHA-256 digests, source commit and tag, environment,
+  licences, and the relationship between raw evidence and publication files.
+
+Caches, temporary exports, superseded exploratory runs, and duplicate rendered
+files that support no published claim are not required. If raw chains and the
+smaller editorial package are deposited separately, the editorial manifest
+must identify every archive part by immutable URL, size, and SHA-256. A mutable
+cloud folder or an unversioned local `results/` directory is not an archive.
+
 For `holten_prior_dirichlet1`, `check` currently reports missing chains,
 pilots, and historical manifest plus a runner checksum mismatch. Unit tests can
 qualify the Jacobian implementation, but they cannot validate the manuscript's
@@ -54,7 +78,8 @@ not an automatic duplicate calculation.
 The manuscript archive is intended to freeze the complete inputs, machine-
 readable results, figures, tables, environment, and provenance metadata for
 the published release. Until that immutable archive and DOI exist, the Git tag
-and case manifests are the authoritative versioned references.
+and case manifests identify the code and expected evidence, but they do not by
+themselves make absent numerical results auditable.
 
 “PyAge v1.0” is currently a manuscript target rather than the released package
 version. The beta/software/DOI identity rules and the future archive sequence
