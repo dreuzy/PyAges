@@ -1,5 +1,7 @@
 # PyAge
 
+[![Documentation Status](https://readthedocs.org/projects/pyage-groundwater/badge/?version=latest)](https://pyage-groundwater.readthedocs.io/en/latest/?badge=latest)
+
 PyAge is a research codebase for groundwater age modeling and tracer-based
 calibration using lumped-parameter models (LPMs), convolution operators, and
 inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
