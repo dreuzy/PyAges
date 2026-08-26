@@ -122,6 +122,7 @@ def run(output: Path, config: Path, workers: int) -> None:
     local_config = _runner_config(config, output)
     env = os.environ.copy()
     env["PYAGE_TRACERLPM_BENCHMARK_ROOT"] = str(benchmark)
+    env["PYAGE_TRACERLPM_SOURCE_ROOT"] = str(ROOT)
 
     for name in ("robustness-width-noise.yaml", "robustness-age-noise.yaml"):
         _run_python(

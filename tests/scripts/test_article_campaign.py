@@ -2,6 +2,7 @@ import json
 
 from scripts import build_article_package, reproduce_article
 from scripts import run_ploemeur_shifted_exponential_final as ploemeur_shifted
+from validation.tracerlpm.benchmark.scripts import generate_inputs
 
 
 def test_fresh_campaign_rebases_every_generated_article_artifact(tmp_path):
@@ -59,3 +60,9 @@ def test_campaign_resume_requires_status_and_expected_artifacts(monkeypatch, tmp
 
 def test_ploemeur_stabilized_cases_have_no_required_historical_outputs():
     assert all(not hasattr(case, "historical") for case in ploemeur_shifted.CASES)
+
+
+def test_tracerlpm_source_inputs_are_independent_from_campaign_output(monkeypatch):
+    monkeypatch.setenv("PYAGE_TRACERLPM_BENCHMARK_ROOT", r"C:\external\campaign")
+
+    assert generate_inputs.SOURCE_REPOSITORY_ROOT == reproduce_article.ROOT
