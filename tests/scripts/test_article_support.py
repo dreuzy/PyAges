@@ -221,7 +221,43 @@ def test_ig_resume_extends_only_failed_full_series_wells(monkeypatch, tmp_path):
     monkeypatch.setattr(ig_runner, "OUTPUT", tmp_path)
     monkeypatch.setattr(ig_runner, "AUTO_EXTENSION_STEPS", 4000)
     monkeypatch.setattr(ig_runner, "MAX_AUTO_EXTENSIONS", 2)
+    monkeypatch.setattr(ig_runner, "MAX_FULL_SERIES_RETAINED_DRAWS", 18000)
+    monkeypatch.setattr(
+        ig_runner,
+        "_load_stage_chains",
+        lambda unused_stage, unused_well: np.empty((5, 10000, 3)),
+    )
     monkeypatch.setattr(ig_runner, "extend_full_series", extend)
 
     assert ig_runner._auto_extend_failed_full_series()
     assert calls == [("F09", 4000)]
+
+
+def test_ig_resume_honors_total_retained_draw_limit(monkeypatch, tmp_path):
+    (tmp_path / "full_series_gate.json").write_text(
+        json.dumps(
+            {
+                "passed": False,
+                "wells": {
+                    "F09": {"passed": False},
+                    "F11": {"passed": True},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(ig_runner, "OUTPUT", tmp_path)
+    monkeypatch.setattr(ig_runner, "MAX_AUTO_EXTENSIONS", 3)
+    monkeypatch.setattr(ig_runner, "MAX_FULL_SERIES_RETAINED_DRAWS", 10000)
+    monkeypatch.setattr(
+        ig_runner,
+        "_load_stage_chains",
+        lambda unused_stage, unused_well: np.empty((5, 10000, 3)),
+    )
+    monkeypatch.setattr(
+        ig_runner,
+        "extend_full_series",
+        lambda *unused: pytest.fail("extension limit should stop the run"),
+    )
+
+    assert not ig_runner._auto_extend_failed_full_series()

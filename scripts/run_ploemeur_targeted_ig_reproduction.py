@@ -78,6 +78,11 @@ AUTO_EXTENSION_STEPS = int(
     os.environ.get("PYAGE_PLOEMEUR_IG_AUTO_EXTENSION_STEPS", "12000")
 )
 MAX_AUTO_EXTENSIONS = int(os.environ.get("PYAGE_PLOEMEUR_IG_MAX_AUTO_EXTENSIONS", "3"))
+MAX_FULL_SERIES_RETAINED_DRAWS = (
+    PRODUCTION_STEPS
+    - PRODUCTION_WARMUP
+    + MAX_AUTO_EXTENSIONS * AUTO_EXTENSION_STEPS
+)
 MIN_ESS = 300.0
 MAX_RHAT = 1.01
 
@@ -658,13 +663,27 @@ def _auto_extend_failed_full_series() -> bool:
         ]
         if not failed:
             return True
+        eligible = []
+        for well in failed:
+            retained = _load_stage_chains("full_series", well).shape[1]
+            remaining = MAX_FULL_SERIES_RETAINED_DRAWS - retained
+            if remaining <= 0:
+                print(
+                    f"[{well} full_series] automatic extension limit reached at "
+                    f"{retained} retained draws",
+                    flush=True,
+                )
+                continue
+            eligible.append((well, min(AUTO_EXTENSION_STEPS, remaining)))
+        if not eligible:
+            return False
         print(
             f"Automatic full-series extension {attempt}/{MAX_AUTO_EXTENSIONS}: "
-            f"{failed}, +{AUTO_EXTENSION_STEPS} draws per chain",
+            f"{eligible}",
             flush=True,
         )
-        for well in failed:
-            extend_full_series(well, AUTO_EXTENSION_STEPS)
+        for well, extension_steps in eligible:
+            extend_full_series(well, extension_steps)
     return bool(
         json.loads(gate_path.read_text(encoding="utf-8"))["passed"]
     )
@@ -931,6 +950,7 @@ def _manifest(results: pd.DataFrame) -> None:
             "warmup_steps": PRODUCTION_WARMUP,
             "automatic_full_series_extension_steps": AUTO_EXTENSION_STEPS,
             "maximum_automatic_full_series_extensions": MAX_AUTO_EXTENSIONS,
+            "maximum_full_series_retained_draws": MAX_FULL_SERIES_RETAINED_DRAWS,
             "chains": len(SEEDS),
             "seeds": list(SEEDS),
             "initialization": "deterministic prior-coordinate grid ranked by objective",
