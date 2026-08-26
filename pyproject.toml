@@ -34,6 +34,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "build>=1.5,<2",
+    "packaging>=24,<27",
     "pip-audit>=2.10,<3",
     "pytest>=9.0.3,<10",
     "pytest-cov>=7,<8",
@@ -56,6 +57,8 @@ examples = [
 Homepage = "https://github.com/dreuzy/pyage"
 Documentation = "https://pyage-gw.readthedocs.io/en/latest/"
 Repository = "https://github.com/dreuzy/pyage.git"
+Issues = "https://github.com/dreuzy/pyage/issues"
+Changelog = "https://github.com/dreuzy/pyage/blob/main/CHANGELOG.md"
 
 [project.scripts]
 pyage = "pyage.cli.main:main"

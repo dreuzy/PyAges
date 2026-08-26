@@ -14,6 +14,11 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Added CI gates for complete extra resolution, dependency auditing, and a
   dry-run solve of the reference Conda environment.
 - Migrated repository automation and project links from GitLab to GitHub.
+- Added read-only GitHub workflow permissions, immutable action references,
+  protected collaboration metadata, release-candidate validation, and public
+  contribution and security guidance.
+- Added automated consistency checks for release identity and for qualified
+  pip and Conda versions against the declared runtime compatibility ranges.
 - Replaced calibration inheritance and attribute copying with explicit
   `CalibrationProblem` and `CalibrationMethod` composition.
 - Introduced typed workflow contexts and split plotting helpers by purpose.
