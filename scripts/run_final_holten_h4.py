@@ -293,8 +293,8 @@ def collect_diagnostics(
                     "acceptance_rate": float(data["acceptance"]),
                     "runtime_seconds": float(data["runtime"]),
                     "best_objective": float(np.min(data["objective"])),
-                    "chain_file": str(
-                        _chain_path(output, well, chain, steps).relative_to(ROOT)
+                    "chain_file": _path_label(
+                        _chain_path(output, well, chain, steps), output
                     ),
                 }
             )

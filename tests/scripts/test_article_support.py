@@ -138,3 +138,10 @@ def test_shifted_exponential_production_text_uses_current_table_number():
     assert "Table 3" not in runner
     assert "# Table 4 — shifted exponential" in runner
     assert "runner._table4(" in postprocessor
+
+
+def test_external_chain_paths_do_not_assume_repository_storage():
+    repository = Path(__file__).resolve().parents[2]
+    for name in ("run_final_shifted_exponential.py", "run_final_holten_h4.py"):
+        runner = (repository / "scripts" / name).read_text(encoding="utf-8")
+        assert ".relative_to(ROOT)" not in runner
