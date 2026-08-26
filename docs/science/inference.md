@@ -2,25 +2,15 @@
 
 ## Posterior and likelihood
 
-Let $\lambda=(\lambda_1,\ldots,\lambda_n)$ denote the LPM parameters and let
-$c_j^{obs}$ be tracer observations with strictly positive uncertainties
-$\sigma_j$. PyAge uses Bayes' theorem,
+PyAge combines an uncertainty-weighted Gaussian likelihood with the configured
+parameter prior. Observation errors must be finite, strictly positive, and in
+units matching their modeled values. They are treated as known standard
+deviations; PyAge does not estimate an additional observation-error covariance
+model automatically.
 
-```{math}
-p(\lambda\mid c^{obs}) \propto p(c^{obs}\mid\lambda)\,p(\lambda).
-```
-
-With independent Gaussian observation errors, the data-misfit function is
-
-```{math}
-J(\lambda)=\sum_{j=1}^{m}
-\left[\frac{c_j(\lambda)-c_j^{obs}}{\sigma_j}\right]^2,
-```
-
-and the likelihood is proportional to $\exp[-J(\lambda)/2]$. Errors must be
-finite and strictly positive. The formulation treats the supplied
-uncertainties as known standard deviations and does not estimate an additional
-error model automatically.
+The exact $\chi^2$ equation, log target, objective transformations, and legacy
+output labels are defined in {doc}`../scientific-methods`. That page is
+normative whenever an output uses the generic word “objective.”
 
 ## Priors and bounds
 
@@ -46,9 +36,9 @@ but does not create independent information and must not substitute for an
 effective-sample-size calculation. Random seeds, proposal settings, initial
 states, and retained samples are part of the reproducibility record.
 
-The implemented log target, transformed-coordinate Hastings correction,
-strict burn-in inequality, thinning rule, repeated-state convention, and three
-legacy objective labels are specified in {doc}`../scientific-methods`.
+The transformed-coordinate Hastings correction, strict burn-in inequality,
+thinning rule, repeated-state convention, and proposal symmetries are specified
+only in {doc}`../scientific-methods`.
 
 ## Convergence criteria
 

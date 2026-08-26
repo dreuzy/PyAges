@@ -5,13 +5,19 @@
 > chaînes par cas, split-Rhat final inférieur à 1,01 et ESS agrégé minimal de
 > 756. Le protocole et l’interprétation actuels sont résumés dans
 > {doc}`../science/inference` et {doc}`../science/validation`. Les réponses
-> ci-dessous sont conservées dans leur contexte décisionnel initial.
+> ci-dessous sont conservées dans leur contexte décisionnel initial. La
+> « Table 3 » mentionnée dans ce rapport pilote correspond à la Table 4 de la
+> révision v14 du manuscrit ; les noms historiques des fichiers n’ont pas été
+> réécrits.
 
 ## Décision
 
 Sur les quatre cas pilotes et cinq seeds, la configuration classée première est **`correlated_1p68`**. Son split-Rhat maximal vaut **1.0035**, son ESS minimal observé **360.4**, et son ESS/s médian **12.72**, contre respectivement **1.0143**, **36.2** et **1.43** pour `(1.5,1.5)`. Le gain médian d'ESS/s est **×8.89**.
 
-Cette qualification ne recalcule volontairement ni les 19 cas de Table 3, ni Figure 2 finale, ni le manuscrit. Elle fournit d'abord les résultats pilotes demandés pour validation.
+Cette qualification ne recalculait volontairement ni les 19 cas de la future
+Table 4 (encore appelée Table 3 à cette étape), ni la Figure 2 finale, ni le
+manuscrit. Elle fournissait d’abord les résultats pilotes demandés pour
+validation.
 
 ## Traçabilité et invariants
 

@@ -45,6 +45,8 @@ from examples.natural.holten.holten_reproduction import (  # noqa: E402
     build_reproduction_endmembers,
     optimize_well,
 )
+from scripts.common.mcmc_diagnostics import mcse_mean  # noqa: E402
+from scripts.common.provenance import repository_provenance  # noqa: E402
 from scripts.run_final_shifted_exponential import (  # noqa: E402
     _iact_ess,
     _split_rhat,
@@ -429,7 +431,9 @@ def collect_diagnostics(
         well_diagnostics: list[dict[str, Any]] = []
         for parameter in parameters:
             chains = [_series(data, parameter) for data in loaded]
+            pooled = np.concatenate(chains)
             ess_values = [_iact_ess(values)[2] for values in chains]
+            total_ess = float(sum(ess_values))
             row = {
                 "prior": "dirichlet_1",
                 "well": well,
@@ -439,7 +443,8 @@ def collect_diagnostics(
                 else "physical_fraction",
                 "steps_per_chain": FINAL_STEPS[well],
                 "split_rhat": _split_rhat(chains),
-                "ess_sum_chains": float(sum(ess_values)),
+                "ess_sum_chains": total_ess,
+                "mcse_mean": mcse_mean(pooled, total_ess),
             }
             row["converged"] = bool(
                 row["split_rhat"] < 1.01 and row["ess_sum_chains"] >= 300.0
@@ -454,6 +459,17 @@ def collect_diagnostics(
                 )
             else:
                 values = np.concatenate([_series(data, parameter) for data in loaded])
+            diagnostic = next(
+                (row for row in well_diagnostics if row["parameter"] == parameter),
+                None,
+            )
+            if diagnostic is None:
+                chains = [np.asarray(data[parameter]) for data in loaded]
+                total_ess = float(sum(_iact_ess(chain)[2] for chain in chains))
+                mean_mcse = mcse_mean(values, total_ess)
+            else:
+                total_ess = diagnostic["ess_sum_chains"]
+                mean_mcse = diagnostic["mcse_mean"]
             stats = _summary(values)
             summary_rows.append(
                 {
@@ -471,6 +487,8 @@ def collect_diagnostics(
                     "chains": NCHAINS,
                     "pooled_samples": len(values),
                     "well_converged": well_converged,
+                    "ess_sum_chains": total_ess,
+                    "mcse_mean": mean_mcse,
                     **stats,
                 }
             )
@@ -782,6 +800,7 @@ def write_manifest(
         if path.is_file() and path.name != "manifest.json"
     ]
     payload = {
+        "repository": repository_provenance(ROOT),
         "created_at": pd.Timestamp.now(tz="Europe/Paris").isoformat(),
         "purpose": "Separate Holten H4 sensitivity test; canonical campaign reused read-only",
         "git_head": subprocess.run(

@@ -146,10 +146,10 @@ def run_metropolis_hastings(
             monitor=False,
             display_traj=False,
             display_text=False,
+            componentwise_source="model",
             seed=config.mh_seed,
         )
     )
-    mh.proposal_step.define_by_value()
     posterior = mh.run(problem)
     return mh, posterior
 

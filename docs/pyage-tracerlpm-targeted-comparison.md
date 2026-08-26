@@ -404,4 +404,4 @@ hypothèses de recharge, incertitudes analytiques et critères d’acceptation.
 - Runner TracerLPM : `validation/tracerlpm/README.md`
 - Jurgens, B. C., Böhlke, J. K. et Eberts, S. M. (2012), *TracerLPM
   (Version 1)*, USGS Techniques and Methods 4-F3,
-  <https://doi.org/10.3133/tm4F3>.
+  <https://pubs.usgs.gov/publication/tm4F3> (DOI: 10.3133/tm4F3).

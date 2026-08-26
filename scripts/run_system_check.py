@@ -167,7 +167,6 @@ class TestIntegration:
                 prior_option=True,
                 prior_type="parametric",
                 likelihood=True,
-                lpm_number=10,
                 monitor=False,
             )
             calib_MH = cMH.MetropolisHastings(config=mh_config)

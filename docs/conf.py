@@ -81,6 +81,17 @@ html_title = "PyAge documentation"
 html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
 html_show_sourcelink = False
 
+# Wiley resolves these valid AGU/Wiley DOIs for browsers but returns HTTP 403
+# to the automated Sphinx checker. Keep every user-facing DOI while excluding
+# only the four known bot-blocked endpoints; all other external links remain
+# checked.
+linkcheck_ignore = [
+    r"https://doi\.org/10\.1029/2000RG000101",
+    r"https://doi\.org/10\.1029/2003WR002436",
+    r"https://doi\.org/10\.1002/2013WR014012",
+    r"https://doi\.org/10\.1029/2006WR005096",
+]
+
 lexers["csv"] = TextLexer()
 
 try:

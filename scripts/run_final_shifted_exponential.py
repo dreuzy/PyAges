@@ -41,6 +41,8 @@ from pyage.config.runtime import DisplayOptions
 from pyage.convolution import ConvolutionTracers
 from pyage.lpm.lpm_build import lpm_build
 from pyage.tools.figures_additional import cmap_white_jet
+from scripts.common.mcmc_diagnostics import mcse_mean
+from scripts.common.provenance import repository_provenance
 
 OUTPUT = ROOT / "results" / "final_article_simulations" / "shifted_exponential"
 TRACERS = ("cfc11", "cfc12", "cfc113", "sf6")
@@ -124,7 +126,7 @@ def _run_chain(
         explore_objective=False,
         explore_reachable=False,
     ).prepare()
-    kwargs: dict[str, Any] = {}
+    kwargs: dict[str, Any] = {"componentwise_source": "model"}
     if covariance is not None:
         kwargs = {
             "proposal_kind": "correlated",
@@ -148,7 +150,6 @@ def _run_chain(
             **kwargs,
         )
     )
-    mh.proposal_step.define_by_value()
     started = time.perf_counter()
     posterior = mh.run(problem)
     runtime = time.perf_counter() - started
@@ -378,14 +379,17 @@ def collect_diagnostics(
                     for lag, value in enumerate(acf)
                 )
             pooled = np.concatenate(chains)
-            converged = bool(rh < 1.01 and sum(ess_values) >= 300.0)
+            total_ess = float(sum(ess_values))
+            mean_mcse = mcse_mean(pooled, total_ess)
+            converged = bool(rh < 1.01 and total_ess >= 300.0)
             local.append(
                 {
                     "parameter": parameter,
                     "target": target,
                     "pooled": pooled,
                     "rhat": rh,
-                    "ess": float(sum(ess_values)),
+                    "ess": total_ess,
+                    "mcse_mean": mean_mcse,
                     "iact": float(max(iact_values)),
                     "acf1": float(np.median([_acf(values)[1] for values in chains])),
                     "converged": converged,
@@ -397,7 +401,8 @@ def collect_diagnostics(
                     "parameter": parameter,
                     "steps_per_chain": steps,
                     "split_rhat": rh,
-                    "ess_sum_chains": float(sum(ess_values)),
+                    "ess_sum_chains": total_ess,
+                    "mcse_mean": mean_mcse,
                     "iact_max_chain": float(max(iact_values)),
                     "converged": converged,
                 }
@@ -439,6 +444,7 @@ def collect_diagnostics(
                     "acf1_median_chain": item["acf1"],
                     "iact_max_chain": item["iact"],
                     "ess_sum_chains": item["ess"],
+                    "mcse_mean": item["mcse_mean"] if case_converged else np.nan,
                     "split_rhat": item["rhat"],
                 }
             )
@@ -678,6 +684,7 @@ def _manifest(output: Path, lengths: dict[int, int]) -> None:
         if path.is_file() and path.name != "manifest.json"
     ]
     payload = {
+        "repository": repository_provenance(ROOT),
         "created_at": pd.Timestamp.now(tz="Europe/Paris").isoformat(),
         "git_head": subprocess.run(
             ["git", "rev-parse", "HEAD"],

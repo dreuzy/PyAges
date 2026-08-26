@@ -88,7 +88,7 @@ class CalibrationMethod(ABC):
     def write_calibrated_lpm(
         self,
         results,
-        file_prior: str = "none",
+        file_prior: str | None = None,
         folder_prior: str = "",
     ) -> None:
         """Write the standard files for the completed run."""

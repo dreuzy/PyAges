@@ -861,9 +861,9 @@ def _run_table3_chain(
             display_text=False,
             seed=seed,
             initial_params={"mu": 10.0, "shift": 10.0},
+            componentwise_source="model",
         )
     )
-    mh.proposal_step.define_by_value()
     return mh, mh.run(problem)
 
 

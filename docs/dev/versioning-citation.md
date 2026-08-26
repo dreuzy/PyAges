@@ -9,6 +9,14 @@ PyAge currently has two different identifiers that must not be conflated:
   package name** for the future stable release. It is not evidence that
   ``1.0.0`` has been released.
 
+The repository also contains the historical Git tag ``1.0`` at commit
+``de835be`` (17 January 2026), whose tag message identifies it as the state
+*before complete refactoring*. That legacy tag is an ancestor marker, not the
+current package release and not the future reviewed ``v1.0.0`` artifact. Do not
+cite or archive it as the software corresponding to the manuscript. The
+``repository_release_tag_at_inventory`` fields in article manifests record
+that this tag existed when the inventory was made; they do not qualify it.
+
 The article manifests deliberately store ``requested_v1.0_tag: null`` until an
 exact reviewed ``v1.0.0`` tag exists. While that value is null, results must be
 cited by their recorded Git commit and environment, not as software release

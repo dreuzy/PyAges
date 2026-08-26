@@ -23,7 +23,12 @@ published reference artifact.
    python -m pytest -q validation/tracerlpm/benchmark/tests
    python -m pytest -q --cov=pyage --cov-report=term-missing --cov-fail-under=60
    python -m sphinx -W --keep-going -b html docs docs/_build/html
+   python -m sphinx -E -a -W --keep-going -b linkcheck docs docs/_build/linkcheck
    ```
+
+   The link checker may encounter publisher bot protection. Any exclusion must
+   target one verified URL exactly; do not ignore an entire DOI or publisher
+   domain.
 
 5. Run the extensive scientific suite before a public release:
 

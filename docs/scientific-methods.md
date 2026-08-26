@@ -4,7 +4,11 @@ This page is the implementation-level methods reference for PyAge. It states
 the equations and conventions needed to reproduce a scientifically equivalent
 calculation. User inputs are described in the {doc}`user guide
 <user-guide/index>`; the longer qualification records are linked in
-{doc}`reports/index`.
+{doc}`reports/index`. It is the normative source for equations, numerical
+defaults, boundary behavior, and output transformations. The thematic pages on
+the {doc}`scientific overview <scientific-overview>` explain interpretation,
+validation, field cases, and reproducibility without redefining those
+implementation contracts.
 
 ## Forward model and units
 

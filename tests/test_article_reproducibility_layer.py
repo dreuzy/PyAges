@@ -59,6 +59,16 @@ def test_article_manifests_record_reproducibility_contract():
         assert required <= set(manifest)
 
 
+def test_article_manifests_do_not_claim_historical_tag_as_calculation_release():
+    registry = yaml.safe_load((ARTICLE / "cases.yaml").read_text(encoding="utf-8"))
+
+    for case in registry.values():
+        manifest = json.loads((ROOT / case["manifest"]).read_text(encoding="utf-8"))
+        assert manifest["release_tag"] is None
+        assert manifest["requested_v1.0_tag"] is None
+        assert manifest.get("repository_release_tag_at_inventory") == "1.0"
+
+
 def test_postprocess_wrapper_never_calls_sampling_or_extension_entrypoints():
     source = (ARTICLE / "common/postprocess_existing.py").read_text(encoding="utf-8")
     tree = ast.parse(source)

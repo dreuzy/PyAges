@@ -1,7 +1,8 @@
 {
   "case_id": "s4_2_ploemeur",
   "git_commit": "e77691e5c957b2ac650642e89cb9dd3c9d030c57",
-  "release_tag": "1.0",
+  "release_tag": null,
+  "repository_release_tag_at_inventory": "1.0",
   "requested_v1.0_tag": null,
   "calculated_at": "2026-08-22T00:47:24.672585+02:00",
   "environment": {"source": "results/final_article_simulations/ploemeur_shifted_exponential_final/manifest.json#versions"},

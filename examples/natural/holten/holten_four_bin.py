@@ -155,7 +155,6 @@ def _local_4bin_observations(
 def _tritium_input_value(
     raw_history: pd.DataFrame,
     tracer_cfg: dict[str, Any],
-    reference_year: float,
     recharge_year: np.ndarray,
 ) -> np.ndarray:
     recharge_year = np.asarray(recharge_year, dtype=float)
@@ -299,7 +298,6 @@ def build_4bin_endmembers(
             initial = _tritium_input_value(
                 tritium_history,
                 tritium_cfg,
-                reference_year,
                 recharge_years,
             )
             _, daughter = tritium_parent_daughter(

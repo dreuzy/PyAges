@@ -51,12 +51,14 @@ from pyage.lpm.lpm_build import lpm_build
 from scripts.common.mcmc_diagnostics import (
     ess as _ess,
 )
+from scripts.common.mcmc_diagnostics import mcse_mean
 from scripts.common.mcmc_diagnostics import (
     rank_normalize as _rank_normalize,
 )
 from scripts.common.mcmc_diagnostics import (
     split_rhat as _split_rhat,
 )
+from scripts.common.provenance import repository_provenance
 from scripts.common.reporting import markdown_table
 from sites.ploemeur.scripts.prepare_observations import prepare_well
 
@@ -398,7 +400,7 @@ def _run_mh(
     covariance: np.ndarray | None,
     initial: dict[str, float],
 ) -> tuple[pd.DataFrame, float, float]:
-    kwargs: dict[str, Any] = {}
+    kwargs: dict[str, Any] = {"componentwise_source": "model"}
     if covariance is not None:
         kwargs = {
             "proposal_kind": "correlated",
@@ -422,7 +424,6 @@ def _run_mh(
             **kwargs,
         )
     )
-    mh.proposal_step.define_by_value()
     started = time.perf_counter()
     posterior = mh.run(_problem(case, output))
     elapsed = time.perf_counter() - started
@@ -599,6 +600,7 @@ def _diagnostics(
             rhat = _split_rhat(values)
             ess = _ess(_rank_normalize(values))
             flat = values.reshape(-1)
+            mean_mcse = mcse_mean(flat, ess)
             diagnostic_rows.append(
                 {
                     "case": case.key,
@@ -608,6 +610,7 @@ def _diagnostics(
                     "steps_per_chain": steps,
                     "split_rhat": rhat,
                     "ESS": ess,
+                    "mcse_mean": mean_mcse,
                     "converged": bool(rhat < MAX_RHAT and ess >= MIN_ESS),
                 }
             )
@@ -618,6 +621,8 @@ def _diagnostics(
                     "calibration": case.calibration,
                     "parameter": parameter,
                     "mean": float(np.mean(flat)),
+                    "sd": float(np.std(flat, ddof=1)),
+                    "mcse_mean": mean_mcse,
                     "median": float(np.median(flat)),
                     "q025": float(np.quantile(flat, 0.025)),
                     "q10": float(np.quantile(flat, 0.10)),
@@ -1120,6 +1125,7 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
         ROOT / "pyage/lpm/models/exponential_shifted.py",
     ]
     payload = {
+        "repository": repository_provenance(ROOT),
         "created_at": pd.Timestamp.now(tz="Europe/Paris").isoformat(),
         "git_head": subprocess.run(
             ["git", "rev-parse", "HEAD"],

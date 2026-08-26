@@ -81,3 +81,44 @@ def ess(values: np.ndarray) -> float:
         )
     )
     return float(min(chains * count, chains * count / tau))
+
+
+def mcse_mean(values: np.ndarray, effective_sample_size: float) -> float:
+    r"""Estimate Monte Carlo standard error of a posterior mean.
+
+    The reported quantity is
+
+    .. math::
+
+       \operatorname{MCSE}(\bar{x}) = s_x / \sqrt{N_\mathrm{eff}},
+
+    where ``s_x`` is the sample standard deviation of the retained draws and
+    ``effective_sample_size`` is the ESS produced by the campaign's documented
+    autocorrelation diagnostic.  It measures simulation uncertainty, not
+    posterior uncertainty and not observational error; its units therefore
+    match those of ``values``.
+
+    Parameters
+    ----------
+    values
+        Retained draws pooled across chains.
+    effective_sample_size
+        Positive, finite effective sample size for the same estimand.
+
+    Returns
+    -------
+    float
+        Estimated standard error of the Monte Carlo posterior mean.
+
+    Raises
+    ------
+    ValueError
+        If fewer than two finite draws are supplied or ESS is not positive
+        and finite.
+    """
+    draws = np.asarray(values, dtype=float).reshape(-1)
+    if draws.size < 2 or not np.all(np.isfinite(draws)):
+        raise ValueError("values must contain at least two finite retained draws")
+    if not math.isfinite(effective_sample_size) or effective_sample_size <= 0.0:
+        raise ValueError("effective_sample_size must be positive and finite")
+    return float(np.std(draws, ddof=1) / math.sqrt(effective_sample_size))

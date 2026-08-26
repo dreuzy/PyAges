@@ -37,12 +37,19 @@ partial even though the manuscript records the completed paired campaign.
 | `s3_2_shifted_exponential` | Bayesian uncertainty and identifiability | `final` |
 | `s4_1_holten` | Holten four-bin benchmark | `final` |
 | `s4_2_ploemeur` | Ploemeur full-record/window comparison | `final` |
-| `holten_prior_dirichlet1` | Prior-sensitivity experiment | `unvalidated` |
+| `holten_prior_dirichlet1` | Prior-sensitivity experiment completed in a separate workstream but not yet imported or checked here | `unvalidated` |
 
 Results under `results/` are deliberately ignored by Git and may be absent
 from a source checkout. A missing result directory is therefore different from
 a missing manifest. Historical checksum differences after code evolution must
 be reported, not hidden by rewriting an old manifest.
+
+For `holten_prior_dirichlet1`, `check` currently reports missing chains,
+pilots, and historical manifest plus a runner checksum mismatch. Unit tests can
+qualify the Jacobian implementation, but they cannot validate the manuscript's
+reported posterior-sensitivity result. The campaign has reportedly been run
+elsewhere, so the next action is evidence integration and independent review,
+not an automatic duplicate calculation.
 
 The manuscript archive is intended to freeze the complete inputs, machine-
 readable results, figures, tables, environment, and provenance metadata for

@@ -28,5 +28,8 @@ def test_quickstart_writes_a_manifest_and_normalized_observations(
     assert result == output
     assert (output / "concentrations.txt").is_file()
     manifest = json.loads((output / "result_manifest.json").read_text(encoding="utf-8"))
-    assert manifest["schema_version"] == 1
+    assert manifest["schema_version"] == 2
     assert manifest["workflow"] == "single_date"
+    assert manifest["status"] == "complete"
+    assert manifest["configuration"]["path"].endswith("quickstart_single.yaml")
+    assert "concentrations.txt" in manifest["artifacts_sha256"]

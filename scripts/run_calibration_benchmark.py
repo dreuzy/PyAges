@@ -113,9 +113,9 @@ class comparison_MH_fuq:
                 likelihood=True,
                 monitor=True,
                 display_traj=True,
+                componentwise_source="model",
             )
             calib_MH = cMH.MetropolisHastings(config=mh_config)  # JR: 250000
-            calib_MH.proposal_step.define_by_value()
             calstrat[1] = cst.CalibrationSyntheticTest(
                 calib_strategy=calib_MH,
                 ncase=ncase,

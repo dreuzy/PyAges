@@ -1,24 +1,12 @@
-# -*- coding: utf-8 -*-
-"""
-Metropolis-Hastings calibration for LPM models.
-
-Purpose
--------
-Run MCMC calibration with optional priors, likelihood evaluation, and
-trajectory monitoring, then export posterior summaries for analysis.
-
-Author
-------
-Jean-Raynald de Dreuzy
-"""
+"""Metropolis-Hastings calibration for lumped-parameter models."""
 
 from __future__ import annotations
 
-import copy as copy
+import hashlib
 import math
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -32,6 +20,7 @@ from pyage.calibration.methods.trajectory import (
     TrajOptions,
 )
 from pyage.calibration.mh_proposals import GaussianRandomWalk
+from pyage.calibration.outputs import write_key_values
 from pyage.calibration.utils.objective_functions import normalized_residual_norm
 from pyage.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
 
@@ -82,7 +71,7 @@ class MetropolisHastings(CalibrationMethod):
     ``docs/reports/mh_proposal_qualification.md``.
     """
 
-    def __init__(self, config: MHConfig | None = None, **kwargs):
+    def __init__(self, config: MHConfig | None = None):
         """Initialize the sampler from one immutable scientific configuration."""
         super().__init__()
         # Parameters
@@ -92,14 +81,11 @@ class MetropolisHastings(CalibrationMethod):
                 "MetropolisHastings now requires config=MHConfig(...). "
                 "Pass a MHConfig instance instead of individual parameters."
             )
-        if kwargs:
-            raise TypeError(
-                "MetropolisHastings only accepts config=MHConfig(...). "
-                f"Unexpected parameters: {sorted(kwargs.keys())}"
-            )
         self.config = config
-        # MH step = delta * Delta (parameter bounds)
-        self.proposal_step = MHStep()
+        self.proposal_step = MHStep(
+            config.componentwise_source,
+            config.componentwise_fraction,
+        )
         # A priori distributions
         self.prior = Prior(
             option=self.config.prior_option,
@@ -108,15 +94,16 @@ class MetropolisHastings(CalibrationMethod):
         )
         # Results
         self.__success_rate = 0
-        self.__initial_params_used: Dict[str, float] = {}
+        self.__initial_params_used: dict[str, float] = {}
         self.__initialization_source = ""
         self.prior_validation_stats = None
+        self.trajectory: MHTrajectory | None = None
         self.time_perform = 0
         self._proposal: GaussianRandomWalk | None = None
 
     def __draw_proposal(
-        self, p0: List[float], lpm: Any, rng: np.random.Generator
-    ) -> List[float]:
+        self, p0: list[float], lpm: Any, rng: np.random.Generator
+    ) -> list[float]:
         """Draw one unbounded proposal from the configured random walk."""
         if self._proposal is not None:
             return self._proposal.draw(p0, rng).tolist()
@@ -180,19 +167,19 @@ class MetropolisHastings(CalibrationMethod):
 
     def __log_posterior_eval(
         self,
-        params: List[float],
+        params: list[float],
         data_conc: np.ndarray,
         data_error: np.ndarray,
-    ) -> Tuple[float, float, List[float]]:
+    ) -> tuple[float, float, list[float]]:
         r"""Evaluate ``-chi_square/2 + log(prior)`` in log space.
 
         The normalization constants of the independent Gaussian likelihood do
         not depend on LPM parameters and are omitted. Log space prevents
-        underflow. Bounds and the dedicated transformed Ploemeur prior preserve
-        exact zero support; generic prior densities use a ``1e-300`` floor.
+        underflow. Parameter bounds and prior supports preserve exact zero
+        density outside their configured domains.
         """
         log_proba = 0
-        # If parameters are out of bounds, returns immediatly 0
+        # Bounds are part of the target support, not a numerical penalty.
         if self.lpm.param_within_bounds_array(params) is False:
             return -math.inf, math.inf, []
         if self.config.likelihood:
@@ -207,7 +194,7 @@ class MetropolisHastings(CalibrationMethod):
             log_proba = log_proba + self.prior.log_evaluate(self.lpm, params)
         return log_proba, chi_square, conc
 
-    def __prepare_storage(self) -> Tuple[np.ndarray, List[str]]:
+    def __prepare_storage(self) -> tuple[np.ndarray, list[str]]:
         """
         Prepares array for storage of results (optimization of performances)
 
@@ -246,14 +233,14 @@ class MetropolisHastings(CalibrationMethod):
 
     def __mcmc_step(
         self,
-        params: List[float],
+        params: list[float],
         log_p: float,
         chi_square: float,
-        conc: List[float],
+        conc: list[float],
         data_conc: np.ndarray,
         data_error: np.ndarray,
         rng: np.random.Generator,
-    ) -> Tuple[List[float], float, float, List[float], bool]:
+    ) -> tuple[list[float], float, float, list[float], bool]:
         r"""Perform one Metropolis-Hastings transition.
 
         Acceptance compares ``log(u)`` with the proposed-minus-current log
@@ -294,11 +281,7 @@ class MetropolisHastings(CalibrationMethod):
     def __finalize_trajectory(
         self, traj: "MHTrajectory", n: int, traj_options: TrajOptions
     ) -> None:
-        """
-        Purpose
-        -------
-        Post-process trajectory storage (resize + optional plot/check).
-        """
+        """Resize and optionally display the retained trajectory."""
         if not traj_options.monitor:
             return
         traj.resize(n)
@@ -309,21 +292,17 @@ class MetropolisHastings(CalibrationMethod):
 
     def __prepare_mcmc(
         self,
-    ) -> Tuple[
+    ) -> tuple[
         TrajOptions,
         np.random.Generator,
         np.ndarray,
         np.ndarray,
-        Optional["MHTrajectory"],
+        MHTrajectory | None,
         np.ndarray,
-        List[str],
+        list[str],
     ]:
-        """
-        Purpose
-        -------
-        Prepare inputs for the MCMC run.
-        """
-        # Forces monitoring to true for the test of the algorithm on the sole prior
+        """Prepare observations, prior, proposal, RNG, and result storage."""
+        # Prior-only validation requires retained trajectory values.
         traj_monitor = self.config.monitor
         if self.config.likelihood is False and self.prior.option is True:
             traj_monitor = True
@@ -332,13 +311,11 @@ class MetropolisHastings(CalibrationMethod):
             display=self.config.display_traj,
             text=self.config.display_text,
         )
-        # Initialization of random number generator
         rng = np.random.default_rng(self.config.seed)
-        # Concentration values as array: necessary for optimal numerical efficiency
         data_conc = self.observations.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
         data_error = self.observations.cv[ERROR_COLUMN].to_numpy(dtype=float)
-        # Initialization of stepping interval
-        self.proposal_step.prepare(self.lpm)
+        if self.config.proposal_kind == "componentwise":
+            self.proposal_step.prepare(self.lpm)
         self.__prepare_proposal()
         # Trajectory monitoring
         traj = (
@@ -362,17 +339,9 @@ class MetropolisHastings(CalibrationMethod):
 
     def __initialize_state(
         self, data_conc: np.ndarray, data_error: np.ndarray
-    ) -> Tuple[List[float], float, float, List[float]]:
-        """
-        Purpose
-        -------
-        Initialize parameters and compute the initial posterior.
-        """
-        # Initialization of calibration parameters with default parameters of distribution
-        if self.prior.option:
-            self.prior.param_init(self.lpm)
-            self.__initialization_source = "prior_map"
-        elif self.config.initial_params is not None:
+    ) -> tuple[list[float], float, float, list[float]]:
+        """Initialize parameters and evaluate the initial log-posterior."""
+        if self.config.initial_params is not None:
             expected = list(self.lpm.p.keys())
             provided = list(self.config.initial_params.keys())
             missing = [
@@ -398,6 +367,9 @@ class MetropolisHastings(CalibrationMethod):
                 )
             self.lpm.set_param_from_array(params0)
             self.__initialization_source = "config"
+        elif self.prior.option:
+            self.prior.param_init(self.lpm)
+            self.__initialization_source = "prior_map"
         else:
             # The LPM already carries its configured default parameters.
             self.__initialization_source = "lpm_default"
@@ -408,6 +380,11 @@ class MetropolisHastings(CalibrationMethod):
         log_p, chi_square, conc = self.__log_posterior_eval(
             params, data_conc, data_error
         )
+        if not math.isfinite(log_p):
+            raise ValueError(
+                "Initial parameters have zero or non-finite posterior density: "
+                f"{self.__initial_params_used}"
+            )
         return params, log_p, chi_square, conc
 
     def perform(self) -> LPM_dist.LpmDist:
@@ -469,7 +446,7 @@ class MetropolisHastings(CalibrationMethod):
                 i > self.config.burn_in * self.config.nstep
                 and i % self.config.nskip == 0
             ):
-                # Storage : everything relative to params and not params !!! (sources of errors to take params_n)
+                # Persist the current state, including repeats after rejection.
                 array_results[line] = (
                     params
                     + [normalized_residual_norm(chi_square, len(conc))]
@@ -478,8 +455,7 @@ class MetropolisHastings(CalibrationMethod):
                 )
                 line += 1
                 if traj_options.monitor:
-                    traj.update(n, params, -log_p)
-                    traj.inc_one(n)
+                    traj.update(n, params, log_p, accepted=success)
                     n += 1
 
         # --------------- POSTPROCESSING PHASE -------------------
@@ -490,12 +466,15 @@ class MetropolisHastings(CalibrationMethod):
         )
         lpm_results.fill_np_array(array_results, array_col_names)
 
-        # Adds statistical characteritics to the stored distributions
+        # Derive LPM moments for every retained joint sample.
         lpm_results = lpm_results.add_moments()
 
         # Displays Trajectory
         if traj_options.monitor:
             self.__finalize_trajectory(traj, n, traj_options)
+            self.trajectory = traj
+        else:
+            self.trajectory = None
 
         # Checks algorithm with prior distribution and no likelihood
         if self.config.likelihood is False and self.prior.option is True:
@@ -508,54 +487,50 @@ class MetropolisHastings(CalibrationMethod):
 
         return lpm_results
 
-    def __write_kv_file(self, file_name: str | Path, data: Dict[str, Any]) -> None:
-        """
-        Purpose
-        -------
-        Write key/value pairs to a tab-separated file.
-        """
-        with open(file_name, "w") as handle:
-            for key, val in data.items():
-                handle.write(f"{key}\t{val}\n")
-
-    def __parameters_payload(self) -> Dict[str, Any]:
-        """
-        Purpose
-        -------
-        Build the parameter payload for output.
-        """
+    def __parameters_payload(self) -> dict[str, Any]:
+        """Build complete sampler metadata for output."""
         data = {}
         data["method"] = self.method
         data["nstep"] = self.config.nstep
         data["burn-in"] = self.config.burn_in
+        data["nskip"] = self.config.nskip
         data["prior_option"] = self.prior.option
+        data["prior_type"] = self.config.prior_type
+        data["prior_file"] = self.config.prior_file
         data["likelihood_option"] = self.config.likelihood
-        self.proposal_step.add_metadata(data)
+        data["monitor"] = self.config.monitor
+        if self.config.proposal_kind == "componentwise":
+            self.proposal_step.add_metadata(data)
         data["seed"] = self.config.seed
         data["initialization_source"] = self.__initialization_source
         data["proposal_kind"] = self.config.proposal_kind
         data["proposal_multiplier"] = self.config.proposal_multiplier
+        data["proposal_scales"] = self.config.proposal_scales
+        data["proposal_covariance"] = self.config.proposal_covariance
+        for param, distribution in self.prior.MHapriori_dist.items():
+            data[f"prior_distribution_{param}"] = distribution
+            if self.config.prior_type == "parametric":
+                data[f"prior_parameters_{param}"] = self.prior.MHapriori_para[param]
+            elif self.config.prior_file:
+                source = Path(f"{self.config.prior_file}_{param}.txt")
+                if source.is_file():
+                    data[f"prior_sha256_{param}"] = hashlib.sha256(
+                        source.read_bytes()
+                    ).hexdigest()
+                    data[f"prior_grid_points_{param}"] = len(
+                        self.prior.MHapriori_para[param]
+                    )
         for param, value in self.__initial_params_used.items():
             data[f"initial_{param}"] = value
         return data
 
     def write_parameters(self, file_name: str | Path) -> None:
-        """
-        Writes parameters of calibration
-        """
+        """Write complete sampler configuration and resolved prior metadata."""
         data = self.__parameters_payload()
-        self.__write_kv_file(file_name, data)
+        write_key_values(file_name, data)
 
-    def write_results_spec(self, data: Dict[str, Any]) -> None:
-        """
-        Specific contribution of the daughter class to the calibration results
-
-        Argumments
-        ----------
-        data: dictionary
-            results to be stored
-
-        """
+    def write_results_spec(self, data: dict[str, Any]) -> None:
+        """Record the transition-level acceptance fraction."""
         data["success_rate"] = self.__success_rate
 
     @property

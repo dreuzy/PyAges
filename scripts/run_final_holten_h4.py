@@ -42,6 +42,8 @@ from examples.natural.holten.holten_reproduction import (
     optimize_well,
 )
 from pyage.calibration.mh_proposals import regularize_empirical_covariance
+from scripts.common.mcmc_diagnostics import mcse_mean
+from scripts.common.provenance import repository_provenance
 from scripts.run_final_shifted_exponential import (
     _iact_ess,
     _markdown,
@@ -294,6 +296,7 @@ def collect_diagnostics(
         for parameter in parameters:
             chains = [_series(data, parameter) for data in loaded]
             local_chains[parameter] = chains
+            pooled = np.concatenate(chains)
             rhat = _split_rhat(chains)
             ess_values = []
             iact_values = []
@@ -311,6 +314,7 @@ def collect_diagnostics(
                     }
                     for lag, value in enumerate(acf[: MAX_ACF_LAG + 1])
                 )
+            total_ess = float(sum(ess_values))
             local_diagnostics.append(
                 {
                     "well": well,
@@ -320,9 +324,10 @@ def collect_diagnostics(
                     else "physical_fraction",
                     "steps_per_chain": steps,
                     "split_rhat": rhat,
-                    "ess_sum_chains": float(sum(ess_values)),
+                    "ess_sum_chains": total_ess,
+                    "mcse_mean": mcse_mean(pooled, total_ess),
                     "iact_max_chain": float(max(iact_values)),
-                    "converged": bool(rhat < 1.01 and sum(ess_values) >= 300.0),
+                    "converged": bool(rhat < 1.01 and total_ess >= 300.0),
                 }
             )
         well_converged = all(row["converged"] for row in local_diagnostics)
@@ -332,6 +337,16 @@ def collect_diagnostics(
                 _series(data, parameter) for data in loaded
             ]
             values = np.concatenate(chains)
+            diagnostic = next(
+                (row for row in local_diagnostics if row["parameter"] == parameter),
+                None,
+            )
+            if diagnostic is None:
+                objective_ess = float(sum(_iact_ess(chain)[2] for chain in chains))
+                mean_mcse = mcse_mean(values, objective_ess)
+            else:
+                objective_ess = diagnostic["ess_sum_chains"]
+                mean_mcse = diagnostic["mcse_mean"]
             stats = (
                 _summary(values)
                 if well_converged
@@ -363,6 +378,8 @@ def collect_diagnostics(
                     "chains": NCHAINS,
                     "pooled_samples": len(values) if well_converged else 0,
                     "well_converged": well_converged,
+                    "ess_sum_chains": objective_ess,
+                    "mcse_mean": mean_mcse if well_converged else np.nan,
                     **stats,
                 }
             )
@@ -624,6 +641,7 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
         if path.is_file() and path.name != "manifest.json"
     ]
     payload = {
+        "repository": repository_provenance(ROOT),
         "created_at": pd.Timestamp.now(tz="Europe/Paris").isoformat(),
         "git_head": subprocess.run(
             ["git", "rev-parse", "HEAD"],

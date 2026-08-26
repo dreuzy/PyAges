@@ -66,6 +66,11 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Distinguished the released `0.1.0b1` software identity from the manuscript's
   future “PyAge v1.0” target and documented the DOI/archive synchronization
   gate.
+- Upgraded public workflow manifests to schema 2. They are now written only
+  after successful completion and include input, artifact, environment, Git
+  diff, and complete tracked-workspace fingerprints.
+- Made componentwise MH proposal provenance immutable in `MHConfig`; removed
+  the unused sampler-level `lpm_number` field and mutable step selectors.
 
 ### Fixed
 
@@ -75,6 +80,14 @@ Before 1.0, incompatible public changes are identified explicitly below.
   with contextual exceptions.
 - Parametric and empirical priors now return exact zero density outside their
   support instead of flooring it to `1e-300` before log evaluation.
+- Simplex now enforces LPM bounds, rejects unsuccessful optimizer termination,
+  and recomputes parameters, objective, and concentrations at the same optimum
+  before persisting a joint result row.
+- MCMC monitoring now records the correctly signed negative log-posterior and
+  whether each retained transition was accepted. Explicit initial parameters
+  now take precedence over prior-MAP initialization.
+- Generic MH output no longer writes an implicit shared `none.txt` posterior;
+  posterior-to-prior export is an explicit site-workflow operation.
 
 ## 0.1.0b1 - 2026-08-19
 

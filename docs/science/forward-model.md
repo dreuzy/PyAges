@@ -1,20 +1,19 @@
 # Forward Model and Tracer Conventions
 
-This page defines the scientific calculation performed by PyAge. Configuration
-examples and file schemas are documented separately in {doc}`../user-guide/configuration`.
+This page explains the assumptions needed to interpret a PyAge forward
+calculation. The exact finite-window equation, integration formula, adaptive
+tolerances, boundary behavior, and code links are defined once in the
+normative {doc}`../scientific-methods` reference. Configuration examples and
+file schemas are documented in {doc}`../user-guide/configuration`.
 
 ## Lumped-parameter formulation
 
-For a sample collected at location $x$ and time $t$, the modeled tracer value is
-
-```{math}
-C(x,t) = \int_0^\infty C_T(t-\tau,\tau)\,p(x,\tau)\,\mathrm d\tau,
-```
-
-where $\tau$ is transit time, $p(x,\tau)$ is the LPM transit-time density, and
-$C_T(t-\tau,\tau)$ is the response at sampling after recharge at $t-\tau$.
-PyAge assumes a **stationary** transit-time distribution: its parameters do not
-change with sampling date within one calibration.
+For a sample collected at time $t$, PyAge combines the tracer response for
+water recharged at $t-\tau$ with the LPM probability measure of transit time
+$\tau$. PyAge assumes a **stationary** transit-time distribution: its
+parameters do not change with sampling date within one calibration. The
+implemented integral is limited by the available input-history window; it is
+not an abstract infinite-domain integral with automatic tail renormalization.
 
 The generic tracer response combines a recharge value $C_{T0}$, a spatially
 uniform zeroth-order production rate $\alpha$, and a first-order loss rate
@@ -51,43 +50,23 @@ Observations, uncertainties, and tracer input histories must therefore be
 prepared on mutually consistent scales before calibration. In particular,
 the distributed CFC and SF6 histories are atmospheric-equivalent mixing ratios;
 conversion of measured dissolved-gas concentrations belongs to preprocessing.
+Dataset sources, local transformations, attribution, and redistribution limits
+are listed in {doc}`../reference/data-provenance`.
 
-## CDF--partial-first-moment integration
+## Numerical integration and finite histories
 
-For a fixed sampling date, define $K(\tau)=C_T(t-\tau,\tau)$. Continuous LPMs
-are integrated on a grid designed to resolve changes in $K$, not peaks in the
-LPM density. Let $F$ be the LPM cumulative distribution and
+Continuous LPMs are integrated from their CDF and partial first moment on a
+grid that resolves the tracer response rather than narrow features of the LPM
+density. This makes narrow and shifted distributions stable without a
+distribution-specific mesh. Dirac components are evaluated directly, while
+mixed models keep their discrete and normalized continuous components
+separate.
 
-```{math}
-M(u)=E[T\,\mathbf 1_{T\leq u}]
-```
-
-its raw partial first moment. For one interval $[a_i,b_i]$,
-
-```{math}
-w_i = F(b_i)-F(a_i), \qquad m_i=M(b_i)-M(a_i).
-```
-
-If $K$ is approximated linearly with slope
-$s_i=[K(b_i)-K(a_i)]/(b_i-a_i)$, the interval contribution is
-
-```{math}
-C_i = K(a_i)w_i+s_i\left(m_i-a_iw_i\right).
-```
-
-The expression is exact whenever the tracer response is linear within the
-interval, regardless of the width of the LPM density. The tracer grid is
-prepared once per tracer and sampling date and reused during calibration.
-Discrete Dirac components are evaluated directly.
-
-Probability mass older than the available tracer history is not renormalized.
-Consequently, an insufficient input-history window can reduce the modeled
-concentration and must be interpreted through the reported covered-mass and
-truncation diagnostics.
-
-The exact closed-window convention, adaptive-grid tolerances, floating-point
-guards, implementation entry points, and validation tests are cross-referenced
-in {doc}`../scientific-methods`.
+Probability mass older than the available tracer history contributes zero and
+is not renormalized. An insufficient history can therefore reduce the modeled
+value; `window_mass` and convolution diagnostics expose the represented mass.
+The exact interval equation and numerical acceptance criterion are only in
+{doc}`../scientific-methods` to prevent two competing definitions.
 
 ## Interpretation limits
 

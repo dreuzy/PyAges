@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from scripts import build_article_package as package
-from scripts.common.mcmc_diagnostics import ess, split_rhat
+from scripts.common.mcmc_diagnostics import ess, mcse_mean, split_rhat
 from scripts.common.reporting import markdown_table
 
 
@@ -41,6 +41,15 @@ def test_shared_mcmc_diagnostics_distinguish_mixed_and_shifted_chains():
     assert split_rhat(mixed) < 1.01
     assert ess(mixed) > 1000
     assert split_rhat(shifted) > 1.1
+
+
+def test_mcse_mean_uses_ess_and_preserves_constant_limit():
+    values = np.asarray([1.0, 2.0, 3.0, 4.0])
+
+    assert mcse_mean(values, 4.0) == pytest.approx(np.std(values, ddof=1) / 2.0)
+    assert mcse_mean(np.ones(10), 3.0) == 0.0
+    with pytest.raises(ValueError, match="effective_sample_size"):
+        mcse_mean(values, 0.0)
 
 
 def test_markdown_table_rounds_and_escapes_without_tabulate():

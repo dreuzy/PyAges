@@ -45,16 +45,42 @@ expanded merely to increase word counts. The resulting hierarchy is:
    failure behavior needed while reading the implementation;
 2. {doc}`../scientific-methods` is the concise methods reference linking code,
    user configuration, tests, and reports;
-3. change and qualification reports retain derivations, benchmarks, migration
+3. thematic pages under `science/` explain interpretation and study scope
+   without redefining normative equations or numerical defaults;
+4. change and qualification reports retain derivations, benchmarks, migration
    history, and limitations;
-4. article manifests link each reported calculation to commits, inputs,
+5. article manifests link each reported calculation to commits, inputs,
    scripts, environments, seeds, and outputs.
 
 This structure supports scientifically equivalent reproduction without
 turning source files into a duplicate manuscript.
 
+## Verification completed on 26 August 2026
+
+- The manuscript numbering is aligned to revision v14: Table 3 is the
+  PyAge--TracerLPM comparison and Table 4 is the shifted-exponential benchmark.
+  Historical filenames such as `table3_final.*` are retained but labeled.
+- The normative/thematic split was reviewed so equations, adaptive settings,
+  objective transformations, and MH retention rules have one normative source.
+- `pyage check`, `pyage list lpms`, and `pyage list tracers` pass and report 12
+  registered LPMs and 13 distributed tracers.
+- The targeted robustness/reproducibility tests pass (`9 passed`).
+- A clean Sphinx HTML build with `-E -a -W --keep-going` succeeds for all
+  sources, and the external-link build succeeds. One valid AGU DOI that returns
+  HTTP 403 to automated clients is excluded by an exact URL rule; no DOI class
+  or domain-wide exclusion is used.
+- The Holten Dirichlet sensitivity cannot be independently checked from this
+  checkout: its chains, pilots, historical manifest, and canonical Holten
+  outputs are absent, and the recorded runner checksum differs from the current
+  script. The maintainer reports that the work was completed separately; it
+  remains locally `unvalidated` until that evidence is imported and reviewed.
+
 ## Remaining editorial actions before submission
 
+- Import and independently review the completed external Holten Dirichlet
+  sensitivity package, including chains, diagnostics, residual comparisons,
+  environment, seeds, and checksums. Do not rerun it merely because the current
+  checkout lacks the external evidence.
 - Freeze the exact reviewed commit and dependency environment used for every
   final figure and table.
 - Run and archive a tolerance-sensitivity result for any non-default

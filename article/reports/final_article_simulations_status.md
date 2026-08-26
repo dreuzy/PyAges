@@ -32,7 +32,7 @@ Aucun cas n'a nécessité la prolongation ciblée à 20 000 pas. Sur les trois q
 | 18 | 1,00169 | 3 799,11 |
 | 19 | 1,00083 | 4 784,05 |
 
-La Table 3 finale, ses concentrations synthétiques sans bruit, les résumés complets et les diagnostics sont dans `results/final_article_simulations/shifted_exponential`. La Figure 2 finale utilise bien `x=mu`, `y=t0`, la cible `(10,30)`, les quatre traceurs à 8 %, les échantillons du cas convergé et une grille recalculée en `sqrt(J_data/4)`; elle ne lit aucun ancien fichier `0.5 ln(J)`.
+La Table 4 finale, ses concentrations synthétiques sans bruit, les résumés complets et les diagnostics sont dans `results/final_article_simulations/shifted_exponential`. Les noms historiques `table3_final.*` sont conservés comme chemins d’artefacts et ne définissent plus la numérotation du manuscrit. La Figure 2 finale utilise bien `x=mu`, `y=t0`, la cible `(10,30)`, les quatre traceurs à 8 %, les échantillons du cas convergé et une grille recalculée en `sqrt(J_data/4)`; elle ne lit aucun ancien fichier `0.5 ln(J)`.
 
 Comparaison à l'ancienne production mono-chaîne : sur les 57 couples cas/paramètre, la médiane de `|delta median|` vaut 0,188 an et celle de `|delta SD|` 0,164 an. Les différences maximales concernent les posteriors de bord les plus asymétriques : `|delta median| = 2,613` ans (cas 5, `mu`), `|delta mean| = 2,741` ans (cas 10, `mu`) et `|delta q90| = 6,689` ans (cas 10, `mu`). Le CSV old/new conserve toutes les différences de mean, median, SD et quantiles.
 
@@ -91,7 +91,7 @@ puis **22 tests Ploemeur ciblés passés**, sans échec ni erreur. Aucun golden 
 
 | article_component | simulation_status | final_artifact | manuscript_ready |
 | --- | --- | --- | --- |
-| Table 3 | 19/19 convergés, aucune extension | `results/final_article_simulations/shifted_exponential/table3_final.csv` et `.md` | **oui** |
+| Table 4 | 19/19 convergés, aucune extension | `results/final_article_simulations/shifted_exponential/table3_final.csv` et `.md` (noms historiques) | **oui** |
 | Figure 2 | régénérée depuis les chaînes finales et `sqrt(J_data/4)` | `figure2_shifted_exponential_final.{png,pdf,tiff}` | **oui** |
 | Holten Figure 3 | 7/7 convergés, Visser vs H4 uniquement | `figure3_holten_h4_final.{png,pdf}` | **oui** |
 | Ploemeur Figure 4 | 4/4 calibrations convergées, non-régression satisfaite | `figure4_ploemeur_shiftedexp_final.{png,pdf}` | **oui** |
@@ -105,7 +105,7 @@ insérés.
 ## Paquet article encapsulé
 
 Le point d'entrée éditorial unique est `results/article_package/README.md`.
-Le paquet regroupe Table 3, Figures 2–4, rapports, diagnostics, données tracées,
+Le paquet regroupe Table 4, Figures 2–4, rapports, diagnostics, données tracées,
 environnement et sources exactes d'exécution. Ses 67 artefacts sont référencés
 par `provenance/article_package_manifest.json` et vérifiables avec
 `CHECKSUMS.sha256`. Les chaînes MCMC brutes restent dans leurs répertoires de

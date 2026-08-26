@@ -90,7 +90,7 @@ def write_calibrated_result(
     problem: CalibrationProblem,
     results: LpmDist,
     *,
-    prior_file: str = "none",
+    prior_file: str | None = None,
     prior_folder: str = "",
 ) -> None:
     """Write the standard result files for one calibration method."""
@@ -102,7 +102,7 @@ def write_calibrated_result(
         write_distribution(results, base_directory / "lpm_dist_calibrated.txt")
         write_histograms(results, base_directory / "lpm_histo_calibrated.txt")
         write_statistics(results, base_directory / "lpm_stats_calibrated.txt")
-    if method.method == "Metropolis_Hastings":
+    if method.method == "Metropolis_Hastings" and prior_file is not None:
         destination = posterior_directory(
             problem.display_options.directory,
             parent_levels=5,

@@ -36,6 +36,16 @@ so that they remain non-negative and sum to one. This article-specific helper
 is distinct from the generic finite-bin `shapefree_n_oldbin` LPM. The maintained
 example layout is described in {doc}`../examples/holten/README`.
 
+The manuscript discusses a sensitivity experiment using a
+Dirichlet(1,1,1,1) prior. The maintainer reports that this campaign has been
+completed in a separate workstream. Its evidence has not yet been imported
+into this checkout: the registry therefore still says `unvalidated`, the
+historical chains and outputs are absent locally, and the recorded runner
+checksum differs from the current script. No duplicate rerun is required if
+the external campaign is complete; the remaining step is to import its
+immutable manifest, outputs, diagnostics, and checksums and then review the
+manuscript conclusion against that evidence.
+
 ## Ploemeur
 
 The Ploemeur demonstration uses CFC-11, CFC-12, and CFC-113 records from wells

@@ -235,7 +235,6 @@ def _holten_long_comparison(h3: pd.DataFrame, h4: pd.DataFrame) -> pd.DataFrame:
 
 def _representative_diagnostics(
     samples: pd.DataFrame,
-    endmembers: pd.DataFrame,
     configuration: str,
     tracer_order: tuple[str, ...],
 ) -> pd.DataFrame:
@@ -363,9 +362,7 @@ def run_holten(output: Path) -> dict[str, Path]:
         comparison = compare_paper_vs_mh_4bin(paper, posterior)
         write_4bin_mh_outputs(paper, samples, posterior, comparison, directory)
         comparisons[label] = comparison
-        diagnostics.append(
-            _representative_diagnostics(samples, endmembers, label, order)
-        )
+        diagnostics.append(_representative_diagnostics(samples, label, order))
         products[f"{label.lower()}_samples"] = directory / "holten_4bin_mh_samples.csv"
 
     long_comparison = _holten_long_comparison(comparisons["H3"], comparisons["H4"])

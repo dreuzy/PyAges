@@ -178,7 +178,7 @@ def _prepare_display(
     return display
 
 
-def _build_mh_config(cal_cfg: TemporalCalibrationCfg, lpm_number: int) -> cMH.MHConfig:
+def _build_mh_config(cal_cfg: TemporalCalibrationCfg) -> cMH.MHConfig:
     """
     Build a Metropolis-Hastings configuration from YAML settings.
 
@@ -186,9 +186,6 @@ def _build_mh_config(cal_cfg: TemporalCalibrationCfg, lpm_number: int) -> cMH.MH
     ----------
     cal_cfg : dict
         YAML calibration section.
-    lpm_number : int
-        Number of samples to keep for output distributions.
-
     Returns
     -------
     MHConfig
@@ -210,7 +207,7 @@ def _build_mh_config(cal_cfg: TemporalCalibrationCfg, lpm_number: int) -> cMH.MH
         monitor=False,
         display_traj=False,
         display_text=False,
-        lpm_number=lpm_number,
+        componentwise_source="model",
         **mh_kwargs,
     )
 
@@ -268,9 +265,8 @@ def _run_calibration(
     ).prepare()
 
     # Metropolis-Hastings setup and execution.
-    mh_config = _build_mh_config(cal_cfg, lpm_number)
+    mh_config = _build_mh_config(cal_cfg)
     calstrat = cMH.MetropolisHastings(config=mh_config)
-    calstrat.proposal_step.define_by_value()
     lpm_results = calstrat.run(problem)
     # Persist calibrated distributions/statistics.
     calstrat.write_calibrated_lpm(lpm_results)
@@ -412,16 +408,6 @@ def _prepare_context(params_path: str | Path) -> TemporalContext:
         ),
         params.workflow.mode,
     )
-    write_result_manifest(
-        output_directory,
-        workflow="temporal",
-        config_name=config_path.name,
-        details={
-            "dataset": dataset_path.name,
-            "mode": params.workflow.mode,
-            "lpms": models,
-        },
-    )
     return TemporalContext(
         config_path=config_path,
         configuration_directory=configuration_directory,
@@ -505,6 +491,21 @@ def run_temporal(params_path: Path) -> Path:
         context.lpm_directory,
         context.params.calibration,
         context.params.figures,
+    )
+    write_result_manifest(
+        context.output_directory,
+        workflow="temporal",
+        config_path=context.config_path,
+        input_paths=[context.dataset_path],
+        details={
+            "dataset": context.dataset_path.name,
+            "mode": context.mode,
+            "lpms": context.models,
+            "case_directories": [
+                path.relative_to(context.output_directory).as_posix()
+                for path in written_case_dirs
+            ],
+        },
     )
 
     if len(written_case_dirs) == 1:
