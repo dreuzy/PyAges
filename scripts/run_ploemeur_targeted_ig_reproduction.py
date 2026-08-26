@@ -77,7 +77,7 @@ PRODUCTION_WARMUP = int(os.environ.get("PYAGE_PLOEMEUR_IG_WARMUP_STEPS", "2000")
 AUTO_EXTENSION_STEPS = int(
     os.environ.get("PYAGE_PLOEMEUR_IG_AUTO_EXTENSION_STEPS", "12000")
 )
-MAX_AUTO_EXTENSIONS = int(os.environ.get("PYAGE_PLOEMEUR_IG_MAX_AUTO_EXTENSIONS", "3"))
+MAX_AUTO_EXTENSIONS = int(os.environ.get("PYAGE_PLOEMEUR_IG_MAX_AUTO_EXTENSIONS", "6"))
 MAX_FULL_SERIES_RETAINED_DRAWS = (
     PRODUCTION_STEPS
     - PRODUCTION_WARMUP
@@ -972,6 +972,8 @@ def _validate_run_lengths() -> None:
         raise ValueError("Pilot/warm-up lengths are invalid")
     if PRODUCTION_STEPS - PRODUCTION_WARMUP < 1000:
         raise ValueError("At least 1000 retained production draws are required")
+    if AUTO_EXTENSION_STEPS < 1000 or MAX_AUTO_EXTENSIONS < 1:
+        raise ValueError("Automatic extension controls are invalid")
 
 
 def _run_selected_stage(
