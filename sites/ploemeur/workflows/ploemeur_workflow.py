@@ -29,6 +29,7 @@ from pyage.config.paths import (
     result_subdirectory,
 )
 from pyage.config.runtime import DisplayOptions
+from pyage.lpm.distribution_plotting import display_parameter_priors
 from pyage.observations.loader import (
     build_observation_path,
     load_observation_concentrations,
@@ -293,7 +294,6 @@ class SimulationStrategy:
             prior=prior,
             likelihood=likelihood,
             prior_folder=prior_folder,
-            file_root=file_root,
             run_index=run_index,
             run_total=run_total,
         )
@@ -320,7 +320,6 @@ class SimulationStrategy:
         prior: bool,
         likelihood: bool,
         prior_folder: str,
-        file_root: str,
         run_index: int,
         run_total: int,
     ) -> None:
@@ -487,8 +486,7 @@ def _periods_years(well, dates, time_span_and_prior_mode, breakups=()):
         time_span_and_prior_mode == "span_full"
         or time_span_and_prior_mode == "span_with_prior"
     ):
-        # start: [2005,2005,2012]
-        # end:   [2020,2012,2020]
+        # One full span, optionally supplemented by spans split at break years.
         if time_span_and_prior_mode == "span_full":
             start.append(sampling_years[0])
             end.append(sampling_years[-1])
@@ -505,13 +503,11 @@ def _periods_years(well, dates, time_span_and_prior_mode, breakups=()):
                 time_span_and_prior_mode == "successive"
                 or time_span_and_prior_mode == "successive_with_prior"
             ):
-                # start: [2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005]
-                # end:   [2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
+                # Adjacent pairs of sampling years.
                 start.append(sampling_years[i])
                 end.append(sampling_years[i + 1])
             elif time_span_and_prior_mode == "cumulative":
-                # start: [2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005, 2005]
-                # end:   [2006, 2007, 2010, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
+                # Every interval starts at the first sampling year.
                 start.append(sampling_years[0])
                 end.append(sampling_years[i + 1])
             else:
@@ -549,7 +545,7 @@ def _observation_files(well, dates, time_span_and_prior_mode, breakups=()):
     start, end = _periods_years(well, dates, time_span_and_prior_mode, breakups)[0:2]
     return [
         _write_observation_selection(well, dates, first_year, last_year)
-        for first_year, last_year in zip(start, end)
+        for first_year, last_year in zip(start, end, strict=False)
     ]
 
 
@@ -592,7 +588,7 @@ def _build_prior_correspondence(well, dates, time_span_and_prior_mode, breakups=
         )
     files_prior = _observation_files(well, dates, "span_full", breakups)
     correspondence = {}
-    for filename, start, _ in zip(files_suc, start_suc, end_suc):
+    for filename, start, _ in zip(files_suc, start_suc, end_suc, strict=False):
         if time_span_and_prior_mode == "span_with_prior":
             temp = files_prior[0]
         elif time_span_and_prior_mode == "successive_with_prior":
@@ -679,17 +675,17 @@ class PloemeurSingleRun:
             nstep=mh_nsteps,
             prior_option=prior,
             likelihood=likelihood,
-            lpm_number=lpm_number,
             monitor=True,
             display_traj=True,
             prior_type="empirical",
             prior_file=prior_file,
             initial_params=initial_params,
+            componentwise_source="model",
             **mh_kwargs,
         )
         self.calibration_strategy = cMH.MetropolisHastings(config=mh_config)
-        self.calibration_strategy.MH_step.define_by_value()
         self.nmodels = explo_res
+        self.lpm_number = lpm_number
 
         self.display = DisplayOptions()
         self.display.text = False
@@ -750,11 +746,11 @@ class PloemeurSingleRun:
             lpm_results,
             strategy.method,
             self.display,
-            time_span_mode=self.time_span_and_prior_mode,
-            lpm_number=strategy.config.lpm_number,
+            lpm_number=self.lpm_number,
         )
         if strategy.prior.option:
-            lpm_results.display_parameters_dist_comp_apriori(
+            display_parameter_priors(
+                lpm_results,
                 directory=display_options_case.directory,
                 prior=strategy.prior,
             )

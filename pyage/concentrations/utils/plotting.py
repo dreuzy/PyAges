@@ -102,7 +102,6 @@ def plot_concentration_chronicles(
 
 
 def plot_concentration_chronicles_summary(
-    fig,
     axs,
     craw,
     tracers,
@@ -115,8 +114,6 @@ def plot_concentration_chronicles_summary(
 
     Parameters
     ----------
-    fig : matplotlib figure
-        Target figure.
     axs : array-like of matplotlib axes
         Axes grid to draw into.
     craw : Concentrations

@@ -64,7 +64,7 @@ CONFIGURATIONS = (
     {
         "name": "historical_1p5",
         "strategy": "historical",
-        "kind": "legacy_diagonal",
+        "kind": "componentwise",
         "scale": "(1.5,1.5)",
     },
     {
@@ -172,7 +172,6 @@ def _observations(mu: float, t0: float):
 
 
 def _run_chain(
-    case_name: str,
     mu: float,
     t0: float,
     seed: int,
@@ -196,6 +195,8 @@ def _run_chain(
     }
     if "scales" in configuration:
         kwargs["proposal_scales"] = tuple(configuration["scales"])
+    if configuration["kind"] == "componentwise":
+        kwargs["componentwise_source"] = "model"
     if covariance is not None:
         kwargs["proposal_covariance"] = tuple(
             tuple(float(v) for v in row) for row in covariance
@@ -215,7 +216,6 @@ def _run_chain(
             **kwargs,
         )
     )
-    mh.MH_step.define_by_value()
     start = time.perf_counter()
     posterior = mh.run(problem)
     elapsed = time.perf_counter() - start
@@ -348,7 +348,7 @@ def run_pilots(output: Path) -> dict[str, np.ndarray]:
             covariances[case_name] = np.load(covariance_path)
             continue
         mh, frame, elapsed = _run_chain(
-            case_name, mu, t0, PILOT_SEED, PILOT_STEPS, historical, None, pilot_dir
+            mu, t0, PILOT_SEED, PILOT_STEPS, historical, None, pilot_dir
         )
         samples = frame[["mu", "t0"]].to_numpy(float)
         covariance = regularize_empirical_covariance(samples, RIDGE)
@@ -378,7 +378,7 @@ def _run_job(job: tuple[Any, ...]) -> str:
     if chain_path.exists():
         return str(chain_path)
     mh, frame, elapsed = _run_chain(
-        case_name, mu, t0, seed, steps, configuration, covariance, output
+        mu, t0, seed, steps, configuration, covariance, output
     )
     np.savez_compressed(
         chain_path,
@@ -763,7 +763,7 @@ def analyze(output: Path, steps: int = PRODUCTION_STEPS) -> dict[str, Path]:
     pooled_comparison.to_csv(paths["pooled_comparison"], index=False)
     published_comparison.to_csv(paths["published_comparison"], index=False)
     make_figure2_diagnostics(output, best_name, chain_cache, acfs, summaries, runs)
-    write_report(output, best_name, ranking, variability, summaries, runs, comparisons)
+    write_report(output, best_name, ranking, runs, comparisons)
     manifest_sources = (
         ROOT / "scripts" / "qualify_mh_proposals.py",
         ROOT / "pyage" / "calibration" / "mh_proposals.py",
@@ -838,7 +838,7 @@ def make_figure2_diagnostics(
     plt.close(figure)
 
     figure, axes = plt.subplots(1, 2, figsize=(11, 5), constrained_layout=True)
-    for axis, configuration in zip(axes, configurations):
+    for axis, configuration in zip(axes, configurations, strict=True):
         for seed in SEEDS:
             chain = chains[("figure2", configuration, seed)]
             axis.scatter(chain["mu"][::8], chain["t0"][::8], s=2, alpha=0.18)
@@ -895,8 +895,6 @@ def write_report(
     output: Path,
     best_name: str,
     ranking: pd.DataFrame,
-    variability: pd.DataFrame,
-    summaries: pd.DataFrame,
     runs: pd.DataFrame,
     comparisons: pd.DataFrame,
 ) -> Path:
@@ -1104,7 +1102,8 @@ Ces écarts doivent être interprétés conjointement avec l'ESS, Rhat et la var
 
 Résultat : **{test_result}**. Les tests ciblés couvrent symétrie/covariance, transformation aller-retour, Jacobien, reproductibilité, régularisation, rejet aux bounds et invariance de la cible. Aucun test ni golden Ploemeur n'est inclus dans la commande de validation.
 """
-    path = ROOT / "mh_proposal_qualification.md"
+    path = ROOT / "docs" / "reports" / "mh_proposal_qualification.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(report, encoding="utf-8", newline="\n")
     return path
 

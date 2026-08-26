@@ -16,7 +16,7 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 
-from pyage.config.runtime import arange_n
+from pyage.config.runtime import subdivide_interval
 
 
 def sample_lpms_from_dist(
@@ -52,7 +52,7 @@ def sample_lpms_from_dist(
         Summary statistics for sampled LPMs.
     """
     rng = rng or np.random.default_rng(12345)
-    pdf_t = arange_n(0, 70, array_resolution - 1)
+    pdf_t = subdivide_interval(0, 70, array_resolution - 1)
     pdf_array = np.empty((lpm_number + 1, array_resolution))
     pdf_array[0, :] = pdf_t
     colnames = ["t"]
@@ -63,16 +63,14 @@ def sample_lpms_from_dist(
     lpm_list: List[object] = []
 
     for i in range(1, lpm_number + 1):
-        test, line = lpm_template.load_lpm_from_dist(
-            dist, option="random_line", rng=rng
-        )
-        if not test:
+        lines = lpm_template.load_sample(dist, selection="random_line", rng=rng)
+        if lines is None:
             colnames.append("p")
             continue
 
         lpm_list.append(copy.deepcopy(lpm_template))
         pdf_array[i, :] = lpm_template.pdf(pdf_t)
-        colnames.append(f"p{line}")
+        colnames.append(f"p{lines}")
         lpm_statistics.iloc[i - 1] = lpm_template.moments()
 
     pdf = pd.DataFrame(pdf_array.T, columns=colnames)

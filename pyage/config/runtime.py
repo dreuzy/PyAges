@@ -74,9 +74,13 @@ class DisplayOptions:
             plt.close("all")
 
 
-def arange_n(pmin, pmax, n):
-    """Regular sampling between pmin and pmax with n elements (including endpoints)."""
-    return pmin + (pmax - pmin) * np.arange(0, n + 1) / n
+def subdivide_interval(lower, upper, subdivision_count):
+    """Return both endpoints and every regular subdivision boundary."""
+    if subdivision_count <= 0:
+        raise ValueError("subdivision_count must be positive")
+    return (
+        lower + (upper - lower) * np.arange(subdivision_count + 1) / subdivision_count
+    )
 
 
 class SimulationTimer:
@@ -120,4 +124,4 @@ class SimulationTimer:
         print(line, end=end_char, flush=True)
 
 
-__all__ = ["DisplayOptions", "SimulationTimer", "arange_n"]
+__all__ = ["DisplayOptions", "SimulationTimer", "subdivide_interval"]

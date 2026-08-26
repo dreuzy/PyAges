@@ -1,0 +1,36 @@
+{
+  "case_id": "s3_forward_verification",
+  "git_commit": "20d02ed28699424e7263f06c220f98c895f29eff",
+  "release_tag": null,
+  "repository_release_tag_at_inventory": "1.0",
+  "requested_v1.0_tag": null,
+  "calculated_at": "2026-08-19T21:13:55.121467+02:00",
+  "environment": {"source": "results/article_non_ploemeur_final/run_manifest.yaml#environment"},
+  "seeds": {"source": "validation/tracerlpm/benchmark/configs/campaign.yaml"},
+  "parameters": {"source": "validation/tracerlpm/benchmark/configs/campaign.yaml"},
+  "historical_manifest": "results/article_non_ploemeur_final/run_manifest.yaml",
+  "inputs": [
+    {"path": "validation/tracerlpm/benchmark/inputs/synthetic/constant.csv", "sha256": "36d557389a15ae4be6ae30ac88c34a82e67c70859d398d35790d9286cffd6b66"},
+    {"path": "validation/tracerlpm/benchmark/inputs/synthetic/ramp.csv", "sha256": "50954d5a31baF9663b370dccecd96bb7c8395697ed4d1e3894188b71874b8894"},
+    {"path": "validation/tracerlpm/benchmark/inputs/synthetic/step.csv", "sha256": "a3a19d4905cf578d570de25426e11ba97e312ba8d13539bcc147211d553c541d"},
+    {"path": "validation/tracerlpm/benchmark/inputs/synthetic/rectangular_pulse.csv", "sha256": "4404a2e49e1d42e0115f30d276050237f092114eb97ff108c45eebbdecbe7cc2"},
+    {"path": "validation/tracerlpm/benchmark/inputs/synthetic/multi_peak.csv", "sha256": "84dcf2eed3ea98deb1df7bc052f82dc1dcb787c2692053125e8cb77879e5d993"},
+    {"path": "validation/tracerlpm/benchmark/references/forward_reference.csv", "sha256": "8de69f2dbe70b475788c015bf908da559b129dd5a5c31ce97adb56222522999a"}
+  ],
+  "scripts": [
+    {"path": "validation/tracerlpm/benchmark/scripts/compare_pyage.py", "sha256": "60cad534b279bca20b2be045f8bed9a676720f01ed252ea75f0f474484a5f9ea"}
+  ],
+  "canonical_outputs": ["results/article_non_ploemeur_final/supplement_s1/supplement_s1.md"],
+  "large_outputs": [],
+  "required_paths": ["validation/tracerlpm/benchmark/inputs/manifest.yaml", "validation/tracerlpm/benchmark/references/manifest.yaml"],
+  "resources": [
+    {"path": "validation/tracerlpm/benchmark/configs/campaign.yaml", "sha256": "ab179f0c108bf806838ee2b2ee9a22b5fbaf5a65e6a76d5c84eeff42f2716c38"},
+    {"path": "validation/tracerlpm/benchmark/inputs/synthetic/constant.csv", "sha256": "36d557389a15ae4be6ae30ac88c34a82e67c70859d398d35790d9286cffd6b66"},
+    {"path": "validation/tracerlpm/benchmark/inputs/synthetic/ramp.csv", "sha256": "50954d5a31baF9663b370dccecd96bb7c8395697ed4d1e3894188b71874b8894"},
+    {"path": "validation/tracerlpm/benchmark/inputs/synthetic/step.csv", "sha256": "a3a19d4905cf578d570de25426e11ba97e312ba8d13539bcc147211d553c541d"},
+    {"path": "validation/tracerlpm/benchmark/inputs/synthetic/rectangular_pulse.csv", "sha256": "4404a2e49e1d42e0115f30d276050237f092114eb97ff108c45eebbdecbe7cc2"},
+    {"path": "validation/tracerlpm/benchmark/inputs/synthetic/multi_peak.csv", "sha256": "84dcf2eed3ea98deb1df7bc052f82dc1dcb787c2692053125e8cb77879e5d993"},
+    {"path": "validation/tracerlpm/benchmark/references/forward_reference.csv", "sha256": "8de69f2dbe70b475788c015bf908da559b129dd5a5c31ce97adb56222522999a"},
+    {"path": "results/article_non_ploemeur_final/supplement_s1/supplement_s1.md", "sha256": "4a0d00b390ef1d0524bec61a0e6259af020242b9dc0014367abb80c8fe1fd23b"}
+  ]
+}

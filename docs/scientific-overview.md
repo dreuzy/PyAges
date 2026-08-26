@@ -5,6 +5,12 @@ tracer observations. It combines tracer recharge histories with lumped
 parameter models (LPMs), predicts concentrations by convolution, and calibrates
 model parameters against measurements.
 
+This overview summarizes the workflow. The pages below define the scientific
+contract in enough detail to interpret and audit a calculation. They are
+aligned with revision v14 of the PyAge v1.0 manuscript and checked against the
+current implementation; manuscript-specific numerical results remain clearly
+identified as validation records rather than general software guarantees.
+
 ## Forward model
 
 For an observation date $t$, the modeled concentration is conceptually
@@ -52,6 +58,11 @@ Results are sample tables (`LpmDist`) from which summary statistics, selected
 LPMs, diagnostics, and figures are derived. Randomized qualification paths use
 fixed generators or recorded seeds.
 
+The exact equations, units, finite-window convention, objective transformations,
+and Metropolis-Hastings acceptance rule are specified in
+{doc}`scientific-methods`. That page is normative when a short API description
+or a legacy output label is ambiguous.
+
 ## Scientific assurance
 
 The test suite combines:
@@ -64,5 +75,19 @@ The test suite combines:
 
 Scientific changes that can alter numerical results require an explicit
 migration note and reviewed golden-reference updates. See
-{doc}`architecture` for code ownership and {doc}`pyage-scientific-audit` for
-the detailed audit record.
+{doc}`architecture` for code ownership, {doc}`science/validation` for the
+current assurance strategy, and {doc}`reports/scientific_documentation_audit`
+for the GMD documentation audit.
+
+## Scientific reference
+
+```{toctree}
+:maxdepth: 1
+
+science/forward-model
+science/lpm-reference
+science/inference
+science/validation
+science/case-studies
+science/reproducibility
+```

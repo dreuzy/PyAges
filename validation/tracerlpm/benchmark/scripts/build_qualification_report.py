@@ -74,18 +74,19 @@ def _aggregate(rows: list[dict], keys: tuple[str, ...]) -> list[dict]:
         groups[tuple(row[key] for key in keys)].append(row)
     output = []
     for group_key, selected in sorted(groups.items()):
-        base = dict(zip(keys, group_key))
+        base = dict(zip(keys, group_key, strict=False))
         for tool in ("pyage", "tracerlpm"):
             tau_errors = [row[f"{tool}_tau"] - row["true_tau"] for row in selected]
             tau_relative = [
-                abs(error) / row["true_tau"] for error, row in zip(tau_errors, selected)
+                abs(error) / row["true_tau"]
+                for error, row in zip(tau_errors, selected, strict=False)
             ]
             secondary_errors = [
                 row[f"{tool}_secondary"] - row["true_secondary"] for row in selected
             ]
             secondary_relative = [
                 abs(error) / row["true_secondary"]
-                for error, row in zip(secondary_errors, selected)
+                for error, row in zip(secondary_errors, selected, strict=False)
             ]
             output.append(
                 {
@@ -278,7 +279,7 @@ def _make_figure(model_noise: list[dict], head_to_head: dict, target: Path) -> N
         ),
         ("boundary_hits", "Solutions sur une borne (%)"),
     ]
-    for axis, (field, title) in zip(axes.flat[:3], fields):
+    for axis, (field, title) in zip(axes.flat[:3], fields, strict=False):
         for model in ("EPM", "DM"):
             for tool in ("pyage", "tracerlpm"):
                 selected = sorted(

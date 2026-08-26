@@ -1,0 +1,18 @@
+{
+  "case_id": "s4_1_holten",
+  "git_commit": "e77691e5c957b2ac650642e89cb9dd3c9d030c57",
+  "release_tag": null,
+  "repository_release_tag_at_inventory": "1.0",
+  "requested_v1.0_tag": null,
+  "calculated_at": "2026-08-20T23:27:13.712404+02:00",
+  "environment": {"source": "results/final_article_simulations/holten_h4_final/manifest.json#versions"},
+  "seeds": {"rule": "pilot=510000+one_based_well; production=520000+100*one_based_well+zero_based_chain"},
+  "parameters": {"source": "results/final_article_simulations/holten_h4_final/manifest.json#protocol"},
+  "historical_manifest": "results/final_article_simulations/holten_h4_final/manifest.json",
+  "inputs": [{"path": "examples/natural/holten/doc/sampling_data.txt", "sha256": "5b078f39f674c43d0a7ffc165f2d15d688fe4b368ea01487091abf31ae63565d"}],
+  "scripts": [{"path": "scripts/run_final_holten_h4.py", "sha256": "7d0ef2336c8541fcea99ff2ff4e61acbf066ed54b4a3ae4bb1a32992c6c6eaaf"}],
+  "canonical_outputs": ["results/final_article_simulations/holten_h4_final/figure3_holten_h4_final.pdf", "results/final_article_simulations/holten_h4_final/posterior_summaries.csv", "results/final_article_simulations/holten_h4_final/visser_vs_pyage_h4.csv"],
+  "large_outputs": ["results/final_article_simulations/holten_h4_final/chains/", "results/final_article_simulations/holten_h4_final/pilots/"],
+  "required_paths": ["results/final_article_simulations/holten_h4_final/chains/", "results/final_article_simulations/holten_h4_final/pilots/"],
+  "resources": []
+}

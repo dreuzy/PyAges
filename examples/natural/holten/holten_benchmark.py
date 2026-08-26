@@ -217,7 +217,7 @@ def _plot_value_range_position(
     )
 
     y_positions = np.linspace(-0.14, 0.14, max(len(observed), 1))
-    for y_pos, (_, row) in zip(y_positions, observed.iterrows()):
+    for y_pos, (_, row) in zip(y_positions, observed.iterrows(), strict=False):
         ax.scatter(
             [float(row["concentration"])],
             [y_pos],
@@ -475,7 +475,7 @@ def build_pre_model_figures(
             fig, axes = plt.subplots(len(frame), 1, figsize=(9, 8), sharex=False)
             if len(frame) == 1:
                 axes = [axes]
-            for ax, (_, row) in zip(axes, frame.iterrows()):
+            for ax, (_, row) in zip(axes, frame.iterrows(), strict=False):
                 tracer_name = row["element"]
                 raw_history = prepared.tracer_histories[tracer_name]
                 display_history = build_reference_curve(
@@ -705,7 +705,7 @@ def build_reference_comparison_figures(
         axes = [axes]
     x_positions = np.arange(len(REFERENCE_MODEL_COLUMNS))
     labels = [label for _, label in REFERENCE_MODEL_COLUMNS]
-    for ax, (_, row) in zip(axes, reference.iterrows()):
+    for ax, (_, row) in zip(axes, reference.iterrows(), strict=False):
         values = [float(row[column]) for column, _ in REFERENCE_MODEL_COLUMNS]
         ax.bar(x_positions, values, color="#5a7aa6")
         ax.set_xticks(x_positions, labels, rotation=45, ha="right")

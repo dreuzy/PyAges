@@ -1,7 +1,14 @@
 # Faisabilité d’un lanceur TracerLPM autonome sous Visual Studio
 
-> Étude de conception uniquement. Aucun projet Visual Studio, code COM ou
-> classeur automatisé n’est créé à ce stade.
+> **Statut : étude de conception archivée.** La preuve de concept décrite ici a
+> depuis été réalisée. Le guide opérationnel actuel est
+> `validation/tracerlpm/README.md`; ce document conserve le raisonnement et les
+> contraintes étudiés avant l’implémentation.
+
+> La première partie restitue l’étude de conception menée avant la preuve de
+> concept : à ce stade historique, aucun projet Visual Studio, code COM ou
+> classeur automatisé n’avait encore été créé. La section 13 consigne le
+> résultat obtenu ensuite.
 
 ## 1. Objectif et indépendance
 

@@ -28,7 +28,6 @@ def test_calibration_mh_prior_validation_tolerances(tmp_path: Path, lpm_type: st
         monitor=False,
         display_traj=False,
         display_text=False,
-        lpm_number=3,
     )
     calib_mh = MetropolisHastings(config=mh_config)
 

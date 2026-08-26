@@ -52,6 +52,22 @@ You can override this with `PYAGE_RESULTS_DIR` (see the root `README.md`).
 
 ## Script overview
 
+### Complete article reproduction
+
+Use an output directory outside the repository:
+
+```powershell
+python -m scripts.reproduce_article preflight --output C:\pyage-runs\article-v1
+python -m scripts.reproduce_article resume --output C:\pyage-runs\article-v1 --workers 6
+```
+
+The workflow covers the independent forward cases, paired TracerLPM/Excel
+robustness campaign, shifted-exponential, Holten and Ploemeur campaigns,
+physical-IG conditioning, publication package, and complete hash-validated
+archive. `resume` reuses validated stages and individual chain/shard outputs.
+Canonical runs require a clean Git worktree; `--allow-dirty` is intended only
+for development checks.
+
 - `pyage run`
   Canonical single-date workflow (systematic sampling + calibration) driven by YAML.
 - `pyage.workflows.temporal`
@@ -60,6 +76,10 @@ You can override this with `PYAGE_RESULTS_DIR` (see the root `README.md`).
   Lightweight end-to-end sanity check (LPM generation, tracers, and plotting).
 - `run_calibration_benchmark.py`
   Compare Metropolis-Hastings and forward-uncertainty quantification runs.
+
+Windows-only wrappers are grouped under `scripts/windows/`. The complete entry
+point is `reproduce_article.bat OUTPUT_DIRECTORY`; per-campaign wrappers remain
+available for focused diagnostics.
 
 ---
 

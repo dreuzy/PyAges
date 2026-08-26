@@ -1,12 +1,12 @@
 # Getting started
 
-PyAge supports Python 3.9 through 3.13. Conda is convenient for a reproducible
+PyAge supports Python 3.12 through 3.14. Conda is convenient for a qualified
 source environment; pip is sufficient for an installed release.
 
 ## Install from a source checkout
 
 ```bash
-git clone https://gitlab.com/dreuzy/pyage.git
+git clone https://github.com/dreuzy/pyage.git
 cd pyage
 conda env create -f install/environment.yml
 conda activate pyage
@@ -42,8 +42,11 @@ pyage run examples/templates/quickstart_single.yaml
 pyage run --transient examples/templates/quickstart_temporal.yaml
 ```
 
-Paths inside YAML files are resolved relative to the configuration file. This
-makes a configuration portable when its directory is moved as a unit.
+For a configuration located inside a PyAge source checkout, relative paths are
+resolved from the detected checkout root (the nearest parent containing both
+`pyproject.toml` and `data_core`). For a standalone configuration outside a
+checkout, they are resolved from the configuration directory. Absolute paths
+are accepted in both cases.
 
 Each workflow creates a structured result directory containing tabular results
 and `result_manifest.json`; figures are optional. Continue with

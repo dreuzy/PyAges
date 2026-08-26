@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -76,14 +75,6 @@ def _pretty_tracer_name(name: str) -> str:
     if lower == "sf6":
         return "SF6"
     return name
-
-
-def _pretty_label_from_column(name: str) -> str:
-    match = re.match(r"^(?P<tracer>.+)_(?P<date>\d+(?:\.\d+)?)_\d+$", name)
-    if match:
-        tracer = _pretty_tracer_name(match.group("tracer"))
-        return f"{tracer} ({float(match.group('date')):.2f})"
-    return _pretty_tracer_name(name)
 
 
 def _axis_label(tracer: str, unit: str | None) -> str:

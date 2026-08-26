@@ -34,6 +34,9 @@ public surface above.
 - Public workflow directories contain `result_manifest.json`. Its
   `schema_version` field identifies the result layout; incompatible layout
   changes increment that value and are recorded in `CHANGELOG.md`.
+  Schema 2 is written only after a successful workflow and fingerprints the
+  configuration, scientific inputs, generated artifacts, exact environment,
+  Git diff, and complete tracked workspace.
 - Before version 1.0, incompatible changes may occur in a minor release. From
   version 1.0 onward, incompatible public changes require a major release.
 

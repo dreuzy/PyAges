@@ -34,11 +34,6 @@ class CalibrationMethod(ABC):
         return self.problem.observations
 
     @property
-    def cdata(self):
-        """Compatibility name for the observation container."""
-        return self.observations
-
-    @property
     def lpm(self):
         self.problem.ensure_prepared()
         return self.problem.lpm
@@ -93,7 +88,7 @@ class CalibrationMethod(ABC):
     def write_calibrated_lpm(
         self,
         results,
-        file_prior: str = "none",
+        file_prior: str | None = None,
         folder_prior: str = "",
     ) -> None:
         """Write the standard files for the completed run."""

@@ -27,7 +27,14 @@ from pyage.lpm.core.registry import register_lpm
 
 
 def scipy_params_from_mean_std(mean_age: float, std_age: float) -> tuple[float, float]:
-    """Convert physical mean/std (years) to SciPy invgauss shape/scale."""
+    r"""Convert physical IG moments in years to SciPy shape and scale.
+
+    With physical mean :math:`M>0`, standard deviation :math:`S>0`, and
+    inverse-Gaussian shape :math:`\lambda=M^3/S^2`, SciPy's convention is
+    ``invgauss(mu=S**2/M**2, scale=lambda)``. This mapping gives mean ``M``
+    and standard deviation ``S``; SciPy's ``mu`` is dimensionless and must not
+    be confused with PyAge's physical ``mu`` parameter.
+    """
     if mean_age <= 0:
         raise ValueError(f"Inverse Gaussian mean_age must be positive, got {mean_age}")
     if std_age <= 0:
@@ -42,7 +49,24 @@ def cdf_and_partial_first_moment_from_mean_std(
     mean_age: float,
     std_age: float,
 ) -> tuple[npt.ArrayLike, npt.ArrayLike]:
-    """Return ``F(t)`` and ``E[X 1(X <= t)]`` for a physical IG model."""
+    r"""Return the IG CDF and raw partial first moment at ages ``t``.
+
+    PyAge uses the inverse-Gaussian density
+
+    .. math::
+
+       g(x)=\sqrt{\frac{\lambda}{2\pi x^3}}
+       \exp\left[-\frac{\lambda(x-M)^2}{2M^2x}\right],\quad x>0,
+
+    with :math:`M=\mathtt{mean_age}` and
+    :math:`\lambda=M^3/\mathtt{std_age}^2`, all dimensional quantities being
+    in years. The second result is :math:`E[X\,1(X\leq t)]` in years, not a
+    conditional mean.
+
+    Non-positive ages return zero; positive infinity returns ``(1, M)``.
+    ``log_ndtr`` is used for the reflected CDF term to avoid overflow for
+    narrow distributions.
+    """
     scipy_params_from_mean_std(mean_age, std_age)
     values = np.asarray(t, dtype=float)
     cdf = np.zeros_like(values, dtype=float)
@@ -74,7 +98,18 @@ def cdf_and_partial_first_moment_from_mean_std(
 
 @register_lpm("ig")
 class InverseGaussianLpm(LpmScipySafe):
-    """Lumped Parameter Model - Inverse Gaussian distribution."""
+    r"""Inverse-Gaussian LPM parameterized by physical moments.
+
+    ``mu`` is mean transit time and ``sigma`` is its standard deviation, both
+    in years. They are converted internally to SciPy's dimensionless shape
+    and dimensional scale; see :func:`scipy_params_from_mean_std`. The support
+    is strictly positive age and the distribution integrates to one on
+    ``(0, infinity)``.
+
+    The scientific convention and migration from the former SciPy-coordinate
+    interpretation are documented in ``docs/scientific-methods.md`` and
+    ``docs/scientific-migration-ig-decay.md``.
+    """
 
     scipy_dist = invgauss
 
@@ -100,7 +135,7 @@ class InverseGaussianLpm(LpmScipySafe):
         return (shape,), 0, scale
 
     def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
-        """Return the CDF and truncated first moment on the requested ages."""
+        """Return ``F(t)`` and ``E[T 1(T <= t)]`` for convolution."""
         return cdf_and_partial_first_moment_from_mean_std(
             t,
             self.p["mu"],

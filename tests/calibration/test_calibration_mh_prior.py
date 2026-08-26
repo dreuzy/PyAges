@@ -28,7 +28,6 @@ def test_calibration_mh_prior_smoke(tmp_path: Path):
         monitor=False,
         display_traj=False,
         display_text=False,
-        lpm_number=3,
     )
     calib_mh = MetropolisHastings(config=mh_config)
 

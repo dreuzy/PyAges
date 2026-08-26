@@ -41,7 +41,6 @@ def interp_normalize(td, pdfd):
     else:
         # Avoid noisy output; return a zero PDF interpolator.
         fd = interpolate.interp1d(td, pdfd, bounds_error=False, fill_value=0.0)
-    # sum(fd(td)*step_size)
     return fd
 
 

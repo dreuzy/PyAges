@@ -28,14 +28,13 @@ Jean-Raynald de Dreuzy
 
 from __future__ import annotations
 
-import copy
 from typing import TYPE_CHECKING, Union
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from pyage.config.runtime import arange_n
+from pyage.config.runtime import subdivide_interval
 from pyage.convolution.continuous import (
     convolve_prepared_grid,
     prepare_adaptive_grid,
@@ -57,11 +56,19 @@ if TYPE_CHECKING:
 
 
 class Convolution:
-    """
-    Convolution of a Tracer with a Lumped Parameter Model (LPM).
+    r"""Convolve one tracer response with a transit-time distribution.
 
-    Performs numerical convolution between tracer recharge chronicles and
-    transit time distributions (LPM) for groundwater age dating applications.
+    At observation date :math:`t`, the forward model is
+
+    .. math::
+
+       C(t;\theta)=\int_{0}^{t-t_{min}} K(t,\tau)\,dF_\theta(\tau),
+
+    where :math:`\tau` is water age in years, :math:`K` is the complete tracer
+    response returned by ``TracerProtocol.get_concentration(t - tau, tau)``,
+    and :math:`F_\theta` is the LPM probability measure. ``K`` includes any
+    tracer-specific decay or production and retains the tracer concentration
+    unit.
 
     The convolution algorithm is automatically selected based on the LPM's
     `convolution_strategy` attribute:
@@ -69,6 +76,12 @@ class Convolution:
     - DIRAC: Direct chronicle lookup for single spike
     - DIRAC_DOUBLE: Weighted combination of two lookups
     - MIXED_DIRAC_CONTINUOUS: Weighted Dirac + continuous component
+
+    The finite window ``[0, t - datemin]`` is a scientific boundary
+    convention: LPM mass older than the recharge chronicle contributes zero
+    and is not renormalized. Continuous LPMs use exact bin masses and partial
+    first moments on a cached tracer-driven grid; Dirac masses use direct
+    lookups, including both endpoints.
 
     Attributes
     ----------
@@ -89,6 +102,17 @@ class Convolution:
         >>> synth = SyntheticTracer(concentration_fn=lambda d, t: 100 * np.exp(-t/20))
         >>> conv = Convolution(synth, date=2010)
         >>> result = conv.convolve(lpm)
+
+    See Also
+    --------
+    pyage.convolution.settings.TracerGridSettings
+        Numerical controls whose non-default values should be reported.
+
+    Notes
+    -----
+    Equations, boundary conventions, and validation links are consolidated in
+    ``docs/scientific-methods.md``; implementation history and independent
+    comparisons are in ``docs/convolution-method-evolution-report.md``.
     """
 
     def __init__(
@@ -349,7 +373,12 @@ class Convolution:
         return result
 
     def window_mass(self, lpm: LPM) -> float:
-        """Return the LPM mass represented inside the closed age window."""
+        """Return probability mass in the closed available-age window.
+
+        The window is ``[0, date - datemin]`` years. Mass outside this window
+        is excluded from :meth:`convolve` and is not renormalized, so values
+        below one quantify truncation by the available tracer chronicle.
+        """
         tmax = max(0.0, float(self._date - self.datemin))
         strategy = lpm.convolution_strategy
         if strategy == ConvolutionStrategy.DIRAC:
@@ -499,7 +528,7 @@ class Convolution:
         return self._prepare_tracer_grid()
 
     def _convolve_once(self, lpm: LPM) -> float:
-        """Dispatch one convolution without applying age-constraint penalties."""
+        """Dispatch one convolution according to the LPM strategy."""
         self._last_diagnostics = None
         strategy = lpm.convolution_strategy
 
@@ -515,79 +544,25 @@ class Convolution:
             f"Unsupported convolution strategy {strategy!r} for LPM '{lpm.name}'"
         )
 
-    def convolve(
-        self,
-        lpm: LPM,
-        apply_age_correction: bool = False,
-    ) -> float:
-        """
-        Compute convolution between tracer and LPM at the configured date.
+    def convolve(self, lpm: LPM) -> float:
+        """Compute tracer concentration at the configured observation date.
 
         The algorithm is automatically selected based on the LPM's
-        `convolution_strategy` attribute.
+        ``convolution_strategy`` attribute. The result has the tracer's
+        concentration unit. Ages and dates are decimal years, and probability
+        older than ``date - datemin`` contributes zero without renormalization.
 
         Parameters
         ----------
         lpm : LPM
             Lumped Parameter Model defining the transit time distribution.
-        apply_age_correction : bool
-            Enable age correction for young/old distributions during optimization.
-
         Returns
         -------
         float
             Convolution result (tracer concentration).
 
         """
-        value = self._convolve_once(lpm)
-        if not apply_age_correction:
-            return value
-        diagnostics = self._last_diagnostics
-        corrected = self._apply_age_correction(value, lpm)
-        self._last_diagnostics = diagnostics
-        return corrected
-
-    def _apply_age_correction(
-        self,
-        convol: float,
-        lpm: LPM,
-    ) -> float:
-        """
-        Apply penalty correction for young/old distribution constraints.
-
-        When distribution is shifted upwards (in time), it ages.
-        If the shifted convolution shows the distribution is on the wrong side,
-        penalize the objective function to guide optimization.
-
-        Parameters
-        ----------
-        convol : float
-            Original convolution result.
-        lpm : LPM
-            LPM with name ending in 'young' or 'old'.
-        Returns
-        -------
-        float
-            Corrected convolution result (penalized if on wrong side).
-        """
-        is_young = lpm.name.endswith("young")
-        is_old = lpm.name.endswith("old")
-
-        if not (is_young or is_old):
-            return convol
-
-        lpm2 = copy.deepcopy(lpm)
-        lpm2.shift_upward()
-        convol2 = self._convolve_once(lpm2)
-
-        # Young: convol2 should be >= convol (aging increases concentration)
-        # Old: convol2 should be <= convol (aging decreases concentration)
-        wrong_side = (is_young and convol2 < convol) or (is_old and convol2 > convol)
-
-        if wrong_side:
-            convol = 200 * self.max_value() - convol
-
-        return convol
+        return self._convolve_once(lpm)
 
     def convolve_date_range(
         self,
@@ -618,7 +593,7 @@ class Convolution:
         """
         if resolution < 1:
             raise ValueError("resolution must be at least 1")
-        dates = arange_n(date1, date2, resolution)
+        dates = subdivide_interval(date1, date2, resolution)
         original_date = self.date
         try:
             concentrations = []

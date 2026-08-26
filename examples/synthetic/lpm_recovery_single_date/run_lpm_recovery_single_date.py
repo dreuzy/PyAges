@@ -11,13 +11,13 @@ from examples.synthetic.lpm_recovery_single_date.synthetic_case import (
     build_truth_aware_figures,
     generate_synthetic_case,
 )
-from pyage.workflows.single_date import run_workflow
+from pyage.workflows.single_date import run_single_date
 
 
 def main(force_inline: bool = False) -> Path:
     """Generate the synthetic data, run the calibration and build summary figures."""
     case = generate_synthetic_case()
-    results_dir = run_workflow(case.paths.params_path, force_inline=force_inline)
+    results_dir = run_single_date(case.paths.params_path, force_inline=force_inline)
     recovery = build_truth_aware_figures(
         results_dir=results_dir,
         truth_payload=case.truth_payload,

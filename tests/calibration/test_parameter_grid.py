@@ -6,7 +6,7 @@ import pytest
 from pyage.calibration.utils.parameter_grid import ParameterGrid
 
 
-def test_points_keep_historical_cartesian_order() -> None:
+def test_points_keep_declared_cartesian_order() -> None:
     grid = ParameterGrid([0.0, 10.0], [2.0, 12.0], 2, ["first", "second"])
 
     assert grid.shape == (3, 3)

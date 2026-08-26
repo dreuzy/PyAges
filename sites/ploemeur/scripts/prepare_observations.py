@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -44,9 +45,11 @@ def _tracer_name(raw_name: object) -> str:
 
 
 def _decimal_year(value: str) -> float:
-    """Apply the historical Ploemeur day/month/year conversion."""
-    day, month, year = (float(part) for part in value.split("/"))
-    return year + (30.0 * (month - 1.0) + day) / 365.0
+    """Convert a calendar date to a decimal year using its true year length."""
+    date = datetime.strptime(value.strip(), "%d/%m/%Y").date()
+    start = date.replace(month=1, day=1)
+    following = date.replace(year=date.year + 1, month=1, day=1)
+    return date.year + (date - start).days / (following - start).days
 
 
 def prepare_well(

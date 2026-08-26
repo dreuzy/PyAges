@@ -201,9 +201,9 @@ def make_figure() -> tuple[Path, Path]:
     fig, axes = plt.subplots(1, 2, figsize=(7.1, 3.45), sharex=True, sharey=True)
     global_max = 0.0
 
-    for parameters, color in zip(CURVES, colors):
+    for parameters, color in zip(CURVES, colors, strict=False):
         exponential, inverse_gaussian = build_models(parameters)
-        for axis, model in zip(axes, (exponential, inverse_gaussian)):
+        for axis, model in zip(axes, (exponential, inverse_gaussian), strict=False):
             density = np.asarray(model.pdf(times), dtype=float)
             axis.plot(
                 times,
@@ -216,7 +216,7 @@ def make_figure() -> tuple[Path, Path]:
             global_max = max(global_max, float(np.max(density)))
 
     for axis, title in zip(
-        axes, ("(a) Shifted exponential", "(b) Shifted inverse Gaussian")
+        axes, ("(a) Shifted exponential", "(b) Shifted inverse Gaussian"), strict=False
     ):
         axis.set_title(title)
         axis.set_xlabel("Transit time (years)")

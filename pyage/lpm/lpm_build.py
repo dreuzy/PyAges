@@ -33,6 +33,7 @@ from pyage.lpm.core.registry import (
     is_registered,
     list_available_lpms,
 )
+from pyage.lpm.presentation import display_lpm, display_moments, display_pdf_cdf
 
 if TYPE_CHECKING:
     from pyage.lpm.core.lpm_base import LpmBase as LPM
@@ -146,11 +147,11 @@ def test(lpm_type: str, display_options: Any) -> None:
     lpm.moments()
     if display_options.figure:
         # Plot PDF/CDF for quick visual inspection.
-        lpm.display_pdf_cdf(display_options)
+        display_pdf_cdf(lpm, display_options)
     if display_options.text:
         # Print model details and summary statistics.
-        lpm.display(display_options)
-        lpm.display_moments()
+        display_lpm(lpm, display_options)
+        display_moments(lpm)
 
 
 __all__ = [

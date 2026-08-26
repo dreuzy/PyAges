@@ -5,6 +5,10 @@ its examples, and its notebooks. Its direct dependencies are pinned to the
 same versions as `constraints.txt`; transitive packages remain selected by
 Conda for the current operating system.
 
+PyAge supports Python 3.12 through 3.14. Python 3.12 is retained for the
+reference environment because it is the oldest supported interpreter and
+therefore exercises the strictest compatibility boundary.
+
 From the repository root, create and activate the environment:
 
 ```bash
@@ -27,6 +31,8 @@ python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
 
 Omit `-c install/constraints.txt` only when deliberately testing newer direct
 dependencies against the compatibility ranges declared in `pyproject.toml`.
+The constraints qualify direct dependencies; they are not a bit-for-bit lock
+of platform-specific transitive packages.
 
 The optional IDE and media stack is intentionally separate from the reference
 environment because it is not required by the package:

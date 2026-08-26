@@ -3,6 +3,9 @@
 This page documents the Holten benchmark example implemented in
 `examples/natural/holten/`.
 
+The scientific assumptions and interpretation limits adopted by the final
+article benchmark are summarized in {doc}`../../science/case-studies`.
+
 The goal of the example is not to provide a generic multi-tracer demo. It is a
 case-specific benchmark built from Visser et al. (2013), with local tracer
 histories, local data preparation, local benchmark figures, and a local

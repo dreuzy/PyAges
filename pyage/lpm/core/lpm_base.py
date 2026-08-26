@@ -14,7 +14,7 @@ from __future__ import annotations
 import abc
 import copy
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import ClassVar
 
 import numpy as np
 import numpy.typing as npt
@@ -334,13 +334,7 @@ class LpmBase(abc.ABC):
         """Return lower bound for parameter."""
         return self._param_manager.get_p_min(key)
 
-    def display(self, display_options: Any) -> None:
-        """Display the model using the presentation compatibility layer."""
-        from pyage.lpm.presentation import display_lpm
-
-        display_lpm(self, display_options)
-
-    def __support_range(self) -> tuple[float, float]:
+    def _support_range(self) -> tuple[float, float]:
         """
         Defines Support Time Range
             Specific to the distribution itself and to its parameters
@@ -354,16 +348,16 @@ class LpmBase(abc.ABC):
         tmax = 1.2 * self.cdf_inv(0.98)
         return tmin, tmax
 
-    def discret_pdf_cdf(self, type_pc: str, n: int) -> tuple[np.ndarray, npt.ArrayLike]:
+    def sample_curve(self, kind: str, count: int) -> tuple[np.ndarray, npt.ArrayLike]:
         """
         Discretization of pdf or cdf
-            discretization in n steps in the range defined by the __support_range function
+            discretization over the model-specific support range
 
         Parameters
         ---------
-        type_pc : str
+        kind : str
             "pdf" or "cdf"
-        n : int
+        count : int
             number of discretization steps
 
         Returns
@@ -371,118 +365,63 @@ class LpmBase(abc.ABC):
         tuple[np.ndarray, array-like]
             (t, values) - discrete times and pdf/cdf values
         """
-        tmin, tmax = self.__support_range()
-        t = np.linspace(tmin, tmax, n)
-        if type_pc == "pdf":
+        tmin, tmax = self._support_range()
+        t = np.linspace(tmin, tmax, count)
+        if kind == "pdf":
             values = self.pdf(t)
-        elif type_pc == "cdf":
+        elif kind == "cdf":
             values = self.cdf(t)
         else:
-            raise ValueError(f"type_pc must be 'pdf' or 'cdf', got '{type_pc}'")
+            raise ValueError(f"kind must be 'pdf' or 'cdf', got {kind!r}")
         return t, values
 
-    def plot(self, type_pc: str, display_options: Any) -> None:
-        """
-        Plots distribution (pdf or cdf)
-
-        Parameters
-        ---------
-        type_pc : str
-            "pdf" or "cdf"
-        display_options : DisplayOptions
-            display configuration
-        """
-        from pyage.lpm.presentation import plot_lpm
-
-        plot_lpm(self, type_pc, display_options)
-
-    def display_parameters(self, lpm_reference: LpmBase | None = None) -> None:
-        """Display values of LPM parameters."""
-        from pyage.lpm.presentation import display_parameters
-
-        display_parameters(self, lpm_reference)
-
-    def display_pdf_cdf(self, display_options: Any) -> None:
-        """Check consistency of distribution."""
-        from pyage.lpm.presentation import display_pdf_cdf
-
-        display_pdf_cdf(self, display_options)
-
-    def write_name(self, file: Any) -> None:
-        """Write LPM name to file."""
-        from pyage.data_io.lpm_results import write_lpm_name
-
-        write_lpm_name(self, file)
-
-    def write(self, file: str | Any, open_file: bool = False) -> None:
-        """
-        Write LPM name and values to file.
-
-        Parameters
-        ---------
-        file: str or file object
-            If open_file is True: file path as string
-            If open_file is False: opened file object
-        open_file: bool
-            Whether to open the file (True) or use existing file object (False)
-        """
-        from pyage.data_io.lpm_results import write_lpm
-
-        write_lpm(self, file, open_file=open_file)
-
-    def load_lpm_from_dist(
+    def load_sample(
         self,
-        dist: pd.DataFrame,
-        option: str = "line",
+        frame: pd.DataFrame,
+        selection: str = "line",
         rng: np.random.Generator | None = None,
-        line_no: int = 0,
-    ) -> tuple[bool, dict[str, int]]:
+        row: int = 0,
+    ) -> dict[str, int] | None:
         """
         Loads parameter values from distribution file
 
         Parameters
         ---------
-        dist : pd.DataFrame
+        frame : pd.DataFrame
             distribution of parameter values
-        option : str
+        selection : str
             - "random_line" : all parameters from the same random line
-            - "line"        : all parameters from the specified line (line_no)
-            - "random_each" : each parameter from its own random line
-            - otherwise     : all parameters from first line
+            - "line"        : all parameters from the specified row
         rng : np.random.Generator or None
             random number generator
-        line_no : int
-            index of the line to use if option == "line"
+        row : int
+            index of the row to use if selection == "line"
 
         Returns
         -------
-        tuple[bool, dict[str, int]]
-            (success, chosen_lines) - success flag and dict of param -> line index
+        dict[str, int] or None
+            Selected row for each parameter, or ``None`` for an empty frame.
         """
-        row_count = len(dist.index)
+        row_count = len(frame.index)
         if row_count == 0:
-            return (False, {})
+            return None
 
         if rng is None:
             rng = np.random.default_rng()
 
         parameter_names = list(self.p)
-        if option == "random_line":
+        if selection == "random_line":
             line = int(rng.integers(row_count))
             chosen_lines = dict.fromkeys(parameter_names, line)
-        elif option == "line":
-            line = min(line_no, row_count - 1)
+        elif selection == "line":
+            line = min(row, row_count - 1)
             chosen_lines = dict.fromkeys(parameter_names, line)
-        elif option == "random_each":
-            chosen_lines = {
-                key: int(rng.integers(row_count)) for key in parameter_names
-            }
         else:
-            chosen_lines = dict.fromkeys(parameter_names, 0)
+            raise ValueError(f"Unknown sample selection: {selection!r}")
 
         for key, line in chosen_lines.items():
-            self.p[key] = dist[key].iloc[line]
-        return (True, chosen_lines)
+            self.p[key] = frame[key].iloc[line]
+        return chosen_lines
 
     def moments_name(self) -> list[str]:
         """Return moment names."""
@@ -499,16 +438,3 @@ class LpmBase(abc.ABC):
             self.cdf_inv(0.75),
             self.cdf_inv(0.90),
         ]
-
-    def display_moments(self) -> None:
-        """Display computed moments."""
-        from pyage.lpm.presentation import display_moments
-
-        display_moments(self)
-
-    def output_dataframe(self) -> pd.DataFrame:
-        """Output model as dataframe."""
-        data: dict[str, Any] = {"LPM_name": self.name}
-        for key in self.p:
-            data[key] = self.p[key]
-        return pd.DataFrame(data, index=[0])

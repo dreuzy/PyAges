@@ -56,6 +56,23 @@ def test_prepare_well_writes_canonical_observations(tmp_path: Path) -> None:
     )
 
 
+def test_prepare_well_uses_true_calendar_year_for_leap_year(tmp_path: Path) -> None:
+    raw_directory = tmp_path / "raw"
+    output_directory = tmp_path / "ori"
+    raw_directory.mkdir()
+    _write_raw(
+        raw_directory,
+        "element\tCFC-11\nunit\tpptv\n01/03/2024\t1.0\n31/10/2024\t2.0\n",
+    )
+
+    destination = prepare_well("F09", raw_directory, output_directory)
+    observations = pd.read_table(destination)
+
+    assert observations[DATE_COLUMN].tolist() == pytest.approx(
+        [2024 + 60 / 366, 2024 + 304 / 366]
+    )
+
+
 @pytest.mark.parametrize(
     "header, unit",
     [("SF6", "pptv"), ("CFC-11", "pmol/kg")],

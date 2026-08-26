@@ -125,7 +125,7 @@ def write_tables(rows):
         {k: round(v, 2) if isinstance(v, float) else v for k, v in r.items()}
         for r in rows
     ]
-    for path, data in zip(paths, (rows, rounded)):
+    for path, data in zip(paths, (rows, rounded), strict=False):
         with path.open("w", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=FIELDS)
             w.writeheader()
@@ -149,7 +149,7 @@ def make_figure(rows):
             data[s][name] = y
             ymax = max(ymax, float(y.max()))
     fig, axs = plt.subplots(2, 2, figsize=(7.1, 5.25), sharex=True, sharey=True)
-    for ax, s, letter in zip(axs.flat, SETS, "abcd"):
+    for ax, s, letter in zip(axs.flat, SETS, "abcd", strict=False):
         a, b = grouped[s][EXP], grouped[s][IG]
         for name, color, ls in ((EXP, RED, "-"), (IG, GREEN, "--")):
             r = grouped[s][name]

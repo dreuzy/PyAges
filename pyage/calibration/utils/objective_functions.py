@@ -31,8 +31,12 @@ def _as_arrays(data, model, error):
 
 
 def L2_norm_diff(data, model, error):
-    """
-    Basic objective function contribution (squared normalized residuals).
+    r"""Return independent Gaussian squared-normalized residuals.
+
+    For observation :math:`y_i`, prediction :math:`m_i`, and reported
+    one-standard-deviation uncertainty :math:`\sigma_i`, each contribution is
+    :math:`r_i^2=((m_i-y_i)/\sigma_i)^2`. Their sum is the chi-square quantity
+    used by :class:`~pyage.calibration.problem.CalibrationProblem`.
 
     Parameters
     ----------
@@ -41,33 +45,45 @@ def L2_norm_diff(data, model, error):
     model : array-like
         Modeled data values (same shape as data).
     error : array-like
-        Error/uncertainty values (same shape as data).
+        One-standard-deviation uncertainties in the same units and order as
+        ``data``. Scientific calibration callers require finite positive
+        values; this low-level vector operation only checks shapes.
 
     Returns
     -------
     numpy.ndarray
-        Squared normalized residuals.
+        Dimensionless squared normalized residuals, one per observation.
+
+    Notes
+    -----
+    The likelihood assumes independent, unbiased Gaussian observation errors
+    with known standard deviations. Correlated errors require a covariance
+    likelihood and are not represented by this function.
     """
     data_arr, model_arr, error_arr = _as_arrays(data, model, error)
     return np.square((model_arr - data_arr) / error_arr)
 
 
-def RMSE(ojf, n):
-    """
-    Normalized objective function (root mean squared error).
+def normalized_residual_norm(chi_square, sample_count):
+    r"""Return :math:`\sqrt{\chi^2/n}` for normalized residuals.
+
+    This diagnostic is dimensionless because residuals have already been
+    divided by observation uncertainty; it is not an RMSE in concentration
+    units.
 
     Parameters
     ----------
-    ojf : array-like or float
-        Objective function value(s).
-    n : int
-        Normalization factor (must be > 0).
+    chi_square : array-like or float
+        Chi-square value or values, :math:`\chi^2=\sum_i r_i^2`.
+    sample_count : int
+        Number of residuals used in the sum; must be positive. No fitted-degree
+        of-freedom correction is applied.
 
     Returns
     -------
     numpy.ndarray or float
-        Normalized objective value(s).
+        Dimensionless :math:`\sqrt{\chi^2/n}` value or values.
     """
-    if n <= 0:
-        raise ValueError(f"n must be positive (got {n})")
-    return np.sqrt(np.asarray(ojf, dtype=float) / n)
+    if sample_count <= 0:
+        raise ValueError(f"sample_count must be positive (got {sample_count})")
+    return np.sqrt(np.asarray(chi_square, dtype=float) / sample_count)

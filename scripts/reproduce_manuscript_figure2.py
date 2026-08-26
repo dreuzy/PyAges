@@ -146,10 +146,10 @@ def run_metropolis_hastings(
             monitor=False,
             display_traj=False,
             display_text=False,
+            componentwise_source="model",
             seed=config.mh_seed,
         )
     )
-    mh.MH_step.define_by_value()
     posterior = mh.run(problem)
     return mh, posterior
 
@@ -161,7 +161,7 @@ def build_objective_grid(calibration: MetropolisHastings) -> pd.DataFrame:
     sampling.compute_concentrations()
     sampling.objective_function_build()
     grid = sampling.objective_function_frame()
-    grid = grid.rename(columns={"log-ojf": "half_log_J"})
+    grid = grid.rename(columns={"half_log_chi_square": "half_log_J"})
     grid["J"] = np.exp(2.0 * grid["half_log_J"].to_numpy(dtype=float))
     grid["m"] = len(TRACERS)
     grid["rms_normalized_data_misfit"] = np.sqrt(

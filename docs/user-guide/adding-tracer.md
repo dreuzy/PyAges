@@ -297,8 +297,8 @@ import pandas as pd
 df = pd.read_excel("my_data.xlsx", sheet_name="Sheet1")
 
 # Select and rename columns
-df = df[['Year', 'Concentration']].copy()
-df.columns = ['date', 'concentration']
+df = df[["Year", "Concentration"]].copy()
+df.columns = ["date", "concentration"]
 
 # Save as CSV
 df.to_csv("data_core/data_tracer/mytracer/recharge.csv", index=False)
@@ -311,13 +311,15 @@ import pandas as pd
 
 # Download NOAA CFC data
 url = "https://gml.noaa.gov/webdata/hats/combined/CFC11.csv"
-df = pd.read_csv(url, comment='#')
+df = pd.read_csv(url, comment="#")
 
 # Process to required format
-df_out = pd.DataFrame({
-    'date': df['year'] + df['month']/12,
-    'concentration': df['NH_monthly']  # Northern Hemisphere
-})
+df_out = pd.DataFrame(
+    {
+        "date": df["year"] + df["month"] / 12,
+        "concentration": df["NH_monthly"],  # Northern Hemisphere
+    }
+)
 
 df_out.to_csv("data_core/data_tracer/cfc11_updated/recharge.csv", index=False)
 ```
@@ -395,6 +397,6 @@ Common atmospheric tracer data sources:
 | Tracer | Source |
 |--------|--------|
 | CFCs, SF6 | [NOAA HATS](https://gml.noaa.gov/hats/) |
-| Tritium | [IAEA GNIP](https://www.iaea.org/services/networks/gnip) |
+| Tritium | [IAEA GNIP](https://nucleus.iaea.org/Pages/GNIPR.aspx) |
 | Carbon-14 | [IntCal](https://www.intcal.org/) |
 | Noble gases | [USGS](https://water.usgs.gov/lab/) |

@@ -26,7 +26,47 @@ def prepare_adaptive_grid(
     evaluate: TracerEvaluator,
     settings: TracerGridSettings,
 ) -> PreparedTracerGrid:
-    """Refine tracer bins until their response is locally resolved."""
+    r"""Bisect age bins until the tracer response is locally resolved.
+
+    For each age interval :math:`[a,b]`, the routine evaluates the complete
+    tracer response :math:`K` at ``a``, ``(a+b)/2``, and ``b``. It accepts the
+    interval using the mixed global/local criterion documented by
+    :class:`~pyage.convolution.settings.TracerGridSettings`; otherwise it
+    bisects the interval. Initial edges should therefore include known
+    chronicle knots and discontinuities.
+
+    Parameters
+    ----------
+    date : float
+        Observation date as a decimal year; stored with the cached grid.
+    initial_edges : numpy.ndarray
+        Strictly increasing water ages in years, spanning the available input
+        window.
+    edge_values, right_edge_values : numpy.ndarray
+        Tracer responses at left and right one-sided bin limits, in the tracer
+        concentration unit. Separate right values preserve jumps at chronicle
+        boundaries.
+    evaluate : callable
+        Vectorized evaluator ``K(age)`` in the same concentration unit.
+    settings : TracerGridSettings
+        Tolerances and hard refinement limits.
+
+    Returns
+    -------
+    PreparedTracerGrid
+        Cached edges and left/midpoint/right responses.
+
+    Raises
+    ------
+    ConvolutionError
+        If ``max_subdivisions`` or ``max_bins`` is reached before acceptance.
+
+    Notes
+    -----
+    The acceptance criterion resolves response amplitude, not quadrature error
+    directly. Publication runs using non-default tolerances require a
+    convergence or sensitivity check.
+    """
     active_left = initial_edges[:-1]
     active_right = initial_edges[1:]
     active_k_left = edge_values[:-1]
@@ -237,7 +277,50 @@ def convolve_prepared_grid(
     distribution_name: str,
     settings: TracerGridSettings,
 ) -> tuple[float, ConvolutionDiagnostics]:
-    """Convolve one continuous distribution on a prepared tracer grid."""
+    r"""Integrate a continuous LPM over a prepared tracer-response grid.
+
+    For bin :math:`[a_i,b_i]`, the provider supplies the CDF :math:`F` and raw
+    partial first moment :math:`M(t)=E[T\,1(T\leq t)]`. PyAge forms
+
+    .. math::
+
+       w_i=F(b_i)-F(a_i),\qquad
+       q_i=M(b_i)-M(a_i)-a_iw_i,
+
+    then integrates the affine response as
+
+    .. math::
+
+       C_i=K(a_i)w_i+s_iq_i.
+
+    This is exact for the piecewise-affine representation of ``K`` regardless
+    of PDF width. Bins with excessive midpoint curvature instead use
+    ``K(midpoint) * w_i``.
+
+    Parameters
+    ----------
+    grid : PreparedTracerGrid
+        Age grid and tracer responses; ages are in years.
+    provider : callable
+        Vectorized callable returning ``(F(t), M(t))`` at all grid edges.
+    distribution_name : str
+        Name included in numerical-contract errors.
+    settings : TracerGridSettings
+        Curvature and floating-point consistency controls.
+
+    Returns
+    -------
+    tuple of float and ConvolutionDiagnostics
+        Concentration in the tracer's unit and diagnostics for the represented
+        probability mass.
+
+    Notes
+    -----
+    The integration window is closed and finite. Probability outside it is
+    omitted, not renormalized; inspect ``diagnostics.window_mass`` when old
+    tails may extend before the recharge record. See
+    ``docs/scientific-methods.md`` for the model-level convention.
+    """
     f_edges, first_moment_edges = _evaluate_moments(
         provider, grid.edges, distribution_name
     )

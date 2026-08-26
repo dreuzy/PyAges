@@ -10,18 +10,20 @@ Used with `pyage run <config.yaml>`.
 
 ```yaml
 dataset:
-  name: ploemeur_F09_2010.txt      # Required: input data filename
-  year: 2010                        # Optional: reference year for labels
-  data_dir: examples/natural/ploemeur/data  # Required: path to data directory
-  verbose: true                     # Optional: print diagnostics (default: false)
+  name: ploemeur_F09_2010.txt       # Input data filename
+  label: Ploemeur F09               # Optional display label
+  year: 2010                        # Reference year for labels/metadata
+  data_dir: examples/natural/ploemeur/data  # Observation directory
+  verbose: true                     # Print diagnostics
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Input data filename |
-| `year` | number | No | Reference year for metadata |
-| `data_dir` | string | Yes | Path to data directory (relative to repo root) |
-| `verbose` | boolean | No | Enable verbose output (default: false) |
+| `name` | string | No | Input data filename; placeholder default `example_dataset` |
+| `label` | string or null | No | Optional display label; default `null` |
+| `year` | integer | No | Reference year for metadata; default `2010` |
+| `data_dir` | path | No | Observation directory; placeholder default `examples/data` |
+| `verbose` | boolean | No | Enable verbose output; default `true` |
 
 **Tracer selection rule:** the `element` column in your data file determines
 which tracers are used. Each element must match a tracer folder under
@@ -37,8 +39,22 @@ lpm:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `model_name` | string | Yes | LPM model name (see available models below) |
-| `data_directory` | string | Yes | Directory containing `<model>/params.yaml` files |
+| `model_name` | string | No | LPM model name; default `dirac_double` |
+| `data_directory` | path | No | Directory containing `<model>/params.yaml`; default `data_core/data_lpm` |
+
+### Tracer Data Override
+
+The optional section below selects a site-specific tracer root. Omit it, or
+leave the value null, to use the packaged `data_core/data_tracer` directory.
+
+```yaml
+tracers:
+  data_directory: examples/natural/holten/prepared_tracers/data_tracer
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `data_directory` | path or null | `null` | Root containing one directory per tracer |
 
 Tip: for quick overrides without editing YAML, you can use CLI options:
 `pyage run --lpm <name> --mh-nsteps <n> --data-name <file> --data-dir <dir> config.yaml`
@@ -47,14 +63,22 @@ Tip: for quick overrides without editing YAML, you can use CLI options:
 
 | Model | Parameters | Description |
 |-------|------------|-------------|
-| `dirac` | `tau` | Single age (piston flow) |
+| `dirac` | `mu` | Single age (piston flow) |
 | `dirac_double` | `mu1`, `mu2`, `rate` | Binary mixing of two ages |
+| `dirac_double_1_set` | `mufree`, `rate` | One free and one workflow-supplied fixed age |
 | `exp` | `mu` | Exponential distribution |
 | `exp_shifted` | `mu`, `shift` | Shifted exponential |
 | `ig` | `mu`, `sigma` | Inverse Gaussian |
 | `ig_shifted` | `mu`, `sigma`, `shift` | Shifted inverse Gaussian |
-| `gamma` | `mu`, `sigma` | Gamma distribution |
-| `uniform` | `a`, `b` | Uniform distribution |
+| `gamma` | `k`, `scale` | Gamma distribution |
+| `uniform` | `tmin`, `delta` | Uniform distribution on `[tmin, tmin + delta]` |
+| `weibull` | `k`, `lambda` | Weibull distribution |
+| `mix_exp_shifted` | `rate`, `mu1`, `mu2`, `shift` | Dirac plus shifted-exponential mixture |
+| `shapefree_n_oldbin` | `z1`, `z2`, `z3` by default | Bounded piecewise-uniform shape-free model |
+
+The model-specific meaning of these parameters is defined in
+{doc}`../science/lpm-reference`. The runtime registry remains authoritative:
+use `pyage list lpms` to inspect the installed release.
 
 ### Run Section
 
@@ -66,7 +90,9 @@ run:
   calibration_simplex: true         # Run simplex/FUQ calibration
 ```
 
-All fields are boolean, default `false`. Enable only the analyses you need.
+All four fields are boolean and currently default to `true` when the `run`
+section or a field is omitted. Set unwanted analyses explicitly to `false`,
+especially for a quick or non-interactive run.
 
 ### Reachable Concentrations Section
 
@@ -90,6 +116,10 @@ objective_function:
 |-------|------|---------|-------------|
 | `nmodels` | integer | 10000 | Number of points in parameter grid |
 
+The mapped column ``half_log_chi_square`` is $\tfrac12\log(\chi^2)$, not the likelihood or
+the normalized residual norm stored in calibration result tables. See
+{doc}`../scientific-methods` for the exact objective conventions.
+
 ### Metropolis-Hastings Section
 
 ```yaml
@@ -108,6 +138,11 @@ calibration_metropolis_hastings:
 | `likelihood` | boolean | true | Use likelihood function |
 | `monitor` | boolean | false | Monitor and display acceptance rates |
 | `display_traj` | boolean | false | Generate trajectory plots (slow) |
+
+These launcher fields do not by themselves demonstrate MCMC convergence.
+Acceptance, retention, prior, and proposal equations are given in
+{doc}`../scientific-methods`; article results additionally require the
+multiple-chain diagnostics described in {doc}`../science/inference`.
 
 ### Simplex Section
 
@@ -173,8 +208,8 @@ calibration:
   mh_nsteps: 1000                   # MCMC iterations
   burn_in: 0.2                      # Burn-in fraction (0-1)
   nskip: 10                         # Thinning interval
-  lpm_number: 0                     # Output samples (0 = auto)
-  seed_enabled: true                # Enable reproducible RNG
+  lpm_number: 10                    # Posterior draws used in plotted outputs (0 = auto)
+  seed_enabled: false               # Enable reproducible RNG explicitly
   seed: 12345                       # Random seed
 ```
 
@@ -184,17 +219,24 @@ calibration:
 | `mh_nsteps` | integer | 1000 | MCMC iterations |
 | `burn_in` | number | 0.2 | Fraction of samples to discard |
 | `nskip` | integer | 10 | Keep every nth sample (thinning) |
-| `lpm_number` | integer | 0 | Number of output samples (0 = automatic) |
-| `seed_enabled` | boolean | true | Use fixed random seed |
-| `seed` | integer | 12345 | Random seed value |
+| `lpm_number` | integer | 10 | Number of posterior draws used for distribution and concentration plots (0 = automatic) |
+| `seed_enabled` | boolean | false | Use the configured fixed random seed |
+| `seed` | integer or null | null | Random seed value; required for an explicit reproducible seed when `seed_enabled` is true |
 
 ### Figures Section
 
 ```yaml
 figures:
-  temporal: true                    # Time series plots
-  distributions: true               # Parameter/concentration distributions
+  temporal: false                   # Time series plots
+  distributions: false              # Parameter/concentration distributions
+  concentrations_2d: false          # Pairwise concentration plots
 ```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `temporal` | boolean | false | Write modeled concentration chronicles |
+| `distributions` | boolean | false | Write posterior parameter summaries |
+| `concentrations_2d` | boolean | false | Write pairwise concentration plots when distributions are enabled |
 
 ### Results Section
 
@@ -202,7 +244,14 @@ figures:
 results:
   use_default: true                 # Use default results directory
   directory: ""                     # Custom directory (if use_default: false)
+  study_name: temporal              # Safe namespace below the results root
 ```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `use_default` | boolean | true | Use `PYAGE_RESULTS_DIR` or the user-level default root |
+| `directory` | path or null | null | Custom root, required when `use_default` is false |
+| `study_name` | string | `temporal` | Result namespace using letters, digits, `.`, `_`, or `-` |
 
 ---
 
@@ -263,11 +312,16 @@ notes: "Optional notes about the model."
 
 ```yaml
 prior:
-  type: uniform                     # Currently only 'uniform' supported
+  type: uniform                     # 'uniform' or 'normal'/'gaussian'
   min: 0.0                          # Prior minimum
   max: 100.0                        # Prior maximum
   unit: year                        # Unit (for documentation)
 ```
+
+For a normal prior, replace `min` and `max` with `mean` and `std`. Parameter
+bounds remain active independently of the prior and define the admissible
+calibration domain. Scientific analyses should report both the bounds and the
+prior actually used.
 
 ---
 
@@ -310,7 +364,9 @@ recharge: true                      # Load from recharge.csv
 | `datemin` | number | No | Minimum valid date |
 | `datemax` | number | No | Maximum valid date |
 
-*Either `recharge: true` or `recharge_constant` must be specified.
+For a recharge contribution, use either `recharge: true` or
+`recharge_constant`. A programmatic or production-only tracer can omit both,
+but still needs a valid date range.
 `half_life` and `decay_mean_lifetime` are mutually exclusive.
 
 ### Recharge Chronicle (recharge.csv)
@@ -358,7 +414,7 @@ calibration_metropolis_hastings:
   nstep: 500                        # Fewer MCMC steps
 ```
 
-### More Accurate Results (for Production)
+### Longer Candidate Runs (for Production)
 
 ```yaml
 reachable_concentrations:
@@ -366,8 +422,11 @@ reachable_concentrations:
 
 calibration_metropolis_hastings:
   nstep: 50000                      # More MCMC steps
-  monitor: true                     # Check convergence
+  monitor: true                     # Record trajectory/acceptance monitoring
 ```
+
+More iterations do not by themselves establish convergence. Publication runs
+should use multiple chains and the diagnostics in {doc}`../science/inference`.
 
 ### Reproducible Results
 

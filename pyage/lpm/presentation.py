@@ -1,9 +1,7 @@
 """Presentation helpers for lumped-parameter models.
 
 The scientific model classes deliberately do not import Matplotlib.  These
-helpers keep terminal and figure rendering at the edge of the package while
-the compatibility methods on :class:`~pyage.lpm.core.lpm_base.LpmBase`
-delegate here.
+helpers keep terminal and figure rendering at the edge of the package.
 """
 
 from __future__ import annotations
@@ -32,7 +30,7 @@ def plot_lpm(lpm: "LpmBase", kind: str, display_options: Any) -> None:
     if not display_options.figure:
         return
 
-    times, values = lpm.discret_pdf_cdf(kind, 1000)
+    times, values = lpm.sample_curve(kind, 1000)
     if len(times) != len(values):
         raise ValueError(
             f"Dimension mismatch: len(t)={len(times)} != len(values)={len(values)}"
@@ -85,6 +83,6 @@ def display_pdf_cdf(lpm: "LpmBase", display_options: Any) -> None:
 def display_moments(lpm: "LpmBase") -> None:
     """Print the model's named moments."""
     print("\nmoments")
-    for name, value in zip(lpm.moments_name(), lpm.moments()):
+    for name, value in zip(lpm.moments_name(), lpm.moments(), strict=False):
         print(name, "", value)
     print("\n")

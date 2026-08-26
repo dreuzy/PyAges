@@ -8,14 +8,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from pyage.config.runtime import arange_n
+from pyage.config.runtime import subdivide_interval
 
 
 def select_models(
     template: Any,
     frame: pd.DataFrame,
     count: int,
-    time_span_mode: str,
     resolution: int,
 ) -> tuple[list[Any], pd.DataFrame, pd.DataFrame]:
     """Select reproducible model realizations and compute their PDFs/moments."""
@@ -24,18 +23,16 @@ def select_models(
     if resolution < 2:
         raise ValueError("resolution must be at least 2")
 
-    time = arange_n(0, 70, resolution - 1)
+    time = subdivide_interval(0, 70, resolution - 1)
     pdf_values = np.empty((count + 1, resolution))
     pdf_values[0] = time
     pdf_names = ["t"]
     statistics = pd.DataFrame(index=range(count), columns=template.moments_name())
     selected = []
     rng = np.random.default_rng(12345)
-    option = "random_each" if "span" in time_span_mode else "random_line"
-
     for position in range(count):
-        loaded, lines = template.load_lpm_from_dist(frame, option=option, rng=rng)
-        if not loaded:
+        lines = template.load_sample(frame, selection="random_line", rng=rng)
+        if lines is None:
             pdf_values[position + 1] = np.nan
             pdf_names.append("p")
             continue
@@ -53,9 +50,9 @@ def add_moment_columns(template: Any, frame: pd.DataFrame) -> pd.DataFrame:
     moment_names = template.moments_name()
     moment_values = []
     for position in range(len(frame)):
-        loaded, _ = template.load_lpm_from_dist(frame, option="line", line_no=position)
+        lines = template.load_sample(frame, selection="line", row=position)
         moment_values.append(
-            template.moments() if loaded else [np.nan] * len(moment_names)
+            template.moments() if lines is not None else [np.nan] * len(moment_names)
         )
 
     base = frame.drop(columns=moment_names, errors="ignore").reset_index(drop=True)

@@ -1,63 +1,78 @@
-# -*- coding: utf-8 -*-
-"""
-Metropolis-Hastings calibration for LPM models.
-
-Purpose
--------
-Run MCMC calibration with optional priors, likelihood evaluation, and
-trajectory monitoring, then export posterior summaries for analysis.
-
-Author
-------
-Jean-Raynald de Dreuzy
-"""
+"""Metropolis-Hastings calibration for lumped-parameter models."""
 
 from __future__ import annotations
 
-import copy as copy
+import hashlib
 import math
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
 import pyage.lpm.core.lpm_dist as LPM_dist
 from pyage.calibration.methods.base import CalibrationMethod
-from pyage.calibration.methods.prior import Prior, gauss, make_prior_expo, moments_histo
+from pyage.calibration.methods.prior import Prior
 from pyage.calibration.methods.trajectory import (
-    MH_step,
-    MH_Trajectory,
     MHConfig,
+    MHStep,
+    MHTrajectory,
     TrajOptions,
 )
 from pyage.calibration.mh_proposals import GaussianRandomWalk
-from pyage.calibration.utils.objective_functions import RMSE
+from pyage.calibration.outputs import write_key_values
+from pyage.calibration.utils.objective_functions import normalized_residual_norm
 from pyage.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
 
 __all__ = [
     "MHConfig",
-    "MH_Trajectory",
-    "MH_step",
+    "MHStep",
+    "MHTrajectory",
     "MetropolisHastings",
-    "Prior",
     "TrajOptions",
-    "gauss",
-    "make_prior_expo",
-    "moments_histo",
 ]
 
 
 class MetropolisHastings(CalibrationMethod):
-    """Calibrate an LPM with a Metropolis-Hastings Markov chain.
+    r"""Sample an LPM posterior with a Metropolis-Hastings chain.
 
-    The immutable :class:`MHConfig` controls sampling, prior and monitoring.
-    Proposal-step policy is exposed through :attr:`MH_step`; :meth:`perform`
-    returns the accepted parameter and concentration distributions.
+    For parameters :math:`\theta` within the configured LPM bounds, the target
+    log density is
+
+    .. math::
+
+       \log\pi(\theta)=-\tfrac12\chi^2(\theta)+\log p(\theta)+c,
+
+    with omitted terms disabled by ``MHConfig.likelihood`` and
+    ``MHConfig.prior_option``. Observation errors are treated as independent
+    known Gaussian standard deviations. A proposal :math:`\theta'` is accepted
+    using
+
+    .. math::
+
+       \log u < \log\pi(\theta')-\log\pi(\theta)
+       +\log q(\theta\mid\theta')-\log q(\theta'\mid\theta).
+
+    Native and sum/difference Gaussian random walks have zero Hastings term;
+    the SciPy inverse-Gaussian coordinate proposal includes its Jacobian.
+    Out-of-bounds proposals and zero-support prior values have log target
+    ``-inf`` and are rejected.
+
+    The immutable :class:`MHConfig` controls sampling, prior, proposal, random
+    seed, and monitoring. :meth:`perform` stores the current state after
+    burn-in/thinning, including repeated states following rejected proposals.
+
+    Notes
+    -----
+    ``obj_function`` in returned tables is :math:`\sqrt{\chi^2/n}`, not the log
+    target used for acceptance. The algorithm does not by itself certify
+    convergence; publication runs require multiple-chain diagnostics. See
+    ``docs/scientific-methods.md`` and
+    ``docs/reports/mh_proposal_qualification.md``.
     """
 
-    def __init__(self, config: MHConfig | None = None, **kwargs):
-        """Constructor: definition of  MH parameters"""
+    def __init__(self, config: MHConfig | None = None):
+        """Initialize the sampler from one immutable scientific configuration."""
         super().__init__()
         # Parameters
         self.method = "Metropolis_Hastings"
@@ -66,14 +81,11 @@ class MetropolisHastings(CalibrationMethod):
                 "MetropolisHastings now requires config=MHConfig(...). "
                 "Pass a MHConfig instance instead of individual parameters."
             )
-        if kwargs:
-            raise TypeError(
-                "MetropolisHastings only accepts config=MHConfig(...). "
-                f"Unexpected parameters: {sorted(kwargs.keys())}"
-            )
         self.config = config
-        # MH step = delta * Delta (parameter bounds)
-        self.MH_step = MH_step()
+        self.proposal_step = MHStep(
+            config.componentwise_source,
+            config.componentwise_fraction,
+        )
         # A priori distributions
         self.prior = Prior(
             option=self.config.prior_option,
@@ -82,30 +94,30 @@ class MetropolisHastings(CalibrationMethod):
         )
         # Results
         self.__success_rate = 0
-        self.__initial_params_used: Dict[str, float] = {}
+        self.__initial_params_used: dict[str, float] = {}
         self.__initialization_source = ""
         self.prior_validation_stats = None
+        self.trajectory: MHTrajectory | None = None
         self.time_perform = 0
         self._proposal: GaussianRandomWalk | None = None
 
-    def __param_inc(
-        self, p0: List[float], lpm: Any, rng: np.random.Generator
-    ) -> List[float]:
-        """Increment parameters
-        Metropolis_Hastings
-        """
+    def __draw_proposal(
+        self, p0: list[float], lpm: Any, rng: np.random.Generator
+    ) -> list[float]:
+        """Draw one unbounded proposal from the configured random walk."""
         if self._proposal is not None:
             return self._proposal.draw(p0, rng).tolist()
-        # Preserve the historical RNG stream and proposal exactly by default.
+        # Scalar draws are intentional: they make the default seeded protocol
+        # independent of NumPy's multivariate-normal implementation details.
         return [
-            p0[k] + self.MH_step.value[key] * rng.standard_normal()
+            p0[k] + self.proposal_step.value[key] * rng.standard_normal()
             for k, key in enumerate(lpm.p.keys())
         ]
 
     def __prepare_proposal(self) -> None:
         """Resolve an optional fixed Gaussian proposal after model setup."""
         kind = self.config.proposal_kind
-        if kind == "legacy_diagonal":
+        if kind == "componentwise":
             if (
                 any(
                     value is not None
@@ -117,7 +129,7 @@ class MetropolisHastings(CalibrationMethod):
                 or self.config.proposal_multiplier != 1.0
             ):
                 raise ValueError(
-                    "legacy_diagonal does not accept explicit proposal parameters"
+                    "componentwise does not accept explicit proposal parameters"
                 )
             self._proposal = None
             return
@@ -138,43 +150,51 @@ class MetropolisHastings(CalibrationMethod):
                 coordinate_system=coordinate_system,
             )
             return
-        if kind == "correlated":
+        if kind in {"correlated", "scipy_ig_correlated"}:
             if self.config.proposal_covariance is None:
                 raise ValueError("correlated requires proposal_covariance")
             covariance = np.asarray(self.config.proposal_covariance, dtype=float)
             if covariance.shape != (dimension, dimension):
                 raise ValueError("proposal_covariance dimension does not match the LPM")
-            self._proposal = GaussianRandomWalk(covariance * multiplier**2)
+            coordinate_system = (
+                "scipy_ig" if kind == "scipy_ig_correlated" else "native"
+            )
+            self._proposal = GaussianRandomWalk(
+                covariance * multiplier**2, coordinate_system=coordinate_system
+            )
             return
         raise ValueError(f"Unknown proposal_kind: {kind!r}")
 
     def __log_posterior_eval(
         self,
-        params: List[float],
+        params: list[float],
         data_conc: np.ndarray,
         data_error: np.ndarray,
-    ) -> Tuple[float, float, List[float]]:
-        """posterior distribution
-        It is the logarithm of the posterior probability that is computed to avoid taking the exponential of the difference,
-        an hazardous operation for very small or very large numbers
+    ) -> tuple[float, float, list[float]]:
+        r"""Evaluate ``-chi_square/2 + log(prior)`` in log space.
+
+        The normalization constants of the independent Gaussian likelihood do
+        not depend on LPM parameters and are omitted. Log space prevents
+        underflow. Parameter bounds and prior supports preserve exact zero
+        density outside their configured domains.
         """
         log_proba = 0
-        # If parameters are out of bounds, returns immediatly 0
+        # Bounds are part of the target support, not a numerical penalty.
         if self.lpm.param_within_bounds_array(params) is False:
             return -math.inf, math.inf, []
         if self.config.likelihood:
-            [objfunc, conc] = self.objective_function(
+            [chi_square, conc] = self.objective_function(
                 params, data_conc, data_error, conc=True
             )
-            log_proba = log_proba - 0.5 * objfunc  # 1
+            log_proba = log_proba - 0.5 * chi_square
         else:
-            objfunc = 0
+            chi_square = 0
             conc = [1]
         if self.prior.option:
-            log_proba = log_proba + np.log(self.prior.evaluate(self.lpm, params))
-        return log_proba, objfunc, conc
+            log_proba = log_proba + self.prior.log_evaluate(self.lpm, params)
+        return log_proba, chi_square, conc
 
-    def __prepare_storage(self) -> Tuple[np.ndarray, List[str]]:
+    def __prepare_storage(self) -> tuple[np.ndarray, list[str]]:
         """
         Prepares array for storage of results (optimization of performances)
 
@@ -193,11 +213,11 @@ class MetropolisHastings(CalibrationMethod):
                 line = line + 1
         # Number and name of columns that should be stored
         if self.config.likelihood:
-            column = len(self.lpm.p) + 1 + len(self.cdata.names_dates()) + 1
+            column = len(self.lpm.p) + 1 + len(self.observations.names_dates()) + 1
             column_names = (
                 self.lpm.get_param_names()
                 + ["obj_function"]
-                + self.cdata.names_dates()
+                + self.observations.names_dates()
                 + ["param_in_bounds"]
             )
         else:
@@ -213,18 +233,21 @@ class MetropolisHastings(CalibrationMethod):
 
     def __mcmc_step(
         self,
-        params: List[float],
+        params: list[float],
         log_p: float,
-        obj_func: float,
-        conc: List[float],
+        chi_square: float,
+        conc: list[float],
         data_conc: np.ndarray,
         data_error: np.ndarray,
         rng: np.random.Generator,
-    ) -> Tuple[List[float], float, float, List[float], bool]:
-        """
-        Purpose
-        -------
-        Perform one Metropolis-Hastings step.
+    ) -> tuple[list[float], float, float, list[float], bool]:
+        r"""Perform one Metropolis-Hastings transition.
+
+        Acceptance compares ``log(u)`` with the proposed-minus-current log
+        target plus ``log q(current|proposed) - log q(proposed|current)``.
+        A rejected proposal returns the current parameters, objective, and
+        concentrations unchanged, so downstream thinning retains repeated
+        states as required for a Markov-chain sample.
 
         Returns
         -------
@@ -233,31 +256,32 @@ class MetropolisHastings(CalibrationMethod):
             and a success flag.
         """
         # Proposal
-        params_n = self.__param_inc(params, self.lpm, rng)
+        params_n = self.__draw_proposal(params, self.lpm, rng)
         # Evaluate posterior for proposal
-        log_pn, obj_func_n, conc_n = self.__log_posterior_eval(
+        log_pn, chi_square_n, conc_n = self.__log_posterior_eval(
             params_n, data_conc, data_error
         )
         # Accept / reject
         success = False
-        if log_pn >= log_p:
+        log_hastings = (
+            0.0
+            if self._proposal is None
+            else self._proposal.log_hastings_ratio(params, params_n)
+        )
+        if log_pn + log_hastings >= log_p:
             success = True
         else:
             uu = rng.random()
-            if np.log(uu) < log_pn - log_p:
+            if np.log(uu) < log_pn - log_p + log_hastings:
                 success = True
         if success:
-            return params_n, log_pn, obj_func_n, conc_n, True
-        return params, log_p, obj_func, conc, False
+            return params_n, log_pn, chi_square_n, conc_n, True
+        return params, log_p, chi_square, conc, False
 
     def __finalize_trajectory(
-        self, traj: "MH_Trajectory", n: int, traj_options: TrajOptions
+        self, traj: "MHTrajectory", n: int, traj_options: TrajOptions
     ) -> None:
-        """
-        Purpose
-        -------
-        Post-process trajectory storage (resize + optional plot/check).
-        """
+        """Resize and optionally display the retained trajectory."""
         if not traj_options.monitor:
             return
         traj.resize(n)
@@ -268,21 +292,17 @@ class MetropolisHastings(CalibrationMethod):
 
     def __prepare_mcmc(
         self,
-    ) -> Tuple[
+    ) -> tuple[
         TrajOptions,
         np.random.Generator,
         np.ndarray,
         np.ndarray,
-        Optional["MH_Trajectory"],
+        MHTrajectory | None,
         np.ndarray,
-        List[str],
+        list[str],
     ]:
-        """
-        Purpose
-        -------
-        Prepare inputs for the MCMC run.
-        """
-        # Forces monitoring to true for the test of the algorithm on the sole prior
+        """Prepare observations, prior, proposal, RNG, and result storage."""
+        # Prior-only validation requires retained trajectory values.
         traj_monitor = self.config.monitor
         if self.config.likelihood is False and self.prior.option is True:
             traj_monitor = True
@@ -291,17 +311,15 @@ class MetropolisHastings(CalibrationMethod):
             display=self.config.display_traj,
             text=self.config.display_text,
         )
-        # Initialization of random number generator
         rng = np.random.default_rng(self.config.seed)
-        # Concentration values as array: necessary for optimal numerical efficiency
-        data_conc = self.cdata.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
-        data_error = self.cdata.cv[ERROR_COLUMN].to_numpy(dtype=float)
-        # Initialization of stepping interval
-        self.MH_step.prepare(self.lpm)
+        data_conc = self.observations.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
+        data_error = self.observations.cv[ERROR_COLUMN].to_numpy(dtype=float)
+        if self.config.proposal_kind == "componentwise":
+            self.proposal_step.prepare(self.lpm)
         self.__prepare_proposal()
         # Trajectory monitoring
         traj = (
-            MH_Trajectory(self.lpm.p.keys(), self.config.nstep)
+            MHTrajectory(self.lpm.p.keys(), self.config.nstep)
             if traj_options.monitor
             else None
         )
@@ -321,17 +339,9 @@ class MetropolisHastings(CalibrationMethod):
 
     def __initialize_state(
         self, data_conc: np.ndarray, data_error: np.ndarray
-    ) -> Tuple[List[float], float, float, List[float]]:
-        """
-        Purpose
-        -------
-        Initialize parameters and compute the initial posterior.
-        """
-        # Initialization of calibration parameters with default parameters of distribution
-        if self.prior.option:
-            self.prior.param_init(self.lpm)
-            self.__initialization_source = "prior_map"
-        elif self.config.initial_params is not None:
+    ) -> tuple[list[float], float, float, list[float]]:
+        """Initialize parameters and evaluate the initial log-posterior."""
+        if self.config.initial_params is not None:
             expected = list(self.lpm.p.keys())
             provided = list(self.config.initial_params.keys())
             missing = [
@@ -353,27 +363,51 @@ class MetropolisHastings(CalibrationMethod):
                 }
                 raise ValueError(
                     f"initial_params are outside the LPM bounds {bounds}: "
-                    f"{dict(zip(expected, params0))}"
+                    f"{dict(zip(expected, params0, strict=True))}"
                 )
             self.lpm.set_param_from_array(params0)
             self.__initialization_source = "config"
+        elif self.prior.option:
+            self.prior.param_init(self.lpm)
+            self.__initialization_source = "prior_map"
         else:
             # The LPM already carries its configured default parameters.
             self.__initialization_source = "lpm_default"
         # Gets parameters in an array (compulsory for performance of the loop)
         params = self.lpm.get_parameters_to_array()
-        self.__initial_params_used = dict(zip(self.lpm.p.keys(), params))
+        self.__initial_params_used = dict(zip(self.lpm.p.keys(), params, strict=True))
         # Value of the posterior distribution for initial set of parameters
-        log_p, obj_func, conc = self.__log_posterior_eval(params, data_conc, data_error)
-        return params, log_p, obj_func, conc
+        log_p, chi_square, conc = self.__log_posterior_eval(
+            params, data_conc, data_error
+        )
+        if not math.isfinite(log_p):
+            raise ValueError(
+                "Initial parameters have zero or non-finite posterior density: "
+                f"{self.__initial_params_used}"
+            )
+        return params, log_p, chi_square, conc
 
     def perform(self) -> LPM_dist.LpmDist:
-        """Run the configured Markov chain.
+        """Run and thin the configured Markov chain.
+
+        The loop executes exactly ``config.nstep`` transitions. It stores the
+        current state for zero-based iterations satisfying the strict burn-in
+        rule ``i > burn_in * nstep`` and ``i % nskip == 0``. The acceptance
+        fraction is computed over all transitions and is available through
+        :attr:`success_rate`.
 
         Returns
         -------
         LpmDist
-            Accepted parameters, objective values, and concentration solutions.
+            Retained current states (including rejection repeats), their
+            dimensionless ``sqrt(chi_square / n_observations)`` diagnostic, and
+            modeled concentrations in each tracer's unit.
+
+        Notes
+        -----
+        The returned object contains no automatic R-hat, effective sample size,
+        or Monte Carlo standard error. Those diagnostics remain required before
+        posterior summaries are used scientifically.
         """
 
         start = time.time()
@@ -390,51 +424,57 @@ class MetropolisHastings(CalibrationMethod):
         ) = self.__prepare_mcmc()
 
         # --------------- INITIALIZATION PHASE ----------------------
-        params, log_p, obj_func, conc = self.__initialize_state(data_conc, data_error)
+        params, log_p, chi_square, conc = self.__initialize_state(data_conc, data_error)
         n = 0
         nsuccess = 0
 
         # --------------- MONTE CARLO MARKOV CHAIN LOOP ------------
         line = 0
         for i in range(self.config.nstep):
-            params, log_p, obj_func, conc, success = self.__mcmc_step(
+            params, log_p, chi_square, conc, success = self.__mcmc_step(
                 params,
                 log_p,
-                obj_func,
+                chi_square,
                 conc,
                 data_conc,
                 data_error,
                 rng,
             )
             if success:
-                # print(nsuccess, params[0],params[1],log_p)
                 nsuccess += 1
             if (
                 i > self.config.burn_in * self.config.nstep
                 and i % self.config.nskip == 0
             ):
-                # Storage : everything relative to params and not params !!! (sources of errors to take params_n)
+                # Persist the current state, including repeats after rejection.
                 array_results[line] = (
-                    params + [RMSE(obj_func, len(conc))] + conc + [1.0]
+                    params
+                    + [normalized_residual_norm(chi_square, len(conc))]
+                    + conc
+                    + [1.0]
                 )
                 line += 1
                 if traj_options.monitor:
-                    traj.update(n, params, -log_p)
-                    traj.inc_one(n)
+                    traj.update(n, params, log_p, accepted=success)
                     n += 1
 
         # --------------- POSTPROCESSING PHASE -------------------
         # Results consolidation
         self.__success_rate = nsuccess / self.config.nstep
-        lpm_results = LPM_dist.LpmDist(self.lpm, c_names=self.cdata.names_dates())
+        lpm_results = LPM_dist.LpmDist(
+            self.lpm, c_names=self.observations.names_dates()
+        )
         lpm_results.fill_np_array(array_results, array_col_names)
 
-        # Adds statistical characteritics to the stored distributions
-        lpm_results = lpm_results.stats_distribution()
+        # Derive LPM moments for every retained joint sample.
+        lpm_results = lpm_results.add_moments()
 
         # Displays Trajectory
         if traj_options.monitor:
             self.__finalize_trajectory(traj, n, traj_options)
+            self.trajectory = traj
+        else:
+            self.trajectory = None
 
         # Checks algorithm with prior distribution and no likelihood
         if self.config.likelihood is False and self.prior.option is True:
@@ -447,98 +487,53 @@ class MetropolisHastings(CalibrationMethod):
 
         return lpm_results
 
-    def __posterior_dir(self, file: str | Path) -> Path:
-        """
-        Purpose
-        -------
-        Resolve the shared posterior directory from a results file path.
-        """
-        file_path = Path(file).resolve()
-        try:
-            folder_root = file_path.parents[3]
-        except IndexError as exc:
-            raise ValueError(
-                f"Cannot derive posterior directory from {file_path} "
-                "(expected at least 4 parent levels)."
-            ) from exc
-        posterior_dir = folder_root / "posterior_distributions"
-        posterior_dir.mkdir(parents=True, exist_ok=True)
-        return posterior_dir
-
-    def __set_display_directory(self, directory: Path) -> Path:
-        """
-        Purpose
-        -------
-        Update display output directory.
-        """
-        self.display_options.directory = directory
-        return directory
-
-    def write_posterior(self, lpm_results: LPM_dist.LpmDist, file: str | Path) -> Path:
-        """
-        Saves posterior to a specific folder.
-
-        Parameters
-        ----------
-        lpm_results : LPM_dist
-            Distributions of calibrated LPMs.
-        file : str or Path
-            Current root file where all results are commonly stored.
-            Posterior will be stored in another folder common to all posteriors.
-        """
-        posterior_dir = self.__posterior_dir(file)
-        self.__set_display_directory(posterior_dir)
-
-        # store posterior distributions here if needed.
-
-        return posterior_dir
-
-    def __write_kv_file(self, file_name: str | Path, data: Dict[str, Any]) -> None:
-        """
-        Purpose
-        -------
-        Write key/value pairs to a tab-separated file.
-        """
-        with open(file_name, "w") as handle:
-            for key, val in data.items():
-                handle.write(f"{key}\t{val}\n")
-
-    def __parameters_payload(self) -> Dict[str, Any]:
-        """
-        Purpose
-        -------
-        Build the parameter payload for output.
-        """
+    def __parameters_payload(self) -> dict[str, Any]:
+        """Build complete sampler metadata for output."""
         data = {}
         data["method"] = self.method
         data["nstep"] = self.config.nstep
         data["burn-in"] = self.config.burn_in
+        data["nskip"] = self.config.nskip
         data["prior_option"] = self.prior.option
+        data["prior_type"] = self.config.prior_type
+        data["prior_file"] = self.config.prior_file
         data["likelihood_option"] = self.config.likelihood
-        self.MH_step.save_param(data)
+        data["monitor"] = self.config.monitor
+        if self.config.proposal_kind == "componentwise":
+            self.proposal_step.add_metadata(data)
         data["seed"] = self.config.seed
         data["initialization_source"] = self.__initialization_source
         data["proposal_kind"] = self.config.proposal_kind
         data["proposal_multiplier"] = self.config.proposal_multiplier
+        data["proposal_scales"] = self.config.proposal_scales
+        data["proposal_covariance"] = self.config.proposal_covariance
+        for param, distribution in self.prior.MHapriori_dist.items():
+            data[f"prior_distribution_{param}"] = distribution
+            if self.config.prior_type == "parametric":
+                data[f"prior_parameters_{param}"] = self.prior.MHapriori_para[param]
+            elif self.config.prior_file:
+                source = Path(f"{self.config.prior_file}_{param}.txt")
+                if source.is_file():
+                    data[f"prior_sha256_{param}"] = hashlib.sha256(
+                        source.read_bytes()
+                    ).hexdigest()
+                    data[f"prior_grid_points_{param}"] = len(
+                        self.prior.MHapriori_para[param]
+                    )
         for param, value in self.__initial_params_used.items():
             data[f"initial_{param}"] = value
         return data
 
     def write_parameters(self, file_name: str | Path) -> None:
-        """
-        Writes parameters of calibration
-        """
+        """Write complete sampler configuration and resolved prior metadata."""
         data = self.__parameters_payload()
-        self.__write_kv_file(file_name, data)
+        write_key_values(file_name, data)
 
-    def write_results_spec(self, data: Dict[str, Any]) -> None:
-        """
-        Specific contribution of the daughter class to the calibration results
-
-        Argumments
-        ----------
-        data: dictionary
-            results to be stored
-
-        """
+    def write_results_spec(self, data: dict[str, Any]) -> None:
+        """Record the transition-level acceptance fraction."""
         data["success_rate"] = self.__success_rate
+
+    @property
+    def success_rate(self) -> float:
+        """Fraction of accepted proposals in the completed chain."""
+        return float(self.__success_rate)

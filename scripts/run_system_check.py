@@ -167,7 +167,6 @@ class TestIntegration:
                 prior_option=True,
                 prior_type="parametric",
                 likelihood=True,
-                lpm_number=10,
                 monitor=False,
             )
             calib_MH = cMH.MetropolisHastings(config=mh_config)
@@ -188,8 +187,7 @@ class TestIntegration:
             lpm for lpm in lpm_list if lpm not in ("ig_shifted", "uniform")
         ]
         for lpm in lpm_list_simplex:
-            calib_simplex = csimp.Simplex("Simplex_init_multipes", init_multiples_n=10)
-            # self.display.text = True
+            calib_simplex = csimp.Simplex("Simplex_multi_start", init_multiples_n=10)
             calib = cst.CalibrationSyntheticTest(
                 calib_strategy=calib_simplex,
                 ncase=2,
@@ -206,7 +204,6 @@ class TestIntegration:
         # Does not work for ig_shifted (3 parameters) and for uniform
         for lpm in lpm_list_simplex:
             calib_simplex = csimp.Simplex("Simplex")
-            # self.display.text = True
             calib = cst.CalibrationSyntheticTest(
                 calib_strategy=calib_simplex,
                 ncase=2,
@@ -278,9 +275,7 @@ def test_integration(config: Optional[SystemCheckConfig] = None):
 
     # Checks calibration
     ti = TestIntegration(config=config)
-    # ti.check_calibration(single_all="single",single_name="ig")
     ti.check_calibration(single_all="all")
-    # ti.check_calibration(single_all="all")
 
 
 if __name__ == "__main__":

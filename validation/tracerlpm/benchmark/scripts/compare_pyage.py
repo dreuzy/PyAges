@@ -179,4 +179,16 @@ def compare(
 
 
 if __name__ == "__main__":
-    print(json.dumps(compare(), indent=2))
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--reference", type=Path, default=DEFAULT_REFERENCE)
+    parser.add_argument("--input-dir", type=Path, default=DEFAULT_INPUT_DIR)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_DIR)
+    arguments = parser.parse_args()
+    print(
+        json.dumps(
+            compare(arguments.reference, arguments.input_dir, arguments.output),
+            indent=2,
+        )
+    )

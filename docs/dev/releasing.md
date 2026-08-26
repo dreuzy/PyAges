@@ -11,7 +11,9 @@ published reference artifact.
    Install the qualified direct dependency set with
    `python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"`.
 3. Update `pyage/_version.py`, `CITATION.cff`, `CHANGELOG.md`, and the
-   development-status classifier together.
+   development-status classifier together. Confirm that README and Sphinx show
+   the same release and follow {doc}`versioning-citation`; the manuscript label
+   “PyAge v1.0” is not a substitute for a released `1.0.0` tag.
 4. Run the standard suite:
 
    ```bash
@@ -21,7 +23,12 @@ published reference artifact.
    python -m pytest -q validation/tracerlpm/benchmark/tests
    python -m pytest -q --cov=pyage --cov-report=term-missing --cov-fail-under=60
    python -m sphinx -W --keep-going -b html docs docs/_build/html
+   python -m sphinx -E -a -W --keep-going -b linkcheck docs docs/_build/linkcheck
    ```
+
+   The link checker may encounter publisher bot protection. Any exclusion must
+   target one verified URL exactly; do not ignore an entire DOI or publisher
+   domain.
 
 5. Run the extensive scientific suite before a public release:
 
@@ -68,7 +75,11 @@ published reference artifact.
 9. Publish a release candidate to the staging package index. Validate it on at
    least two supported Python versions before publishing the final artifact.
 10. Tag the exact reviewed commit and publish the wheel and source distribution
-   without rebuilding them.
+    without rebuilding them.
+11. For an archived scientific release, mint the version DOI from that exact
+    tagged artifact. Only after the DOI resolves and its metadata has been
+    checked, add it to `CITATION.cff`, validate the CFF, and update the article
+    citation and reproducibility manifests. Never publish a placeholder DOI.
 
-The GitLab pipeline implements the standard checks and retains the built
-artifacts. Uploading remains a deliberate maintainer action.
+The GitHub Actions workflows implement the standard checks and retain the
+built artifacts. Uploading remains a deliberate maintainer action.

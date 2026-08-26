@@ -13,6 +13,7 @@ import pandas as pd
 
 from pyage.config.models import LauncherParams
 from pyage.workflows.single_date_config import load_params
+from pyage.workflows.single_date_paths import dataset_results_directory
 from scripts.common.example_case_utils import (
     deep_update,
     repo_root_from,
@@ -27,7 +28,6 @@ from scripts.common.example_launcher_utils import (
     build_effective_launcher_config,
     generated_launcher_config_path,
 )
-from scripts.common.launcher_paths import dataset_results_directory
 
 
 @dataclass(frozen=True)

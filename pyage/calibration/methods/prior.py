@@ -46,12 +46,7 @@ def make_prior_expo(
         )
 
     if normalize:
-        # ``numpy.trapezoid`` was introduced in NumPy 2.0.  ``trapz`` keeps
-        # the declared NumPy 1.x compatibility without changing the result.
-        integrate_trapezoid = getattr(np, "trapezoid", None)
-        if integrate_trapezoid is None:
-            integrate_trapezoid = np.trapz
-        area = integrate_trapezoid(y_cont, x_cont)
+        area = np.trapezoid(y_cont, x_cont)
         if area > 0:
             y_cont /= area
     return x_cont, y_cont
@@ -65,12 +60,15 @@ def gauss(x: float, x0: float, sigma: float) -> float:
 
 
 def moments_histo(histogram: np.ndarray) -> tuple[float, float]:
-    """Return the weighted mean and variance of a two-column histogram."""
-    weights = histogram[:, 1]
+    """Integrate the mean and variance of a two-column density grid."""
+    density = histogram[:, 1]
     values = histogram[:, 0]
-    total = np.sum(weights)
-    mean = float(np.sum(values * weights) / total)
-    variance = float(np.sum(values**2 * weights) / total - mean**2)
+    total = float(np.trapezoid(density, values))
+    if not math.isfinite(total) or total <= 0.0:
+        raise ValueError("Histogram density must have positive finite mass")
+    mean = float(np.trapezoid(values * density, values) / total)
+    second = float(np.trapezoid(values**2 * density, values) / total)
+    variance = max(0.0, second - mean**2)
     return mean, variance
 
 
@@ -121,7 +119,7 @@ class Prior:
                 else rng.uniform(first, second)
             )
             return float(np.clip(value, pmin, pmax))
-        return 0.5 * (pmin + pmax)
+        raise ValueError(f"Unsupported prior distribution: {distribution}")
 
     def __param_init_empirical(
         self,
@@ -148,9 +146,17 @@ class Prior:
                 value = float(values[np.argmax(probabilities)])
         return float(np.clip(value, pmin, pmax))
 
-    def param_init(self, lpm: Any, strategy: str = "map") -> None:
+    def param_init(
+        self,
+        lpm: Any,
+        strategy: str = "map",
+        rng: np.random.Generator | None = None,
+    ) -> None:
         """Initialize model parameters from the configured prior."""
-        rng = np.random.default_rng()
+        if strategy not in {"map", "sample"}:
+            raise ValueError("strategy must be 'map' or 'sample'")
+        if rng is None:
+            rng = np.random.default_rng()
         parameters = []
         for key in lpm.p:
             bounds = lpm.get_p_min(key), lpm.get_p_max(key)
@@ -171,7 +177,9 @@ class Prior:
             prior_type = prior.get("type")
             if not prior_type:
                 continue
-            self.MHapriori_dist[name] = prior_type
+            self.MHapriori_dist[name] = (
+                "normal" if prior_type == "gaussian" else prior_type
+            )
             if prior_type == "uniform":
                 self.MHapriori_para[name] = [prior.get("min"), prior.get("max")]
             elif prior_type in {"normal", "gaussian"}:
@@ -219,7 +227,7 @@ class Prior:
             if distribution == "normal":
                 probability *= gauss(params[index], first, second)
             elif distribution == "uniform":
-                if first < params[index] < second:
+                if first <= params[index] <= second:
                     probability /= abs(second - first)
                 else:
                     probability = 0
@@ -247,7 +255,54 @@ class Prior:
             probability = self.__evaluate_empirical(lpm, params)
         else:
             raise ValueError(f"Unsupported prior type: {self.typ}")
-        return max(probability, 1e-300)
+        return probability
+
+    def __log_evaluate_parametric(self, lpm: Any, params: list[float]) -> float:
+        log_probability = 0.0
+        for index, key in enumerate(lpm.p):
+            distribution = self.MHapriori_dist[key]
+            first, second = self.MHapriori_para[key]
+            value = params[index]
+            if distribution == "normal":
+                if second <= 0.0:
+                    raise ValueError(f"Normal prior std must be positive for {key}")
+                standardized = (value - first) / second
+                log_probability += (
+                    -0.5 * standardized**2
+                    - math.log(second)
+                    - 0.5 * math.log(2.0 * math.pi)
+                )
+            elif distribution == "uniform":
+                if second <= first:
+                    raise ValueError(f"Uniform prior bounds are invalid for {key}")
+                if not first <= value <= second:
+                    return -math.inf
+                log_probability -= math.log(second - first)
+            else:
+                raise ValueError(f"Unsupported prior distribution: {distribution}")
+        return log_probability
+
+    def __log_evaluate_empirical(self, lpm: Any, params: list[float]) -> float:
+        log_probability = 0.0
+        for index, parameter in enumerate(lpm.get_param_names()):
+            histogram = self.MHapriori_para[parameter]
+            value = params[index]
+            if value < histogram[0, 0] or value > histogram[-1, 0]:
+                return -math.inf
+            nearest = np.argmin(abs(histogram[:, 0] - value))
+            density = float(histogram[nearest, 1])
+            if density <= 0.0 or not math.isfinite(density):
+                return -math.inf
+            log_probability += math.log(density)
+        return log_probability
+
+    def log_evaluate(self, lpm: Any, params: list[float]) -> float:
+        """Evaluate the prior log-density with exact zero support."""
+        if self.typ == "parametric":
+            return self.__log_evaluate_parametric(lpm, params)
+        if self.typ == "empirical":
+            return self.__log_evaluate_empirical(lpm, params)
+        raise ValueError(f"Unsupported prior type: {self.typ}")
 
     def validation_MH_prior(
         self,

@@ -1,13 +1,12 @@
 # Examples
 
 This section groups documentation that helps interpret, audit, and extend the
-example workflows bundled with the repository.
+maintained example workflows bundled with the repository. Historical audits
+and exploratory example notes are listed separately in {doc}`../archive/index`.
 
 ```{toctree}
 :maxdepth: 1
 
 ../user-guide/running-examples
-ploemeur-notebooks-audit
 holten/README
-holten/notes-helium
 ```

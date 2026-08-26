@@ -1,0 +1,26 @@
+{
+  "case_id": "s3_1_tracerlpm",
+  "git_commit": "20d02ed28699424e7263f06c220f98c895f29eff",
+  "release_tag": null,
+  "repository_release_tag_at_inventory": "1.0",
+  "requested_v1.0_tag": null,
+  "calculated_at": "2026-08-19T21:13:55.121467+02:00",
+  "environment": {"source": "results/article_non_ploemeur_final/run_manifest.yaml#environment"},
+  "seeds": {"paired": "401-410", "source": "validation/tracerlpm/benchmark/configs/robustness-width-noise.yaml"},
+  "parameters": {"source": "validation/tracerlpm/benchmark/configs/"},
+  "historical_manifest": "results/article_non_ploemeur_final/run_manifest.yaml",
+  "inputs": [
+    {"path": "validation/tracerlpm/benchmark/configs/robustness-width-noise.yaml", "sha256": "f51433f66ff0e3d2b20959c12d577b7dec12a8ee8d8cd697928820717c37877d"},
+    {"path": "validation/tracerlpm/benchmark/configs/robustness-age-noise.yaml", "sha256": "9779579694f460a358f1a9e28954ffb10d48e1a02d4cee403f6b408d05a7536b"}
+  ],
+  "scripts": [
+    {"path": "validation/tracerlpm/benchmark/scripts/build_qualification_report.py", "sha256": "00170e85876d4f3d4aed2615ea591b4a7ffd101c1407b0d5f9ce649c3fb39668"}
+  ],
+  "canonical_outputs": ["results/article_non_ploemeur_final/supplement_s2.md", "results/article_non_ploemeur_final/tracerlpm_robustness/"],
+  "large_outputs": ["results/article_non_ploemeur_final/tracerlpm_robustness/output/"],
+  "required_paths": ["results/article_non_ploemeur_final/supplement_s2.md", "results/article_non_ploemeur_final/tracerlpm_robustness/launch_manifest.yaml"],
+  "resources": [
+    {"path": "results/article_non_ploemeur_final/supplement_s2.md", "sha256": "a4daafc5a379c9a6b3bd9bbaf1eae3fb3ef862fed322c56983ecda6b63046205"}
+  ],
+  "completeness_note": "Python results are present; a portable one-command external TracerLPM/Excel rerun is not yet available."
+}

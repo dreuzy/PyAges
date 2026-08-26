@@ -21,11 +21,11 @@ class _FakeLpm:
     def param_within_bounds_array(self, values):
         return all(
             self.get_p_min(name) <= value <= self.get_p_max(name)
-            for name, value in zip(self.p, values)
+            for name, value in zip(self.p, values, strict=False)
         )
 
     def set_param_from_array(self, values):
-        self.p.update(zip(self.p, values))
+        self.p.update(zip(self.p, values, strict=False))
 
     def get_parameters_to_array(self):
         return list(self.p.values())
@@ -44,7 +44,7 @@ def _initialize(initial_params):
     )
     problem = SimpleNamespace(lpm=_FakeLpm(), ensure_prepared=lambda: None)
     mh._bind_problem(problem)
-    mh.MH_step.value = {"mu": 1.5, "shift": 1.5}
+    mh.proposal_step.value = {"mu": 1.5, "shift": 1.5}
     params, *_ = mh._MetropolisHastings__initialize_state(  # noqa: SLF001
         np.array([]), np.array([])
     )

@@ -121,7 +121,7 @@ Related files that help place this example in the repository:
   Natural single-date example used as the main field-data reference.
 - `pyage run`
   Canonical single-date workflow used by this example.
-- [`scripts/common/example_summary_plots.py`](../../../scripts/common/example_summary_plots.py)
+- [`pyage/workflows/plots/`](../../../pyage/workflows/plots)
   Shared plotting helpers used to build the didactic summary figures.
 
 ## Recommended reading order

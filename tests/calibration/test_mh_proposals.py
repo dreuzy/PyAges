@@ -6,8 +6,13 @@ import math
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 from scipy.stats import multivariate_normal
 
+from pyage.calibration.ig_parameterization import (
+    physical_to_scipy_coordinates,
+    scipy_to_physical_coordinates,
+)
 from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
 from pyage.calibration.mh_proposals import (
     GaussianRandomWalk,
@@ -25,6 +30,24 @@ class _BoundedTarget:
     @staticmethod
     def param_within_bounds_array(values):
         return 0.1 <= values[0] <= 70.0 and 0.0 <= values[1] <= 70.0
+
+
+def test_componentwise_proposal_uses_the_seeded_scalar_draw_protocol():
+    sampler = MetropolisHastings(config=MHConfig(prior_option=False, likelihood=True))
+    sampler.proposal_step.value = {"mu": 1.5, "shift": 2.0}
+    actual_rng = np.random.default_rng(2468)
+    expected_rng = np.random.default_rng(2468)
+    current = [10.0, 30.0]
+
+    actual = sampler._MetropolisHastings__draw_proposal(  # noqa: SLF001
+        current, _BoundedTarget(), actual_rng
+    )
+    expected = [
+        current[0] + 1.5 * expected_rng.standard_normal(),
+        current[1] + 2.0 * expected_rng.standard_normal(),
+    ]
+
+    assert actual == expected
 
 
 def test_sum_difference_roundtrip_and_constant_jacobian():
@@ -72,8 +95,22 @@ def test_regularized_empirical_covariance_is_positive_definite():
     assert np.all(np.linalg.eigvalsh(covariance) > 0.0)
 
 
+def test_scipy_ig_proposal_roundtrip_and_hastings_jacobian():
+    current = np.array([2400.0, 21000.0, 34.0])
+    assert scipy_to_physical_coordinates(
+        physical_to_scipy_coordinates(current)
+    ) == pytest.approx(current)
+    proposal = GaussianRandomWalk(np.eye(3), coordinate_system="scipy_ig")
+    proposed = np.array([2000.0, 16000.0, 33.5])
+    assert proposal.log_hastings_ratio(current, proposed) == pytest.approx(
+        math.log(proposed[1] / current[1])
+    )
+
+
 def test_target_and_bounds_do_not_depend_on_proposal_choice():
-    legacy = MetropolisHastings(config=MHConfig(prior_option=False, likelihood=True))
+    componentwise = MetropolisHastings(
+        config=MHConfig(prior_option=False, likelihood=True)
+    )
     transformed = MetropolisHastings(
         config=MHConfig(
             prior_option=False,
@@ -82,7 +119,7 @@ def test_target_and_bounds_do_not_depend_on_proposal_choice():
             proposal_scales=(2.0, 5.0),
         )
     )
-    for sampler in (legacy, transformed):
+    for sampler in (componentwise, transformed):
 
         def objective_function(params, *_args, return_concentrations=False, **_kwargs):
             result = float(params[0] ** 2 + 0.5 * params[1] ** 2)
@@ -95,9 +132,11 @@ def test_target_and_bounds_do_not_depend_on_proposal_choice():
         )
         sampler._bind_problem(problem)
     args = ([10.0, 30.0], np.array([1.0]), np.array([1.0]))
-    legacy_target = legacy._MetropolisHastings__log_posterior_eval(*args)  # noqa: SLF001
+    componentwise_target = componentwise._MetropolisHastings__log_posterior_eval(  # noqa: SLF001
+        *args
+    )
     transformed_target = transformed._MetropolisHastings__log_posterior_eval(*args)  # noqa: SLF001
-    assert transformed_target == legacy_target
+    assert transformed_target == componentwise_target
 
     transformed._proposal = GaussianRandomWalk.diagonal((100.0, 100.0))
     rng = np.random.default_rng(772)

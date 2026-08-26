@@ -47,4 +47,5 @@ def test_holten_golden(
         return
 
     assert key in store, f"Missing golden entry for {key}. Run with --update-golden."
-    assert_nested_close(record, store[key], tol=1e-4)
+    # Optimizer results can drift slightly across the supported SciPy releases.
+    assert_nested_close(record, store[key], tol=5e-4, atol=5e-6)

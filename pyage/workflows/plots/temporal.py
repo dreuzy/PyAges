@@ -51,7 +51,6 @@ OVERLAY_STYLES = (
 
 def _posterior_predictions(
     posterior_frames: dict[str, pd.DataFrame],
-    selection_modes: dict[str, str],
     lpm_name: str,
     lpm_directory: str | Path,
     tracers,
@@ -67,16 +66,9 @@ def _posterior_predictions(
         template = lpm_build(lpm_name, directory_lpm=str(lpm_directory))
         distribution = LpmDist(template, c_names=[])
         distribution.fill_np_array(frame.to_numpy(), frame.columns.tolist())
-        requested_mode = selection_modes.get(label, "random_line")
-        mode = (
-            requested_mode
-            if requested_mode in {"span", "successive", "span_full"}
-            else "single_date"
-        )
-        lpms, _, _ = distribution.get_selection(
-            lpm_number=lpm_number,
-            time_span_mode=mode,
-            array_resolution=1000,
+        lpms, _, _ = distribution.select(
+            count=lpm_number,
+            resolution=1000,
         )
         source: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         for lpm in lpms:
@@ -149,7 +141,7 @@ def _plot_prediction_intervals(axs, tracer_names, predictions, legend_handles) -
                 ),
             ]
         )
-        for ax, tracer_name in zip(axs.flatten(), tracer_names):
+        for ax, tracer_name in zip(axs.flatten(), tracer_names, strict=False):
             if tracer_name not in source:
                 continue
             dates, values = source[tracer_name]
@@ -235,7 +227,6 @@ def plot_temporal_fit_comparison(
     posterior_frames: dict[str, pd.DataFrame],
     lpm_name: str,
     lpm_directory: str | Path,
-    selection_modes: dict[str, str] | None = None,
     lpm_number: int = 40,
     filename: str | Path | None = None,
     title: str | None = None,
@@ -265,7 +256,6 @@ def plot_temporal_fit_comparison(
 
     predictions = _posterior_predictions(
         posterior_frames,
-        selection_modes or {},
         lpm_name,
         lpm_directory,
         tracers,
@@ -276,7 +266,7 @@ def plot_temporal_fit_comparison(
     legend_handles = _comparison_legend(bool(highlight_array.size), highlight_label)
     _plot_prediction_intervals(axs, tracer_names, predictions, legend_handles)
 
-    for ax, tracer_name in zip(axs.flatten(), tracer_names):
+    for ax, tracer_name in zip(axs.flatten(), tracer_names, strict=False):
         observed = craw.cv[craw.cv["element"] == tracer_name].sort_values("date")
         highlighted_any |= _plot_observed_temporal_panel(
             ax,
@@ -315,7 +305,6 @@ def plot_temporal_fit_comparison(
 def plot_temporal_fit_summary(
     craw,
     lpm_results,
-    time_span_mode: str,
     lpm_number: int,
     filename: str | Path | None = None,
     title: str | None = None,
@@ -330,10 +319,9 @@ def plot_temporal_fit_summary(
         names=craw.cv["element"].unique(),
         date=end_year,
     )
-    lpm_list, _, _ = lpm_results.get_selection(
-        lpm_number=lpm_number,
-        time_span_mode=time_span_mode,
-        array_resolution=1000,
+    lpm_list, _, _ = lpm_results.select(
+        count=lpm_number,
+        resolution=1000,
     )
     if not lpm_list:
         raise ValueError("No calibrated LPMs available to build temporal fit figure.")
@@ -359,7 +347,7 @@ def plot_temporal_fit_summary(
     legend_handles = []
     legend_labels = []
 
-    for ax, tracer_name in zip(axs.flatten(), tracer_names):
+    for ax, tracer_name in zip(axs.flatten(), tracer_names, strict=False):
         observed = craw.cv[craw.cv["element"] == tracer_name].sort_values("date")
         unit = (
             observed["unit"].iloc[0]

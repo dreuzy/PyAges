@@ -9,15 +9,16 @@ from typing import Sequence
 import numpy as np
 import numpy.typing as npt
 
-from pyage.config.runtime import arange_n
+from pyage.config.runtime import subdivide_interval
 
 
 class ParameterGrid:
     """Build and reshape a regular Cartesian parameter grid.
 
     ``target_size`` controls the resolution, not the exact number of points.
-    This preserves PyAge's historical rule: each axis contains one more point
-    than the rounded-up root of the requested size, including both bounds.
+    Each axis contains one more point than the rounded-up root of the requested
+    size because ``target_size`` determines subdivisions and both bounds are
+    included. The last axis varies fastest in the Cartesian product.
     """
 
     def __init__(
@@ -37,8 +38,8 @@ class ParameterGrid:
         self.names = tuple(names)
         steps_per_axis = ceil(target_size ** (1 / len(minima)))
         self.axes = tuple(
-            np.asarray(arange_n(lower, upper, steps_per_axis), dtype=float)
-            for lower, upper in zip(minima, maxima)
+            np.asarray(subdivide_interval(lower, upper, steps_per_axis), dtype=float)
+            for lower, upper in zip(minima, maxima, strict=True)
         )
 
     @property

@@ -90,12 +90,6 @@ class ConcentrationTime:
         for tracer in tracers:
             self.cv[tracer] = self.craw.cv[self.craw.cv["element"] == tracer]
 
-    def display_model(self, lpm, tracer):
-        """
-        Placeholder for model visualization (reserved for future use).
-        """
-        # TODO: compute and display model predictions for a given tracer.
-
     def save_to_file(self, filename):
         """
         Save the tracer chronicle to a single table.
@@ -198,7 +192,6 @@ def display_concentration_chronicles(
     lpm_results,
     method,
     display,
-    time_span_mode,
     lpm_number,
 ):
     """
@@ -214,8 +207,6 @@ def display_concentration_chronicles(
         Label used for output folder/filenames.
     display : DisplayOptions
         Display options (save/close behavior).
-    time_span_mode : str
-        Selection mode for LPM sampling ("span" or "successive" variants).
     lpm_number : int
         Number of LPM realizations to sample.
 
@@ -232,10 +223,9 @@ def display_concentration_chronicles(
     )
 
     # LPM selection
-    lpm_list, pdf, lpm_statistics = lpm_results.get_selection(
-        lpm_number=lpm_number,
-        time_span_mode=time_span_mode,
-        array_resolution=1000,
+    lpm_list, pdf, lpm_statistics = lpm_results.select(
+        count=lpm_number,
+        resolution=1000,
     )
 
     # merged_all_models accumulera toutes les colonnes des differents modeles
@@ -250,7 +240,6 @@ def display_concentration_chronicles(
             figsize=(6.3 * ncols, 4.0 * nrows),
         )
         plot_concentration_chronicles_summary(
-            fig,
             axs,
             craw,
             tracers,

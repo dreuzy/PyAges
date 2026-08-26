@@ -82,12 +82,6 @@ def _prepare_context(
     saved_display = _display_options(output_directory, save=True)
     observations = _load_observations(params, live_display)
     observations.cv.to_csv(output_directory / "concentrations.txt", sep="\t")
-    write_result_manifest(
-        output_directory,
-        workflow="single_date",
-        config_name=config_path.name,
-        details={"dataset": params.dataset_name, "lpm": params.lpm_model_name},
-    )
     return WorkflowContext(
         config_path=config_path,
         root=root,
@@ -160,9 +154,9 @@ def _run_metropolis_hastings(context: WorkflowContext) -> tuple[str, LpmDist]:
             likelihood=context.params.mh_likelihood,
             monitor=context.params.mh_monitor,
             display_traj=context.params.mh_display_traj,
+            componentwise_source="model",
         )
     )
-    method.MH_step.define_by_value()
     problem = _calibration_problem(
         context,
         result_subdirectory(context.output_directory, method.method),
@@ -194,7 +188,7 @@ def _render_summary(
 ) -> None:
     if not calibrated:
         return
-    from pyage.workflows.summary_plots import (
+    from pyage.workflows.plots import (
         plot_parameter_summary,
         plot_single_date_model_space,
     )
@@ -227,7 +221,7 @@ def _run_objective_analysis(
 ) -> None:
     if not context.params.run_objective_function:
         return
-    from pyage.workflows.summary_plots import plot_objective_summary
+    from pyage.workflows.plots import plot_objective_summary
 
     sampling = SystematicSampling(
         context.params.lpm_model_name,
@@ -272,7 +266,7 @@ def _write_concentration_outputs(context: WorkflowContext) -> None:
     )
 
 
-def run_workflow(params_path: str | Path, force_inline: bool = False) -> Path:
+def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path:
     """Run every enabled step from a single-date YAML configuration."""
     if params_path is None:
         raise ValueError("params_path is required for the launcher")
@@ -283,12 +277,18 @@ def run_workflow(params_path: str | Path, force_inline: bool = False) -> Path:
     _run_objective_analysis(context, calibrated)
     _write_concentration_outputs(context)
     context.plots.finish()
+    write_result_manifest(
+        context.output_directory,
+        workflow="single_date",
+        config_path=context.config_path,
+        input_paths=[context.params.dataset_data_dir / context.params.dataset_name],
+        details={
+            "dataset": context.params.dataset_name,
+            "lpm": context.params.lpm_model_name,
+            "calibrations": sorted(calibrated),
+        },
+    )
     return context.output_directory
 
 
-def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path:
-    """Run the supported single-date workflow."""
-    return run_workflow(params_path, force_inline=force_inline)
-
-
-__all__ = ["run_single_date", "run_workflow"]
+__all__ = ["run_single_date"]

@@ -47,7 +47,6 @@ from pyage.config.loading import resolve_from, validate_yaml_model
 
 # Shared Pydantic schemas live in pyage.config.models to keep launchers consistent.
 from pyage.config.models import (
-    TEMPORAL_VALID_MODES,
     TemporalCalibrationCfg,
     TemporalDatasetCfg,
     TemporalFiguresCfg,
@@ -61,7 +60,8 @@ from pyage.config.paths import (
     result_subdirectory,
 )
 from pyage.config.runtime import DisplayOptions
-from pyage.workflows.plotting import (
+from pyage.lpm.distribution_plotting import display_concentration_distributions
+from pyage.workflows.plots import (
     plot_observations_overview,
     plot_parameter_summary,
 )
@@ -69,7 +69,6 @@ from pyage.workflows.result_manifest import write_result_manifest
 from pyage.workflows.single_date_paths import configuration_root
 
 DEFAULT_LPMS = ["exp_shifted", "ig", "ig_shifted"]
-VALID_MODES = TEMPORAL_VALID_MODES
 
 
 @dataclass(frozen=True)
@@ -179,7 +178,7 @@ def _prepare_display(
     return display
 
 
-def _build_mh_config(cal_cfg: TemporalCalibrationCfg, lpm_number: int) -> cMH.MHConfig:
+def _build_mh_config(cal_cfg: TemporalCalibrationCfg) -> cMH.MHConfig:
     """
     Build a Metropolis-Hastings configuration from YAML settings.
 
@@ -187,9 +186,6 @@ def _build_mh_config(cal_cfg: TemporalCalibrationCfg, lpm_number: int) -> cMH.MH
     ----------
     cal_cfg : dict
         YAML calibration section.
-    lpm_number : int
-        Number of samples to keep for output distributions.
-
     Returns
     -------
     MHConfig
@@ -211,7 +207,7 @@ def _build_mh_config(cal_cfg: TemporalCalibrationCfg, lpm_number: int) -> cMH.MH
         monitor=False,
         display_traj=False,
         display_text=False,
-        lpm_number=lpm_number,
+        componentwise_source="model",
         **mh_kwargs,
     )
 
@@ -223,7 +219,6 @@ def _run_calibration(
     lpm_directory: Path,
     cal_cfg: TemporalCalibrationCfg,
     figures_cfg: TemporalFiguresCfg,
-    mode: str,
 ):
     """
     Run one MH calibration for a given dataset, LPM, and mode.
@@ -242,8 +237,6 @@ def _run_calibration(
         Calibration parameters (mh_nsteps, burn_in, nskip, lpm_number, seed...).
     figures_cfg : dict
         Figure options (temporal/distributions).
-    mode : str
-        Workflow mode: span or successive.
     Notes
     -----
     This function performs the full MH workflow:
@@ -272,9 +265,8 @@ def _run_calibration(
     ).prepare()
 
     # Metropolis-Hastings setup and execution.
-    mh_config = _build_mh_config(cal_cfg, lpm_number)
+    mh_config = _build_mh_config(cal_cfg)
     calstrat = cMH.MetropolisHastings(config=mh_config)
-    calstrat.MH_step.define_by_value()
     lpm_results = calstrat.run(problem)
     # Persist calibrated distributions/statistics.
     calstrat.write_calibrated_lpm(lpm_results)
@@ -286,7 +278,6 @@ def _run_calibration(
             lpm_results,
             calstrat.method,
             display,
-            time_span_mode=mode,
             lpm_number=lpm_number,
         )
 
@@ -302,7 +293,8 @@ def _run_calibration(
 
         plt.close(fig)
         if figures_cfg.concentrations_2d:
-            lpm_results.display_concentrations_dist(
+            display_concentration_distributions(
+                lpm_results,
                 self_method=calstrat.method,
                 concentrations_reference=cdata,
                 directory=display.directory,
@@ -393,7 +385,6 @@ def _run_temporal_cases(
                 lpm_directory=lpm_directory,
                 cal_cfg=cal_cfg,
                 figures_cfg=figures_cfg,
-                mode=mode,
             )
     return written_case_dirs
 
@@ -416,16 +407,6 @@ def _prepare_context(params_path: str | Path) -> TemporalContext:
             dataset_path.stem,
         ),
         params.workflow.mode,
-    )
-    write_result_manifest(
-        output_directory,
-        workflow="temporal",
-        config_name=config_path.name,
-        details={
-            "dataset": dataset_path.name,
-            "mode": params.workflow.mode,
-            "lpms": models,
-        },
     )
     return TemporalContext(
         config_path=config_path,
@@ -510,6 +491,21 @@ def run_temporal(params_path: Path) -> Path:
         context.lpm_directory,
         context.params.calibration,
         context.params.figures,
+    )
+    write_result_manifest(
+        context.output_directory,
+        workflow="temporal",
+        config_path=context.config_path,
+        input_paths=[context.dataset_path],
+        details={
+            "dataset": context.dataset_path.name,
+            "mode": context.mode,
+            "lpms": context.models,
+            "case_directories": [
+                path.relative_to(context.output_directory).as_posix()
+                for path in written_case_dirs
+            ],
+        },
     )
 
     if len(written_case_dirs) == 1:

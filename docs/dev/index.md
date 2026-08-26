@@ -1,10 +1,11 @@
 # Development Notes
 
-Internal design notes live here.
+Current maintainer procedures live here. Exploratory design notes are retained
+in {doc}`../archive/index`.
 
 ```{toctree}
 :maxdepth: 1
 
-notes-choix-modele
 releasing
+versioning-citation
 ```

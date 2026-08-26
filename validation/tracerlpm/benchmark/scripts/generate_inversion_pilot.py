@@ -188,7 +188,7 @@ def generate(config_path: Path = DEFAULT_CONFIG, output_dir: Path = OUTPUT_DIR) 
     with tracerlpm_input.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.writer(stream, lineterminator="\n")
         writer.writerow(["date", "concentration"])
-        writer.writerows(zip(dates, concentrations))
+        writer.writerows(zip(dates, concentrations, strict=False))
 
     chronicles = {}
     for tracer in config["tracers"]:
@@ -247,7 +247,7 @@ def generate(config_path: Path = DEFAULT_CONFIG, output_dir: Path = OUTPUT_DIR) 
         with target.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream, lineterminator="\n")
             writer.writerow(["date", "concentration"])
-            writer.writerows(zip(normalized_dates, normalized_values))
+            writer.writerows(zip(normalized_dates, normalized_values, strict=False))
         normalized.append(
             {
                 "name": tracer["name"],

@@ -109,7 +109,6 @@ def hist_scatter(
     if miniy != maxiy:
         plt.ylim(miniy, maxiy)
     # Figure Management
-    # plt.legend()
     if directory is not None:
         if file is None:
             raise ValueError("file must be provided when directory is set")

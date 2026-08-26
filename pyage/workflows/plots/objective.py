@@ -191,10 +191,14 @@ def plot_objective_summary(
     if not param_names:
         raise ValueError("At least one parameter is required.")
     objective_col = (
-        "log-ojf" if "log-ojf" in objective_frame.columns else "obj_function"
+        "half_log_chi_square"
+        if "half_log_chi_square" in objective_frame.columns
+        else "obj_function"
     )
     if objective_col not in objective_frame.columns:
-        raise ValueError("Objective frame must contain 'log-ojf' or 'obj_function'.")
+        raise ValueError(
+            "Objective frame must contain 'half_log_chi_square' or 'obj_function'."
+        )
 
     if len(param_names) == 1:
         pairs = [(param_names[0], objective_col)]
@@ -220,7 +224,7 @@ def plot_objective_summary(
     )
     scalar = None
 
-    for ax_index, ((xname, yname), ax) in enumerate(zip(pairs, axs)):
+    for ax_index, ((xname, yname), ax) in enumerate(zip(pairs, axs, strict=True)):
         if yname == objective_col:
             scalar = _plot_summary_objective_axis(
                 ax,
@@ -481,15 +485,21 @@ def plot_objective_solution_map(
         raise ValueError("At least one parameter is required.")
 
     objective_col = (
-        "log-ojf" if "log-ojf" in objective_frame.columns else "obj_function"
+        "half_log_chi_square"
+        if "half_log_chi_square" in objective_frame.columns
+        else "obj_function"
     )
     posterior_objective_col = (
         "obj_function" if "obj_function" in posterior_frame.columns else objective_col
     )
     if objective_col not in objective_frame.columns:
-        raise ValueError("Objective frame must contain 'log-ojf' or 'obj_function'.")
+        raise ValueError(
+            "Objective frame must contain 'half_log_chi_square' or 'obj_function'."
+        )
     if posterior_objective_col not in posterior_frame.columns:
-        raise ValueError("Posterior frame must contain 'obj_function' or 'log-ojf'.")
+        raise ValueError(
+            "Posterior frame must contain 'obj_function' or 'half_log_chi_square'."
+        )
 
     if len(param_names) == 1:
         pairs = [(param_names[0], objective_col)]

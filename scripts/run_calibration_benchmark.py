@@ -23,6 +23,10 @@ from pyage.config.paths import (
     timestamp_name,
 )
 from pyage.config.runtime import DisplayOptions, SimulationTimer
+from pyage.lpm.distribution_plotting import (
+    display_concentration_distributions,
+    display_parameter_distributions,
+)
 
 
 class comparison_MH_fuq:
@@ -109,10 +113,9 @@ class comparison_MH_fuq:
                 likelihood=True,
                 monitor=True,
                 display_traj=True,
+                componentwise_source="model",
             )
             calib_MH = cMH.MetropolisHastings(config=mh_config)  # JR: 250000
-            calib_MH.MH_step.define_by_value()
-            # calib_MH.MH_step.define_by_prop(0.005)
             calstrat[1] = cst.CalibrationSyntheticTest(
                 calib_strategy=calib_MH,
                 ncase=ncase,
@@ -142,14 +145,16 @@ class comparison_MH_fuq:
                 # Outputs and Displays results
                 directory_common = result_subdirectory(self.display.directory, lpm)
                 directory_common = result_subdirectory(directory_common, str(i))
-                lpm_results[0].display_parameters_dist(
+                display_parameter_distributions(
+                    lpm_results[0],
                     self_method=lpm_calibration[0].method,
                     lpm_reference=lpm_target,
                     lpm_2nd=lpm_results[1],
                     lpm_2nd_method=lpm_calibration[1].method,
                     directory=directory_common,
                 )
-                lpm_results[0].display_concentrations_dist(
+                display_concentration_distributions(
+                    lpm_results[0],
                     self_method=lpm_calibration[0].method,
                     concentrations_reference=concentration_sampled,
                     lpm_2nd=lpm_results[1],

@@ -71,7 +71,8 @@ calibration_simplex:
 
 ### Output Files
 
-Results are saved to `~/results/PyAge/test_cases/ploemeur_F09_2010/`:
+Results are saved to `~/results/PyAge/test_cases/ploemeur_F09_2010.txt/` by
+default because the dataset filename is the result-directory identifier:
 
 | File | Description |
 |------|-------------|
@@ -146,7 +147,10 @@ python examples/natural/holten/run_holten.py --wells 59-05,73-29
 
 ## Example 4: Ploemeur Temporal (Multi-Date Analysis)
 
-The temporal example demonstrates calibration across multiple sampling dates, useful for studying temporal variations in groundwater age.
+The temporal example demonstrates calibration across multiple sampling dates.
+`span` fits one stationary LPM to the complete record; `successive` performs
+separate fits by observation date and can be used to investigate apparent
+changes, subject to the assumptions and diagnostics of each fit.
 
 ### Run the Example
 
@@ -172,9 +176,10 @@ workflow:
 
 calibration:
   explo_res: 20                     # Systematic sampling resolution
-  mh_nsteps: 1000                   # MCMC steps
+  mh_nsteps: 3000                   # MCMC steps
   burn_in: 0.2                      # Burn-in fraction
   nskip: 10                         # Thinning interval
+  lpm_number: 0                     # Automatic plotted-posterior sample count
   seed_enabled: true
   seed: 12345                       # For reproducibility
 
@@ -182,6 +187,11 @@ figures:
   temporal: true                    # Generate time series plots
   distributions: true               # Generate distribution plots
   concentrations_2d: false          # Disable 2D concentration pair plots
+
+results:
+  study_name: ploemeur_temporal
+  use_default: true
+  directory: ""
 ```
 
 ### Workflow Modes
@@ -259,7 +269,10 @@ lpm:
   model_name: ig  # Use inverse Gaussian instead
 ```
 
-Available models: `dirac`, `dirac_double`, `exp`, `exp_shifted`, `ig`, `ig_shifted`, `gamma`, `uniform`
+Run `pyage list lpms` for the installed registry. The current source tree
+contains `dirac`, `dirac_double`, `dirac_double_1_set`, `exp`, `exp_shifted`,
+`gamma`, `ig`, `ig_shifted`, `mix_exp_shifted`, `shapefree_n_oldbin`,
+`uniform`, and `weibull`.
 
 ---
 
@@ -345,8 +358,12 @@ For more accurate results (slower):
 ```yaml
 calibration_metropolis_hastings:
   nstep: 20000      # More iterations
-  monitor: true     # Enable trajectory monitoring
+  monitor: true     # Enable trajectory/acceptance monitoring
 ```
+
+Treat this as a candidate run, not as a convergence certificate. For
+publication, use independent chains and report split-$\hat R$, ESS, and Monte
+Carlo uncertainty as described in {doc}`../science/inference`.
 
 For quick testing (faster):
 
@@ -372,7 +389,9 @@ run:
 ### "FileNotFoundError: data file not found"
 
 Check that:
-1. The `data_dir` path is correct (relative to repo root)
+1. The `data_dir` path is correct (relative to the detected checkout root for
+   repository examples, or to the configuration directory for a standalone
+   project)
 2. The input file exists in the specified location
 
 ### "Unknown LPM type"

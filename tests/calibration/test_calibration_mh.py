@@ -56,7 +56,6 @@ def _run_mh_one_case(
         monitor=False,
         display_traj=False,
         display_text=False,
-        lpm_number=10,
     )
     calib_mh = cMH.MetropolisHastings(config=mh_config)
 
@@ -74,7 +73,7 @@ def _run_mh_one_case(
 
     # Run one synthetic case and extract stats
     _, _, _, lpm_results, _ = calib.perform_one_case(0)
-    stats = lpm_results.get_stats()
+    stats = lpm_results.statistics()
 
     # Record stable summary values for golden checks
     record = {
@@ -195,7 +194,6 @@ def test_calibration_mh_extensive(lpm_type, tmp_path):
         monitor=False,
         display_traj=False,
         display_text=False,
-        lpm_number=20,
     )
     calib_mh = cMH.MetropolisHastings(config=mh_config)
 

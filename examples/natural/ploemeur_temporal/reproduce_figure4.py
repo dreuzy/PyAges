@@ -421,7 +421,7 @@ def _summaries(chains: np.ndarray, experiment: str) -> pd.DataFrame:
                 "sd": np.std(sample, ddof=1),
                 **{
                     f"q{int(q * 100):02d}": value
-                    for q, value in zip(QUANTILES, quantile)
+                    for q, value in zip(QUANTILES, quantile, strict=False)
                 },
             }
         )
@@ -603,7 +603,7 @@ def _trace_plots(experiment: str, chains: np.ndarray, output: Path) -> None:
 
 def _acf_plot(experiment: str, table: pd.DataFrame, output: Path) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(11, 3.2), sharey=True)
-    for axis, parameter in zip(axes, PARAMETERS):
+    for axis, parameter in zip(axes, PARAMETERS, strict=False):
         subset = table[table.parameter == parameter]
         for _, chain in subset.groupby("chain"):
             axis.plot(chain.lag, chain.autocorrelation, lw=0.8)
@@ -897,7 +897,9 @@ def _write_manifest(
             "n_observations_single_date": 3,
             "single_date_exact": SINGLE_DATE,
             "error_model": "error_j = 0.20 * Cobs_j",
-            "bounds": dict(zip(PARAMETERS, np.column_stack((LOWER, UPPER)).tolist())),
+            "bounds": dict(
+                zip(PARAMETERS, np.column_stack((LOWER, UPPER)).tolist(), strict=False)
+            ),
             "priors": "independent uniform distributions on the documented bounds",
             "mcmc": {
                 "method": "adaptive-pilot random-walk Metropolis; fixed multivariate Gaussian proposal in production; reflected bounds",

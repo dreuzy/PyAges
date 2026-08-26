@@ -17,6 +17,7 @@ from pyage.calibration.problem import CalibrationProblem
 from pyage.concentrations import concentrations_time as ct
 from pyage.config.paths import result_subdirectory
 from pyage.config.runtime import DisplayOptions
+from pyage.data_io.lpm_results import write_lpm
 
 
 class CalibrationSyntheticTest:
@@ -36,7 +37,6 @@ class CalibrationSyntheticTest:
         date=2010,
         nmodels=10000,
         display_options=None,
-        directory="test_calibration_",
     ):
         """
         Constructor
@@ -98,7 +98,7 @@ class CalibrationSyntheticTest:
         """
         # Statistics on results of parameters
         data = {"case": i}
-        lpm_calib.get_stats_line(lpm_target, data)
+        lpm_calib.append_target_statistics(lpm_target, data)
         # Adds new line
         if i == 0:
             self.store = pd.DataFrame(data)
@@ -222,7 +222,8 @@ class CalibrationSyntheticTest:
         self.__calib_strategy.display_lpms(
             self.__display_options, lpm_results, lpm_reference=lpm_target
         )
-        lpm_target.write(
+        write_lpm(
+            lpm_target,
             os.path.join(display_options_case.directory, "lpm_target.txt"),
             open_file=True,
         )
@@ -236,13 +237,12 @@ class CalibrationSyntheticTest:
             lpm_results,
             str(i),
             self.__display_options,
-            time_span_mode="suc",
             lpm_number=10,
         )
         # Results storage
         self.__storage_one_case(lpm_target, lpm_results, i)
         # Distance between target and estimated parameters (mean of distribution)
-        stats = lpm_results.get_stats()
+        stats = lpm_results.statistics()
         keys = list(lpm_target.p.keys())
         target_vals = np.array([lpm_target.p[k] for k in keys], dtype=float)
         estim_vals = np.array([stats.loc["mean"][k] for k in keys], dtype=float)

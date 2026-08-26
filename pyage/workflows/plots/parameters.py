@@ -38,7 +38,7 @@ def plot_parameter_summary(
         nrows, ncols, figsize=(5.0 * ncols, 3.8 * nrows), squeeze=False
     )
 
-    for ax, param_name in zip(axs.flatten(), param_names):
+    for ax, param_name in zip(axs.flatten(), param_names, strict=False):
         for method_index, (method_name, result) in enumerate(results_by_method.items()):
             frame = _ensure_frame(result)
             if param_name not in frame.columns:
@@ -110,7 +110,7 @@ def plot_parameter_distribution_comparison(
 
     color_cycle = plt.get_cmap("tab10")
 
-    for ax, param_name in zip(axs.flatten(), param_names):
+    for ax, param_name in zip(axs.flatten(), param_names, strict=False):
         for dist_index, (label, result) in enumerate(distributions.items()):
             frame = _ensure_frame(result)
             if param_name not in frame.columns:

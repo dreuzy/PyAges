@@ -2,7 +2,9 @@
 
 > **Statut : diagnostic archivé.** Les options de compatibilité envisagées ici
 > n’ont pas été conservées. L’implémentation et les choix scientifiques actuels
-> sont décrits dans `docs/convolution-method-evolution-report.md`.
+> sont décrits dans `docs/convolution-method-evolution-report.md`. Ce document
+> est conservé uniquement pour expliquer l’origine des corrections et ne doit
+> pas servir de description de l’état actuel de PyAge.
 
 ## 1. Objectif
 

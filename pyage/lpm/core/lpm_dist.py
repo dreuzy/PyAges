@@ -1,22 +1,27 @@
 """Container for calibrated LPM samples.
 
-``LpmDist`` owns the sample table and keeps the historical public methods used
-by workflows. Analysis, plotting, and file output live in dedicated modules.
+``LpmDist`` owns the sample table and coordinates model selection. Analysis,
+plotting, and file output live in dedicated modules.
 """
 
 from __future__ import annotations
 
 import copy
-from pathlib import Path
 from typing import Any, Sequence
 
 import pandas as pd
 
 from pyage.lpm.distribution_analysis import (
-    add_moment_columns,
-    append_target_statistics,
-    compute_histograms,
-    select_models,
+    add_moment_columns as _add_moment_columns,
+)
+from pyage.lpm.distribution_analysis import (
+    append_target_statistics as _append_target_statistics,
+)
+from pyage.lpm.distribution_analysis import (
+    compute_histograms as _compute_histograms,
+)
+from pyage.lpm.distribution_analysis import (
+    select_models as _select_models,
 )
 
 
@@ -35,16 +40,8 @@ class LpmDist:
 
     @property
     def frame(self) -> pd.DataFrame:
-        """Underlying mutable sample table (kept mutable for compatibility)."""
+        """Underlying mutable sample table."""
         return self.__dist
-
-    def dist(self) -> pd.DataFrame:
-        """Return the sample table (compatibility alias for :attr:`frame`)."""
-        return self.frame
-
-    def compute_dist(self) -> pd.DataFrame:
-        """Return the sample table (legacy compatibility alias)."""
-        return self.frame
 
     def _required_columns(self) -> list[str]:
         return self.get_param_names() + ["obj_function"] + self.__c_names
@@ -74,7 +71,7 @@ class LpmDist:
             return self.__dist.iloc[0].copy()
         return self.__dist.loc[objectives.idxmin()].copy()
 
-    def dist_append(
+    def append_sample(
         self,
         params: dict[str, float],
         obj_function: float = -1,
@@ -91,7 +88,7 @@ class LpmDist:
                 raise ValueError(
                     "concentrations must match the configured concentration names"
                 )
-            row.update(zip(self.__c_names, concentrations))
+            row.update(zip(self.__c_names, concentrations, strict=True))
         new_sample = pd.DataFrame([row])
         if self.__dist.empty:
             columns = list(dict.fromkeys([*self.__dist.columns, *new_sample.columns]))
@@ -99,7 +96,7 @@ class LpmDist:
         else:
             self.__dist = pd.concat([self.__dist, new_sample], ignore_index=True)
 
-    def dist_append_array(
+    def append_values(
         self,
         params: Sequence[float],
         obj_function: float = -1,
@@ -110,8 +107,8 @@ class LpmDist:
         names = self.get_param_names()
         if len(params) != len(names):
             raise ValueError("params must match the model parameter count")
-        self.dist_append(
-            dict(zip(names, params)),
+        self.append_sample(
+            dict(zip(names, params, strict=True)),
             obj_function=obj_function,
             param_in_bounds=param_in_bounds,
             concentrations=concentrations,
@@ -129,143 +126,38 @@ class LpmDist:
         """Replace samples from a numeric array and its column names."""
         self.__dist = pd.DataFrame(data=array_results, columns=column_names)
 
-    def get_best_lpm(self) -> tuple[bool, Any | None]:
-        """Return a model copy configured from the best sample."""
+    def best_model(self) -> Any | None:
+        """Return a model copy configured from the best sample, if any."""
         row = self.best_row()
         if row is None:
-            return False, None
+            return None
         model = copy.deepcopy(self.__lpm_template)
         for name in model.p:
             model.p[name] = row[name]
-        return True, model
+        return model
 
-    def get_selection(
-        self, lpm_number: int, time_span_mode: str, array_resolution: int = 1000
-    ):
+    def select(self, count: int, resolution: int = 1000):
         """Select reproducible models and return models, PDFs, and moments."""
-        return select_models(
+        return _select_models(
             self.__lpm_template,
             self.__dist,
-            lpm_number,
-            time_span_mode,
-            array_resolution,
+            count,
+            resolution,
         )
 
-    def stats_distribution(self) -> "LpmDist":
+    def add_moments(self) -> "LpmDist":
         """Add one column per model moment to the sample table."""
-        self.__dist = add_moment_columns(self.__lpm_template, self.__dist)
+        self.__dist = _add_moment_columns(self.__lpm_template, self.__dist)
         return self
 
-    def compute_histograms(self, nb_bins: int = 100):
+    def histograms(self, bin_count: int = 100):
         """Compute a density histogram for every model parameter."""
-        return compute_histograms(self.__lpm_template, self.__dist, nb_bins)
+        return _compute_histograms(self.__lpm_template, self.__dist, bin_count)
 
-    def compute_stats(self) -> pd.DataFrame:
+    def statistics(self) -> pd.DataFrame:
         """Return pandas descriptive statistics for stored numeric columns."""
         return self.__dist.describe()
 
-    def get_stats(self) -> pd.DataFrame:
-        """Return descriptive statistics (compatibility alias)."""
-        return self.compute_stats()
-
-    def get_stats_line(self, lpm_target: Any, data: dict) -> None:
+    def append_target_statistics(self, lpm_target: Any, data: dict) -> None:
         """Append target-relative and descriptive statistics to ``data``."""
-        append_target_statistics(lpm_target, self.__dist, data)
-
-    def write_dist(self, file: str | Path) -> None:
-        """Write the full sample table as TSV."""
-        from pyage.data_io.lpm_distribution import write_distribution
-
-        write_distribution(self, file)
-
-    def write_histograms(self, file: str | Path) -> None:
-        """Write one histogram table per parameter."""
-        from pyage.data_io.lpm_distribution import write_histograms
-
-        write_histograms(self, file)
-
-    def write_stats(self, file: str | Path) -> None:
-        """Write descriptive statistics as TSV."""
-        from pyage.data_io.lpm_distribution import write_statistics
-
-        write_statistics(self, file)
-
-    def display_points_alone(self) -> None:
-        """Plot the first two parameters."""
-        from pyage.lpm.distribution_plotting import plot_points
-
-        plot_points(self)
-
-    def display_param_vs_param(self, keyx: str, keyy: str) -> None:
-        """Plot one parameter against another."""
-        from pyage.lpm.distribution_plotting import plot_parameter_pair
-
-        plot_parameter_pair(self, keyx, keyy)
-
-    def display_parameters_dist(
-        self,
-        self_method="",
-        lpm_reference=None,
-        bins=30,
-        lpm_2nd=None,
-        lpm_2nd_method="",
-        directory=None,
-        display_text=False,
-    ) -> None:
-        """Plot posterior parameter distributions."""
-        from pyage.lpm.distribution_plotting import display_parameter_distributions
-
-        display_parameter_distributions(
-            self,
-            self_method,
-            lpm_reference,
-            bins,
-            lpm_2nd,
-            lpm_2nd_method,
-            directory,
-            display_text,
-        )
-
-    def display_parameters_dist_comp_apriori(
-        self,
-        lpm_reference=None,
-        bins=30,
-        lpm_2nd=None,
-        lpm_2nd_method="",
-        directory=None,
-        display_text=False,
-        prior="",
-    ) -> None:
-        """Plot posterior parameter distributions against their priors."""
-        from pyage.lpm.distribution_plotting import display_parameter_priors
-
-        display_parameter_priors(
-            self,
-            lpm_reference,
-            bins,
-            lpm_2nd,
-            lpm_2nd_method,
-            directory,
-            display_text,
-            prior,
-        )
-
-    def display_concentrations_dist(
-        self,
-        self_method="",
-        concentrations_reference=None,
-        lpm_2nd=None,
-        lpm_2nd_method="",
-        directory=None,
-    ) -> None:
-        """Plot pairwise modeled concentration distributions."""
-        from pyage.lpm.distribution_plotting import display_concentration_distributions
-
-        display_concentration_distributions(
-            self,
-            self_method,
-            concentrations_reference,
-            lpm_2nd,
-            lpm_2nd_method,
-            directory,
-        )
+        _append_target_statistics(lpm_target, self.__dist, data)

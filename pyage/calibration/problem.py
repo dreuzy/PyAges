@@ -117,7 +117,44 @@ class CalibrationProblem:
         *,
         return_concentrations: bool = False,
     ):
-        """Evaluate the normalized squared residual for one parameter vector."""
+        r"""Evaluate chi-square for one LPM parameter vector.
+
+        For ordered observations :math:`y_i`, forward predictions
+        :math:`m_i(\theta)`, and finite positive one-sigma errors
+        :math:`\sigma_i`, this returns
+
+        .. math::
+
+           \chi^2(\theta)=\sum_i
+           \left[\frac{m_i(\theta)-y_i}{\sigma_i}\right]^2.
+
+        Errors are assumed independent and Gaussian. Parameter bounds and
+        priors are handled by calibration methods, not here. The modeled values
+        are always produced by the physical forward model; optimizer-specific
+        penalties are not hidden in concentrations.
+
+        Parameters
+        ----------
+        parameters : array-like
+            LPM parameters in ``lpm.get_param_names()`` order and native units.
+        observed_values, observed_errors : array-like
+            Concentrations and one-sigma uncertainties in matching tracer order
+            and units.
+        return_concentrations : bool
+            Also return modeled concentrations when true.
+
+        Returns
+        -------
+        float or tuple
+            Dimensionless chi-square, optionally paired with modeled
+            concentrations.
+
+        Notes
+        -----
+        Persisted result tables retain the schema field ``obj_function`` for
+        :math:`\sqrt{\chi^2/n}`. Systematic maps use the explicit field
+        ``half_log_chi_square`` for :math:`0.5\log(\chi^2)`.
+        """
         self.ensure_prepared()
         errors = np.asarray(observed_errors, dtype=float)
         if np.any(errors <= 0.0) or not np.all(np.isfinite(errors)):
@@ -125,7 +162,7 @@ class CalibrationProblem:
         assert self.lpm is not None
         assert self.tracers is not None
         self.lpm.set_param_from_array(parameters)
-        modeled = self.tracers.convolve(self.lpm, apply_age_correction=True)
+        modeled = self.tracers.convolve(self.lpm)
         objective = float(sum(L2_norm_diff(observed_values, modeled, errors)))
         if return_concentrations:
             return objective, modeled

@@ -66,6 +66,7 @@ def build_jobs(
             prior,
             likelihood,
             prior_folder,
+            strict=False,
         ):
             wells, datess, _, lpm_types = selector(
                 well_select,

@@ -26,7 +26,17 @@ from pyage.lpm.models.inverse_gaussian import (
 
 @register_lpm("ig_shifted")
 class InverseGaussianShiftedLpm(LpmScipySafe):
-    """Lumped Parameter Model - Shifted Inverse Gaussian distribution."""
+    r"""Shifted inverse-Gaussian LPM in physical moment coordinates.
+
+    If :math:`X` has mean ``mu`` and standard deviation ``sigma`` in years,
+    transit time is :math:`T=\mathtt{shift}+X`. Thus the total mean age is
+    ``shift + mu``, the standard deviation remains ``sigma``, and the support
+    is ``(shift, infinity)``. ``mu`` is not SciPy's dimensionless shape.
+
+    See ``docs/scientific-methods.md`` and
+    ``docs/scientific-migration-ig-decay.md`` for equations and migration
+    implications.
+    """
 
     scipy_dist = invgauss
 
@@ -41,7 +51,8 @@ class InverseGaussianShiftedLpm(LpmScipySafe):
         sigma : float
             Standard deviation of the dispersive component in years.
         shift : float
-            Location shift (loc parameter).
+            Minimum transit-time shift in years. It is added to ``mu`` when
+            reporting the mean of the complete distribution.
         directory_lpm : str
             Directory for LPM parameter files.
         """
@@ -54,7 +65,11 @@ class InverseGaussianShiftedLpm(LpmScipySafe):
         return (shape,), self.p["shift"], scale
 
     def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
-        """Return the CDF and raw truncated first moment after shifting."""
+        r"""Return the shifted CDF and raw partial first moment.
+
+        For :math:`T=t_0+X`, the returned moment is
+        :math:`E[T1(T\leq t)]=t_0F_X(t-t_0)+E[X1(X\leq t-t_0)]`, in years.
+        """
         values = np.asarray(t, dtype=float)
         cdf, component_moment = cdf_and_partial_first_moment_from_mean_std(
             values - self.p["shift"],
