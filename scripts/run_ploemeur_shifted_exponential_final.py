@@ -753,30 +753,47 @@ def _render_figure4(output: Path, intervals: pd.DataFrame) -> None:
 
 
 def _figure4(output: Path, lengths: dict[str, int]) -> pd.DataFrame:
-    predictions = pd.concat(
-        [
-            _predict_draws(
-                case, _posterior_rows_for_figure(output, case, lengths[case.key])
-            )
-            for case in CASES
-        ],
-        ignore_index=True,
-    )
-    predictions.to_csv(
-        output / "figure4_rowwise_posterior_predictions.csv.gz",
-        index=False,
-        compression="gzip",
-    )
-    intervals = (
-        predictions.groupby(["well", "calibration", "tracer", "date"])["predicted_pptv"]
-        .agg(
-            median="median",
-            q10=lambda x: x.quantile(0.10),
-            q90=lambda x: x.quantile(0.90),
+    predictions_path = output / "figure4_rowwise_posterior_predictions.csv.gz"
+    intervals_path = output / "figure4_prediction_intervals.csv"
+    required_interval_columns = {
+        "well",
+        "calibration",
+        "tracer",
+        "date",
+        "median",
+        "q10",
+        "q90",
+    }
+    intervals = None
+    if predictions_path.is_file() and intervals_path.is_file():
+        cached = pd.read_csv(intervals_path)
+        if not cached.empty and required_interval_columns.issubset(cached.columns):
+            intervals = cached
+            print("Reusing cached Figure 4 posterior predictions", flush=True)
+    if intervals is None:
+        predictions = pd.concat(
+            [
+                _predict_draws(
+                    case, _posterior_rows_for_figure(output, case, lengths[case.key])
+                )
+                for case in CASES
+            ],
+            ignore_index=True,
         )
-        .reset_index()
-    )
-    intervals.to_csv(output / "figure4_prediction_intervals.csv", index=False)
+        predictions.to_csv(predictions_path, index=False, compression="gzip")
+        intervals = (
+            predictions.groupby(["well", "calibration", "tracer", "date"])[
+                "predicted_pptv"
+            ]
+            .agg(
+                median="median",
+                q10=lambda x: x.quantile(0.10),
+                q90=lambda x: x.quantile(0.90),
+            )
+            .reset_index()
+        )
+        intervals.to_csv(intervals_path, index=False)
+    INSERTION_OUTPUT.mkdir(parents=True, exist_ok=True)
     _render_figure4(output, intervals)
     return intervals
 

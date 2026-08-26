@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from scripts import build_article_package as package
+from scripts import run_ploemeur_shifted_exponential_final as ploemeur_runner
 from scripts.common.mcmc_diagnostics import ess, mcse_mean, split_rhat
 from scripts.common.reporting import markdown_table
 
@@ -145,3 +146,39 @@ def test_external_chain_paths_do_not_assume_repository_storage():
     for name in ("run_final_shifted_exponential.py", "run_final_holten_h4.py"):
         runner = (repository / "scripts" / name).read_text(encoding="utf-8")
         assert ".relative_to(ROOT)" not in runner
+
+
+def test_ploemeur_figure_reuses_cached_predictions(monkeypatch, tmp_path):
+    predictions = tmp_path / "figure4_rowwise_posterior_predictions.csv.gz"
+    predictions.write_bytes(b"cached")
+    intervals = pd.DataFrame(
+        {
+            "well": ["F09"],
+            "calibration": ["full_record"],
+            "tracer": ["cfc11"],
+            "date": [2020.0],
+            "median": [1.0],
+            "q10": [0.8],
+            "q90": [1.2],
+        }
+    )
+    intervals.to_csv(tmp_path / "figure4_prediction_intervals.csv", index=False)
+    insertion = tmp_path / "manuscript_insertion" / "final_figures"
+    monkeypatch.setattr(ploemeur_runner, "INSERTION_OUTPUT", insertion)
+    monkeypatch.setattr(
+        ploemeur_runner,
+        "_predict_draws",
+        lambda *unused: pytest.fail("cached predictions should be reused"),
+    )
+    rendered = []
+    monkeypatch.setattr(
+        ploemeur_runner,
+        "_render_figure4",
+        lambda unused_output, frame: rendered.append(frame.copy()),
+    )
+
+    result = ploemeur_runner._figure4(tmp_path, {})
+
+    assert insertion.is_dir()
+    assert result.equals(intervals)
+    assert len(rendered) == 1
