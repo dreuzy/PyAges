@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import numpy as np
@@ -6,6 +7,7 @@ import pytest
 
 from scripts import build_article_package as package
 from scripts import run_ploemeur_shifted_exponential_final as ploemeur_runner
+from scripts import run_ploemeur_targeted_ig_reproduction as ig_runner
 from scripts.common.mcmc_diagnostics import ess, mcse_mean, split_rhat
 from scripts.common.reporting import markdown_table
 
@@ -182,3 +184,44 @@ def test_ploemeur_figure_reuses_cached_predictions(monkeypatch, tmp_path):
     assert insertion.is_dir()
     assert result.equals(intervals)
     assert len(rendered) == 1
+
+
+def test_ig_resume_extends_only_failed_full_series_wells(monkeypatch, tmp_path):
+    gate_path = tmp_path / "full_series_gate.json"
+    gate_path.write_text(
+        json.dumps(
+            {
+                "passed": False,
+                "wells": {
+                    "F09": {"passed": False},
+                    "F11": {"passed": True},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls = []
+
+    def extend(well, steps):
+        calls.append((well, steps))
+        gate_path.write_text(
+            json.dumps(
+                {
+                    "passed": True,
+                    "wells": {
+                        "F09": {"passed": True},
+                        "F11": {"passed": True},
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        return True
+
+    monkeypatch.setattr(ig_runner, "OUTPUT", tmp_path)
+    monkeypatch.setattr(ig_runner, "AUTO_EXTENSION_STEPS", 4000)
+    monkeypatch.setattr(ig_runner, "MAX_AUTO_EXTENSIONS", 2)
+    monkeypatch.setattr(ig_runner, "extend_full_series", extend)
+
+    assert ig_runner._auto_extend_failed_full_series()
+    assert calls == [("F09", 4000)]

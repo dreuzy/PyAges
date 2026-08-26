@@ -74,6 +74,10 @@ SEEDS = (12345, 24680, 54321, 97531, 86420)
 PILOT_STEPS = int(os.environ.get("PYAGE_PLOEMEUR_IG_PILOT_STEPS", "1200"))
 PRODUCTION_STEPS = int(os.environ.get("PYAGE_PLOEMEUR_IG_PRODUCTION_STEPS", "12000"))
 PRODUCTION_WARMUP = int(os.environ.get("PYAGE_PLOEMEUR_IG_WARMUP_STEPS", "2000"))
+AUTO_EXTENSION_STEPS = int(
+    os.environ.get("PYAGE_PLOEMEUR_IG_AUTO_EXTENSION_STEPS", "12000")
+)
+MAX_AUTO_EXTENSIONS = int(os.environ.get("PYAGE_PLOEMEUR_IG_MAX_AUTO_EXTENSIONS", "3"))
 MIN_ESS = 300.0
 MAX_RHAT = 1.01
 
@@ -642,6 +646,30 @@ def extend_full_series(well: str, extension_steps: int) -> bool:
     return _write_full_series_gate()
 
 
+def _auto_extend_failed_full_series() -> bool:
+    """Continue only failed full-series chains, with a bounded stopping rule."""
+    gate_path = OUTPUT / "full_series_gate.json"
+    for attempt in range(1, MAX_AUTO_EXTENSIONS + 1):
+        gate = json.loads(gate_path.read_text(encoding="utf-8"))
+        failed = [
+            well
+            for well, status in gate["wells"].items()
+            if not bool(status["passed"])
+        ]
+        if not failed:
+            return True
+        print(
+            f"Automatic full-series extension {attempt}/{MAX_AUTO_EXTENSIONS}: "
+            f"{failed}, +{AUTO_EXTENSION_STEPS} draws per chain",
+            flush=True,
+        )
+        for well in failed:
+            extend_full_series(well, AUTO_EXTENSION_STEPS)
+    return bool(
+        json.loads(gate_path.read_text(encoding="utf-8"))["passed"]
+    )
+
+
 def run_conditioned(*, resume: bool = False) -> None:
     gate = json.loads((OUTPUT / "full_series_gate.json").read_text(encoding="utf-8"))
     if not gate["passed"]:
@@ -901,6 +929,8 @@ def _manifest(results: pd.DataFrame) -> None:
             "pilot_steps": PILOT_STEPS,
             "production_steps": PRODUCTION_STEPS,
             "warmup_steps": PRODUCTION_WARMUP,
+            "automatic_full_series_extension_steps": AUTO_EXTENSION_STEPS,
+            "maximum_automatic_full_series_extensions": MAX_AUTO_EXTENSIONS,
             "chains": len(SEEDS),
             "seeds": list(SEEDS),
             "initialization": "deterministic prior-coordinate grid ranked by objective",
@@ -928,7 +958,7 @@ def _run_selected_stage(
     args: argparse.Namespace, parser: argparse.ArgumentParser
 ) -> None:
     if args.stage == "resume":
-        if not run_full_series(resume=True):
+        if not run_full_series(resume=True) and not _auto_extend_failed_full_series():
             print("Full-series gate failed; stopping before conditioning.", flush=True)
             raise SystemExit(2)
         run_conditioned(resume=True)
