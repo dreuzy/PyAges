@@ -71,7 +71,9 @@ tracer histories reproduce data and reported model fractions from:
 
 The project maintainer confirmed redistribution of the extracted and prepared
 data. The publisher PDF and locally prepared presentation are not part of the
-versioned source distribution; obtain the article through its DOI.
+current source tree or release distribution; obtain the article through its
+DOI. They occurred in older Git history and require a separate redistribution
+review before that history is mirrored or archived publicly.
 
 ## Fontainebleau example data
 
@@ -85,8 +87,10 @@ the Fontainebleau benchmark described by:
 > <https://doi.org/10.1029/2006WR005096>
 
 The project maintainer confirmed redistribution of the extracted benchmark
-data. The publisher PDF is not part of the versioned source distribution;
-obtain the article through its DOI.
+data. The publisher PDF is not part of the current source tree or release
+distribution; obtain the article through its DOI. It occurred in older Git
+history and requires a separate redistribution review before that history is
+mirrored or archived publicly.
 
 ## Other examples, tests, and validation data
 

@@ -6,6 +6,8 @@ in {doc}`../archive/index`.
 ```{toctree}
 :maxdepth: 1
 
+contributing
+github-migration
 releasing
 versioning-citation
 ```

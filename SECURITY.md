@@ -1,11 +1,21 @@
 # Security policy
 
-Security reports should not be opened as public issues when they contain an
-unpatched vulnerability, credentials, personal data, or sensitive site data.
-Use the repository host's confidential issue mechanism and include the
-affected version, impact, and a minimal reproduction.
+## Supported versions
 
-Only versions listed as supported in the latest release metadata receive
-security fixes. Research datasets and generated outputs must be reviewed for
-licensing, personal information, and secrets before they are included in a
-release artifact.
+Security fixes are provided for the latest public release and, when explicitly
+identified in the release notes, its immediate predecessor.
+
+## Reporting a vulnerability
+
+Do not open a public issue for an unpatched vulnerability, credential,
+personal data, or sensitive site data. Use GitHub's **Security → Report a
+vulnerability** form so that the report and discussion remain private. Include
+the affected version or commit, impact, a minimal reproduction, and any known
+mitigation.
+
+If the private form is unavailable, use the contact information on the
+maintainer's GitHub profile to request a private reporting channel without
+including vulnerability details in the initial message.
+
+Research datasets, repository history, and generated outputs must be reviewed
+for licensing, personal information, and secrets before public distribution.
