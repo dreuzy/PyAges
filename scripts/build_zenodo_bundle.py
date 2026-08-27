@@ -449,6 +449,9 @@ def validate_bundle(root: Path) -> dict[str, object]:
 def _build_zip(root: Path, output: Path) -> Path:
     if output.exists():
         raise FileExistsError(f"Refusing to replace existing ZIP: {output}")
+    sidecar = output.with_name(f"{output.name}.sha256")
+    if sidecar.exists():
+        raise FileExistsError(f"Refusing to replace existing ZIP checksum: {sidecar}")
     temporary = output.with_name(f".{output.name}.staging-{os.getpid()}")
     if temporary.exists():
         raise FileExistsError(f"Refusing to replace temporary ZIP: {temporary}")
@@ -467,6 +470,9 @@ def _build_zip(root: Path, output: Path) -> Path:
         temporary.unlink(missing_ok=True)
         raise
     validate_zip(root, output)
+    sidecar.write_text(
+        f"{sha256(output)}  {output.name}\n", encoding="ascii", newline="\n"
+    )
     return output
 
 
@@ -486,6 +492,13 @@ def validate_zip(root: Path, zip_path: Path) -> int:
             parts = Path(name).parts
             if Path(name).is_absolute() or ".." in parts:
                 raise RuntimeError(f"Unsafe ZIP member: {name}")
+    sidecar = zip_path.with_name(f"{zip_path.name}.sha256")
+    if sidecar.is_file():
+        expected_digest, filename = (
+            sidecar.read_text(encoding="ascii").strip().split("  ", 1)
+        )
+        if filename != zip_path.name or sha256(zip_path) != expected_digest:
+            raise RuntimeError("ZIP SHA-256 sidecar validation failed")
     return len(expected)
 
 

@@ -114,6 +114,7 @@ def test_build_zenodo_bundle_adds_readable_metadata_and_exact_dependencies(tmp_p
     assert manifest["doi"] == "10.5281/zenodo.test"
     assert len(manifest["external_dependencies"]) == 2
     assert build_zenodo_bundle.validate_zip(output, zip_output) > 0
+    assert zip_output.with_name(f"{zip_output.name}.sha256").is_file()
 
 
 def test_tracerlpm_dependency_hash_is_mandatory(tmp_path):
