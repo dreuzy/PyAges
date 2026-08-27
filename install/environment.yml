@@ -1,5 +1,6 @@
-# Historical article-reproduction baseline. This is distinct from the
-# qualified user constraints in constraints.txt.
+# Historical article-reproduction direct baseline. This is not a lock of the
+# original platform-specific transitive solve and is distinct from the
+# candidate user constraints in constraints.txt.
 name: pyages-article-reproduction
 channels:
   - conda-forge

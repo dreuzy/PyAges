@@ -33,10 +33,10 @@ python -m venv .venv
 python -m pip install -c install/constraints.txt -e .
 ```
 
-The separate `install/environment.yml` file preserves the Python 3.12 /
-SciPy 1.14.1 scientific baseline used by the historical article campaign; it
-is not the PyAges 1.0 user environment. See `install/README.md` for the two
-workflows.
+The separate `install/environment.yml` file records the Python 3.12 /
+SciPy 1.14.1 direct scientific baseline used by the historical article
+campaign; it is not a bit-for-bit lock or the PyAges 1.0 user environment. See
+`install/README.md` for the two workflows.
 
 Installing PyAges enables the `pyages` CLI:
 
@@ -54,7 +54,8 @@ install it with:
 python -m pip install pyages
 ```
 
-Until a final release is published, pip users must opt into prereleases:
+No PyAges distribution is currently published on PyPI. After a beta or release
+candidate is uploaded, pip users must opt into prereleases:
 
 ```
 python -m pip install --pre pyages

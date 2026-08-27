@@ -36,6 +36,7 @@ dependencies = [
     "pyyaml>=6,<7",
     "click>=8.3.3,<9",
     "pydantic>=2.9,<3",
+    "packaging>=24,<27",
 ]
 
 [project.optional-dependencies]

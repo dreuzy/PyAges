@@ -6,14 +6,18 @@ PyAges deliberately records two different environments.
 article campaign. Its recorded scientific core is Python 3.12, NumPy 2.1.2,
 SciPy 1.14.1, pandas 2.2.3, and Matplotlib 3.10.8. It is not the PyAges 1.0 user
 environment and does not retroactively qualify the archived campaign on newer
-dependencies. Create it from the repository root with:
+dependencies. It records the direct environment, not the exact historical
+platform-specific transitive solve. Create it from the repository root and
+install PyAges without changing those dependencies with:
 
 ```bash
 conda env create -f install/environment.yml
 conda activate pyages-article-reproduction
+python -m pip install --no-deps -e .
 ```
 
-`constraints.txt` is the separately qualified user/development baseline. It
+`constraints.txt` is the separately qualified candidate baseline for the
+future PyAges 1.0 user/development environment. It
 pins SciPy 1.18.1 and is exercised by CI on Python 3.12, 3.13, and 3.14. Create
 a normal virtual environment, then install PyAges with:
 
@@ -48,7 +52,9 @@ environment because it is not required by the package:
 conda install -c conda-forge spyder imageio ffmpeg av imageio-ffmpeg
 ```
 
-The distribution, import package, and CLI share the same `pyages` name:
+The distribution, import package, and CLI share the same `pyages` name. No
+PyAges distribution is currently published on PyPI; after a beta or release
+candidate is uploaded, install it with:
 
 ```bash
 python -m pip install --pre pyages
