@@ -56,9 +56,9 @@ modèle d'erreur demanderait une décision scientifique distincte.
 
 Résultats finaux dans l'arbre stabilisé après renommage du paquet en `pyages` :
 
-- `python -m pytest -q` : **787 réussis, 5 ignorés** ;
+- `python -m pytest -q` : **824 réussis, 5 ignorés** ;
 - tests ciblés du sous-package, de son API et de sa documentation :
-  **32 réussis** ;
+  **57 réussis** ;
 - `python -m ruff check pyages/concentrations tests/concentrations` : réussi ;
 - `python -m compileall -q pyages/concentrations` : réussi ;
 - construction Sphinx stricte (`-W --keep-going`) : réussie sans avertissement.
