@@ -877,7 +877,9 @@ def main() -> int:
         print(f"Reused valid package with {len(payload['artifacts'])} artifacts")
         return 0
     output = (
-        replace_package(args.output) if args.replace else build_package(args.output)
+        replace_package(args.output, ARTIFACTS)
+        if args.replace
+        else build_package(args.output, ARTIFACTS)
     )
     payload = validate_package(output)
     print(f"Built {output} with {len(payload['artifacts'])} verified artifacts")

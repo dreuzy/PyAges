@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -102,6 +103,43 @@ def test_article_package_is_atomic_and_hash_validated(monkeypatch, tmp_path):
     (output / "reports" / "result.txt").write_text("corrupted\n", encoding="utf-8")
     with pytest.raises(RuntimeError, match="hash"):
         package.validate_package(output)
+
+
+def test_article_package_cli_passes_rebased_campaign_inventory(monkeypatch, tmp_path):
+    artifact = package.Artifact(
+        "fresh",
+        "report",
+        tmp_path / "fresh.txt",
+        Path("reports/fresh.txt"),
+        "fresh campaign result",
+    )
+    captured = []
+    output = tmp_path / "package"
+    monkeypatch.setattr(package, "ARTIFACTS", package.ARTIFACTS)
+    monkeypatch.setattr(package, "SOURCE_MANIFESTS", package.SOURCE_MANIFESTS)
+    monkeypatch.setattr(package, "artifacts_for_campaign", lambda unused: (artifact,))
+    monkeypatch.setattr(package, "source_manifests_for_campaign", lambda unused: {})
+    monkeypatch.setattr(
+        package,
+        "build_package",
+        lambda selected_output, artifacts: captured.append(tuple(artifacts))
+        or selected_output,
+    )
+    monkeypatch.setattr(package, "validate_package", lambda unused: {"artifacts": []})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "build_article_package.py",
+            "--campaign-root",
+            str(tmp_path),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert package.main() == 0
+    assert captured == [(artifact,)]
 
 
 def test_publication_package_uses_current_table4_names():
