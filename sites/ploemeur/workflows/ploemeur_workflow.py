@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copy
 import multiprocessing as mp
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -258,8 +259,14 @@ class SimulationStrategy:
             self.folder,
         )
         total_jobs = len(jobs)
-        for idx, job in enumerate(jobs, start=1):
-            self._execute_job(*job, run_index=idx, run_total=total_jobs)
+        with tempfile.TemporaryDirectory(prefix="pyages-ploemeur-") as temp_directory:
+            for idx, job in enumerate(jobs, start=1):
+                self._execute_job(
+                    *job,
+                    run_index=idx,
+                    run_total=total_jobs,
+                    observation_directory=temp_directory,
+                )
 
     def _execute_job(
         self,
@@ -274,6 +281,7 @@ class SimulationStrategy:
         prior_folder,
         run_index: int,
         run_total: int,
+        observation_directory: str,
     ):
         """
         Prepare and execute all date/LPM cases in one workflow job.
@@ -300,6 +308,7 @@ class SimulationStrategy:
             prior,
             likelihood,
             prior_folder,
+            observation_directory,
         )
         self._run_pods(pods)
 
@@ -341,10 +350,15 @@ class SimulationStrategy:
         prior,
         likelihood,
         prior_folder,
+        observation_directory,
     ):
         """Prepare inputs and pods for a single (well, mode) run."""
         files = _observation_files(
-            well, dates, time_span_and_prior_mode, self.workflow_cfg.breakups
+            well,
+            dates,
+            time_span_and_prior_mode,
+            self.workflow_cfg.breakups,
+            directory=observation_directory,
         )
         if self._mode_requires_prior(time_span_and_prior_mode):
             prior_corresp = _build_prior_correspondence(
@@ -352,6 +366,7 @@ class SimulationStrategy:
                 dates,
                 time_span_and_prior_mode,
                 self.workflow_cfg.breakups,
+                directory=observation_directory,
             )
         else:
             prior_corresp = None
@@ -385,6 +400,7 @@ class SimulationStrategy:
                     self.calibration_cfg.seed_enabled,
                     self.calibration_cfg.seed,
                     directory_lpm=self.lpm_directory,
+                    observation_directory=observation_directory,
                     prior_file=prior_file,
                     time_span_and_prior_mode=time_span_and_prior_mode,
                     initial_params=self.calibration_cfg.initial_params,
@@ -413,7 +429,7 @@ class SimulationStrategy:
                 pod.perform()
 
 
-def _write_observation_selection(well, dates, start, end):
+def _write_observation_selection(well, dates, start, end, directory=None):
     """
     Selection of concentrations by year
         + Stores selected data in another file
@@ -438,8 +454,7 @@ def _write_observation_selection(well, dates, start, end):
 
     """
 
-    directory = workflow_temp_folder()
-    Path(directory).mkdir(parents=True, exist_ok=True)
+    directory = directory or workflow_temp_folder()
     # Loads concentrations
     cdata = Concentrations.from_file(observation_path(well, dates))
     df = cdata.cv
@@ -502,7 +517,9 @@ def _periods_years(well, dates, time_span_and_prior_mode, breakups=()):
     return start, end, sampling_years
 
 
-def _observation_files(well, dates, time_span_and_prior_mode, breakups=()):
+def _observation_files(
+    well, dates, time_span_and_prior_mode, breakups=(), directory=None
+):
     """
     Creates and Returns list of files according to time_span_and_prior_mode "cumulative" or "successive"
 
@@ -528,12 +545,16 @@ def _observation_files(well, dates, time_span_and_prior_mode, breakups=()):
 
     start, end = _periods_years(well, dates, time_span_and_prior_mode, breakups)[0:2]
     return [
-        _write_observation_selection(well, dates, first_year, last_year)
+        _write_observation_selection(
+            well, dates, first_year, last_year, directory=directory
+        )
         for first_year, last_year in zip(start, end, strict=False)
     ]
 
 
-def _build_prior_correspondence(well, dates, time_span_and_prior_mode, breakups=()):
+def _build_prior_correspondence(
+    well, dates, time_span_and_prior_mode, breakups=(), directory=None
+):
     """
     Correspondance matrix between
         - single years
@@ -562,15 +583,21 @@ def _build_prior_correspondence(well, dates, time_span_and_prior_mode, breakups=
         raise ValueError("At most one hydrological breakup is supported.")
     if time_span_and_prior_mode == "span_with_prior":
         start_suc, end_suc, _ = _periods_years(well, dates, "span_with_prior", breakups)
-        files_suc = _observation_files(well, dates, "span_with_prior", breakups)
+        files_suc = _observation_files(
+            well, dates, "span_with_prior", breakups, directory=directory
+        )
     elif time_span_and_prior_mode == "successive_with_prior":
         start_suc, end_suc, _ = _periods_years(well, dates, "successive", breakups)
-        files_suc = _observation_files(well, dates, "successive", breakups)
+        files_suc = _observation_files(
+            well, dates, "successive", breakups, directory=directory
+        )
     else:
         raise ValueError(
             "Prior correspondence requires successive_with_prior or span_with_prior."
         )
-    files_prior = _observation_files(well, dates, "span_full", breakups)
+    files_prior = _observation_files(
+        well, dates, "span_full", breakups, directory=directory
+    )
     correspondence = {}
     for filename, start, _ in zip(files_suc, start_suc, end_suc, strict=False):
         if time_span_and_prior_mode == "span_with_prior":
@@ -633,6 +660,7 @@ class PloemeurSingleRun:
         seed_enabled,
         seed,
         directory_lpm,
+        observation_directory=None,
         prior_file="",
         time_span_and_prior_mode="",
         initial_params=None,
@@ -642,7 +670,8 @@ class PloemeurSingleRun:
         self.time_span_and_prior_mode = time_span_and_prior_mode
         # ---------------- CONCENTRATIONS DATA ------------------
         # Concentration data
-        self.file_ploemeur = data_file_path(workflow_temp_folder(), well_date)
+        observation_directory = observation_directory or workflow_temp_folder()
+        self.file_ploemeur = data_file_path(observation_directory, well_date)
         self.file_stem = Path(self.file_ploemeur).name
         self.error_concentrations = error_concentrations
 

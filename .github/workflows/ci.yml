@@ -2,7 +2,13 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
+    tags:
+      - "v*"
   pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -20,9 +26,12 @@ jobs:
   ruff:
     name: Ruff
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
           cache: pip
@@ -31,16 +40,22 @@ jobs:
             install/constraints.txt
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
-      - run: python scripts/check_licensing.py
       - run: python -m ruff check .
       - run: python -m ruff format --check .
+      - name: Verify licensing metadata
+        run: python scripts/check_licensing.py
+      - name: Verify generated test inventory
+        run: python -m scripts.generate_test_inventory --check
 
   dependency-audit:
     name: Dependency audit
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
           cache: pip
@@ -53,11 +68,14 @@ jobs:
       - run: python -m pip_audit --local --skip-editable --progress-spinner off
 
   conda-environment:
-    name: Historical article environment
+    name: Conda environment
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: mamba-org/setup-micromamba@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3
         with:
           environment-name: pyages-article-reproduction
           environment-file: install/environment.yml
@@ -74,13 +92,16 @@ jobs:
   tests:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -92,8 +113,9 @@ jobs:
       - run: python -m pytest -q
 
   scipy-lower-bounds:
-    name: SciPy lower bound (Python ${{ matrix.python-version }}, SciPy ${{ matrix.scipy-version }})
+    name: SciPy lower bound (Python ${{ matrix.python-version }})
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -105,32 +127,30 @@ jobs:
           - python-version: "3.14"
             scipy-version: "1.16.1"
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: |
+            pyproject.toml
+            install/constraints.txt
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e ".[dev]" "scipy==${{ matrix.scipy-version }}"
-      - name: Test SciPy-dependent scientific paths
-        run: >-
-          python -m pytest -q
-          tests/lpm/test_inverse_gaussian_analytics.py
-          tests/lpm/test_continuous_partial_moments.py
-          tests/lpm/test_lpm_models.py
-          tests/lpm/test_discrete_lpm_analytics.py
-          tests/convolution
-          tests/calibration/test_calibration_scientific_contracts.py
-          tests/calibration/test_calibration_problem.py
-          tests/calibration/test_ploemeur_scipy_ig_prior.py
+      - run: python -m pip install -c install/constraints.txt -e ".[dev]"
+      - run: python -m pip install --force-reinstall "scipy==${{ matrix.scipy-version }}"
+      - run: python -m pytest -q tests/convolution tests/lpm tests/tracers tests/test_public_api.py
 
   coverage:
     name: Coverage
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
           cache: pip
@@ -140,7 +160,7 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m pytest -q --cov=pyages --cov-report=term-missing --cov-report=xml --cov-fail-under=60
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: coverage
           path: coverage.xml
@@ -149,9 +169,12 @@ jobs:
   tracerlpm-validation:
     name: TracerLPM validation
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
           cache: pip
@@ -165,9 +188,12 @@ jobs:
   dotnet-build:
     name: .NET build
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "8.0.x"
       - run: >-
@@ -180,9 +206,12 @@ jobs:
   documentation:
     name: Documentation
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
           cache: pip
@@ -191,8 +220,11 @@ jobs:
             install/constraints.txt
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -c install/constraints.txt -e ".[docs]"
-      - run: python -m sphinx -W --keep-going -b html docs docs/_build/html
-      - uses: actions/upload-artifact@v7
+      - name: Build strict HTML documentation
+        run: python -m sphinx -W --keep-going -b html docs docs/_build/html
+      - name: Check documentation links
+        run: python -m sphinx -W --keep-going -b linkcheck docs docs/_build/linkcheck
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: documentation-html
           path: docs/_build/html
@@ -201,9 +233,12 @@ jobs:
   package:
     name: Package
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
           cache: pip
@@ -227,8 +262,34 @@ jobs:
           PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" check
           PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" run "$GITHUB_WORKSPACE/examples/templates/quickstart_single.yaml"
           test -f "$GITHUB_WORKSPACE/.smoke-results/test_cases/ploemeur_F09_2010.txt/result_manifest.json"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: distributions
           path: dist/
           retention-days: 14
+
+  ci-gate:
+    name: CI gate
+    if: always()
+    needs:
+      - ruff
+      - dependency-audit
+      - conda-environment
+      - tests
+      - scipy-lower-bounds
+      - coverage
+      - tracerlpm-validation
+      - dotnet-build
+      - documentation
+      - package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Reject failed or cancelled prerequisite jobs
+        if: >-
+          contains(needs.*.result, 'failure') ||
+          contains(needs.*.result, 'cancelled') ||
+          contains(needs.*.result, 'skipped')
+        run: exit 1
+      - name: Confirm successful CI
+        run: echo "All required CI jobs succeeded."

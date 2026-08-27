@@ -8,5 +8,7 @@ and exploratory example notes are listed separately in {doc}`../archive/index`.
 :maxdepth: 1
 
 ../user-guide/running-examples
+synthetic-recovery
+albuquerque
 holten/README
 ```

@@ -289,7 +289,7 @@ class MetropolisHastings(CalibrationMethod):
             return
         traj.resize(n)
         if traj_options.display:
-            traj.plot(self.display.directory)
+            traj.plot(self.display_options.directory)
         if traj_options.text:
             traj.check()
 

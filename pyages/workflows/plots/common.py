@@ -50,9 +50,9 @@ def apply_example_style() -> None:
 def _ensure_frame(result) -> pd.DataFrame:
     if isinstance(result, pd.DataFrame):
         return result.copy()
-    if hasattr(result, "dist"):
+    if hasattr(result, "frame"):
         return result.frame.copy()
-    raise TypeError("Expected a pandas DataFrame or an object exposing dist().")
+    raise TypeError("Expected a pandas DataFrame or an object exposing .frame.")
 
 
 def _best_row(frame: pd.DataFrame) -> pd.Series | None:

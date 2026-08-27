@@ -8,8 +8,11 @@ provenance, workflow outputs, script entrypoints, and CLI options.
 
 ../user-guide/cli-flags
 install
+results
 data-provenance
 outputs
 public-api
+citation
+changelog
 scripts
 ```

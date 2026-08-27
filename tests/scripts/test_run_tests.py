@@ -1,0 +1,55 @@
+import sys
+
+import pytest
+
+import run_tests
+
+
+def test_default_scope_is_standard():
+    assert run_tests.build_pytest_command([]) == [
+        sys.executable,
+        "-m",
+        "pytest",
+        "-q",
+        "tests",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("modes", "expected"),
+    [
+        (["extensive"], ["-q", "tests", "--run-extensive"]),
+        (
+            ["coverage"],
+            [
+                "-q",
+                "tests",
+                "--cov=pyage",
+                "--cov-report=term-missing",
+                "--cov-report=xml",
+                "--cov-fail-under=60",
+            ],
+        ),
+        (["validation"], ["-q", run_tests.TRACERLPM_TESTS]),
+        (["collect"], ["--collect-only", "-q", "tests"]),
+        (["standard", "detail"], ["-vv", "tests"]),
+        (["standard", "update"], ["-q", "tests", "-s", "--update-golden"]),
+    ],
+)
+def test_documented_scopes(modes, expected):
+    command = run_tests.build_pytest_command(modes)
+    assert command[:3] == [sys.executable, "-m", "pytest"]
+    assert command[3:] == expected
+
+
+@pytest.mark.parametrize(
+    "modes",
+    [
+        ["standard", "coverage"],
+        ["validation", "update"],
+        ["unknown"],
+    ],
+)
+def test_invalid_mode_combinations_are_rejected(modes):
+    with pytest.raises(ValueError):
+        run_tests.build_pytest_command(modes)

@@ -53,8 +53,10 @@ def data_file_path(directory: str, filename: str) -> str:
 
 
 def workflow_temp_folder() -> str:
-    """Return the temporary data folder used by the workflow."""
-    return str(Path(ploemeur_data_folder()) / "temp")
+    """Create and return the temporary data folder used by the workflow."""
+    path = Path(ploemeur_data_folder()) / "temp"
+    path.mkdir(parents=True, exist_ok=True)
+    return str(path)
 
 
 def workflow_temp_file_path(filename: str) -> str:

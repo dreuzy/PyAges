@@ -17,6 +17,25 @@ that a scientific calculation is correct.
 5. **Field benchmarks** test the complete preparation, forward, inference, and
    reporting workflow against published or internally consistent cases.
 
+## Executable traceability
+
+The table maps each scientific claim category to executable evidence. Exact
+module counts and short purposes are generated in {doc}`../dev/test-inventory`;
+commands and selection rules are maintained in {doc}`../dev/testing`.
+
+| Qualification layer | Executable evidence | CI scope | Supporting reference | Boundary of the evidence |
+|---|---|---|---|---|
+| Analytical invariants | `tests/lpm/`, `tests/tracer/`, and analytical modules in `tests/convolution/` | Standard suite on Python 3.12--3.14 | {doc}`lpm-reference` and {doc}`forward-model` | Covers declared models and sampled parameter regimes, not every possible extension |
+| Independent forward calculations | `tests/convolution/test_convolution_scientific.py`, `tests/ploemeur/test_ploemeur_convolution_reference.py`, and TracerLPM reference tests | Standard suite plus `TracerLPM validation` | Independent quadrature and prepared reference fixtures | Agreement depends on documented grids and tolerances; shared inputs are not fully independent evidence |
+| Cross-software inverse cases | `validation/tracerlpm/benchmark/tests/`, with the adapter compilation checked separately | `TracerLPM validation` and `.NET build` | Benchmark fixtures and mapped synthetic cases | GitHub CI does not execute Excel, the XLL, or native Solver on a qualified Windows host |
+| Posterior diagnostics | Calibration proposal, prior, support, and scientific-contract modules plus article qualification helpers under `tests/scripts/` | Standard suite; selected extensive tests and reproduction campaigns | {doc}`inference` and {doc}`reproducibility` | Convergence diagnostics do not prove uniqueness, tracer consistency, or model adequacy |
+| Field benchmarks | Golden and workflow modules in `tests/examples/` and `tests/ploemeur/` | Standard and scheduled extensive suites | {doc}`case-studies`, versioned case inputs, manifests, and accepted fixtures | Results qualify the documented cases only and do not generalize automatically to another aquifer |
+
+Software delivery checks add a separate layer: CLI, configuration, package,
+Conda, documentation, and workflow tests verify that the qualified scientific
+code can be installed and invoked. They are documented in {doc}`../dev/ci`
+and should not be presented as additional scientific validation results.
+
 ## Results reported in manuscript revision v14
 
 | Qualification | Scope | Result |
@@ -45,6 +64,27 @@ native TracerLPM workflow uses an absolute-relative-residual objective through
 Excel Solver. Differences on noisy realizations can therefore reflect the
 objective as well as discretization and optimization.
 
+## Open qualification gaps
+
+The refreshed Ploemeur F09 extensive golden baseline is reproducible on two
+independent Ubuntu 24.04/Python 3.12 generations, but it is not yet an
+independently approved scientific reference. The refresh changed 312 numerical
+fields after the August 2026 calibration and reproducibility refactors. The
+required review includes explaining the affected output families, comparing a
+qualified Windows run or declaring Linux canonical, inspecting representative
+acceptance trajectories, and checking scientific invariants independently of
+the stored golden values. Track that review in [GitHub issue
+#9](https://github.com/dreuzy/pyage/issues/9).
+
+The TracerLPM/Excel case remains only partially portable, and the external
+Holten Dirichlet-sensitivity campaign remains locally unvalidated until its
+chains, diagnostics, environment, seeds, and checksums are imported and
+reviewed. Current case status is recorded in {doc}`reproducibility`.
+
+These gaps do not invalidate the analytical tests or the separately qualified
+cases above. They do prevent the affected baselines from being described as
+fully independently validated.
+
 ## What these results do not establish
 
 - They do not validate every possible tracer, LPM, prior, or field site.
@@ -56,4 +96,5 @@ objective as well as discretization and optimization.
 
 Detailed protocols and historical decisions remain in
 {doc}`../reports/index`. Reproduction entry points and manifest rules are
-documented in {doc}`reproducibility`.
+documented in {doc}`reproducibility`. The test traceability matrix is maintained
+in {doc}`../dev/testing`.

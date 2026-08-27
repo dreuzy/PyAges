@@ -62,7 +62,10 @@ examples = [
 
 [project.urls]
 Homepage = "https://github.com/dreuzy/pyages"
+Documentation = "https://pyage-gw.readthedocs.io/en/latest/"
 Repository = "https://github.com/dreuzy/pyages.git"
+Issues = "https://github.com/dreuzy/pyages/issues"
+Changelog = "https://github.com/dreuzy/pyages/blob/main/CHANGELOG.md"
 
 [project.scripts]
 pyages = "pyages.cli.main:main"

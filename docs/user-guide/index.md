@@ -5,6 +5,7 @@ guides for day-to-day use of PyAges.
 
 Use this guide by task:
 
+- {doc}`tutorial` performs a first run and explains what was produced.
 - {doc}`getting-started` installs PyAges and runs a minimal calibration.
 - {doc}`configuration` documents the YAML inputs.
 - {doc}`concentrations` defines the observation-table schema and validation.
@@ -27,6 +28,7 @@ For the relationship between the main scientific objects, see
 ```{toctree}
 :maxdepth: 1
 
+tutorial
 getting-started
 running-examples
 configuration

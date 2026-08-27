@@ -1,44 +1,57 @@
 # Contributing to PyAges
 
-Contributions are welcome when their origin and licensing are clear.
+PyAges welcomes bug reports, documentation improvements, tests, and scientific
+or software contributions through GitHub issues and pull requests. Public
+users can propose changes, but cannot push to or delete repository content.
 
-By submitting a contribution, you confirm that you have the right to provide
-it and agree that it may be distributed as part of PyAges under the CeCILL 2.1
-licence. This is not a copyright assignment: contributors retain the rights
-they hold in their own contributions unless a separate written agreement says
-otherwise.
+## Development setup
 
-New source files must include, near the beginning of the file:
-
-```text
-Copyright (c) YEAR COPYRIGHT HOLDER
-SPDX-License-Identifier: CECILL-2.1
+```bash
+git clone https://github.com/dreuzy/pyages.git
+cd pyages
+python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
 ```
 
-Replace the placeholders with accurate information. Preserve existing
-copyright, attribution, and licence notices when modifying a file. Do not copy
-third-party code, data, figures, or documentation into the repository unless
-its terms are compatible and its provenance and required notices are recorded.
-Data additions must also update `NOTICE-DATA.md`; direct dependency changes
-must update `THIRD_PARTY_NOTICES.md` and `install/constraints.txt` together.
+Create a topic branch and keep each pull request focused on one coherent
+change. Describe the motivation, validation performed, and any effect on
+numerical results, datasets, public interfaces, or reproducibility.
 
-Run the licensing check before submitting a change:
+## Required checks
 
-```console
-python scripts/check_licensing.py
+Run the checks relevant to the change before opening a pull request:
+
+```bash
+python -m ruff check .
+python -m ruff format --check .
+python -m pytest -q
+python -m sphinx -W --keep-going -b html docs docs/_build/html
 ```
 
-## Documentation
+The [testing guide](https://pyages-gw.readthedocs.io/en/latest/dev/testing.html)
+explains the standard, extensive, coverage, TracerLPM, collection, and golden
+scopes. The [continuous-integration reference](https://pyages-gw.readthedocs.io/en/latest/dev/ci.html)
+maps every GitHub Actions job to its local command, trigger, and artifact.
 
-Documentation follows supported responsibilities and contracts rather than
-mirroring every source directory. Read the [documentation scope and
-granularity](docs/dev/documentation-scope.md) before adding a page. In
-particular, user-visible configuration, CLI, output, scientific, and
-compatibility changes must update the corresponding online reference; private
-implementation details normally stay in docstrings, comments, and tests.
+Changes to validation infrastructure should also run
+`python run_tests.py validation`. Changes affecting long scientific
+calculations should run `python run_tests.py extensive` and must describe the
+corresponding evidence rather than silently replacing golden values. After
+adding, moving, parametrizing, or re-marking tests, regenerate the committed
+inventory with `python -m scripts.generate_test_inventory`.
 
-Build the documentation with warnings treated as errors:
+## Scientific and data changes
 
-```console
-python -m sphinx -E -a -W --keep-going -b html docs docs/_build/html
-```
+- Explain changes to equations, parameterizations, tolerances, priors, random
+  seeds, or numerical outputs.
+- Update tests, scientific documentation, and reproducibility manifests
+  together when their contract changes.
+- Do not commit generated result directories, local runner configurations,
+  credentials, personal data, or third-party publications without an explicit
+  redistribution review.
+- Preserve source attribution and transformation notes for every dataset.
+
+## Review and licensing
+
+All changes are reviewed through GitHub. By contributing, you agree that your
+contribution is distributed under the repository's CeCILL 2.1 license and that
+you have the right to submit any included code, text, or data.

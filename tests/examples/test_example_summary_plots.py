@@ -12,7 +12,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import pyages.concentrations.concentrations as co
+from pyages.concentrations import Concentrations
 from pyages.workflows.plots import (
     plot_objective_solution_map,
     plot_objective_summary,
@@ -34,8 +34,8 @@ def test_core_summary_plots_smoke(tmp_path: Path) -> None:
             "date": [2010.0, 2010.0],
         }
     )
-    concentrations = co.Concentrations.from_dataframe(observed)
-    concentration_names = concentrations.names_dates()
+    concentrations = Concentrations.from_dataframe(observed)
+    concentration_names = concentrations.observation_keys()
     posterior = pd.DataFrame(
         {
             "mu": [8.0, 10.0, 12.0],
@@ -133,7 +133,7 @@ def test_plot_temporal_fit_comparison_smoke(tmp_path: Path) -> None:
             "unit": ["TU", "TU", "pmc", "pmc"],
         }
     )
-    cdata = co.Concentrations.from_dataframe(observed)
+    cdata = Concentrations.from_dataframe(observed)
     transient = pd.DataFrame(
         {
             "mu": [12.0, 13.5, 14.0, 15.0, 16.0, 16.5],
@@ -151,7 +151,7 @@ def test_plot_temporal_fit_comparison_smoke(tmp_path: Path) -> None:
     out_path = tmp_path / "temporal_fit_comparison.png"
 
     fig = plot_temporal_fit_comparison(
-        craw=cdata,
+        observations=cdata,
         posterior_frames={
             "Transient posterior": transient,
             "Single-date posterior": single_date,

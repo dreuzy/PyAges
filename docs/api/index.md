@@ -27,7 +27,7 @@ promise is {doc}`../reference/public-api`.
    pyages.tracer.config
    pyages.tracer.tracer_root
    pyages.concentrations
-   pyages.concentrations.concentrations_time
+   pyages.concentrations.chronicles
    pyages.calibration.methods.metropolis_hastings
    pyages.calibration.methods.prior
    pyages.calibration.methods.trajectory

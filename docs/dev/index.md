@@ -11,6 +11,11 @@ Exploratory design notes are retained in {doc}`../archive/index`.
 
 documentation-scope
 extending-calibration-workflows
+contributing
+ci
+testing
+test-inventory
+github-migration
 releasing
 versioning-citation
 ```

@@ -4,12 +4,19 @@ Releases are built from a clean, reviewed commit. Generated scientific output
 is not mixed with source changes unless it is an intentional golden fixture or
 published reference artifact.
 
+The test scopes and GitHub jobs referenced below are defined in
+{doc}`testing` and {doc}`ci`.
+
 ## Release gate
 
 1. Stop or finish processes that write inside the checkout.
 2. Confirm that every modified, deleted, and untracked file is intentional.
    Install the qualified direct dependency set with
    `python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"`.
+   Run `python -m scripts.check_project_metadata` to verify that the qualified
+   pip and Conda pins satisfy the declared compatibility ranges and that the
+   release identity files agree. Ecosystem-specific micro versions may differ
+   when a release is not yet available from both package indexes.
 3. Update `pyages/_version.py`, `CITATION.cff`, `CHANGELOG.md`, and the
    development-status classifier together. Confirm that README and Sphinx show
    the same release and follow {doc}`versioning-citation`; the manuscript label
@@ -72,14 +79,23 @@ published reference artifact.
    Confirm that the smoke result contains `result_manifest.json` with schema
    version 1.
 
-9. Publish a release candidate to the staging package index. Validate it on at
-   least two supported Python versions before publishing the final artifact.
-10. Tag the exact reviewed commit and publish the wheel and source distribution
-    without rebuilding them.
-11. For an archived scientific release, mint the version DOI from that exact
+9. Create an annotated, `v`-prefixed tag on the exact reviewed commit. Push the
+   tag only after the protected `main` checks and extensive suite pass.
+10. Dispatch the read-only GitHub Actions **Release candidate** workflow for
+    that tag. Download its `release-distributions-<tag>` artifact and verify its
+    digest locally. The workflow validates one build on every supported Python
+    version but cannot modify repository contents or publish packages.
+11. Publish that unchanged wheel and source archive to the staging package
+    index using a maintainer-controlled release process. After validation,
+    promote the exact same files to the final index and attach them to a GitHub
+    Release; do not rebuild between destinations.
+12. For an archived scientific release, mint the version DOI from that exact
     tagged artifact. Only after the DOI resolves and its metadata has been
     checked, add it to `CITATION.cff`, validate the CFF, and update the article
     citation and reproducibility manifests. Never publish a placeholder DOI.
 
-The GitHub Actions workflows implement the standard checks and retain the
-built artifacts. Uploading remains a deliberate maintainer action.
+The GitHub Actions workflows implement the standard checks and retain
+candidate artifacts temporarily. They have read-only repository permissions;
+publishing, release creation, tag creation, and deletion remain deliberate
+maintainer actions. Actions artifacts are not the permanent scientific
+archive.

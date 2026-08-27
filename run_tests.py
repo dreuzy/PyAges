@@ -1,50 +1,99 @@
-# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
-# Contributor: Jean-Raynald de Dreuzy
-# SPDX-License-Identifier: CECILL-2.1
+"""Run the documented PyAges pytest scopes from the repository root.
 
-"""
-Script utilitaire pour lancer les tests pytest depuis la racine du projet.
+Examples:
+  python run_tests.py
+  python run_tests.py standard
+  python run_tests.py standard detail
+  python run_tests.py extensive
+  python run_tests.py coverage
+  python run_tests.py validation
+  python run_tests.py collect
+  python run_tests.py standard update
 
-Usage :
-  python run_tests.py               -> mode normal (synthèse)
-  python run_tests.py update        -> mise à jour des golden (--update-golden)
-  python run_tests.py detail        -> affichage détaillé (-vv)
-  python run_tests.py update detail -> combine update + détail
+The no-argument, ``detail``, and ``update detail`` forms remain compatible
+with the historical helper interface.
 """
 
 import argparse
 import subprocess
 import sys
+from collections.abc import Sequence
+
+PRIMARY_SCOPES = {"standard", "extensive", "coverage", "validation", "collect"}
+MODIFIERS = {"detail", "update"}
+VALID_MODES = PRIMARY_SCOPES | MODIFIERS
+TRACERLPM_TESTS = "validation/tracerlpm/benchmark/tests"
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Run pytest for this project.")
+def build_pytest_command(modes: Sequence[str]) -> list[str]:
+    """Return the pytest command for a validated collection of modes."""
+    requested = set(modes)
+    unknown = requested - VALID_MODES
+    if unknown:
+        names = ", ".join(sorted(unknown))
+        raise ValueError(f"unknown mode(s): {names}")
+
+    scopes = requested & PRIMARY_SCOPES
+    if len(scopes) > 1:
+        names = ", ".join(sorted(scopes))
+        raise ValueError(f"choose exactly one test scope, not: {names}")
+    scope = next(iter(scopes), "standard")
+
+    if "update" in requested and scope not in {"standard", "extensive"}:
+        raise ValueError("update is supported only for standard or extensive tests")
+
+    verbosity = "-vv" if "detail" in requested else "-q"
+    command = [sys.executable, "-m", "pytest"]
+
+    if scope == "collect":
+        command.extend(["--collect-only", verbosity, "tests"])
+    elif scope == "validation":
+        command.extend([verbosity, TRACERLPM_TESTS])
+    elif scope == "coverage":
+        command.extend(
+            [
+                verbosity,
+                "tests",
+                "--cov=pyages",
+                "--cov-report=term-missing",
+                "--cov-report=xml",
+                "--cov-fail-under=60",
+            ]
+        )
+    else:
+        command.extend([verbosity, "tests"])
+        if scope == "extensive":
+            command.append("--run-extensive")
+
+    if "update" in requested:
+        command.extend(["-s", "--update-golden"])
+
+    return command
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run a documented PyAges pytest scope.")
     parser.add_argument(
-        "mode",
+        "modes",
         nargs="*",
-        help="Optional modes: update, detail",
+        choices=sorted(VALID_MODES),
+        metavar="MODE",
+        help=(
+            "one scope (standard, extensive, coverage, validation, collect) "
+            "plus optional detail or update"
+        ),
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    update = "update" in args.mode
-    detail = "detail" in args.mode
+    try:
+        command = build_pytest_command(args.modes)
+    except ValueError as error:
+        parser.error(str(error))
 
-    # Commande de base (synthèse)
-    cmd = [sys.executable, "-m", "pytest", "-q", "tests"]
-
-    if detail:
-        cmd = [sys.executable, "-m", "pytest", "-vv", "tests"]
-
-    if update:
-        cmd = cmd[:2] + ["-s", "--update-golden"] + cmd[2:]
-
-    print("Running:", " ".join(cmd))
+    print("Running:", " ".join(command))
     print("-" * 60)
-
-    # Lance pytest et propage le code de retour
-    result = subprocess.run(cmd)
-    sys.exit(result.returncode)
+    return subprocess.run(command, check=False).returncode
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
