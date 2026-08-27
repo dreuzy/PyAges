@@ -27,5 +27,5 @@ Key summary figures:
 
 Outputs:
 
-- stored under the default results root (`PYAGE_RESULTS_DIR`) unless overridden
+- stored under the default results root (`PYAGES_RESULTS_DIR`) unless overridden
   in the environment.

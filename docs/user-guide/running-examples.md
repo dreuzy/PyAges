@@ -1,17 +1,14 @@
 # Running Examples
 
-PyAge includes several example workflows demonstrating different use cases. This guide walks through each example and explains what they do.
+PyAges includes several example workflows demonstrating different use cases. This guide walks through each example and explains what they do.
 
 ## Available Examples
 
 | Example | Description | Script |
 |---------|-------------|--------|
-| Synthetic recovery | Known-truth parameter recovery | `run_lpm_recovery_single_date.py` |
-| Ploemeur | Single-date calibration | `pyage run` |
-| Fontainebleau | Single-date calibration (different site) | `run_fontainebleau.py` |
+| Ploemeur | Single-date calibration | `pyages run` |
 | Holten | Example-local preparation, benchmark, and calibration reuse | `run_holten.py` |
-| Ploemeur Temporal | Multi-date time series analysis | `pyage run --transient` |
-| Albuquerque | Mixed young/old field example | `pyage run` |
+| Ploemeur Temporal | Multi-date time series analysis | `pyages run --transient` |
 
 For a minimal, fast run, use the templates under `examples/templates/`.
 
@@ -22,7 +19,7 @@ The Ploemeur example demonstrates a complete calibration workflow for a single s
 ### Run the Example
 
 ```bash
-pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
+pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
 ### What It Does
@@ -73,55 +70,58 @@ calibration_simplex:
 
 ### Output Files
 
-Results are saved to `~/results/PyAge/test_cases/ploemeur_F09_2010.txt/` by
+Results are saved to `~/results/PyAges/test_cases/ploemeur_F09_2010.txt/` by
 default because the dataset filename is the result-directory identifier:
 
 | File | Description |
 |------|-------------|
-| `concentrations.txt` | Normalized copy of the input observations |
-| `reachable_concentrations/c_reach.txt` | Reachable tracer concentrations when that analysis is enabled |
-| `objective_function_grid.txt` | Sampled objective surface when that analysis is enabled |
-| `<method>/parameters_calibration.txt` | Effective sampler or optimizer settings |
-| `<method>/results_calibration.txt` | Timing and acceptance or termination information |
-| `<method>/lpm_dist_calibrated.txt` | Retained samples for non-simplex calibration methods |
-| `<method>/lpm_stats_calibrated.txt` | Descriptive sample statistics, not convergence diagnostics |
-| `01_*.png`, `02_*.png`, `03_*.png` | Optional summary figures for enabled analyses |
-| `result_manifest.json` | Completion status, provenance, and artifact hashes |
+| `parameters_calibration.txt` | Calibrated parameter values |
+| `results_calibration.txt` | Calibration summary statistics |
+| `lpm_dist_calibrated.txt` | Posterior/calibration sample table: parameters, objective, concentrations, and derived columns |
+| `lpm_stats_calibrated.txt` | Descriptive statistics for the sample-table numeric columns |
+| `lpm_histo_calibrated_<parameter>.txt` | One histogram table for each model parameter |
+| `concentration_times.png` | Concentration vs age plot |
+| `concentrations_all_models.txt` | Model predictions for all tracers |
 
-See {doc}`../reference/results` for the complete output contract and temporal
-layout.
+The result tables are UTF-8, tab-separated text files. The sample and
+statistics tables include their pandas row index as the first column for
+compatibility with existing readers. Before writing any of these tables,
+PyAges verifies that all required parameter, objective, and concentration
+columns are still present. Each individual table replaces an existing target
+only after its complete content has been written successfully.
+
+Reusable Python code should use the format-aware readers instead of repeating
+the delimiter and index options manually:
+
+```python
+from pathlib import Path
+
+from pyages.data_io.lpm_distribution import (
+    read_distribution,
+    read_histograms,
+    read_statistics,
+)
+
+method_dir = Path("results/Metropolis_Hastings")
+samples = read_distribution(method_dir / "lpm_dist_calibrated.txt")
+statistics = read_statistics(method_dir / "lpm_stats_calibrated.txt")
+histograms = read_histograms(
+    method_dir / "lpm_histo_calibrated.txt",
+    parameter_names=["mu"],
+)
+
+print(samples["mu"].mean())
+print(statistics.loc["mean", "mu"])
+print(histograms["mu"].head())
+```
+
+The histogram argument is the family base name. For example, requesting `mu`
+from `lpm_histo_calibrated.txt` reads
+`lpm_histo_calibrated_mu.txt`.
 
 ---
 
-## Example 2: Fontainebleau
-
-Fontainebleau now follows the same local-example style as Holten: a dedicated
-runner orchestrates a lightweight pre-model benchmark for the site, then
-delegates the calibration itself to the standard single-date launcher.
-
-### Run the Example
-
-```bash
-python -m examples.natural.fontainebleau.run_fontainebleau
-```
-
-### Key Differences
-
-- Different geographic site with different tracer measurements
-- A local benchmark summary is written under `examples/natural/fontainebleau/generated/benchmark/`
-- You can override the dataset or the LPM directly from the example runner
-
-### Useful Options
-
-```bash
-python -m examples.natural.fontainebleau.run_fontainebleau --mode benchmark_only
-python -m examples.natural.fontainebleau.run_fontainebleau --dataset fontainebleau_IMR
-python -m examples.natural.fontainebleau.run_fontainebleau --lpm ig
-```
-
----
-
-## Example 3: Holten
+## Example 2: Holten
 
 Holten keeps its site-specific preparation and article comparison logic in the
 example directory, but reuses the validated single-date launcher core for the
@@ -149,11 +149,11 @@ python examples/natural/holten/run_holten.py --wells 59-05,73-29
 - Prepared datasets and tracer histories under `examples/natural/holten/generated/benchmark/prepared/`
 - Pre-model figures under `examples/natural/holten/generated/benchmark/pre_model/`
 - Local 4-bin comparison tables and figures under `examples/natural/holten/generated/benchmark/four_bin/`
-- Standard calibration outputs under the configured results root via `pyage run`
+- Standard calibration outputs under the configured results root via `pyages run`
 
 ---
 
-## Example 4: Ploemeur Temporal (Multi-Date Analysis)
+## Example 3: Ploemeur Temporal (Multi-Date Analysis)
 
 The temporal example demonstrates calibration across multiple sampling dates.
 `span` fits one stationary LPM to the complete record; `successive` performs
@@ -212,7 +212,7 @@ results:
 Results depend on the selected workflow mode:
 
 ```
-~/results/PyAge/ploemeur_temporal/
+~/results/PyAges/ploemeur_temporal/
 \\-- ori_ploemeur_F09_2005_2024/
     +-- span/
     |   \\-- span_full/
@@ -277,7 +277,7 @@ lpm:
   model_name: ig  # Use inverse Gaussian instead
 ```
 
-Run `pyage list lpms` for the installed registry. The current source tree
+Run `pyages list lpms` for the installed registry. The current source tree
 contains `dirac`, `dirac_double`, `dirac_double_1_set`, `exp`, `exp_shifted`,
 `gamma`, `ig`, `ig_shifted`, `mix_exp_shifted`, `shapefree_n_oldbin`,
 `uniform`, and `weibull`.
@@ -328,7 +328,7 @@ run:
 
 Run:
 ```
-pyage run examples/my_site/my_config.yaml
+pyages run examples/my_site/my_config.yaml
 ```
 
 ### 4) Multi-date variant (temporal)
@@ -350,13 +350,13 @@ workflow:
 
 Run:
 ```
-pyage run --transient examples/my_site/my_temporal.yaml
+pyages run --transient examples/my_site/my_temporal.yaml
 ```
 
 ### 5) Add or update tracers (if needed)
 
 If your `element` names are not available in `data_core/data_tracer/`, create a
-new tracer configuration (see {doc}`adding-tracer`) and point your data file to
+new tracer configuration (see `adding-tracer.md`) and point your data file to
 those tracer names.
 
 ### Adjust MCMC Settings
@@ -404,7 +404,7 @@ Check that:
 
 ### "Unknown LPM type"
 
-Run `pyage list lpms` to see available LPM models.
+Run `pyages list lpms` to see available LPM models.
 
 ### "Tracer not found"
 
@@ -413,5 +413,5 @@ Ensure the tracer name in your data file matches a directory in `data_core/data_
 ### Results not appearing
 
 Check the results directory:
-- Default: `~/results/PyAge/`
-- Override with: `PYAGE_RESULTS_DIR` environment variable
+- Default: `~/results/PyAges/`
+- Override with: `PYAGES_RESULTS_DIR` environment variable

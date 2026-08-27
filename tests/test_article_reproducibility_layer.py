@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 import ast
 import json
 import subprocess
@@ -59,14 +63,17 @@ def test_article_manifests_record_reproducibility_contract():
         assert required <= set(manifest)
 
 
-def test_article_manifests_do_not_claim_historical_tag_as_calculation_release():
+def test_article_manifests_do_not_claim_legacy_commit_as_calculation_release():
     registry = yaml.safe_load((ARTICLE / "cases.yaml").read_text(encoding="utf-8"))
 
     for case in registry.values():
         manifest = json.loads((ROOT / case["manifest"]).read_text(encoding="utf-8"))
         assert manifest["release_tag"] is None
-        assert manifest["requested_v1.0_tag"] is None
-        assert manifest.get("repository_release_tag_at_inventory") == "1.0"
+        assert manifest["requested_stable_tag"] is None
+        assert "repository_release_tag_at_inventory" not in manifest
+        assert manifest.get("legacy_pre_refactor_commit") == (
+            "5af69268da4ed1e22cc5307eac8d6f46522f8ade"
+        )
 
 
 def test_postprocess_wrapper_never_calls_sampling_or_extension_entrypoints():

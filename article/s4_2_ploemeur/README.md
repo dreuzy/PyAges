@@ -3,7 +3,7 @@
 - **Objective:** benchmark the Ploemeur F09/F11 CFC time series and independent 2014–2015 windows.
 - **Manuscript output:** Figure 4, posterior summaries, fit and pairing diagnostics.
 - **Inputs/config:** `sites/ploemeur/data/`, `sites/ploemeur/params/`, and archived Article selections recorded by the manifest.
-- **Check:** `python article/run_case.py check s4_2_ploemeur`
+- **Historical evidence check:** `python article/run_case.py check s4_2_ploemeur`
 - **Post-process:** `python article/run_case.py postprocess s4_2_ploemeur`.
 - **Full run:** `python article/run_case.py run s4_2_ploemeur` (**costly: four five-chain calibrations**).
 - **Stabilized campaign outputs:** `<campaign>/ploemeur_shifted_exponential/`

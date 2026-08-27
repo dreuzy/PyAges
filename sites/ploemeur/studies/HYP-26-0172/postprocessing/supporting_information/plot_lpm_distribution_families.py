@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Plot comparable shifted-exponential and shifted-inverse-Gaussian TTDs."""
 
 from __future__ import annotations
@@ -10,8 +14,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import quad
 
-from pyage.lpm.models.exponential_shifted import ExponentialShiftedLpm
-from pyage.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
+from pyages.lpm.models.exponential_shifted import ExponentialShiftedLpm
+from pyages.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[6]
 OUTPUT_DIRECTORY = (
@@ -64,7 +68,7 @@ def build_models(parameters: CurveParameters):
         directory_lpm=LPM_PARAMETER_DIRECTORY,
     )
 
-    # PyAge exposes the physical mean and standard deviation.  In the common
+    # PyAges exposes the physical mean and standard deviation.  In the common
     # IG(mean, lambda) parameterization, variance = mean**3 / lambda.
     sigma_physical = np.sqrt(parameters.mu**3 / parameters.shape_lambda)
     inverse_gaussian = InverseGaussianShiftedLpm(

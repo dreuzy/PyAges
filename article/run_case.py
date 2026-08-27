@@ -1,8 +1,14 @@
-"""Command-line entry point for cases targeting the future PyAge v1.0 article.
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Command-line entry point for cases targeting the future PyAges v1.0 article.
 
 This module deliberately keeps checking, post-processing, and simulation as
-three separate operations.  In particular, ``check`` never imports a
-scientific runner and ``postprocess`` only calls the guarded article wrapper.
+three separate operations. In particular, ``check`` audits the optional
+historical evidence inventory and never imports a scientific runner. It is not
+the gate for a fresh campaign; use ``scripts.reproduce_article validate`` for
+that. ``postprocess`` only calls the guarded article wrapper.
 
 The label ``v1.0`` names the manuscript target, not the currently released
 package version. Each case manifest remains authoritative for its source
@@ -145,34 +151,46 @@ def main(argv: list[str] | None = None) -> int:
     subparsers = parser.add_subparsers(dest="action", required=True)
     subparsers.add_parser("list", help="list manuscript cases")
     for action in ("check", "postprocess", "run"):
-        child = subparsers.add_parser(action)
+        help_text = (
+            "audit optional historical evidence"
+            if action == "check"
+            else f"{action} one manuscript case"
+        )
+        child = subparsers.add_parser(action, help=help_text)
         child.add_argument("case_id", choices=tuple(registry))
     args = parser.parse_args(argv)
 
     if args.action == "list":
         print(
             "Case                                      Manuscript               "
-            "Status       Main output"
+            "Historical status  Main output"
         )
         for case_id, case in registry.items():
             outputs = case.get("figures", []) + case.get("tables", [])
             print(
                 f"{case_id:<41} {str(case['manuscript_section']):<24} "
-                f"{case['status']:<12} {', '.join(outputs) or '-'}"
+                f"{case['status']:<18} {', '.join(outputs) or '-'}"
             )
         return 0
 
     case = registry[args.case_id]
     if args.action == "check":
+        print(
+            "NOTE  legacy evidence audit only; fresh campaigns are validated "
+            "with `python -m scripts.reproduce_article validate --output ...`"
+        )
         errors, notes = _check_manifest(case)
         for note in notes:
             print(f"NOTE  {note}")
         if errors:
             for error in errors:
                 print(f"FAIL  {error}")
-            print(f"{case['case_id']}: FAILED ({len(errors)} issue(s))")
+            print(
+                f"{case['case_id']}: HISTORICAL EVIDENCE UNAVAILABLE "
+                f"({len(errors)} issue(s))"
+            )
             return 1
-        print(f"{case['case_id']}: OK")
+        print(f"{case['case_id']}: HISTORICAL EVIDENCE OK")
         return 0
     if args.action == "run":
         print(

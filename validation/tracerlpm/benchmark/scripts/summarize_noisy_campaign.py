@@ -1,4 +1,8 @@
-"""Summarize noisy PyAge inversions and, when available, TracerLPM runs."""
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Summarize noisy PyAges inversions and, when available, TracerLPM runs."""
 
 from __future__ import annotations
 
@@ -9,7 +13,7 @@ import numpy as np
 import yaml
 
 from .generate_inputs import BENCHMARK_ROOT
-from .invert_pyage_pilot import RESULT_DIR
+from .invert_pyages_pilot import RESULT_DIR
 
 CONFIG = BENCHMARK_ROOT / "configs" / "inversion-noisy-campaign.yaml"
 OUTPUT = BENCHMARK_ROOT / "generated" / "inversion-noisy-campaign"
@@ -21,7 +25,7 @@ def summarize() -> dict:
     rows = []
     for case in config["cases"]:
         result = json.loads(
-            (RESULT_DIR / case["case_id"] / "pyage-result.json").read_text(
+            (RESULT_DIR / case["case_id"] / "pyages-result.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -121,8 +125,8 @@ def summarize() -> dict:
             "tracerlpm_secondary_rmse": float(
                 np.sqrt(np.mean(tracer_secondary_errors**2))
             ),
-            "pyage_tracerlpm_tau_rmse": float(np.sqrt(np.mean(pair_tau**2))),
-            "pyage_tracerlpm_secondary_rmse": float(
+            "pyages_tracerlpm_tau_rmse": float(np.sqrt(np.mean(pair_tau**2))),
+            "pyages_tracerlpm_secondary_rmse": float(
                 np.sqrt(np.mean(pair_secondary**2))
             ),
         }
@@ -137,14 +141,14 @@ def summarize() -> dict:
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
     lines = [
-        "# Inversions PyAge–TracerLPM avec bruit relatif de 1 %",
+        "# Inversions PyAges–TracerLPM avec bruit relatif de 1 %",
         "",
         "| Modèle | Outil | n | moyenne tau | biais tau | RMSE tau | paramètre 2 | moyenne | biais | RMSE |",
         "|---|---|---:|---:|---:|---:|---|---:|---:|---:|",
     ]
     for model, stats in models.items():
         lines.append(
-            f"| {model} | PyAge | {stats['count']} | {stats['tau_mean']:.6g} | "
+            f"| {model} | PyAges | {stats['count']} | {stats['tau_mean']:.6g} | "
             f"{stats['tau_bias']:.6g} | {stats['tau_rmse']:.6g} | {stats['secondary_name']} | "
             f"{stats['secondary_mean']:.6g} | {stats['secondary_bias']:.6g} | {stats['secondary_rmse']:.6g} |"
         )

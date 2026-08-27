@@ -3,12 +3,18 @@ requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pyage-groundwater"
+name = "pyages"
 dynamic = ["version"]
 description = "Groundwater Age Dating Toolkit using Lumped Parameter Models"
 readme = "README.md"
 license = "CECILL-2.1"
-license-files = ["LICENSE", "NOTICE-DATA.md"]
+license-files = [
+    "LICENSE",
+    "LICENSE.en",
+    "COPYRIGHT",
+    "NOTICE-DATA.md",
+    "THIRD_PARTY_NOTICES.md",
+]
 authors = [{name = "Jean-Raynald de Dreuzy"}]
 keywords = ["groundwater", "age dating", "lumped parameter model", "hydrogeology", "tracers"]
 classifiers = [
@@ -23,18 +29,19 @@ classifiers = [
 requires-python = ">=3.12,<3.15"
 dependencies = [
     "numpy>=2.0,<3",
-    "scipy>=1.13,<2",
+    "scipy>=1.14.1,<1.19; python_version < '3.14'",
+    "scipy>=1.16.1,<1.19; python_version >= '3.14'",
     "pandas>=2.2,<4",
     "matplotlib>=3.9,<4",
     "pyyaml>=6,<7",
     "click>=8.3.3,<9",
     "pydantic>=2.9,<3",
+    "packaging>=24,<27",
 ]
 
 [project.optional-dependencies]
 dev = [
     "build>=1.5,<2",
-    "packaging>=24,<27",
     "pip-audit>=2.10,<3",
     "pytest>=9.0.3,<10",
     "pytest-cov>=7,<8",
@@ -54,21 +61,21 @@ examples = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/dreuzy/pyage"
+Homepage = "https://github.com/dreuzy/PyAges"
 Documentation = "https://pyage-gw.readthedocs.io/en/latest/"
-Repository = "https://github.com/dreuzy/pyage.git"
-Issues = "https://github.com/dreuzy/pyage/issues"
-Changelog = "https://github.com/dreuzy/pyage/blob/main/CHANGELOG.md"
+Repository = "https://github.com/dreuzy/PyAges.git"
+Issues = "https://github.com/dreuzy/PyAges/issues"
+Changelog = "https://github.com/dreuzy/PyAges/blob/main/CHANGELOG.md"
 
 [project.scripts]
-pyage = "pyage.cli.main:main"
+pyages = "pyages.cli.main:main"
 
 [tool.setuptools]
 include-package-data = false
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pyage*", "data_core*"]
+include = ["pyages*", "data_core*"]
 
 [tool.setuptools.package-data]
 data_core = [
@@ -79,7 +86,7 @@ data_core = [
 ]
 
 [tool.setuptools.dynamic]
-version = {attr = "pyage._version.__version__"}
+version = {attr = "pyages._version.__version__"}
 
 [tool.pytest.ini_options]
 addopts = ["--ignore=validation/tracerlpm/output"]

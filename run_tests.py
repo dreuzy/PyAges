@@ -1,4 +1,8 @@
-"""Run the documented PyAge pytest scopes from the repository root.
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Run the documented PyAges pytest scopes from the repository root.
 
 Examples:
   python run_tests.py
@@ -54,7 +58,7 @@ def build_pytest_command(modes: Sequence[str]) -> list[str]:
             [
                 verbosity,
                 "tests",
-                "--cov=pyage",
+                "--cov=pyages",
                 "--cov-report=term-missing",
                 "--cov-report=xml",
                 "--cov-fail-under=60",
@@ -72,7 +76,9 @@ def build_pytest_command(modes: Sequence[str]) -> list[str]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run a documented PyAge pytest scope.")
+    parser = argparse.ArgumentParser(
+        description="Run a documented PyAges pytest scope."
+    )
     parser.add_argument(
         "modes",
         nargs="*",

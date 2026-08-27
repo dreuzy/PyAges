@@ -1,8 +1,12 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Tests for workflow plotting backend selection."""
 
 import matplotlib
 
-from pyage.workflows.plotting_runtime import configure_backend
+from pyages.workflows.plotting_runtime import configure_backend
 
 
 def test_configure_backend_respects_environment(monkeypatch) -> None:

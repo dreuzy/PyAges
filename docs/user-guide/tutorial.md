@@ -10,24 +10,24 @@ The current beta is distributed from the GitHub source tree. From a checkout:
 
 ```bash
 conda env create -f install/environment.yml
-conda activate pyage
+conda activate pyages-article-reproduction
 python -m pip install -e .
 ```
 
-Until `pyage-groundwater` appears on PyPI, do not expect
-`pip install pyage-groundwater` to resolve. See {doc}`../reference/install` for
+Until `pyages` appears on PyPI, do not expect
+`pip install pyages` to resolve. See {doc}`../reference/install` for
 the qualified environment and prerelease policy.
 
 ## 2. Check the installation
 
 ```bash
-pyage --version
-pyage check
-pyage list lpms
-pyage list tracers
+pyages --version
+pyages check
+pyages list lpms
+pyages list tracers
 ```
 
-`pyage check` exits successfully only when the package data, LPM registry, and
+`pyages check` exits successfully only when the package data, LPM registry, and
 distributed tracer definitions can be loaded. The lists are authoritative for
 the installed version.
 
@@ -39,13 +39,13 @@ with versioned inputs.
 On Linux or macOS:
 
 ```bash
-export PYAGE_RESULTS_DIR="$PWD/pyage-results"
+export PYAGES_RESULTS_DIR="$PWD/pyages-results"
 ```
 
 In PowerShell:
 
 ```powershell
-$env:PYAGE_RESULTS_DIR = Join-Path $PWD "pyage-results"
+$env:PYAGES_RESULTS_DIR = Join-Path $PWD "pyages-results"
 ```
 
 ## 4. Run the template
@@ -53,7 +53,7 @@ $env:PYAGE_RESULTS_DIR = Join-Path $PWD "pyage-results"
 From the repository root:
 
 ```bash
-pyage run examples/templates/quickstart_single.yaml
+pyages run examples/templates/quickstart_single.yaml
 ```
 
 The command begins with output similar to:
@@ -72,7 +72,7 @@ and provenance without claiming that an age distribution has been inferred.
 The result directory is:
 
 ```text
-pyage-results/
+pyages-results/
   test_cases/
     ploemeur_F09_2010.txt/
       concentrations.txt

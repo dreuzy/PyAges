@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Golden test for the Ploemeur F09 workflow (parameter summaries).
 """
@@ -10,6 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from pyages.data_io.lpm_distribution import read_statistics
 from sites.ploemeur.workflows.ploemeur_workflow import (
     SimulationStrategy,
     load_workflow_params,
@@ -59,7 +64,7 @@ def _extract_mode(file_root: str) -> str:
 
 
 def _collect_stats(stats_path: Path, lpm_type: str) -> Dict[str, float]:
-    df = pd.read_csv(stats_path, sep="\t", index_col=0)
+    df = read_statistics(stats_path)
     if lpm_type not in PARAM_COLUMNS:
         raise ValueError(f"Unsupported LPM type for golden stats: {lpm_type}")
     cols = PARAM_COLUMNS[lpm_type]

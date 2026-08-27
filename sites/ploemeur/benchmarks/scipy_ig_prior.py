@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Inverse-Gaussian prior used by the published Ploemeur calibration."""
 
 from __future__ import annotations
@@ -5,7 +9,7 @@ from __future__ import annotations
 import math
 from typing import Sequence
 
-from pyage.calibration.ig_parameterization import physical_moments_to_scipy
+from pyages.calibration.ig_parameterization import physical_moments_to_scipy
 
 BENCHMARK_NAME = "ploemeur_article_scipy_ig_prior"
 SHAPE_BOUNDS = (0.1, 100.0)

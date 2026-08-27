@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Four-panel comparison read from the matched-quantile CSV outputs."""
 
 from __future__ import annotations
@@ -10,7 +14,7 @@ import numpy as np
 from matplotlib.lines import Line2D
 from PIL import Image
 
-from pyage.lpm.models.exponential_shifted import ExponentialShiftedLpm
+from pyages.lpm.models.exponential_shifted import ExponentialShiftedLpm
 
 from .plot_lpm_distribution_families_matched_quantiles import inverse_gaussian_model
 

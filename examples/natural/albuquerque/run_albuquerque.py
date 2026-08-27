@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Run the Albuquerque workflow through the canonical single-date launcher."""
 
 from pathlib import Path
 
-from pyage.workflows.single_date import run_single_date
+from pyages.workflows.single_date import run_single_date
 
 # Repository root is three levels up from this file (examples/natural/albuquerque/)
 REPO_ROOT = Path(__file__).resolve().parents[3]

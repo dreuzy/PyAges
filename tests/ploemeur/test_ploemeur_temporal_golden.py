@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Golden test for the temporal MH launcher (span mode, multi-date file).
 """
@@ -10,7 +14,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from pyage.workflows.temporal import run_temporal
+from pyages.data_io.lpm_distribution import read_statistics
+from pyages.workflows.temporal import run_temporal
 from tests.utils import golden as golden_utils
 
 GOLDEN_PATH = (
@@ -46,7 +51,7 @@ def _objective_column(df: pd.DataFrame) -> Optional[str]:
 
 
 def _stats_from_file(stats_path: Path, lpm_type: str) -> Dict[str, float]:
-    df = pd.read_csv(stats_path, sep="\t", index_col=0)
+    df = read_statistics(stats_path)
     if lpm_type not in PARAM_COLUMNS:
         raise ValueError(f"Unsupported LPM type for golden stats: {lpm_type}")
     cols = PARAM_COLUMNS[lpm_type]

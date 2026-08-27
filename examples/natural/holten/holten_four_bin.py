@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Holten-specific local 4-bin fitting utilities.
 
@@ -8,7 +12,7 @@ for the Holten example, using the article-like bins:
 
 The implementation is intentionally local to the example because the old
 end-member is tracer-specific and should not yet be pushed into the generic
-PyAge LPM stack.
+PyAges LPM stack.
 """
 
 from __future__ import annotations
@@ -29,7 +33,7 @@ from examples.natural.holten.holten_case import (
     load_yaml,
     tracer_yaml_path,
 )
-from pyage.tracer.decay import rate_from_config
+from pyages.tracer.decay import rate_from_config
 
 BIN_DEFINITIONS = (
     {

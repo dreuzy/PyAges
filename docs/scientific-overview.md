@@ -1,13 +1,13 @@
 # Scientific overview
 
-PyAge estimates groundwater transit-time distributions from environmental
+PyAges estimates groundwater transit-time distributions from environmental
 tracer observations. It combines tracer recharge histories with lumped
 parameter models (LPMs), predicts concentrations by convolution, and calibrates
 model parameters against measurements.
 
 This overview summarizes the workflow. The pages below define the scientific
 contract in enough detail to interpret and audit a calculation. They are
-aligned with revision v14 of the PyAge v1.0 manuscript and checked against the
+aligned with revision v14 of the PyAges v1.0 manuscript and checked against the
 current implementation; manuscript-specific numerical results remain clearly
 identified as validation records rather than general software guarantees.
 
@@ -54,7 +54,7 @@ and an LPM type. A calibration method then searches that problem:
 - Metropolis-Hastings provides posterior sampling with explicit burn-in,
   thinning, prior, likelihood, and proposal settings.
 
-Results are sample tables (`LpmDist`) from which summary statistics, selected
+Results are sample tables (`LpmSampleTable`) from which summary statistics, selected
 LPMs, diagnostics, and figures are derived. Randomized qualification paths use
 fixed generators or recorded seeds.
 

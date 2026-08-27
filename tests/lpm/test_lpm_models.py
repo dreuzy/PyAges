@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Non-regression tests for all LPM models (pdf/cdf/cdf_inv + basic invariants).
 
@@ -12,7 +16,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyage.lpm.lpm_build import list_available_lpms, lpm_build
+from pyages.lpm import build_lpm, list_available_lpms
+from pyages.lpm.models.uniform import UniformLpm
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -28,7 +33,7 @@ def _golden_path() -> Path:
 
 def _make_lpm(lpm_type: str):
     # Instantiate the LPM using local data_lpm; keep defaults if init fails.
-    lpm = lpm_build(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
     try:
         lpm.set_param_from_array(lpm.param_init())
     except Exception:
@@ -100,3 +105,25 @@ def test_lpm_golden_pdf_cdf_cdf_inv(lpm_type, update_golden):
     assert cdf_inv_val == pytest.approx(
         expected["cdf_inv"]["value"], rel=1e-6, abs=1e-6
     )
+
+
+def test_uniform_constructor_accepts_its_scientific_parameters() -> None:
+    model = UniformLpm(
+        tmin=5.0,
+        delta=3.0,
+        directory_lpm=str(test_paths.lpm_data_dir()),
+    )
+
+    assert model.p == {"tmin": 5.0, "delta": 3.0}
+    assert model.mean() == pytest.approx(6.5)
+
+
+def test_scipy_adapter_rejects_a_negative_transit_time_mean() -> None:
+    model = UniformLpm(
+        tmin=-2.0,
+        delta=1.0,
+        directory_lpm=str(test_paths.lpm_data_dir()),
+    )
+
+    with pytest.raises(ValueError, match="non-negative mean"):
+        model.mean()

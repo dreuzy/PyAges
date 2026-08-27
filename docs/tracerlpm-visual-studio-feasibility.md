@@ -13,18 +13,18 @@
 ## 1. Objectif et indépendance
 
 Le futur lanceur doit constituer un répertoire complètement indépendant de
-PyAge. Il ne doit :
+PyAges. Il ne doit :
 
-- importer aucun module Python de PyAge ;
-- écrire dans aucun répertoire scientifique de PyAge ;
-- connaître aucune classe LPM de PyAge ;
-- contenir aucune transformation scientifique propre à PyAge.
+- importer aucun module Python de PyAges ;
+- écrire dans aucun répertoire scientifique de PyAges ;
+- connaître aucune classe LPM de PyAges ;
+- contenir aucune transformation scientifique propre à PyAges.
 
 Son unique responsabilité sera de piloter une distribution locale et figée de
 TracerLPM, d’injecter des cas tabulaires, de déclencher le calcul Excel et
 d’exporter des résultats tabulaires accompagnés d’un journal technique.
 
-L’échange avec PyAge se fera exclusivement par fichiers CSV/JSON et manifestes.
+L’échange avec PyAges se fera exclusivement par fichiers CSV/JSON et manifestes.
 
 ## 2. État de l’environnement et de TracerLPM
 
@@ -98,11 +98,11 @@ est un add-in natif C/C++ destiné à Excel :
 
 ## 4. Architecture future du répertoire autonome
 
-Le répertoire ne devrait pas se trouver dans le package `pyage`. Deux options
+Le répertoire ne devrait pas se trouver dans le package `pyages`. Deux options
 sont acceptables :
 
 - dépôt Git séparé, préférable pour une indépendance stricte ;
-- répertoire frère de `pyage`, ignoré par le packaging Python.
+- répertoire frère de `pyages`, ignoré par le packaging Python.
 
 Nom proposé : `tracerlpm-vs-runner/`.
 
@@ -168,7 +168,7 @@ conventions TracerLPM :
 - traceur et unité ;
 - options techniques nécessaires au classeur.
 
-Le lanceur ne convertit pas des paramètres PyAge. Cette transformation appartient
+Le lanceur ne convertit pas des paramètres PyAges. Cette transformation appartient
 au benchmark comparatif, pas au produit autonome.
 
 ### 5.3 Résultats
@@ -356,7 +356,7 @@ partie d’une CI générique.
 ## 12. Verdict de faisabilité
 
 La solution Visual Studio la plus raisonnable est un client console C#/.NET
-pilotant Excel par COM. Elle peut rester entièrement indépendante de PyAge et
+pilotant Excel par COM. Elle peut rester entièrement indépendante de PyAges et
 préserver le moteur TracerLPM original.
 
 La faisabilité est toutefois **conditionnelle**, pas encore démontrée :
@@ -388,7 +388,7 @@ Résultats :
   `Solver Add-In` au lieu de `Complément Solveur` ;
 - résultats numériques identiques sur trois processus Excel indépendants.
 
-Un runner autonome .NET 8 x64 est désormais conservé dans le dépôt PyAge sous
+Un runner autonome .NET 8 x64 est désormais conservé dans le dépôt PyAges sous
 `validation/tracerlpm`, tout en restant indépendant du package Python. Il valide les hashes, copie le
 classeur, crée sa propre instance Excel, configure le cas officiel, exécute les
 événements VBA, recalcule, lit 61 couples PFM et 61 couples EMM, compare leurs
@@ -402,5 +402,5 @@ sauvegarde. Aucun processus Excel ne subsiste après l'exécution.
 Le verdict passe donc de « faisabilité conditionnelle non démontrée » à
 **preuve de concept réussie avec contournements documentés**. Le contrat d'entrée
 est désormais exclusivement YAML. Les prochaines extensions sont la comparaison
-point par point avec PyAge, les tolérances numériques justifiées et les tests
+point par point avec PyAges, les tolérances numériques justifiées et les tests
 d'intégration automatisés des chemins d'erreur.

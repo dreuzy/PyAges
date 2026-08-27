@@ -71,7 +71,7 @@ execution:
   proc_nb: 6
 
 results:
-  # Use the default results root (PYAGE_RESULTS_DIR or <home>/results/PyAge).
+  # Use the default results root (PYAGES_RESULTS_DIR or <home>/results/PyAges).
   use_default: true
   # Custom results root (used only when use_default is false).
   directory: ""

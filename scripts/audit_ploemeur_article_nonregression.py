@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Build the Ploemeur Article.docx scientific non-regression audit.
 
 This is intentionally a forward/post-processing audit.  It does not launch MCMC,
@@ -27,12 +31,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from pyage.config.paths import DIRECTORY_TRACER_DATA
-from pyage.convolution.convolution import Convolution
-from pyage.lpm.models.inverse_gaussian import scipy_params_from_mean_std
-from pyage.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
-from pyage.tracer.tracer_protocol import SyntheticTracer
-from pyage.tracer.tracer_root import Tracer
+from pyages.config.paths import DIRECTORY_TRACER_DATA
+from pyages.convolution.convolution import Convolution
+from pyages.data_io.lpm_distribution import read_distribution
+from pyages.lpm.models.inverse_gaussian import scipy_params_from_mean_std
+from pyages.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
+from pyages.tracer.tracer_protocol import SyntheticTracer
+from pyages.tracer.tracer_root import Tracer
 
 
 ROOT = REPO_ROOT
@@ -88,7 +93,7 @@ def full_series_chain(well: str, version: str = "article") -> Path:
 
 def selected_historical_samples(well: str) -> tuple[Path, pd.DataFrame]:
     path = full_series_chain(well)
-    frame = pd.read_csv(path, sep="\t", index_col=0)
+    frame = read_distribution(path)
     ordered = frame.sort_values("median")
     positions = np.linspace(0, len(ordered) - 1, N_DISTRIBUTIONS)
     positions = np.rint(positions).astype(int)
@@ -318,7 +323,7 @@ def build_metric_audit() -> pd.DataFrame:
             "quantity_name": "median transit time / median_mean",
             "exact_formula": "E_posterior[t0 + mu*ln(2)]; each sample satisfies F(t50)=0.5",
             "code_function": "LpmBase.moments -> LpmScipy.cdf_inv -> scipy.stats.expon.ppf",
-            "file": "Git 5432034:pyage/lpm/core/lpm_base.py; pyage/lpm/core/lpm_scipy.py",
+            "file": "Git 5432034:pyages/lpm/core/lpm_base.py; pyages/lpm/core/lpm_scipy.py",
             "line": "601-606; 58-61",
             "scientifically_correct": True,
         },
@@ -327,28 +332,28 @@ def build_metric_audit() -> pd.DataFrame:
             "model": "ig_shifted",
             "quantity_name": "median transit time / median_mean",
             "exact_formula": "E_posterior[t0 + invgauss.ppf(0.5, shape=old_mu, scale=old_sigma)]",
-            "code_function": "LpmBase.moments -> LpmScipySafe.cdf_inv; _scipy_params=(old_mu,),loc=shift,scale=old_sigma",
-            "file": "Git 5432034:pyage/lpm/core/lpm_base.py; pyage/lpm/core/lpm_scipy.py; pyage/lpm/models/inverse_gaussian_shifted.py",
+            "code_function": "LpmBase.moments -> _InverseGaussianLpmBase.cdf_inv; _scipy_params=(old_mu,),loc=shift,scale=old_sigma",
+            "file": "Git 5432034:pyages/lpm/core/lpm_base.py; pyages/lpm/core/lpm_scipy.py; pyages/lpm/models/inverse_gaussian_shifted.py",
             "line": "601-606; 84-105; 46-47",
             "scientifically_correct": True,
         },
         {
-            "workflow": "Current PyAge / v2 campaign",
+            "workflow": "Current PyAges / v2 campaign",
             "model": "exp_shifted",
             "quantity_name": "median transit time / median_mean",
             "exact_formula": "E_posterior[t0 + mu*ln(2)]; each sample satisfies F(t50)=0.5",
             "code_function": "LpmBase.moments -> LpmScipy.cdf_inv -> scipy.stats.expon.ppf",
-            "file": "pyage/lpm/core/lpm_base.py; pyage/lpm/core/lpm_scipy.py; sites/ploemeur/studies/HYP-26-0172/postprocessing/build_products.py",
+            "file": "pyages/lpm/core/lpm_base.py; pyages/lpm/core/lpm_scipy.py; sites/ploemeur/studies/HYP-26-0172/postprocessing/build_products.py",
             "line": "491-501; 56-60; 219,247,298,341-345",
             "scientifically_correct": True,
         },
         {
-            "workflow": "Current PyAge / v2 campaign",
+            "workflow": "Current PyAges / v2 campaign",
             "model": "ig_shifted",
             "quantity_name": "median transit time / median_mean",
             "exact_formula": "E_posterior[t0 + invgauss.ppf(0.5, shape=(S/M)^2, scale=M^3/S^2)]",
-            "code_function": "LpmBase.moments -> LpmScipySafe.cdf_inv -> InverseGaussianShiftedLpm._scipy_params",
-            "file": "pyage/lpm/core/lpm_base.py; pyage/lpm/core/lpm_scipy.py; pyage/lpm/models/inverse_gaussian.py; pyage/lpm/models/inverse_gaussian_shifted.py",
+            "code_function": "LpmBase.moments -> _InverseGaussianLpmBase.cdf_inv -> InverseGaussianShiftedLpm._scipy_params",
+            "file": "pyages/lpm/core/lpm_base.py; pyages/lpm/core/lpm_scipy.py; pyages/lpm/models/inverse_gaussian.py; pyages/lpm/models/inverse_gaussian_shifted.py",
             "line": "491-501; 82-105; 28-36; 51-53",
             "scientifically_correct": True,
         },
@@ -425,7 +430,7 @@ def prior_and_jacobian_audit() -> dict[str, float]:
 
     result: dict[str, float] = {"jacobian_max_relative_error": max(errors)}
     for well in WELLS:
-        old = pd.read_csv(full_series_chain(well), sep="\t", index_col=0)
+        old = read_distribution(full_series_chain(well))
         mean = old["mu"] * old["sigma"]
         sd = old["sigma"] * old["mu"] ** 1.5
         current_support = (
@@ -541,7 +546,7 @@ def f11_tracer_behavior_audit() -> pd.DataFrame:
                     - int(item.parts[-4].split("_")[-2])
                 ),
             )
-            posterior = pd.read_csv(path, sep="\t", index_col=0)
+            posterior = read_distribution(path)
             modeled = []
             for index, observation in observations.iterrows():
                 columns = [
@@ -826,7 +831,7 @@ Les configs historiques et v2 portent toutes deux `prior_pipeline: [independent,
 2. `span_with_prior` pré/post-2012 utilisant le posterior full-series;
 3. `successive_with_prior` utilisant le posterior du span correspondant.
 
-La calibration indépendante `successive` a également `prior_option=False` et utilise les hard bounds. Aux étapes conditionnées, PyAge recharge un histogramme marginal par paramètre et multiplie ces densités marginales; il ne construit pas un posterior joint hiérarchique. Les données d'une fenêtre apparaissent donc d'abord dans le full-series posterior puis à nouveau dans la likelihood conditionnée : c'est bien la **pragmatic hierarchical conditioning** publiée, pas un bug PyAge nouveau. Elle n'a pas été modifiée.
+La calibration indépendante `successive` a également `prior_option=False` et utilise les hard bounds. Aux étapes conditionnées, PyAges recharge un histogramme marginal par paramètre et multiplie ces densités marginales; il ne construit pas un posterior joint hiérarchique. Les données d'une fenêtre apparaissent donc d'abord dans le full-series posterior puis à nouveau dans la likelihood conditionnée : c'est bien la **pragmatic hierarchical conditioning** publiée, pas un bug PyAges nouveau. Elle n'a pas été modifiée.
 
 ## 7. Comparaison Article.docx / campagne v2
 
@@ -838,7 +843,7 @@ Le contrôle shifted exponential reste proche (écart absolu maximal Figure 5 : 
 
 ## 8. Calibrations ciblées
 
-Aucune MCMC ciblée n'a été lancée, car le test forward préalable échoue au critère d'équivalence numérique stricte et parce que PyAge ne sait pas encore exprimer directement le prior `2/S` sur le domaine curviligne transformé. Lancer les six cas demandés avec le prior uniforme physique actuel ne testerait pas la non-régression de l'article; cela répéterait la cible v2 différente.
+Aucune MCMC ciblée n'a été lancée, car le test forward préalable échoue au critère d'équivalence numérique stricte et parce que PyAges ne sait pas encore exprimer directement le prior `2/S` sur le domaine curviligne transformé. Lancer les six cas demandés avec le prior uniforme physique actuel ne testerait pas la non-régression de l'article; cela répéterait la cible v2 différente.
 
 Avant toute calibration, il faut :
 

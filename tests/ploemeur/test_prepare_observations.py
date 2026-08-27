@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -5,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from pyage.concentrations.schema import (
+from pyages.concentrations.schema import (
     CONCENTRATION_COLUMN,
     DATE_COLUMN,
     ELEMENT_COLUMN,

@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Filesystem contract tests for the Ploemeur workflow."""
 
 from concurrent.futures import ThreadPoolExecutor
@@ -16,7 +20,7 @@ def test_workflow_temp_folder_creates_missing_directory(
 ) -> None:
     data_directory = tmp_path / "missing" / "data"
     monkeypatch.setattr(
-        path_helpers.ploemeur_obs,
+        path_helpers,
         "ploemeur_data_folder",
         lambda: str(data_directory),
     )
@@ -76,7 +80,7 @@ def test_observation_selection_uses_the_execution_directory(
 ) -> None:
     """Selection files are written to the caller's isolated directory."""
     concentrations = SimpleNamespace(
-        cv=pd.DataFrame(
+        frame=pd.DataFrame(
             {
                 "date": [2021, 2022, 2023],
                 "value": [1.0, 2.0, 3.0],
@@ -84,7 +88,9 @@ def test_observation_selection_uses_the_execution_directory(
         )
     )
     monkeypatch.setattr(
-        workflow, "load_observation_concentrations", lambda *args: concentrations
+        workflow.Concentrations,
+        "from_file",
+        classmethod(lambda cls, path: concentrations),
     )
     monkeypatch.setattr(
         workflow,

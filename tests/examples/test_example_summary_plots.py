@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Smoke tests for reusable example plotting helpers.
 """
@@ -8,10 +12,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import pyage.concentrations.concentrations as co
-from pyage.lpm.core.lpm_dist import LpmDist
-from pyage.lpm.lpm_build import lpm_build
-from pyage.workflows.plots import (
+from pyages.concentrations import Concentrations
+from pyages.workflows.plots import (
     plot_objective_solution_map,
     plot_objective_summary,
     plot_observations_overview,
@@ -32,8 +34,8 @@ def test_core_summary_plots_smoke(tmp_path: Path) -> None:
             "date": [2010.0, 2010.0],
         }
     )
-    concentrations = co.Concentrations.from_dataframe(observed)
-    concentration_names = concentrations.names_dates()
+    concentrations = Concentrations.from_dataframe(observed)
+    concentration_names = concentrations.observation_keys()
     posterior = pd.DataFrame(
         {
             "mu": [8.0, 10.0, 12.0],
@@ -45,8 +47,8 @@ def test_core_summary_plots_smoke(tmp_path: Path) -> None:
     )
     reachable = pd.DataFrame(
         {
-            "cfc11-2010_0": [210.0, 230.0, 250.0],
-            "cfc12-2010_0": [440.0, 470.0, 500.0],
+            "cfc11@2010.0": [210.0, 230.0, 250.0],
+            "cfc12@2010.0": [440.0, 470.0, 500.0],
         }
     )
     objective = pd.DataFrame(
@@ -91,45 +93,6 @@ def test_core_summary_plots_smoke(tmp_path: Path) -> None:
         plt.close(figure)
 
 
-def test_summary_plots_accept_current_lpm_distribution_api(tmp_path: Path) -> None:
-    observed = pd.DataFrame(
-        {
-            "element": ["cfc11", "cfc12"],
-            "concentration": [230.0, 470.0],
-            "error": [10.0, 15.0],
-            "unit": ["pptv", "pptv"],
-            "date": [2010.0, 2010.0],
-        }
-    )
-    concentrations = co.Concentrations.from_dataframe(observed)
-    concentration_names = concentrations.names_dates()
-    distribution = LpmDist(
-        lpm_build("exp_shifted"),
-        concentration_names,
-    )
-    distribution.append_values(
-        [10.0, 2.0],
-        obj_function=0.8,
-        concentrations=[230.0, 470.0],
-    )
-    reachable = pd.DataFrame(
-        {
-            "cfc11-2010_0": [220.0, 230.0, 240.0],
-            "cfc12-2010_0": [455.0, 470.0, 485.0],
-        }
-    )
-
-    figure = plot_single_date_model_space(
-        concentrations,
-        reachable,
-        {"posterior": distribution},
-        filename=tmp_path / "lpm_distribution.png",
-    )
-
-    assert (tmp_path / "lpm_distribution.png").is_file()
-    plt.close(figure)
-
-
 def test_plot_parameter_distribution_comparison_smoke(tmp_path: Path) -> None:
     transient = pd.DataFrame(
         {
@@ -170,7 +133,7 @@ def test_plot_temporal_fit_comparison_smoke(tmp_path: Path) -> None:
             "unit": ["TU", "TU", "pmc", "pmc"],
         }
     )
-    cdata = co.Concentrations.from_dataframe(observed)
+    cdata = Concentrations.from_dataframe(observed)
     transient = pd.DataFrame(
         {
             "mu": [12.0, 13.5, 14.0, 15.0, 16.0, 16.5],
@@ -188,7 +151,7 @@ def test_plot_temporal_fit_comparison_smoke(tmp_path: Path) -> None:
     out_path = tmp_path / "temporal_fit_comparison.png"
 
     fig = plot_temporal_fit_comparison(
-        craw=cdata,
+        observations=cdata,
         posterior_frames={
             "Transient posterior": transient,
             "Single-date posterior": single_date,

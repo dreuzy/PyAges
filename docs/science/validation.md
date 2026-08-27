@@ -1,6 +1,6 @@
 # Scientific Validation Strategy
 
-PyAge separates numerical correctness, inverse-solver behavior, and field-case
+PyAges separates numerical correctness, inverse-solver behavior, and field-case
 interpretation. A golden test alone only detects change; it cannot establish
 that a scientific calculation is correct.
 
@@ -41,13 +41,25 @@ and should not be presented as additional scientific validation results.
 | Qualification | Scope | Result |
 |---|---|---|
 | Forward operator | 133 independent tracer--LPM comparisons | 95% below relative discrepancy $3.6\times10^{-5}$; maximum $1.4\times10^{-4}$ at default tolerances |
-| PyAge--TracerLPM inverse comparison | EMM, EPM, and DM; four tracers; 0--20% relative noise | Close recovery at zero noise and broadly comparable point recovery as noise increases; second parameters degrade faster than mean transit time |
+| PyAges--TracerLPM inverse comparison | EMM, EPM, and DM; four tracers; 0--20% relative noise | Close recovery at zero noise and broadly comparable point recovery as noise increases; second parameters degrade faster than mean transit time |
 | Shifted-exponential identifiability | 19 exact synthetic four-tracer cases with an 8% likelihood error | All pass split-$\hat R<1.01$; minimum pooled ESS 756 |
 | Holten H4 | Seven wells, four observables, four age fractions | All 28 posterior-median fractions within 0.02 of the published values; mean absolute difference 0.0055 |
 | Ploemeur | F09/F11, full records versus independent 2014--2015 windows | Four calibrations pass the multi-chain gates; repeated observations resolve ambiguity at F09 and expose persistent inter-tracer discrepancy at F11 |
 
+For the historical 133-case row, relative discrepancy means
+$|C_\mathrm{PyAges}-C_\mathrm{reference}|/|C_\mathrm{reference}|$ when the
+reference is non-zero and `NaN` otherwise. The historical calculation did not
+use a $10^{-14}$ denominator floor. Checksum-protected reports and manifests
+remain unchanged; this definition corrects the active documentation only.
+
+A subsequent 270-case forward matrix uses an explicit two-regime rule to avoid
+unstable relative errors near zero. All 270 cases pass at the default grid and
+at the 0.5× and 0.25× tighter grids; deliberately looser 2× and 4× grids fail
+12 and 24 cases respectively. The rule and the non-archived implementation run
+are documented in {doc}`../reports/forward_qualification_2026-08-27`.
+
 The cross-software exercise is a qualification, not a ranking of optimizers.
-PyAge uses an uncertainty-weighted squared-residual objective, whereas the
+PyAges uses an uncertainty-weighted squared-residual objective, whereas the
 native TracerLPM workflow uses an absolute-relative-residual objective through
 Excel Solver. Differences on noisy realizations can therefore reflect the
 objective as well as discretization and optimization.
@@ -62,7 +74,7 @@ required review includes explaining the affected output families, comparing a
 qualified Windows run or declaring Linux canonical, inspecting representative
 acceptance trajectories, and checking scientific invariants independently of
 the stored golden values. Track that review in [GitHub issue
-#9](https://github.com/dreuzy/pyage/issues/9).
+#9](https://github.com/dreuzy/PyAges/issues/9).
 
 The TracerLPM/Excel case remains only partially portable, and the external
 Holten Dirichlet-sensitivity campaign remains locally unvalidated until its

@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 tests/tracer/test_tracer_root.py (ou test_tracer_concentration.py)
 
@@ -18,7 +22,7 @@ Ce fichier illustre trois "niveaux" de tests utiles en calcul scientifique :
    - Option pytest --update-golden : recalcule et met à jour les valeurs de référence
 
 Prérequis :
-- Un conftest.py à la racine du repo (C:\\codes\\pyage\\conftest.py) qui définit :
+- Un conftest.py à la racine du repo (C:\\codes\\pyages\\conftest.py) qui définit :
   - l'option --update-golden
   - les fixtures update_golden et golden_store
   - la fonction save_golden_store(store)
@@ -31,13 +35,11 @@ from pathlib import Path
 
 import pytest
 
-# Fonction utilitaire de sauvegarde des golden values
-# NOTE: importer depuis conftest.py marche, mais à long terme il est souvent plus propre
-#       de placer cette fonction dans tests/utils_golden.py et d'importer depuis là.
+# Fixture-owned facade that preserves pytest options and the canonical golden path.
 from conftest import save_golden_store
 
-# Import du code à tester
-from pyage.tracer.tracer_root import Tracer
+# Import the code under test after the golden-value facade.
+from pyages.tracer.tracer_root import Tracer
 
 # ---------------------------------------------------------------------------
 # Utilitaire : localiser les données de tests
@@ -51,7 +53,7 @@ def _data_tracer_dir() -> Path:
     Hypothèse d'arborescence (exemple) :
       <repo_root>/
         conftest.py
-        pyage/
+        pyages/
           ...
         data_core/
           data_tracer/

@@ -1,5 +1,5 @@
 # Tolérances provisoires réservées aux invariants analytiques de Phase 1.
-# Les tolérances PyAge–TracerLPM seront fixées seulement après convergence.
+# Les tolérances PyAges–TracerLPM seront fixées seulement après convergence.
 analytic:
   absolute: 1.0e-10
   relative: 1.0e-9

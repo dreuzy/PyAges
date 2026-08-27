@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Final four-case Ploemeur shifted-exponential article campaign.
 
 The campaign is deliberately limited to F09/F11 and to two independent
@@ -35,19 +39,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy
-from matplotlib.transforms import Bbox
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyage.calibration.mh_proposals import regularize_empirical_covariance
-from pyage.calibration.problem import CalibrationProblem
-from pyage.concentrations.concentrations import Concentrations
-from pyage.config.runtime import DisplayOptions
-from pyage.convolution import ConvolutionTracers
-from pyage.lpm.lpm_build import lpm_build
+from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.mh_proposals import regularize_empirical_covariance
+from pyages.calibration.problem import CalibrationProblem
+from pyages.concentrations import Concentrations
+from pyages.config.runtime import DisplayOptions
+from pyages.convolution import ConvolutionTracers
+from pyages.lpm import build_lpm
 from scripts.common.mcmc_diagnostics import (
     ess as _ess,
 )
@@ -59,6 +62,11 @@ from scripts.common.mcmc_diagnostics import (
     split_rhat as _split_rhat,
 )
 from scripts.common.provenance import repository_provenance
+from scripts.common.publication_plotting import (
+    PUBLICATION_RC,
+    mm_to_in,
+    save_pdf_png,
+)
 from scripts.common.reporting import markdown_table
 from sites.ploemeur.scripts.prepare_observations import prepare_well
 
@@ -324,13 +332,13 @@ def _observations(case: Case) -> Concentrations:
     observations = Concentrations.from_file(_observation_path(case.well))
     if case.interval is not None:
         start, end = case.interval
-        frame = observations.cv.loc[
-            (observations.cv["date"] >= start) & (observations.cv["date"] < end)
+        frame = observations.frame.loc[
+            (observations.frame["date"] >= start) & (observations.frame["date"] < end)
         ]
         observations = Concentrations.from_dataframe(frame)
-    observations.cv["unit"] = "pptv"
-    observations.error_affect_from_value(RELATIVE_ERROR)
-    if set(observations.names()) != set(TRACERS):
+    observations.frame["unit"] = "pptv"
+    observations.set_relative_errors(RELATIVE_ERROR)
+    if set(observations.tracer_names()) != set(TRACERS):
         raise RuntimeError(f"Unexpected tracer set for {case.key}")
     return observations
 
@@ -618,7 +626,7 @@ def _predict_draws(case: Case, samples: pd.DataFrame) -> pd.DataFrame:
     dates = np.tile(grid, len(TRACERS))
     tracers = ConvolutionTracers(names=names, date=dates)
     rows = []
-    model = lpm_build("exp_shifted", directory_lpm=str(LPM_DIRECTORY))
+    model = build_lpm("exp_shifted", directory_lpm=str(LPM_DIRECTORY))
     # One complete samples row is consumed per realization. Never select
     # mu and t0 independently here or in any downstream figure/statistic.
     for draw, row in samples.reset_index(drop=True).iterrows():
@@ -655,128 +663,159 @@ def _render_figure4(output: Path, intervals: pd.DataFrame) -> None:
     colors = {"full_record": "#1769aa", "2014_2015_independent": "#d1495b"}
     labels = {
         "full_record": "Full-record calibration",
-        "2014_2015_independent": "Independent 2014–2015 calibration",
+        "2014_2015_independent": "2014–2015-only calibration",
     }
-    figure, axes = plt.subplots(
-        2, 3, figsize=(12.2, 7.2), sharex=True, constrained_layout=True
-    )
-    for row_index, well in enumerate(("F11", "F09")):
-        observations = pd.read_table(_observation_path(well))
-        for column_index, tracer in enumerate(TRACERS):
-            axis = axes[row_index, column_index]
-            observed = observations.loc[observations["element"] == tracer].sort_values(
-                "date"
-            )
-            in_window = (observed["date"] >= 2014.0) & (observed["date"] < 2016.0)
-            axis.errorbar(
-                observed["date"],
-                observed["concentration"],
-                yerr=RELATIVE_ERROR * observed["concentration"],
-                fmt="o",
-                ms=3.8,
-                color="0.25",
-                ecolor="0.6",
-                elinewidth=0.8,
-                capsize=1.5,
-                label="Observations ±20 %"
-                if row_index == 0 and column_index == 0
-                else None,
-            )
-            axis.scatter(
-                observed.loc[in_window, "date"],
-                observed.loc[in_window, "concentration"],
-                s=48,
-                facecolors="none",
-                edgecolors="#f4a261",
-                linewidths=1.6,
-                zorder=5,
-                label="Used in 2014–2015 calibration"
-                if row_index == 0 and column_index == 0
-                else None,
-            )
-            for calibration in ("full_record", "2014_2015_independent"):
-                values = intervals.loc[
-                    (intervals["well"] == well)
-                    & (intervals["tracer"] == tracer)
-                    & (intervals["calibration"] == calibration)
+    with plt.rc_context(PUBLICATION_RC):
+        figure, axes = plt.subplots(
+            2,
+            3,
+            figsize=(mm_to_in(165), mm_to_in(112)),
+            sharex=True,
+        )
+        panel_labels = iter("abcdef")
+        for row_index, well in enumerate(("F11", "F09")):
+            observations = pd.read_table(_observation_path(well))
+            for column_index, tracer in enumerate(TRACERS):
+                axis = axes[row_index, column_index]
+                observed = observations.loc[
+                    observations["element"] == tracer
                 ].sort_values("date")
-                axis.fill_between(
-                    values["date"],
-                    values["q10"],
-                    values["q90"],
-                    color=colors[calibration],
-                    alpha=0.16,
-                )
-                axis.plot(
-                    values["date"],
-                    values["median"],
-                    color=colors[calibration],
-                    lw=1.5,
-                    label=labels[calibration]
+                in_window = (observed["date"] >= 2014.0) & (observed["date"] < 2016.0)
+                axis.errorbar(
+                    observed["date"],
+                    observed["concentration"],
+                    yerr=RELATIVE_ERROR * observed["concentration"],
+                    fmt="o",
+                    ms=2.8,
+                    color="0.25",
+                    ecolor="0.6",
+                    elinewidth=0.7,
+                    capsize=1.2,
+                    label="Observations ±20 %"
                     if row_index == 0 and column_index == 0
                     else None,
                 )
-            axis.set_title(f"{well} — {TRACER_LABELS[tracer]}")
-            axis.set_ylabel(
-                "Atmospheric-equivalent mixing ratio (pptv)"
-                if column_index == 0
-                else ""
-            )
-            axis.set_xlabel("Sampling year" if row_index == 1 else "")
-            axis.set_xlim(left=FIGURE_START_YEAR)
-            axis.grid(alpha=0.18)
-    handles, legend_labels = axes[0, 0].get_legend_handles_labels()
-    handles_by_label = dict(zip(legend_labels, handles, strict=True))
-    legend_labels = (
-        "Observations ±20 %",
-        "Used in 2014–2015 calibration",
-        "Full-record calibration",
-        "Independent 2014–2015 calibration",
-    )
-    figure.legend(
-        [handles_by_label[label] for label in legend_labels],
-        legend_labels,
-        loc="outside upper center",
-        ncol=4,
-        frameon=False,
-    )
-    # Retain the canonical final-figure page dimensions after removing the
-    # former top title from the tight bounding box.
-    export_bbox = Bbox.from_bounds(
-        -0.05833, -0.05833, 12.316657343648611, 7.646330000000001
-    )
-    for suffix in ("png", "pdf", "tiff"):
-        destination = output / f"figure4_ploemeur_shiftedexp_final.{suffix}"
-        figure.savefig(destination, dpi=600, bbox_inches=export_bbox, facecolor="white")
-        shutil.copy2(destination, INSERTION_OUTPUT / destination.name)
-    plt.close(figure)
+                axis.scatter(
+                    observed.loc[in_window, "date"],
+                    observed.loc[in_window, "concentration"],
+                    s=28,
+                    facecolors="none",
+                    edgecolors="#f4a261",
+                    linewidths=1.2,
+                    zorder=5,
+                    label="Observations used for 2014–2015-only calibration"
+                    if row_index == 0 and column_index == 0
+                    else None,
+                )
+                for calibration in ("full_record", "2014_2015_independent"):
+                    values = intervals.loc[
+                        (intervals["well"] == well)
+                        & (intervals["tracer"] == tracer)
+                        & (intervals["calibration"] == calibration)
+                    ].sort_values("date")
+                    axis.fill_between(
+                        values["date"],
+                        values["q10"],
+                        values["q90"],
+                        color=colors[calibration],
+                        alpha=0.16,
+                    )
+                    axis.plot(
+                        values["date"],
+                        values["median"],
+                        color=colors[calibration],
+                        lw=1.3,
+                        label=labels[calibration]
+                        if row_index == 0 and column_index == 0
+                        else None,
+                    )
+                panel = next(panel_labels)
+                axis.set_title(
+                    f"({panel}) {well} – {TRACER_LABELS[tracer]}",
+                    fontweight="bold",
+                    fontsize=9.0,
+                )
+                axis.set_xlim(left=FIGURE_START_YEAR)
+                axis.grid(alpha=0.18)
+        handles, current_labels = axes[0, 0].get_legend_handles_labels()
+        handles_by_label = dict(zip(current_labels, handles, strict=True))
+        legend_labels = (
+            "Observations ±20 %",
+            "Observations used for 2014–2015-only calibration",
+            "Full-record calibration",
+            "2014–2015-only calibration",
+        )
+        figure.legend(
+            [handles_by_label[label] for label in legend_labels],
+            legend_labels,
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.995),
+            ncol=2,
+            frameon=False,
+        )
+        figure.supxlabel("Sampling year", y=0.025)
+        figure.supylabel(
+            "Atmospheric-equivalent mixing ratio (pptv)",
+            x=0.015,
+        )
+        figure.subplots_adjust(
+            left=0.12,
+            right=0.99,
+            top=0.80,
+            bottom=0.12,
+            wspace=0.27,
+            hspace=0.34,
+        )
+        final_paths = save_pdf_png(figure, output, "figure4_ploemeur_final")
+        legacy_paths = save_pdf_png(figure, output, "figure4_ploemeur_shiftedexp_final")
+        INSERTION_OUTPUT.mkdir(parents=True, exist_ok=True)
+        for destination in (*final_paths, *legacy_paths):
+            shutil.copy2(destination, INSERTION_OUTPUT / destination.name)
+        plt.close(figure)
 
 
 def _figure4(output: Path, lengths: dict[str, int]) -> pd.DataFrame:
-    predictions = pd.concat(
-        [
-            _predict_draws(
-                case, _posterior_rows_for_figure(output, case, lengths[case.key])
-            )
-            for case in CASES
-        ],
-        ignore_index=True,
-    )
-    predictions.to_csv(
-        output / "figure4_rowwise_posterior_predictions.csv.gz",
-        index=False,
-        compression="gzip",
-    )
-    intervals = (
-        predictions.groupby(["well", "calibration", "tracer", "date"])["predicted_pptv"]
-        .agg(
-            median="median",
-            q10=lambda x: x.quantile(0.10),
-            q90=lambda x: x.quantile(0.90),
+    predictions_path = output / "figure4_rowwise_posterior_predictions.csv.gz"
+    intervals_path = output / "figure4_prediction_intervals.csv"
+    required_interval_columns = {
+        "well",
+        "calibration",
+        "tracer",
+        "date",
+        "median",
+        "q10",
+        "q90",
+    }
+    intervals = None
+    if predictions_path.is_file() and intervals_path.is_file():
+        cached = pd.read_csv(intervals_path)
+        if not cached.empty and required_interval_columns.issubset(cached.columns):
+            intervals = cached
+            print("Reusing cached Figure 4 posterior predictions", flush=True)
+    if intervals is None:
+        predictions = pd.concat(
+            [
+                _predict_draws(
+                    case, _posterior_rows_for_figure(output, case, lengths[case.key])
+                )
+                for case in CASES
+            ],
+            ignore_index=True,
         )
-        .reset_index()
-    )
-    intervals.to_csv(output / "figure4_prediction_intervals.csv", index=False)
+        predictions.to_csv(predictions_path, index=False, compression="gzip")
+        intervals = (
+            predictions.groupby(["well", "calibration", "tracer", "date"])[
+                "predicted_pptv"
+            ]
+            .agg(
+                median="median",
+                q10=lambda x: x.quantile(0.10),
+                q90=lambda x: x.quantile(0.90),
+            )
+            .reset_index()
+        )
+        intervals.to_csv(intervals_path, index=False)
+    INSERTION_OUTPUT.mkdir(parents=True, exist_ok=True)
     _render_figure4(output, intervals)
     return intervals
 
@@ -784,7 +823,7 @@ def _figure4(output: Path, lengths: dict[str, int]) -> pd.DataFrame:
 def _tracer_fit_diagnostics(output: Path, intervals: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for case in CASES:
-        observations = _observations(case).cv
+        observations = _observations(case).frame
         for tracer in TRACERS:
             observed = (
                 observations.loc[observations["element"] == tracer]
@@ -1001,10 +1040,10 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
         ROOT / "scripts/common/mcmc_diagnostics.py",
         ROOT / "scripts/common/reporting.py",
         ROOT / "sites/ploemeur/scripts/prepare_observations.py",
-        ROOT / "pyage/lpm/distribution_analysis.py",
-        ROOT / "pyage/lpm/core/lpm_base.py",
-        ROOT / "pyage/convolution/continuous.py",
-        ROOT / "pyage/lpm/models/exponential_shifted.py",
+        ROOT / "pyages/lpm/samples/analysis.py",
+        ROOT / "pyages/lpm/core/lpm_base.py",
+        ROOT / "pyages/convolution/continuous.py",
+        ROOT / "pyages/lpm/models/exponential_shifted.py",
     ]
     payload = {
         "repository": repository_provenance(ROOT),

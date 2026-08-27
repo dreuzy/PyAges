@@ -1,6 +1,6 @@
 # Scientific and numerical conventions
 
-This page is the implementation-level methods reference for PyAge. It states
+This page is the implementation-level methods reference for PyAges. It states
 the equations and conventions needed to reproduce a scientifically equivalent
 calculation. User inputs are described in the {doc}`user guide
 <user-guide/index>`; the longer qualification records are linked in
@@ -12,7 +12,7 @@ implementation contracts.
 
 ## Forward model and units
 
-For an observation at decimal year $t$, PyAge predicts tracer concentration
+For an observation at decimal year $t$, PyAges predicts tracer concentration
 
 ```{math}
 :label: forward-convolution
@@ -31,7 +31,7 @@ The integration window is the closed interval $[0,T_{max}]$. Mass older than
 the available recharge record contributes zero and is **not renormalized**.
 Consequently, a constant unit tracer returns the represented window mass, not
 necessarily one. The value is available from
-{py:meth}`pyage.convolution.convolution.Convolution.window_mass` and, after a
+{py:meth}`pyages.convolution.convolution.Convolution.window_mass` and, after a
 continuous or mixed convolution, from ``diagnostics.window_mass``. This
 choice exposes rather than hides truncation of old LPM tails.
 
@@ -45,7 +45,7 @@ Continuous, point-mass, and mixed probability measures use separate paths:
   component separately, then apply each mixture weight exactly once.
 
 The implementation entry point is
-{py:class}`pyage.convolution.convolution.Convolution`. The derivation,
+{py:class}`pyages.convolution.convolution.Convolution`. The derivation,
 performance evidence, and migration from PDF/Simpson integration are recorded
 in {doc}`convolution-method-evolution-report`.
 
@@ -59,7 +59,7 @@ F(t)=P(T\leq t),\qquad
 M(t)=E[T\,1(T\leq t)].
 ```
 
-PyAge computes the exact probability mass and centered first moment
+PyAges computes the exact probability mass and centered first moment
 
 ```{math}
 w_i=F(b_i)-F(a_i),\qquad
@@ -82,7 +82,7 @@ roundoff are clipped.
 
 ### Adaptive-grid controls
 
-{py:class}`pyage.convolution.settings.TracerGridSettings` accepts a bin when
+{py:class}`pyages.convolution.settings.TracerGridSettings` accepts a bin when
 
 ```{math}
 \max(K_a,K_m,K_b)-\min(K_a,K_m,K_b)
@@ -97,6 +97,19 @@ roundoff are clipped.
 | ``max_subdivisions`` | 20 | Maximum bisections of an initial interval; failure is explicit |
 | ``max_bins`` | 20,000 | Hard memory/run-time bound; failure is explicit |
 | ``floating_weight_epsilon_factor`` | 64 | Machine-epsilon multiplier for roundoff clipping only |
+
+### Forward qualification contract
+
+The independent 270-case benchmark applies a separate acceptance contract; it
+does not reuse the adaptive-grid settings themselves as accuracy claims. For an
+input-history scale $C_s=\max_t|C_\mathrm{input}(t)|$, results at or above
+$10^{-3}C_s$ must have an absolute symmetric relative difference no greater
+than $5\times10^{-4}$ (0.05%). Below that boundary, the absolute difference
+must not exceed $2\times10^{-5}C_s$. Results must also be finite and remain
+within physical bounds. Every case must pass at the default grid and at all
+configured tighter grids. The versioned values are in
+``validation/tracerlpm/benchmark/configs/campaign.yaml`` and the evidence is in
+{doc}`reports/forward_qualification_2026-08-27`.
 
 These values are dimensionless numerical controls, not fitted or physical
 parameters, and they do not constitute a formal global error bound. A
@@ -117,7 +130,7 @@ g(x)=\sqrt{\frac{\lambda}{2\pi x^3}}
 ```
 
 SciPy receives dimensionless ``shape = (S/M)^2`` and
-``scale = M^3/S^2``. SciPy's argument named ``mu`` is therefore not PyAge's
+``scale = M^3/S^2``. SciPy's argument named ``mu`` is therefore not PyAges's
 physical ``mu``. For ``ig_shifted``, $T=t_0+X$: support begins at ``shift``,
 the complete mean is ``shift + mu``, and its standard deviation is ``sigma``.
 The raw partial moment used in convolution is
@@ -144,7 +157,7 @@ objective is
 ```
 
 This assumes independent, unbiased Gaussian errors with known standard
-deviations. PyAge does not currently represent an observation-error covariance
+deviations. PyAges does not currently represent an observation-error covariance
 matrix. Parameter bounds and priors are separate from $\chi^2$.
 
 Three legacy output names must not be interchanged:
@@ -152,7 +165,7 @@ Three legacy output names must not be interchanged:
 | Context | Stored name | Quantity |
 | --- | --- | --- |
 | optimization and MH target internally | not exported directly | $\chi^2$ |
-| ``LpmDist`` result tables | ``obj_function`` | $\sqrt{\chi^2/n}$, dimensionless; no degrees-of-freedom correction |
+| ``LpmSampleTable`` result tables | ``obj_function`` | $\sqrt{\chi^2/n}$, dimensionless; no degrees-of-freedom correction |
 | systematic parameter maps | ``half_log_chi_square`` | $\tfrac12\log(\max(\chi^2,\mathrm{tiny}))$ |
 
 The function ``normalized_residual_norm`` computes $\sqrt{\chi^2/n}$ after
@@ -185,7 +198,7 @@ $|\partial(shape,scale)/\partial(M,S)|=2/S$, its Hastings correction is
 $\log(S_{proposed}/S_{current})$.
 
 ``nstep`` counts accepted and rejected transitions. With zero-based iteration
-``i``, PyAge retains the current state when
+``i``, PyAges retains the current state when
 ``i > burn_in * nstep`` and ``i % nskip == 0``. Rejected proposals therefore
 appear as repeated states, as required for an unbiased chain sample. The seed
 initializes NumPy ``default_rng``. Burn-in, thinning, and an acceptance fraction
@@ -197,13 +210,14 @@ qualification evidence is in {doc}`reports/mh_proposal_qualification`.
 
 | Scientific claim | Code contract | User/manual entry | Qualification evidence |
 | --- | --- | --- | --- |
-| finite-window convolution and mass | ``pyage/convolution/convolution.py`` | this page; {doc}`user-guide/configuration` | ``tests/convolution/test_convolution_scientific.py``; {doc}`convolution-method-evolution-report` |
-| adaptive tolerance semantics | ``pyage/convolution/settings.py`` and ``continuous.py`` | this page | ``tests/convolution/test_convolution_settings.py`` |
-| IG physical moments and shift | ``pyage/lpm/models/inverse_gaussian*.py`` | this page; {doc}`user-guide/adding-lpm` | ``tests/lpm/test_inverse_gaussian_analytics.py``; {doc}`scientific-migration-ig-decay` |
-| normalized-residual objective | ``pyage/calibration/problem.py`` and ``utils/objective_functions.py`` | this page | ``tests/calibration/test_calibration_problem.py`` |
-| MH target, priors, proposals, and retention | ``pyage/calibration/methods/metropolis_hastings.py``, ``methods/prior.py``, and ``mh_proposals.py`` | {doc}`user-guide/configuration`; this page | ``tests/calibration/test_mh_proposals.py``; {doc}`reports/mh_proposal_qualification` |
+| finite-window convolution and mass | ``pyages/convolution/convolution.py`` | this page; {doc}`user-guide/configuration` | ``tests/convolution/test_convolution_scientific.py``; {doc}`convolution-method-evolution-report` |
+| adaptive tolerance semantics | ``pyages/convolution/settings.py`` and ``continuous.py`` | this page | ``tests/convolution/test_convolution_settings.py`` |
+| independent forward acceptance | ``validation/tracerlpm/benchmark/scripts/compare_pyages.py`` | this page | ``validation/tracerlpm/benchmark/tests/test_compare_pyages.py``; {doc}`reports/forward_qualification_2026-08-27` |
+| IG physical moments and shift | ``pyages/lpm/models/inverse_gaussian*.py`` | this page; {doc}`user-guide/adding-lpm` | ``tests/lpm/test_inverse_gaussian_analytics.py``; {doc}`scientific-migration-ig-decay` |
+| normalized-residual objective | ``pyages/calibration/problem.py`` and ``utils/objective_functions.py`` | this page | ``tests/calibration/test_calibration_problem.py`` |
+| MH target, priors, proposals, and retention | ``pyages/calibration/methods/metropolis_hastings.py``, ``methods/prior.py``, and ``mh_proposals.py`` | {doc}`user-guide/configuration`; this page | ``tests/calibration/test_mh_proposals.py``; {doc}`reports/mh_proposal_qualification` |
 
-For every published result, archive the PyAge release or commit, configuration,
+For every published result, archive the PyAges release or commit, configuration,
 input checksums, random seeds, dependency versions, numerical settings, and raw
 chains or deterministic outputs. The article wrappers under ``article/`` and
 workflow ``result_manifest.json`` files record these links for the current

@@ -1,4 +1,8 @@
-"""Aggregate parameter distributions from the 30-realization PyAge campaign."""
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Aggregate parameter distributions from the 30-realization PyAges campaign."""
 
 from __future__ import annotations
 
@@ -9,7 +13,7 @@ import yaml
 
 from .generate_inputs import BENCHMARK_ROOT
 from .generate_inversion_pilot import expanded_cases
-from .invert_pyage_pilot import RESULT_DIR
+from .invert_pyages_pilot import RESULT_DIR
 
 CONFIG = BENCHMARK_ROOT / "configs" / "inversion-monte-carlo-01.yaml"
 OUTPUT = BENCHMARK_ROOT / "generated" / "inversion-monte-carlo-01"
@@ -37,7 +41,7 @@ def summarize() -> dict:
     rows = []
     for case in cases:
         result = json.loads(
-            (RESULT_DIR / case["case_id"] / "pyage-result.json").read_text(
+            (RESULT_DIR / case["case_id"] / "pyages-result.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -78,7 +82,7 @@ def summarize() -> dict:
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
     lines = [
-        "# Monte-Carlo PyAge — 30 réalisations à 1 %",
+        "# Monte-Carlo PyAges — 30 réalisations à 1 %",
         "",
         "| Modèle | Paramètre | Vrai | Moyenne | Biais | Écart type | RMSE | q2,5 % | Médiane | q97,5 % |",
         "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",

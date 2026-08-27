@@ -1,0 +1,44 @@
+manuscript_item,manuscript_value,canonical_source,canonical_value,match,comment
+Forward verification case count,133,docs/reports/data/convolution_grid_sensitivity_2026-08-26.csv,133,TRUE,Historical Appendix A matrix; distinct from the current 270-case campaign.
+Forward verification p95 relative discrepancy,3.6e-5,docs/reports/data/convolution_grid_sensitivity_2026-08-26.csv,3.595558353699866e-05,TRUE,Rounds to 3.6e-5.
+Forward verification maximum relative discrepancy,1.4e-4,docs/reports/data/convolution_grid_sensitivity_2026-08-26.csv,1.413462328021509e-04,TRUE,Rounds to 1.4e-4.
+TracerLPM paired noisy inversions,480,C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,480,TRUE,All 480 are paired four-tracer cases and both tools succeeded in all cases.
+TracerLPM median common L1 PyAge / TracerLPM,0.179 / 0.181,C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,0.1792282359 / 0.1808588247,TRUE,Rounds as stated.
+TracerLPM median common L2 PyAge / TracerLPM,0.0135 / 0.0164,C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,0.0134959450 / 0.0163958229,TRUE,Rounds as stated.
+TracerLPM PyAge lower L2 count,463 / 480,C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,461 / 480,FALSE,Canonical stabilized campaign mismatch; manuscript revision required.
+TracerLPM PyAge lower L1 count,121 / 480,C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,111 / 480,FALSE,Canonical stabilized campaign mismatch; manuscript revision required.
+TracerLPM tau closer PyAge,217 / 480,C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,208 / 480,FALSE,Absolute-error head-to-head with 1e-12 tie tolerance.
+TracerLPM tau closer TracerLPM,263 / 480,C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,272 / 480,FALSE,No tau ties in the canonical stabilized campaign.
+TracerLPM secondary closer PyAge,241 / 480,C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,204 / 480,FALSE,Canonical stabilized campaign mismatch.
+TracerLPM secondary closer TracerLPM,233 / 480,C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,233 / 480,TRUE,This one requested count matches.
+TracerLPM secondary ties,6,C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,43,FALSE,Canonical stabilized campaign mismatch.
+TracerLPM all Table 3 cells,"manuscript table not supplied",C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,"canonical 48-group summary and 480 rows available",NOT_ASSESSABLE,Requires the frozen manuscript table for a cell-by-cell comparison.
+TracerLPM all Tables D1-D2 cells,"manuscript tables not supplied",C:/pyage-runs/article-v1/article_package/tables/table3_pyage_tracerlpm_summary.json,"canonical group and row data available",NOT_ASSESSABLE,Requires the frozen manuscript appendices for a cell-by-cell comparison.
+Shifted exponential case count,19,C:/pyage-runs/article-v1/article_package/tables/table4.csv,19,TRUE,All cases converged at 10000 steps per chain.
+Shifted exponential all Table 4 cells,"manuscript table not supplied",C:/pyage-runs/article-v1/article_package/tables/table4.csv,"19 canonical rows and all posterior columns available",NOT_ASSESSABLE,Requires the frozen manuscript table for a cell-by-cell comparison.
+Shifted exponential Appendix B,"manuscript appendix not supplied",C:/pyage-runs/article-v1/shifted_exponential/posterior_summaries.csv,"canonical posterior summaries available",NOT_ASSESSABLE,Requires the frozen Appendix B.
+Shifted exponential median posterior mu SD / target mu,32.1%,C:/pyage-runs/article-v1/article_package/tables/table4.csv,32.0634341896%,TRUE,Median over 19 cases; rounds to 32.1%.
+Shifted exponential median posterior t0 SD / target t0,26.6%,C:/pyage-runs/article-v1/article_package/tables/table4.csv,26.5636239771%,TRUE,Median over 19 cases; rounds to 26.6%.
+Shifted exponential median posterior MTT SD / target MTT,8.6%,C:/pyage-runs/article-v1/article_package/tables/table4.csv,8.6499205603%,TRUE,Median over 19 cases; rounds to 8.6%. This is target-normalized SD not SD/posterior mean.
+Shifted exponential median mu U80,40.8%,C:/pyage-runs/article-v1/article_package/tables/table4.csv,40.8455673539%,TRUE,U80=(q90-q10)/(2*target_mu).
+Shifted exponential median t0 U80,34.2%,C:/pyage-runs/article-v1/article_package/tables/table4.csv,34.1908376566%,TRUE,U80=(q90-q10)/(2*target_t0).
+Shifted exponential median MTT U80,11.0%,C:/pyage-runs/article-v1/article_package/tables/table4.csv,10.9750485234%,TRUE,U80=(q90-q10)/(2*target_MTT).
+Shifted exponential median pooled correlation mu-t0,-0.95,C:/pyage-runs/article-v1/shifted_exponential/chains/*.npz,-0.9505623768,TRUE,Read-only post-processing of complete retained row-wise pairs across five chains per case; median over 19 cases.
+Shifted exponential target case,"(10,30)",C:/pyage-runs/article-v1/article_package/tables/table4.csv,"case 9: target_mu=10 target_t0=30",TRUE,Unique canonical target.
+Shifted exponential case (10;30) MTT interval,"40.27 [37.90-43.74]",C:/pyage-runs/article-v1/article_package/tables/table4.csv,"40.27493 [37.89844-43.74484]",TRUE,Median and q10-q90 rounded as stated.
+Shifted exponential case (10;30) minimum normalized residual,<0.015,C:/pyage-runs/article-v1/article_package/tables/table4.csv,0.0129959217,TRUE,Column best_sqrt_J_data_over_m.
+Holten wells,7,C:/pyage-runs/article-v1/article_package/reports/02_holten_h4.md,7,TRUE,Seven named wells.
+Holten fractions,28,C:/pyage-runs/article-v1/holten_h4/visser_vs_pyage_h4_metrics.csv,28,TRUE,Four fractions for each of seven wells.
+Holten mean absolute difference,0.0055,C:/pyage-runs/article-v1/holten_h4/visser_vs_pyage_h4_metrics.csv,0.00545490068,TRUE,Rounds to 0.0055.
+Holten median absolute difference,0.0038,C:/pyage-runs/article-v1/holten_h4/visser_vs_pyage_h4_metrics.csv,0.00381477958,TRUE,Rounds to 0.0038.
+Holten RMSE,0.0070,C:/pyage-runs/article-v1/holten_h4/visser_vs_pyage_h4_metrics.csv,0.00704582038,TRUE,Rounds to 0.0070 at four decimal places.
+Holten maximum absolute difference,0.018,C:/pyage-runs/article-v1/holten_h4/visser_vs_pyage_h4_metrics.csv,0.01799349272,TRUE,Rounds to 0.018.
+Holten maximum standardized residual,1.80,C:/pyage-runs/article-v1/holten_prior_dirichlet1/global_metrics.csv,1.79952698346,TRUE,Uniform-z reference posterior; rounds to 1.80.
+Holten Appendix C prior sensitivity,"manuscript statistics not supplied",C:/pyage-runs/article-v1/holten_prior_dirichlet1/global_metrics.csv,"Dirichlet1: MAE=0.00744978; median=0.00520297; RMSE=0.00968120; max=0.02109855; max|zres|=1.85237; RMSE(zres)=0.791814; max Rhat=1.008687; min ESS=909.670",NOT_ASSESSABLE,Canonical statistics are available but the frozen Appendix C is required for comparison.
+Ploemeur four shifted-exponential summaries,"manuscript table not supplied",C:/pyage-runs/article-v1/article_package/tables/ploemeur_shifted_exponential_summary.csv,"F09 full 4.1821 [1.5348-8.0844]; F09 independent 13.2932 [6.2099-20.2755]; F11 full 85.3836 [84.6961-85.9866]; F11 independent 57.4035 [52.5647-61.4525]",NOT_ASSESSABLE,All four canonical summaries are present; exact manuscript cells were not provided.
+Ploemeur maximum split-Rhat,1.004,C:/pyage-runs/article-v1/article_package/tables/ploemeur_shifted_exponential_summary.csv,1.00404205,TRUE,Rounds to 1.004.
+Ploemeur minimum ESS,1741,C:/pyage-runs/article-v1/article_package/tables/ploemeur_shifted_exponential_summary.csv,1741.1246,TRUE,Minimum over mu t0 and t50 for the four shifted-exponential cases.
+Ploemeur F09 full t50,"4.182 [1.535-8.084]",C:/pyage-runs/article-v1/article_package/tables/ploemeur_shifted_exponential_summary.csv,"4.1821 [1.5348-8.0844]",TRUE,Median and q10-q90.
+Ploemeur F09 independent t50,"13.293 [6.210-20.276]",C:/pyage-runs/article-v1/article_package/tables/ploemeur_shifted_exponential_summary.csv,"13.2932 [6.2099-20.2755]",TRUE,Median and q10-q90.
+Ploemeur F11 full t50,"85.384 [84.696-85.987]",C:/pyage-runs/article-v1/article_package/tables/ploemeur_shifted_exponential_summary.csv,"85.3836 [84.6961-85.9866]",TRUE,Median and q10-q90.
+Ploemeur F11 independent t50,"57.403 [52.565-61.453]",C:/pyage-runs/article-v1/article_package/tables/ploemeur_shifted_exponential_summary.csv,"57.4035 [52.5647-61.4525]",TRUE,Median and q10-q90.

@@ -1,0 +1,4 @@
+configuration,comparison_count,median_relative_discrepancy,p95_relative_discrepancy,p99_relative_discrepancy,maximum_relative_discrepancy,median_bins,maximum_bins,total_runtime_seconds,relative_runtime,worst_case,status,canonical_source
+0.5x,133,1.3014046851477873e-15,2.0347285908859725e-05,4.751154284811462e-05,0.00010036291504390957,566,2335,,,"kr85 | ig_shifted | shifted_low_dispersion",CONFIRMED,docs/reports/data/convolution_grid_sensitivity_2026-08-26.csv
+1x,133,1.3014046851477873e-15,3.595558353699866e-05,7.770186668001251e-05,0.0001413462328021509,308,1175,,,"kr85 | exp_shifted | shifted_long_tail",CONFIRMED,docs/reports/data/convolution_grid_sensitivity_2026-08-26.csv
+2x,133,1.2595794417534265e-15,0.00011583219348776448,0.00015859208253646845,0.0004690176752767055,184,595,,,"kr85 | exp_shifted | shifted_long_tail",CONFIRMED,docs/reports/data/convolution_grid_sensitivity_2026-08-26.csv

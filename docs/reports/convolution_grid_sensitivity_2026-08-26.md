@@ -1,5 +1,10 @@
 # Convolution-grid tolerance sensitivity
 
+> **Follow-up (27 August 2026).** This 133-comparison study remains the
+> historical qualification of the default grid controls. The distinct
+> 270-case forward matrix now has an explicit two-regime pass/fail contract and
+> multi-resolution result in {doc}`forward_qualification_2026-08-27`.
+
 **Qualification date:** 26 August 2026  
 **Source commit:** ``17b38579a616f899944441f73d52f9780655648a``  
 **Command:** ``python -m scripts.run_article_non_ploemeur s1``
@@ -7,21 +12,21 @@
 ## Question and method
 
 This qualification tests whether the default adaptive tracer-grid tolerances
-materially affect PyAge convolution values. The absolute response tolerance,
+materially affect PyAges convolution values. The absolute response tolerance,
 relative response tolerance, and linear-curvature criterion in
-{class}`pyage.config.runtime.TracerGridSettings` were multiplied together by
+{class}`pyages.config.runtime.TracerGridSettings` were multiplied together by
 0.5, 1, or 2. A factor of 0.5 is stricter and normally creates more bins; a
 factor of 2 is looser.
 
 Each configuration used the same matrix of 133 tracer/LPM/regime comparisons.
 The independent reference uses 32 quantile-space segments with 48-point
 Gauss--Legendre integration in each segment. Its probability laws are built
-directly from physical parameters with SciPy; it does not call the PyAge
+directly from physical parameters with SciPy; it does not call the PyAges
 convolution engine. Relative error is
 
 \[
   \epsilon_\mathrm{rel} =
-  \frac{|C_\mathrm{PyAge}-C_\mathrm{reference}|}
+  \frac{|C_\mathrm{PyAges}-C_\mathrm{reference}|}
        {\max(|C_\mathrm{reference}|, 10^{-14})}.
 \]
 

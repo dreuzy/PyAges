@@ -1,3 +1,10 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+import hashlib
+import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -5,6 +12,8 @@ import pandas as pd
 import pytest
 
 from scripts import build_article_package as package
+from scripts import run_ploemeur_shifted_exponential_final as ploemeur_runner
+from scripts import run_ploemeur_targeted_ig_reproduction as ig_runner
 from scripts.common.mcmc_diagnostics import ess, mcse_mean, split_rhat
 from scripts.common.reporting import markdown_table
 
@@ -18,9 +27,9 @@ def _summary():
     }
     return {
         "thresholds": {"split_rhat_lt": 1.01, "ess_gte": 300.0},
-        "pyage_tracerlpm": {
+        "pyages_tracerlpm": {
             "paired_cases": 480,
-            "pyage_successful": 480,
+            "pyages_successful": 480,
             "tracerlpm_successful": 480,
         },
         "forward_verification": {
@@ -29,6 +38,7 @@ def _summary():
         },
         "shifted_exponential": baseline,
         "holten_h4": baseline,
+        "holten_prior_dirichlet1": baseline,
         "ploemeur_shifted_exponential": baseline,
         "ploemeur_physical_ig": {
             "posterior_sets": 1,
@@ -101,6 +111,77 @@ def test_article_package_is_atomic_and_hash_validated(monkeypatch, tmp_path):
         package.validate_package(output)
 
 
+def test_execution_sources_can_be_recovered_from_an_exact_worktree(
+    monkeypatch, tmp_path
+):
+    source_root = tmp_path / "old-worktree"
+    relative = Path("data/params.yaml")
+    exact = b"first: line\r\nsecond: line\n"
+    source = source_root / relative
+    source.parent.mkdir(parents=True)
+    source.write_bytes(exact)
+    manifest = tmp_path / "run-manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "git_head": "unneeded-because-source-root-matches",
+                "source_sha256": {
+                    relative.as_posix(): hashlib.sha256(exact).hexdigest()
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(package, "SOURCE_MANIFESTS", {"run": manifest})
+    monkeypatch.setattr(package, "EXECUTION_SOURCE_ROOTS", (source_root,))
+    staging = tmp_path / "staging"
+
+    entries, audit = package._execution_source_snapshots(staging)
+
+    packaged = staging / entries[0]["packaged_path"]
+    assert packaged.read_bytes() == exact
+    assert entries[0]["source"] == "source_root:0"
+    assert audit["run"]["recovered_from_source_root"] == 1
+
+
+def test_article_package_cli_passes_rebased_campaign_inventory(monkeypatch, tmp_path):
+    artifact = package.Artifact(
+        "fresh",
+        "report",
+        tmp_path / "fresh.txt",
+        Path("reports/fresh.txt"),
+        "fresh campaign result",
+    )
+    captured = []
+    output = tmp_path / "package"
+    monkeypatch.setattr(package, "ARTIFACTS", package.ARTIFACTS)
+    monkeypatch.setattr(package, "SOURCE_MANIFESTS", package.SOURCE_MANIFESTS)
+    monkeypatch.setattr(package, "artifacts_for_campaign", lambda unused: (artifact,))
+    monkeypatch.setattr(package, "source_manifests_for_campaign", lambda unused: {})
+    monkeypatch.setattr(
+        package,
+        "build_package",
+        lambda selected_output, artifacts: (
+            captured.append(tuple(artifacts)) or selected_output
+        ),
+    )
+    monkeypatch.setattr(package, "validate_package", lambda unused: {"artifacts": []})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "build_article_package.py",
+            "--campaign-root",
+            str(tmp_path),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert package.main() == 0
+    assert captured == [(artifact,)]
+
+
 def test_publication_package_uses_current_table4_names():
     table_artifacts = {
         artifact.identifier: artifact
@@ -120,6 +201,23 @@ def test_publication_package_uses_current_table4_names():
     readme = package._readme(_summary())
     assert "| Table 4 | `tables/table4.md` | `tables/table4.csv` |" in readme
     assert "table3_final" not in readme
+
+
+def test_article_package_keeps_reproduction_and_user_environments_distinct():
+    environment_artifacts = {
+        artifact.identifier: artifact
+        for artifact in package.ARTIFACTS
+        if artifact.category == "environment"
+    }
+    article_environment = environment_artifacts["article_reproduction_environment"]
+
+    assert environment_artifacts["constraints"].source == (
+        package.ROOT / "install/constraints.txt"
+    )
+    assert article_environment.source == package.ROOT / "install/environment.yml"
+    assert article_environment.destination == (
+        Path("provenance/environment/article-reproduction-environment.yml")
+    )
 
 
 def test_shifted_exponential_production_text_uses_current_table_number():
@@ -145,3 +243,116 @@ def test_external_chain_paths_do_not_assume_repository_storage():
     for name in ("run_final_shifted_exponential.py", "run_final_holten_h4.py"):
         runner = (repository / "scripts" / name).read_text(encoding="utf-8")
         assert ".relative_to(ROOT)" not in runner
+
+
+def test_ploemeur_figure_reuses_cached_predictions(monkeypatch, tmp_path):
+    predictions = tmp_path / "figure4_rowwise_posterior_predictions.csv.gz"
+    predictions.write_bytes(b"cached")
+    intervals = pd.DataFrame(
+        {
+            "well": ["F09"],
+            "calibration": ["full_record"],
+            "tracer": ["cfc11"],
+            "date": [2020.0],
+            "median": [1.0],
+            "q10": [0.8],
+            "q90": [1.2],
+        }
+    )
+    intervals.to_csv(tmp_path / "figure4_prediction_intervals.csv", index=False)
+    insertion = tmp_path / "manuscript_insertion" / "final_figures"
+    monkeypatch.setattr(ploemeur_runner, "INSERTION_OUTPUT", insertion)
+    monkeypatch.setattr(
+        ploemeur_runner,
+        "_predict_draws",
+        lambda *unused: pytest.fail("cached predictions should be reused"),
+    )
+    rendered = []
+    monkeypatch.setattr(
+        ploemeur_runner,
+        "_render_figure4",
+        lambda unused_output, frame: rendered.append(frame.copy()),
+    )
+
+    result = ploemeur_runner._figure4(tmp_path, {})
+
+    assert insertion.is_dir()
+    assert result.equals(intervals)
+    assert len(rendered) == 1
+
+
+def test_ig_resume_extends_only_failed_full_series_wells(monkeypatch, tmp_path):
+    gate_path = tmp_path / "full_series_gate.json"
+    gate_path.write_text(
+        json.dumps(
+            {
+                "passed": False,
+                "wells": {
+                    "F09": {"passed": False},
+                    "F11": {"passed": True},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls = []
+
+    def extend(well, steps):
+        calls.append((well, steps))
+        gate_path.write_text(
+            json.dumps(
+                {
+                    "passed": True,
+                    "wells": {
+                        "F09": {"passed": True},
+                        "F11": {"passed": True},
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        return True
+
+    monkeypatch.setattr(ig_runner, "OUTPUT", tmp_path)
+    monkeypatch.setattr(ig_runner, "AUTO_EXTENSION_STEPS", 4000)
+    monkeypatch.setattr(ig_runner, "MAX_AUTO_EXTENSIONS", 2)
+    monkeypatch.setattr(ig_runner, "MAX_FULL_SERIES_RETAINED_DRAWS", 18000)
+    monkeypatch.setattr(
+        ig_runner,
+        "_load_stage_chains",
+        lambda unused_stage, unused_well: np.empty((5, 10000, 3)),
+    )
+    monkeypatch.setattr(ig_runner, "extend_full_series", extend)
+
+    assert ig_runner._auto_extend_failed_full_series()
+    assert calls == [("F09", 4000)]
+
+
+def test_ig_resume_honors_total_retained_draw_limit(monkeypatch, tmp_path):
+    (tmp_path / "full_series_gate.json").write_text(
+        json.dumps(
+            {
+                "passed": False,
+                "wells": {
+                    "F09": {"passed": False},
+                    "F11": {"passed": True},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(ig_runner, "OUTPUT", tmp_path)
+    monkeypatch.setattr(ig_runner, "MAX_AUTO_EXTENSIONS", 3)
+    monkeypatch.setattr(ig_runner, "MAX_FULL_SERIES_RETAINED_DRAWS", 10000)
+    monkeypatch.setattr(
+        ig_runner,
+        "_load_stage_chains",
+        lambda unused_stage, unused_well: np.empty((5, 10000, 3)),
+    )
+    monkeypatch.setattr(
+        ig_runner,
+        "extend_full_series",
+        lambda *unused: pytest.fail("extension limit should stop the run"),
+    )
+
+    assert not ig_runner._auto_extend_failed_full_series()

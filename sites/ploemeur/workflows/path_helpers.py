@@ -1,12 +1,19 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Path helpers for the Ploemeur workflow."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from pyage.calibration.outputs import posterior_directory, posterior_file_stem
-from pyage.config.paths import result_subdirectory, timestamp_name
-from sites.ploemeur.observations import ploemeur as ploemeur_obs
+from pyages.calibration.outputs import posterior_directory, posterior_file_stem
+from pyages.config.paths import result_subdirectory, timestamp_name
+from sites.ploemeur.observations.ploemeur import (
+    ploemeur_data_folder,
+    ploemeur_results_folder,
+)
 
 
 def results_folder(file_root: str, base_dir: str | None = None):
@@ -16,7 +23,7 @@ def results_folder(file_root: str, base_dir: str | None = None):
         date_file = timestamp_name()
         directory_results = result_subdirectory(dir_root, date_file)
         return directory_results, dir_root, date_file
-    return ploemeur_obs.ploemeur_results_folder(file_root)
+    return ploemeur_results_folder(file_root)
 
 
 def prior_file_path(
@@ -47,7 +54,7 @@ def data_file_path(directory: str, filename: str) -> str:
 
 def workflow_temp_folder() -> str:
     """Create and return the temporary data folder used by the workflow."""
-    path = Path(ploemeur_obs.ploemeur_data_folder()) / "temp"
+    path = Path(ploemeur_data_folder()) / "temp"
     path.mkdir(parents=True, exist_ok=True)
     return str(path)
 

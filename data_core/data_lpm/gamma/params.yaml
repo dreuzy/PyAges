@@ -7,8 +7,8 @@ version: 1
 parameters:
   - name: k
     label: shape_k
-    unit: "--"
-    description: "Shape parameter."
+    unit: dimensionless
+    description: "Dimensionless gamma shape parameter."
     bounds: [0.1, 10.0]
     init: 2.0
     step: 0.5
@@ -16,11 +16,11 @@ parameters:
       type: uniform
       min: 0.0
       max: 10.0
-      unit: "--"
+      unit: dimensionless
   - name: scale
     label: scale
     unit: year
-    description: "Scale parameter."
+    description: "Gamma scale parameter in years."
     bounds: [0.1, 80.0]
     init: 10.0
     step: 1.0

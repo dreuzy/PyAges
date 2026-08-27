@@ -1,12 +1,16 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Analytical contract tests for inverse-Gaussian LPM parameterization."""
 
 import numpy as np
 import pytest
 from scipy.integrate import quad
 
-from pyage.lpm.lpm_build import lpm_build
-from pyage.lpm.models.inverse_gaussian import InverseGaussianLpm
-from pyage.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
+from pyages.lpm import build_lpm
+from pyages.lpm.models.inverse_gaussian import InverseGaussianLpm
+from pyages.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
 from tests.utils import paths as test_paths
 
 PARAMETER_PAIRS = [
@@ -26,7 +30,7 @@ def _data_directory() -> str:
 
 def _factory_model(mean_age: float, std_age: float) -> InverseGaussianLpm:
     """Build through the public registry/factory and apply [mu, sigma]."""
-    model = lpm_build("ig", directory_lpm=_data_directory())
+    model = build_lpm("ig", directory_lpm=_data_directory())
     model.set_param_from_array([mean_age, std_age])
     assert model.get_parameters_to_array() == [mean_age, std_age]
     return model
@@ -71,6 +75,36 @@ def test_inverse_gaussian_cdf_and_ppf_are_consistent(mean_age, std_age):
 
     assert np.all(np.isfinite(ages))
     assert model.cdf(ages) == pytest.approx(QUANTILES, rel=1e-11, abs=1e-12)
+
+
+@pytest.mark.parametrize(
+    ("model", "lower_endpoint"),
+    [
+        (InverseGaussianLpm(10.0, 2.0, _data_directory()), 0.0),
+        (InverseGaussianShiftedLpm(10.0, 2.0, 5.0, _data_directory()), 5.0),
+    ],
+)
+def test_inverse_gaussian_ppf_preserves_support_endpoints(model, lower_endpoint):
+    assert model.cdf_inv(0.0) == lower_endpoint
+    assert np.isposinf(model.cdf_inv(1.0))
+    assert model.cdf_inv([0.0, 1.0])[0] == lower_endpoint
+    assert np.isposinf(model.cdf_inv([0.0, 1.0])[1])
+
+
+def test_inverse_gaussian_ppf_falls_back_only_for_non_finite_result(monkeypatch):
+    model = InverseGaussianLpm(10.0, 2.0, _data_directory())
+    scipy_ppf = model.scipy_dist.ppf
+
+    def non_finite_ppf(probabilities, *args, **kwargs):
+        result = np.asarray(scipy_ppf(probabilities, *args, **kwargs), dtype=float)
+        return np.full_like(result, np.nan)
+
+    monkeypatch.setattr(model.scipy_dist, "ppf", non_finite_ppf)
+
+    quantile = model.cdf_inv(0.5)
+
+    assert np.isfinite(quantile)
+    assert model.cdf(quantile) == pytest.approx(0.5, abs=1e-12)
 
 
 def test_shifted_inverse_gaussian_mean_includes_shift_only_once():

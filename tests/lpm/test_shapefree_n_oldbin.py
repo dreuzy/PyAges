@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 from __future__ import annotations
 
 from textwrap import dedent
@@ -5,14 +9,14 @@ from textwrap import dedent
 import numpy as np
 import pytest
 
-from pyage.convolution.convolution import Convolution
-from pyage.lpm.lpm_build import lpm_build
-from pyage.tracer.tracer_protocol import SyntheticTracer
+from pyages.convolution.convolution import Convolution
+from pyages.lpm import build_lpm
+from pyages.tracer.tracer_protocol import SyntheticTracer
 from tests.utils import paths as test_paths
 
 
 def _make_lpm():
-    lpm = lpm_build("shapefree_n_oldbin", directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm("shapefree_n_oldbin", directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.set_param_from_array([0.0, 0.0, 0.0])
     return lpm
 
@@ -63,7 +67,7 @@ def _make_support_open_lpm(tmp_path):
         + "\n",
         encoding="utf-8",
     )
-    lpm = lpm_build("shapefree_n_oldbin", directory_lpm=str(data_dir))
+    lpm = build_lpm("shapefree_n_oldbin", directory_lpm=str(data_dir))
     lpm.set_param_from_array([0.0, 0.0])
     return lpm
 

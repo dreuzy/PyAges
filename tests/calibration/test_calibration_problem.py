@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Characterization tests for the explicit calibration composition."""
 
 from __future__ import annotations
@@ -7,19 +11,19 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from pyage.calibration.methods.simplex import SIMPLEX, Simplex
-from pyage.calibration.problem import CalibrationProblem
-from pyage.calibration.utils.systematic_sampling import SystematicSampling
-from pyage.config.runtime import DisplayOptions
-from pyage.convolution import ConvolutionTracers
-from pyage.lpm.lpm_build import lpm_build
+from pyages.calibration.methods.simplex import SIMPLEX, Simplex
+from pyages.calibration.problem import CalibrationProblem
+from pyages.calibration.utils.systematic_sampling import SystematicSampling
+from pyages.config.runtime import DisplayOptions
+from pyages.convolution import ConvolutionTracers
+from pyages.lpm import build_lpm
 
 
 def _prepared_problem(tmp_path) -> CalibrationProblem:
-    target = lpm_build("exp")
+    target = build_lpm("exp")
     tracers = ConvolutionTracers(names=["cfc11"], date=2010.0)
     observations = tracers.convolve(target, return_type="concentrations")
-    observations.error_affect_from_value(0.05)
+    observations.set_relative_errors(0.05)
     display = DisplayOptions()
     display.figure = False
     display.text = False
@@ -42,17 +46,17 @@ def test_problem_uses_composition_and_preserves_the_target_objective(tmp_path):
     assert problem.sampling is problem.sampling
     objective, modeled = problem.objective_function(
         problem.lpm.get_parameters_to_array(),
-        problem.observations.cv["concentration"].to_numpy(dtype=float),
-        problem.observations.cv["error"].to_numpy(dtype=float),
+        problem.observations.frame["concentration"].to_numpy(dtype=float),
+        problem.observations.frame["error"].to_numpy(dtype=float),
         return_concentrations=True,
     )
 
     assert objective == pytest.approx(0.0, abs=1e-12)
-    assert np.allclose(modeled, problem.observations.cv["concentration"])
+    assert np.allclose(modeled, problem.observations.frame["concentration"])
 
 
 def test_systematic_exploration_is_built_only_when_requested(tmp_path):
-    with patch("pyage.calibration.problem.SystematicSampling") as sampling_class:
+    with patch("pyages.calibration.problem.SystematicSampling") as sampling_class:
         problem = _prepared_problem(tmp_path)
         sampling_class.assert_not_called()
 

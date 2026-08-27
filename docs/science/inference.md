@@ -2,10 +2,10 @@
 
 ## Posterior and likelihood
 
-PyAge combines an uncertainty-weighted Gaussian likelihood with the configured
+PyAges combines an uncertainty-weighted Gaussian likelihood with the configured
 parameter prior. Observation errors must be finite, strictly positive, and in
 units matching their modeled values. They are treated as known standard
-deviations; PyAge does not estimate an additional observation-error covariance
+deviations; PyAges does not estimate an additional observation-error covariance
 model automatically.
 
 The exact $\chi^2$ equation, log target, objective transformations, and legacy

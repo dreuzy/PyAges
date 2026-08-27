@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Final 19-case shifted-exponential article production.
 
 The qualified proposal is fixed here: a 4,000-step legacy pilot followed by
@@ -34,15 +38,20 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyage.calibration.mh_proposals import regularize_empirical_covariance
-from pyage.calibration.problem import CalibrationProblem
-from pyage.config.runtime import DisplayOptions
-from pyage.convolution import ConvolutionTracers
-from pyage.lpm.lpm_build import lpm_build
-from pyage.tools.figures_additional import cmap_white_jet
+from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.mh_proposals import regularize_empirical_covariance
+from pyages.calibration.problem import CalibrationProblem
+from pyages.config.runtime import DisplayOptions
+from pyages.convolution import ConvolutionTracers
+from pyages.lpm import build_lpm
+from pyages.tools.figures_additional import cmap_white_jet
 from scripts.common.mcmc_diagnostics import mcse_mean
 from scripts.common.provenance import repository_provenance
+from scripts.common.publication_plotting import (
+    PUBLICATION_RC,
+    mm_to_in,
+    save_pdf_png,
+)
 
 OUTPUT = ROOT / "results" / "final_article_simulations" / "shifted_exponential"
 TRACERS = ("cfc11", "cfc12", "cfc113", "sf6")
@@ -104,7 +113,7 @@ def _display(path: Path) -> DisplayOptions:
 
 
 def _model(mu: float, t0: float):
-    model = lpm_build("exp_shifted", directory_lpm=str(ROOT / "data_core" / "data_lpm"))
+    model = build_lpm("exp_shifted", directory_lpm=str(ROOT / "data_core" / "data_lpm"))
     model.p.update({"mu": float(mu), "shift": float(t0)})
     return model
 
@@ -112,7 +121,7 @@ def _model(mu: float, t0: float):
 def _observations(mu: float, t0: float):
     tracers = ConvolutionTracers(names=list(TRACERS), date=DATE)
     observations = tracers.convolve(_model(mu, t0), return_type="concentrations")
-    observations.error_affect_from_value(RELATIVE_ERROR)
+    observations.set_relative_errors(RELATIVE_ERROR)
     return observations
 
 
@@ -496,7 +505,7 @@ def _table4(
         }
         for tracer, concentration in zip(
             TRACERS,
-            observations.cv["concentration"].to_numpy(float),
+            observations.frame["concentration"].to_numpy(float),
             strict=True,
         ):
             row[f"C_{tracer}"] = concentration
@@ -531,6 +540,73 @@ def _table4(
         newline="\n",
     )
     return table
+
+
+def _render_figure2(
+    surface: pd.DataFrame,
+    posterior: pd.DataFrame,
+    output: Path,
+) -> None:
+    """Render all requested physical-width variants from canonical data."""
+
+    for width_mm in (120, 110, 100):
+        with plt.rc_context(PUBLICATION_RC):
+            fig, axis = plt.subplots(
+                figsize=(mm_to_in(width_mm), mm_to_in(width_mm * 0.76)),
+                layout="constrained",
+            )
+            colour = axis.pcolormesh(
+                surface.columns.to_numpy(float),
+                surface.index.to_numpy(float),
+                surface.to_numpy(float),
+                shading="auto",
+                cmap=cmap_white_jet(),
+                rasterized=True,
+            )
+            bar = fig.colorbar(colour, ax=axis, pad=0.025)
+            bar.set_label(r"Normalized RMS data misfit, $\sqrt{J/4}$")
+            axis.scatter(
+                posterior["mu"],
+                posterior["t0"],
+                s=7,
+                facecolors="white",
+                edgecolors="black",
+                linewidths=0.25,
+                alpha=0.52,
+                label="Posterior samples",
+            )
+            axis.scatter(
+                [10.0],
+                [30.0],
+                marker="*",
+                s=105,
+                facecolors="white",
+                edgecolors="black",
+                linewidths=1.1,
+                label="Generating target",
+            )
+            axis.set(
+                xlabel=r"Exponential timescale, $\mu$ (yr)",
+                ylabel=r"Shift, $t_0$ (yr)",
+                xlim=(0, 50),
+                ylim=(0, 50),
+            )
+            axis.legend(loc="upper right", framealpha=0.92)
+            save_pdf_png(
+                fig,
+                output,
+                f"figure2_shifted_exponential_{width_mm}mm",
+            )
+            if width_mm == 110:
+                save_pdf_png(fig, output, "figure2_shifted_exponential_final")
+                fig.savefig(
+                    output / "figure2_shifted_exponential_final.tiff",
+                    dpi=600,
+                    facecolor="white",
+                    bbox_inches=None,
+                    pil_kwargs={"compression": "tiff_lzw"},
+                )
+            plt.close(fig)
 
 
 def _figure2(output: Path, lengths: dict[int, int]) -> None:
@@ -571,59 +647,7 @@ def _figure2(output: Path, lengths: dict[int, int]) -> None:
         .sort_index()
         .sort_index(axis=1)
     )
-    fig, axis = plt.subplots(figsize=(7.2, 5.4), constrained_layout=True)
-    colour = axis.pcolormesh(
-        surface.columns.to_numpy(float),
-        surface.index.to_numpy(float),
-        surface.to_numpy(float),
-        shading="auto",
-        cmap=cmap_white_jet(),
-        rasterized=True,
-    )
-    bar = fig.colorbar(colour, ax=axis)
-    bar.set_label(r"RMS normalized data misfit, $\sqrt{J_{data}/4}$")
-    axis.scatter(
-        posterior["mu"],
-        posterior["t0"],
-        s=8,
-        facecolors="white",
-        edgecolors="black",
-        linewidths=0.25,
-        alpha=0.48,
-        label="Final converged chains",
-    )
-    axis.scatter(
-        [10.0],
-        [30.0],
-        marker="*",
-        s=165,
-        facecolors="white",
-        edgecolors="black",
-        linewidths=1.4,
-        label="Target",
-    )
-    axis.set(
-        xlabel=r"Exponential timescale, $\mu$ (years)",
-        ylabel=r"Shift, $t_0$ (years)",
-        xlim=(0, 50),
-        ylim=(0, 50),
-    )
-    axis.legend(loc="upper right")
-    for suffix in ("png", "pdf"):
-        fig.savefig(
-            output / f"figure2_shifted_exponential_final.{suffix}",
-            dpi=600,
-            bbox_inches="tight",
-            facecolor="white",
-        )
-    fig.savefig(
-        output / "figure2_shifted_exponential_final.tiff",
-        dpi=600,
-        bbox_inches="tight",
-        facecolor="white",
-        pil_kwargs={"compression": "tiff_lzw"},
-    )
-    plt.close(fig)
+    _render_figure2(surface, posterior, output)
     posterior.to_csv(output / "figure2_final_chain_samples.csv", index=False)
 
 
@@ -638,10 +662,10 @@ def _sha256(path: Path) -> str:
 def _manifest(output: Path, lengths: dict[int, int]) -> None:
     sources = (
         Path(__file__).resolve(),
-        ROOT / "pyage" / "calibration" / "mh_proposals.py",
-        ROOT / "pyage" / "calibration" / "methods" / "metropolis_hastings.py",
-        ROOT / "pyage" / "convolution" / "convolution.py",
-        ROOT / "pyage" / "lpm" / "models" / "exponential_shifted.py",
+        ROOT / "pyages" / "calibration" / "mh_proposals.py",
+        ROOT / "pyages" / "calibration" / "methods" / "metropolis_hastings.py",
+        ROOT / "pyages" / "convolution" / "convolution.py",
+        ROOT / "pyages" / "lpm" / "models" / "exponential_shifted.py",
         ROOT / "data_core" / "data_lpm" / "exp_shifted" / "params.yaml",
     )
     artifacts = [

@@ -1,0 +1,8 @@
+artifact,font,embedded,text_size_pt,status,notes
+main_candidate_pdf,,,,NOT_RUN,Candidate was not created after hard failure
+supplement_candidate_pdf,,,,NOT_RUN,Candidate was not created after hard failure
+figure1,,,,NOT_RUN,Figure was not regenerated
+figure2,,,,NOT_RUN,Figure was not regenerated
+figure3,,,,NOT_RUN,Figure was not regenerated
+figure4,,,,NOT_RUN,Figure was not regenerated
+figureS1,,,,NOT_RUN,Figure was not regenerated

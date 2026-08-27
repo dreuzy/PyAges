@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Synthetic smoke tests for convolution (Convolution + LPM).
 
@@ -11,9 +15,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import pyage.tracer.tracer_root as tracer_module
-from pyage.convolution.convolution import Convolution
-from pyage.lpm.lpm_build import list_available_lpms, lpm_build
+import pyages.tracer.tracer_root as tracer_module
+from pyages.convolution.convolution import Convolution
+from pyages.lpm import build_lpm, list_available_lpms
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -30,7 +34,7 @@ def _golden_path() -> Path:
 @pytest.mark.parametrize("lpm_type", _lpm_types())
 @pytest.mark.parametrize("tracer_name", ["cfc11", "kr85", "cfc12", "cfc113", "sf6"])
 def test_convolution_value_finite(lpm_type, tracer_name):
-    lpm = lpm_build(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
     try:
         lpm.set_param_from_array(lpm.param_init())
     except Exception:
@@ -43,7 +47,7 @@ def test_convolution_value_finite(lpm_type, tracer_name):
 
 
 def test_convolve_date_range_dataframe():
-    lpm = lpm_build("exp", directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm("exp", directory_lpm=str(test_paths.lpm_data_dir()))
     tracer = tracer_module.Tracer(test_paths.tracer_data_dir(), "cfc11")
     conv = Convolution(tracer, date=2010.0)
 
@@ -55,7 +59,7 @@ def test_convolve_date_range_dataframe():
 
 
 def test_convolve_date_range_rejects_invalid_resolution():
-    lpm = lpm_build("exp", directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm("exp", directory_lpm=str(test_paths.lpm_data_dir()))
     tracer = tracer_module.Tracer(test_paths.tracer_data_dir(), "cfc11")
     conv = Convolution(tracer, date=2010.0)
 
@@ -66,7 +70,7 @@ def test_convolve_date_range_rejects_invalid_resolution():
 @pytest.mark.parametrize("lpm_type", _lpm_types())
 @pytest.mark.parametrize("tracer_name", ["cfc11", "kr85", "cfc12", "cfc113", "sf6"])
 def test_convolution_golden_at_date_2010(lpm_type, tracer_name, update_golden):
-    lpm = lpm_build(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm(lpm_type, directory_lpm=str(test_paths.lpm_data_dir()))
     try:
         lpm.set_param_from_array(lpm.param_init())
     except Exception:

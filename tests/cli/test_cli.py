@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """CLI smoke tests (argument parsing + dispatch)."""
 
 import importlib
@@ -7,9 +11,9 @@ from pathlib import Path
 import yaml
 from click.testing import CliRunner
 
-import pyage.cli.commands.check as check_cmd
-import pyage.cli.commands.run as run_cmd
-from pyage.cli.commands.new import new_group
+import pyages.cli.commands.check as check_cmd
+import pyages.cli.commands.run as run_cmd
+from pyages.cli.commands.new import new_group
 
 
 def _write_minimal_config(tmp_path: Path) -> Path:
@@ -20,17 +24,61 @@ def _write_minimal_config(tmp_path: Path) -> Path:
 
 def test_cli_help():
     runner = CliRunner()
-    cli_main = importlib.import_module("pyage.cli.main")
+    cli_main = importlib.import_module("pyages.cli.main")
     result = runner.invoke(cli_main.cli, ["--help"])
     assert result.exit_code == 0
-    assert "PyAge" in result.output
+    assert "PyAges" in result.output
 
 
 def test_cli_check_help():
     runner = CliRunner()
     result = runner.invoke(check_cmd.check, ["--help"])
     assert result.exit_code == 0
-    assert "Check PyAge" in result.output
+    assert "Check PyAges" in result.output
+
+
+def test_cli_check_enforces_supported_python_range():
+    assert check_cmd._python_version_supported((3, 12, 0))
+    assert check_cmd._python_version_supported((3, 14, 9))
+    assert not check_cmd._python_version_supported((3, 11, 9))
+    assert not check_cmd._python_version_supported((3, 15, 0))
+
+
+def test_cli_check_validates_all_active_metadata_requirements(monkeypatch):
+    declared = [
+        "numpy>=2,<3",
+        "pydantic>=2.9,<3",
+        "packaging>=24,<27",
+        'pytest>=9; extra == "dev"',
+    ]
+    installed = {
+        "numpy": "2.5.2",
+        "pydantic": "2.13.4",
+        "packaging": "26.3",
+    }
+    monkeypatch.setattr(check_cmd.metadata, "requires", lambda _name: declared)
+    monkeypatch.setattr(
+        check_cmd.metadata,
+        "version",
+        lambda name: installed[name],
+    )
+
+    result = check_cmd._check_dependencies(verbose=False)
+
+    assert result == check_cmd.CheckResult(passed=3, failed=0)
+
+
+def test_cli_check_rejects_out_of_range_dependency(monkeypatch):
+    monkeypatch.setattr(
+        check_cmd.metadata,
+        "requires",
+        lambda _name: ["numpy>=2,<3"],
+    )
+    monkeypatch.setattr(check_cmd.metadata, "version", lambda _name: "1.26.4")
+
+    result = check_cmd._check_dependencies(verbose=False)
+
+    assert result == check_cmd.CheckResult(failed=1)
 
 
 def test_cli_run_dispatch_single_date(tmp_path, monkeypatch):
@@ -117,8 +165,23 @@ def test_cli_new_lpm_writes_to_current_project() -> None:
         result = runner.invoke(new_group, ["lpm", "audit_model"])
 
         assert result.exit_code == 0, result.output
-        assert Path("pyage/lpm/models/LPM_audit_model.py").is_file()
+        model_path = Path("pyages/lpm/models/audit_model.py")
+        assert model_path.is_file()
         assert Path("data_core/data_lpm/audit_model/params.yaml").is_file()
+        model_source = model_path.read_text(encoding="utf-8")
+        assert "class AuditModelLpm" in model_source
+        assert "def cdf_and_partial_first_moment" in model_source
+        compile(model_source, str(model_path), "exec")
+
+
+def test_cli_new_lpm_rejects_removed_scipy_safe_base() -> None:
+    result = CliRunner().invoke(
+        new_group,
+        ["lpm", "audit_model", "--base", "scipy_safe"],
+    )
+
+    assert result.exit_code == 2
+    assert "Invalid value for '--base'" in result.output
 
 
 def test_cli_new_tracer_writes_to_current_project() -> None:

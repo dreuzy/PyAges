@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Golden tests for Metropolis-Hastings calibration.
 
@@ -12,10 +16,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import pyage.calibration.methods.metropolis_hastings as cMH
-import pyage.calibration.utils.systematic_sampling as cexp
-import pyage.calibration.workflows.synthetic_test as cst
-from pyage.config.runtime import DisplayOptions
+import pyages.calibration.methods.metropolis_hastings as cMH
+import pyages.calibration.utils.systematic_sampling as cexp
+import pyages.calibration.workflows.synthetic_test as cst
+from pyages.config.runtime import DisplayOptions
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -73,6 +77,7 @@ def _run_mh_one_case(
 
     # Run one synthetic case and extract stats
     _, _, _, lpm_results, _ = calib.perform_one_case(0)
+    lpm_results.validate()
     stats = lpm_results.statistics()
 
     # Record stable summary values for golden checks

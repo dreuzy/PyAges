@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Reproduce the shifted-exponential synthetic validation shown in Figure 2.
 
 This launcher is intentionally limited to the manuscript Figure 2 case.  It
-uses the current PyAge scientific kernels, but makes the historically implicit
+uses the current PyAges scientific kernels, but makes the historically implicit
 choices explicit:
 
 * shifted exponential target: ``mu=10 years``, ``shift=30 years``;
@@ -35,13 +39,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyage.calibration.problem import CalibrationProblem
-from pyage.config.paths import ROOT_DIRECTORY_RESULTS
-from pyage.config.runtime import DisplayOptions
-from pyage.convolution.convolution_tracers import ConvolutionTracers
-from pyage.lpm.lpm_build import lpm_build
-from pyage.tools.figures_additional import cmap_white_jet
+from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.problem import CalibrationProblem
+from pyages.config.paths import ROOT_DIRECTORY_RESULTS
+from pyages.config.runtime import DisplayOptions
+from pyages.convolution.convolution_tracers import ConvolutionTracers
+from pyages.lpm import build_lpm
+from pyages.tools.figures_additional import cmap_white_jet
 
 
 @dataclass(frozen=True)
@@ -89,7 +93,7 @@ def _validate_config(config: Figure2Config) -> None:
 def build_target(config: Figure2Config):
     """Build the target without relying on positional parameter ordering."""
 
-    target = lpm_build(LPM_NAME)
+    target = build_lpm(LPM_NAME)
     parameter_names = list(target.p.keys())
     if parameter_names != ["mu", "shift"]:
         raise RuntimeError(
@@ -110,7 +114,7 @@ def build_synthetic_data(config: Figure2Config, target):
         target,
         return_type="concentrations",
     )
-    observations.error_affect_from_value(config.relative_error)
+    observations.set_relative_errors(config.relative_error)
     return observations
 
 
@@ -281,11 +285,11 @@ def build_residual_table(
         raise RuntimeError("Metropolis-Hastings returned no posterior samples")
 
     concentration_columns = posterior.get_concentration_names()
-    if len(concentration_columns) != len(observations.cv):
+    if len(concentration_columns) != len(observations.frame):
         raise RuntimeError("Posterior concentration columns do not match observations")
 
-    observed = observations.cv["concentration"].to_numpy(dtype=float)
-    sigma = observations.cv["error"].to_numpy(dtype=float)
+    observed = observations.frame["concentration"].to_numpy(dtype=float)
+    sigma = observations.frame["error"].to_numpy(dtype=float)
     modelled = best[concentration_columns].to_numpy(dtype=float)
     residual = modelled - observed
     normalized = residual / sigma
@@ -296,7 +300,7 @@ def build_residual_table(
 
     table = pd.DataFrame(
         {
-            "tracer": observations.cv["element"].astype(str).to_numpy(),
+            "tracer": observations.frame["element"].astype(str).to_numpy(),
             "observed": observed,
             "sigma": sigma,
             "modelled_best_mh": modelled,

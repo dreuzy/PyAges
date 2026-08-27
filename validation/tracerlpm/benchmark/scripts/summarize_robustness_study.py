@@ -1,4 +1,8 @@
-"""Aggregate paired PyAge/TracerLPM results for robustness phases 1 and 3."""
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Aggregate paired PyAges/TracerLPM results for robustness phases 1 and 3."""
 
 from __future__ import annotations
 
@@ -12,7 +16,7 @@ import yaml
 
 from .generate_inputs import BENCHMARK_ROOT
 from .generate_inversion_pilot import expanded_cases
-from .invert_pyage_pilot import RESULT_DIR
+from .invert_pyages_pilot import RESULT_DIR
 
 CONFIGS = (
     ("width_noise", BENCHMARK_ROOT / "configs" / "robustness-width-noise.yaml"),
@@ -20,7 +24,7 @@ CONFIGS = (
 )
 RUN_OUTPUT = BENCHMARK_ROOT.parent / "output" / "robustness-study"
 OUTPUT = BENCHMARK_ROOT / "generated" / "robustness-study"
-TRACERLPM_TO_PYAGE = {
+TRACERLPM_TO_PYAGES = {
     "CFC-11": "cfc11",
     "CFC-12": "cfc12",
     "CFC-113": "cfc113",
@@ -87,25 +91,25 @@ def _near_boundary(value: float, bounds: list[float]) -> bool:
 
 
 def _load_results(case: dict, run_output: Path) -> tuple[dict, dict, Path]:
-    pyage_path = RESULT_DIR / case["case_id"] / "pyage-result.json"
-    pyage = json.loads(pyage_path.read_text(encoding="utf-8"))
+    pyages_path = RESULT_DIR / case["case_id"] / "pyages-result.json"
+    pyages = json.loads(pyages_path.read_text(encoding="utf-8"))
     report_path = _latest_report(case["case_id"], run_output)
     tracer = json.loads(report_path.read_text(encoding="utf-8-sig"))
     fit = tracer.get("fit")
     if tracer.get("status") != "success" or not fit:
         raise ValueError(f"Résultat TracerLPM invalide pour {case['case_id']}")
-    return pyage, tracer, report_path
+    return pyages, tracer, report_path
 
 
-def _paired_observations(pyage: dict, fit: dict, case_id: str) -> tuple[dict, dict]:
+def _paired_observations(pyages: dict, fit: dict, case_id: str) -> tuple[dict, dict]:
     observed = {
-        item["tracer"]: float(item["observed"]) for item in pyage["concentrations"]
+        item["tracer"]: float(item["observed"]) for item in pyages["concentrations"]
     }
     calculated = {
-        item["tracer"]: float(item["calculated"]) for item in pyage["concentrations"]
+        item["tracer"]: float(item["calculated"]) for item in pyages["concentrations"]
     }
     tracer_observed = {
-        TRACERLPM_TO_PYAGE[name]: float(value)
+        TRACERLPM_TO_PYAGES[name]: float(value)
         for name, value in fit["observations"].items()
     }
     mismatched = observed.keys() != tracer_observed.keys() or any(
@@ -118,7 +122,7 @@ def _paired_observations(pyage: dict, fit: dict, case_id: str) -> tuple[dict, di
 
 
 def _case_row(phase: str, case: dict, run_output: Path) -> dict:
-    pyage, tracer, report_path = _load_results(case, run_output)
+    pyages, tracer, report_path = _load_results(case, run_output)
     fit = tracer["fit"]
     epm = case["model"] == "EPM"
     secondary_key = "eta" if epm else "DP"
@@ -126,12 +130,14 @@ def _case_row(phase: str, case: dict, run_output: Path) -> dict:
     secondary_bounds = [
         float(value) - offset for value in case["bounds"][secondary_key]
     ]
-    pyage_observed, pyage_calculated = _paired_observations(pyage, fit, case["case_id"])
+    pyages_observed, pyages_calculated = _paired_observations(
+        pyages, fit, case["case_id"]
+    )
     tracer_calculated = _best_calculated_concentrations(fit)
-    pyage_l1, pyage_l2 = _relative_objectives(pyage_observed, pyage_calculated)
+    pyages_l1, pyages_l2 = _relative_objectives(pyages_observed, pyages_calculated)
     tracer_l1, tracer_l2 = _relative_objectives(fit["observations"], tracer_calculated)
-    pyage_tau = float(pyage["estimated_parameters"]["tau"])
-    pyage_secondary = float(pyage["estimated_parameters"][secondary_key]) - offset
+    pyages_tau = float(pyages["estimated_parameters"]["tau"])
+    pyages_secondary = float(pyages["estimated_parameters"][secondary_key]) - offset
     tracer_tau = float(fit["estimatedAge"])
     tracer_secondary = float(fit["estimatedModelParameter"])
     return {
@@ -148,20 +154,20 @@ def _case_row(phase: str, case: dict, run_output: Path) -> dict:
         "secondary_lower_bound": secondary_bounds[0],
         "secondary_upper_bound": secondary_bounds[1],
         "initial_values_json": json.dumps(case["initial_values"], sort_keys=True),
-        "observations_json": json.dumps(pyage_observed, sort_keys=True),
-        "pyage_tau": pyage_tau,
-        "pyage_secondary": pyage_secondary,
-        "pyage_success": bool(pyage["optimizer_success"]),
-        "pyage_boundary_hit": _near_boundary(pyage_tau, case["bounds"]["tau"])
-        or _near_boundary(pyage_secondary, secondary_bounds),
-        "pyage_maximum_concentration_relative_error": float(
-            pyage["maximum_recalculated_relative_error"]
+        "observations_json": json.dumps(pyages_observed, sort_keys=True),
+        "pyages_tau": pyages_tau,
+        "pyages_secondary": pyages_secondary,
+        "pyages_success": bool(pyages["optimizer_success"]),
+        "pyages_boundary_hit": _near_boundary(pyages_tau, case["bounds"]["tau"])
+        or _near_boundary(pyages_secondary, secondary_bounds),
+        "pyages_maximum_concentration_relative_error": float(
+            pyages["maximum_recalculated_relative_error"]
         ),
-        "pyage_native_weighted_l2_objective": float(pyage["objective_chi_square"]),
-        "pyage_recalculated_relative_l1_objective": pyage_l1,
-        "pyage_recalculated_relative_l2_objective": pyage_l2,
-        "pyage_calculated_concentrations_json": json.dumps(
-            pyage_calculated, sort_keys=True
+        "pyages_native_weighted_l2_objective": float(pyages["objective_chi_square"]),
+        "pyages_recalculated_relative_l1_objective": pyages_l1,
+        "pyages_recalculated_relative_l2_objective": pyages_l2,
+        "pyages_calculated_concentrations_json": json.dumps(
+            pyages_calculated, sort_keys=True
         ),
         "tracerlpm_tau": tracer_tau,
         "tracerlpm_secondary": tracer_secondary,
@@ -227,9 +233,9 @@ def _tool_statistics(selected: list[dict], tool: str, tau_truth, secondary_truth
 
 
 def _paired_tool_statistics(selected: list[dict]) -> dict:
-    tau_delta = [row["tracerlpm_tau"] - row["pyage_tau"] for row in selected]
+    tau_delta = [row["tracerlpm_tau"] - row["pyages_tau"] for row in selected]
     secondary_delta = [
-        row["tracerlpm_secondary"] - row["pyage_secondary"] for row in selected
+        row["tracerlpm_secondary"] - row["pyages_secondary"] for row in selected
     ]
     return {
         "tau_mean": float(np.mean(tau_delta)),
@@ -255,9 +261,9 @@ def _summarize_groups(rows: list[dict]) -> list[dict]:
                 "count": len(selected),
                 "tools": {
                     tool: _tool_statistics(selected, tool, tau_truth, secondary_truth)
-                    for tool in ("pyage", "tracerlpm")
+                    for tool in ("pyages", "tracerlpm")
                 },
-                "paired_tracerlpm_minus_pyage": _paired_tool_statistics(selected),
+                "paired_tracerlpm_minus_pyages": _paired_tool_statistics(selected),
             }
         )
     return summaries
@@ -298,7 +304,7 @@ def _write_outputs(summary: dict, output: Path) -> None:
 
 def _markdown_lines(rows: list[dict], groups: list[dict]) -> list[str]:
     lines = [
-        "# Robustesse PyAge–TracerLPM — largeurs, âges et bruit jusqu'à 20 %",
+        "# Robustesse PyAges–TracerLPM — largeurs, âges et bruit jusqu'à 20 %",
         "",
         f"{len(rows)} inversions appariées avec CFC-11, CFC-12, CFC-113 et SF6.",
         "Aucune combinaison ou suppression de traceur n'est testée.",
@@ -307,7 +313,7 @@ def _markdown_lines(rows: list[dict], groups: list[dict]) -> list[str]:
         "|---|---:|---|---:|---:|---|---:|---:|---:|---:|---:|",
     ]
     for group in groups:
-        for tool in ("pyage", "tracerlpm"):
+        for tool in ("pyages", "tracerlpm"):
             stats = group["tools"][tool]
             lines.append(
                 f"| {group['model']} | {group['true_tau']:.6g} | {group['secondary_name']} | "

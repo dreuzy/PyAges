@@ -70,7 +70,7 @@ The example is intentionally split into four local layers:
    Run the local article-oriented `4-bin` comparison workflow.
 
 `run_holten.py` assembles those layers without pushing the case-specific logic
-into the generic PyAge core.
+into the generic PyAges core.
 
 ## Run
 
@@ -131,7 +131,7 @@ These folders contain:
 - local `4-bin` fit summaries and posterior summaries
 - comparison tables against the published reference results
 
-Launcher outputs remain in the standard results directory configured by PyAge.
+Launcher outputs remain in the standard results directory configured by PyAges.
 Per-well launcher input files are generated only when
 `holten.preparation.generate_per_well_files` is enabled in `holten.yaml`.
 If `holten.launcher.enabled` is `true`, this option must stay enabled because

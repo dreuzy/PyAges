@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Remove only known, reproducible packaging artifacts from the repository."""
 
 from __future__ import annotations
@@ -8,18 +12,17 @@ from pathlib import Path
 ARTIFACT_DIRECTORIES = (
     "build",
     "dist",
-    "pyage.egg-info",
-    "pyage_groundwater.egg-info",
+    "pyages.egg-info",
+    "pyages.egg-info",
 )
 
 
 def clean_release_artifacts(root: Path | None = None) -> list[Path]:
-    """Delete generated build directories below a verified PyAge checkout."""
+    """Delete generated build directories below a verified PyAges checkout."""
     repository = (root or Path(__file__).resolve().parents[1]).resolve()
     project_file = repository / "pyproject.toml"
-    if (
-        not project_file.is_file()
-        or 'name = "pyage-groundwater"' not in project_file.read_text(encoding="utf-8")
+    if not project_file.is_file() or 'name = "pyages"' not in project_file.read_text(
+        encoding="utf-8"
     ):
         raise RuntimeError(f"Refusing to clean unverified repository: {repository}")
 

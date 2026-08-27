@@ -1,14 +1,14 @@
-# Contributing to PyAge
+# Contributing to PyAges
 
-PyAge welcomes bug reports, documentation improvements, tests, and scientific
+PyAges welcomes bug reports, documentation improvements, tests, and scientific
 or software contributions through GitHub issues and pull requests. Public
 users can propose changes, but cannot push to or delete repository content.
 
 ## Development setup
 
 ```bash
-git clone https://github.com/dreuzy/pyage.git
-cd pyage
+git clone https://github.com/dreuzy/PyAges.git
+cd pyages
 python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
 ```
 
@@ -27,9 +27,9 @@ python -m pytest -q
 python -m sphinx -W --keep-going -b html docs docs/_build/html
 ```
 
-The [testing guide](https://pyage-gw.readthedocs.io/en/latest/dev/testing.html)
+The [testing guide](https://pyages-gw.readthedocs.io/en/latest/dev/testing.html)
 explains the standard, extensive, coverage, TracerLPM, collection, and golden
-scopes. The [continuous-integration reference](https://pyage-gw.readthedocs.io/en/latest/dev/ci.html)
+scopes. The [continuous-integration reference](https://pyages-gw.readthedocs.io/en/latest/dev/ci.html)
 maps every GitHub Actions job to its local command, trigger, and artifact.
 
 Changes to validation infrastructure should also run

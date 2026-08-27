@@ -12,11 +12,11 @@ xll_path: C:\CHEMIN\VERS\TracerLPMfunctions_64_v_1.xll
 xll_sha256: 17C37328D606864754A2F115FEC1CA56A70A06FC05BC5123DEB1A462FC91F9A7
 
 # Mapping des feuilles, contrôles, macros et plages pour ce hash de classeur.
-workbook_map_path: C:\codes\pyage\validation\tracerlpm\config\workbook-map.yaml
+workbook_map_path: C:\codes\pyages\validation\tracerlpm\config\workbook-map.yaml
 # Copies isolées créées pour chaque simulation; contenu temporaire ignoré par Git.
-work_root: C:\codes\pyage\validation\tracerlpm\work
+work_root: C:\codes\pyages\validation\tracerlpm\work
 # Rapports JSON, CSV et Markdown; contenu d'exécution ignoré par Git.
-output_root: C:\codes\pyage\validation\tracerlpm\output
+output_root: C:\codes\pyages\validation\tracerlpm\output
 
 # Affiche Excel pendant le calcul. Garder true pour diagnostiquer les dialogues.
 excel_visible: true

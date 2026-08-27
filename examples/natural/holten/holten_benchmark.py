@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Pre-model figures and benchmark helpers for Holten.
 """
@@ -21,7 +25,8 @@ from examples.natural.holten.holten_case import (
     load_yaml,
     tracer_yaml_path,
 )
-from pyage.tracer.decay import rate_from_config
+from pyages.data_io.lpm_distribution import read_statistics
+from pyages.tracer.decay import rate_from_config
 
 ARTICLE_FIGURE_SPECS = {
     "figure_4": {
@@ -74,7 +79,7 @@ def build_article_reference_figures(
     pdf_path = ctx.paths.doc_dir / "Visser et al, 2013.pdf"
     if not pdf_path.is_file():
         raise RuntimeError(
-            "The Visser et al. (2013) publisher PDF is not distributed with PyAge; "
+            "The Visser et al. (2013) publisher PDF is not distributed with PyAges; "
             "obtain it via https://doi.org/10.1002/2013WR014012 and place it in "
             f"{ctx.paths.doc_dir} to extract the article figures."
         )
@@ -534,7 +539,7 @@ def _load_stats_if_available(results_dir: Path | None) -> pd.DataFrame | None:
     stats_path = results_dir / "Metropolis_Hastings" / "lpm_stats_calibrated.txt"
     if not stats_path.exists():
         return None
-    return pd.read_csv(stats_path, sep="\t", index_col=0)
+    return read_statistics(stats_path)
 
 
 def _load_tracer_cfg(prepared: PreparedHoltenCase, tracer_name: str) -> dict[str, Any]:

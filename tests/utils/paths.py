@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Path helpers for tests."""
 
 from pathlib import Path
@@ -8,7 +12,7 @@ def repo_root() -> Path:
 
 
 def lpm_dir() -> Path:
-    return repo_root() / "pyage" / "lpm" / "models"
+    return repo_root() / "pyages" / "lpm" / "models"
 
 
 def lpm_data_dir() -> Path:

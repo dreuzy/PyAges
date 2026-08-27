@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 import json
 import sys
 from pathlib import Path
@@ -7,17 +11,17 @@ import pytest
 from tests.utils import golden as golden_utils
 
 # ---------------------------------------------------------------------------
-# 1) Localisation du projet + ajout de "pyage/" au PYTHONPATH des tests
+# 1) Localisation du projet + ajout de "pyages/" au PYTHONPATH des tests
 # ---------------------------------------------------------------------------
 
 # REPO_ROOT = dossier où se trouve ce fichier conftest.py (généralement la racine du repo)
 REPO_ROOT = Path(__file__).resolve().parent
 
-# Dossier racine du repo (pour importer pyage.*)
+# Dossier racine du repo (pour importer pyages.*)
 SRC_DIR = REPO_ROOT
 
 # sys.path = liste des dossiers dans lesquels Python cherche les modules à importer.
-# Ici on ajoute la racine du repo pour que les imports du projet (pyage.*) fonctionnent,
+# Ici on ajoute la racine du repo pour que les imports du projet (pyages.*) fonctionnent,
 # même si le projet n'est pas installé comme un package (pip install -e .).
 if SRC_DIR.exists() and str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))

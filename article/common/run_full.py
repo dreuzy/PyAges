@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Launch a full calculation in a fresh, timestamped result directory."""
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ def _fresh_output(case_id: str, under_robustness: bool = False) -> Path:
     stamp = datetime.now().astimezone().strftime("%Y%m%dT%H%M%S%z")
     external_root = Path(
         os.environ.get(
-            "PYAGE_ARTICLE_RESULTS_DIR", ROOT.parent / "pyage-article-results"
+            "PYAGES_ARTICLE_RESULTS_DIR", ROOT.parent / "pyages-article-results"
         )
     ).resolve()
     base = external_root / (

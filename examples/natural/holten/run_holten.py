@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Launcher/orchestrator for the Holten benchmark workflow.
 """
@@ -31,7 +35,7 @@ from examples.natural.holten.holten_case import (
 )
 from examples.natural.holten.holten_four_bin import run_local_4bin, run_local_4bin_mh
 from examples.natural.holten.holten_prepare import prepare_holten_inputs
-from pyage.config.paths import ROOT_DIRECTORY_RESULTS
+from pyages.config.paths import ROOT_DIRECTORY_RESULTS
 
 
 def _lpm_ready(context) -> bool:
@@ -50,7 +54,7 @@ def existing_results_for_wells(prepared) -> dict[str, Path]:
 
 
 def run_launcher_for_wells(prepared, inline: bool = False) -> dict[str, Path]:
-    from pyage.workflows.single_date import run_single_date
+    from pyages.workflows.single_date import run_single_date
 
     if not _lpm_ready(prepared.context):
         return {}

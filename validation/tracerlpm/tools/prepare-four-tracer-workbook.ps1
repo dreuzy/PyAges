@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 param(
     [string]$Source = 'C:\TracerLPM-Test\working\TracerLPM_V_1_0_Example1_fr_solver.xlsm',
     [string]$Target = 'C:\TracerLPM-Test\working\TracerLPM_V_1_0_FourTracers_v5.xlsm',

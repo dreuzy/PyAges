@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Change-of-measure checks for the targeted Ploemeur benchmark prior."""
 
 from __future__ import annotations
@@ -7,7 +11,7 @@ import math
 import numpy as np
 import pytest
 
-from pyage.calibration.ig_parameterization import (
+from pyages.calibration.ig_parameterization import (
     physical_moments_to_scipy,
     scipy_to_physical_abs_det_jacobian,
     scipy_to_physical_moments,

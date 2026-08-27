@@ -1,7 +1,7 @@
 # Contributing
 
 The repository-wide contribution policy is maintained in
-[CONTRIBUTING.md](https://github.com/dreuzy/pyage/blob/main/CONTRIBUTING.md).
+[CONTRIBUTING.md](https://github.com/dreuzy/PyAges/blob/main/CONTRIBUTING.md).
 It covers development setup, required checks, scientific changes, data review,
 and licensing.
 

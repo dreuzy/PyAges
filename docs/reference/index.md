@@ -1,8 +1,7 @@
 # Operational Reference
 
-This section groups practical reference material for installation, results,
-data provenance, citation, release changes, script entrypoints, and CLI
-options.
+This section groups practical reference material for installation, data
+provenance, workflow outputs, script entrypoints, and CLI options.
 
 ```{toctree}
 :maxdepth: 1
@@ -11,6 +10,7 @@ options.
 install
 results
 data-provenance
+outputs
 public-api
 citation
 changelog

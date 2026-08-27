@@ -1,4 +1,4 @@
 # Keep Read the Docs aligned with the dependency set qualified for releases.
-# The editable project install is required so autodoc can import ``pyage``.
+# The editable project install is required so autodoc can import ``pyages``.
 -c ../install/constraints.txt
 -e .[docs]

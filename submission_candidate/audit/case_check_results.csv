@@ -1,0 +1,7 @@
+case_id,status,issue_count,checksum_status,missing_required_outputs,source_revision,manifest,runtime
+s3_forward_verification,FAIL,3,FAIL: compare_pyage.py mismatch,Supplement S1 markdown and historical run manifest,20d02ed28699424e7263f06c220f98c895f29eff,article/s3_forward_verification/manifest.json,not available
+s3_1_tracerlpm,FAIL,5,FAIL: build_qualification_report.py mismatch,Supplement S2 markdown launch manifest and historical run manifest,20d02ed28699424e7263f06c220f98c895f29eff,article/s3_1_tracerlpm/manifest.json,not available
+s3_2_shifted_exponential,FAIL,4,FAIL: run_final_shifted_exponential.py mismatch,chains pilots and historical manifest,e77691e5c957b2ac650642e89cb9dd3c9d030c57,article/s3_2_shifted_exponential/manifest.json,not available
+s4_1_holten,FAIL,4,FAIL: run_final_holten_h4.py mismatch,chains pilots and historical manifest,e77691e5c957b2ac650642e89cb9dd3c9d030c57,article/s4_1_holten/manifest.json,not available
+s4_2_ploemeur,FAIL,5,FAIL: run_ploemeur_shifted_exponential_final.py mismatch,chains data audit checksum CSV and historical manifest,e77691e5c957b2ac650642e89cb9dd3c9d030c57,article/s4_2_ploemeur/manifest.json,not available
+holten_prior_dirichlet1,FAIL,4,FAIL: run_holten_prior_robustness.py mismatch,chains pilots and historical manifest,e77691e5c957b2ac650642e89cb9dd3c9d030c57,article/robustness/holten_prior_dirichlet1/manifest.json,not available

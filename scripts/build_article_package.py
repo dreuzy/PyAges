@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Build a self-contained, publication-facing package of final article results."""
 
 from __future__ import annotations
@@ -26,6 +30,8 @@ SOURCE_MANIFESTS = {
     / "results/final_article_simulations/holten_h4_final/manifest.json",
     "ploemeur_shifted_exponential": ROOT
     / "results/final_article_simulations/ploemeur_shifted_exponential_final/manifest.json",
+    "holten_prior_dirichlet1": ROOT
+    / "results/robustness/holten_prior_dirichlet1/manifest.json",
 }
 
 
@@ -58,42 +64,56 @@ ARTIFACTS = (
     _artifact(
         "figure1_svg",
         "figure",
-        "docs/figures/figure1_overview.svg",
-        "figures/figure1_overview.svg",
+        "docs/figures/figure1_pyages_architecture.svg",
+        "figures/figure1_pyages_architecture.svg",
         "Figure 1, conceptual workflow",
+    ),
+    _artifact(
+        "figure1_pdf",
+        "figure",
+        "docs/figures/figure1_pyages_architecture.pdf",
+        "figures/figure1_pyages_architecture.pdf",
+        "Figure 1, vector insertion file",
+    ),
+    _artifact(
+        "figure1_png",
+        "figure",
+        "docs/figures/figure1_pyages_architecture.png",
+        "figures/figure1_pyages_architecture.png",
+        "Figure 1, raster preview",
     ),
     _artifact(
         "table3_cases",
         "table",
         "validation/tracerlpm/benchmark/generated/robustness-study/results.csv",
-        "tables/table3_pyage_tracerlpm_cases.csv",
-        "Table 3 and Supplement S2 paired PyAge-TracerLPM cases",
+        "tables/table3_pyages_tracerlpm_cases.csv",
+        "Table 3 and Supplement S2 paired PyAges-TracerLPM cases",
     ),
     _artifact(
         "table3_summary",
         "table",
         "validation/tracerlpm/benchmark/generated/robustness-study/summary.json",
-        "tables/table3_pyage_tracerlpm_summary.json",
+        "tables/table3_pyages_tracerlpm_summary.json",
         "Table 3 and Supplement S2 machine-readable summary",
     ),
     _artifact(
         "tracerlpm_report",
         "report",
         "validation/tracerlpm/benchmark/generated/robustness-study/summary.md",
-        "reports/00_pyage_tracerlpm.md",
-        "Paired PyAge-TracerLPM robustness report",
+        "reports/00_pyages_tracerlpm.md",
+        "Paired PyAges-TracerLPM robustness report",
     ),
     _artifact(
         "forward_results",
         "supporting_data",
-        "validation/tracerlpm/benchmark/generated/pyage_comparison/case_results.csv",
+        "validation/tracerlpm/benchmark/generated/pyages_comparison/case_results.csv",
         "supporting_data/supplement_s1_forward_results.csv",
         "Supplement S1 independent-forward comparison cases",
     ),
     _artifact(
         "forward_summary",
         "diagnostic",
-        "validation/tracerlpm/benchmark/generated/pyage_comparison/summary.json",
+        "validation/tracerlpm/benchmark/generated/pyages_comparison/summary.json",
         "diagnostics/supplement_s1_forward_summary.json",
         "Supplement S1 independent-forward summary",
     ),
@@ -147,6 +167,20 @@ ARTIFACTS = (
         "Figure 4, vector insertion file",
     ),
     _artifact(
+        "figureC1_png",
+        "figure",
+        "results/robustness/holten_prior_dirichlet1/figureC1_holten_prior_sensitivity.png",
+        "figures/figureC1_holten_prior_sensitivity.png",
+        "Figure C1, Holten prior-sensitivity raster preview",
+    ),
+    _artifact(
+        "figureC1_pdf",
+        "figure",
+        "results/robustness/holten_prior_dirichlet1/figureC1_holten_prior_sensitivity.pdf",
+        "figures/figureC1_holten_prior_sensitivity.pdf",
+        "Figure C1, Holten prior-sensitivity vector insertion file",
+    ),
+    _artifact(
         "table4_csv",
         "table",
         "results/final_article_simulations/shifted_exponential/table4_final.csv",
@@ -177,9 +211,23 @@ ARTIFACTS = (
     _artifact(
         "holten_comparison",
         "table",
-        "results/final_article_simulations/holten_h4_final/visser_vs_pyage_h4.csv",
-        "tables/holten_visser_vs_pyage.csv",
+        "results/final_article_simulations/holten_h4_final/visser_vs_pyages_h4.csv",
+        "tables/holten_visser_vs_pyages.csv",
         "Holten fraction comparison",
+    ),
+    _artifact(
+        "holten_prior_comparison",
+        "table",
+        "results/robustness/holten_prior_dirichlet1/holten_prior_robustness_fractions.csv",
+        "tables/holten_prior_robustness_fractions.csv",
+        "Figure C1 comparison between the two Holten priors",
+    ),
+    _artifact(
+        "holten_prior_posterior_summary",
+        "table",
+        "results/robustness/holten_prior_dirichlet1/posterior_summaries_dirichlet1.csv",
+        "tables/holten_prior_dirichlet1_posterior_summaries.csv",
+        "Dirichlet(1,1,1,1) Holten posterior summaries",
     ),
     _artifact(
         "ploemeur_shifted_summary",
@@ -236,6 +284,20 @@ ARTIFACTS = (
         "results/final_article_simulations/holten_h4_final/convergence_diagnostics.csv",
         "diagnostics/holten_h4_convergence.csv",
         "Figure 3 convergence",
+    ),
+    _artifact(
+        "holten_prior_convergence",
+        "diagnostic",
+        "results/robustness/holten_prior_dirichlet1/convergence_diagnostics.csv",
+        "diagnostics/holten_prior_dirichlet1_convergence.csv",
+        "Figure C1 Dirichlet-prior convergence",
+    ),
+    _artifact(
+        "holten_prior_global_metrics",
+        "diagnostic",
+        "results/robustness/holten_prior_dirichlet1/global_metrics.csv",
+        "diagnostics/holten_prior_global_metrics.csv",
+        "Holten prior-sensitivity global diagnostics",
     ),
     _artifact(
         "ploemeur_shifted_convergence",
@@ -364,6 +426,13 @@ ARTIFACTS = (
         "Source manifest for Figure 4",
     ),
     _artifact(
+        "holten_prior_manifest",
+        "provenance",
+        "results/robustness/holten_prior_dirichlet1/manifest.json",
+        "provenance/source_manifests/holten_prior_dirichlet1.json",
+        "Source manifest for Figure C1",
+    ),
+    _artifact(
         "runner_shifted",
         "code",
         "scripts/run_final_shifted_exponential.py",
@@ -376,6 +445,13 @@ ARTIFACTS = (
         "scripts/run_final_holten_h4.py",
         "provenance/code/run_final_holten_h4.py",
         "Figure 3 runner",
+    ),
+    _artifact(
+        "runner_holten_prior",
+        "code",
+        "scripts/run_holten_prior_robustness.py",
+        "provenance/code/run_holten_prior_robustness.py",
+        "Figure C1 and Holten prior-sensitivity runner",
     ),
     _artifact(
         "runner_ploemeur_shifted",
@@ -424,9 +500,22 @@ ARTIFACTS = (
         "environment",
         "install/constraints.txt",
         "provenance/environment/constraints.txt",
-        "Pinned compatibility constraints",
+        "Pinned PyAges 1.0 user compatibility constraints",
+    ),
+    _artifact(
+        "article_reproduction_environment",
+        "environment",
+        "install/environment.yml",
+        "provenance/environment/article-reproduction-environment.yml",
+        "Historical article-reproduction environment baseline",
     ),
 )
+
+# Optional worktrees containing byte-exact execution sources that Git cannot
+# reconstruct on its own (for example, mixed line endings from a Windows
+# checkout). Every recovered file is still required to match the SHA-256
+# recorded by the scientific run manifest.
+EXECUTION_SOURCE_ROOTS: tuple[Path, ...] = ()
 
 
 def artifacts_for_campaign(campaign_root: Path) -> tuple[Artifact, ...]:
@@ -442,11 +531,13 @@ def artifacts_for_campaign(campaign_root: Path) -> tuple[Artifact, ...]:
         / "ploemeur_shifted_exponential",
         ROOT / "results/ploemeur_targeted_ig_reproduction": campaign_root
         / "ploemeur_physical_ig",
+        ROOT / "results/robustness/holten_prior_dirichlet1": campaign_root
+        / "holten_prior_dirichlet1",
         ROOT
         / "validation/tracerlpm/benchmark/generated/robustness-study": campaign_root
         / "tracerlpm/benchmark/generated/robustness-study",
         ROOT
-        / "validation/tracerlpm/benchmark/generated/pyage_comparison": campaign_root
+        / "validation/tracerlpm/benchmark/generated/pyages_comparison": campaign_root
         / "forward",
     }
     rebased = []
@@ -477,6 +568,8 @@ def source_manifests_for_campaign(campaign_root: Path) -> dict[str, Path]:
         "holten_h4": campaign_root / "holten_h4/manifest.json",
         "ploemeur_shifted_exponential": campaign_root
         / "ploemeur_shifted_exponential/manifest.json",
+        "holten_prior_dirichlet1": campaign_root
+        / "holten_prior_dirichlet1/manifest.json",
     }
 
 
@@ -505,6 +598,40 @@ def _source_label(path: Path) -> str:
         return path.as_posix()
 
 
+def _recover_execution_source(
+    relative: Path, expected: str, git_head: str
+) -> tuple[bytes, str]:
+    candidates = ((ROOT, "working_tree"),) + tuple(
+        (source_root, f"source_root:{index}")
+        for index, source_root in enumerate(EXECUTION_SOURCE_ROOTS)
+    )
+    for source_root, origin in candidates:
+        candidate = source_root / relative
+        if candidate.is_file():
+            data = candidate.read_bytes()
+            if hashlib.sha256(data).hexdigest() == expected:
+                return data, origin
+
+    revision_path = relative.as_posix()
+    process = subprocess.run(
+        ["git", "show", f"{git_head}:{revision_path}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+    )
+    git_candidates = (
+        (process.stdout, f"git:{git_head}"),
+        (
+            process.stdout.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"),
+            f"git:{git_head}:crlf",
+        ),
+    )
+    for data, origin in git_candidates:
+        if hashlib.sha256(data).hexdigest() == expected:
+            return data, origin
+    raise RuntimeError(f"Cannot recover execution source {relative.as_posix()}")
+
+
 def _execution_source_snapshots(
     staging: Path,
 ) -> tuple[list[dict[str, object]], dict[str, object]]:
@@ -517,30 +644,20 @@ def _execution_source_snapshots(
             "manifest": _source_label(manifest_path),
             "total": 0,
             "working_tree_matches": 0,
+            "recovered_from_source_root": 0,
             "recovered_from_git_head": 0,
         }
         for raw_relative, expected in manifest.get("source_sha256", {}).items():
             relative = Path(raw_relative)
             if relative.is_absolute() or ".." in relative.parts:
                 raise ValueError(f"Unsafe source path in manifest: {raw_relative}")
-            current = ROOT / relative
-            data = current.read_bytes() if current.is_file() else None
-            origin = "working_tree"
-            if data is None or hashlib.sha256(data).hexdigest() != expected:
-                revision_path = relative.as_posix()
-                process = subprocess.run(
-                    ["git", "show", f"{git_head}:{revision_path}"],
-                    cwd=ROOT,
-                    capture_output=True,
-                    check=True,
-                )
-                data = process.stdout
-                origin = f"git:{git_head}"
-            actual = hashlib.sha256(data).hexdigest()
-            if actual != expected:
+            try:
+                data, origin = _recover_execution_source(relative, expected, git_head)
+            except RuntimeError as error:
                 raise RuntimeError(
                     f"Cannot recover execution source {run_name}:{raw_relative}"
-                )
+                ) from error
+            actual = hashlib.sha256(data).hexdigest()
             packaged = Path("provenance") / "execution_source" / run_name / relative
             destination = staging / packaged
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -548,6 +665,8 @@ def _execution_source_snapshots(
             run_audit["total"] += 1
             if origin == "working_tree":
                 run_audit["working_tree_matches"] += 1
+            elif origin.startswith("source_root:"):
+                run_audit["recovered_from_source_root"] += 1
             else:
                 run_audit["recovered_from_git_head"] += 1
             entries.append(
@@ -600,10 +719,10 @@ def scientific_summary() -> dict[str, object]:
     )
     return {
         "thresholds": {"split_rhat_lt": 1.01, "ess_gte": 300.0},
-        "pyage_tracerlpm": {
+        "pyages_tracerlpm": {
             "paired_cases": int(len(tracerlpm)),
-            "pyage_successful": int(
-                tracerlpm["pyage_success"].astype(str).str.lower().eq("true").sum()
+            "pyages_successful": int(
+                tracerlpm["pyages_success"].astype(str).str.lower().eq("true").sum()
             ),
             "tracerlpm_successful": int(
                 tracerlpm["tracerlpm_success"].astype(str).str.lower().eq("true").sum()
@@ -620,6 +739,11 @@ def scientific_summary() -> dict[str, object]:
         ),
         "holten_h4": _standard_diagnostic(
             _artifact_source("holten_convergence"),
+            "well",
+            "ess_sum_chains",
+        ),
+        "holten_prior_dirichlet1": _standard_diagnostic(
+            _artifact_source("holten_prior_convergence"),
             "well",
             "ess_sum_chains",
         ),
@@ -649,28 +773,32 @@ def scientific_summary() -> dict[str, object]:
 
 def _readme(summary: dict[str, object]) -> str:
     shifted = summary["shifted_exponential"]
-    tracerlpm = summary["pyage_tracerlpm"]
+    tracerlpm = summary["pyages_tracerlpm"]
     forward = summary["forward_verification"]
     holten = summary["holten_h4"]
+    holten_prior = summary["holten_prior_dirichlet1"]
     ploemeur = summary["ploemeur_shifted_exponential"]
     ig = summary["ploemeur_physical_ig"]
     ig_campaign_converged = ig["stabilized_campaign_converged"]
-    return f"""# PyAge — paquet de résultats pour l'article
+    return f"""# PyAges — paquet de résultats pour l'article
 
-Ce dossier est le point d'entrée unique pour les résultats finaux de l'article.
+Ce dossier est le point d'entrée des résultats et sensibilités de l'article.
 Il contient les fichiers prêts à insérer, les tableaux sources, les diagnostics
-qui soutiennent les affirmations et la provenance exacte de chaque fichier.
+qui soutiennent les affirmations et la provenance exacte de chaque fichier. La
+sensibilité Holten au prior Dirichlet est incluse comme analyse distincte et ne
+remplace pas la campagne Holten canonique.
 
 ## Carte d'insertion
 
 | Élément | Fichier principal | Source quantitative |
 | --- | --- | --- |
-| Figure 1 | `figures/figure1_overview.svg` | conceptual workflow, no simulation |
-| Table 3 | `tables/table3_pyage_tracerlpm_cases.csv` | `tables/table3_pyage_tracerlpm_summary.json` |
+| Figure 1 | `figures/figure1_pyages_architecture.pdf` | conceptual workflow, no simulation |
+| Table 3 | `tables/table3_pyages_tracerlpm_cases.csv` | `tables/table3_pyages_tracerlpm_summary.json` |
 | Table 4 | `tables/table4.md` | `tables/table4.csv` |
 | Figure 2 | `figures/figure2_shifted_exponential.pdf` | `supporting_data/figure2_objective_grid.csv` |
-| Figure 3 | `figures/figure3_holten_h4.pdf` | `tables/holten_visser_vs_pyage.csv` |
+| Figure 3 | `figures/figure3_holten_h4.pdf` | `tables/holten_visser_vs_pyages.csv` |
 | Figure 4 | `figures/figure4_ploemeur_shifted_exponential.pdf` | `supporting_data/figure4_prediction_intervals.csv` |
+| Figure C1 | `figures/figureC1_holten_prior_sensitivity.pdf` | `tables/holten_prior_robustness_fractions.csv` |
 
 La Figure 1 est conceptuelle et ne dépend pas des simulations finales; son SVG
 versionné est néanmoins inclus pour que le jeu des figures soit complet.
@@ -678,13 +806,16 @@ versionné est néanmoins inclus pour que le jeu des figures soit complet.
 ## Statut scientifique encapsulé
 
 - Forward indépendant : {forward["case_count"]} cas, statut `{forward["status"]}`.
-- PyAge–TracerLPM : {tracerlpm["paired_cases"]} cas appariés,
-  {tracerlpm["pyage_successful"]} succès PyAge et
+- PyAges–TracerLPM : {tracerlpm["paired_cases"]} cas appariés,
+  {tracerlpm["pyages_successful"]} succès PyAges et
   {tracerlpm["tracerlpm_successful"]} succès TracerLPM.
 - Shifted exponential : {shifted["groups"]}/19 cas, split-Rhat maximal
   `{shifted["max_split_rhat"]:.5f}`, ESS minimal `{shifted["min_ess"]:.1f}`.
 - Holten H4 : {holten["groups"]}/7 puits, split-Rhat maximal
   `{holten["max_split_rhat"]:.5f}`, ESS minimal `{holten["min_ess"]:.1f}`.
+- Sensibilité Holten Dirichlet(1,1,1,1) : {holten_prior["groups"]}/7 puits,
+  split-Rhat maximal `{holten_prior["max_split_rhat"]:.5f}`, ESS minimal
+  `{holten_prior["min_ess"]:.1f}`; analyse distincte des résultats canoniques.
 - Ploemeur shifted exponential : {ploemeur["groups"]}/4 calibrations,
   split-Rhat maximal `{ploemeur["max_split_rhat"]:.5f}`, ESS minimal
   `{ploemeur["min_ess"]:.1f}`.
@@ -703,8 +834,8 @@ versionné est néanmoins inclus pour que le jeu des figures soit complet.
 - `provenance/` : manifests sources, code de génération et environnement.
 
 Les chaînes MCMC brutes ne sont pas dupliquées dans ce paquet éditorial. Elles
-restent dans les dossiers de la campagne et sont incluses dans l'archive GMD
-complète construite par `scripts.build_reproduction_archive`. Les résumés,
+restent dans les dossiers de la campagne et sont incluses dans l'archive GMD du
+noyau stabilisé construite par `scripts.build_reproduction_archive`. Les résumés,
 diagnostics et données tracées nécessaires à l'audit sont inclus ici.
 
 Les sources exactes enregistrées par chaque manifest d'exécution sont copiées
@@ -719,7 +850,7 @@ contre le SHA-256 historique; aucune provenance n'est réécrite rétroactivemen
 paquet depuis la racine du dépôt :
 
 ```powershell
-python -m scripts.build_article_package --validate-only results/article_package
+python -m scripts.build_article_package --validate-only <article-package>
 ```
 """
 
@@ -796,7 +927,10 @@ def build_package(
             "created_at": datetime.now(ZoneInfo("Europe/Paris")).isoformat(),
             "git_head": _git("rev-parse", "HEAD"),
             "git_dirty": bool(_git("status", "--short")),
-            "scope": "Publication-facing Table 4 and Figures 2–4 with audit support",
+            "scope": (
+                "Publication-facing Tables 3–4, Figures 1–4 and Figure C1 "
+                "prior-sensitivity evidence with audit support"
+            ),
             "raw_mcmc_chains_included": False,
             "scientific_summary": summary,
             "execution_source_audit": source_audit,
@@ -849,13 +983,23 @@ def replace_package(
 
 
 def main() -> int:
-    global ARTIFACTS, SOURCE_MANIFESTS
+    global ARTIFACTS, EXECUTION_SOURCE_ROOTS, SOURCE_MANIFESTS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument(
         "--campaign-root",
         type=Path,
         help="fresh campaign root containing all newly generated results",
+    )
+    parser.add_argument(
+        "--execution-source-root",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "worktree searched for byte-exact sources recorded by run manifests; "
+            "may be repeated"
+        ),
     )
     parser.add_argument("--validate-only", type=Path)
     parser.add_argument("--replace", action="store_true")
@@ -865,6 +1009,9 @@ def main() -> int:
         help="accept an existing package only after full hash validation",
     )
     args = parser.parse_args()
+    EXECUTION_SOURCE_ROOTS = tuple(
+        path.resolve() for path in args.execution_source_root
+    )
     if args.campaign_root is not None:
         ARTIFACTS = artifacts_for_campaign(args.campaign_root)
         SOURCE_MANIFESTS = source_manifests_for_campaign(args.campaign_root)
@@ -877,7 +1024,9 @@ def main() -> int:
         print(f"Reused valid package with {len(payload['artifacts'])} artifacts")
         return 0
     output = (
-        replace_package(args.output) if args.replace else build_package(args.output)
+        replace_package(args.output, ARTIFACTS)
+        if args.replace
+        else build_package(args.output, ARTIFACTS)
     )
     payload = validate_package(output)
     print(f"Built {output} with {len(payload['artifacts'])} verified artifacts")

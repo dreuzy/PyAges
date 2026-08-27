@@ -8,16 +8,16 @@ tests; they are intended for interactive use when validating workflows.
 Activate the environment first:
 
 ```bash
-conda activate pyage
+conda activate pyages
 ```
 
 Then run a script from the repository root, for example:
 
 ```bash
-pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
-pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
-pyage run examples/templates/quickstart_single.yaml
-pyage run --transient examples/templates/quickstart_temporal.yaml
+pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
+pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/templates/quickstart_single.yaml
+pyages run --transient examples/templates/quickstart_temporal.yaml
 python -m scripts.run_system_check
 python -m scripts.run_system_check --params configs/system_check.yaml
 python -m scripts.run_calibration_benchmark
@@ -28,16 +28,14 @@ python -m scripts.run_calibration_benchmark
 Single-date workflows (YAML-driven):
 
 ```bash
-pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
-pyage run examples/natural/fontainebleau/exemple_fontainebleau.yaml
-python -m examples.natural.fontainebleau.run_fontainebleau
+pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
 python -m examples.natural.holten.run_holten
 ```
 
 Temporal workflows (multi-date concentrations):
 
 ```bash
-pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 ## Output location
@@ -45,10 +43,10 @@ pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 Results are written under the configured results root. By default:
 
 ```
-<home>/results/PyAge
+<home>/results/PyAges
 ```
 
-You can override this with `PYAGE_RESULTS_DIR` (see the root `README.md`).
+You can override this with `PYAGES_RESULTS_DIR` (see the root `README.md`).
 
 ## Script overview
 
@@ -57,27 +55,34 @@ You can override this with `PYAGE_RESULTS_DIR` (see the root `README.md`).
 Use an output directory outside the repository:
 
 ```powershell
-python -m scripts.reproduce_article preflight --output C:\pyage-runs\article-v1
-python -m scripts.reproduce_article resume --output C:\pyage-runs\article-v1 --workers 6
+python -m scripts.reproduce_article preflight --output C:\pyages-runs\article-v1
+python -m scripts.reproduce_article resume --output C:\pyages-runs\article-v1 --workers 6
+python -m scripts.reproduce_article validate --output C:\pyages-runs\article-v1
 ```
 
 The workflow covers the independent forward cases, paired TracerLPM/Excel
 robustness campaign, shifted-exponential, Holten and Ploemeur campaigns,
-physical-IG conditioning, publication package, and complete hash-validated
-archive. `resume` reuses validated stages and individual chain/shard outputs.
-Canonical runs require a clean Git worktree; `--allow-dirty` is intended only
-for development checks.
+physical-IG conditioning, publication package, and hash-validated core archive.
+The Holten--Dirichlet prior-sensitivity case is included as a distinct robustness
+stage. `resume` reuses validated stages and individual chain/shard
+outputs. `validate` checks the fresh campaign manifest, expected stage files,
+package hashes, and archive hashes. Canonical runs require a clean Git worktree;
+`--allow-dirty` is intended only for development checks.
 
-- `pyage run`
+`python article/run_case.py check <case>` has a different purpose: it audits
+the optional historical `results/` inventory. Its result must not be used as
+the verdict for a fresh campaign.
+
+- `pyages run`
   Canonical single-date workflow (systematic sampling + calibration) driven by YAML.
-- `pyage.workflows.temporal`
+- `pyages.workflows.temporal`
   Canonical multi-date Metropolis-Hastings workflow, exposed by the CLI.
 - `run_system_check.py`
   Lightweight end-to-end sanity check (LPM generation, tracers, and plotting).
 - `run_calibration_benchmark.py`
   Compare Metropolis-Hastings and forward-uncertainty quantification runs.
 
-Windows-only wrappers are grouped under `scripts/windows/`. The complete entry
+Windows-only wrappers are grouped under `scripts/windows/`. The core entry
 point is `reproduce_article.bat OUTPUT_DIRECTORY`; per-campaign wrappers remain
 available for focused diagnostics.
 
@@ -93,7 +98,7 @@ available for focused diagnostics.
 3) Create a YAML config and run the launcher:
 
 ```bash
-pyage run examples/my_site/my_config.yaml
+pyages run examples/my_site/my_config.yaml
 ```
 
 Minimal YAML:
@@ -111,7 +116,7 @@ lpm:
 4) If the data contains multiple dates, use the temporal workflow:
 
 ```bash
-pyage run --transient examples/my_site/my_temporal.yaml
+pyages run --transient examples/my_site/my_temporal.yaml
 ```
 
 ```yaml
@@ -137,19 +142,19 @@ workflow:
 Use the canonical CLI generators:
 
 ```bash
-pyage new lpm <name> --base scipy
-pyage new tracer <name> [--with-decay] [--no-chronicle]
+pyages new lpm <name> --base scipy
+pyages new tracer <name> [--with-decay] [--no-chronicle]
 ```
 
-Run `pyage new lpm --help` or `pyage new tracer --help` for the complete
+Run `pyages new lpm --help` or `pyages new tracer --help` for the complete
 options. Complete the scientific definitions in the generated templates, then
-validate the installation with `pyage check`.
+validate the installation with `pyages check`.
 
 ---
 
 ## Expected outputs
 
-- Single-date workflow (`pyage run`)
+- Single-date workflow (`pyages run`)
   - Results under: `<results_root>/test_cases/<dataset_name>/`
   - Core calibration outputs:
     - `parameters_calibration.txt`
@@ -158,19 +163,22 @@ validate the installation with `pyage check`.
     - `lpm_histo_calibrated.txt`
     - `lpm_stats_calibrated.txt`
   - Plots/tables from concentration time displays, including:
-    - `concentration_times.png`
-    - `concentrations_all_models.txt`
-- `pyage run --transient`
+    - `Metropolis_Hastings/concentration_times.png`
+    - `Metropolis_Hastings/concentrations_all_models.txt`
+    - equivalent files below `forward_uncertainty_quantification/` when that
+      method is enabled
+- `pyages run --transient`
   - Results under:
-    `<results_root>/ploemeur_temporal/<dataset_stem>/<mode>/<date>/<lpm_type>/`
+    `<results_root>/<study_name>/<dataset_stem>/<mode>/<span_full-or-date>/<lpm_type>/`
+    (`study_name` defaults to `temporal`)
   - Core outputs:
     - `parameters_calibration.txt`
     - `results_calibration.txt`
     - `lpm_stats_calibrated.txt`
-    - `concentration_times.png`
-    - `concentrations_all_models.txt`
-    - `distributions.txt`
-    - `distributions_stats.txt`
+    - `Metropolis_Hastings/concentration_times.png`
+    - `Metropolis_Hastings/concentrations_all_models.txt`
+    - `Metropolis_Hastings/distributions.txt`
+    - `Metropolis_Hastings/distributions_stats.txt`
 - `run_system_check.py`
   - Results under: `<results_root>/test/<check_name>/<timestamp>/`
   - Diagnostic plots + console summaries of generated models/tracers.
@@ -187,11 +195,11 @@ validate the installation with `pyage check`.
   available (e.g., run from a local session, not a headless environment).
 
 - **Results are not written where expected**  
-  Check the `PYAGE_RESULTS_DIR` environment variable. If unset, results go to
-  `<home>/results/PyAge`.
+  Check the `PYAGES_RESULTS_DIR` environment variable. If unset, results go to
+  `<home>/results/PyAges`.
 
-- **`ModuleNotFoundError: pyage`**
-  Install the project once with `pip install -e .`, then use `pyage` or
+- **`ModuleNotFoundError: pyages`**
+  Install the project once with `pip install -e .`, then use `pyages` or
   `python -m ...` entry points.
 
 - **`FileNotFoundError` for data files**  

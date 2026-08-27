@@ -1,10 +1,10 @@
-# Citing PyAge
+# Citing PyAges
 
-For software functionality, cite the exact PyAge release used. The current
+For software functionality, cite the exact PyAges release used. The current
 software identity is `0.1.0b1`:
 
-> de Dreuzy, Jean-Raynald (2026). *PyAge: Groundwater Age Dating Toolkit*,
-> version 0.1.0b1. CeCILL 2.1. https://github.com/dreuzy/pyage
+> de Dreuzy, Jean-Raynald (2026). *PyAges: Groundwater Age Dating Toolkit*,
+> version 0.1.0b1. CeCILL 2.1. https://github.com/dreuzy/PyAges
 
 The machine-readable citation is `CITATION.cff` at the repository root. It is
 kept synchronized with the package version and changelog by automated tests.
@@ -17,7 +17,7 @@ page must be updated together.
 
 For results generated from `main` or from a manuscript campaign, report both:
 
-1. the released PyAge version that provides the supported functionality; and
+1. the released PyAges version that provides the supported functionality; and
 2. the exact Git commit and environment recorded in `result_manifest.json` or
    the article case manifest.
 

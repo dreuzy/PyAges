@@ -1,9 +1,15 @@
 # Audit approfondi de la documentation et reste à faire
 
+> **Mise à jour d'état au 27 août 2026.** Ce rapport est conservé comme trace
+> datée. Les constats « campagne fraîche absente » et « paquet article absent »
+> ont été dépassés. Voir {doc}`reproduction_campaign_status_2026-08-27` : les
+> contrôles historiques restent à 0/6, mais la campagne fraîche du noyau
+> stabilisé valide ses 8/8 étapes, son paquet et son archive locale.
+
 **Date de l'audit :** 26 août 2026
 **Dépôt audité :** commit `17b38579a616f899944441f73d52f9780655648a`
 avec arbre de travail non propre
-**Manuscrit de référence :** `PyAge_v1.0_revised_v14.docx`, 2 099 504
+**Manuscrit de référence :** `PyAges_v1.0_revised_v14.docx`, 2 099 504
 octets, SHA-256
 `5e4eca7fc2ec32fe92f86940d5e5a0900f18ac359baf4656c6201a33dc864711`
 
@@ -160,7 +166,7 @@ correct même si le calcul externe est terminé.
 
 La révision v14 définit sans ambiguïté :
 
-- **Table 3** : comparaison PyAge--TracerLPM ;
+- **Table 3** : comparaison PyAges--TracerLPM ;
 - **Table 4** : 19 cas shifted exponential.
 
 Le registre et les pages scientifiques utilisent cette numérotation. Après
@@ -209,13 +215,18 @@ Atteindre artificiellement 100 % n'est donc pas une priorité scientifique.
 L'identité de paquet est cohérente entre le code, les métadonnées et
 `CITATION.cff` : `0.1.0b1`, statut beta. Aucun DOI fictif n'est présent.
 
-Le dépôt contient néanmoins un tag historique `1.0` au commit `de835be`, daté
-du 17 janvier 2026, avec le message « VERSION AVANT REFACTORING COMPLET ». Il
-est ancêtre du code courant et ne correspond ni à la beta `0.1.0b1`, ni au
-futur artefact stable visé par le manuscrit. La documentation le précise
-maintenant. Avant publication, il faut décider et appliquer une seule identité
-stable, recommandée ici comme `v1.0.0`, puis faire correspondre exactement le
-tag, le paquet, l'archive, le DOI, `CITATION.cff` et le texte de disponibilité.
+Le dépôt contenait alors un tag historique `1.0`, objet Git `de835be`, daté du
+17 janvier 2026 et visant le commit `5af69268`, avec le message « VERSION AVANT
+REFACTORING COMPLET ». Il est ancêtre du code courant et ne correspond ni à la
+beta `0.1.0b1`, ni au futur artefact stable visé par le manuscrit. Avant
+publication, il faut décider et appliquer une seule identité stable,
+recommandée ici comme `v1.0.0`, puis faire correspondre exactement le tag, le
+paquet, l'archive, le DOI, `CITATION.cff` et le texte de disponibilité.
+
+> **Mise à jour du 27 août 2026 :** ce tag ambigu a été supprimé. Son ancienne
+> cible reste traçable par le commit
+> `5af69268da4ed1e22cc5307eac8d6f46522f8ade`. Le nom `v1.0.0` reste réservé à
+> la future publication stable.
 
 ## Contrôles techniques
 
@@ -224,8 +235,8 @@ tag, le paquet, l'archive, le DOI, `CITATION.cff` et le texte de disponibilité.
 | suite Python standard | 594 passed, 5 skipped |
 | tests de l'adaptateur TracerLPM | 55 passed |
 | construction .NET x64 | réussite, 0 avertissement, 0 erreur |
-| contrôle CLI par `python -m pyage.cli.main` | 10/10 contrôles, 12 LPM, 13 traceurs, version `0.1.0b1` |
-| commande console `pyage` dans l'environnement courant | absente du `PATH`; elle devra être testée depuis la roue installée |
+| contrôle CLI par `python -m pyages.cli.main` | 10/10 contrôles, 12 LPM, 13 traceurs, version `0.1.0b1` |
+| commande console `pyages` dans l'environnement courant | absente du `PATH`; elle devra être testée depuis la roue installée |
 | HTML Sphinx strict (`-E -a -W --keep-going`) | réussite, 66 sources, sortie `docs/_build/deep-doc-audit-20260826/` |
 | liens Sphinx stricts | réussite après contrôle de tous les liens ; quatre DOI Wiley valides sont exclus URL par URL pour réponse robot 403, cinq redirections valides sont consignées |
 | `ruff check` | réussite après correction des changements audités |
@@ -299,8 +310,8 @@ la matrice de dépendances de publication.
   portabilité de la reproduction.
 - Ne pas renommer rétroactivement des artefacts historiques sans table de
   correspondance et empreintes.
-- Ne pas publier le tag historique `1.0` comme s'il s'agissait du futur
-  `v1.0.0`.
+- Ne pas recréer le tag historique `1.0`; réserver `v1.0.0` à l'artefact stable
+  effectivement qualifié.
 
 ## Critère de clôture recommandé
 

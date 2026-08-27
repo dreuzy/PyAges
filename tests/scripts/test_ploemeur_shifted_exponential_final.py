@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 from types import SimpleNamespace
 
 import pandas as pd
@@ -30,7 +34,7 @@ def test_tracer_fit_preserves_duplicate_observations_and_float_roundtrip(
     monkeypatch.setattr(runner, "CASES", (case,))
     monkeypatch.setattr(runner, "TRACERS", ("cfc11",))
     monkeypatch.setattr(
-        runner, "_observations", lambda unused_case: SimpleNamespace(cv=observations)
+        runner, "_observations", lambda unused_case: SimpleNamespace(frame=observations)
     )
 
     result = runner._tracer_fit_diagnostics(tmp_path, intervals)

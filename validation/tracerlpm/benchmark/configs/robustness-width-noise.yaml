@@ -30,7 +30,7 @@ case_matrices:
     model: EPM
     tau_values: [20.0]
     secondary_parameter:
-      # TracerLPM expose r, tandis que PyAge utilise eta = 1 + r.
+      # TracerLPM expose r, tandis que PyAges utilise eta = 1 + r.
       display_name: r
       model_parameter: eta
       model_offset: 1.0
@@ -61,7 +61,7 @@ case_matrices:
     initial_values: [[5.0, 0.02], [20.0, 0.02], [20.0, 0.2], [20.0, 1.0], [80.0, 0.2]]
 
 objective:
-  # PyAge emploie pour chaque cas le même écart type relatif que celui injecté.
+  # PyAges emploie pour chaque cas le même écart type relatif que celui injecté.
   relative_standard_deviation: match_noise
   # Plancher numérique pour les concentrations proches de zéro.
   absolute_floor_fraction_of_tracer_maximum: 0.000001

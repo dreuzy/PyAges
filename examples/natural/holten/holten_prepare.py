@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Preparation utilities for the Holten benchmark workflow.
 """
@@ -20,7 +24,7 @@ from examples.natural.holten.holten_case import (
     load_yaml,
     tracer_yaml_path,
 )
-from pyage.tracer.decay import rate_from_config
+from pyages.tracer.decay import rate_from_config
 
 VALID_TRACERS = ("3H", "kr85", "39Ar")
 TRACER_REQUIRED_SECTIONS = {

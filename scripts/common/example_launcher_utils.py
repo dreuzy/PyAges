@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Shared helpers for generated single-date launcher configurations.
 """
@@ -9,7 +13,7 @@ import copy
 from pathlib import Path
 from typing import Any
 
-from pyage.config.models import LauncherConfig
+from pyages.config.models import LauncherConfig
 from scripts.common.example_case_utils import deep_update
 
 

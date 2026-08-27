@@ -1,13 +1,13 @@
 # Adding a New Tracer
 
-This guide explains how to add a new environmental tracer to PyAge. Tracers are chemical species with known atmospheric histories used for groundwater age dating.
+This guide explains how to add a new environmental tracer to PyAges. Tracers are chemical species with known atmospheric histories used for groundwater age dating.
 
 ## Quick Method: Use the Template Generator
 
 The easiest way to create a new tracer is with the template generator:
 
 ```bash
-pyage new tracer <name> [--with-decay] [--no-chronicle] [-o <output_dir>]
+pyages new tracer <name> [--with-decay] [--no-chronicle] [-o <output_dir>]
 ```
 
 **Options:**
@@ -19,13 +19,13 @@ pyage new tracer <name> [--with-decay] [--no-chronicle] [-o <output_dir>]
 
 ```bash
 # Standard atmospheric tracer
-pyage new tracer krypton85
+pyages new tracer krypton85
 
 # Radioactive tracer
-pyage new tracer argon39 --with-decay
+pyages new tracer argon39 --with-decay
 
 # Constant-recharge tracer
-pyage new tracer synthetic --no-chronicle
+pyages new tracer synthetic --no-chronicle
 ```
 
 This creates:
@@ -88,8 +88,8 @@ date,concentration
 ### Step 4: Test the Tracer
 
 ```python
-from pyage.config.paths import DIRECTORY_TRACER_DATA
-from pyage.tracer.tracer_root import Tracer
+from pyages.config.paths import DIRECTORY_TRACER_DATA
+from pyages.tracer.tracer_root import Tracer
 
 tracer = Tracer(DIRECTORY_TRACER_DATA, name="mytracer")
 print(f"Name: {tracer.name}")
@@ -370,7 +370,7 @@ C_prod = (production_rate / β) × (1 - exp(-βτ))  (with decay)
 
 - Check directory name matches tracer name
 - Verify YAML file is named `<tracer>/<tracer>.yaml`
-- Run `pyage check` and `pyage list tracers`.
+- Run `pyages check` and `pyages list tracers`.
 
 ### "FileNotFoundError: recharge.csv"
 

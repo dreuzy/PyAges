@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 from __future__ import annotations
 
 import os
@@ -7,7 +11,7 @@ from pathlib import Path
 from pygments.lexers.special import TextLexer
 from sphinx.highlighting import lexers
 
-from pyage import __version__
+from pyages import __version__
 
 DOCS_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = DOCS_ROOT.parent
@@ -22,7 +26,7 @@ project_metadata = tomllib.loads(
     (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
 )["project"]
 
-project = "PyAge"
+project = "PyAges"
 author = ", ".join(
     author_data["name"] for author_data in project_metadata.get("authors", [])
 )
@@ -95,7 +99,7 @@ napoleon_google_docstring = True
 napoleon_numpy_docstring = True
 napoleon_use_ivar = True
 
-html_title = "PyAge documentation"
+html_title = "PyAges documentation"
 html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
 html_show_sourcelink = True
 html_static_path = ["_static"]
@@ -105,7 +109,7 @@ github_version = os.environ.get("READTHEDOCS_GIT_COMMIT_HASH", "").strip() or "m
 html_context = {
     "display_github": True,
     "github_user": "dreuzy",
-    "github_repo": "pyage",
+    "github_repo": "PyAges",
     "github_version": github_version,
     "conf_py_path": "/docs/",
 }
@@ -115,6 +119,7 @@ html_context = {
 # user-facing DOI while excluding only the known bot-blocked endpoints; all
 # other external links remain checked. Retry transient failures before
 # reporting them as broken.
+linkcheck_timeout = 10
 linkcheck_retries = 3
 linkcheck_report_timeouts_as_broken = False
 linkcheck_ignore = [

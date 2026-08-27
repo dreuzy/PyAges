@@ -1,11 +1,15 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Contracts for tracer-grid settings and cache invalidation."""
 
 import numpy as np
 import pytest
 
-from pyage.convolution.convolution import Convolution
-from pyage.convolution.settings import TracerGridSettings
-from pyage.tracer.tracer_protocol import ConstantTracer
+from pyages.convolution.convolution import Convolution
+from pyages.convolution.settings import TracerGridSettings
+from pyages.tracer.tracer_protocol import ConstantTracer
 
 
 class _IncompleteTracer:

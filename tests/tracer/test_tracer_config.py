@@ -1,11 +1,15 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Contracts for typed tracer configuration loading."""
 
 from __future__ import annotations
 
 import pytest
 
-from pyage.tracer.config import TracerConfig, load_tracer_config
-from pyage.tracer.errors import TracerConfigError, TracerDataError
+from pyages.tracer.config import TracerConfig, load_tracer_config
+from pyages.tracer.errors import TracerConfigError, TracerDataError
 
 
 def test_mapping_is_normalized_and_metadata_is_ignored() -> None:

@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Shared helpers for the HYP-26-0172 experiment matrix."""
 
 from __future__ import annotations
@@ -109,7 +113,7 @@ def input_files(row: dict[str, str], params_path: Path) -> Iterable[Path]:
 def source_files() -> Iterable[Path]:
     """Yield source files that define the numerical workflow."""
     yield REPO_ROOT / "pyproject.toml"
-    for relative_root in ("pyage", "scripts", "sites/ploemeur"):
+    for relative_root in ("pyages", "scripts", "sites/ploemeur"):
         root = REPO_ROOT / relative_root
         yield from sorted(root.rglob("*.py"))
 

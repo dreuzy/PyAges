@@ -1,6 +1,6 @@
 # Code of conduct
 
-PyAge contributors and maintainers are expected to keep project spaces
+PyAges contributors and maintainers are expected to keep project spaces
 professional, constructive, and welcoming.
 
 Acceptable participation includes respectful technical disagreement, clear

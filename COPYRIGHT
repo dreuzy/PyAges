@@ -1,0 +1,21 @@
+PyAges copyright and authorship notice
+
+Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+
+The Centre national de la recherche scientifique (CNRS) is the sole holder
+of the economic rights in the original PyAges software and its associated
+documentation.
+
+Principal author and contributor:
+Jean-Raynald de Dreuzy
+
+The PyAges software and its associated documentation are distributed under
+the CeCILL 2.1 license. See LICENSE (French) and LICENSE.en (English) for the
+complete authoritative license terms.
+
+Third-party data and other non-software material are not relicensed by this
+notice. Their provenance, attribution, and applicable terms are documented
+separately in NOTICE-DATA.md and in any notices accompanying those materials.
+
+Third-party dependencies are not relicensed by this notice. The direct
+dependency audit is recorded in THIRD_PARTY_NOTICES.md.

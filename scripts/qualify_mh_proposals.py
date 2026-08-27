@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Qualify fixed MH proposals for the shifted-exponential article cases.
 
 This driver is deliberately restricted to the four synthetic Table 3 pilot
@@ -29,18 +33,18 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pyage.calibration.methods.metropolis_hastings import (  # noqa: E402
+from pyages.calibration.methods.metropolis_hastings import (  # noqa: E402
     MetropolisHastings,
     MHConfig,
 )
-from pyage.calibration.mh_proposals import (  # noqa: E402
+from pyages.calibration.mh_proposals import (  # noqa: E402
     regularize_empirical_covariance,
     sum_difference_log_abs_det_jacobian,
 )
-from pyage.calibration.problem import CalibrationProblem  # noqa: E402
-from pyage.config.runtime import DisplayOptions  # noqa: E402
-from pyage.convolution import ConvolutionTracers  # noqa: E402
-from pyage.lpm.lpm_build import lpm_build  # noqa: E402
+from pyages.calibration.problem import CalibrationProblem  # noqa: E402
+from pyages.config.runtime import DisplayOptions  # noqa: E402
+from pyages.convolution import ConvolutionTracers  # noqa: E402
+from pyages.lpm import build_lpm  # noqa: E402
 
 OUTPUT = ROOT / "results" / "mh_proposal_qualification"
 CASES = (
@@ -159,7 +163,7 @@ def _display(output: Path) -> DisplayOptions:
 
 
 def _model(mu: float, t0: float):
-    model = lpm_build("exp_shifted", directory_lpm=str(ROOT / "data_core" / "data_lpm"))
+    model = build_lpm("exp_shifted", directory_lpm=str(ROOT / "data_core" / "data_lpm"))
     model.p.update({"mu": mu, "shift": t0})
     return model
 
@@ -167,7 +171,7 @@ def _model(mu: float, t0: float):
 def _observations(mu: float, t0: float):
     tracers = ConvolutionTracers(names=list(TRACERS), date=DATE)
     observations = tracers.convolve(_model(mu, t0), return_type="concentrations")
-    observations.error_affect_from_value(0.08)
+    observations.set_relative_errors(0.08)
     return observations
 
 
@@ -290,9 +294,9 @@ def _sha256(path: Path) -> str:
 def write_preflight(output: Path) -> Path:
     files = (
         ROOT / "scripts" / "qualify_mh_proposals.py",
-        ROOT / "pyage" / "calibration" / "mh_proposals.py",
-        ROOT / "pyage" / "calibration" / "methods" / "metropolis_hastings.py",
-        ROOT / "pyage" / "calibration" / "methods" / "trajectory.py",
+        ROOT / "pyages" / "calibration" / "mh_proposals.py",
+        ROOT / "pyages" / "calibration" / "methods" / "metropolis_hastings.py",
+        ROOT / "pyages" / "calibration" / "methods" / "trajectory.py",
         ROOT / "data_core" / "data_lpm" / "exp_shifted" / "params.yaml",
     )
 
@@ -766,9 +770,9 @@ def analyze(output: Path, steps: int = PRODUCTION_STEPS) -> dict[str, Path]:
     write_report(output, best_name, ranking, runs, comparisons)
     manifest_sources = (
         ROOT / "scripts" / "qualify_mh_proposals.py",
-        ROOT / "pyage" / "calibration" / "mh_proposals.py",
-        ROOT / "pyage" / "calibration" / "methods" / "metropolis_hastings.py",
-        ROOT / "pyage" / "calibration" / "methods" / "trajectory.py",
+        ROOT / "pyages" / "calibration" / "mh_proposals.py",
+        ROOT / "pyages" / "calibration" / "methods" / "metropolis_hastings.py",
+        ROOT / "pyages" / "calibration" / "methods" / "trajectory.py",
         ROOT / "data_core" / "data_lpm" / "exp_shifted" / "params.yaml",
         ROOT / "tests" / "calibration" / "test_mh_proposals.py",
         ROOT / "tests" / "scripts" / "test_qualify_mh_proposals.py",

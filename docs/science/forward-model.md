@@ -1,6 +1,6 @@
 # Forward Model and Tracer Conventions
 
-This page explains the assumptions needed to interpret a PyAge forward
+This page explains the assumptions needed to interpret a PyAges forward
 calculation. The exact finite-window equation, integration formula, adaptive
 tolerances, boundary behavior, and code links are defined once in the
 normative {doc}`../scientific-methods` reference. Configuration examples and
@@ -8,9 +8,9 @@ file schemas are documented in {doc}`../user-guide/configuration`.
 
 ## Lumped-parameter formulation
 
-For a sample collected at time $t$, PyAge combines the tracer response for
+For a sample collected at time $t$, PyAges combines the tracer response for
 water recharged at $t-\tau$ with the LPM probability measure of transit time
-$\tau$. PyAge assumes a **stationary** transit-time distribution: its
+$\tau$. PyAges assumes a **stationary** transit-time distribution: its
 parameters do not change with sampling date within one calibration. The
 implemented integral is limited by the available input-history window; it is
 not an abstract infinite-domain integral with automatic tail renormalization.
@@ -45,7 +45,7 @@ Time-series recharge histories are linearly interpolated inside their declared
 date range and return zero outside that range. Constant-recharge tracers use the
 configured value for every evaluated recharge date.
 
-PyAge records unit metadata but does not perform physical unit conversion.
+PyAges records unit metadata but does not perform physical unit conversion.
 Observations, uncertainties, and tracer input histories must therefore be
 prepared on mutually consistent scales before calibration. In particular,
 the distributed CFC and SF6 histories are atmospheric-equivalent mixing ratios;

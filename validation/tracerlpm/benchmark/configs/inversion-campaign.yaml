@@ -2,7 +2,7 @@
 campaign_id: tracerlpm-inversion-pilot-v1
 observation_year: 2020.0
 
-# Les chemins sont relatifs à la racine du dépôt PyAge.
+# Les chemins sont relatifs à la racine du dépôt PyAges.
 tracers:
   - name: cfc11
     recharge: data_core/data_tracer/cfc11/recharge.csv
@@ -15,7 +15,7 @@ tracers:
     unit: pptv
 
 
-# Les observations sont calculées par scripts/reference.py, sans appeler PyAge
+# Les observations sont calculées par scripts/reference.py, sans appeler PyAges
 # ni le XLL TracerLPM.
 cases:
   - case_id: inversion-emm-tau20-no-noise
@@ -32,7 +32,7 @@ cases:
     model: EPM
     true_parameters:
       tau: 20.0
-      eta: 3.0              # eta PyAge = 1 + ratio TracerLPM r
+      eta: 3.0              # eta PyAges = 1 + ratio TracerLPM r
     bounds:
       tau: [0.1, 200.0]
       eta: [1.01, 11.0]     # équivaut à r dans [0.01, 10]

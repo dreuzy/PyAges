@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 from __future__ import annotations
 
 import pytest
@@ -18,7 +22,7 @@ from examples.natural.holten.run_holten import (
     _run_calibration_phase,
     write_prepared_artifacts,
 )
-from pyage.workflows.single_date_config import load_params
+from pyages.workflows.single_date_config import load_params
 from tests.examples.holten_test_support import (
     EXPECTED_PRE_MODEL_FIGURES,
     EXPECTED_SELECTED_WELLS,

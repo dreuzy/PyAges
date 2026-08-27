@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Stabilized Ploemeur physical shifted-IG article campaign.
 
 This runner intentionally limits the experiment to F09 and F11.  It uses the
@@ -41,18 +45,18 @@ from scipy.stats import invgauss
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from pyage.calibration.methods.prior import (
+from pyages.calibration.methods.prior import (
     make_prior_expo,
 )
-from pyage.calibration.ig_parameterization import (
+from pyages.calibration.ig_parameterization import (
     physical_moments_to_scipy,
     physical_to_scipy_coordinates,
     scipy_to_physical_coordinates,
     scipy_to_physical_moments,
 )
-from pyage.calibration.mh_proposals import regularize_empirical_covariance
-from pyage.calibration.problem import CalibrationProblem
-from pyage.concentrations.concentrations import Concentrations
+from pyages.calibration.mh_proposals import regularize_empirical_covariance
+from pyages.calibration.problem import CalibrationProblem
+from pyages.concentrations import Concentrations
 from scripts.common.mcmc_diagnostics import (
     ess as _ess,
     rank_normalize as _rank_normalize,
@@ -71,9 +75,16 @@ BENCHMARK_LPM = ROOT / "sites" / "ploemeur" / "benchmarks" / BENCHMARK_NAME / "d
 ORI_DIRECTORY = ROOT / "sites" / "ploemeur" / "data" / "ori"
 PARAMETERS = ("M", "S", "t0", "a", "s", "t50")
 SEEDS = (12345, 24680, 54321, 97531, 86420)
-PILOT_STEPS = int(os.environ.get("PYAGE_PLOEMEUR_IG_PILOT_STEPS", "1200"))
-PRODUCTION_STEPS = int(os.environ.get("PYAGE_PLOEMEUR_IG_PRODUCTION_STEPS", "12000"))
-PRODUCTION_WARMUP = int(os.environ.get("PYAGE_PLOEMEUR_IG_WARMUP_STEPS", "2000"))
+PILOT_STEPS = int(os.environ.get("PYAGES_PLOEMEUR_IG_PILOT_STEPS", "1200"))
+PRODUCTION_STEPS = int(os.environ.get("PYAGES_PLOEMEUR_IG_PRODUCTION_STEPS", "12000"))
+PRODUCTION_WARMUP = int(os.environ.get("PYAGES_PLOEMEUR_IG_WARMUP_STEPS", "2000"))
+AUTO_EXTENSION_STEPS = int(
+    os.environ.get("PYAGES_PLOEMEUR_IG_AUTO_EXTENSION_STEPS", "12000")
+)
+MAX_AUTO_EXTENSIONS = int(os.environ.get("PYAGES_PLOEMEUR_IG_MAX_AUTO_EXTENSIONS", "6"))
+MAX_FULL_SERIES_RETAINED_DRAWS = (
+    PRODUCTION_STEPS - PRODUCTION_WARMUP + MAX_AUTO_EXTENSIONS * AUTO_EXTENSION_STEPS
+)
 MIN_ESS = 300.0
 MAX_RHAT = 1.01
 
@@ -98,13 +109,13 @@ def _load_observations(
     observations = Concentrations.from_file(OBSERVATIONS[well])
     if interval is not None:
         start, end = interval
-        frame = observations.cv.loc[
-            observations.cv["date"].between(start, end, inclusive="both")
+        frame = observations.frame.loc[
+            observations.frame["date"].between(start, end, inclusive="both")
         ]
         observations = Concentrations.from_dataframe(frame)
-    observations.cv["unit"] = "pptv"
-    observations.error_affect_from_value(0.2)
-    if set(observations.names()) != {"cfc11", "cfc12", "cfc113"}:
+    observations.frame["unit"] = "pptv"
+    observations.set_relative_errors(0.2)
+    if set(observations.tracer_names()) != {"cfc11", "cfc12", "cfc113"}:
         raise RuntimeError(f"Unexpected tracer set for {well}")
     return observations
 
@@ -124,8 +135,8 @@ def _prepare_problem(well: str, interval: tuple[float, float] | None):
 def _bootstrap_samples(well: str, interval: tuple[float, float] | None) -> pd.DataFrame:
     """Build deterministic, data-informed starts without archived posteriors."""
     problem, observations = _prepare_problem(well, interval)
-    observed = observations.cv["concentration"].to_numpy(dtype=float)
-    errors = observations.cv["error"].to_numpy(dtype=float)
+    observed = observations.frame["concentration"].to_numpy(dtype=float)
+    errors = observations.frame["error"].to_numpy(dtype=float)
     rows = []
     for shape in (0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 25.0, 60.0):
         for scale in (0.5, 1.0, 2.0, 4.0, 8.0, 15.0, 25.0):
@@ -194,8 +205,8 @@ def _conditional_log_prior(params: np.ndarray, spec: dict[str, list[float]]) -> 
 
 def _run_chain_worker(payload: dict[str, Any]) -> ChainResult:
     problem, observations = _prepare_problem(payload["well"], payload["interval"])
-    observed = observations.cv["concentration"].to_numpy(dtype=float)
-    errors = observations.cv["error"].to_numpy(dtype=float)
+    observed = observations.frame["concentration"].to_numpy(dtype=float)
+    errors = observations.frame["error"].to_numpy(dtype=float)
     conditional = payload.get("conditional_prior")
 
     def evaluate(params: np.ndarray) -> tuple[float, float]:
@@ -642,6 +653,40 @@ def extend_full_series(well: str, extension_steps: int) -> bool:
     return _write_full_series_gate()
 
 
+def _auto_extend_failed_full_series() -> bool:
+    """Continue only failed full-series chains, with a bounded stopping rule."""
+    gate_path = OUTPUT / "full_series_gate.json"
+    for attempt in range(1, MAX_AUTO_EXTENSIONS + 1):
+        gate = json.loads(gate_path.read_text(encoding="utf-8"))
+        failed = [
+            well for well, status in gate["wells"].items() if not bool(status["passed"])
+        ]
+        if not failed:
+            return True
+        eligible = []
+        for well in failed:
+            retained = _load_stage_chains("full_series", well).shape[1]
+            remaining = MAX_FULL_SERIES_RETAINED_DRAWS - retained
+            if remaining <= 0:
+                print(
+                    f"[{well} full_series] automatic extension limit reached at "
+                    f"{retained} retained draws",
+                    flush=True,
+                )
+                continue
+            eligible.append((well, min(AUTO_EXTENSION_STEPS, remaining)))
+        if not eligible:
+            return False
+        print(
+            f"Automatic full-series extension {attempt}/{MAX_AUTO_EXTENSIONS}: "
+            f"{eligible}",
+            flush=True,
+        )
+        for well, extension_steps in eligible:
+            extend_full_series(well, extension_steps)
+    return bool(json.loads(gate_path.read_text(encoding="utf-8"))["passed"])
+
+
 def run_conditioned(*, resume: bool = False) -> None:
     gate = json.loads((OUTPUT / "full_series_gate.json").read_text(encoding="utf-8"))
     if not gate["passed"]:
@@ -732,8 +777,8 @@ def _distribution_verification() -> pd.DataFrame:
                 scale=row.M**3 / row.S**2,
             )
             problem, observations = _prepare_problem(well, (2014.0, 2016.0))
-            observed = observations.cv["concentration"].to_numpy(dtype=float)
-            errors = observations.cv["error"].to_numpy(dtype=float)
+            observed = observations.frame["concentration"].to_numpy(dtype=float)
+            errors = observations.frame["error"].to_numpy(dtype=float)
             _, concentrations = problem.objective_function(
                 [row.M, row.S, row.t0], observed, errors, return_concentrations=True
             )
@@ -901,6 +946,9 @@ def _manifest(results: pd.DataFrame) -> None:
             "pilot_steps": PILOT_STEPS,
             "production_steps": PRODUCTION_STEPS,
             "warmup_steps": PRODUCTION_WARMUP,
+            "automatic_full_series_extension_steps": AUTO_EXTENSION_STEPS,
+            "maximum_automatic_full_series_extensions": MAX_AUTO_EXTENSIONS,
+            "maximum_full_series_retained_draws": MAX_FULL_SERIES_RETAINED_DRAWS,
             "chains": len(SEEDS),
             "seeds": list(SEEDS),
             "initialization": "deterministic prior-coordinate grid ranked by objective",
@@ -922,13 +970,15 @@ def _validate_run_lengths() -> None:
         raise ValueError("Pilot/warm-up lengths are invalid")
     if PRODUCTION_STEPS - PRODUCTION_WARMUP < 1000:
         raise ValueError("At least 1000 retained production draws are required")
+    if AUTO_EXTENSION_STEPS < 1000 or MAX_AUTO_EXTENSIONS < 1:
+        raise ValueError("Automatic extension controls are invalid")
 
 
 def _run_selected_stage(
     args: argparse.Namespace, parser: argparse.ArgumentParser
 ) -> None:
     if args.stage == "resume":
-        if not run_full_series(resume=True):
+        if not run_full_series(resume=True) and not _auto_extend_failed_full_series():
             print("Full-series gate failed; stopping before conditioning.", flush=True)
             raise SystemExit(2)
         run_conditioned(resume=True)

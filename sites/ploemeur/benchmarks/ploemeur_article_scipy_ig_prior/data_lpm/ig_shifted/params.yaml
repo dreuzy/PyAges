@@ -3,7 +3,7 @@ version: 1
 
 # Benchmark-only rectangular envelope of the transformed article support.
 # The named joint prior applies the curvilinear shape/scale support. Generic
-# PyAge/Ploemeur inverse-Gaussian defaults are intentionally unchanged.
+# PyAges/Ploemeur inverse-Gaussian defaults are intentionally unchanged.
 parameters:
   - name: mu
     label: physical_mean

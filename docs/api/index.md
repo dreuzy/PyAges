@@ -1,71 +1,51 @@
 # Selected API reference
 
-This reference separates the supported user surface from contributor and
-research interfaces. Presence in the second group does not create a
-compatibility promise. The definitive policy is
-{doc}`../reference/public-api`.
+This reference covers supported entry points and a small number of contributor
+interfaces needed to extend the scientific core. The definitive compatibility
+promise is {doc}`../reference/public-api`.
 
-## Supported public Python API
-
-The command-line contract is documented separately in
-{doc}`../user-guide/cli-flags`.
-
-Within the module pages below, the compatibility contract covers
-`pyage.lpm.lpm_build.lpm_build`,
-`pyage.lpm.core.registry.list_available_lpms`,
-`pyage.tracer.tracer_root.Tracer`, and
-`pyage.concentrations.concentrations.Concentrations` as specified in
-{doc}`../reference/public-api`.
+## Core packages
 
 ```{eval-rst}
 .. autosummary::
    :toctree: generated
 
-   pyage.__version__
-   pyage.config
-   pyage.convolution
-   pyage.convolution.DEFAULT_TRACER_GRID_SETTINGS
-   pyage.lpm.lpm_build
-   pyage.tracer.tracer_root
-   pyage.concentrations.concentrations
+   pyages.config
+   pyages.config.loading
+   pyages.calibration.methods.base
+   pyages.calibration.outputs
+   pyages.calibration.problem
+   pyages.calibration.utils.parameter_grid
+   pyages.calibration.utils.systematic_sampling
+   pyages.convolution
+   pyages.lpm.factory
+   pyages.lpm.core.lpm_base
+   pyages.lpm.samples.table
+   pyages.lpm.core.parameter_manager
+   pyages.lpm.core.registry
+   pyages.tracer.tracer_protocol
+   pyages.tracer.config
+   pyages.tracer.tracer_root
+   pyages.concentrations
+   pyages.concentrations.chronicles
+   pyages.calibration.methods.metropolis_hastings
+   pyages.calibration.methods.prior
+   pyages.calibration.methods.trajectory
 ```
 
-## Contributor and research interfaces
-
-These objects support extensions, repository workflows, and internal
-qualification. They may evolve without the deprecation policy applied to the
-supported surface above.
+## I/O, CLI, and site integration
 
 ```{eval-rst}
 .. autosummary::
    :toctree: generated
 
-   pyage.calibration.problem
-   pyage.calibration.utils.parameter_grid
-   pyage.calibration.utils.systematic_sampling
-   pyage.observations
-   pyage.lpm.core.lpm_base
-   pyage.lpm.core.lpm_dist
-   pyage.lpm.core.registry
-   pyage.tracer.tracer_protocol
-   pyage.tracer.config
-   pyage.concentrations.concentrations_time
-   pyage.calibration.methods.metropolis_hastings
-   pyage.calibration.methods.prior
-   pyage.calibration.methods.trajectory
-```
-
-### I/O, CLI implementation, and site integration
-
-```{eval-rst}
-.. autosummary::
-   :toctree: generated
-
-   pyage.data_io.lpm_params
-   pyage.data_io.lpm_results
-   pyage.data_io.lpm_distribution
-   pyage.cli.main
-   pyage.site.base_site
+   pyages.data_io.lpm_params
+   pyages.data_io.lpm_results
+   pyages.data_io.lpm_distribution
+   pyages.cli.main
+   pyages.site.base_site
+   pyages.workflows
+   pyages.workflows.result_manifest
 ```
 
 ```{toctree}

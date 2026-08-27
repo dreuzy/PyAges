@@ -1,7 +1,7 @@
 # Scientific Scope of the Field Benchmarks
 
 These pages summarize the assumptions needed to interpret the two field
-benchmarks in the PyAge v1.0 manuscript. They are demonstrations of the
+benchmarks in the PyAges v1.0 manuscript. They are demonstrations of the
 documented workflows, not universally applicable preprocessing recipes.
 
 ## Holten H4
@@ -37,14 +37,11 @@ is distinct from the generic finite-bin `shapefree_n_oldbin` LPM. The maintained
 example layout is described in {doc}`../examples/holten/README`.
 
 The manuscript discusses a sensitivity experiment using a
-Dirichlet(1,1,1,1) prior. The maintainer reports that this campaign has been
-completed in a separate workstream. Its evidence has not yet been imported
-into this checkout: the registry therefore still says `unvalidated`, the
-historical chains and outputs are absent locally, and the recorded runner
-checksum differs from the current script. No duplicate rerun is required if
-the external campaign is complete; the remaining step is to import its
-immutable manifest, outputs, diagnostics, and checksums and then review the
-manuscript conclusion against that evidence.
+Dirichlet(1,1,1,1) prior. The fresh external campaign now includes its immutable
+manifest, retained chains, diagnostics and Figure C1. All diagnostic groups pass
+the registered split-Rhat and ESS thresholds. This evidence remains a distinct
+robustness analysis and does not replace the canonical latent-logit-uniform
+Holten campaign.
 
 ## Ploemeur
 

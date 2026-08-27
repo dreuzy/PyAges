@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Keep the hand-written CLI reference synchronized with Click help."""
 
 from __future__ import annotations
@@ -8,7 +12,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from pyage.cli.main import cli
+from pyages.cli.main import cli
 
 ROOT = Path(__file__).resolve().parents[2]
 CLI_REFERENCE = ROOT / "docs" / "user-guide" / "cli-flags.md"
@@ -36,5 +40,5 @@ def test_every_long_cli_option_is_documented(command: list[str]) -> None:
     documentation = CLI_REFERENCE.read_text(encoding="utf-8")
 
     missing = sorted(option for option in options if option not in documentation)
-    command_name = " ".join(command) or "pyage"
+    command_name = " ".join(command) or "pyages"
     assert not missing, f"Undocumented options for {command_name}: {missing}"

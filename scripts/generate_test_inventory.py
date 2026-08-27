@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Generate the maintained summary of pytest collection.
 
 The detailed node IDs remain discoverable through ``pytest --collect-only``.

@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Regression tests for calibration result and monitoring contracts."""
 
 from __future__ import annotations
@@ -7,9 +11,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyage.calibration.methods.simplex import SIMPLEX, Simplex
-from pyage.calibration.methods.trajectory import MHTrajectory
+from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.methods.simplex import SIMPLEX, Simplex
+from pyages.calibration.methods.trajectory import MHTrajectory
 from tests.calibration.test_calibration_mh_initial_params import _FakeLpm
 from tests.calibration.test_calibration_problem import _prepared_problem
 
@@ -38,7 +42,7 @@ def test_simplex_persists_the_reported_optimum_as_one_joint_sample(
             nfev=8,
         )
 
-    monkeypatch.setattr("pyage.calibration.methods.simplex.minimize", fake_minimize)
+    monkeypatch.setattr("pyages.calibration.methods.simplex.minimize", fake_minimize)
     result = Simplex(SIMPLEX).run(problem)
     row = result.frame.iloc[0]
 
@@ -47,8 +51,8 @@ def test_simplex_persists_the_reported_optimum_as_one_joint_sample(
     )
     assert row["mu"] == pytest.approx(optimum[0])
     assert row["obj_function"] == pytest.approx(0.0, abs=1e-12)
-    assert row[problem.observations.names_dates()[0]] == pytest.approx(
-        problem.observations.cv["concentration"].iloc[0]
+    assert row[problem.observations.observation_keys()[0]] == pytest.approx(
+        problem.observations.frame["concentration"].iloc[0]
     )
 
 
@@ -58,7 +62,7 @@ def test_simplex_rejects_an_optimizer_failure(tmp_path, monkeypatch):
     def fake_minimize(*_args, **_kwargs):
         return SimpleNamespace(success=False, status=2, message="maximum iterations")
 
-    monkeypatch.setattr("pyage.calibration.methods.simplex.minimize", fake_minimize)
+    monkeypatch.setattr("pyages.calibration.methods.simplex.minimize", fake_minimize)
     with pytest.raises(RuntimeError, match="did not converge"):
         Simplex(SIMPLEX).run(problem)
 

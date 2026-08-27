@@ -67,10 +67,10 @@ jobs:
           name: release-distributions-${{ inputs.tag }}
           path: dist/
       - run: python -m pip install dist/*.whl
-      - run: pyage --version
-      - run: pyage check
-      - run: pyage list lpms
-      - run: pyage list tracers
+      - run: pyages --version
+      - run: pyages check
+      - run: pyages list lpms
+      - run: pyages list tracers
 
   release-candidate-gate:
     name: Release candidate gate

@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Analytical partial-first-moment contracts for continuous LPMs."""
 
 from __future__ import annotations
@@ -6,8 +10,8 @@ import numpy as np
 import pytest
 from scipy.integrate import quad
 
-from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
-from pyage.lpm.lpm_build import lpm_build
+from pyages.lpm import build_lpm
+from pyages.lpm.core.convolution_strategy import ConvolutionStrategy
 from tests.utils import paths as test_paths
 
 MODEL_CASES = [
@@ -23,7 +27,7 @@ MODEL_CASES = [
 
 
 def _model(name, parameters):
-    model = lpm_build(name, directory_lpm=str(test_paths.lpm_data_dir()))
+    model = build_lpm(name, directory_lpm=str(test_paths.lpm_data_dir()))
     model.p.update(parameters)
     return model
 

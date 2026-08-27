@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to PyAge are recorded in this file.
+All notable changes to PyAges are recorded in this file.
 
 The project follows semantic versioning for its public API from version 1.0.
 Before 1.0, incompatible public changes are identified explicitly below.
@@ -9,24 +9,45 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ### Changed
 
+- Renamed the project from **PyAge** to **PyAges** before the stable 1.0
+  release. The distribution, import package, CLI, environment variables,
+  result-manifest fields, validation identifiers, documentation, and citation
+  metadata now consistently use `pyages`/`PYAGES`; no `pyage` compatibility
+  alias is provided. This is an explicit pre-1.0 compatibility change.
+- Moved inverse-Gaussian quantile robustness from the generic SciPy adapter to
+  a private model-family implementation and removed the misleading
+  `scipy_safe` template-generator choice. Exact support endpoints are now
+  preserved, and numerical CDF inversion is used only if SciPy returns a
+  non-finite interior quantile.
+- Centralized finite-width PDF construction for the three Dirac model variants,
+  made the uniform model's support parameters available in its constructor, and
+  clarified distribution parameter labels, units, and descriptions.
 - Raised the supported Python range to 3.12-3.14 and refreshed the qualified
   runtime, development, documentation, and notebook dependency baselines.
 - Added CI gates for complete extra resolution, dependency auditing, and a
   dry-run solve of the reference Conda environment.
 - Migrated repository automation and project links from GitLab to GitHub.
-- Added read-only GitHub workflow permissions, immutable action references,
-  protected collaboration metadata, release-candidate validation, and public
-  contribution and security guidance.
-- Added automated consistency checks for release identity and for qualified
-  pip and Conda versions against the declared runtime compatibility ranges.
 - Replaced calibration inheritance and attribute copying with explicit
   `CalibrationProblem` and `CalibrationMethod` composition.
 - Introduced typed workflow contexts and split plotting helpers by purpose.
 - Replaced the flag-based `Concentrations` constructor with explicit
   `from_file()` and `from_dataframe()` constructors.
-- Reduced `LpmDist` to sample storage and orchestration; analysis, plotting,
-  and serialization now live in focused modules accessed directly, without
-  compatibility methods on the sample container.
+- Removed the redundant `pyages.observations` loading facade. Observation
+  tables now load through `Concentrations.from_file()`, while dataset filename
+  conventions remain in their site-specific packages. Concentration and
+  calibration workflows now import their concrete symbols directly instead of
+  retaining the historical module aliases.
+- Hardened concentration-table validation, error assignment, chronicle
+  copying, wide-table merges, and plotting contracts; `Concentrations` is now
+  exported directly from `pyages.concentrations` and its input schema is
+  documented in the user guide. Removed the pre-1.0 `cv`, `ConcentrationTime`,
+  `name_date`, `error_affect_*`, `names_dates`, and deep-module aliases after
+  migrating the repository to the explicit `frame`, `ConcentrationChronicle`,
+  and observation-key APIs.
+- Renamed the sample container to `LpmSampleTable` and grouped LPM sample
+  storage and analysis under `pyages.lpm.samples`; model reporting and plotting
+  now live under explicit `pyages.lpm.reporting` and `pyages.lpm.plotting`
+  packages, with model construction exported directly from `pyages.lpm`.
 - Isolated tracer YAML parsing in an immutable `TracerConfig` model.
 - Added fixed and adaptive Metropolis-Hastings proposal modes with explicit
   qualification coverage.
@@ -70,7 +91,7 @@ Before 1.0, incompatible public changes are identified explicitly below.
   objective transformations, Metropolis-Hastings acceptance, and traceability
   to tests and qualification reports.
 - Distinguished the released `0.1.0b1` software identity from the manuscript's
-  future “PyAge v1.0” target and documented the DOI/archive synchronization
+  future “PyAges v1.0” target and documented the DOI/archive synchronization
   gate.
 - Upgraded public workflow manifests to schema 2. They are now written only
   after successful completion and include input, artifact, environment, Git
@@ -82,24 +103,55 @@ Before 1.0, incompatible public changes are identified explicitly below.
   scientific archive carries the numerical results needed to audit the paper.
 - Added drift tests that validate the documented YAML examples and keep the
   documented LPM inventory synchronized with the runtime registry.
-- Added a resumable whole-article campaign that writes outside the Git checkout,
+- Standardized `pyages new lpm` on the existing lowercase module convention
+  (`pyages/lpm/models/<name>.py`) and aligned its generated class and guidance.
+- Added a resumable complete article campaign that writes outside the Git checkout,
   verifies the qualified TracerLPM workbook/XLL, rebuilds all article evidence,
-  and produces both an editorial package and a hash-validated GMD archive.
+  and produces both an editorial package and a hash-validated GMD archive. The
+  Holten--Dirichlet sensitivity case is retained as a distinct robustness stage
+  and is included in the archive without replacing the canonical Holten results.
 - Removed mandatory historical-result inputs from the stabilized Ploemeur,
   shifted-exponential, and Holten campaigns; archived posteriors are no longer
   used for initialization, gates, or report generation.
+- Split the optional historical evidence audit from fresh-campaign validation;
+  the latter now checks stage completion and all package/archive hashes.
+- Added a versioned two-regime forward-qualification contract: significant
+  concentrations use a 0.05% symmetric-relative limit, near-zero values use an
+  input-scale-normalized absolute limit, and every required case and grid
+  resolution must pass.
+- Centralized calibrated-distribution, statistics, and empirical-histogram TSV
+  readers in `pyages.data_io` and migrated reusable runtime consumers to those
+  format-aware entry points.
+
+### Removed
+
+- Removed the obsolete `open_file` argument from
+  `pyages.data_io.lpm_results.write_lpm`; path-like and writable-stream targets
+  are detected directly. This is an explicit pre-1.0 contributor-interface
+  compatibility change.
 
 ### Fixed
 
-- Updated the didactic summary plots to consume the current `LpmDist.frame`
-  interface, restoring the synthetic recovery example after the removal of the
-  legacy `dist()` accessor.
-- Made synthetic-input regeneration explicit (`--regenerate`) so an ordinary
-  teaching run cannot silently rewrite versioned scientific reference files.
-- Disabled the unqualified simplex/FUQ branch in the Albuquerque starter
-  configuration; its placeholder zero uncertainties did not provide a robust
-  optimizer-convergence example.
-- `LpmDist.best_model()` now builds a model from the single row with the best
+- SciPy-backed LPM means are no longer forced positive with ``abs()``;
+  incompatible negative or non-finite transit-time means now fail explicitly.
+- Corrected finite-width Dirac PDF approximations to normalize the actual
+  piecewise-linear area, including at zero age, reject invalid grids and pulse
+  widths, and return zero consistently outside their sampling grid. Direct
+  Dirac convolution remains unchanged.
+- Corrected the double-Dirac `mu2` metadata to years while preserving its
+  existing interpretation as the additional delay from `mu1` to the second
+  point mass.
+- Separated the archived SciPy 1.14.1 article-reproduction baseline from the
+  SciPy 1.18.1 user constraints, added Python-version-aware SciPy compatibility
+  bounds, included both environment records in future article packages, and
+  documented the environments without claiming equivalence.
+- Corrected active documentation of the historical forward relative
+  discrepancy (non-zero reference denominator, otherwise `NaN`) without
+  modifying checksum-protected reports, manifests, or results.
+- Allowed standalone reproduction-archive validation without requiring the
+  unrelated archive-construction arguments.
+
+- `LpmSampleTable.best_model()` now builds a model from the single row with the best
   objective instead of combining independent column minima.
 - Invalid observation tables and tracer configuration values now fail early
   with contextual exceptions.
@@ -115,6 +167,10 @@ Before 1.0, incompatible public changes are identified explicitly below.
   now take precedence over prior-MAP initialization.
 - Generic MH output no longer writes an implicit shared `none.txt` posterior;
   posterior-to-prior export is an explicit site-workflow operation.
+- Corrected temporal configuration requirements and result-layout guidance,
+  made the documented Weibull and log-normal extensions satisfy the continuous
+  convolution contract, and removed stale internal notes from public-facing
+  docstrings.
 
 ## 0.1.0b1 - 2026-08-19
 
@@ -123,7 +179,7 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Separated convolution, calibration, presentation, data I/O, and temporal
   workflow responsibilities into focused modules.
 - Renamed the installable distribution to `pyage-groundwater`; the import
-  package and CLI remain `pyage`.
+  package and CLI remained `pyage` at that release.
 - Made core LPM and tracer data explicit package resources.
 - Removed filesystem creation as a side effect of importing path settings.
 - Centralized the package and CLI version in `pyage/_version.py`.

@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Smoke tests for Albuquerque example configurations.
 """
 
 from pathlib import Path
 
-from pyage.lpm.lpm_build import lpm_build
-from pyage.workflows.single_date_config import load_params
+from pyages.lpm import build_lpm
+from pyages.workflows.single_date_config import load_params
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = (
@@ -30,7 +34,7 @@ def test_albuquerque_starter_avoids_unqualified_simplex_path():
 
 def test_albuquerque_shapefree_config_uses_local_lpm_directory():
     params = load_params(REPO_ROOT, CONFIG_PATH)
-    lpm = lpm_build(params.lpm_model_name, directory_lpm=str(params.directory_lpm))
+    lpm = build_lpm(params.lpm_model_name, directory_lpm=str(params.directory_lpm))
 
     assert params.dataset_name == "SSW_2007.txt"
     assert params.lpm_model_name == "shapefree_n_oldbin"

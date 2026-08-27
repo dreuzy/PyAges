@@ -1,0 +1,13 @@
+{
+  "theme": "base",
+  "flowchart": {
+    "curve": "linear",
+    "nodeSpacing": 55,
+    "rankSpacing": 65
+  },
+  "themeVariables": {
+    "fontFamily": "Arial, Helvetica, sans-serif",
+    "fontSize": "18px",
+    "lineColor": "#4b6a8b"
+  }
+}

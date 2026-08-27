@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Plot the HYP-26-0172 CFC-11/CFC-12 observation diagram."""
 
 from __future__ import annotations
@@ -11,10 +15,10 @@ import pandas as pd
 from matplotlib.lines import Line2D
 from PIL import Image
 
-from pyage.config.paths import DIRECTORY_TRACER_DATA
-from pyage.observations.loader import load_observation_concentrations
-from pyage.tracer.tracer_root import Tracer
-from sites.ploemeur.observations.ploemeur import ploemeur_ori_folder
+from pyages.concentrations import Concentrations
+from pyages.config.paths import DIRECTORY_TRACER_DATA
+from pyages.tracer.tracer_root import Tracer
+from sites.ploemeur.observations.ploemeur import observation_path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 OUTPUT_DIRECTORY = (
@@ -39,13 +43,10 @@ plt.rcParams.update(
 
 def load_cfc_pairs(well: str, date_range: str) -> pd.DataFrame:
     """Load and pair measured CFC-11 and CFC-12 values by sampling date."""
-    concentrations = load_observation_concentrations(
-        ploemeur_ori_folder(REPOSITORY_ROOT),
-        "ori_ploemeur_",
-        well,
-        date_range,
+    concentrations = Concentrations.from_file(
+        observation_path(well, date_range, root=REPOSITORY_ROOT)
     )
-    table = concentrations.cv.copy()
+    table = concentrations.frame.copy()
     table = table[table["element"].isin(["cfc11", "cfc12"])]
     units = table.groupby("element")["unit"].unique().to_dict()
     if any(len(values) != 1 for values in units.values()):

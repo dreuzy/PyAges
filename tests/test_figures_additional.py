@@ -1,9 +1,13 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Tests for shared figure helpers."""
 
 import matplotlib as mpl
 import numpy as np
 
-from pyage.tools.figures_additional import cmap_white_jet
+from pyages.tools.figures_additional import cmap_white_jet
 
 
 def test_cmap_white_jet_infers_size_from_its_colors(monkeypatch) -> None:

@@ -1,6 +1,6 @@
 # Synthetic single-date recovery example
 
-This example is a compact teaching case built to understand the PyAge
+This example is a compact teaching case built to understand the PyAges
 single-date workflow without the ambiguity of field data.
 
 The idea is simple:
@@ -81,10 +81,10 @@ The workflow:
 
 ## Main outputs in the results directory
 
-The results are written under the global PyAge results root, usually:
+The results are written under the global PyAges results root, usually:
 
 ```text
-<home>/results/PyAge/test_cases/synthetic_exp_shifted_2010.txt/
+<home>/results/PyAges/test_cases/synthetic_exp_shifted_2010.txt/
 ```
 
 The main summary figures are:
@@ -119,9 +119,9 @@ Related files that help place this example in the repository:
   Minimal single-date configuration template.
 - [`examples/natural/ploemeur/`](../../natural/ploemeur)
   Natural single-date example used as the main field-data reference.
-- `pyage run`
+- `pyages run`
   Canonical single-date workflow used by this example.
-- [`pyage/workflows/plots/`](../../../pyage/workflows/plots)
+- [`pyages/workflows/plots/`](../../../pyages/workflows/plots)
   Shared plotting helpers used to build the didactic summary figures.
 
 ## Recommended reading order

@@ -1,10 +1,20 @@
 # Configuration Reference
 
-PyAge uses YAML configuration files to control workflows. This reference documents all available options.
+PyAges uses YAML configuration files to control workflows. This reference
+documents all available options.
+
+All user-facing configuration models are strict: an unknown section or field
+is rejected rather than ignored. Type errors and violated numeric bounds are
+reported before the scientific workflow starts.
+
+Relative paths are resolved from the nearest checkout root containing both
+`pyproject.toml` and `data_core` for configurations inside a source checkout.
+For standalone configurations they are resolved from the configuration file's
+directory. Absolute paths are unchanged.
 
 ## Single-date workflow configuration
 
-Used with `pyage run <config.yaml>`.
+Used with `pyages run <config.yaml>`.
 
 ### Dataset Section
 
@@ -57,7 +67,7 @@ tracers:
 | `data_directory` | path or null | `null` | Root containing one directory per tracer |
 
 Tip: for quick overrides without editing YAML, you can use CLI options:
-`pyage run --lpm <name> --mh-nsteps <n> --data-name <file> --data-dir <dir> config.yaml`
+`pyages run --lpm <name> --mh-nsteps <n> --data-name <file> --data-dir <dir> config.yaml`
 
 **Available LPM models:**
 
@@ -65,7 +75,7 @@ Tip: for quick overrides without editing YAML, you can use CLI options:
 |-------|------------|-------------|
 | `dirac` | `mu` | Single age (piston flow) |
 | `dirac_double` | `mu1`, `mu2`, `rate` | Binary mixing of two ages |
-| `dirac_double_1_set` | `mufree`, `rate` | One free and one workflow-supplied fixed age |
+| `dirac_double_1_set` | `mufree`, `rate` | Constrained Double-Dirac variant with one free and one workflow-supplied fixed age |
 | `exp` | `mu` | Exponential distribution |
 | `exp_shifted` | `mu`, `shift` | Shifted exponential |
 | `ig` | `mu`, `sigma` | Inverse Gaussian |
@@ -78,7 +88,7 @@ Tip: for quick overrides without editing YAML, you can use CLI options:
 
 The model-specific meaning of these parameters is defined in
 {doc}`../science/lpm-reference`. The runtime registry remains authoritative:
-use `pyage list lpms` to inspect the installed release.
+use `pyages list lpms` to inspect the installed release.
 
 ### Run Section
 
@@ -103,7 +113,7 @@ reachable_concentrations:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `nmodels` | integer | 5000 | Number of parameter samples for exploration |
+| `nmodels` | integer | 5000 | Number of parameter samples for exploration; at least 1 |
 
 ### Objective Function Section
 
@@ -114,7 +124,7 @@ objective_function:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `nmodels` | integer | 10000 | Number of points in parameter grid |
+| `nmodels` | integer | 10000 | Number of points in parameter grid; at least 1 |
 
 The mapped column ``half_log_chi_square`` is $\tfrac12\log(\chi^2)$, not the likelihood or
 the normalized residual norm stored in calibration result tables. See
@@ -133,7 +143,7 @@ calibration_metropolis_hastings:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `nstep` | integer | 5000 | Number of MCMC iterations |
+| `nstep` | integer | 5000 | Number of MCMC transitions; at least 1 |
 | `prior_option` | boolean | false | Include prior probability in acceptance |
 | `likelihood` | boolean | true | Use likelihood function |
 | `monitor` | boolean | false | Monitor and display acceptance rates |
@@ -154,14 +164,14 @@ calibration_simplex:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `init_multiples_n` | integer | 3 | Number of initial simplex configurations |
-| `fuq_n` | integer | 30 | Number of samples for forward uncertainty |
+| `init_multiples_n` | integer | 3 | Number of initial simplex configurations; at least 1 |
+| `fuq_n` | integer | 30 | Number of samples for forward uncertainty; at least 1 |
 
 ---
 
 ## Temporal Workflow Configuration
 
-Used with `pyage run --transient <config.yaml>`.
+Used with `pyages run --transient <config.yaml>`.
 
 ### Dataset Section
 
@@ -173,8 +183,8 @@ dataset:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `file` | string | Yes | Path to multi-date concentration file |
-| `error_rel` | number | No | Relative error to apply if error column is zero |
+| `file` | non-empty string | Yes | Path to an existing multi-date concentration file |
+| `error_rel` | number or null | No | Relative error in `[0, 1)` applied to all rows if any input error is zero; default `null` |
 
 ### LPM Models Section
 
@@ -186,8 +196,8 @@ lpm_models:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `list` | array | Yes | List of LPM models to evaluate |
-| `directory` | string | Yes | LPM parameters directory |
+| `list` | array or null | No | LPM models to evaluate; `null` or an empty array selects `exp_shifted`, `ig`, and `ig_shifted` |
+| `directory` | path or null | No | Existing LPM parameters directory; defaults to packaged `data_core/data_lpm` |
 
 ### Workflow Section
 
@@ -198,7 +208,7 @@ workflow:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `mode` | string | span | `span` = single calibration; `successive` = per-date |
+| `mode` | string | `span` | Exactly `span` (one joint calibration) or `successive` (one calibration per distinct date) |
 
 ### Calibration Section
 
@@ -215,13 +225,18 @@ calibration:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `explo_res` | integer | 20 | Grid resolution for systematic sampling |
-| `mh_nsteps` | integer | 1000 | MCMC iterations |
-| `burn_in` | number | 0.2 | Fraction of samples to discard |
-| `nskip` | integer | 10 | Keep every nth sample (thinning) |
-| `lpm_number` | integer | 10 | Number of posterior draws used for distribution and concentration plots (0 = automatic) |
+| `explo_res` | integer | 20 | Preparation sampling resolution; at least 1 |
+| `mh_nsteps` | integer | 1000 | MCMC transitions; strictly greater than 100 |
+| `burn_in` | number | 0.2 | Burn-in fraction in `[0, 0.5)` |
+| `nskip` | integer | 10 | Keep iterations divisible by this value after strict burn-in; at least 1 |
+| `lpm_number` | integer | 10 | Posterior draws used for distribution and concentration plots; non-negative, with 0 selecting an automatic count |
 | `seed_enabled` | boolean | false | Use the configured fixed random seed |
-| `seed` | integer or null | null | Random seed value; required for an explicit reproducible seed when `seed_enabled` is true |
+| `seed` | integer or null | null | Random seed value; set a concrete integer with `seed_enabled: true` for reproducibility |
+
+The retention rule is zero-based and strict: a state is retained when
+`iteration > burn_in * mh_nsteps` and `iteration % nskip == 0`. Rejected
+proposals retain the repeated current state, as required for a valid Markov
+chain.
 
 ### Figures Section
 
@@ -236,7 +251,7 @@ figures:
 |-------|------|---------|-------------|
 | `temporal` | boolean | false | Write modeled concentration chronicles |
 | `distributions` | boolean | false | Write posterior parameter summaries |
-| `concentrations_2d` | boolean | false | Write pairwise concentration plots when distributions are enabled |
+| `concentrations_2d` | boolean | false | Write pairwise concentration plots when `distributions` is also true; otherwise it has no effect |
 
 ### Results Section
 
@@ -249,15 +264,20 @@ results:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `use_default` | boolean | true | Use `PYAGE_RESULTS_DIR` or the user-level default root |
-| `directory` | path or null | null | Custom root, required when `use_default` is false |
-| `study_name` | string | `temporal` | Result namespace using letters, digits, `.`, `_`, or `-` |
+| `use_default` | boolean | true | Use `PYAGES_RESULTS_DIR` or the user-level default root |
+| `directory` | path or null | null | Custom root, required and created when `use_default` is false |
+| `study_name` | non-empty string | `temporal` | Result namespace containing only letters, digits, `.`, `_`, or `-` |
+
+The result layout and the exact meaning of every generated table are defined
+in {doc}`../reference/outputs`.
 
 ---
 
 ## LPM Parameter Files (params.yaml)
 
 Each LPM model has a `params.yaml` file in `data_core/data_lpm/<model>/`.
+PyAges supports version `1`; omitting `version` is equivalent to declaring
+`version: 1`. Any other value is rejected before model construction.
 
 ### Structure
 
@@ -305,8 +325,29 @@ notes: "Optional notes about the model."
 | `description` | string | No | Parameter description |
 | `bounds` | array | Yes | `[min, max]` valid range |
 | `init` | number | Yes | Initial value for optimization |
-| `step` | number | Yes | MCMC proposal step size |
+| `step` | number | Conditional | Proposal step used with `componentwise_source="model"` |
 | `prior` | object | No | Prior distribution specification |
+
+At LPM construction time, PyAges validates the runtime fields used by the
+model: the YAML `model` identifier must match the requested LPM; parameter
+names must be non-empty, unique, and exactly match the model constructor;
+every `bounds` pair must contain finite numbers in ascending order; and each
+finite `init` value must lie inside its inclusive bounds. The constructor's
+parameter order remains the canonical order for calibration vectors even when
+the entries appear in another order in YAML.
+
+The shared YAML loader validates `version`, `name`, `bounds`, `init`, and any
+supplied `step` or `prior`, then caches an immutable schema. Cache reuse is
+based on the exact file content, so replacing a file while preserving its size
+and timestamp cannot return stale parameters. `ParameterManager` binds that
+schema to the constructor's parameter set and order. Descriptive fields remain
+available in the defensive copy returned by the document loader; proposal
+steps and priors are exposed through the immutable runtime schema.
+
+`step` may be omitted when Metropolis-Hastings derives componentwise proposal
+scales from parameter bounds (the default). It is required for every parameter
+when `MHConfig(componentwise_source="model")` is selected. When present, it
+must be finite and strictly positive.
 
 ### Prior Distribution
 
@@ -318,10 +359,16 @@ prior:
   unit: year                        # Unit (for documentation)
 ```
 
-For a normal prior, replace `min` and `max` with `mean` and `std`. Parameter
-bounds remain active independently of the prior and define the admissible
-calibration domain. Scientific analyses should report both the bounds and the
-prior actually used.
+For a normal prior, replace `min` and `max` with `mean` and `std`. `gaussian`
+is accepted as an alias for `normal`. A uniform prior requires finite values
+with `min < max`; a normal prior requires a finite mean and a finite,
+strictly-positive standard deviation. Unknown prior types and incomplete prior
+mappings are rejected while loading `params.yaml`. When parametric priors are
+enabled, every model parameter must define one.
+
+Parameter bounds remain active independently of the prior and define the
+admissible calibration domain. Scientific analyses should report both the
+bounds and the prior actually used.
 
 ---
 
@@ -388,16 +435,16 @@ date,concentration
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PYAGE_RESULTS_DIR` | Root directory for output files | `~/results/PyAge` |
+| `PYAGES_RESULTS_DIR` | Root directory for output files | `~/results/PyAges` |
 
 Set on Windows:
 ```bash
-setx PYAGE_RESULTS_DIR "D:\results\PyAge"
+setx PYAGES_RESULTS_DIR "D:\results\PyAges"
 ```
 
 Set on Linux/macOS:
 ```bash
-export PYAGE_RESULTS_DIR="/path/to/results"
+export PYAGES_RESULTS_DIR="/path/to/results"
 ```
 
 ---

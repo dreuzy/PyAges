@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Non-regression and smoke tests for Concentrations.
 
@@ -16,8 +20,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyage.concentrations.concentrations import Concentrations
-from pyage.concentrations.schema import REFERENCE_COLUMNS
+from pyages.concentrations import Concentrations
+from pyages.concentrations.schema import REFERENCE_COLUMNS
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -45,18 +49,18 @@ def test_concentrations_load_smoke(file_path):
     conc = Concentrations.from_file(file_path)
 
     # Columns are normalized and ordered
-    assert list(conc.cv.columns) == list(REFERENCE_COLUMNS)
+    assert list(conc.frame.columns) == list(REFERENCE_COLUMNS)
 
     # Basic sanity checks
-    assert len(conc.cv) > 0
-    assert np.all(np.isfinite(conc.cv["concentration"].to_numpy()))
+    assert len(conc.frame) > 0
+    assert np.all(np.isfinite(conc.frame["concentration"].to_numpy()))
 
 
 def test_concentrations_load_basic():
     # Load through the explicit file constructor.
     file_path = _tests_data_dir() / "data_test_exp.txt"
     conc = Concentrations.from_file(file_path)
-    assert not conc.cv.empty
+    assert not conc.frame.empty
 
 
 @pytest.mark.parametrize(
@@ -73,13 +77,13 @@ def test_concentrations_golden_stats(file_path, update_golden):
 
     # Deterministic sampling for regression checks
     rng = np.random.default_rng(12345)
-    sampled = conc.sample_concentrations_with_errors(rng)
+    sampled = conc.sample_with_errors(rng)
 
     # Simple aggregate stats
     stats = {
-        "mean_concentration": float(conc.cv["concentration"].mean()),
-        "mean_error": float(conc.cv["error"].mean()),
-        "sampled_mean_concentration": float(sampled.cv["concentration"].mean()),
+        "mean_concentration": float(conc.frame["concentration"].mean()),
+        "mean_error": float(conc.frame["error"].mean()),
+        "sampled_mean_concentration": float(sampled.frame["concentration"].mean()),
     }
 
     key = file_path.name

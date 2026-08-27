@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Compute independent EPM or DM objective surfaces for identifiability."""
 
 from __future__ import annotations
@@ -10,7 +14,7 @@ import numpy as np
 import yaml
 
 from .generate_inversion_pilot import DEFAULT_CONFIG, OUTPUT_DIR, REPO_ROOT, _chronicle
-from .invert_pyage_pilot import RESULT_DIR
+from .invert_pyages_pilot import RESULT_DIR
 from .reference import forward
 
 

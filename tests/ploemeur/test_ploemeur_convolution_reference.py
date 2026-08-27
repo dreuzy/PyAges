@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Independent convolution references for Ploemeur posterior regimes."""
 
 from __future__ import annotations
@@ -8,10 +12,10 @@ import numpy as np
 import pytest
 from scipy.integrate import IntegrationWarning, quad
 
-from pyage.config.paths import DIRECTORY_TRACER_DATA
-from pyage.convolution.convolution import Convolution
-from pyage.lpm.lpm_build import lpm_build
-from pyage.tracer.tracer_root import Tracer
+from pyages.config.paths import DIRECTORY_TRACER_DATA
+from pyages.convolution.convolution import Convolution
+from pyages.lpm import build_lpm
+from pyages.tracer.tracer_root import Tracer
 
 LPM_DIRECTORY = "sites/ploemeur/params_lpm"
 POSTERIOR_REGIMES = [
@@ -73,7 +77,7 @@ def test_ploemeur_shifted_ig_matches_independent_reference(
     parameters: dict[str, float],
 ) -> None:
     tracer = Tracer(DIRECTORY_TRACER_DATA, tracer_name)
-    lpm = lpm_build("ig_shifted", directory_lpm=LPM_DIRECTORY)
+    lpm = build_lpm("ig_shifted", directory_lpm=LPM_DIRECTORY)
     lpm.p.update(parameters)
     convolution = Convolution(tracer, date)
 

@@ -10,7 +10,7 @@ overview, and scientific reports.
 ```{toctree}
 :maxdepth: 1
 
-../pyage-scientific-audit
+../pyages-scientific-audit
 ../tracerlpm-visual-studio-feasibility
 ../examples/ploemeur-notebooks-audit
 ../dev/notes-choix-modele

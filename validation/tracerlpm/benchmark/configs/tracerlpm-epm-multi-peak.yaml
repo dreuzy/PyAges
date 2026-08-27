@@ -1,4 +1,4 @@
-# Matrice EPM : TracerLPM saisit r=x*/x; PyAge utilise eta=1+r.
+# Matrice EPM : TracerLPM saisit r=x*/x; PyAges utilise eta=1+r.
 # Les trois cas ci-dessous correspondent donc à eta=1.5, 3 et 10.
 - case_id: synthetic-multi-peak-epm-eta-1_5
   sample: PSW-1-17/08/2004
@@ -6,7 +6,7 @@
   tracerlpm_effective_observation_year: 2004.5
   model1: EPM
   model2: EPM
-  model_parameter: 0.5  # ratio TracerLPM r; eta PyAge = 1.5
+  model_parameter: 0.5  # ratio TracerLPM r; eta PyAges = 1.5
   x_axis: SF6
   y_axis: NO3-N
   input_history: &multi_peak_input
@@ -22,7 +22,7 @@
   tracerlpm_effective_observation_year: 2004.5
   model1: EPM
   model2: EPM
-  model_parameter: 2.0  # ratio TracerLPM r; eta PyAge = 3
+  model_parameter: 2.0  # ratio TracerLPM r; eta PyAges = 3
   x_axis: SF6
   y_axis: NO3-N
   input_history: *multi_peak_input
@@ -33,7 +33,7 @@
   tracerlpm_effective_observation_year: 2004.5
   model1: EPM
   model2: EPM
-  model_parameter: 9.0  # ratio TracerLPM r; eta PyAge = 10
+  model_parameter: 9.0  # ratio TracerLPM r; eta PyAges = 10
   x_axis: SF6
   y_axis: NO3-N
   input_history: *multi_peak_input

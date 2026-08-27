@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Strict contracts for user-facing YAML configuration models."""
 
 import re
@@ -7,19 +11,23 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from pyage.config.models import (
+from pyages.config.models import (
     LauncherConfig,
+    LauncherDatasetCfg,
+    LauncherLpmCfg,
     LauncherMetropolisCfg,
     LauncherObjectiveCfg,
     LauncherReachableCfg,
     LauncherRunCfg,
     LauncherSimplexCfg,
     TemporalCalibrationCfg,
+    TemporalDatasetCfg,
     TemporalFiguresCfg,
+    TemporalLpmModelsCfg,
     TemporalParams,
     TemporalResultsCfg,
 )
-from pyage.lpm.lpm_build import list_available_lpms
+from pyages.lpm import list_available_lpms
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIGURATION_DOC = ROOT / "docs" / "user-guide" / "configuration.md"
@@ -57,13 +65,34 @@ def _model_defaults(model) -> dict:
     return {name: field.default for name, field in model.model_fields.items()}
 
 
+def _required_after_heading(document: str, heading: str) -> dict[str, bool]:
+    section = document.split(heading, maxsplit=1)[1].split("\n### ", maxsplit=1)[0]
+    rows = [
+        [cell.strip() for cell in line.strip().strip("|").split("|")]
+        for line in section.splitlines()
+        if line.startswith("|")
+    ]
+    header = next(row for row in rows if row and row[0] == "Field")
+    required_index = header.index("Required")
+    required = {}
+    for row in rows[2:]:
+        if len(row) <= required_index:
+            continue
+        field = row[0].strip("`")
+        required[field] = row[required_index].casefold() == "yes"
+    return required
+
+
+def _model_required(model) -> dict[str, bool]:
+    return {name: field.is_required() for name, field in model.model_fields.items()}
+
+
 @pytest.mark.parametrize(
     "relative_path",
     [
         "examples/templates/quickstart_single.yaml",
         "examples/natural/albuquerque/exemple_albuquerque.yaml",
         "examples/natural/albuquerque/exemple_albuquerque_shapefree.yaml",
-        "examples/natural/fontainebleau/exemple_fontainebleau.yaml",
         "examples/natural/ploemeur/exemple_ploemeur.yaml",
         "examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date.yaml",
     ],
@@ -177,6 +206,25 @@ def test_documented_default_tables_match_pydantic_models(heading, model, tempora
         document = document.split("## Temporal Workflow Configuration", maxsplit=1)[1]
 
     assert _defaults_after_heading(document, heading) == _model_defaults(model)
+
+
+@pytest.mark.parametrize(
+    ("heading", "model", "temporal_only"),
+    [
+        ("### Dataset Section", LauncherDatasetCfg, False),
+        ("### LPM Section", LauncherLpmCfg, False),
+        ("### Dataset Section", TemporalDatasetCfg, True),
+        ("### LPM Models Section", TemporalLpmModelsCfg, True),
+    ],
+)
+def test_documented_required_fields_match_pydantic_models(
+    heading, model, temporal_only
+):
+    document = CONFIGURATION_DOC.read_text(encoding="utf-8")
+    if temporal_only:
+        document = document.split("## Temporal Workflow Configuration", maxsplit=1)[1]
+
+    assert _required_after_heading(document, heading) == _model_required(model)
 
 
 def test_documented_single_date_run_defaults_remain_all_enabled():

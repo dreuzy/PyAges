@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Scientific invariants and independent references for convolution."""
 
 from __future__ import annotations
@@ -9,13 +13,13 @@ import pytest
 from scipy.integrate import IntegrationWarning, quad
 from scipy.stats import expon
 
-from pyage.convolution.convolution import Convolution, ConvolutionError
-from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
-from pyage.lpm.lpm_build import lpm_build
-from pyage.lpm.models.dirac_double_1_set import DiracDouble1SetLpm
-from pyage.lpm.models.mix_exponential_shifted import MixExponentialShiftedLpm
-from pyage.tracer.tracer_protocol import ConstantTracer, SyntheticTracer
-from pyage.tracer.tracer_root import Tracer
+from pyages.convolution.convolution import Convolution, ConvolutionError
+from pyages.lpm import build_lpm
+from pyages.lpm.core.convolution_strategy import ConvolutionStrategy
+from pyages.lpm.models.dirac_double_1_set import DiracDouble1SetLpm
+from pyages.lpm.models.mix_exponential_shifted import MixExponentialShiftedLpm
+from pyages.tracer.tracer_protocol import ConstantTracer, SyntheticTracer
+from pyages.tracer.tracer_root import Tracer
 from tests.utils import paths as test_paths
 
 
@@ -73,7 +77,7 @@ def test_mix_dirac_exponential_matches_weighted_independent_reference(rate):
 )
 def test_cdf_moment_constant_tracer_returns_exact_window_mass(name, parameters):
     tracer = ConstantTracer(concentration=1.0, datemin=1900.0)
-    lpm = lpm_build(name, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm(name, directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.p.update(parameters)
     conv = Convolution(tracer, date=2010.0)
 
@@ -93,7 +97,7 @@ def test_cdf_moment_constant_tracer_returns_exact_window_mass(name, parameters):
 )
 def test_exponential_continuous_paths_conserve_window_mass(name, parameters):
     tracer = ConstantTracer(concentration=1.0, datemin=1900.0)
-    lpm = lpm_build(name, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm(name, directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.p.update(parameters)
     conv = Convolution(tracer, date=2010.0)
 
@@ -106,7 +110,7 @@ def test_exponential_continuous_paths_conserve_window_mass(name, parameters):
 @pytest.mark.parametrize("name", ["dirac", "dirac_double", "dirac_double_1_set"])
 def test_discrete_paths_conserve_mass_for_constant_tracer(name):
     tracer = ConstantTracer(concentration=1.0, datemin=1900.0)
-    lpm = lpm_build(name, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm(name, directory_lpm=str(test_paths.lpm_data_dir()))
 
     assert Convolution(tracer, date=2010.0).convolve(lpm) == pytest.approx(1.0)
 
@@ -114,11 +118,11 @@ def test_discrete_paths_conserve_mass_for_constant_tracer(name):
 def test_discrete_paths_omit_masses_outside_the_tracer_window():
     tracer = ConstantTracer(concentration=1.0, datemin=1900.0)
 
-    single = lpm_build("dirac", directory_lpm=str(test_paths.lpm_data_dir()))
+    single = build_lpm("dirac", directory_lpm=str(test_paths.lpm_data_dir()))
     single.p["mu"] = 120.0
     assert Convolution(tracer, date=2010.0).convolve(single) == 0.0
 
-    double = lpm_build("dirac_double", directory_lpm=str(test_paths.lpm_data_dir()))
+    double = build_lpm("dirac_double", directory_lpm=str(test_paths.lpm_data_dir()))
     double.p.update({"mu1": 100.0, "mu2": 20.0, "rate": 0.3})
     assert Convolution(tracer, date=2010.0).convolve(double) == pytest.approx(0.3)
 
@@ -171,7 +175,7 @@ def test_mixed_window_mass_includes_a_dirac_at_age_zero():
 )
 def test_exponential_continuous_path_preserves_strongly_truncated_mass(name, mu, shift):
     tracer = ConstantTracer(concentration=1.0, datemin=1900.0)
-    lpm = lpm_build(name, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm(name, directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.p["mu"] = mu
     if name == "exp_shifted":
         lpm.p["shift"] = shift
@@ -184,7 +188,7 @@ def test_exponential_continuous_path_preserves_strongly_truncated_mass(name, mu,
 
 def test_continuous_path_keeps_physical_truncation_without_renormalizing():
     tracer = ConstantTracer(concentration=1.0, datemin=2000.0)
-    lpm = lpm_build("gamma", directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm("gamma", directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.p.update({"k": 0.5, "scale": 50.0})
     conv = Convolution(tracer, date=2010.0)
 
@@ -197,7 +201,7 @@ def test_continuous_path_keeps_physical_truncation_without_renormalizing():
 
 def test_continuous_path_returns_real_zero_for_distribution_outside_window():
     tracer = ConstantTracer(concentration=1.0, datemin=2000.0)
-    lpm = lpm_build("uniform", directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm("uniform", directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.p.update({"tmin": 50.0, "delta": 0.5})
     conv = Convolution(tracer, date=2010.0)
 
@@ -218,7 +222,7 @@ class _CountingTracer(ConstantTracer):
 
 def test_prepare_caches_all_tracer_evaluations():
     tracer = _CountingTracer()
-    lpm = lpm_build("ig", directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm("ig", directory_lpm=str(test_paths.lpm_data_dir()))
     conv = Convolution(tracer, date=2010.0)
 
     grid = conv.prepare()
@@ -278,7 +282,7 @@ def test_synthetic_tracer_without_nodes_gets_a_safe_initial_grid():
             1.0 + 0.9 * np.sin(4.0 * np.pi * np.asarray(age) / tmax)
         ),
     )
-    lpm = lpm_build("uniform", directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm("uniform", directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.p.update({"tmin": tmax / 8.0 - 0.05, "delta": 0.1})
     conv = Convolution(tracer, date)
     expected = quad(
@@ -310,7 +314,7 @@ def test_inverse_gaussian_integrates_linear_tracer_with_truncated_moment(
         datemin=1900.0,
         concentration_fn=lambda date, age: 2.0 + 0.01 * np.asarray(age),
     )
-    lpm = lpm_build(name, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm(name, directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.p.update(parameters)
     conv = Convolution(tracer, 2010.0)
     mass, partial_moment = lpm.cdf_and_partial_first_moment(110.0)
@@ -341,7 +345,7 @@ def test_all_continuous_lpm_integrate_linear_tracer_from_mass_and_moment(
         convolution_initial_bins=1,
         concentration_fn=lambda date, age: 2.0 + 0.01 * np.asarray(age),
     )
-    lpm = lpm_build(name, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm(name, directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.p.update(parameters)
     mass, partial_moment = lpm.cdf_and_partial_first_moment(110.0)
     expected = 2.0 * mass + 0.01 * partial_moment
@@ -409,7 +413,7 @@ def test_chronicle_end_discontinuity_is_a_bin_boundary_not_a_refinement_loop():
             0.0,
         ),
     )
-    lpm = lpm_build("exp", directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm("exp", directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.p["mu"] = 10.0
     conv = Convolution(tracer, 2012.0)
     expected = 5.0 * (float(lpm.cdf(112.0)) - float(lpm.cdf(2.0)))
@@ -477,7 +481,7 @@ def _quantile_quad_reference(tracer, lpm, date):
 @pytest.mark.parametrize(("name", "parameters", "tracer_name"), AUDIT_CASES)
 def test_audit_failures_match_independent_quantile_quad(name, parameters, tracer_name):
     tracer = Tracer(test_paths.tracer_data_dir(), tracer_name)
-    lpm = lpm_build(name, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm = build_lpm(name, directory_lpm=str(test_paths.lpm_data_dir()))
     lpm.p.update(parameters)
     conv = Convolution(tracer, date=2010.0)
 
