@@ -9,6 +9,17 @@ contracts. {doc}`Scientific reports <reports/index>` and
 {doc}`archived notes <archive/index>` remain available for traceability but
 are kept outside the primary navigation because they are not user instructions.
 
+## Quality and validation
+
+- {doc}`Scientific validation <science/validation>` explains the qualification
+  layers, executable evidence, reported results, and limits of interpretation.
+- {doc}`Testing <dev/testing>` maps each test family to its purpose, CI scope,
+  evidence, and limitations.
+- {doc}`Generated test inventory <dev/test-inventory>` lists every collected
+  module with its type, short purpose, and case counts.
+- {doc}`Continuous integration <dev/ci>` documents workflow triggers, jobs,
+  permissions, artifacts, schedules, and failure semantics.
+
 For a local build:
 
 ```bash
