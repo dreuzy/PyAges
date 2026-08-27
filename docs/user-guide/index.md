@@ -1,23 +1,24 @@
 # User Guide
 
 This section collects installation, configuration, CLI usage, and extension
-guides for day-to-day use of PyAge.
+guides for day-to-day use of PyAges.
 
 Use this guide by task:
 
-- {doc}`getting-started` installs PyAge and runs a minimal calibration.
+- {doc}`getting-started` installs PyAges and runs a minimal calibration.
 - {doc}`configuration` documents the YAML inputs.
+- {doc}`concentrations` defines the observation-table schema and validation.
 - {doc}`cli-flags` lists command-line overrides.
 - {doc}`running-examples` describes the maintained examples.
 - {doc}`adding-tracer` and {doc}`adding-lpm` cover scientific extensions.
 
-The installed `pyage` command is the supported entry point. Discover the
+The installed `pyages` command is the supported entry point. Discover the
 models and tracers present in your installation rather than relying on a static
 list:
 
 ```bash
-pyage list lpms
-pyage list tracers
+pyages list lpms
+pyages list tracers
 ```
 
 For the relationship between the main scientific objects, see
@@ -29,6 +30,7 @@ For the relationship between the main scientific objects, see
 getting-started
 running-examples
 configuration
+concentrations
 cli-flags
 adding-lpm
 adding-tracer

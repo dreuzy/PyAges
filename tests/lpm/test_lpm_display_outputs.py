@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Tests that LPM plotting saves output files when enabled."""
 
 from pathlib import Path
@@ -7,8 +11,8 @@ import pytest
 
 matplotlib.use("Agg", force=True)
 
-from pyage.config.runtime import DisplayOptions
-from pyage.lpm.lpm_build import test as lpm_test
+from pyages.config.runtime import DisplayOptions
+from pyages.lpm.reporting import run_model_diagnostic
 
 
 @pytest.mark.parametrize("lpm_type", ["exp"])
@@ -20,7 +24,7 @@ def test_lpm_display_outputs(tmp_path: Path, lpm_type: str) -> None:
     display.text = False
     display.directory = tmp_path
 
-    lpm_test(lpm_type, display)
+    run_model_diagnostic(lpm_type, display)
 
     files = [f for f in tmp_path.iterdir() if f.is_file()]
     assert files, "Expected figure output files to be saved"

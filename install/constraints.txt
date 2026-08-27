@@ -1,8 +1,9 @@
-# Direct dependency set qualified for the 0.1 beta release series.
+# Direct dependency set qualified for the PyAges 1.0 user environment.
 #
 # This is intentionally a portable constraints file, not a platform-specific
 # freeze of every transitive package. Use it with Python 3.12-3.14 as:
 #   python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
+# The historical article environment is recorded separately in environment.yml.
 
 numpy==2.5.2
 scipy==1.18.1

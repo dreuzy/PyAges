@@ -1,23 +1,89 @@
 # Adding a New LPM
 
-This guide explains how to add a new Lumped Parameter Model (LPM) to PyAge. LPMs describe probability distributions of groundwater transit times.
+This guide explains how to add a new Lumped Parameter Model (LPM) to PyAges. LPMs describe probability distributions of groundwater transit times.
+
+## Choose the implementation path
+
+PyAges separates the model's **scientific parameterization** from the generic
+statistical operations. Choose the path from the probability measure, not from
+the amount of code you expect to write.
+
+### Distribution already available in SciPy
+
+Inherit from `LpmScipy` and select a `scipy.stats` distribution. For the usual
+statistical interface, the model-specific code is limited to:
+
+1. declaring `scipy_dist`;
+2. declaring the physical PyAges parameters and their units in `__init__()`;
+3. translating those parameters to SciPy's `(shape_args, loc, scale)` convention
+   in `_scipy_params()`.
+
+`LpmScipy` then provides `pdf()`, `cdf()`, `cdf_inv()`, `mean()`, and `std()`.
+Do not reimplement those methods in each model. For example, PyAges exposes the
+inverse Gaussian through a mean and standard deviation in years; only
+`_scipy_params()` converts those physical quantities to SciPy's dimensionless
+shape and dimensional scale.
+
+There is one additional requirement for a model used by the continuous
+convolution engine: the concrete model must provide the vectorized analytical
+primitive `cdf_and_partial_first_moment(t)`. It returns both `F(t)` and
+`E[T 1(T <= t)]`. SciPy supplies the ordinary distribution functions, but it
+does not supply this PyAges-specific convolution contract in the required
+vectorized form. PyAges deliberately does not reconstruct it from sampled PDF
+values.
+
+Distribution-specific numerical workarounds remain private to the affected
+model family. For example, the built-in inverse-Gaussian models share a private
+quantile fallback because SciPy's inverse-Gaussian PPF can return a non-finite
+value in extreme cases. New SciPy-backed models should still inherit from
+`LpmScipy`; override one of its methods only when a demonstrated, tested issue
+is specific to that distribution.
+
+### Distribution requiring a specific mechanism
+
+Inherit directly from `LpmBase` when the probability measure cannot be
+represented faithfully by one continuous SciPy distribution. This includes:
+
+- exact point masses (`DIRAC` and `DIRAC_DOUBLE`);
+- mixed discrete/continuous measures (`MIXED_DIRAC_CONTINUOUS`);
+- custom continuous laws such as the configurable shape-free model.
+
+The model must then implement its probability functions and moments and select
+the appropriate `ConvolutionStrategy`. A custom continuous model must also
+implement `cdf_and_partial_first_moment(t)`.
+
+### What is implemented where
+
+| Location | Responsibility |
+| --- | --- |
+| `pyages/lpm/core/lpm_scipy.py` | Generic SciPy delegation for PDF, CDF, quantiles, mean, and standard deviation |
+| `pyages/lpm/models/<name>.py` | Scientific parameterization, SciPy parameter conversion, and any distribution-specific convolution formula |
+| `data_core/data_lpm/<name>/params.yaml` | Calibration bounds, initial values, proposal steps, priors, labels, units, and descriptions |
+| `pyages/lpm/core/convolution_strategy.py` | Declaration of the convolution mechanism required by the probability measure |
+| `pyages/convolution/` | Generic execution of the declared continuous, Dirac, double-Dirac, or mixed convolution mechanism |
+| `pyages/lpm/core/registry.py` | Discovery of model classes decorated with `@register_lpm` |
+
+The existing SciPy-backed models are `exp`, `exp_shifted`, `gamma`, `uniform`,
+`weibull`, `ig`, and `ig_shifted`. The Dirac variants, the mixed
+Dirac/exponential model, and the shape-free model use specific `LpmBase`
+implementations.
 
 ## Quick Method: Use the Template Generator
 
 The easiest way to create a new LPM is with the template generator (CLI):
 
 ```bash
-pyage new lpm <name> [--base scipy|scipy_safe|root] [-o <output_dir>]
+pyages new lpm <name> [--base scipy|root] [-o <output_dir>]
 ```
 
 Example for a Weibull distribution:
 
 ```bash
-pyage new lpm weibull --base scipy
+pyages new lpm weibull --base scipy
 ```
 
 This creates:
-- `pyage/lpm/models/weibull.py` – Python class (template)
+- `pyages/lpm/models/weibull.py` – Python class (template)
 - `data_core/data_lpm/weibull/params.yaml` – Parameter configuration
 
 Then follow the "Customize the Generated Code" section below.
@@ -28,10 +94,13 @@ Then follow the "Customize the Generated Code" section below.
 
 ### Step 1: Create the Python Class
 
-Create a new file `pyage/lpm/models/<name>.py`:
+Create a new file `pyages/lpm/models/<name>.py`:
 
 ```python
 # -*- coding: utf-8 -*-
+# Copyright (c) YEAR COPYRIGHT HOLDER
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 LPM Weibull distribution model.
 
@@ -49,9 +118,14 @@ Your Name
 """
 
 from scipy.stats import weibull_min
+from scipy.special import gamma as gamma_function
+from scipy.special import gammainc
 
-from pyage.lpm.core.lpm_scipy import LpmScipy
-from pyage.lpm.core.registry import register_lpm
+import numpy as np
+import numpy.typing as npt
+
+from pyages.lpm.core.lpm_scipy import LpmScipy
+from pyages.lpm.core.registry import register_lpm
 
 
 @register_lpm("weibull")  # This name is used in YAML configs
@@ -91,6 +165,26 @@ class WeibullLpm(LpmScipy):
         # weibull_min takes: c (shape), loc, scale
         # Our k = shape, lambda = scale
         return (self.p["k"],), 0, self.p["lambda"]
+
+    def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
+        """Return F(t) and E[T 1(T <= t)] for convolution."""
+        shape = float(self.p["k"])
+        scale = float(self.p["lambda"])
+        values = np.asarray(t, dtype=float)
+        cdf = np.asarray(self.cdf(values), dtype=float)
+        first_moment = np.zeros_like(values, dtype=float)
+        positive = values > 0.0
+        if np.any(positive):
+            reduced_age = np.power(values[positive] / scale, shape)
+            moment_shape = 1.0 + 1.0 / shape
+            first_moment[positive] = (
+                scale
+                * gamma_function(moment_shape)
+                * gammainc(moment_shape, reduced_age)
+            )
+        if values.ndim == 0:
+            return float(cdf), float(first_moment)
+        return cdf, first_moment
 ```
 
 ### Step 2: Create the Parameter File
@@ -142,17 +236,17 @@ notes: |
 The `@register_lpm("weibull")` decorator automatically registers the model. Verify with:
 
 ```bash
-pyage list lpms
+pyages list lpms
 ```
 
 Your new model should appear in the list of available LPMs.
 
 ## Minimal checklist (what must exist)
 
-1) A Python class in `pyage/lpm/models/<name>.py` with `@register_lpm("<name>")`.
+1) A Python class in `pyages/lpm/models/<name>.py` with `@register_lpm("<name>")`.
 2) A parameter YAML file in `data_core/data_lpm/<name>/params.yaml`.
 3) Parameter names in the YAML match constructor parameter names.
-4) `lpm_build("<name>")` succeeds (no import errors).
+4) `build_lpm("<name>")` succeeds (no import errors).
 
 ---
 
@@ -164,7 +258,7 @@ The `_scipy_params()` method maps your LPM parameters to scipy's `(args, loc, sc
 
 ```python
 def _scipy_params(self):
-    return (args_tuple,), loc, scale
+    return shape_args, loc, scale
 ```
 
 Common patterns:
@@ -196,8 +290,7 @@ Choose the appropriate base class:
 | Base Class | Use When |
 |------------|----------|
 | `LpmScipy` | Standard scipy distribution |
-| `LpmScipySafe` | Distribution with numerical edge cases (e.g., inverse Gaussian) |
-| `LpmBase` | Custom distribution not in scipy |
+| `LpmBase` | Custom continuous, discrete, or mixed probability measure |
 
 ### Convolution contract
 
@@ -206,7 +299,7 @@ must provide a vectorized `cdf_and_partial_first_moment(t)` returning
 `(F(t), E[T 1(T <= t)])`:
 
 ```python
-from pyage.lpm.core.convolution_strategy import ConvolutionStrategy
+from pyages.lpm.core.convolution_strategy import ConvolutionStrategy
 
 
 @register_lpm("my_special_lpm")
@@ -223,7 +316,7 @@ Available strategies:
 - `DIRAC_DOUBLE`: Two-point mass distributions
 - `MIXED_DIRAC_CONTINUOUS`: Direct point mass plus normalized continuous part
 
-PyAge does not reconstruct a production CDF from sampled PDF values. A
+PyAges does not reconstruct a production CDF from sampled PDF values. A
 continuous model without a trustworthy vectorized CDF and partial first moment
 is rejected explicitly.
 
@@ -234,10 +327,10 @@ is rejected explicitly.
 ### Basic Test
 
 ```python
-from pyage.lpm.lpm_build import lpm_build
+from pyages.lpm import build_lpm
 
 # Create instance
-lpm = lpm_build("weibull")
+lpm = build_lpm("weibull")
 print(f"Parameters: {lpm.p}")
 
 # Test PDF
@@ -245,7 +338,7 @@ import numpy as np
 
 t = np.linspace(0, 50, 100)
 pdf = lpm.pdf(t)
-print(f"PDF integral: {np.trapz(pdf, t):.4f}")  # Should be ~1.0
+print(f"PDF integral: {np.trapezoid(pdf, t):.4f}")  # Should be ~1.0
 
 # Test statistics
 print(f"Mean: {lpm.mean():.2f} years")
@@ -255,9 +348,9 @@ print(f"Std:  {lpm.std():.2f} years")
 ### Test with Convolution
 
 ```python
-from pyage.config.paths import DIRECTORY_TRACER_DATA
-from pyage.tracer.tracer_root import Tracer
-from pyage.convolution.convolution import Convolution
+from pyages.config.paths import DIRECTORY_TRACER_DATA
+from pyages.tracer.tracer_root import Tracer
+from pyages.convolution.convolution import Convolution
 
 # Load tracer
 tracer = Tracer(DIRECTORY_TRACER_DATA, name="cfc11")
@@ -266,15 +359,15 @@ tracer = Tracer(DIRECTORY_TRACER_DATA, name="cfc11")
 conv = Convolution(tracer, date=2010.0)
 
 # Compute concentration
-lpm = lpm_build("weibull")
-concentration = conv.compute_convolution(lpm)
+lpm = build_lpm("weibull")
+concentration = conv.convolve(lpm)
 print(f"CFC-11 concentration: {concentration:.2f} pptv")
 ```
 
 ### Run the system check
 
 ```bash
-pyage check
+pyages check
 ```
 
 ---
@@ -288,7 +381,6 @@ parameters:
   - name: mu              # Must match constructor parameter
     bounds: [0.1, 100.0]  # Valid range
     init: 10.0            # Initial value for optimization
-    step: 1.0             # MCMC proposal step size
 ```
 
 ### Optional Fields
@@ -299,6 +391,7 @@ parameters:
     label: mean_age       # Display name
     unit: year            # Physical unit
     description: "..."    # Documentation
+    step: 1.0             # For componentwise_source="model"
     prior:
       type: uniform
       min: 0.0
@@ -311,7 +404,7 @@ parameters:
 |-------|-----------|
 | `bounds` | Physical constraints (e.g., ages > 0) |
 | `init` | Reasonable starting point for your application |
-| `step` | ~5-10% of expected parameter range |
+| `step` | Positive finite value; needed only for model-configured MH steps |
 | `prior.min/max` | Wider than `bounds` to allow exploration |
 
 ---
@@ -321,11 +414,14 @@ parameters:
 ### Python Class
 
 ```python
-# pyage/lpm/models/lognormal.py
+# pyages/lpm/models/lognormal.py
 
+import numpy as np
+import numpy.typing as npt
+from scipy.special import ndtr
 from scipy.stats import lognorm
-from pyage.lpm.core.lpm_scipy import LpmScipy
-from pyage.lpm.core.registry import register_lpm
+from pyages.lpm.core.lpm_scipy import LpmScipy
+from pyages.lpm.core.registry import register_lpm
 
 
 @register_lpm("lognormal")
@@ -351,8 +447,6 @@ class LognormalLpm(LpmScipy):
 
     def _scipy_params(self):
         # Convert mean/std to lognormal parameters
-        import numpy as np
-
         mu = self.p["mu"]
         sigma = self.p["sigma"]
 
@@ -362,6 +456,25 @@ class LognormalLpm(LpmScipy):
 
         # scipy.lognorm(s, loc, scale) where s=sigma_ln, scale=exp(mu_ln)
         return (sigma_ln,), 0, np.exp(mu_ln)
+
+    def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
+        """Return F(t) and E[T 1(T <= t)] for convolution."""
+        mean = float(self.p["mu"])
+        std = float(self.p["sigma"])
+        sigma_ln = np.sqrt(np.log1p((std / mean) ** 2))
+        mu_ln = np.log(mean) - 0.5 * sigma_ln**2
+        values = np.asarray(t, dtype=float)
+        cdf = np.asarray(self.cdf(values), dtype=float)
+        first_moment = np.zeros_like(values, dtype=float)
+        positive = values > 0.0
+        if np.any(positive):
+            z = (
+                np.log(values[positive]) - mu_ln - sigma_ln**2
+            ) / sigma_ln
+            first_moment[positive] = mean * ndtr(z)
+        if values.ndim == 0:
+            return float(cdf), float(first_moment)
+        return cdf, first_moment
 ```
 
 ### Parameter File
@@ -411,8 +524,8 @@ notes: |
 ### "Unknown LPM type: 'mymodel'"
 
 - Check that `@register_lpm("mymodel")` decorator is present
-- Verify the file is in `pyage/lpm/models/`
-- Ensure no import errors: `python -c "import pyage.lpm.models.mymodel"`
+- Verify the file is in `pyages/lpm/models/`
+- Ensure no import errors: `python -c "import pyages.lpm.models.mymodel"`
 
 ### "Parameter 'x' not found in bounds"
 
@@ -424,7 +537,8 @@ notes: |
 - Check `_scipy_params()` mapping
 - Verify scipy distribution is for positive values (transit times must be ≥ 0)
 
-### Numerical issues with CDF
+### Numerical issues with CDF or inverse CDF
 
-- Use `LpmScipySafe` instead of `LpmScipy`
-- Check for extreme parameter values
+- Check the physical-to-SciPy parameter conversion and extreme parameter values
+- Keep `LpmScipy` as the generic base and add a distribution-specific override
+  only when a focused regression test demonstrates that SciPy needs one

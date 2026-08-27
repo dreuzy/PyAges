@@ -31,6 +31,7 @@ jobs:
             install/constraints.txt
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
+      - run: python scripts/check_licensing.py
       - run: python -m ruff check .
       - run: python -m ruff format --check .
 
@@ -52,15 +53,23 @@ jobs:
       - run: python -m pip_audit --local --skip-editable --progress-spinner off
 
   conda-environment:
-    name: Conda environment
+    name: Historical article environment
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: mamba-org/setup-micromamba@v3
         with:
-          environment-name: pyage-audit
+          environment-name: pyages-article-reproduction
           environment-file: install/environment.yml
           cache-environment: true
+      - name: Install and smoke-test PyAges in the Conda environment
+        run: |
+          micromamba run -n pyages-article-reproduction python -m pip install --no-deps -e .
+          micromamba run -n pyages-article-reproduction python -m pip check
+          micromamba run -n pyages-article-reproduction python -c "import pyages; print(pyages.__version__)"
+          micromamba run -n pyages-article-reproduction pyages --version
+          micromamba run -n pyages-article-reproduction pyages list lpms
+          micromamba run -n pyages-article-reproduction pyages list tracers
 
   tests:
     name: Tests (Python ${{ matrix.python-version }})
@@ -82,6 +91,40 @@ jobs:
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m pytest -q
 
+  scipy-lower-bounds:
+    name: SciPy lower bound (Python ${{ matrix.python-version }}, SciPy ${{ matrix.scipy-version }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.12"
+            scipy-version: "1.14.1"
+          - python-version: "3.13"
+            scipy-version: "1.14.1"
+          - python-version: "3.14"
+            scipy-version: "1.16.1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev]" "scipy==${{ matrix.scipy-version }}"
+      - name: Test SciPy-dependent scientific paths
+        run: >-
+          python -m pytest -q
+          tests/lpm/test_inverse_gaussian_analytics.py
+          tests/lpm/test_continuous_partial_moments.py
+          tests/lpm/test_lpm_models.py
+          tests/lpm/test_discrete_lpm_analytics.py
+          tests/convolution
+          tests/calibration/test_calibration_scientific_contracts.py
+          tests/calibration/test_calibration_problem.py
+          tests/calibration/test_ploemeur_scipy_ig_prior.py
+
   coverage:
     name: Coverage
     runs-on: ubuntu-24.04
@@ -96,7 +139,7 @@ jobs:
             install/constraints.txt
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
-      - run: python -m pytest -q --cov=pyage --cov-report=term-missing --cov-report=xml --cov-fail-under=60
+      - run: python -m pytest -q --cov=pyages --cov-report=term-missing --cov-report=xml --cov-fail-under=60
       - uses: actions/upload-artifact@v7
         with:
           name: coverage
@@ -177,12 +220,12 @@ jobs:
           .venv-smoke/bin/python -m pip install dist/*.whl
           smoke_dir="$(mktemp -d)"
           cd "$smoke_dir"
-          "$GITHUB_WORKSPACE/.venv-smoke/bin/python" -c "import pyage; print(pyage.__version__)"
-          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyage" --version
-          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyage" list lpms
-          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyage" list tracers
-          PYAGE_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyage" check
-          PYAGE_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyage" run "$GITHUB_WORKSPACE/examples/templates/quickstart_single.yaml"
+          "$GITHUB_WORKSPACE/.venv-smoke/bin/python" -c "import pyages; print(pyages.__version__)"
+          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" --version
+          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" list lpms
+          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" list tracers
+          PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" check
+          PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" run "$GITHUB_WORKSPACE/examples/templates/quickstart_single.yaml"
           test -f "$GITHUB_WORKSPACE/.smoke-results/test_cases/ploemeur_F09_2010.txt/result_manifest.json"
       - uses: actions/upload-artifact@v7
         with:

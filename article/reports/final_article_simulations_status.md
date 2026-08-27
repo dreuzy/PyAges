@@ -1,4 +1,11 @@
-# Statut final des simulations d'article PyAge
+# Statut final des simulations d'article PyAges
+
+> **Rapport historique.** Cette page décrit les campagnes des 20–22 août 2026
+> sous leurs chemins `results/`. Elle n'est pas le verdict de la campagne
+> externe fraîche du 26–27 août. L'état courant et la séparation entre les
+> contrôles historiques (0/6 localement) et la validation fraîche (8/8 étapes)
+> sont documentés dans
+> `docs/reports/reproduction_campaign_status_2026-08-27.md`.
 
 Période consolidée : **2026-08-20 22:50:23 — 2026-08-22 00:25 CEST**.
 Commit `HEAD` : `e77691e5c957b2ac650642e89cb9dd3c9d030c57`.
@@ -52,7 +59,7 @@ Les puits 59-05, 67-19 et 72-22 passent à 10 000 pas. Seuls 73-29, 85-33, 85-34
 | 85-34 | 20 000 | 1,00561 | 728,42 |
 | 85-35 | 20 000 | 1,00785 | 434,80 |
 
-Comparaison aux 28 fractions Visser : **MAE 0,005455**, **median absolute error 0,003815**, **RMSE 0,007046**, **maximum 0,017993**; les 28/28 erreurs sont ≤0,02, donc aussi ≤0,05 et ≤0,10. Le plus grand résidu standardisé des concentrations vaut 1,800. Par rapport à l'ancien H4, la médiane de `|delta median|` vaut 0,000577 et son maximum 0,01029 : aucune modification anormale des médianes. La Figure 3 finale montre uniquement Visser versus PyAge H4, avec médianes et q10–q90.
+Comparaison aux 28 fractions Visser : **MAE 0,005455**, **median absolute error 0,003815**, **RMSE 0,007046**, **maximum 0,017993**; les 28/28 erreurs sont ≤0,02, donc aussi ≤0,05 et ≤0,10. Le plus grand résidu standardisé des concentrations vaut 1,800. Par rapport à l'ancien H4, la médiane de `|delta median|` vaut 0,000577 et son maximum 0,01029 : aucune modification anormale des médianes. La Figure 3 finale montre uniquement Visser versus PyAges H4, avec médianes et q10–q90.
 
 ## Ploemeur
 

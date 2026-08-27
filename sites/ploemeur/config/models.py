@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Strict configuration models for the Ploemeur workflows."""
 
 from __future__ import annotations
@@ -15,7 +19,7 @@ from pydantic import (
     model_validator,
 )
 
-from pyage.config.paths import ROOT_DIRECTORY
+from pyages.config.paths import ROOT_DIRECTORY
 
 PLOEMEUR_ROOT = Path(__file__).resolve().parents[1]
 TimeSpanMode = Literal[

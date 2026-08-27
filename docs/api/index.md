@@ -10,24 +10,27 @@ promise is {doc}`../reference/public-api`.
 .. autosummary::
    :toctree: generated
 
-   pyage.config
-   pyage.calibration.problem
-   pyage.calibration.utils.parameter_grid
-   pyage.calibration.utils.systematic_sampling
-   pyage.convolution
-   pyage.observations
-   pyage.lpm.lpm_build
-   pyage.lpm.core.lpm_base
-   pyage.lpm.core.lpm_dist
-   pyage.lpm.core.registry
-   pyage.tracer.tracer_protocol
-   pyage.tracer.config
-   pyage.tracer.tracer_root
-   pyage.concentrations.concentrations
-   pyage.concentrations.concentrations_time
-   pyage.calibration.methods.metropolis_hastings
-   pyage.calibration.methods.prior
-   pyage.calibration.methods.trajectory
+   pyages.config
+   pyages.config.loading
+   pyages.calibration.methods.base
+   pyages.calibration.outputs
+   pyages.calibration.problem
+   pyages.calibration.utils.parameter_grid
+   pyages.calibration.utils.systematic_sampling
+   pyages.convolution
+   pyages.lpm.factory
+   pyages.lpm.core.lpm_base
+   pyages.lpm.samples.table
+   pyages.lpm.core.parameter_manager
+   pyages.lpm.core.registry
+   pyages.tracer.tracer_protocol
+   pyages.tracer.config
+   pyages.tracer.tracer_root
+   pyages.concentrations
+   pyages.concentrations.concentrations_time
+   pyages.calibration.methods.metropolis_hastings
+   pyages.calibration.methods.prior
+   pyages.calibration.methods.trajectory
 ```
 
 ## I/O, CLI, and site integration
@@ -36,11 +39,13 @@ promise is {doc}`../reference/public-api`.
 .. autosummary::
    :toctree: generated
 
-   pyage.data_io.lpm_params
-   pyage.data_io.lpm_results
-   pyage.data_io.lpm_distribution
-   pyage.cli.main
-   pyage.site.base_site
+   pyages.data_io.lpm_params
+   pyages.data_io.lpm_results
+   pyages.data_io.lpm_distribution
+   pyages.cli.main
+   pyages.site.base_site
+   pyages.workflows
+   pyages.workflows.result_manifest
 ```
 
 ```{toctree}

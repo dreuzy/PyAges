@@ -6,9 +6,9 @@ version: 1
 
 parameters:
   - name: mufree
-    label: mean_age_free
+    label: free_atom_age
     unit: year
-    description: "Free mean parameter."
+    description: "Age of the free Dirac point mass."
     bounds: [0.0, 70.0]
     init: 10.0
     step: 2.0
@@ -20,7 +20,8 @@ parameters:
 
   - name: rate
     label: mix_rate
-    description: "Mixing rate between components."
+    unit: "-"
+    description: "Probability mass assigned to the free Dirac atom."
     bounds: [0.0, 1.0]
     init: 0.3
     step: 0.1

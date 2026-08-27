@@ -1,0 +1,26 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Validated concentration observations used by PyAges workflows."""
+
+from pyages.concentrations.concentrations import Concentrations, name_date
+from pyages.concentrations.schema import (
+    CONCENTRATION_COLUMN,
+    DATE_COLUMN,
+    ELEMENT_COLUMN,
+    ERROR_COLUMN,
+    REFERENCE_COLUMNS,
+    UNIT_COLUMN,
+)
+
+__all__ = [
+    "CONCENTRATION_COLUMN",
+    "Concentrations",
+    "DATE_COLUMN",
+    "ELEMENT_COLUMN",
+    "ERROR_COLUMN",
+    "REFERENCE_COLUMNS",
+    "UNIT_COLUMN",
+    "name_date",
+]

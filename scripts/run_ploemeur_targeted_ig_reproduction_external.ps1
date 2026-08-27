@@ -1,11 +1,15 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
 
 $env:PYTHONUNBUFFERED = "1"
-$env:PYAGE_PLOEMEUR_IG_PILOT_STEPS = "1200"
-$env:PYAGE_PLOEMEUR_IG_PRODUCTION_STEPS = "32000"
-$env:PYAGE_PLOEMEUR_IG_WARMUP_STEPS = "2000"
+$env:PYAGES_PLOEMEUR_IG_PILOT_STEPS = "1200"
+$env:PYAGES_PLOEMEUR_IG_PRODUCTION_STEPS = "32000"
+$env:PYAGES_PLOEMEUR_IG_WARMUP_STEPS = "2000"
 
 $logDirectory = Join-Path $projectRoot "results\ploemeur_targeted_ig_reproduction\logs"
 New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null

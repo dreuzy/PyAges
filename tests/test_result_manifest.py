@@ -1,10 +1,14 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Contracts for versioned public workflow result metadata."""
 
 import hashlib
 import json
 
-from pyage import __version__
-from pyage.workflows.result_manifest import (
+from pyages import __version__
+from pyages.workflows.result_manifest import (
     RESULT_SCHEMA_VERSION,
     write_result_manifest,
 )
@@ -27,7 +31,7 @@ def test_result_manifest_is_versioned_and_deterministic(tmp_path) -> None:
     assert payload["schema_version"] == RESULT_SCHEMA_VERSION == 2
     assert payload["status"] == "complete"
     assert payload["workflow"] == "single_date"
-    assert payload["pyage_version"] == __version__
+    assert payload["pyages_version"] == __version__
     assert payload["details"] == {"lpm": "exp"}
     assert (
         payload["configuration"]["sha256"]
@@ -39,4 +43,10 @@ def test_result_manifest_is_versioned_and_deterministic(tmp_path) -> None:
         "samples.csv": hashlib.sha256(artifact.read_bytes()).hexdigest(),
     }
     assert payload["environment"]["dependencies"]["numpy"]
+    assert set(payload["environment"]) == {
+        "dependencies",
+        "implementation",
+        "platform",
+        "python",
+    }
     assert "tracked_workspace_sha256" in payload["repository"]

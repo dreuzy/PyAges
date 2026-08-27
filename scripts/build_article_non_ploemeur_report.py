@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Build the final article report and artifact inventory for the final run."""
 
 from __future__ import annotations
@@ -78,13 +82,13 @@ def _tracerlpm_summary(run: Path) -> tuple[str, str]:
         ]
     )
     no_noise_path = (
-        run / "inversion_four_tracer" / "pyage_tracerlpm_no_noise_parameters.csv"
+        run / "inversion_four_tracer" / "pyages_tracerlpm_no_noise_parameters.csv"
     )
     if no_noise_path.exists():
         no_noise = pd.read_csv(no_noise_path)
         main += "\n\n### Qualification finale sans bruit et contrôles aveugles\n\n"
         main += _markdown(no_noise)
-    supplement = "# Supplement S2 — qualification PyAge–TracerLPM\n\n"
+    supplement = "# Supplement S2 — qualification PyAges–TracerLPM\n\n"
     supplement += "Les pseudo-observations proviennent de la quadrature Gauss–Legendre indépendante segmentée. "
     supplement += "Les quatre traceurs CFC-11, CFC-12, CFC-113 et SF6 sont utilisés dans la campagne finale.\n\n"
     supplement += "Le consolidateur refuse un cas si les pseudo-observations remises aux deux outils diffèrent de plus de `1e-12`.\n\n"
@@ -93,7 +97,7 @@ def _tracerlpm_summary(run: Path) -> tuple[str, str]:
     supplement += "DM: `mu=tau`, `sigma=tau*sqrt(2*DP)`.\n\n"
     supplement += (
         "## Objectifs\n\n"
-        "PyAge minimise sa L2 pondérée native; TracerLPM minimise sa somme L1 "
+        "PyAges minimise sa L2 pondérée native; TracerLPM minimise sa somme L1 "
         "relative native. Pour rendre les sorties comparables, "
         "`sum(abs((Cmod-Cobs)/Cobs))` et "
         "`sum(((Cmod-Cobs)/Cobs)^2)` sont aussi recalculées pour les deux outils "
@@ -302,7 +306,7 @@ La figure utilise `x=mu`, `y=t0`; la cible est `(10,30)`. La couleur est
 {figure2}
 ```
 
-## 5. Benchmark inverse PyAge–TracerLPM
+## 5. Benchmark inverse PyAges–TracerLPM
 
 {tracerlpm_main}
 
@@ -337,7 +341,7 @@ Le périmètre et le résultat de recherche sont consignés dans `identifier_aud
 - Table 3: `table3/table3_old_new_all_numeric_columns.csv`;
 - Figure 2: ancien fond `0.5 ln(J)` remplacé par la grandeur prescrite;
 - Holten: `holten/holten_old_new_all_numeric_columns.csv`;
-- PyAge–TracerLPM: `robustness_480/old_new_all_numeric_columns.csv` et résultats
+- PyAges–TracerLPM: `robustness_480/old_new_all_numeric_columns.csv` et résultats
   détaillés avec objectifs recalculés dans le CSV S2.
 
 ## 11. Modifications à reporter dans le manuscrit

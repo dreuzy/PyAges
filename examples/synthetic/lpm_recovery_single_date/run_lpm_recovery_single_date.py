@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Run the synthetic single-date recovery example end to end.
 """
@@ -11,7 +15,7 @@ from examples.synthetic.lpm_recovery_single_date.synthetic_case import (
     build_truth_aware_figures,
     generate_synthetic_case,
 )
-from pyage.workflows.single_date import run_single_date
+from pyages.workflows.single_date import run_single_date
 
 
 def main(force_inline: bool = False) -> Path:

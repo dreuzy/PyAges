@@ -1,9 +1,9 @@
-# PyAge
+# PyAges
 
-PyAge is a research codebase for groundwater age modeling and tracer-based
+PyAges is a research codebase for groundwater age modeling and tracer-based
 calibration using lumped-parameter models (LPMs), convolution operators, and
 inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
-It provides reusable scientific components in `pyage/` and site-specific
+It provides reusable scientific components in `pyages/` and site-specific
 workflows in `sites/`, with examples and regression tests to support validation.
 
 Project status: **beta** (`0.1.0b1`). Public interfaces are documented and
@@ -26,33 +26,38 @@ feedback remain prerequisites for `1.0.0`.
 
 ## Quick start
 
-Create the conda environment:
+Create a user environment and install the qualified dependency set:
 
 ```
-conda env create -f install/environment.yml
-conda activate pyage
+python -m venv .venv
+python -m pip install -c install/constraints.txt -e .
 ```
 
-Install PyAge (enables the `pyage` CLI):
+The separate `install/environment.yml` file preserves the Python 3.12 /
+SciPy 1.14.1 scientific baseline used by the historical article campaign; it
+is not the PyAges 1.0 user environment. See `install/README.md` for the two
+workflows.
+
+Installing PyAges enables the `pyages` CLI:
 
 ```
-python -m pip install -e .
+pyages --version
 ```
 
-The published distribution is named `pyage-groundwater`; the Python import
-and command remain `pyage`. The wheel contains the reusable library, its CLI,
+The distribution, Python import, and command all use the single identifier
+`pyages`. The wheel contains the reusable library, its CLI,
 and core model data. Repository examples and site studies remain in the Git
 source tree. Once a release is available from the configured package index,
 install it with:
 
 ```
-python -m pip install pyage-groundwater
+python -m pip install pyages
 ```
 
 Until a final release is published, pip users must opt into prereleases:
 
 ```
-python -m pip install --pre pyage-groundwater
+python -m pip install --pre pyages
 ```
 
 Run the full test suite:
@@ -72,8 +77,8 @@ python run_tests.py update
 From a source checkout, use the minimal templates under `examples/templates/`:
 
 ```
-pyage run examples/templates/quickstart_single.yaml
-pyage run --transient examples/templates/quickstart_temporal.yaml
+pyages run examples/templates/quickstart_single.yaml
+pyages run --transient examples/templates/quickstart_temporal.yaml
 ```
 
 ## Installation and execution
@@ -84,36 +89,36 @@ Recommended (installed package):
 python -m pip install -e .
 ```
 
-This makes `import pyage` work from any directory and enables the CLI:
+This makes `import pyages` work from any directory and enables the CLI:
 
 ```
-pyage check
-pyage list lpms
-pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
+pyages check
+pyages list lpms
+pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
-The supported entry point is the installed `pyage` command. Direct execution
+The supported entry point is the installed `pyages` command. Direct execution
 of repository files is not part of the public interface.
 
-## CLI (pyage)
+## CLI (pyages)
 
 The CLI provides quick access to common workflows once the package is installed.
 
 Main commands:
-- `pyage check` : validate installation, data paths, LPM registry, tracers.
-- `pyage list lpms|tracers` : list available models or tracers.
-- `pyage run <config.yaml>` : run a YAML-driven workflow (single-date by default).
-- `pyage run --transient <config.yaml>` : run the multi-date temporal workflow.
-- `pyage new lpm|tracer ...` : scaffold a new model or tracer template.
+- `pyages check` : validate installation, data paths, LPM registry, tracers.
+- `pyages list lpms|tracers` : list available models or tracers.
+- `pyages run <config.yaml>` : run a YAML-driven workflow (single-date by default).
+- `pyages run --transient <config.yaml>` : run the multi-date temporal workflow.
+- `pyages new lpm|tracer ...` : scaffold a new model or tracer template.
 
 Examples:
 ```
-pyage check
-pyage list lpms
-pyage run examples/natural/ploemeur/exemple_ploemeur.yaml
-pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
-pyage run --lpm exp_shifted --mh-nsteps 5000 --data-name mydata.txt --data-dir examples/my_site/data my_config.yaml
-pyage run --transient --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
+pyages check
+pyages list lpms
+pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
+pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run --lpm exp_shifted --mh-nsteps 5000 --data-name mydata.txt --data-dir examples/my_site/data my_config.yaml
+pyages run --transient --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
 ```
 
 ## Results directory
@@ -121,34 +126,33 @@ pyage run --transient --lpm ig --mh-nsteps 2000 --data-file examples/my_site/dat
 By default, results are written under:
 
 ```
-<home>/results/PyAge
+<home>/results/PyAges
 ```
 
 You can override the output root with an environment variable:
 
 ```
-setx PYAGE_RESULTS_DIR "D:\results\PyAge"
+setx PYAGES_RESULTS_DIR "D:\results\PyAges"
 ```
 
 (On Windows, `setx` persists across shells; for the current shell, also set
-`$env:PYAGE_RESULTS_DIR = "D:\results\PyAge"`.)
+`$env:PYAGES_RESULTS_DIR = "D:\results\PyAges"`.)
 
 ## Repository layout (high level)
 
-- `pyage/`: core library code (LPMs, tracers, convolution, calibration, config)
-  - `pyage/lpm/`: lumped-parameter models, core distributions, and parameter I/O
-  - `pyage/tracer/`: tracer chronologies and root tracer definitions
-  - `pyage/convolution/`: convolution algorithms and tracer helpers
-  - `pyage/concentrations/`: concentration data handling and time series helpers
-  - `pyage/calibration/`: calibration methods, workflows, and objective functions
-  - `pyage/config/`: validated configuration models, paths, and runtime helpers
-  - `pyage/observations/`: generic dataset loaders and observation helpers
-  - `pyage/tools/`: plotting and miscellaneous utilities used across modules
+- `pyages/`: core library code (LPMs, tracers, convolution, calibration, config)
+  - `pyages/lpm/`: lumped-parameter models, core distributions, and parameter I/O
+  - `pyages/tracer/`: tracer chronologies and root tracer definitions
+  - `pyages/convolution/`: convolution algorithms and tracer helpers
+  - `pyages/concentrations/`: concentration data handling and time series helpers
+  - `pyages/calibration/`: calibration methods, workflows, and objective functions
+  - `pyages/config/`: validated configuration models, paths, and runtime helpers
+  - `pyages/tools/`: plotting and miscellaneous utilities used across modules
 - `data_core/`: shared model data for LPMs and tracers (not observations)
   - `data_core/data_lpm/`: LPM parameter files (`params.yaml`, bounds, etc.)
   - `data_core/data_tracer/`: tracer chronologies and recharge series
 - `sites/`: site-specific workflows, data, and scripts (e.g., `ploemeur/`)
-- `examples/`: runnable examples and their data (e.g., `fontainebleau/`, `ploemeur/`)
+- `examples/`: runnable examples and their data (e.g., `holten/`, `ploemeur/`)
 - `scripts/`: entrypoints and orchestration scripts
 - `tests/`: automated tests and fixtures
 - `docs/`: architecture notes and refactoring plans
@@ -195,9 +199,8 @@ Example runners live under `examples/<site>/` and read their own YAML configs.
 For instance, see:
 
 - `examples/natural/ploemeur/exemple_ploemeur.yaml`
-- `examples/natural/fontainebleau/exemple_fontainebleau.yaml`
 - `examples/natural/ploemeur_temporal/ploemeur_temporal.yaml`
-- `examples/natural/fontainebleau/run_fontainebleau.py`
+- `examples/natural/holten/run_holten.py`
 
 ### Temporal MH launcher (multi-date concentrations)
 
@@ -206,7 +209,7 @@ concentration file (``ori_*.txt``) and produces temporal plots plus parameter
 and concentration distributions:
 
 ```
-pyage run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 Supported modes:
@@ -241,18 +244,22 @@ pytest -q tests --run-extensive
 
 The supported workflow entrypoints are:
 
-- `pyage run`: single-date workflow driven by YAML.
-- `pyage.workflows.temporal`: canonical multi-date MH workflow, exposed by `pyage run --transient`.
-- `pyage check`: quick installation and data sanity check.
+- `pyages run`: single-date workflow driven by YAML.
+- `pyages.workflows.temporal`: canonical multi-date MH workflow, exposed by `pyages run --transient`.
+- `pyages check`: quick installation and data sanity check.
 
 Repository-only research and benchmark commands are catalogued in
 `scripts/README.md`; they are not public package entry points.
 
 Expected outputs (under `<results_root>`):
 
-- single-date workflow: `test_cases/<dataset_name>/` (calibration files + `concentration_times.png`)
-- temporal workflow: `ploemeur_temporal/<dataset_stem>/<mode>/<date>/<lpm_type>/`
-  (calibration files + temporal plots/tables)
+- single-date workflow: `test_cases/<dataset_name>/`; method-specific plots and
+  tables, including `concentration_times.png`, are written below
+  `Metropolis_Hastings/` or `forward_uncertainty_quantification/`;
+- temporal workflow:
+  `<study_name>/<dataset_stem>/<mode>/<span_full-or-date>/<lpm_type>/`, where
+  `study_name` defaults to `temporal`; Metropolis-Hastings plots and tables are
+  below `Metropolis_Hastings/`.
 
 ## Notes
 
@@ -266,4 +273,21 @@ The supported public surface and compatibility policy are documented in
 
 ## License
 
-PyAge is distributed under the CeCILL 2.1 license (Copyright CNRS).
+PyAges is distributed under the CeCILL 2.1 license. The complete authoritative
+texts are included in French in
+[`LICENSE`](https://github.com/dreuzy/pyages/blob/main/LICENSE) and in English in
+[`LICENSE.en`](https://github.com/dreuzy/pyages/blob/main/LICENSE.en). Source
+files carry the SPDX identifier `CECILL-2.1`.
+
+Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS).
+Jean-Raynald de Dreuzy is the principal author and contributor. See
+[`COPYRIGHT`](https://github.com/dreuzy/pyages/blob/main/COPYRIGHT) for the
+complete authorship and rights notice,
+[`LICENSE`](https://github.com/dreuzy/pyages/blob/main/LICENSE) and
+[`LICENSE.en`](https://github.com/dreuzy/pyages/blob/main/LICENSE.en) for the
+license terms,
+[`NOTICE-DATA.md`](https://github.com/dreuzy/pyages/blob/main/NOTICE-DATA.md) for
+the separate provenance and terms of the data distributed with the project,
+and
+[`THIRD_PARTY_NOTICES.md`](https://github.com/dreuzy/pyages/blob/main/THIRD_PARTY_NOTICES.md)
+for the direct dependency licence audit.

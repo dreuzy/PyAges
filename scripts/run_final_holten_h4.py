@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Final five-chain Holten H4 production with a fixed pilot covariance."""
 
 # The repository root must be added before importing local example modules.
@@ -23,6 +27,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy
+from matplotlib.ticker import FormatStrFormatter
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -31,7 +36,6 @@ if str(ROOT) not in sys.path:
 from examples.natural.holten.holten_four_bin import BIN_ORDER, load_paper_4bin_fractions
 from examples.natural.holten.holten_prepare import prepare_holten_inputs
 from examples.natural.holten.holten_reproduction import (
-    BIN_LABELS,
     TRACERS_4,
     ForwardConvention,
     _fractions,
@@ -41,9 +45,14 @@ from examples.natural.holten.holten_reproduction import (
     build_reproduction_endmembers,
     optimize_well,
 )
-from pyage.calibration.mh_proposals import regularize_empirical_covariance
+from pyages.calibration.mh_proposals import regularize_empirical_covariance
 from scripts.common.mcmc_diagnostics import mcse_mean
 from scripts.common.provenance import repository_provenance
+from scripts.common.publication_plotting import (
+    PUBLICATION_RC,
+    mm_to_in,
+    save_pdf_png,
+)
 from scripts.run_final_shifted_exponential import (
     _iact_ess,
     _markdown,
@@ -465,17 +474,17 @@ def _comparison(
                     "well": well,
                     "fraction": fraction,
                     "visser": float(paper.loc[well, fraction]),
-                    "pyage_mean": float(local.loc[fraction, "mean"]),
-                    "pyage_median": float(local.loc[fraction, "median"]),
-                    "pyage_sd": float(local.loc[fraction, "sd"]),
-                    "pyage_q025": float(local.loc[fraction, "q025"]),
-                    "pyage_q10": float(local.loc[fraction, "q10"]),
-                    "pyage_q90": float(local.loc[fraction, "q90"]),
-                    "pyage_q975": float(local.loc[fraction, "q975"]),
+                    "pyages_mean": float(local.loc[fraction, "mean"]),
+                    "pyages_median": float(local.loc[fraction, "median"]),
+                    "pyages_sd": float(local.loc[fraction, "sd"]),
+                    "pyages_q025": float(local.loc[fraction, "q025"]),
+                    "pyages_q10": float(local.loc[fraction, "q10"]),
+                    "pyages_q90": float(local.loc[fraction, "q90"]),
+                    "pyages_q975": float(local.loc[fraction, "q975"]),
                 }
             )
     comparison = pd.DataFrame(rows)
-    errors = np.abs(comparison["pyage_median"] - comparison["visser"])
+    errors = np.abs(comparison["pyages_median"] - comparison["visser"])
     valid_errors = errors.dropna()
     metrics = pd.DataFrame(
         [
@@ -492,87 +501,124 @@ def _comparison(
             }
         ]
     )
-    comparison.to_csv(output / "visser_vs_pyage_h4.csv", index=False)
-    metrics.to_csv(output / "visser_vs_pyage_h4_metrics.csv", index=False)
+    comparison.to_csv(output / "visser_vs_pyages_h4.csv", index=False)
+    metrics.to_csv(output / "visser_vs_pyages_h4_metrics.csv", index=False)
     return comparison, metrics
 
 
-def _figure3(comparison: pd.DataFrame, output: Path) -> None:
+def _draw_figure3(
+    comparison: pd.DataFrame,
+    *,
+    layout: tuple[int, int],
+) -> tuple[plt.Figure, np.ndarray]:
+    """Draw one publication layout of the canonical Holten comparison."""
+
     wells = comparison["well"].drop_duplicates().tolist()
     tab10 = plt.get_cmap("tab10").colors
-    pyage_color = tab10[0]
+    pyages_color = tab10[0]
     visser_color = tab10[1]
-    fig, axes = plt.subplots(1, 4, figsize=(18.2, 5.4), sharey=True)
+    rows, columns = layout
+    height_mm = 78 if layout == (1, 4) else 118
+    fig, axes = plt.subplots(
+        rows,
+        columns,
+        figsize=(mm_to_in(165), mm_to_in(height_mm)),
+        sharey=True,
+        squeeze=False,
+    )
+    flat_axes = axes.ravel()
     y = np.arange(len(wells))
-    for axis, fraction, title in zip(axes, BIN_ORDER, BIN_LABELS, strict=False):
+    panel_titles = ("(a) 0–20 yr", "(b) 20–40 yr", "(c) 40–60 yr", "(d) >60 yr")
+    for panel_index, (axis, fraction, title) in enumerate(
+        zip(flat_axes, BIN_ORDER, panel_titles, strict=True)
+    ):
         values = (
             comparison.loc[comparison["fraction"] == fraction]
             .set_index("well")
             .loc[wells]
         )
         for row, well in enumerate(wells):
-            pyage_y = row + 0.08
+            pyages_y = row + 0.08
             visser_y = row - 0.08
-            pyage_median = values.loc[well, "pyage_median"]
+            pyages_median = values.loc[well, "pyages_median"]
             axis.errorbar(
-                pyage_median,
-                pyage_y,
+                pyages_median,
+                pyages_y,
                 xerr=[
-                    [pyage_median - values.loc[well, "pyage_q10"]],
-                    [values.loc[well, "pyage_q90"] - pyage_median],
+                    [pyages_median - values.loc[well, "pyages_q10"]],
+                    [values.loc[well, "pyages_q90"] - pyages_median],
                 ],
                 fmt="o",
-                color=pyage_color,
-                ecolor=pyage_color,
-                markersize=7.8,
-                elinewidth=3,
-                capsize=3,
-                capthick=1.5,
+                color=pyages_color,
+                ecolor=pyages_color,
+                markersize=4.2,
+                elinewidth=1.3,
+                capsize=2.2,
+                capthick=1.0,
                 zorder=3,
-                label="PyAge H4 median, q10–q90" if row == 0 else None,
+                label=(
+                    "PyAges posterior median and 10–90 % credible interval"
+                    if row == 0
+                    else None
+                ),
             )
             axis.scatter(
                 values.loc[well, "visser"],
                 visser_y,
                 facecolors="none",
                 edgecolors=visser_color,
-                linewidths=2.2,
-                s=75,
+                linewidths=1.3,
+                s=31,
                 marker="D",
                 zorder=4,
                 label="Visser et al. (2013)" if row == 0 else None,
             )
-        axis.set(title=title, xlabel="Age fraction", xlim=(-0.025, 1.025))
-        axis.grid(alpha=0.25)
-    axes[0].set_yticks(y, wells)
-    axes[0].invert_yaxis()
-    handles, labels = axes[0].get_legend_handles_labels()
+        axis.set_title(title, fontweight="bold", fontsize=9.0)
+        axis.set_xlim(-0.025, 1.025)
+        axis.set_xticks((0.0, 0.5, 1.0) if layout == (1, 4) else np.linspace(0, 1, 5))
+        if layout == (1, 4):
+            axis.xaxis.set_major_formatter(FormatStrFormatter("%g"))
+        axis.grid(alpha=0.22)
+        if panel_index != 0:
+            axis.tick_params(axis="y", labelleft=False)
+    flat_axes[0].set_yticks(y, wells)
+    flat_axes[0].invert_yaxis()
+    handles, labels = flat_axes[0].get_legend_handles_labels()
     handles_by_label = dict(zip(labels, handles, strict=False))
-    legend_labels = ("PyAge H4 median, q10–q90", "Visser et al. (2013)")
+    legend_labels = (
+        "PyAges posterior median and 10–90 % credible interval",
+        "Visser et al. (2013)",
+    )
+    fig.supxlabel("Age fraction", x=0.55 if layout == (1, 4) else 0.52, y=0.19)
     fig.legend(
         [handles_by_label[label] for label in legend_labels],
         legend_labels,
         loc="lower center",
-        ncol=2,
+        bbox_to_anchor=(0.5, 0.015),
+        ncol=1,
         frameon=False,
     )
-    fig.suptitle("Holten four-bin benchmark — Visser vs PyAge H4")
-    fig.tight_layout(rect=(0, 0.10, 1, 0.95))
-    for suffix in ("png", "pdf"):
-        fig.savefig(
-            output / f"figure3_holten_h4_final.{suffix}",
-            dpi=600,
-            bbox_inches="tight",
-            facecolor="white",
+    if layout == (1, 4):
+        fig.subplots_adjust(left=0.10, right=0.99, top=0.84, bottom=0.29, wspace=0.18)
+    else:
+        fig.subplots_adjust(
+            left=0.10, right=0.99, top=0.92, bottom=0.20, wspace=0.10, hspace=0.30
         )
-    fig.savefig(
-        output / "figure3_holten_h4_final.tiff",
-        dpi=600,
-        bbox_inches="tight",
-        facecolor="white",
-        pil_kwargs={"compression": "tiff_lzw"},
-    )
-    plt.close(fig)
+    return fig, flat_axes
+
+
+def _figure3(comparison: pd.DataFrame, output: Path) -> None:
+    """Export the preferred 1 × 4 layout and a 2 × 2 fallback."""
+
+    with plt.rc_context(PUBLICATION_RC):
+        final, _ = _draw_figure3(comparison, layout=(1, 4))
+        save_pdf_png(final, output, "figure3_holten_final")
+        save_pdf_png(final, output, "figure3_holten_h4_final")
+        plt.close(final)
+
+        alternative, _ = _draw_figure3(comparison, layout=(2, 2))
+        save_pdf_png(alternative, output, "figure3_holten_alt_2x2")
+        plt.close(alternative)
 
 
 def _sha256(path: Path) -> str:
@@ -590,7 +636,7 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
         ROOT / "examples" / "natural" / "holten" / "holten_reproduction.py",
         ROOT / "examples" / "natural" / "holten" / "holten_prepare.py",
         ROOT / "examples" / "natural" / "holten" / "holten_four_bin.py",
-        ROOT / "pyage" / "calibration" / "mh_proposals.py",
+        ROOT / "pyages" / "calibration" / "mh_proposals.py",
     )
     inputs = (
         prepared.context.paths.sampling_raw_path,

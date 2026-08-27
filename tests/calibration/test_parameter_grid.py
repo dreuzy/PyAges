@@ -1,9 +1,13 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Contracts for regular parameter grids."""
 
 import numpy as np
 import pytest
 
-from pyage.calibration.utils.parameter_grid import ParameterGrid
+from pyages.calibration.utils.parameter_grid import ParameterGrid
 
 
 def test_points_keep_declared_cartesian_order() -> None:

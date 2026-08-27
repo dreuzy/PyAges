@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Characterization tests for the installed single-date workflow."""
 
 from __future__ import annotations
@@ -5,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from pyage.workflows import single_date
+from pyages.workflows import single_date
 
 
 def test_quickstart_writes_a_manifest_and_normalized_observations(

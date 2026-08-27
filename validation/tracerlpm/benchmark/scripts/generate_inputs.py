@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Generate deterministic monthly input histories and a SHA-256 manifest."""
 
 from __future__ import annotations
@@ -13,11 +17,11 @@ import yaml
 
 BENCHMARK_ROOT = Path(
     os.environ.get(
-        "PYAGE_TRACERLPM_BENCHMARK_ROOT", Path(__file__).resolve().parents[1]
+        "PYAGES_TRACERLPM_BENCHMARK_ROOT", Path(__file__).resolve().parents[1]
     )
 ).resolve()
 SOURCE_REPOSITORY_ROOT = Path(
-    os.environ.get("PYAGE_TRACERLPM_SOURCE_ROOT", Path(__file__).resolve().parents[4])
+    os.environ.get("PYAGES_TRACERLPM_SOURCE_ROOT", Path(__file__).resolve().parents[4])
 ).resolve()
 DEFAULT_CONFIG = BENCHMARK_ROOT / "configs" / "campaign.yaml"
 DEFAULT_OUTPUT = BENCHMARK_ROOT / "inputs" / "synthetic"

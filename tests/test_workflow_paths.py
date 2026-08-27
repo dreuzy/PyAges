@@ -1,8 +1,12 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Path-resolution tests shared by installable workflows."""
 
 from pathlib import Path
 
-from pyage.workflows.single_date_paths import configuration_root
+from pyages.workflows.single_date_paths import configuration_root
 
 
 def test_configuration_root_finds_checkout_from_nested_config(tmp_path: Path) -> None:

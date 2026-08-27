@@ -1,12 +1,12 @@
 # TracerLPM Runner — preuve de concept Visual Studio
 
-Ce projet Windows pilote TracerLPM dans Excel depuis une application .NET 8 x64. Toutes les entrées sont en YAML, conformément aux configurations de PyAge. Le runner configure le classeur par ses contrôles ActiveX, exécute les macros nécessaires, lit les séries calculées et produit des rapports JSON, CSV et Markdown.
+Ce projet Windows pilote TracerLPM dans Excel depuis une application .NET 8 x64. Toutes les entrées sont en YAML, conformément aux configurations de PyAges. Le runner configure le classeur par ses contrôles ActiveX, exécute les macros nécessaires, lit les séries calculées et produit des rapports JSON, CSV et Markdown.
 
-Le runner est autonome par rapport à PyAge : il ne dépend d'aucun code Python et n'en modifie aucun fichier.
+Le runner est autonome par rapport à PyAges : il ne dépend d'aucun code Python et n'en modifie aucun fichier.
 
 Le protocole de comparaison scientifique est décrit dans
-[`docs/pyage-tracerlpm-targeted-comparison.md`](../../docs/pyage-tracerlpm-targeted-comparison.md).
-Le runner reste un adaptateur externe : les conversions PyAge et la logique de
+[`docs/pyages-tracerlpm-targeted-comparison.md`](../../docs/pyages-tracerlpm-targeted-comparison.md).
+Le runner reste un adaptateur externe : les conversions PyAges et la logique de
 comparaison ne doivent pas être ajoutées au code COM.
 
 ## État de la preuve de concept
@@ -73,7 +73,7 @@ La copie qualifiée du classeur contient le contournement local pour Excel fran�
 
 ## Compiler
 
-Depuis `C:\codes\pyage\validation\tracerlpm` :
+Depuis `C:\codes\pyages\validation\tracerlpm` :
 
 ```powershell
 dotnet build .\TracerLpmRunner.sln -c Release -p:Platform=x64
@@ -98,7 +98,7 @@ Le runner accepte exclusivement YAML en entrée :
 Depuis Visual Studio, ouvrir `TracerLpmRunner.sln`, choisir la cible `x64`, puis définir les arguments de débogage :
 
 ```text
---config C:\codes\pyage\validation\tracerlpm\config\runner-config.local.yaml --cases C:\codes\pyage\validation\tracerlpm\samples\cases.yaml
+--config C:\codes\pyages\validation\tracerlpm\config\runner-config.local.yaml --cases C:\codes\pyages\validation\tracerlpm\samples\cases.yaml
 ```
 
 Le code de sortie vaut `0` si tous les cas sont conformes, `1` en cas d'erreur ou de résultat invalide, et `2` n'est pas utilisé actuellement. Les résultats sont également écrits sur la sortie standard.
@@ -116,7 +116,7 @@ Le code de sortie vaut `0` si tous les cas sont conformes, `1` en cas d'erreur o
   expected_model2_sha256: 2834E84BFD505DEA2E0CC04EBC7A72FF1C756D50AC5ED14B2D10A7E8E71EECC3
 ```
 
-YAML accepte les commentaires et suit la convention `snake_case` déjà utilisée par PyAge. Les extensions `.yaml` et `.yml` sont acceptées. L'identifiant, l'échantillon, les deux modèles et les deux axes sont obligatoires. Les deux hashes attendus sont facultatifs. Sans hash attendu, une série calculée est acceptée mais son empreinte reste enregistrée dans le rapport. Les libellés doivent correspondre aux valeurs proposées par le classeur, sans tenir compte des majuscules/minuscules.
+YAML accepte les commentaires et suit la convention `snake_case` déjà utilisée par PyAges. Les extensions `.yaml` et `.yml` sont acceptées. L'identifiant, l'échantillon, les deux modèles et les deux axes sont obligatoires. Les deux hashes attendus sont facultatifs. Sans hash attendu, une série calculée est acceptée mais son empreinte reste enregistrée dans le rapport. Les libellés doivent correspondre aux valeurs proposées par le classeur, sans tenir compte des majuscules/minuscules.
 
 ## Configuration principale
 

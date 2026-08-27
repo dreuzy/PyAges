@@ -1,4 +1,8 @@
-"""Compare the 30-run PyAge and TracerLPM four-tracer campaigns."""
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Compare the 30-run PyAges and TracerLPM four-tracer campaigns."""
 
 from __future__ import annotations
 
@@ -11,7 +15,7 @@ import yaml
 
 from .generate_inputs import BENCHMARK_ROOT
 from .generate_inversion_pilot import expanded_cases
-from .invert_pyage_pilot import RESULT_DIR
+from .invert_pyages_pilot import RESULT_DIR
 
 CONFIG = BENCHMARK_ROOT / "configs" / "inversion-monte-carlo-01-sf6.yaml"
 RUN_OUTPUT = BENCHMARK_ROOT.parent / "output" / "four-tracer"
@@ -47,8 +51,8 @@ def summarize() -> dict:
     config = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
     rows = []
     for case in expanded_cases(config):
-        pyage_path = RESULT_DIR / case["case_id"] / "pyage-result.json"
-        pyage = json.loads(pyage_path.read_text(encoding="utf-8"))
+        pyages_path = RESULT_DIR / case["case_id"] / "pyages-result.json"
+        pyages = json.loads(pyages_path.read_text(encoding="utf-8"))
         tracer_path = _latest_tracerlpm_result(case["case_id"])
         tracer = json.loads(tracer_path.read_text(encoding="utf-8-sig"))
         if tracer.get("status") != "success" or not tracer.get("fit"):
@@ -60,8 +64,8 @@ def summarize() -> dict:
                 "case_id": case["case_id"],
                 "model": case["model"],
                 "seed": case["noise"]["seed"],
-                "pyage_tau": float(pyage["estimated_parameters"]["tau"]),
-                "pyage_secondary": float(pyage["estimated_parameters"][secondary_key])
+                "pyages_tau": float(pyages["estimated_parameters"]["tau"]),
+                "pyages_secondary": float(pyages["estimated_parameters"][secondary_key])
                 - secondary_offset,
                 "tracerlpm_tau": float(tracer["fit"]["estimatedAge"]),
                 "tracerlpm_secondary": float(tracer["fit"]["estimatedModelParameter"]),
@@ -78,14 +82,14 @@ def summarize() -> dict:
         if len(selected) != 30:
             raise ValueError(f"Campagne {model} incomplète : {len(selected)}/30")
         secondary_name, secondary_truth = ("r", 2.0) if model == "EPM" else ("DP", 0.2)
-        p_tau = np.asarray([row["pyage_tau"] for row in selected])
-        p_sec = np.asarray([row["pyage_secondary"] for row in selected])
+        p_tau = np.asarray([row["pyages_tau"] for row in selected])
+        p_sec = np.asarray([row["pyages_secondary"] for row in selected])
         t_tau = np.asarray([row["tracerlpm_tau"] for row in selected])
         t_sec = np.asarray([row["tracerlpm_secondary"] for row in selected])
         models[model] = {
             "count": len(selected),
             "secondary_name": secondary_name,
-            "pyage": {
+            "pyages": {
                 "tau": _statistics(p_tau, 20.0),
                 "secondary": _statistics(p_sec, secondary_truth),
             },
@@ -93,7 +97,7 @@ def summarize() -> dict:
                 "tau": _statistics(t_tau, 20.0),
                 "secondary": _statistics(t_sec, secondary_truth),
             },
-            "paired_tracerlpm_minus_pyage": {
+            "paired_tracerlpm_minus_pyages": {
                 "tau_mean": float(np.mean(t_tau - p_tau)),
                 "tau_rmse": float(np.sqrt(np.mean((t_tau - p_tau) ** 2))),
                 "secondary_mean": float(np.mean(t_sec - p_sec)),
@@ -118,7 +122,7 @@ def summarize() -> dict:
         writer.writerows(rows)
 
     lines = [
-        "# Comparaison PyAge–TracerLPM — 30 réalisations, quatre traceurs, bruit 1 %",
+        "# Comparaison PyAges–TracerLPM — 30 réalisations, quatre traceurs, bruit 1 %",
         "",
         "Traceurs : CFC-11, CFC-12, CFC-113 et SF6.",
         "",
@@ -126,7 +130,7 @@ def summarize() -> dict:
         "|---|---|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for model, data in models.items():
-        for tool in ("pyage", "tracerlpm"):
+        for tool in ("pyages", "tracerlpm"):
             for key, label, truth in (
                 ("tau", "tau", 20.0),
                 ("secondary", data["secondary_name"], 2.0 if model == "EPM" else 0.2),

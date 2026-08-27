@@ -2,7 +2,7 @@ s3_forward_verification:
   case_id: s3_forward_verification
   manuscript_section: "3 / Supplement S1"
   description: "Validation of the forward operator against independent quadrature"
-  entrypoint: "validation/tracerlpm/benchmark/scripts/compare_pyage.py"
+  entrypoint: "validation/tracerlpm/benchmark/scripts/compare_pyages.py"
   config: "validation/tracerlpm/benchmark/configs/campaign.yaml"
   canonical_results: "results/article_non_ploemeur_final/supplement_s1/"
   figures: []
@@ -12,12 +12,12 @@ s3_forward_verification:
   status: final
   commands:
     postprocess: [python, article/common/verify_forward.py]
-    run: [python, -m, validation.tracerlpm.benchmark.scripts.compare_pyage]
+    run: [python, -m, validation.tracerlpm.benchmark.scripts.compare_pyages]
 
 s3_1_tracerlpm:
   case_id: s3_1_tracerlpm
   manuscript_section: "3.1 / Supplement S2"
-  description: "Cross-software PyAge / TracerLPM benchmark"
+  description: "Cross-software PyAges / TracerLPM benchmark"
   entrypoint: "validation/tracerlpm/benchmark/scripts/build_qualification_report.py"
   config: "validation/tracerlpm/benchmark/configs/robustness-width-noise.yaml"
   canonical_results: "results/article_non_ploemeur_final/"
@@ -89,7 +89,7 @@ holten_prior_dirichlet1:
   tables: ["prior-sensitivity summaries"]
   manifest: "article/robustness/holten_prior_dirichlet1/manifest.json"
   expected_runtime: "hours; separate non-canonical sensitivity campaign"
-  status: unvalidated
+  status: complete-sensitivity
   commands:
     postprocess: [python, article/common/postprocess_existing.py, holten_prior_dirichlet1]
     run: [python, article/common/run_full.py, holten_prior_dirichlet1]

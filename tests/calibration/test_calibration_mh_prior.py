@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Smoke test for MH prior-only calibration.
 
@@ -7,9 +11,9 @@ to keep the test fast and deterministic.
 
 from pathlib import Path
 
-from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyage.calibration.workflows import synthetic_test as cst
-from pyage.config.runtime import DisplayOptions
+from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.workflows import synthetic_test as cst
+from pyages.config.runtime import DisplayOptions
 
 
 def test_calibration_mh_prior_smoke(tmp_path: Path):

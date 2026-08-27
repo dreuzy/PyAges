@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Comparison script for FUQ (Simplex) vs Metropolis-Hastings on synthetic cases.
 
@@ -7,25 +11,22 @@ Purpose
 Run synthetic calibrations across multiple LPM types and tracers, compare
 FUQ and MH outputs, and write figures + summary files for inspection.
 
-Author
-------
-Jean-Raynald de Dreuzy
 """
 
 import os
 
-import pyage.calibration.methods.metropolis_hastings as cMH
-import pyage.calibration.methods.simplex as csimp
-import pyage.calibration.workflows.synthetic_test as cst
-from pyage.config.paths import (
+import pyages.calibration.methods.metropolis_hastings as cMH
+import pyages.calibration.methods.simplex as csimp
+import pyages.calibration.workflows.synthetic_test as cst
+from pyages.config.paths import (
     ROOT_DIRECTORY_RESULTS,
     result_subdirectory,
     timestamp_name,
 )
-from pyage.config.runtime import DisplayOptions, SimulationTimer
-from pyage.lpm.distribution_plotting import (
-    display_concentration_distributions,
-    display_parameter_distributions,
+from pyages.config.runtime import DisplayOptions, SimulationTimer
+from pyages.lpm.plotting.sample_diagnostics import (
+    plot_concentration_diagnostics,
+    plot_parameter_diagnostics,
 )
 
 
@@ -115,7 +116,7 @@ class comparison_MH_fuq:
                 display_traj=True,
                 componentwise_source="model",
             )
-            calib_MH = cMH.MetropolisHastings(config=mh_config)  # JR: 250000
+            calib_MH = cMH.MetropolisHastings(config=mh_config)
             calstrat[1] = cst.CalibrationSyntheticTest(
                 calib_strategy=calib_MH,
                 ncase=ncase,
@@ -145,7 +146,7 @@ class comparison_MH_fuq:
                 # Outputs and Displays results
                 directory_common = result_subdirectory(self.display.directory, lpm)
                 directory_common = result_subdirectory(directory_common, str(i))
-                display_parameter_distributions(
+                plot_parameter_diagnostics(
                     lpm_results[0],
                     self_method=lpm_calibration[0].method,
                     lpm_reference=lpm_target,
@@ -153,7 +154,7 @@ class comparison_MH_fuq:
                     lpm_2nd_method=lpm_calibration[1].method,
                     directory=directory_common,
                 )
-                display_concentration_distributions(
+                plot_concentration_diagnostics(
                     lpm_results[0],
                     self_method=lpm_calibration[0].method,
                     concentrations_reference=concentration_sampled,

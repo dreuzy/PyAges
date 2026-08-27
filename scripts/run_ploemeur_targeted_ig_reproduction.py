@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Stabilized Ploemeur physical shifted-IG article campaign.
 
 This runner intentionally limits the experiment to F09 and F11.  It uses the
@@ -41,18 +45,18 @@ from scipy.stats import invgauss
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from pyage.calibration.methods.prior import (
+from pyages.calibration.methods.prior import (
     make_prior_expo,
 )
-from pyage.calibration.ig_parameterization import (
+from pyages.calibration.ig_parameterization import (
     physical_moments_to_scipy,
     physical_to_scipy_coordinates,
     scipy_to_physical_coordinates,
     scipy_to_physical_moments,
 )
-from pyage.calibration.mh_proposals import regularize_empirical_covariance
-from pyage.calibration.problem import CalibrationProblem
-from pyage.concentrations.concentrations import Concentrations
+from pyages.calibration.mh_proposals import regularize_empirical_covariance
+from pyages.calibration.problem import CalibrationProblem
+from pyages.concentrations.concentrations import Concentrations
 from scripts.common.mcmc_diagnostics import (
     ess as _ess,
     rank_normalize as _rank_normalize,
@@ -71,17 +75,15 @@ BENCHMARK_LPM = ROOT / "sites" / "ploemeur" / "benchmarks" / BENCHMARK_NAME / "d
 ORI_DIRECTORY = ROOT / "sites" / "ploemeur" / "data" / "ori"
 PARAMETERS = ("M", "S", "t0", "a", "s", "t50")
 SEEDS = (12345, 24680, 54321, 97531, 86420)
-PILOT_STEPS = int(os.environ.get("PYAGE_PLOEMEUR_IG_PILOT_STEPS", "1200"))
-PRODUCTION_STEPS = int(os.environ.get("PYAGE_PLOEMEUR_IG_PRODUCTION_STEPS", "12000"))
-PRODUCTION_WARMUP = int(os.environ.get("PYAGE_PLOEMEUR_IG_WARMUP_STEPS", "2000"))
+PILOT_STEPS = int(os.environ.get("PYAGES_PLOEMEUR_IG_PILOT_STEPS", "1200"))
+PRODUCTION_STEPS = int(os.environ.get("PYAGES_PLOEMEUR_IG_PRODUCTION_STEPS", "12000"))
+PRODUCTION_WARMUP = int(os.environ.get("PYAGES_PLOEMEUR_IG_WARMUP_STEPS", "2000"))
 AUTO_EXTENSION_STEPS = int(
-    os.environ.get("PYAGE_PLOEMEUR_IG_AUTO_EXTENSION_STEPS", "12000")
+    os.environ.get("PYAGES_PLOEMEUR_IG_AUTO_EXTENSION_STEPS", "12000")
 )
-MAX_AUTO_EXTENSIONS = int(os.environ.get("PYAGE_PLOEMEUR_IG_MAX_AUTO_EXTENSIONS", "6"))
+MAX_AUTO_EXTENSIONS = int(os.environ.get("PYAGES_PLOEMEUR_IG_MAX_AUTO_EXTENSIONS", "6"))
 MAX_FULL_SERIES_RETAINED_DRAWS = (
-    PRODUCTION_STEPS
-    - PRODUCTION_WARMUP
-    + MAX_AUTO_EXTENSIONS * AUTO_EXTENSION_STEPS
+    PRODUCTION_STEPS - PRODUCTION_WARMUP + MAX_AUTO_EXTENSIONS * AUTO_EXTENSION_STEPS
 )
 MIN_ESS = 300.0
 MAX_RHAT = 1.01
@@ -657,9 +659,7 @@ def _auto_extend_failed_full_series() -> bool:
     for attempt in range(1, MAX_AUTO_EXTENSIONS + 1):
         gate = json.loads(gate_path.read_text(encoding="utf-8"))
         failed = [
-            well
-            for well, status in gate["wells"].items()
-            if not bool(status["passed"])
+            well for well, status in gate["wells"].items() if not bool(status["passed"])
         ]
         if not failed:
             return True
@@ -684,9 +684,7 @@ def _auto_extend_failed_full_series() -> bool:
         )
         for well, extension_steps in eligible:
             extend_full_series(well, extension_steps)
-    return bool(
-        json.loads(gate_path.read_text(encoding="utf-8"))["passed"]
-    )
+    return bool(json.loads(gate_path.read_text(encoding="utf-8"))["passed"])
 
 
 def run_conditioned(*, resume: bool = False) -> None:

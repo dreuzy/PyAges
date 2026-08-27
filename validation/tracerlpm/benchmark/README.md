@@ -1,7 +1,7 @@
-# Benchmark PyAge–TracerLPM
+# Benchmark PyAges–TracerLPM
 
 Ce répertoire contient toute la validation scientifique ciblée. Il est isolé du
-cœur de PyAge et du code COM du runner. La Phase 1 prépare les cas et les
+cœur de PyAges et du code COM du runner. La Phase 1 prépare les cas et les
 références sans ouvrir Excel.
 
 ## Générer les entrées communes
@@ -12,8 +12,8 @@ Depuis la racine du dépôt :
 python -m validation.tracerlpm.benchmark.scripts.generate_inputs
 python -m validation.tracerlpm.benchmark.scripts.generate_references
 python -m validation.tracerlpm.benchmark.scripts.generate_observations
-python -m validation.tracerlpm.benchmark.scripts.compare_pyage
-python -m validation.tracerlpm.benchmark.scripts.study_pyage_convergence
+python -m validation.tracerlpm.benchmark.scripts.compare_pyages
+python -m validation.tracerlpm.benchmark.scripts.study_pyages_convergence
 ```
 
 Le générateur lit `configs/campaign.yaml`, écrit les CSV dans
@@ -22,10 +22,24 @@ déterministes : une exécution répétée produit les mêmes octets et les mêm
 SHA-256. La seconde commande produit les 270 résultats forward de référence
 (5 entrées × 18 paramétrisations × 3 dates) sans ouvrir Excel. La troisième
 produit les observations d’inversion sans bruit et avec les graines déclarées.
-La dernière commande exécute le chemin de convolution de production PyAge et
-écrit le rapport dans `generated/pyage_comparison/`. Elle n’ouvre pas Excel.
+La dernière commande exécute le chemin de convolution de production PyAges et
+écrit le rapport dans `generated/pyages_comparison/`. Elle n’ouvre pas Excel.
 La commande suivante répète cette mesure aux résolutions déclarées dans le YAML
-et écrit `generated/pyage_convergence/`.
+et écrit `generated/pyages_convergence/`.
+
+## Qualification du forward
+
+Le bloc `forward_qualification` de `configs/campaign.yaml` définit le contrat
+numérique version 1. Pour les concentrations significatives (au moins `1e-3`
+de l'amplitude de l'entrée), la différence relative symétrique absolue doit être
+au plus `5e-4`, soit 0,05 %. Près de zéro, la différence absolue doit être au
+plus `2e-5` fois l'amplitude. Les résultats doivent être finis, rester dans les
+bounds physiques, et les 270 cas doivent tous passer.
+
+`compare_pyages` renvoie un code non nul dès qu'un cas échoue.
+`study_pyages_convergence` exige la réussite du réglage par défaut et de tous les
+facteurs plus stricts (`≤ 1`). Les facteurs plus lâches restent diagnostiques et
+ne conditionnent pas le verdict global.
 
 ## Vérifier la Phase 1
 
@@ -68,13 +82,13 @@ Le dernier cas de la famille est `configs/tracerlpm-emm-multi-peak.yaml`.
 La famille EPM est définie dans `configs/tracerlpm-epm-multi-peak.yaml`. Le
 champ YAML `model_parameter` est la valeur saisie dans TracerLPM, soit le ratio
 physique `r=x*/x`. Le comparateur applique explicitement `eta=1+r` avant
-d’appeler l’exponentielle décalée de PyAge. Les deux cellules de paramètre
+d’appeler l’exponentielle décalée de PyAges. Les deux cellules de paramètre
 Excel sont relues avant calcul ; le cas est interrompu si Excel a restauré une
 valeur par défaut.
 
 La famille DM est définie dans `configs/tracerlpm-dm-multi-peak.yaml`, avec
 `DP=0.02`, `0.2` et `1`. Ici `model_parameter` est directement le paramètre de
-dispersion TracerLPM. Le comparateur construit la loi inverse gaussienne PyAge
+dispersion TracerLPM. Le comparateur construit la loi inverse gaussienne PyAges
 avec `mu=tau` et `sigma=tau*sqrt(2*DP)`. Les rapports retiennent séparément les
 écarts à la date demandée et à la date semestrielle effectivement utilisée par
 TracerLPM.
@@ -94,23 +108,23 @@ TracerLPM.
 
 `configs/inversion-campaign.yaml` définit le cas sans bruit à `tau=20 ans` et
 les trois initialisations `5`, `20`, `80 ans`. Les observations CFC sont créées
-par la quadrature indépendante puis inversées par PyAge avec :
+par la quadrature indépendante puis inversées par PyAges avec :
 
 ```powershell
 python -m validation.tracerlpm.benchmark.scripts.generate_inversion_pilot
-python -m validation.tracerlpm.benchmark.scripts.invert_pyage_pilot
+python -m validation.tracerlpm.benchmark.scripts.invert_pyages_pilot
 ```
 
 Le pilote TracerLPM est défini par
 `configs/tracerlpm-inversion-emm-pilot.yaml`. Les mêmes CFC-11, CFC-12 et
-CFC-113 que dans PyAge sont aliasés dans les canaux SF6, 3H et NO3-N du classeur
+CFC-113 que dans PyAges sont aliasés dans les canaux SF6, 3H et NO3-N du classeur
 Example 1. Le canal 3H est rendu stable en imposant son taux de décroissance à
 zéro. Le runner vérifie les trois imports, sélectionne les trois traceurs, évalue les
 trois départs, puis appelle Solver une seule fois depuis le meilleur. La formule
 d’objectif réellement utilisée (`=$F$25+$J$25+$K$25`) et son libellé
 `3H,SF6,NO3-N` sont exportés.
 
-Résultat symétrique actuel : PyAge estime `19.9982589 ans` et TracerLPM
+Résultat symétrique actuel : PyAges estime `19.9982589 ans` et TracerLPM
 `19.9338202 ans`. Les erreurs respectives de `0.00174113` et `0.0661798 an`
 satisfont le seuil pilote de `0.5 an`. Le rapport contient une table explicite
 du paramètre vrai et des deux paramètres estimés.
@@ -127,14 +141,14 @@ python -m validation.tracerlpm.benchmark.scripts.compare_two_parameter_inversion
 python -m validation.tracerlpm.benchmark.scripts.compare_two_parameter_inversion --model DM --run-json validation/tracerlpm/output/<run-dm>.json
 ```
 
-| Modèle | Paramètre | Vrai | PyAge | TracerLPM | Seuil relatif | Verdict |
+| Modèle | Paramètre | Vrai | PyAges | TracerLPM | Seuil relatif | Verdict |
 |---|---:|---:|---:|---:|---:|---|
 | EPM | `tau` | 20 | 20.0000005 | 19.7464101 | 5 % | conforme |
 | EPM | `r` | 2 | 2.0000001 | 1.9624315 | 10 % | conforme |
 | DM | `tau` | 20 | 19.9995879 | 19.7303094 | 5 % | conforme |
 | DM | `DP` | 0.2 | 0.2000672 | 0.2057685 | 10 % | conforme |
 
-PyAge optimise `eta` pour EPM ; le rapport le convertit en `r=eta-1` avant la
+PyAges optimise `eta` pour EPM ; le rapport le convertit en `r=eta-1` avant la
 comparaison. Les surfaces indépendantes 32 × 32 ont leur minimum exactement
 sur les paramètres vrais pour EPM et DM. Les CSV complets et leurs résumés sont
 écrits sous `generated/inversion/<case_id>/`.
@@ -143,16 +157,16 @@ sur les paramètres vrais pour EPM et DM. Les CSV complets et leurs résumés so
 
 `configs/inversion-noisy-campaign.yaml` ajoute un bruit gaussien multiplicatif
 de 1 %, avec les graines 101 à 105, aux trois CFC. Les observations, inversions
-PyAge, cas Excel et agrégats se régénèrent avec :
+PyAges, cas Excel et agrégats se régénèrent avec :
 
 ```powershell
 python -c "from pathlib import Path; from validation.tracerlpm.benchmark.scripts.generate_inversion_pilot import generate; generate(config_path=Path('validation/tracerlpm/benchmark/configs/inversion-noisy-campaign.yaml'))"
-python -c "from pathlib import Path; from validation.tracerlpm.benchmark.scripts.invert_pyage_pilot import invert; invert(config_path=Path('validation/tracerlpm/benchmark/configs/inversion-noisy-campaign.yaml'))"
+python -c "from pathlib import Path; from validation.tracerlpm.benchmark.scripts.invert_pyages_pilot import invert; invert(config_path=Path('validation/tracerlpm/benchmark/configs/inversion-noisy-campaign.yaml'))"
 python -m validation.tracerlpm.benchmark.scripts.prepare_noisy_tracerlpm_campaign
 python -m validation.tracerlpm.benchmark.scripts.summarize_noisy_campaign
 ```
 
-Les dix inversions PyAge convergent. Sur cinq réalisations, EPM donne une
+Les dix inversions PyAges convergent. Sur cinq réalisations, EPM donne une
 moyenne `tau=20.1302` (RMSE 1.9763 ans) et `r=2.3213` (RMSE 0.4211) ; DM donne
 `tau=19.7749` (RMSE 2.2814 ans) et `DP=0.19854` (RMSE 0.05446). Cet effectif est
 un diagnostic initial et non une estimation robuste de l'incertitude.
@@ -165,18 +179,18 @@ uniquement le PID Excel qu'il possède. Les dix cas TracerLPM ont été exécut�
 
 Sur les cinq réalisations, TracerLPM donne pour EPM `tau=19.6756` (RMSE 1.8360)
 et `r=2.2812` (RMSE 0.4453), puis pour DM `tau=19.3394` (RMSE 2.2378) et
-`DP=0.21032` (RMSE 0.05282). La dispersion est donc du même ordre que PyAge.
+`DP=0.21032` (RMSE 0.05282). La dispersion est donc du même ordre que PyAges.
 Les valeurs individuelles ne sont toutefois pas identiques, ce qui confirme la
 sensibilité des inversions à deux paramètres au bruit et aux détails numériques.
 
-## Monte-Carlo PyAge à 30 réalisations
+## Monte-Carlo PyAges à 30 réalisations
 
 `configs/inversion-monte-carlo-01.yaml` décrit de façon compacte 30 graines par
 modèle à 1 % de bruit. Les 60 inversions parallèles et leur agrégation s'exécutent
 avec :
 
 ```powershell
-python -m validation.tracerlpm.benchmark.scripts.run_monte_carlo_pyage
+python -m validation.tracerlpm.benchmark.scripts.run_monte_carlo_pyages
 python -m validation.tracerlpm.benchmark.scripts.summarize_monte_carlo
 ```
 
@@ -189,7 +203,7 @@ Un contrôle important a été ajouté au pilote : un optimiseur ne peut plus
 remplacer une initialisation par une solution dont l'objectif est moins bon.
 Les premières apparences de minima DM extrêmes provenaient de cette dégradation
 numérique, et non d'une meilleure équifinalité. DM utilise désormais L-BFGS-B,
-EPM Powell, sans modification du cœur de PyAge.
+EPM Powell, sans modification du cœur de PyAges.
 
 ## Gain d'information du SF6
 
@@ -198,7 +212,7 @@ graines et les mêmes perturbations CFC en ajoutant un quatrième résidu SF6. E
 s'exécute et se compare avec :
 
 ```powershell
-python -m validation.tracerlpm.benchmark.scripts.run_monte_carlo_pyage `
+python -m validation.tracerlpm.benchmark.scripts.run_monte_carlo_pyages `
   --config validation/tracerlpm/benchmark/configs/inversion-monte-carlo-01-sf6.yaml
 python -m validation.tracerlpm.benchmark.scripts.compare_sf6_information
 ```
@@ -229,12 +243,12 @@ graines appariées. `configs/robustness-age-noise.yaml` ajoute 160 cas à
 bruits `10` et `20 %`. Les cas `tau=20` de la première phase sont réutilisés :
 la synthèse couvre ainsi `tau=5, 20, 50` sans recalcul redondant.
 
-Les observations et inversions PyAge se génèrent avec :
+Les observations et inversions PyAges se génèrent avec :
 
 ```powershell
-python -m validation.tracerlpm.benchmark.scripts.run_monte_carlo_pyage `
+python -m validation.tracerlpm.benchmark.scripts.run_monte_carlo_pyages `
   --config validation/tracerlpm/benchmark/configs/robustness-width-noise.yaml
-python -m validation.tracerlpm.benchmark.scripts.run_monte_carlo_pyage `
+python -m validation.tracerlpm.benchmark.scripts.run_monte_carlo_pyages `
   --config validation/tracerlpm/benchmark/configs/robustness-age-noise.yaml
 python -m validation.tracerlpm.benchmark.scripts.prepare_robustness_study
 ```
@@ -265,7 +279,7 @@ Il est écrit sous `generated/qualification-report/` avec trois livrables :
 `report.md` pour l'analyse scientifique, `metrics.json` pour les indicateurs
 auditables et `diagnostic-overview.png` pour la figure de synthèse. Le rapport
 distingue les preuves forward, les inversions sans bruit, le gain de SF6, la
-robustesse au bruit et les limites de la comparaison L2 PyAge / L1 TracerLPM.
+robustesse au bruit et les limites de la comparaison L2 PyAges / L1 TracerLPM.
 
 Une campagne interrompue se reprend sans recalculer les rapports déjà valides.
 Depuis une session Windows interactive où Excel est disponible, exécuter :

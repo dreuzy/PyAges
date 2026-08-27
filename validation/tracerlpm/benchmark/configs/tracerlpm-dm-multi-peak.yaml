@@ -1,6 +1,6 @@
 # Matrice DM du protocole sur la chronique synthétique multi-pics.
 # model_parameter est directement le paramètre de dispersion DP de TracerLPM.
-# Pour PyAge : mu=tau et sigma=tau*sqrt(2*DP).
+# Pour PyAges : mu=tau et sigma=tau*sqrt(2*DP).
 - case_id: synthetic-multi-peak-dm-dp-0_02
   sample: PSW-1-17/08/2004
   observation_year: 2004.6256830601094

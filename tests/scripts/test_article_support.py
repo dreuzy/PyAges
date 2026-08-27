@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 import hashlib
 import json
 import sys
@@ -23,9 +27,9 @@ def _summary():
     }
     return {
         "thresholds": {"split_rhat_lt": 1.01, "ess_gte": 300.0},
-        "pyage_tracerlpm": {
+        "pyages_tracerlpm": {
             "paired_cases": 480,
-            "pyage_successful": 480,
+            "pyages_successful": 480,
             "tracerlpm_successful": 480,
         },
         "forward_verification": {
@@ -34,6 +38,7 @@ def _summary():
         },
         "shifted_exponential": baseline,
         "holten_h4": baseline,
+        "holten_prior_dirichlet1": baseline,
         "ploemeur_shifted_exponential": baseline,
         "ploemeur_physical_ig": {
             "posterior_sets": 1,
@@ -156,8 +161,9 @@ def test_article_package_cli_passes_rebased_campaign_inventory(monkeypatch, tmp_
     monkeypatch.setattr(
         package,
         "build_package",
-        lambda selected_output, artifacts: captured.append(tuple(artifacts))
-        or selected_output,
+        lambda selected_output, artifacts: (
+            captured.append(tuple(artifacts)) or selected_output
+        ),
     )
     monkeypatch.setattr(package, "validate_package", lambda unused: {"artifacts": []})
     monkeypatch.setattr(
@@ -195,6 +201,23 @@ def test_publication_package_uses_current_table4_names():
     readme = package._readme(_summary())
     assert "| Table 4 | `tables/table4.md` | `tables/table4.csv` |" in readme
     assert "table3_final" not in readme
+
+
+def test_article_package_keeps_reproduction_and_user_environments_distinct():
+    environment_artifacts = {
+        artifact.identifier: artifact
+        for artifact in package.ARTIFACTS
+        if artifact.category == "environment"
+    }
+    article_environment = environment_artifacts["article_reproduction_environment"]
+
+    assert environment_artifacts["constraints"].source == (
+        package.ROOT / "install/constraints.txt"
+    )
+    assert article_environment.source == package.ROOT / "install/environment.yml"
+    assert article_environment.destination == (
+        Path("provenance/environment/article-reproduction-environment.yml")
+    )
 
 
 def test_shifted_exponential_production_text_uses_current_table_number():

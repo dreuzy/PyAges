@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Golden test for the Ploemeur example dataset.
 """
@@ -8,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-import pyage.concentrations.concentrations as co
+import pyages.concentrations.concentrations as co
 from tests.utils import golden as golden_utils
 
 GOLDEN_PATH = (

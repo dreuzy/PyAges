@@ -1,8 +1,8 @@
-# Éléments factuels pour la publication PyAge
+# Éléments factuels pour la publication PyAges
 
 Date de l'état des preuves : 27 août 2026
 
-Campagne examinée : `C:\pyage-runs\article-v1`
+Campagne examinée : `C:\pyages-runs\article-v1`
 
 Révision du paquet et de l'archive : `1d056705ca7e44d85c5522082bc4087f4c42f310`
 
@@ -31,7 +31,7 @@ n'est réservé à la date de ce rapport.
 ## Synthèse exécutive
 
 La campagne fraîche a terminé ses huit étapes avec un code retour nul :
-vérification forward, comparaison PyAge--TracerLPM, expérience synthétique
+vérification forward, comparaison PyAges--TracerLPM, expérience synthétique
 shifted exponential, reproduction Holten H4, deux analyses Ploemeur, production
 du paquet éditorial et construction de l'archive. Elle fournit une base solide
 pour documenter le protocole numérique et la plupart des résultats de
@@ -46,7 +46,7 @@ l'article, avec deux limites scientifiques encore ouvertes :
 | Volet | Étendue | Résultat vérifié | Statut utilisable |
 | --- | ---: | --- | --- |
 | Forward indépendant | 270 cas | résultats présents et métriques calculées | descriptif seulement, `measured_not_yet_qualified` |
-| PyAge--TracerLPM | 480 cas appariés | 480/480 succès pour chaque outil | utilisable avec réserves sur les bornes et sans classement global des outils |
+| PyAges--TracerLPM | 480 cas appariés | 480/480 succès pour chaque outil | utilisable avec réserves sur les bornes et sans classement global des outils |
 | Shifted exponential synthétique | 19 cas | tous les groupes convergés | utilisable |
 | Holten H4 | 7 puits, 28 fractions | tous les groupes convergés ; erreur absolue maximale 0,017993 | utilisable |
 | Ploemeur shifted exponential | 4 calibrations | toutes convergées ; mauvais ajustement F11 conservé | utilisable en exposant la discordance F11 |
@@ -92,7 +92,7 @@ Le manifeste conserve la révision exacte de chaque étape :
 
 | Étape | Révision Git enregistrée |
 | --- | --- |
-| Forward et PyAge--TracerLPM | `70967a74cce309c930000e3b09e0e59675ad0fe8` |
+| Forward et PyAges--TracerLPM | `70967a74cce309c930000e3b09e0e59675ad0fe8` |
 | Shifted exponential et Holten H4 | `a9ce92fd9de24efaf5d61f9fcf8b81958749737c` |
 | Ploemeur shifted exponential | `e96016f70f408863f744456ea7fc31edc91df86a` |
 | Ploemeur IG physique | `1260f5fd0fa35c9e55f31b0022a50396be05b18d` |
@@ -116,7 +116,7 @@ Les manifestes des calculs MCMC enregistrent :
 | SciPy | 1.14.1 |
 
 Le fichier `source/environment-pip-freeze.txt` de l'archive conserve
-l'environnement Python complet. Il enregistre toutefois `pyage==0.1.0`, alors
+l'environnement Python complet. Il enregistre toutefois `pyages==0.1.0`, alors
 que le snapshot, `CITATION.cff` et les métadonnées candidates indiquent
 `0.1.0b1`. Les calculs sont liés aux révisions et aux empreintes de sources,
 mais cette divergence de libellé doit être résolue ou expliquée avant le dépôt
@@ -165,7 +165,7 @@ Preuves : `campaign/forward/summary.json`,
 `campaign/forward/case_results.csv` et
 `campaign/article_package/diagnostics/supplement_s1_forward_summary.json`.
 
-## 2. Comparaison PyAge--TracerLPM
+## 2. Comparaison PyAges--TracerLPM
 
 ### Plan expérimental
 
@@ -188,9 +188,9 @@ donc pas soutenue par cette campagne.
 
 ### Résultats et précautions
 
-- PyAge : 480/480 optimisations terminées avec succès ;
+- PyAges : 480/480 optimisations terminées avec succès ;
 - TracerLPM : 480/480 optimisations terminées avec succès ;
-- solutions sur une borne : 128 pour PyAge et 77 pour TracerLPM ;
+- solutions sur une borne : 128 pour PyAges et 77 pour TracerLPM ;
 - médiane de la différence absolue d'âge entre outils : 0,513 an ;
 - RMSE de la différence d'âge entre outils : 13,786 ans.
 
@@ -198,7 +198,7 @@ La différence entre médiane et RMSE montre l'influence de cas difficiles ou
 extrêmes. Les contacts avec les bornes sont des diagnostics d'identifiabilité
 ou d'optimisation, pas des échecs d'exécution. Les agrégats mélangent deux
 modèles, plusieurs âges, plusieurs largeurs et quatre niveaux de bruit ; ils ne
-justifient pas un classement global de PyAge et TracerLPM. Les résultats par
+justifient pas un classement global de PyAges et TracerLPM. Les résultats par
 groupe du tableau détaillé doivent être utilisés pour toute comparaison
 scientifique ciblée.
 
@@ -213,8 +213,8 @@ les conserve avec les empreintes suivantes :
 
 Preuves : `campaign/tracerlpm/manifest.json`,
 `campaign/tracerlpm/benchmark/generated/robustness-study/results.csv`,
-`campaign/article_package/tables/table3_pyage_tracerlpm_cases.csv` et
-`campaign/article_package/reports/00_pyage_tracerlpm.md`.
+`campaign/article_package/tables/table3_pyages_tracerlpm_cases.csv` et
+`campaign/article_package/reports/00_pyages_tracerlpm.md`.
 
 ## 3. Expérience synthétique shifted exponential
 
@@ -300,7 +300,7 @@ reste mentionnée dans l'article, son paquet de preuves doit être intégré ou
 cité séparément avant dépôt.
 
 Preuves : `campaign/holten_h4/manifest.json`,
-`campaign/article_package/tables/holten_visser_vs_pyage.csv`,
+`campaign/article_package/tables/holten_visser_vs_pyages.csv`,
 `campaign/article_package/diagnostics/holten_h4_convergence.csv`,
 `campaign/article_package/reports/02_holten_h4.md` et
 `campaign/article_package/figures/figure3_holten_h4.*`.
@@ -409,7 +409,7 @@ et `campaign/article_package/reports/04_ploemeur_ig_stabilized.md`.
 | --- | --- |
 | Les huit étapes techniques de la campagne ont réussi. | La campagne restitue octet par octet les anciennes sorties historiques. |
 | Les 19 + 7 + 4 + 6 groupes/postérieurs MCMC présentés passent les seuils annoncés. | Convergence MCMC implique bon ajustement aux observations. |
-| Les 480 cas PyAge et les 480 calculs TracerLPM se terminent avec succès. | Un des deux outils est globalement supérieur à l'autre. |
+| Les 480 cas PyAges et les 480 calculs TracerLPM se terminent avec succès. | Un des deux outils est globalement supérieur à l'autre. |
 | Les fractions Holten H4 sont proches des valeurs de Visser selon les métriques données. | La sensibilité Holten au prior Dirichlet a été reproduite dans cette campagne. |
 | La série complète F09 contraint un t50 shifted exponential plus jeune que la fenêtre indépendante. | Les fenêtres sont directement comparables sans tenir compte du conditionnement et du nombre d'observations. |
 | Le modèle shifted exponential ajuste mal la série complète F11 malgré la convergence des chaînes. | Tous les résultats Ploemeur constituent de bons ajustements. |
@@ -427,8 +427,8 @@ persistant.
 
 Le bundle candidat existe localement mais n'est pas inscrit :
 
-- dossier : `C:\pyage-runs\pyage-0.1.0b1-article-v1-reproduction` ;
-- ZIP : `C:\pyage-runs\pyage-0.1.0b1-article-v1-reproduction.zip` ;
+- dossier : `C:\pyages-runs\pyages-0.1.0b1-article-v1-reproduction` ;
+- ZIP : `C:\pyages-runs\pyages-0.1.0b1-article-v1-reproduction.zip` ;
 - taille : 176 877 762 octets, soit 168,7 MiB ;
 - SHA-256 :
   `eba91da852d7bfa4ca3a7f9822ca48f041c0e451fe3406613df885d0b7c6416b` ;
@@ -464,7 +464,7 @@ Avant réservation du DOI, il reste à :
    soumission du preprint.
 
 La future section « Code and data availability » devra contenir, dans les mots
-des auteurs : le nom et la version exacte de PyAge, la licence CeCILL 2.1, le
+des auteurs : le nom et la version exacte de PyAges, la licence CeCILL 2.1, le
 DOI de l'archive figée, le lien vers le dépôt de développement, le fait que
 l'archive contient code, entrées, configurations, scripts, sorties, diagnostics
 et figures, ainsi que les conditions particulières de TracerLPM et des données
@@ -485,7 +485,7 @@ Dans le futur ZIP extrait :
 | Valeurs représentées dans les figures | `campaign/article_package/supporting_data/` |
 | Manifeste global et commandes | `campaign/campaign_manifest.json` |
 | Sources exactes d'exécution | `campaign/article_package/provenance/execution_source/` |
-| Snapshot source final | `source/pyage-source.zip` |
+| Snapshot source final | `source/pyages-source.zip` |
 | Environnement complet | `source/environment-pip-freeze.txt` |
 | Classeur et add-in TracerLPM | `external/tracerlpm/` |
 | Licences et droits sur les données | `LICENSE` et `NOTICE-DATA.md` |

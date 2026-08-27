@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Run the final Holten and MCMC-only article simulations.
 
 This driver is deliberately unable to write below a path containing
@@ -36,7 +40,7 @@ from examples.natural.holten.holten_four_bin import (  # noqa: E402
     write_4bin_mh_outputs,
 )
 from examples.natural.holten.holten_prepare import prepare_holten_inputs  # noqa: E402
-from pyage.convolution import ConvolutionTracers  # noqa: E402
+from pyages.convolution import ConvolutionTracers  # noqa: E402
 from scripts.run_article_non_ploemeur import (  # noqa: E402
     DATE,
     TABLE3_TRACERS,
@@ -314,7 +318,7 @@ def _figure3(comparison: pd.DataFrame, path: Path) -> None:
             color="#173f73",
             marker="o",
             linewidth=4,
-            label="PyAge H4 median and q10–q90",
+            label="PyAges H4 median and q10–q90",
         ),
         plt.Line2D(
             [],
@@ -391,7 +395,7 @@ def run_holten(output: Path) -> dict[str, Path]:
             {
                 "well": row["well_id"],
                 "observable_helium_visser": "tritiogenic 3He concentration",
-                "observable_helium_pyage_historical": "3He_trit_TU concentration",
+                "observable_helium_pyages_historical": "3He_trit_TU concentration",
                 "unit": "TU equivalent",
                 "uncertainty": float(row["3He_err"]),
                 "uncertainty_provenance": source,
@@ -793,7 +797,7 @@ def write_reports(output: Path) -> dict[str, Path]:
         [
             "well",
             "observable_helium_visser",
-            "observable_helium_pyage_historical",
+            "observable_helium_pyages_historical",
             "unit",
             "uncertainty",
             "uncertainty_provenance",
@@ -807,9 +811,9 @@ def write_reports(output: Path) -> dict[str, Path]:
 
 ## Décision
 
-Visser et al. (2013) et l'ancienne implémentation PyAge utilisent la même observable : la concentration de **³He tritiogénique corrigée**, en TU équivalentes. Ce n'est ni le rapport ³H/³He ni l'âge apparent. H4 est donc scientifiquement recevable. Pour `59-05`, le sigma source est absent; H4 emploie 0,5 TU, médiane préenregistrée des six sigmas publiés, et cette imputation fait partie du modèle d'erreur.
+Visser et al. (2013) et l'ancienne implémentation PyAges utilisent la même observable : la concentration de **³He tritiogénique corrigée**, en TU équivalentes. Ce n'est ni le rapport ³H/³He ni l'âge apparent. H4 est donc scientifiquement recevable. Pour `59-05`, le sigma source est absent; H4 emploie 0,5 TU, médiane préenregistrée des six sigmas publiés, et cette imputation fait partie du modèle d'erreur.
 
-Dans le PDF Visser, les paragraphes 23–26 décrivent le calcul corrigé du ³He tritiogénique puis son emploi comme traceur transitoire indépendant; les paragraphes 49–54 décrivent les end-members et la minimisation des écarts de concentrations. Dans PyAge historique (commit `235f3a5c`), `holten_prepare.py` lisait `3He_trit_TU`/`3He_err`, `holten_four_bin.py` ajoutait `3He_trit` à l'ordre des observations, puis calculait le même résidu standardisé. L'âge apparent `H3_He_age` restait un diagnostic et n'entrait pas dans l'objectif.
+Dans le PDF Visser, les paragraphes 23–26 décrivent le calcul corrigé du ³He tritiogénique puis son emploi comme traceur transitoire indépendant; les paragraphes 49–54 décrivent les end-members et la minimisation des écarts de concentrations. Dans PyAges historique (commit `235f3a5c`), `holten_prepare.py` lisait `3He_trit_TU`/`3He_err`, `holten_four_bin.py` ajoutait `3He_trit` à l'ordre des observations, puis calculait le même résidu standardisé. L'âge apparent `H3_He_age` restait un diagnostic et n'entrait pas dans l'objectif.
 
 Le forward local applique `lambda = ln(2) / 12.32 an`, `³H=H0 exp(-lambda tau)` et `³He_trit=H0(1-exp(-lambda tau))`. Les données `3He_trit_TU` ont déjà subi les corrections gaz nobles, dégazage et séparation radiogénique décrites par Visser; aucune correction atmosphérique ou terrigène n'est réappliquée. La chronique locale est utilisée comme entrée effective du benchmark : ajouter une seconde correction de deux ans détériore le χ² total, alors que la convention retenue donne 13,65 à l'optimum contre 14,2 publié.
 
@@ -846,7 +850,7 @@ CSV : `results/remaining_non_ploemeur_simulations/holten/holten_observable_fit_d
 ## Réponses explicites
 
 1. **Oui**, Visser utilise une concentration de ³He tritiogénique compatible avec `3He_trit_TU`.
-2. **Oui**, l'ancienne implémentation PyAge utilisait la même grandeur; son ancien calcul confondait toutefois demi-vie et durée de vie moyenne.
+2. **Oui**, l'ancienne implémentation PyAges utilisait la même grandeur; son ancien calcul confondait toutefois demi-vie et durée de vie moyenne.
 3. **Oui**, H4 reproduit mieux le problème inverse de Visser parce qu'il ajuste les quatre concentrations indépendantes publiées.
 4. **{"Oui" if h4_better else "Non"}**, la MAE passe de {h3["mae"]:.5f} à {h4["mae"]:.5f}.
 5. **{"Oui" if h4_better else "Non"}**, H4 doit {"devenir" if h4_better else "ne pas devenir"} le benchmark Holten final, avec l'imputation de `59-05` explicitement déclarée.

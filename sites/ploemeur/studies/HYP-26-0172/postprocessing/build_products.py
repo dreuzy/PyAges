@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Build article tables and figures from HYP-26-0172 workflow outputs."""
 
 from __future__ import annotations
@@ -70,7 +74,7 @@ def collect_statistics(root: Path) -> pd.DataFrame:
                 if not case_match:
                     continue
                 samples = pd.read_csv(stats_file, sep="\t")
-                if samples.empty or "median" not in samples:
+                if samples.empty or "p50" not in samples:
                     continue
                 record = {
                     "date": float(case_match.group("end")),
@@ -79,11 +83,11 @@ def collect_statistics(root: Path) -> pd.DataFrame:
                     "well": case_match.group("well"),
                 }
                 for column in (
-                    "quart10",
-                    "quart25",
-                    "median",
-                    "quart75",
-                    "quart90",
+                    "p10",
+                    "p25",
+                    "p50",
+                    "p75",
+                    "p90",
                     "mean",
                 ):
                     if column in samples:
@@ -216,8 +220,8 @@ def plot_figure4(frame: pd.DataFrame, figures: Path) -> list[Path]:
             data = subset[subset["mode"].eq(mode)].sort_values("date")
             ax.errorbar(
                 data["date"],
-                data["median_mean"],
-                yerr=data["median_std"],
+                data["p50_mean"],
+                yerr=data["p50_std"],
                 fmt="o",
                 capsize=3,
                 color=color,
@@ -244,8 +248,8 @@ def plot_figure5(frame: pd.DataFrame, figures: Path) -> list[Path]:
             data = subset[subset["lpm"].eq(model)].sort_values("date")
             ax.errorbar(
                 data["date"],
-                data["median_mean"],
-                yerr=data["median_std"],
+                data["p50_mean"],
+                yerr=data["p50_std"],
                 fmt="o--",
                 capsize=3,
                 color=MODEL_COLORS[model],
@@ -276,8 +280,8 @@ def plot_figure6(
     required = set(WELL_COLORS)
     if not allow_partial and present != required:
         return []
-    low = frame[frame["median_mean"] < 25]
-    high = frame[frame["median_mean"] >= 25]
+    low = frame[frame["p50_mean"] < 25]
+    high = frame[frame["p50_mean"] >= 25]
     broken = not low.empty and not high.empty
     if broken:
         fig, (top, bottom) = plt.subplots(
@@ -298,8 +302,8 @@ def plot_figure6(
         for ax in axes:
             ax.errorbar(
                 data["date"],
-                data["median_mean"],
-                yerr=data["median_std"],
+                data["p50_mean"],
+                yerr=data["p50_std"],
                 fmt="o--",
                 capsize=3,
                 color=color,
@@ -307,9 +311,9 @@ def plot_figure6(
             )
     if broken:
         top.set_ylim(
-            max(25, high["median_mean"].min() - 8), high["median_mean"].max() + 8
+            max(25, high["p50_mean"].min() - 8), high["p50_mean"].max() + 8
         )
-        bottom.set_ylim(0, max(12, low["median_mean"].max() + 3))
+        bottom.set_ylim(0, max(12, low["p50_mean"].max() + 3))
         top.spines.bottom.set_visible(False)
         bottom.spines.top.set_visible(False)
         top.tick_params(labeltop=False, bottom=False)
@@ -341,11 +345,11 @@ def plot_figure_a1(frame: pd.DataFrame, figures: Path) -> list[Path]:
     for ax, well in zip(axes, ("F11", "F09"), strict=False):
         subset = frame[frame["well"].eq(well)]
         grouped = subset.groupby(["relative_error", "lpm"], as_index=False)[
-            "median_mean"
+            "p50_mean"
         ].mean()
         for model, data in grouped.groupby("lpm"):
             ax.plot(
-                100 * data["relative_error"], data["median_mean"], "o-", label=model
+                100 * data["relative_error"], data["p50_mean"], "o-", label=model
             )
         ax.set_title(well, loc="left", fontweight="bold")
         ax.grid(alpha=0.25)

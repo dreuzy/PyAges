@@ -1,4 +1,8 @@
-"""Rebuild the paired PyAge/TracerLPM robustness evidence outside the repository."""
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Rebuild the paired PyAges/TracerLPM robustness evidence outside the repository."""
 
 from __future__ import annotations
 
@@ -128,12 +132,12 @@ def run(output: Path, config: Path, workers: int) -> None:
     _ensure_runner()
     local_config = _runner_config(config, output)
     env = os.environ.copy()
-    env["PYAGE_TRACERLPM_BENCHMARK_ROOT"] = str(benchmark)
-    env["PYAGE_TRACERLPM_SOURCE_ROOT"] = str(ROOT)
+    env["PYAGES_TRACERLPM_BENCHMARK_ROOT"] = str(benchmark)
+    env["PYAGES_TRACERLPM_SOURCE_ROOT"] = str(ROOT)
 
     for name in ("robustness-width-noise.yaml", "robustness-age-noise.yaml"):
         _run_python(
-            "validation.tracerlpm.benchmark.scripts.run_monte_carlo_pyage",
+            "validation.tracerlpm.benchmark.scripts.run_monte_carlo_pyages",
             ["--config", str(benchmark / "configs" / name), "--workers", str(workers)],
             env,
         )

@@ -1,6 +1,10 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Post-process the final shifted-exponential MTT posterior summaries.
 
-This script deliberately never imports or runs PyAge simulation/sampling code.  When
+This script deliberately never imports or runs PyAges simulation/sampling code.  When
 the compact 19-case summary is present, it reuses its canonical posterior summaries
 and only inventories/hashes the final chain artifacts for provenance checks.
 """
@@ -370,7 +374,7 @@ def main() -> None:
         "--root",
         type=Path,
         default=Path(__file__).resolve().parents[1],
-        help="PyAge project root (default: inferred from this script)",
+        help="PyAges project root (default: inferred from this script)",
     )
     parser.add_argument(
         "--output",

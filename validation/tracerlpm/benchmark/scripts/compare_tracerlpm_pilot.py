@@ -1,4 +1,8 @@
-"""Archive and compare the PFM constant pilot across reference, PyAge and TracerLPM."""
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Archive and compare the PFM constant pilot across reference, PyAges and TracerLPM."""
 
 from __future__ import annotations
 
@@ -11,10 +15,10 @@ from pathlib import Path
 
 import numpy as np
 
-from pyage.convolution.convolution import Convolution
-from pyage.lpm.lpm_build import lpm_build
+from pyages.convolution.convolution import Convolution
+from pyages.lpm import build_lpm
 
-from .compare_pyage import load_tracer
+from .compare_pyages import load_tracer
 from .generate_inputs import BENCHMARK_ROOT
 from .mappings import dm_to_inverse_gaussian, epm_to_shifted_exponential
 from .reference import forward
@@ -55,7 +59,7 @@ def _set_lpm_parameters(lpm, model: str, age: float, parameter, epm_eta) -> None
 
 
 def _axis_rows(
-    age: float, point: dict, reference: float, effective_reference: float, pyage: float
+    age: float, point: dict, reference: float, effective_reference: float, pyages: float
 ) -> list[dict]:
     rows = []
     for axis in ("x", "y"):
@@ -66,13 +70,13 @@ def _axis_rows(
                 "axis": axis,
                 "reference": reference,
                 "effective_date_reference": effective_reference,
-                "pyage": pyage,
+                "pyages": pyages,
                 "tracerlpm": tracer_lpm,
-                "pyage_minus_reference": pyage - reference,
+                "pyages_minus_reference": pyages - reference,
                 "tracerlpm_minus_reference": tracer_lpm - reference,
                 "tracerlpm_minus_effective_date_reference": tracer_lpm
                 - effective_reference,
-                "tracerlpm_minus_pyage": tracer_lpm - pyage,
+                "tracerlpm_minus_pyages": tracer_lpm - pyages,
             }
         )
     return rows
@@ -109,7 +113,7 @@ def _build_comparison_rows(
 ) -> tuple[list[dict], str, float | None]:
     tracer = load_tracer(input_path)
     model = run["model1"]
-    lpm = lpm_build(
+    lpm = build_lpm(
         {"PFM": "dirac", "EMM": "exp", "EPM": "exp_shifted", "DM": "ig"}[model]
     )
     model_parameter = run.get("modelParameter")
@@ -144,9 +148,9 @@ def _build_comparison_rows(
             effective_year - years,
         )[0]
         _set_lpm_parameters(lpm, model, float(age), model_parameter, epm_eta)
-        pyage = float(Convolution(tracer, date=observation_year).convolve(lpm))
+        pyages = float(Convolution(tracer, date=observation_year).convolve(lpm))
         rows.extend(
-            _axis_rows(float(age), point, reference, effective_reference, pyage)
+            _axis_rows(float(age), point, reference, effective_reference, pyages)
         )
     return rows, model, epm_eta
 
@@ -184,12 +188,12 @@ def compare(run_json: Path) -> dict:
         "tracerlpm_effective_observation_year": effective_year,
         "model": model,
         "model_parameter": model_parameter,
-        "pyage_eta": epm_eta,
+        "pyages_eta": epm_eta,
         "age_count": len(run["modelAges"]),
         "comparison_row_count": len(rows),
         "model_slots_identical": True,
-        "maximum_absolute_pyage_minus_reference": max(
-            abs(row["pyage_minus_reference"]) for row in rows
+        "maximum_absolute_pyages_minus_reference": max(
+            abs(row["pyages_minus_reference"]) for row in rows
         ),
         "maximum_absolute_tracerlpm_minus_reference": max(
             abs(row["tracerlpm_minus_reference"]) for row in rows
@@ -197,8 +201,8 @@ def compare(run_json: Path) -> dict:
         "maximum_absolute_tracerlpm_minus_effective_date_reference": max(
             abs(row["tracerlpm_minus_effective_date_reference"]) for row in rows
         ),
-        "maximum_absolute_tracerlpm_minus_pyage": max(
-            abs(row["tracerlpm_minus_pyage"]) for row in rows
+        "maximum_absolute_tracerlpm_minus_pyages": max(
+            abs(row["tracerlpm_minus_pyages"]) for row in rows
         ),
         "raw_report": archived_json.relative_to(BENCHMARK_ROOT).as_posix(),
         "input_history": str(input_path),
@@ -213,9 +217,9 @@ def compare(run_json: Path) -> dict:
             "tau": row["age"],
             "reference": row["reference"],
             "effective_date_reference": row["effective_date_reference"],
-            "pyage": row["pyage"],
+            "pyages": row["pyages"],
             "tracerlpm": row["tracerlpm"],
-            "pyage_minus_reference": row["pyage_minus_reference"],
+            "pyages_minus_reference": row["pyages_minus_reference"],
             "tracerlpm_minus_effective_date_reference": row[
                 "tracerlpm_minus_effective_date_reference"
             ],
@@ -244,10 +248,10 @@ def compare(run_json: Path) -> dict:
 - Date d’observation décimale : `{observation_year:.12f}`
 - Âges comparés : {metrics["age_count"]}
 - Deux emplacements TracerLPM identiques : oui
-- Maximum |PyAge − référence| : `{metrics["maximum_absolute_pyage_minus_reference"]:.12g}`
+- Maximum |PyAges − référence| : `{metrics["maximum_absolute_pyages_minus_reference"]:.12g}`
 - Maximum |TracerLPM − référence| : `{metrics["maximum_absolute_tracerlpm_minus_reference"]:.12g}`
 - Maximum |TracerLPM − référence à date effective| : `{metrics["maximum_absolute_tracerlpm_minus_effective_date_reference"]:.12g}`
-- Maximum |TracerLPM − PyAge| : `{metrics["maximum_absolute_tracerlpm_minus_pyage"]:.12g}`
+- Maximum |TracerLPM − PyAges| : `{metrics["maximum_absolute_tracerlpm_minus_pyages"]:.12g}`
 
 Le passage de 100 à 0 pour les âges très anciens provient explicitement de la
 politique `before: 0.0` avant le début de la chronique en 1900.
@@ -260,11 +264,11 @@ politique `before: 0.0` avant le début de la chronique en 1900.
             "à la date demandée provient de la grille semestrielle interne du classeur.\n"
         )
     if metrics["protocol_tau_results"]:
-        markdown += "\n## Valeurs du protocole\n\n| Tau | Référence | PyAge | TracerLPM | PyAge − réf. | TracerLPM − réf. date effective |\n|---:|---:|---:|---:|---:|---:|\n"
+        markdown += "\n## Valeurs du protocole\n\n| Tau | Référence | PyAges | TracerLPM | PyAges − réf. | TracerLPM − réf. date effective |\n|---:|---:|---:|---:|---:|---:|\n"
         for item in metrics["protocol_tau_results"]:
             markdown += (
-                f"| {item['tau']:g} | {item['reference']:.9g} | {item['pyage']:.9g} | "
-                f"{item['tracerlpm']:.9g} | {item['pyage_minus_reference']:.6g} | "
+                f"| {item['tau']:g} | {item['reference']:.9g} | {item['pyages']:.9g} | "
+                f"{item['tracerlpm']:.9g} | {item['pyages_minus_reference']:.6g} | "
                 f"{item['tracerlpm_minus_effective_date_reference']:.6g} |\n"
             )
     (case_output_dir / "summary.md").write_text(

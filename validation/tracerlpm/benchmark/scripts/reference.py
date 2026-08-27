@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Independent analytical distributions and slow forward convolution."""
 
 from __future__ import annotations
@@ -12,7 +16,7 @@ from .mappings import dm_to_inverse_gaussian, epm_to_shifted_exponential
 
 
 def pdf(model: str, age: float | np.ndarray, parameters: dict) -> np.ndarray:
-    """Evaluate a continuous LPM density without calling PyAge model classes."""
+    """Evaluate a continuous LPM density without calling PyAges model classes."""
     age = np.asarray(age, dtype=float)
     result = np.zeros_like(age)
     model = model.upper()

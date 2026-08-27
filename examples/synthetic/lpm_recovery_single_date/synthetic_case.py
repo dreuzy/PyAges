@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Helpers for the synthetic single-date recovery example.
 """
@@ -12,9 +16,10 @@ import numpy as np
 import pandas as pd
 import yaml
 
-import pyage.concentrations.concentrations as co
-from pyage.convolution.convolution_tracers import ConvolutionTracers
-from pyage.lpm.lpm_build import lpm_build
+import pyages.concentrations.concentrations as co
+from pyages.convolution.convolution_tracers import ConvolutionTracers
+from pyages.data_io.lpm_distribution import read_distribution, read_statistics
+from pyages.lpm import build_lpm
 
 
 @dataclass(frozen=True)
@@ -103,7 +108,7 @@ def generate_synthetic_case(
     if not parameter_values:
         raise ValueError("Synthetic example requires explicit lpm.parameters values.")
 
-    lpm = lpm_build(
+    lpm = build_lpm(
         lpm_name, directory_lpm=str(_repo_root() / "data_core" / "data_lpm")
     )
     for name, value in parameter_values.items():
@@ -195,7 +200,7 @@ def build_recovery_table(
     """Compare true parameters with the recovered posterior summary."""
     truth = truth_payload or load_ground_truth()
     stats_path = results_dir / method / "lpm_stats_calibrated.txt"
-    stats = pd.read_csv(stats_path, sep="\t", index_col=0)
+    stats = read_statistics(stats_path)
     rows = []
     for name, true_value in truth["lpm"]["parameters"].items():
         rows.append(
@@ -228,7 +233,7 @@ def build_truth_aware_figures(
     truth = truth_payload or load_ground_truth()
     import matplotlib.pyplot as plt
 
-    from pyage.workflows.plots import (
+    from pyages.workflows.plots import (
         plot_objective_summary,
         plot_parameter_summary,
         plot_single_date_model_space,
@@ -238,10 +243,8 @@ def build_truth_aware_figures(
     observed_path = dataset_path or paths.dataset_path
     observed = co.Concentrations.from_file(observed_path)
     true_frame = true_concentration_frame(truth)
-    posterior_frame = pd.read_csv(
-        results_dir / method / "lpm_dist_calibrated.txt",
-        sep="\t",
-        index_col=0,
+    posterior_frame = read_distribution(
+        results_dir / method / "lpm_dist_calibrated.txt"
     )
     reachable_path = results_dir / "reachable_concentrations" / "c_reach.txt"
     reachable_frame = None

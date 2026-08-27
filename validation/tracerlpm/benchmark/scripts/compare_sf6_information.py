@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Compare paired 3-CFC and 3-CFC+SF6 Monte-Carlo inversion campaigns."""
 
 from __future__ import annotations
@@ -9,7 +13,7 @@ import yaml
 
 from .generate_inputs import BENCHMARK_ROOT
 from .generate_inversion_pilot import expanded_cases
-from .invert_pyage_pilot import RESULT_DIR
+from .invert_pyages_pilot import RESULT_DIR
 
 CONFIGS = {
     "three_cfcs": BENCHMARK_ROOT / "configs" / "inversion-monte-carlo-01.yaml",
@@ -25,7 +29,7 @@ def _load(path, prefix: str) -> dict[str, list[dict]]:
     rows = {"EPM": [], "DM": []}
     for case in expanded_cases(config):
         result = json.loads(
-            (RESULT_DIR / case["case_id"] / "pyage-result.json").read_text(
+            (RESULT_DIR / case["case_id"] / "pyages-result.json").read_text(
                 encoding="utf-8"
             )
         )

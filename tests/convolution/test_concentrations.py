@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Non-regression and smoke tests for Concentrations.
 
@@ -16,8 +20,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyage.concentrations.concentrations import Concentrations
-from pyage.concentrations.schema import REFERENCE_COLUMNS
+from pyages.concentrations.concentrations import Concentrations
+from pyages.concentrations.schema import REFERENCE_COLUMNS
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 

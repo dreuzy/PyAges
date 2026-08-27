@@ -1,4 +1,8 @@
-"""Run, resume, validate, and archive the complete stabilized article campaign."""
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Run, resume, and validate the complete article reproduction campaign."""
 
 from __future__ import annotations
 
@@ -25,6 +29,7 @@ ALL_STAGES = (
     "tracerlpm",
     "shifted_exponential",
     "holten_h4",
+    "holten_prior",
     "ploemeur_shifted",
     "ploemeur_ig",
     "package",
@@ -78,9 +83,11 @@ def _stage_map(output: Path, workers: int, tracer_config: Path, allow_dirty: boo
             (
                 python,
                 "-m",
-                "validation.tracerlpm.benchmark.scripts.compare_pyage",
+                "validation.tracerlpm.benchmark.scripts.compare_pyages",
                 "--output",
                 str(output / "forward"),
+                "--config",
+                str(ROOT / "validation/tracerlpm/benchmark/configs/campaign.yaml"),
             ),
             (output / "forward/summary.json", output / "forward/case_results.csv"),
         ),
@@ -128,6 +135,25 @@ def _stage_map(output: Path, workers: int, tracer_config: Path, allow_dirty: boo
             ),
             (output / "holten_h4/manifest.json",),
         ),
+        "holten_prior": Stage(
+            "holten_prior",
+            (
+                python,
+                "-m",
+                "scripts.run_holten_prior_robustness",
+                "--output",
+                str(output / "holten_prior_dirichlet1"),
+                "--canonical-holten",
+                str(output / "holten_h4"),
+            ),
+            (
+                output / "holten_prior_dirichlet1/manifest.json",
+                output
+                / "holten_prior_dirichlet1/figureC1_holten_prior_sensitivity.pdf",
+                output
+                / "holten_prior_dirichlet1/figureC1_holten_prior_sensitivity.png",
+            ),
+        ),
         "ploemeur_shifted": Stage(
             "ploemeur_shifted",
             (
@@ -167,7 +193,7 @@ def _stage_map(output: Path, workers: int, tracer_config: Path, allow_dirty: boo
                 str(output),
                 "--output",
                 str(output / "article_package"),
-                "--reuse-valid",
+                "--replace",
             ),
             (output / "article_package/provenance/article_package_manifest.json",),
         ),
@@ -300,6 +326,147 @@ def _stage_complete(stage: Stage) -> bool:
     return all(path.is_file() for path in stage.expected)
 
 
+def _invalid_campaign_report(output: Path, error: str) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "status": "invalid",
+        "scope": "fresh campaign structure and checksums",
+        "campaign_root": str(output),
+        "errors": [error],
+        "stages": {},
+    }
+
+
+def _validate_stage_records(
+    stages: dict[str, Stage],
+    selected: tuple[str, ...],
+    records: dict[str, object],
+) -> tuple[dict[str, dict[str, object]], list[str]]:
+    stage_results: dict[str, dict[str, object]] = {}
+    errors: list[str] = []
+    for name in selected:
+        stage = stages[name]
+        record = records.get(name)
+        missing = [str(path) for path in stage.expected if not path.is_file()]
+        stage_errors = []
+        if not isinstance(record, dict):
+            stage_errors.append("missing stage record")
+            record = {}
+        if record.get("status") != "success":
+            stage_errors.append(f"recorded status is {record.get('status')!r}")
+        if record.get("returncode") != 0:
+            stage_errors.append(f"recorded return code is {record.get('returncode')!r}")
+        if missing:
+            stage_errors.append(f"missing expected files: {', '.join(missing)}")
+        errors.extend(f"{name}: {message}" for message in stage_errors)
+        stage_results[name] = {
+            "status": "valid" if not stage_errors else "invalid",
+            "recorded_git_head": record.get("git_head"),
+            "expected_file_count": len(stage.expected),
+            "missing_expected": missing,
+        }
+    return stage_results, errors
+
+
+def _validate_hash_deliverable(
+    name: str,
+    root: Path,
+    collection: str,
+    selected: tuple[str, ...],
+    stage_results: dict[str, dict[str, object]],
+    validator,
+) -> tuple[int | None, str | None]:
+    if name not in selected or stage_results[name]["missing_expected"]:
+        return None, None
+    try:
+        payload = validator(root)
+        items = payload[collection]
+        if not isinstance(items, list):
+            raise ValueError(f"manifest field {collection!r} is not a list")
+        stage_results[name]["checksum_status"] = "valid"
+        return len(items), None
+    except (KeyError, OSError, RuntimeError, ValueError) as error:
+        stage_results[name]["status"] = "invalid"
+        stage_results[name]["checksum_status"] = "invalid"
+        return None, f"{name} checksum validation: {error}"
+
+
+def validate_campaign(
+    output: Path,
+    stages: dict[str, Stage],
+    selected: tuple[str, ...],
+) -> dict[str, object]:
+    """Validate recorded stage completion and hash-protected deliverables.
+
+    This is the canonical gate for a fresh campaign. It does not inspect the
+    optional historical result tree used by ``article/run_case.py check`` and
+    it does not turn measured numerical results into scientific qualification
+    decisions.
+    """
+
+    from scripts import build_article_package, build_reproduction_archive
+
+    output = output.resolve()
+    manifest_path = output / "campaign_manifest.json"
+    if not manifest_path.is_file():
+        return _invalid_campaign_report(
+            output, f"missing campaign manifest: {manifest_path}"
+        )
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as error:
+        return _invalid_campaign_report(output, f"invalid campaign manifest: {error}")
+
+    records = manifest.get("stages", {})
+    if not isinstance(records, dict):
+        return _invalid_campaign_report(
+            output, "campaign manifest field 'stages' is not an object"
+        )
+
+    stage_results, errors = _validate_stage_records(stages, selected, records)
+    package_artifacts, package_error = _validate_hash_deliverable(
+        "package",
+        output / "article_package",
+        "artifacts",
+        selected,
+        stage_results,
+        build_article_package.validate_package,
+    )
+    if package_error:
+        errors.append(package_error)
+    archive = output.with_name(f"{output.name}-gmd-archive")
+    archive_files, archive_error = _validate_hash_deliverable(
+        "archive",
+        archive,
+        "files",
+        selected,
+        stage_results,
+        build_reproduction_archive.validate_archive,
+    )
+    if archive_error:
+        errors.append(archive_error)
+
+    if selected == ALL_STAGES and not manifest.get("completed_at"):
+        errors.append("campaign manifest has no completion timestamp")
+
+    return {
+        "schema_version": 1,
+        "status": "valid" if not errors else "invalid",
+        "scope": (
+            "fresh campaign structure and checksums; scientific qualification "
+            "remains defined by each stage output"
+        ),
+        "campaign_root": str(output),
+        "manifest_git_head": manifest.get("git_head"),
+        "completed_at": manifest.get("completed_at"),
+        "stages": stage_results,
+        "package_artifacts": package_artifacts,
+        "archive_files": archive_files,
+        "errors": errors,
+    }
+
+
 def _run_stage(stage: Stage, log: Path) -> int:
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("a", encoding="utf-8", newline="\n") as stream:
@@ -389,7 +556,9 @@ def _selected_stages(raw: str | None) -> tuple[str, ...]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("preflight", "run", "resume", "status"))
+    parser.add_argument(
+        "action", choices=("preflight", "run", "resume", "status", "validate")
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--workers", type=int, default=max(1, min(6, os.cpu_count() or 1))
@@ -419,6 +588,10 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(path.read_text(encoding="utf-8"), end="")
         return 0
+    if args.action == "validate":
+        report = validate_campaign(output, stages, selected)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report["status"] == "valid" else 1
     report = preflight(
         output, selected, args.tracerlpm_config.resolve(), args.allow_dirty
     )

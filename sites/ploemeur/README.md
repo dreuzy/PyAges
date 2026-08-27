@@ -17,7 +17,7 @@ Overview
 This directory contains the Ploemeur site workflow, inputs, and postprocessing tools.
 The workflow is driven by YAML files and executed via `ploemeur_driver.py`.
 The driver now calls the site API (`sites/ploemeur/site_api.py`), which implements
-the shared `BaseSite` interface (`pyage/site/base_site.py`).
+the shared `BaseSite` interface (`pyages/site/base_site.py`).
 
 
 Directory map
@@ -78,4 +78,4 @@ lpm_models:
 Notes
 
 - Results are written under the global results directory configured by
-  `PYAGE_RESULTS_DIR` (see the root `README.md`).
+  `PYAGES_RESULTS_DIR` (see the root `README.md`).

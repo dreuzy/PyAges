@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Rebuild the Ploemeur F09 analysis and manuscript Figure 4.
 
 The script deliberately starts from the validated observation table and the
-current PyAge convolution engine. Historical chains are never read during
+current PyAges convolution engine. Historical chains are never read during
 calibration. Run from any working directory with either ``--calibrate`` or
 ``--plot-only``; every configured path is repository-relative.
 """
@@ -32,12 +36,12 @@ from scipy.integrate import IntegrationWarning, quad
 from scipy.special import ndtri
 from scipy.stats import rankdata
 
-from pyage.convolution.convolution import Convolution
-from pyage.convolution.settings import DEFAULT_TRACER_GRID_SETTINGS
-from pyage.lpm.models.inverse_gaussian_shifted import (
+from pyages.convolution.convolution import Convolution
+from pyages.convolution.settings import DEFAULT_TRACER_GRID_SETTINGS
+from pyages.lpm.models.inverse_gaussian_shifted import (
     InverseGaussianShiftedLpm,
 )
-from pyage.tracer.tracer_root import Tracer
+from pyages.tracer.tracer_root import Tracer
 
 ROOT = Path(__file__).resolve().parents[3]
 TRACERS = ("cfc11", "cfc12", "cfc113")
@@ -1072,7 +1076,7 @@ Posterior predictive curves were computed exclusively from joint posterior draws
 
 ## Scope and controlled protocol
 
-The reconstruction uses the current PyAge shifted inverse Gaussian engine, the 20 validated dates and all 58 available CFC-11, CFC-12 and CFC-113 observations. No SF6 is present or synthesized. The single-date experiment uses only the three observations at decimal year {SINGLE_DATE:.6f} (2010.9). CFC-12 2021 and every other primary observation are retained. Concentration metadata are `pptv`.
+The reconstruction uses the current PyAges shifted inverse Gaussian engine, the 20 validated dates and all 58 available CFC-11, CFC-12 and CFC-113 observations. No SF6 is present or synthesized. The single-date experiment uses only the three observations at decimal year {SINGLE_DATE:.6f} (2010.9). CFC-12 2021 and every other primary observation are retained. Concentration metadata are `pptv`.
 
 Both experiments use `error_j = 0.20 * Cobs_j`, identical independent uniform priors and the common admissible bounds `mu=[0.1,100]`, `sigma=[0.1,30]`, `t0=[0.1,30]` yr. These bounds are the documented intersection of the prior support and numerical bounds that existed before this run. The likelihood is proportional to `exp(-J/2)`, where `J` is the sum of squared standardized residuals.
 

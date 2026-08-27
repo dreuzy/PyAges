@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Regenerate derived products without creating or extending MCMC chains."""
 
 from __future__ import annotations
@@ -14,17 +18,41 @@ def _protocol(path: Path) -> dict:
 
 
 def _assert_files(paths: list[Path]) -> None:
-    missing = [str(path.relative_to(ROOT)) for path in paths if not path.is_file()]
+    missing = []
+    for path in paths:
+        if path.is_file():
+            continue
+        try:
+            label = path.relative_to(ROOT)
+        except ValueError:
+            label = path
+        missing.append(str(label))
     if missing:
         raise FileNotFoundError(
             "Post-processing refused; missing existing output(s): " + ", ".join(missing)
         )
 
 
-def shifted() -> None:
+DEFAULT_OUTPUTS = {
+    "s3_2_shifted_exponential": ROOT
+    / "results/final_article_simulations/shifted_exponential",
+    "s4_1_holten": ROOT / "results/final_article_simulations/holten_h4_final",
+    "s4_2_ploemeur": ROOT
+    / "results/final_article_simulations/ploemeur_shifted_exponential_final",
+    "holten_prior_dirichlet1": ROOT / "results/robustness/holten_prior_dirichlet1",
+}
+
+CAMPAIGN_SUBDIRECTORIES = {
+    "s3_2_shifted_exponential": "shifted_exponential",
+    "s4_1_holten": "holten_h4",
+    "s4_2_ploemeur": "ploemeur_shifted_exponential",
+    "holten_prior_dirichlet1": "holten_prior_dirichlet1",
+}
+
+
+def shifted(output: Path) -> None:
     from scripts import run_final_shifted_exponential as runner
 
-    output = ROOT / "results/final_article_simulations/shifted_exponential"
     lengths = {
         int(k): int(v)
         for k, v in _protocol(output / "manifest.json")["final_steps_by_case"].items()
@@ -46,10 +74,9 @@ def shifted() -> None:
     runner._figure2(output, lengths)
 
 
-def holten() -> None:
+def holten(output: Path) -> None:
     from scripts import run_final_holten_h4 as runner
 
-    output = ROOT / "results/final_article_simulations/holten_h4_final"
     lengths = {
         str(k): int(v)
         for k, v in _protocol(output / "manifest.json")["final_steps_by_well"].items()
@@ -74,12 +101,12 @@ def holten() -> None:
     runner._figure3(comparison, output)
 
 
-def ploemeur() -> None:
+def ploemeur(output: Path) -> None:
     from scripts import run_ploemeur_shifted_exponential_final as runner
 
-    output = (
-        ROOT / "results/final_article_simulations/ploemeur_shifted_exponential_final"
-    )
+    runner.OUTPUT = output
+    runner.DATA_OUTPUT = output / "data_audit"
+    runner.INSERTION_OUTPUT = output / "manuscript_insertion" / "final_figures"
     lengths = {
         str(k): int(v)
         for k, v in _protocol(output / "manifest.json")[
@@ -105,10 +132,12 @@ def ploemeur() -> None:
     runner._report(output, compact, quality, tracer_fit, pairing)
 
 
-def robustness() -> None:
+def robustness(output: Path, canonical_holten: Path | None = None) -> None:
     from scripts import run_holten_prior_robustness as runner
 
-    output = ROOT / "results/robustness/holten_prior_dirichlet1"
+    runner.OUTPUT = output
+    if canonical_holten is not None:
+        runner.CANONICAL = canonical_holten
     chains = [
         runner._chain_path(output, well, chain)
         for well in runner.FINAL_STEPS
@@ -143,14 +172,51 @@ def main() -> int:
             "holten_prior_dirichlet1",
         ),
     )
+    location = parser.add_mutually_exclusive_group()
+    location.add_argument(
+        "--output",
+        type=Path,
+        help="Existing output directory for the selected case.",
+    )
+    location.add_argument(
+        "--campaign-root",
+        type=Path,
+        help=(
+            "Existing root produced by scripts.reproduce_article; the case "
+            "subdirectory is selected automatically."
+        ),
+    )
+    parser.add_argument(
+        "--canonical-holten",
+        type=Path,
+        help="Canonical Holten output used by the prior-sensitivity case.",
+    )
     args = parser.parse_args()
+    if args.output is not None:
+        output = args.output.resolve()
+    elif args.campaign_root is not None:
+        subdirectory = CAMPAIGN_SUBDIRECTORIES.get(args.case)
+        output = (
+            args.campaign_root.resolve() / subdirectory
+            if subdirectory is not None
+            else None
+        )
+    else:
+        output = DEFAULT_OUTPUTS.get(args.case)
     actions = {
-        "s3_1_tracerlpm": report,
-        "s3_2_shifted_exponential": shifted,
-        "s4_1_holten": holten,
-        "s4_2_ploemeur": ploemeur,
-        "holten_prior_dirichlet1": robustness,
+        "s3_1_tracerlpm": lambda: report(),
+        "s3_2_shifted_exponential": lambda: shifted(output),
+        "s4_1_holten": lambda: holten(output),
+        "s4_2_ploemeur": lambda: ploemeur(output),
+        "holten_prior_dirichlet1": lambda: robustness(
+            output,
+            args.canonical_holten.resolve()
+            if args.canonical_holten is not None
+            else None,
+        ),
     }
+    if output is None and args.case != "s3_1_tracerlpm":
+        parser.error("an output directory is required for this case")
     actions[args.case]()
     return 0
 

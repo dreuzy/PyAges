@@ -1,4 +1,4 @@
-# Releasing PyAge
+# Releasing PyAges
 
 Releases are built from a clean, reviewed commit. Generated scientific output
 is not mixed with source changes unless it is an intentional golden fixture or
@@ -10,10 +10,10 @@ published reference artifact.
 2. Confirm that every modified, deleted, and untracked file is intentional.
    Install the qualified direct dependency set with
    `python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"`.
-3. Update `pyage/_version.py`, `CITATION.cff`, `CHANGELOG.md`, and the
+3. Update `pyages/_version.py`, `CITATION.cff`, `CHANGELOG.md`, and the
    development-status classifier together. Confirm that README and Sphinx show
    the same release and follow {doc}`versioning-citation`; the manuscript label
-   “PyAge v1.0” is not a substitute for a released `1.0.0` tag.
+   “PyAges v1.0” is not a substitute for a released `v1.0.0` tag.
 4. Run the standard suite:
 
    ```bash
@@ -21,7 +21,7 @@ published reference artifact.
    python -m ruff format --check .
    python -m pytest -q
    python -m pytest -q validation/tracerlpm/benchmark/tests
-   python -m pytest -q --cov=pyage --cov-report=term-missing --cov-fail-under=60
+   python -m pytest -q --cov=pyages --cov-report=term-missing --cov-fail-under=60
    python -m sphinx -W --keep-going -b html docs docs/_build/html
    python -m sphinx -E -a -W --keep-going -b linkcheck docs docs/_build/linkcheck
    ```
@@ -62,11 +62,11 @@ published reference artifact.
    checkout, run:
 
    ```bash
-   pyage --version
-   pyage check
-   pyage list lpms
-   pyage list tracers
-   PYAGE_RESULTS_DIR=/tmp/pyage-smoke pyage run /path/to/checkout/examples/templates/quickstart_single.yaml
+   pyages --version
+   pyages check
+   pyages list lpms
+   pyages list tracers
+   PYAGES_RESULTS_DIR=/tmp/pyages-smoke pyages run /path/to/checkout/examples/templates/quickstart_single.yaml
    ```
 
    Confirm that the smoke result contains `result_manifest.json` with schema

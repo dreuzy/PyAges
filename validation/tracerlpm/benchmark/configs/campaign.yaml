@@ -52,7 +52,19 @@ observation_years: [1995.0, 2010.0, 2020.0]
 
 # Facteurs appliqués aux tolérances absolue et relative de la grille pilotée par
 # le traceur. Une valeur inférieure à 1 resserre les tolérances.
-pyage_grid_tolerance_scales: [4.0, 2.0, 1.0, 0.5, 0.25]
+pyages_grid_tolerance_scales: [4.0, 2.0, 1.0, 0.5, 0.25]
+
+# Contrat de qualification forward. Les seuils sont normalisés par l'amplitude
+# maximale de chaque historique d'entrée. En régime significatif, l'erreur est
+# la différence relative symétrique. Près de zéro, une erreur absolue évite les
+# rapports artificiellement grands.
+forward_qualification:
+  contract_version: 1
+  significant_concentration_fraction_of_input_scale: 0.001
+  maximum_significant_symmetric_relative_difference: 0.0005
+  maximum_near_zero_absolute_difference_fraction_of_input_scale: 0.00002
+  physical_bound_tolerance_fraction_of_input_scale: 0.000000000001
+  require_all_cases: true
 
 # Paramétrisations proposées dans le protocole validé.
 models:

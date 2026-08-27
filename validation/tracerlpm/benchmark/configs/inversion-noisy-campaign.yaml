@@ -2,7 +2,7 @@
 campaign_id: tracerlpm-inversion-noisy-v1
 observation_year: 2020.0
 
-# Les trois chroniques sont identiques pour PyAge, la référence indépendante
+# Les trois chroniques sont identiques pour PyAges, la référence indépendante
 # et TracerLPM. Les concentrations sont déjà exprimées en recharge (pptv).
 tracers:
   - {name: cfc11, recharge: data_core/data_tracer/cfc11/recharge.csv, unit: pptv}

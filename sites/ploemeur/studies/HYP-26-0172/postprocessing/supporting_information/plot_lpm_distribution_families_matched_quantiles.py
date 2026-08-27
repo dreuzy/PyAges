@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Plot LPM pairs matched by shift, median, and interquartile range."""
 
 from __future__ import annotations
@@ -11,8 +15,8 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.optimize import least_squares
 
-from pyage.lpm.models.exponential_shifted import ExponentialShiftedLpm
-from pyage.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
+from pyages.lpm.models.exponential_shifted import ExponentialShiftedLpm
+from pyages.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[6]
 OUTPUT_DIRECTORY = (

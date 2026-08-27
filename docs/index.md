@@ -1,10 +1,10 @@
-# PyAge Documentation
+# PyAges Documentation
 
-PyAge is a groundwater age-dating toolkit built around environmental tracers,
+PyAges is a groundwater age-dating toolkit built around environmental tracers,
 lumped-parameter models (LPMs), convolution, and calibration workflows.
 
 The documentation is organized by audience: start with the user guide to run
-PyAge and use the scientific and architecture pages to understand its
+PyAges and use the scientific and architecture pages to understand its
 contracts. {doc}`Scientific reports <reports/index>` and
 {doc}`archived notes <archive/index>` remain available for traceability but
 are kept outside the primary navigation because they are not user instructions.
@@ -44,10 +44,16 @@ api/index
 ```
 
 ```{toctree}
-:maxdepth: 2
-:hidden:
+:maxdepth: 1
+:caption: Development
 
 dev/index
+```
+
+```{toctree}
+:maxdepth: 1
+:hidden:
+
 reports/index
 archive/index
 ```

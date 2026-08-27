@@ -26,7 +26,7 @@
       SF6: 214.962642021752       # alias CFC-11
       3H: 455.531114668285        # alias CFC-12, décroissance neutralisée
       NO3-N: 64.016909418023      # alias CFC-113
-    # Trois départs communs à PyAge et TracerLPM; le meilleur objectif est retenu.
+    # Trois départs communs à PyAges et TracerLPM; le meilleur objectif est retenu.
     initial_ages: [5.0, 20.0, 80.0]
     age_lower: 0.1
     age_upper: 200.0

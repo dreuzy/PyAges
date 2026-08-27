@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Separate Holten H4 sensitivity campaign for a Dirichlet(1,1,1,1) prior.
 
 This script reads the canonical final campaign but never writes to it.  Every
@@ -6,6 +10,7 @@ new artifact is confined to results/robustness/holten_prior_dirichlet1.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import math
@@ -35,7 +40,6 @@ from examples.natural.holten.holten_four_bin import (  # noqa: E402
 )
 from examples.natural.holten.holten_prepare import prepare_holten_inputs  # noqa: E402
 from examples.natural.holten.holten_reproduction import (  # noqa: E402
-    BIN_LABELS,
     TRACERS_4,
     ForwardConvention,
     _fractions,
@@ -47,6 +51,11 @@ from examples.natural.holten.holten_reproduction import (  # noqa: E402
 )
 from scripts.common.mcmc_diagnostics import mcse_mean  # noqa: E402
 from scripts.common.provenance import repository_provenance  # noqa: E402
+from scripts.common.publication_plotting import (  # noqa: E402
+    PUBLICATION_RC,
+    mm_to_in,
+    save_pdf_png,
+)
 from scripts.run_final_shifted_exponential import (  # noqa: E402
     _iact_ess,
     _split_rhat,
@@ -99,7 +108,9 @@ def _guard_output(path: Path) -> Path:
     if resolved == CANONICAL.resolve() or CANONICAL.resolve() in resolved.parents:
         raise ValueError("The robustness campaign refuses the canonical output tree")
     expected = (ROOT / "results" / "robustness").resolve()
-    if resolved != expected and expected not in resolved.parents:
+    repository = ROOT.resolve()
+    inside_repository = resolved == repository or repository in resolved.parents
+    if inside_repository and resolved != expected and expected not in resolved.parents:
         raise ValueError(f"Output must stay below {expected}")
     resolved.mkdir(parents=True, exist_ok=True)
     return resolved
@@ -424,7 +435,7 @@ def collect_diagnostics(
                     "runtime_seconds": float(data["runtime"]),
                     "best_objective": float(np.min(data["objective"])),
                     "chain_file": str(
-                        _chain_path(output, well, chain).relative_to(ROOT)
+                        _chain_path(output, well, chain).relative_to(output)
                     ),
                 }
             )
@@ -682,50 +693,83 @@ def global_metrics(
 
 
 def make_figure(output: Path, comparison: pd.DataFrame) -> None:
-    wells = comparison["well"].drop_duplicates().tolist()
-    fig, axes = plt.subplots(1, 4, figsize=(18.5, 5.8), sharey=True)
-    y = np.arange(len(wells))
-    for axis, fraction, title in zip(axes, BIN_ORDER, BIN_LABELS, strict=False):
-        values = (
-            comparison.loc[comparison["fraction"] == fraction]
-            .set_index("well")
-            .loc[wells]
+    with plt.rc_context(PUBLICATION_RC):
+        wells = comparison["well"].drop_duplicates().tolist()
+        fig, axes = plt.subplots(
+            1,
+            4,
+            figsize=(mm_to_in(165), mm_to_in(78)),
+            sharey=True,
         )
-        for row, well in enumerate(wells):
-            for prefix, offset, color, label in (
-                ("reference", -0.10, "#1f77b4", "Uniform in z"),
-                ("dirichlet", 0.10, "#d95f02", "Dirichlet(1)"),
-            ):
-                median = values.loc[well, f"{prefix}_median"]
-                axis.errorbar(
-                    median,
-                    row + offset,
-                    xerr=[
-                        [median - values.loc[well, f"{prefix}_q10"]],
-                        [values.loc[well, f"{prefix}_q90"] - median],
-                    ],
-                    fmt="o",
-                    color=color,
-                    capsize=2.5,
-                    label=label if row == 0 else None,
-                )
-        axis.set_title(title)
-        axis.set_xlabel("Age fraction (median, q10-q90)")
-        axis.set_xlim(-0.025, 1.025)
-        axis.grid(alpha=0.25)
-    axes[0].set_yticks(y, wells)
-    axes[0].invert_yaxis()
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=2, frameon=False)
-    fig.suptitle("Holten H4 posterior sensitivity to the age-fraction prior")
-    fig.tight_layout(rect=(0, 0.08, 1, 0.95))
-    for suffix in ("png", "pdf"):
-        fig.savefig(
-            output / f"holten_prior_robustness_posteriors.{suffix}",
-            dpi=300,
-            bbox_inches="tight",
+        y = np.arange(len(wells))
+        panel_titles = (
+            "(a) 0–20 yr",
+            "(b) 20–40 yr",
+            "(c) 40–60 yr",
+            "(d) >60 yr",
         )
-    plt.close(fig)
+        for panel_index, (axis, fraction, title) in enumerate(
+            zip(axes, BIN_ORDER, panel_titles, strict=True)
+        ):
+            values = (
+                comparison.loc[comparison["fraction"] == fraction]
+                .set_index("well")
+                .loc[wells]
+            )
+            for row, well in enumerate(wells):
+                for prefix, offset, color, label in (
+                    (
+                        "reference",
+                        -0.10,
+                        "#1f77b4",
+                        "Latent-logit uniform prior",
+                    ),
+                    (
+                        "dirichlet",
+                        0.10,
+                        "#d95f02",
+                        "Dirichlet(1,1,1,1) fraction prior",
+                    ),
+                ):
+                    median = values.loc[well, f"{prefix}_median"]
+                    axis.errorbar(
+                        median,
+                        row + offset,
+                        xerr=[
+                            [median - values.loc[well, f"{prefix}_q10"]],
+                            [values.loc[well, f"{prefix}_q90"] - median],
+                        ],
+                        fmt="o",
+                        color=color,
+                        markersize=4.0,
+                        elinewidth=1.2,
+                        capsize=2.0,
+                        label=label if row == 0 else None,
+                    )
+            axis.set_title(title, fontweight="bold", fontsize=9.0)
+            axis.set_xlim(-0.025, 1.025)
+            axis.set_xticks((0.0, 0.5, 1.0))
+            axis.grid(alpha=0.22)
+            if panel_index != 0:
+                axis.tick_params(axis="y", labelleft=False)
+        axes[0].set_yticks(y, wells)
+        axes[0].invert_yaxis()
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.supxlabel("Age fraction", x=0.55, y=0.19)
+        legend = fig.legend(
+            handles,
+            labels,
+            title="Posterior median and 10–90 % credible interval",
+            loc="lower center",
+            bbox_to_anchor=(0.5, 0.015),
+            ncol=2,
+            frameon=False,
+        )
+        legend.get_title().set_fontsize(8.5)
+        fig.subplots_adjust(left=0.10, right=0.99, top=0.84, bottom=0.30, wspace=0.12)
+        save_pdf_png(fig, output, "figureC1_holten_prior_sensitivity")
+        save_pdf_png(fig, output, "holten_prior_robustness_posteriors")
+        plt.close(fig)
 
 
 def verify_canonical() -> dict[str, Any]:
@@ -733,7 +777,16 @@ def verify_canonical() -> dict[str, Any]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     mismatches = []
     for relative, expected in manifest["artifact_sha256"].items():
-        path = ROOT / Path(relative)
+        recorded = Path(relative)
+        candidates = (
+            (recorded,)
+            if recorded.is_absolute()
+            else (CANONICAL / recorded, ROOT / recorded)
+        )
+        path = next(
+            (candidate for candidate in candidates if candidate.is_file()),
+            candidates[0],
+        )
         actual = _sha256(path) if path.is_file() else None
         if actual != expected:
             mismatches.append(
@@ -771,8 +824,12 @@ def verify_canonical() -> dict[str, Any]:
         for item in source_mismatches
         if item["path"].replace("\\", "/") in model_source_names
     ]
+    try:
+        canonical_directory = str(CANONICAL.resolve().relative_to(ROOT.resolve()))
+    except ValueError:
+        canonical_directory = str(CANONICAL.resolve())
     return {
-        "canonical_directory": str(CANONICAL.relative_to(ROOT)),
+        "canonical_directory": canonical_directory,
         "canonical_manifest_sha256": _sha256(manifest_path),
         "checked_artifact_count": len(manifest["artifact_sha256"]),
         "all_artifacts_match_manifest": not mismatches,
@@ -878,7 +935,7 @@ def write_manifest(
         },
         "canonical_manifest_sha256": _sha256(CANONICAL / "manifest.json"),
         "artifact_sha256": {
-            str(path.relative_to(ROOT)): _sha256(path) for path in sorted(artifacts)
+            str(path.relative_to(output)): _sha256(path) for path in sorted(artifacts)
         },
     }
     (output / "manifest.json").write_text(
@@ -916,5 +973,26 @@ def main() -> int:
     return 0
 
 
+def _cli(argv: list[str] | None = None) -> int:
+    global OUTPUT, CANONICAL
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=OUTPUT,
+        help="Fresh directory for the separate prior-sensitivity campaign.",
+    )
+    parser.add_argument(
+        "--canonical-holten",
+        type=Path,
+        default=CANONICAL,
+        help="Read-only canonical Holten campaign used for comparison.",
+    )
+    args = parser.parse_args(argv)
+    OUTPUT = args.output.resolve()
+    CANONICAL = args.canonical_holten.resolve()
+    return main()
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_cli())

@@ -1,4 +1,8 @@
-"""Regression contracts for the tracer data distributed with PyAge."""
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Regression contracts for the tracer data distributed with PyAges."""
 
 from __future__ import annotations
 
@@ -8,8 +12,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from pyage.tracer.decay import rate_from_half_life
-from pyage.tracer.tracer_root import Tracer
+from pyages.tracer.decay import rate_from_half_life
+from pyages.tracer.tracer_root import Tracer
 
 DATA_TRACER_DIR = Path(__file__).resolve().parents[2] / "data_core" / "data_tracer"
 

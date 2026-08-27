@@ -135,7 +135,7 @@ results/HYP-26-0172/runs/<experiment_id>/
 |-- resolved_config.yaml
 |-- input_checksums.json
 |-- environment.txt
-`-- workflow/                 # native PyAge results
+`-- workflow/                 # native PyAges results
 ```
 
 Postprocessing must create durable, tabular intermediates below

@@ -1,6 +1,6 @@
 # Architecture
 
-PyAge follows the scientific calculation from inputs to results. Most users
+PyAges follows the scientific calculation from inputs to results. Most users
 only need the command line and YAML files; contributors can understand the
 core through the five objects below.
 
@@ -8,7 +8,7 @@ core through the five objects below.
 YAML + observations
         |
         v
-Concentrations -> CalibrationProblem -> CalibrationMethod -> LpmDist
+Concentrations -> CalibrationProblem -> CalibrationMethod -> LpmSampleTable
                          |
                          v
               Tracer + LPM -> Convolution
@@ -24,7 +24,7 @@ Concentrations -> CalibrationProblem -> CalibrationMethod -> LpmDist
 | `Convolution` | The forward concentration calculation | Optimization |
 | `CalibrationProblem` | Observations, model, convolution, objective | Search algorithm state |
 | `CalibrationMethod` | Simplex or MH execution | Input loading and reporting |
-| `LpmDist` | Calibrated sample rows | Plotting and file-format logic |
+| `LpmSampleTable` | Calibrated sample rows | Plotting and file-format logic |
 
 Composition is deliberate. A calibration method receives a prepared problem;
 it does not inherit or copy the problem's internal attributes. A convolution
@@ -34,36 +34,36 @@ receives a tracer and evaluates an LPM; it is not a tracer subclass.
 
 A single-date or temporal workflow performs the same sequence:
 
-1. Load and validate YAML with the models in `pyage.config`.
+1. Load and validate YAML with the models in `pyages.config`.
 2. Resolve paths relative to the configuration file.
 3. Load observations with `Concentrations.from_file()`.
 4. Prepare a `CalibrationProblem` containing the LPM, tracer convolutions, and
    objective function.
 5. Run a calibration method such as Simplex or Metropolis-Hastings.
-6. Store samples in `LpmDist.frame`.
+6. Store samples in `LpmSampleTable.frame`.
 7. Write standard result tables and optional figures.
 
 The workflow modules own orchestration only. Their immutable context objects
 make resolved paths and runtime options explicit. Plot modules are grouped by
-purpose under the canonical `pyage.workflows.plots` import path.
+purpose under the canonical `pyages.workflows.plots` import path.
 
 ## Package map
 
 | Package | Purpose |
 |---|---|
-| `pyage.config` | User-facing configuration schemas and path resolution |
-| `pyage.concentrations` | Observation tables and temporal reshaping |
-| `pyage.tracer` | Typed tracer configuration and recharge histories |
-| `pyage.lpm` | Model registry, transit-time models, and sample analysis |
-| `pyage.convolution` | Forward scientific model |
-| `pyage.calibration` | Problems, methods, priors, parameter grids, and outputs |
-| `pyage.workflows` | Single-date and temporal orchestration |
-| `pyage.data_io` | Stable tabular serialization boundaries |
-| `pyage.cli` | Installed command-line entry point |
+| `pyages.config` | User-facing configuration schemas and path resolution |
+| `pyages.concentrations` | Observation tables and temporal reshaping |
+| `pyages.tracer` | Typed tracer configuration and recharge histories |
+| `pyages.lpm` | Model registry, transit-time models, and sample analysis |
+| `pyages.convolution` | Forward scientific model |
+| `pyages.calibration` | Problems, methods, priors, parameter grids, and outputs |
+| `pyages.workflows` | Single-date and temporal orchestration |
+| `pyages.data_io` | Validated YAML loading and stable result-file serialization |
+| `pyages.cli` | Installed command-line entry point |
 
 Shared scientific data live in `data_core`. Reusable examples live in
 `examples`; site-specific studies live in `sites`. Neither directory is a
-dependency of the installable `pyage` package.
+dependency of the installable `pyages` package.
 
 ## Extension points
 
@@ -72,7 +72,7 @@ dependency of the installable `pyage` package.
 - Add an LPM by implementing the `LpmBase` contract and registering it with
   `@register_lpm`.
 - Add a calibration algorithm by implementing `CalibrationMethod.run(problem)`
-  and returning `LpmDist`.
+  and returning `LpmSampleTable`.
 - Add a workflow by building an explicit context and composing existing core
   objects.
 
@@ -108,7 +108,7 @@ flowchart LR
   LPM --> CONV
   CONV --> PROBLEM
   PROBLEM --> METHODS[calibration methods]
-  METHODS --> RESULT[LpmDist]
+  METHODS --> RESULT[LpmSampleTable]
   RESULT --> IO[data_io]
   RESULT --> PLOTS[workflow plots]
 
@@ -133,7 +133,7 @@ flowchart LR
   LPM[LPM] --> CONV
   CONV --> PROBLEM
   PROBLEM --> METHOD[CalibrationMethod]
-  METHOD --> SAMPLES[LpmDist.frame]
+  METHOD --> SAMPLES[LpmSampleTable.frame]
   SAMPLES --> STATS[Analysis]
   SAMPLES --> FILES[TSV + manifest]
   SAMPLES --> FIGS[Optional figures]

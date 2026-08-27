@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Build and validate a reader-facing Zenodo bundle for the article archive."""
 
 from __future__ import annotations
@@ -20,15 +24,23 @@ from scripts import build_reproduction_archive
 ROOT = Path(__file__).resolve().parents[1]
 ZENODO_CHECKSUMS = "ZENODO_CHECKSUMS.sha256"
 ZENODO_MANIFEST = "ZENODO_MANIFEST.json"
-SOURCE_DOCUMENTS = ("CITATION.cff", "LICENSE", "NOTICE-DATA.md")
+SOURCE_DOCUMENTS = (
+    "CITATION.cff",
+    "COPYRIGHT",
+    "LICENSE",
+    "LICENSE.en",
+    "NOTICE-DATA.md",
+    "THIRD_PARTY_NOTICES.md",
+)
 KEYWORDS = (
     "groundwater age",
     "environmental tracers",
     "lumped parameter models",
     "Bayesian inference",
     "MCMC",
-    "PyAge",
+    "PyAges",
     "TracerLPM",
+    "prior sensitivity",
     "scientific reproducibility",
 )
 
@@ -71,6 +83,8 @@ def _creators(citation: dict[str, object]) -> list[dict[str, str]]:
         creator = {"name": f"{family}, {given}"}
         if author.get("orcid"):
             creator["orcid"] = str(author["orcid"])
+        if author.get("affiliation"):
+            creator["affiliation"] = str(author["affiliation"])
         creators.append(creator)
     if not creators:
         raise RuntimeError("CITATION.cff does not declare any creator")
@@ -115,6 +129,15 @@ def _scientific_summary(archive: Path) -> dict[str, object]:
     return json.loads(manifest.read_text(encoding="utf-8"))["scientific_summary"]
 
 
+def _require_complete_campaign_scope(manifest: dict[str, object]) -> None:
+    scope = str(manifest.get("scope", "")).lower()
+    if "holten" not in scope or "prior-sensitivity" not in scope or "excluded" in scope:
+        raise RuntimeError(
+            "Core archive does not include the Holten prior-sensitivity campaign; "
+            "rebuild the complete archive before deposit"
+        )
+
+
 def _readme(
     *,
     title: str,
@@ -130,19 +153,23 @@ def _readme(
     )
     shifted = scientific["shifted_exponential"]
     holten = scientific["holten_h4"]
+    holten_prior = scientific["holten_prior_dirichlet1"]
     ploemeur = scientific["ploemeur_shifted_exponential"]
     ig = scientific["ploemeur_physical_ig"]
-    tracer = scientific["pyage_tracerlpm"]
+    tracer = scientific["pyages_tracerlpm"]
     return f"""# {title}
 
 Version: `{version}`  
 Zenodo DOI: `{doi_text}`  
 Archived Git revision: `{core_manifest["git_head"]}`
 
-This bundle contains the exact PyAge source snapshot, the complete article
-simulation campaign, retained MCMC states, derived products, publication-ready
-figures and tables, execution provenance, and the exact USGS TracerLPM workbook
-and add-in used for the cross-software comparison.
+This bundle contains the complete article campaign, retained MCMC states,
+derived products, publication-ready figures and tables, execution provenance,
+the PyAges source snapshot at the archived Git revision, and the exact USGS
+TracerLPM workbook and add-in
+used for the cross-software comparison. It includes the Holten--Dirichlet
+prior-sensitivity campaign as a distinct robustness analysis; it does not replace
+the canonical Holten results.
 
 ## Start here
 
@@ -155,7 +182,7 @@ Readers who only want to inspect the article results should open
 - `campaign/article_package/diagnostics/` for convergence and residual checks;
 - `campaign/article_package/supporting_data/` for the values plotted in figures.
 
-The complete, less curated campaign remains under `campaign/`. Raw `.npz`
+The less curated complete campaign remains under `campaign/`. Raw `.npz`
 files contain NumPy arrays and MCMC states; `.csv.gz` files are compressed CSV;
 PDF and PNG files are the easiest figure previews, while TIFF files are the
 high-resolution publication versions. Execution logs are historical evidence,
@@ -168,18 +195,23 @@ Pour lire les résultats sans relancer les calculs, commencer par
 `reports/`. Les dossiers `diagnostics/` et `supporting_data/` permettent
 l'audit quantitatif. Les chaînes MCMC brutes restent dans les dossiers de la
 campagne complète et ne sont utiles que pour un audit approfondi ou une reprise.
+La sensibilité Holten au prior Dirichlet est incluse comme analyse de robustesse
+distincte; elle ne remplace pas les résultats Holten canoniques.
 
 ## Scientific status
 
 - Independent forward verification: {scientific["forward_verification"]["case_count"]} cases
   (`{scientific["forward_verification"]["status"]}`).
-- PyAge--TracerLPM: {tracer["paired_cases"]} paired cases,
-  {tracer["pyage_successful"]} PyAge successes and
+- PyAges--TracerLPM: {tracer["paired_cases"]} paired cases,
+  {tracer["pyages_successful"]} PyAges successes and
   {tracer["tracerlpm_successful"]} TracerLPM successes.
 - Shifted exponential: {shifted["groups"]} groups, maximum split-Rhat
   {shifted["max_split_rhat"]:.6f}, minimum ESS {shifted["min_ess"]:.1f}.
 - Holten H4: {holten["groups"]} groups, maximum split-Rhat
   {holten["max_split_rhat"]:.6f}, minimum ESS {holten["min_ess"]:.1f}.
+- Holten Dirichlet(1,1,1,1) prior sensitivity: {holten_prior["groups"]} groups,
+  maximum split-Rhat {holten_prior["max_split_rhat"]:.6f}, minimum ESS
+  {holten_prior["min_ess"]:.1f}; reported as a separate robustness analysis.
 - Ploemeur shifted exponential: {ploemeur["groups"]} groups, maximum split-Rhat
   {ploemeur["max_split_rhat"]:.6f}, minimum ESS {ploemeur["min_ess"]:.1f}.
 - Ploemeur inverse-Gaussian: {ig["posterior_sets"]} posterior sets, maximum
@@ -191,17 +223,20 @@ MCMC groups pass these thresholds.
 
 ## Reproduction material
 
-- `source/pyage-source.zip`: frozen source tree used for this archive;
+- `source/pyages-source.zip`: frozen source tree used for this archive;
 - `source/environment-pip-freeze.txt`: captured Python environment;
 - `campaign/campaign_manifest.json`: stage commands, revisions, status, and timing;
 - `campaign/logs/`: unmodified execution logs;
 - `external/tracerlpm/`: exact external cross-software dependencies;
-- `ARCHIVE_MANIFEST.json` and `CHECKSUMS.sha256`: validated core scientific archive;
+- `ARCHIVE_MANIFEST.json` and `CHECKSUMS.sha256`: validated complete scientific archive;
 - `{ZENODO_MANIFEST}` and `{ZENODO_CHECKSUMS}`: Zenodo-layer inventory and checksums.
 
-The final source snapshot can reproduce every stage. The historical campaign
-manifest also records the exact revision used when each stage completed, and
-the article package includes byte-exact execution-source snapshots where needed.
+The source snapshot contains the repository at the Git revision named above.
+The campaign manifest separately records the exact revision used when each
+stage completed, and the article package includes byte-exact execution-source
+snapshots for its source-hash-protected calculations. Review the `git_dirty`
+field in `ARCHIVE_MANIFEST.json` before publication and rebuild from a clean
+release commit for the definitive deposit.
 
 ## TracerLPM requirement
 
@@ -232,19 +267,22 @@ also independently validated against {len(core_manifest["files"])} entries in
 
 ## Rights and citation
 
-PyAge source code is distributed under CeCILL 2.1; see `LICENSE`. Data and
-data-derived files retain their source-specific rights and attribution; see
-`NOTICE-DATA.md`. TracerLPM is redistributed with USGS attribution under its
-public-domain notice. Review `CITATION.cff` and `ZENODO_METADATA_DRAFT.json`
-before publishing the Zenodo record, especially creator order, ORCIDs,
-affiliations, the final article title, and the reserved DOI.
+PyAges source code is distributed under CeCILL 2.1; see `LICENSE` and
+`LICENSE.en`. The CNRS rights-holder and software-authorship notice is in
+`COPYRIGHT`. Data and data-derived files retain their source-specific rights
+and attribution; see `NOTICE-DATA.md`. Direct dependency notices are recorded
+in `THIRD_PARTY_NOTICES.md`. TracerLPM is redistributed with USGS attribution
+under its public-domain notice. Review `CITATION.cff` and
+`ZENODO_METADATA_DRAFT.json` before publishing the Zenodo record, especially
+creator order, ORCIDs, affiliations, the final article title, and the reserved
+DOI.
 """
 
 
 def _tracerlpm_readme(workbook: dict[str, object], xll: dict[str, object]) -> str:
     return f"""# Exact TracerLPM dependencies
 
-These are the byte-exact external files used in the PyAge--TracerLPM article
+These are the byte-exact external files used in the PyAges--TracerLPM article
 campaign. They were verified against the SHA-256 values captured before the
 run and are included so that reviewers do not have to reconstruct an obsolete
 local installation.
@@ -304,10 +342,11 @@ def _metadata(
     *, title: str, version: str, citation: dict[str, object], doi: str | None
 ) -> dict[str, object]:
     description = (
-        "Exact PyAge source snapshot and complete reproduction evidence for the "
-        "associated Geoscientific Model Development article: inputs, scripts, "
-        "environment, retained MCMC states, convergence diagnostics, figures, "
-        "tables, and the exact USGS TracerLPM dependencies used for validation."
+        "Complete reproduction evidence for the associated Geoscientific Model "
+        "Development article: inputs, scripts, environment, retained MCMC states, "
+        "convergence diagnostics, publication figures and tables, the distinct "
+        "Holten Dirichlet(1,1,1,1) prior-sensitivity analysis, and the exact USGS "
+        "TracerLPM dependencies used for cross-software validation."
     )
     return {
         "status": "DRAFT - review before publishing",
@@ -321,7 +360,7 @@ def _metadata(
         "access_right": "open",
         "language": "eng",
         "licenses": [
-            {"identifier": "CECILL-2.1", "applies_to": "PyAge source code"},
+            {"identifier": "CECILL-2.1", "applies_to": "PyAges source code"},
             {
                 "identifier": "review-source-specific-rights",
                 "applies_to": "data and derived files; see NOTICE-DATA.md",
@@ -386,7 +425,10 @@ def _write_zenodo_inventory(
         "core_archive_git_head": core_manifest["git_head"],
         "core_archive_manifest": "ARCHIVE_MANIFEST.json",
         "core_archive_files": len(core_manifest["files"]),
-        "scope": "reader-facing Zenodo bundle and complete GMD reproduction evidence",
+        "scope": (
+            "reader-facing Zenodo bundle and complete GMD reproduction evidence, "
+            "including the distinct Holten Dirichlet prior-sensitivity campaign"
+        ),
         "external_dependencies": [
             {
                 "label": entry["label"],
@@ -523,8 +565,9 @@ def build_bundle(
     if output == archive or archive in output.parents or output in archive.parents:
         raise ValueError("Bundle output and core archive must be separate directories")
     core_manifest = build_reproduction_archive.validate_archive(archive)
+    _require_complete_campaign_scope(core_manifest)
     config, workbook_entry, xll_entry = _tracerlpm_dependencies(archive, workbook, xll)
-    source_zip = archive / "source/pyage-source.zip"
+    source_zip = archive / "source/pyages-source.zip"
     with zipfile.ZipFile(source_zip) as source:
         citation = yaml.safe_load(source.read("CITATION.cff"))
     version = str(citation["version"])
@@ -610,7 +653,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tracerlpm-xll", type=Path)
     parser.add_argument(
         "--title",
-        default="PyAge 0.1.0b1 - complete article reproduction archive",
+        default="PyAges 0.1.0b1 - complete article reproduction archive",
     )
     parser.add_argument("--doi", help="reserved Zenodo DOI, e.g. 10.5281/zenodo.123")
     parser.add_argument("--validate-only", type=Path)

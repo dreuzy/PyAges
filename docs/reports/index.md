@@ -13,9 +13,15 @@ that evidence can be reproduced.
 
 ../scientific-migration-ig-decay
 ../convolution-method-evolution-report
-../pyage-tracerlpm-targeted-comparison
+../pyages-tracerlpm-targeted-comparison
 mh_proposal_qualification
 scientific_documentation_audit
 documentation_remaining_work_audit_2026-08-26
+comments_documentation_reaudit_2026-08-26
 convolution_grid_sensitivity_2026-08-26
+forward_qualification_2026-08-27
+reproduction_campaign_status_2026-08-27
+article_publication_evidence_2026-08-27
+concentrations_audit_2026-08-27
+data_io_refactoring_2026-08-27
 ```

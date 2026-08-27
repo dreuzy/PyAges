@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Holten case helpers: paths, config loading, and shared dataclasses.
 """
@@ -14,8 +18,8 @@ from typing import Any
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from pyage.config.models import LauncherConfig, LauncherParams
-from pyage.workflows.single_date_config import load_params_payload
+from pyages.config.models import LauncherConfig, LauncherParams
+from pyages.workflows.single_date_config import load_params_payload
 from scripts.common.example_case_utils import (
     dump_yaml_dict as dump_yaml,
 )

@@ -1,0 +1,5 @@
+location,assertion,manuscript_value,canonical_source,verification_status,notes
+global,Manuscript numerical audit not started,,,BLOCKED,Source DOCX files are missing
+Figures 2-4 and S1,Canonical posterior assertions,,,HARD_FAIL,Required raw posterior outputs and historical manifests are missing
+Supplement S1,Forward-verification assertions,,,HARD_FAIL,Canonical summary is missing and the generating script checksum differs
+Supplement S2,Cross-software assertions,,,HARD_FAIL,Canonical summary and launch manifest are missing and the report script checksum differs

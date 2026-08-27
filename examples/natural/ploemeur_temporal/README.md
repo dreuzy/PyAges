@@ -29,7 +29,7 @@ Notebook:
   temporal fit overlays and parameter distribution overlays.
 
 Outputs:
-- stored under the default results root (`PYAGE_RESULTS_DIR`) unless overridden
+- stored under the default results root (`PYAGES_RESULTS_DIR`) unless overridden
   in the YAML,
 - `span` mode writes to
   `.../ploemeur_temporal/<dataset_stem>/span/span_full/`,

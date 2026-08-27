@@ -12,11 +12,11 @@
     "names": [
       "mean",
       "std",
-      "quart10",
-      "quart25",
-      "median",
-      "quart75",
-      "quart90"
+      "p10",
+      "p25",
+      "p50",
+      "p75",
+      "p90"
     ]
   },
   "dirac_double": {
@@ -32,11 +32,11 @@
     "names": [
       "mean",
       "std",
-      "quart10",
-      "quart25",
-      "median",
-      "quart75",
-      "quart90"
+      "p10",
+      "p25",
+      "p50",
+      "p75",
+      "p90"
     ]
   },
   "dirac_double_1_set": {
@@ -52,11 +52,11 @@
     "names": [
       "mean",
       "std",
-      "quart10",
-      "quart25",
-      "median",
-      "quart75",
-      "quart90"
+      "p10",
+      "p25",
+      "p50",
+      "p75",
+      "p90"
     ]
   },
   "exp": {
@@ -72,11 +72,11 @@
     "names": [
       "mean",
       "std",
-      "quart10",
-      "quart25",
-      "median",
-      "quart75",
-      "quart90"
+      "p10",
+      "p25",
+      "p50",
+      "p75",
+      "p90"
     ]
   },
   "exp_shifted": {
@@ -92,11 +92,11 @@
     "names": [
       "mean",
       "std",
-      "quart10",
-      "quart25",
-      "median",
-      "quart75",
-      "quart90"
+      "p10",
+      "p25",
+      "p50",
+      "p75",
+      "p90"
     ]
   },
   "gamma": {
@@ -112,11 +112,11 @@
     "names": [
       "mean",
       "std",
-      "quart10",
-      "quart25",
-      "median",
-      "quart75",
-      "quart90"
+      "p10",
+      "p25",
+      "p50",
+      "p75",
+      "p90"
     ]
   },
   "ig": {
@@ -132,11 +132,11 @@
     "names": [
       "mean",
       "std",
-      "quart10",
-      "quart25",
-      "median",
-      "quart75",
-      "quart90"
+      "p10",
+      "p25",
+      "p50",
+      "p75",
+      "p90"
     ]
   },
   "ig_shifted": {
@@ -152,11 +152,11 @@
     "names": [
       "mean",
       "std",
-      "quart10",
-      "quart25",
-      "median",
-      "quart75",
-      "quart90"
+      "p10",
+      "p25",
+      "p50",
+      "p75",
+      "p90"
     ]
   },
   "shapefree_n_oldbin": {
@@ -172,11 +172,11 @@
     "names": [
       "mean",
       "std",
-      "quart10",
-      "quart25",
-      "median",
-      "quart75",
-      "quart90"
+      "p10",
+      "p25",
+      "p50",
+      "p75",
+      "p90"
     ]
   },
   "uniform": {
@@ -192,11 +192,11 @@
     "names": [
       "mean",
       "std",
-      "quart10",
-      "quart25",
-      "median",
-      "quart75",
-      "quart90"
+      "p10",
+      "p25",
+      "p50",
+      "p75",
+      "p90"
     ]
   },
   "weibull": {
@@ -212,11 +212,11 @@
     "names": [
       "mean",
       "std",
-      "quart10",
-      "quart25",
-      "median",
-      "quart75",
-      "quart90"
+      "p10",
+      "p25",
+      "p50",
+      "p75",
+      "p90"
     ]
   }
 }

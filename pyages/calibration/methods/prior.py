@@ -1,0 +1,370 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Prior distributions used by Metropolis-Hastings calibration."""
+
+from __future__ import annotations
+
+import copy
+import math
+from typing import Any, Sequence
+
+import numpy as np
+import pandas as pd
+from scipy.interpolate import interp1d
+
+from pyages.data_io.lpm_distribution import read_histogram
+
+
+def make_prior_expo(
+    x_data: Sequence[float],
+    y_data: Sequence[float],
+    xmin: float = 0.0,
+    xmax: float = 70.0,
+    n_points: int = 2000,
+    decay_left: float = 10.0,
+    decay_right: float = 10.0,
+    normalize: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Interpolate histogram points and extend them with exponential tails."""
+    x_data = np.asarray(x_data)
+    y_data = np.asarray(y_data)
+    interpolate = interp1d(
+        x_data,
+        y_data,
+        kind="linear",
+        bounds_error=False,
+        fill_value=0,
+    )
+
+    x_cont = np.linspace(xmin, xmax, n_points)
+    y_cont = interpolate(x_cont)
+    left_mask = x_cont < x_data.min()
+    right_mask = x_cont > x_data.max()
+    if y_data[0] > 0:
+        y_cont[left_mask] = y_data[0] * np.exp(
+            -decay_left * (x_data[0] - x_cont[left_mask])
+        )
+    if y_data[-1] > 0:
+        y_cont[right_mask] = y_data[-1] * np.exp(
+            -decay_right * (x_cont[right_mask] - x_data[-1])
+        )
+
+    if normalize:
+        area = np.trapezoid(y_cont, x_cont)
+        if area > 0:
+            y_cont /= area
+    return x_cont, y_cont
+
+
+def gauss(x: float, x0: float, sigma: float) -> float:
+    """Evaluate a Gaussian probability density at one point."""
+    numerator = math.exp(-((x - x0) ** 2) / (2.0 * sigma**2))
+    denominator = math.sqrt(2 * math.pi * sigma**2)
+    return numerator / denominator
+
+
+def moments_histo(histogram: np.ndarray) -> tuple[float, float]:
+    """Integrate the mean and variance of a two-column density grid."""
+    density = histogram[:, 1]
+    values = histogram[:, 0]
+    total = float(np.trapezoid(density, values))
+    if not math.isfinite(total) or total <= 0.0:
+        raise ValueError("Histogram density must have positive finite mass")
+    mean = float(np.trapezoid(values * density, values) / total)
+    second = float(np.trapezoid(values**2 * density, values) / total)
+    variance = max(0.0, second - mean**2)
+    return mean, variance
+
+
+class Prior:
+    """Prior distribution used by the Bayesian calibration.
+
+    The prior can be parametric or defined empirically by a histogram.
+
+    Parameters
+    ----------
+    option : bool
+        Whether the prior contributes to the posterior.
+    typ : str
+        ``"parametric"`` or ``"empirical"``.
+    prior_file : str
+        Path prefix for empirical prior files.
+    """
+
+    def __init__(
+        self,
+        option: bool = True,
+        typ: str = "parametric",
+        prior_file: str = "",
+    ) -> None:
+        """Initialize prior selection and empty per-parameter definitions."""
+        self.option = option
+        self.typ = typ
+        self.prior_file = prior_file
+        self.MHapriori_dist: dict[str, str] = {}
+        self.MHapriori_para: dict[str, Any] = {}
+
+    def __param_init_parametric(
+        self,
+        key: str,
+        pmin: float,
+        pmax: float,
+        rng: np.random.Generator,
+        strategy: str,
+    ) -> float:
+        distribution = self.MHapriori_dist[key]
+        first, second = self.MHapriori_para[key]
+        if distribution == "normal":
+            value = first if strategy == "map" else rng.normal(first, second)
+            return float(np.clip(value, pmin, pmax))
+        if distribution == "uniform":
+            value = (
+                0.5 * (first + second)
+                if strategy == "map"
+                else rng.uniform(first, second)
+            )
+            return float(np.clip(value, pmin, pmax))
+        raise ValueError(f"Unsupported prior distribution: {distribution}")
+
+    def __param_init_empirical(
+        self,
+        key: str,
+        pmin: float,
+        pmax: float,
+        rng: np.random.Generator,
+        strategy: str,
+    ) -> float:
+        values, probabilities = self.MHapriori_para[key].T
+        if np.all((probabilities <= 0) | ~np.isfinite(probabilities)):
+            return 0.5 * (pmin + pmax)
+        if strategy == "map":
+            value = float(values[np.argmax(probabilities)])
+        else:
+            increments = (
+                0.5 * (probabilities[:-1] + probabilities[1:]) * np.diff(values)
+            )
+            cdf = np.concatenate([[0.0], np.cumsum(increments)])
+            if cdf[-1] > 0:
+                cdf /= cdf[-1]
+                value = float(np.interp(rng.random(), cdf, values))
+            else:
+                value = float(values[np.argmax(probabilities)])
+        return float(np.clip(value, pmin, pmax))
+
+    def param_init(
+        self,
+        lpm: Any,
+        strategy: str = "map",
+        rng: np.random.Generator | None = None,
+    ) -> None:
+        """Initialize model parameters from the configured prior."""
+        if strategy not in {"map", "sample"}:
+            raise ValueError("strategy must be 'map' or 'sample'")
+        if rng is None:
+            rng = np.random.default_rng()
+        parameters = []
+        for key in lpm.p:
+            bounds = lpm.get_p_min(key), lpm.get_p_max(key)
+            if self.typ == "parametric":
+                value = self.__param_init_parametric(key, *bounds, rng, strategy)
+            elif self.typ == "empirical":
+                value = self.__param_init_empirical(key, *bounds, rng, strategy)
+            else:
+                value = 0.5 * sum(bounds)
+            parameters.append(value)
+        lpm.set_param_from_array(parameters)
+
+    def __load_parametric_priors(self, lpm: Any) -> None:
+        from pyages.data_io import lpm_params
+
+        self.MHapriori_dist = {}
+        self.MHapriori_para = {}
+        schema = lpm_params.load_parameter_schema(
+            lpm.name,
+            lpm.lpm_data_directory,
+        )
+        for name, prior in lpm_params.get_priors(schema).items():
+            prior_type = prior.get("type")
+            if not prior_type:
+                continue
+            self.MHapriori_dist[name] = (
+                "normal" if prior_type == "gaussian" else prior_type
+            )
+            if prior_type == "uniform":
+                self.MHapriori_para[name] = [prior.get("min"), prior.get("max")]
+            elif prior_type in {"normal", "gaussian"}:
+                self.MHapriori_para[name] = [prior.get("mean"), prior.get("std")]
+            else:
+                self.MHapriori_para[name] = list(prior.get("args", []))[:2]
+        expected = list(lpm.p)
+        missing = [name for name in expected if name not in self.MHapriori_dist]
+        extra = [name for name in self.MHapriori_dist if name not in lpm.p]
+        if missing or extra:
+            raise ValueError(
+                "Configured parametric priors must match the LPM parameters "
+                f"(missing={missing}, extra={extra})"
+            )
+
+    def __load_empirical_priors(self, lpm: Any) -> None:
+        self.MHapriori_para = {}
+        for parameter in lpm.get_param_names():
+            histogram = read_histogram(
+                f"{self.prior_file}.txt",
+                parameter,
+            ).to_numpy()
+            decay = 500.0 / abs(lpm.get_p_min(parameter) - lpm.get_p_max(parameter))
+            x_values, probabilities = make_prior_expo(
+                histogram[:, 0],
+                histogram[:, 1],
+                xmin=lpm.get_p_min(parameter),
+                xmax=lpm.get_p_max(parameter),
+                n_points=101,
+                decay_left=decay,
+                decay_right=decay,
+            )
+            self.MHapriori_para[parameter] = np.column_stack((x_values, probabilities))
+
+    def load(self, lpm: Any) -> None:
+        """Load prior definitions for a model."""
+        if not self.option:
+            return
+        if self.typ == "parametric":
+            self.__load_parametric_priors(lpm)
+        elif self.typ == "empirical":
+            self.__load_empirical_priors(lpm)
+        else:
+            raise ValueError(f"Unsupported prior type: {self.typ}")
+
+    def __evaluate_parametric(self, lpm: Any, params: list[float]) -> float:
+        probability = 1.0
+        for index, key in enumerate(lpm.p):
+            distribution = self.MHapriori_dist[key]
+            first, second = self.MHapriori_para[key]
+            if distribution == "normal":
+                probability *= gauss(params[index], first, second)
+            elif distribution == "uniform":
+                if first <= params[index] <= second:
+                    probability /= abs(second - first)
+                else:
+                    probability = 0
+            elif distribution == "lognormal":
+                raise ValueError("Lognormal prior is not implemented for errors.")
+            else:
+                raise ValueError(f"Unsupported prior distribution: {distribution}")
+        return probability
+
+    def __evaluate_empirical(self, lpm: Any, params: list[float]) -> float:
+        probability = 1.0
+        for index, parameter in enumerate(lpm.get_param_names()):
+            histogram = self.MHapriori_para[parameter]
+            if params[index] < histogram[0, 0] or params[index] > histogram[-1, 0]:
+                return 0.0
+            nearest = np.argmin(abs(histogram[:, 0] - params[index]))
+            probability *= histogram[nearest, 1]
+        return probability
+
+    def evaluate(self, lpm: Any, params: list[float]) -> float:
+        """Evaluate the prior density for the current parameters."""
+        if self.typ == "parametric":
+            probability = self.__evaluate_parametric(lpm, params)
+        elif self.typ == "empirical":
+            probability = self.__evaluate_empirical(lpm, params)
+        else:
+            raise ValueError(f"Unsupported prior type: {self.typ}")
+        return probability
+
+    def __log_evaluate_parametric(self, lpm: Any, params: list[float]) -> float:
+        log_probability = 0.0
+        for index, key in enumerate(lpm.p):
+            distribution = self.MHapriori_dist[key]
+            first, second = self.MHapriori_para[key]
+            value = params[index]
+            if distribution == "normal":
+                if second <= 0.0:
+                    raise ValueError(f"Normal prior std must be positive for {key}")
+                standardized = (value - first) / second
+                log_probability += (
+                    -0.5 * standardized**2
+                    - math.log(second)
+                    - 0.5 * math.log(2.0 * math.pi)
+                )
+            elif distribution == "uniform":
+                if second <= first:
+                    raise ValueError(f"Uniform prior bounds are invalid for {key}")
+                if not first <= value <= second:
+                    return -math.inf
+                log_probability -= math.log(second - first)
+            else:
+                raise ValueError(f"Unsupported prior distribution: {distribution}")
+        return log_probability
+
+    def __log_evaluate_empirical(self, lpm: Any, params: list[float]) -> float:
+        log_probability = 0.0
+        for index, parameter in enumerate(lpm.get_param_names()):
+            histogram = self.MHapriori_para[parameter]
+            value = params[index]
+            if value < histogram[0, 0] or value > histogram[-1, 0]:
+                return -math.inf
+            nearest = np.argmin(abs(histogram[:, 0] - value))
+            density = float(histogram[nearest, 1])
+            if density <= 0.0 or not math.isfinite(density):
+                return -math.inf
+            log_probability += math.log(density)
+        return log_probability
+
+    def log_evaluate(self, lpm: Any, params: list[float]) -> float:
+        """Evaluate the prior log-density with exact zero support."""
+        if self.typ == "parametric":
+            return self.__log_evaluate_parametric(lpm, params)
+        if self.typ == "empirical":
+            return self.__log_evaluate_empirical(lpm, params)
+        raise ValueError(f"Unsupported prior type: {self.typ}")
+
+    def validation_MH_prior(
+        self,
+        path: pd.DataFrame,
+        lpm: Any,
+    ) -> dict[str, dict[str, dict[str, float]]]:
+        """Compare sampled prior moments with theoretical expectations."""
+        sampled = {
+            key: [
+                np.nanmean(path[key].to_numpy(), dtype="float"),
+                np.nanvar(path[key].to_numpy(), dtype="float"),
+            ]
+            for key in lpm.p
+        }
+        theory = copy.deepcopy(sampled)
+        if self.typ == "parametric":
+            for key in lpm.p:
+                first, second = self.MHapriori_para[key]
+                if self.MHapriori_dist[key] == "normal":
+                    theory[key] = [first, second**2]
+                elif self.MHapriori_dist[key] == "uniform":
+                    theory[key] = [
+                        (first + second) / 2,
+                        ((second - first) / np.sqrt(12)) ** 2,
+                    ]
+        elif self.typ == "empirical":
+            for key in lpm.p:
+                theory[key] = list(moments_histo(self.MHapriori_para[key]))
+
+        differences = copy.deepcopy(sampled)
+        for key in lpm.p:
+            differences[key][0] = 100 * (1 - sampled[key][0] / theory[key][0])
+            differences[key][1] = 100 * (1 - sampled[key][1] / theory[key][1])
+        return {
+            "sampled": {
+                key: {"mean": value[0], "var": value[1]}
+                for key, value in sampled.items()
+            },
+            "theory": {
+                key: {"mean": value[0], "var": value[1]}
+                for key, value in theory.items()
+            },
+            "difference_percent": {
+                key: {"mean": value[0], "var": value[1]}
+                for key, value in differences.items()
+            },
+        }

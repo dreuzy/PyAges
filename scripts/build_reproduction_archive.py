@@ -1,4 +1,8 @@
-"""Build and validate the complete scientific archive for the article."""
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Build and validate the complete article reproduction archive."""
 
 from __future__ import annotations
 
@@ -87,7 +91,7 @@ def build_archive(campaign: Path, output: Path, *, allow_dirty: bool = False) ->
                 "archive",
                 "--format=zip",
                 "-o",
-                str(source_dir / "pyage-source.zip"),
+                str(source_dir / "pyages-source.zip"),
                 head,
             ],
             cwd=ROOT,
@@ -120,7 +124,11 @@ def build_archive(campaign: Path, output: Path, *, allow_dirty: bool = False) ->
             "git_head": head,
             "git_dirty": bool(dirty),
             "campaign_source": str(campaign),
-            "scope": "complete article evidence, retained MCMC states, derived products, code and environment",
+            "scope": (
+                "complete article campaign evidence, retained MCMC states, derived "
+                "products, code and environment; includes the distinct Holten "
+                "Dirichlet(1,1,1,1) prior-sensitivity campaign"
+            ),
             "files": entries,
         }
         (staging / "ARCHIVE_MANIFEST.json").write_text(
@@ -141,8 +149,8 @@ def build_archive(campaign: Path, output: Path, *, allow_dirty: bool = False) ->
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--campaign", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--campaign", type=Path)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--allow-dirty", action="store_true")
     parser.add_argument(
         "--reuse-valid",
@@ -155,6 +163,10 @@ def main(argv: list[str] | None = None) -> int:
         payload = validate_archive(args.validate_only)
         print(f"Validated {len(payload['files'])} archived files")
         return 0
+    if args.campaign is None or args.output is None:
+        parser.error(
+            "--campaign and --output are required unless --validate-only is used"
+        )
     if args.reuse_valid and args.output.exists():
         payload = validate_archive(args.output)
         print(f"Reused valid archive with {len(payload['files'])} files: {args.output}")

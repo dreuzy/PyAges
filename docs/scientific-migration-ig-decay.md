@@ -1,19 +1,19 @@
 # Migration scientifique : loi inverse gaussienne et décroissance radioactive
 
-Cette note décrit les conventions appliquées par PyAge depuis août 2026. Elle
+Cette note décrit les conventions appliquées par PyAges depuis août 2026. Elle
 sert de référence pour préparer les comparaisons avec TracerLPM et pour relire
 les anciens fichiers de configuration.
 
 ## Loi inverse gaussienne
 
-Les paramètres exposés par PyAge conservent leur interprétation scientifique :
+Les paramètres exposés par PyAges conservent leur interprétation scientifique :
 
 - `mu` est le temps de transit moyen ;
 - `sigma` est l'écart type des temps de transit ;
 - le nombre de Péclet équivalent est `Pe = mu**2 / sigma**2`.
 
 La convention de SciPy n'utilise pas directement ces deux moments. Pour
-`scipy.stats.invgauss`, PyAge effectue donc la conversion suivante :
+`scipy.stats.invgauss`, PyAges effectue donc la conversion suivante :
 
 ```text
 shape = (sigma / mu)**2
@@ -45,7 +45,7 @@ half_life: 12.32
 # decay_mean_lifetime: 17.774
 ```
 
-PyAge convertit ces valeurs en constante de décroissance `beta` :
+PyAges convertit ces valeurs en constante de décroissance `beta` :
 
 ```text
 beta = ln(2) / half_life
@@ -57,7 +57,7 @@ Ainsi, après une demi-vie la concentration vaut exactement la moitié de la
 concentration initiale. Pour une production constante `P`, la concentration
 produite est `P * (1 - exp(-beta*t)) / beta`.
 
-Les configurations livrées avec PyAge utilisent maintenant les demi-vies :
+Les configurations livrées avec PyAges utilisent maintenant les demi-vies :
 
 - tritium (`3H`) : 12.32 ans ;
 - krypton 85 (`85Kr`) : 10.76 ans ;

@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Build the article audit tables from existing simulation artifacts only.
 
 This script is intentionally post-processing-only: it never imports or calls a
@@ -12,6 +16,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from pyages.data_io.lpm_distribution import read_distribution
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "results" / "final_scientific_audit_20260821"
@@ -53,7 +59,7 @@ def shifted_table() -> pd.DataFrame:
 
 def holten_tables() -> tuple[pd.DataFrame, pd.DataFrame]:
     directory = ROOT / "results" / "final_article_simulations" / "holten_h4_final"
-    comparison = pd.read_csv(directory / "visser_vs_pyage_h4.csv")
+    comparison = pd.read_csv(directory / "visser_vs_pyages_h4.csv")
     convergence = pd.read_csv(directory / "convergence_diagnostics.csv")
     summary = pd.read_csv(directory / "posterior_summaries.csv")
 
@@ -78,9 +84,9 @@ def holten_tables() -> tuple[pd.DataFrame, pd.DataFrame]:
         for item in group.itertuples(index=False):
             name = str(item.fraction)
             row[f"{name}_visser"] = item.visser
-            row[f"{name}_median"] = item.pyage_median
-            row[f"{name}_q10"] = item.pyage_q10
-            row[f"{name}_q90"] = item.pyage_q90
+            row[f"{name}_median"] = item.pyages_median
+            row[f"{name}_q10"] = item.pyages_q10
+            row[f"{name}_q90"] = item.pyages_q90
         records.append(row)
     wells = pd.DataFrame(records)
     residuals = pd.read_csv(directory / "posterior_modeled_concentrations.csv")
@@ -114,7 +120,7 @@ def campaign_inventory() -> pd.DataFrame:
                 "publication_critical": bool(experiment["enabled"]),
                 "git_commit": manifest["git"]["commit"],
                 "git_dirty": manifest["git"]["dirty"],
-                "snapshot": "C:/codes/pyage-campaign-snapshots/HYP-26-0172-v2-20260820-000740",
+                "snapshot": "C:/codes/pyages-campaign-snapshots/HYP-26-0172-v2-20260820-000740",
                 "config": manifest["artifacts"]["resolved_config"].replace("\\", "/"),
                 "source_checksums": manifest["artifacts"]["source_checksums"].replace(
                     "\\", "/"
@@ -206,7 +212,7 @@ def publication_cases() -> pd.DataFrame:
                 match = CASE_RE.fullmatch(case_name)
                 if match is None:
                     continue
-                frame = pd.read_csv(posterior_path, sep="\t", index_col=0)
+                frame = read_distribution(posterior_path)
                 case_key = f"{output.parent.name}/{output.name}/{case_name}/{model}"
                 row: dict[str, object] = {
                     "experiment_id": experiment,
@@ -323,7 +329,7 @@ def f11_prediction_check(cases: pd.DataFrame) -> pd.DataFrame:
     ]
     records: list[dict] = []
     for case in chosen.itertuples(index=False):
-        frame = pd.read_csv(ROOT / case.posterior_file, sep="\t", index_col=0)
+        frame = read_distribution(ROOT / case.posterior_file)
         prediction_columns = [
             column
             for column in frame.columns
@@ -381,7 +387,7 @@ def figure_provenance() -> pd.DataFrame:
             "figure": "Figure 3 Holten H4",
             "artifact": f"{holten}/figure3_holten_h4_final.png|pdf",
             "builder": "scripts/run_final_holten_h4.py",
-            "inputs": f"{holten}/posterior_summaries.csv;{holten}/visser_vs_pyage_h4.csv",
+            "inputs": f"{holten}/posterior_summaries.csv;{holten}/visser_vs_pyages_h4.csv",
             "run_config": f"{holten}/manifest.json",
             "status": "canonical final",
         },

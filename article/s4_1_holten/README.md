@@ -3,7 +3,7 @@
 - **Objective:** reproduce the four-bin Holten benchmark for seven wells.
 - **Manuscript output:** Figure 3 and quantitative comparison tables.
 - **Inputs/config:** `examples/natural/holten/doc/` and `examples/natural/holten/holten.yaml`.
-- **Check:** `python article/run_case.py check s4_1_holten`
+- **Historical evidence check:** `python article/run_case.py check s4_1_holten`
 - **Post-process:** `python article/run_case.py postprocess s4_1_holten`.
 - **Full run:** `python article/run_case.py run s4_1_holten` (**costly: five chains per well**).
 - **Stabilized campaign output:** `<campaign>/holten_h4/`.

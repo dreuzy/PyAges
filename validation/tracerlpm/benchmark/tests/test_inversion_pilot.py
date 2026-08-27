@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 from pathlib import Path
 
 import yaml
@@ -7,7 +11,7 @@ from validation.tracerlpm.benchmark.scripts.generate_inversion_pilot import (
     expanded_cases,
     generate,
 )
-from validation.tracerlpm.benchmark.scripts.invert_pyage_pilot import invert
+from validation.tracerlpm.benchmark.scripts.invert_pyages_pilot import invert
 
 
 def test_emm_inversion_pilot_recovers_truth(tmp_path: Path):

@@ -1,12 +1,16 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Analytical tests for discrete two-mass LPM distributions."""
 
 import numpy as np
 import pytest
 
-from pyage.lpm.models.dirac import DiracLpm
-from pyage.lpm.models.dirac_double import DiracDoubleLpm
-from pyage.lpm.models.dirac_double_1_set import DiracDouble1SetLpm
-from pyage.lpm.models.mix_exponential_shifted import MixExponentialShiftedLpm
+from pyages.lpm.models.dirac import DiracLpm
+from pyages.lpm.models.dirac_double import DiracDoubleLpm
+from pyages.lpm.models.dirac_double_1_set import DiracDouble1SetLpm
+from pyages.lpm.models.mix_exponential_shifted import MixExponentialShiftedLpm
 from tests.utils import paths as test_paths
 
 
@@ -27,6 +31,10 @@ def test_dirac_double_cdf_includes_each_point_mass():
 
     values = model.cdf(np.array([9.999, 10.0, 14.999, 15.0]))
 
+    assert model.parameter_units["mu1"] == "year"
+    assert model.parameter_units["mu2"] == "year"
+    assert model.parameter_units["rate"] == "-"
+    assert model.get_dirac_double_time() == pytest.approx([10.0, 10.0 + 5.0])
     assert values == pytest.approx([0.0, 0.2, 0.2, 1.0])
 
 
@@ -47,6 +55,8 @@ def test_dirac_double_1_set_cdf_and_generalized_quantile():
 
     values = model.cdf(np.array([9.999, 10.0, 69.999, 70.0]))
 
+    assert model.parameter_units == {"mufree": "year", "rate": "-"}
+    assert model.convolution_strategy.name == "DIRAC_DOUBLE"
     assert values == pytest.approx([0.0, 0.3, 0.3, 1.0])
     assert model.cdf_inv(0.0) == pytest.approx(10.0)
     assert model.cdf_inv(0.3) == pytest.approx(10.0)
@@ -70,6 +80,12 @@ def _mixed_model(rate: float = 0.3) -> MixExponentialShiftedLpm:
         shift=5.0,
         directory_lpm=_data_directory(),
     )
+
+
+def test_mixed_shifted_exponential_rate_is_dimensionless():
+    model = _mixed_model()
+
+    assert model.parameter_units["rate"] == "-"
 
 
 def test_mixed_cdf_is_scalar_safe_and_includes_the_dirac_mass():

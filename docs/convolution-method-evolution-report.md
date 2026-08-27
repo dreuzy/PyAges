@@ -1,4 +1,4 @@
-# Rapport d’évolution des méthodes de convolution de PyAge
+# Rapport d’évolution des méthodes de convolution de PyAges
 
 > **Statut : rapport d’évolution historique rédigé le 19 août 2026.** La
 > réanalyse Ploemeur annoncée ici comme future a ensuite été terminée le
@@ -8,7 +8,7 @@
 
 ## 1. Résumé exécutif
 
-Le moteur de convolution de PyAge a été profondément modifié afin de rendre son
+Le moteur de convolution de PyAges a été profondément modifié afin de rendre son
 erreur numérique largement indépendante de la largeur de la distribution des
 temps de transit (TTD/LPM). L’ancienne méthode évaluait la densité de
 probabilité du LPM sur une grille d’âge, puis appliquait une intégration de
@@ -24,7 +24,7 @@ La nouvelle méthode repose sur deux quantités cumulées du LPM :
   $M(t)=\int_{-\infty}^{t}\tau\,\mathrm dF(\tau)$, qui donne la position
   moyenne de cette masse dans l’intervalle.
 
-Pour un intervalle $[a_i,b_i]$, PyAge calcule désormais :
+Pour un intervalle $[a_i,b_i]$, PyAges calcule désormais :
 
 \[
 w_i = F(b_i)-F(a_i),
@@ -49,7 +49,7 @@ toutes les propositions d’une calibration MCMC. Le raffinement en loi de
 puissance auparavant utilisé pour les exponentielles, notamment les
 exponentielles décalées, n’est plus nécessaire.
 
-Toutes les distributions continues intégrées à PyAge disposent maintenant de
+Toutes les distributions continues intégrées à PyAges disposent maintenant de
 premiers moments partiels analytiques : exponentielle, exponentielles décalées,
 Gamma, uniforme, Weibull, gaussienne inverse, gaussienne inverse décalée et
 ShapeFree par classes uniformes. Le mélange Dirac–exponentielle utilise la même
@@ -415,10 +415,10 @@ potentiellement davantage les résultats de l’article.
 
 L’ancien code transmettait directement `mu` comme forme SciPy et `sigma` comme
 échelle SciPy. Dans cette convention, la moyenne réelle était
-$\mu\sigma$ et la variance $\mu^3\sigma^2$, alors que les paramètres PyAge
+$\mu\sigma$ et la variance $\mu^3\sigma^2$, alors que les paramètres PyAges
 étaient décrits comme moyenne et écart-type.
 
-PyAge convertit maintenant les moments physiques vers SciPy :
+PyAges convertit maintenant les moments physiques vers SciPy :
 
 \[
 \text{shape}_{SciPy}=(\sigma/\mu)^2,
@@ -458,7 +458,7 @@ automatiquement la grille lorsqu’elle manque ou lorsque la date change ; aucun
 booléen d’état n’est demandé à l’appelant.
 
 Tout LPM continu doit fournir une CDF vectorisée et un premier moment partiel.
-L’absence de ce contrat produit une erreur explicite. PyAge ne reconstruit plus
+L’absence de ce contrat produit une erreur explicite. PyAges ne reconstruit plus
 silencieusement une CDF par intégration trapézoïdale de la PDF et n’utilise plus
 de quadrature adaptative dans le moteur de production. Les quadratures lentes
 restent réservées aux tests et aux outils de validation indépendants.
@@ -482,7 +482,7 @@ configuration effectivement utilisée traçable.
 
 ## 10. Diagnostics numériques
 
-Après chaque convolution continue, PyAge conserve :
+Après chaque convolution continue, PyAges conserve :
 
 - `window_mass` : masse du LPM située dans la fenêtre disponible ;
 - `n_bins` : nombre de bins de la grille du traceur ;
@@ -641,7 +641,7 @@ Ces effets ne doivent pas être agrégés sous l’expression générale « chan
 de précision numérique ». Le troisième est une correction de convention
 scientifique et peut déplacer substantiellement les paramètres calibrés.
 
-Une autre migration présente dans l’état actuel de PyAge concerne la
+Une autre migration présente dans l’état actuel de PyAges concerne la
 décroissance radioactive : les configurations utilisent désormais des champs
 non ambigus de demi-vie ou de temps moyen de décroissance. Si Ploemeur utilise
 des radionucléides, l’impact de cette correction devra être quantifié
@@ -737,9 +737,9 @@ dans la révision v14 du manuscrit ; leur synthèse maintenue se trouve dans
 
 Les principaux éléments sont accessibles dans :
 
-- `pyage/convolution/convolution.py` : préparation de la grille, convolution
+- `pyages/convolution/convolution.py` : préparation de la grille, convolution
   CDF–moment, diagnostics et mélanges ;
-- `pyage/lpm/models/` : expressions analytiques des CDF et premiers moments ;
+- `pyages/lpm/models/` : expressions analytiques des CDF et premiers moments ;
 - `tests/convolution/test_convolution_scientific.py` : invariants de masse,
   cache, troncature, cas pathologiques et références indépendantes ;
 - `tests/lpm/test_continuous_partial_moments.py` : validation des premiers

@@ -1,0 +1,6 @@
+figure,output,width_mm,height_mm,min_text_pt,vector_source,raster_dpi,status,notes
+Figure 1,,,,,,,BLOCKED,Source manuscript and authoritative figure source were not audited
+Figure 2,,,,,,,HARD_FAIL,Canonical chains and historical manifest are missing
+Figure 3,,,,,,,HARD_FAIL,Canonical chains and historical manifest are missing
+Figure 4,,,,,,,HARD_FAIL,Canonical chains data audit and historical manifest are missing
+Figure S1,,,,,,,HARD_FAIL,Prior-sensitivity chains pilots and historical manifest are missing

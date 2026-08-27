@@ -14,11 +14,11 @@ Audit realise sur les elements suivants :
 - `examples/natural/ploemeur_temporal/exemple_ploemeur_temporal.ipynb`
 - `examples/natural/ploemeur/run_ploemeur.py`
 - `examples/natural/ploemeur_temporal/run_ploemeur_temporal.py`
-- `pyage run` (single-date workflow)
-- `pyage/workflows/temporal.py`
+- `pyages run` (single-date workflow)
+- `pyages/workflows/temporal.py`
 - les fonctions de trace utilisees par ces exemples
 
-L'objectif de cette note est de regarder ces exemples du point de vue d'une personne qui debute avec PyAge, sans proposer de modification de code a ce stade.
+L'objectif de cette note est de regarder ces exemples du point de vue d'une personne qui debute avec PyAges, sans proposer de modification de code a ce stade.
 
 ## Synthese
 
@@ -222,8 +222,8 @@ lpm_results.display_concentrations_dist(...)
 ```
 
 meme quand `concentrations_2d` était désactivé. Ce double chemin de lancement a
-depuis été supprimé au profit de `pyage.workflows.temporal`, appelé par
-`pyage run --transient`.
+depuis été supprimé au profit de `pyages.workflows.temporal`, appelé par
+`pyages run --transient`.
 
 Effet concret observe avec la config courante :
 

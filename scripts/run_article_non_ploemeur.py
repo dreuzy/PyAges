@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Reproducible non-Ploemeur article qualification and regeneration.
 
 The launcher deliberately writes only below ``results/article_non_ploemeur_final``.
@@ -31,16 +35,16 @@ import yaml
 from numpy.polynomial.legendre import leggauss
 from scipy import integrate, stats
 
-from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyage.calibration.problem import CalibrationProblem
-from pyage.config.paths import DIRECTORY_LPM_DATA, DIRECTORY_TRACER_DATA
-from pyage.config.runtime import DisplayOptions
-from pyage.convolution.convolution import Convolution
-from pyage.convolution.convolution_tracers import ConvolutionTracers
-from pyage.convolution.settings import DEFAULT_TRACER_GRID_SETTINGS, TracerGridSettings
-from pyage.lpm.lpm_build import lpm_build
-from pyage.tracer.tracer_protocol import ConstantTracer, SyntheticTracer
-from pyage.tracer.tracer_root import Tracer
+from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.problem import CalibrationProblem
+from pyages.config.paths import DIRECTORY_LPM_DATA, DIRECTORY_TRACER_DATA
+from pyages.config.runtime import DisplayOptions
+from pyages.convolution.convolution import Convolution
+from pyages.convolution.convolution_tracers import ConvolutionTracers
+from pyages.convolution.settings import DEFAULT_TRACER_GRID_SETTINGS, TracerGridSettings
+from pyages.lpm import build_lpm
+from pyages.tracer.tracer_protocol import ConstantTracer, SyntheticTracer
+from pyages.tracer.tracer_root import Tracer
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "results" / "article_non_ploemeur_final"
@@ -228,7 +232,7 @@ MODEL_CASES = (
 
 
 def _model(name: str, parameters: dict[str, float]):
-    model = lpm_build(name, directory_lpm=str(DIRECTORY_LPM_DATA))
+    model = build_lpm(name, directory_lpm=str(DIRECTORY_LPM_DATA))
     model.p.update(parameters)
     return model
 
@@ -635,7 +639,7 @@ def _validation_matrix(settings: TracerGridSettings) -> pd.DataFrame:
                     "LPM": name,
                     "regime": regime,
                     "parameters": json.dumps(parameters, sort_keys=True),
-                    "PyAge": value,
+                    "PyAges": value,
                     "reference": reference,
                     "abs_error": abs_error,
                     "rel_error": abs_error / abs(reference)
@@ -770,7 +774,7 @@ Run manifest: `../run_manifest.yaml`.
 ## Méthode
 
 La grille est pilotée par la réponse traceur $K(t)$. Sur chaque bin $[a,b]$,
-PyAge emploie la masse exacte $F(b)-F(a)$ et le moment partiel exact
+PyAges emploie la masse exacte $F(b)-F(a)$ et le moment partiel exact
 $M(b)-M(a)$, avec $F(t)=\\int_0^t g(u)du$ et
 $M(t)=\\int_0^t u g(u)du$. L'interpolation linéaire de $K$ donne donc
 exactement $K(a)[F(b)-F(a)] + (K(b)-K(a))/(b-a)\n
@@ -800,7 +804,7 @@ Les moments partiels $M(t)=E[T\\,1(T\\leq t)]$ utilis\u00e9s par le moteur sont 
 
 Référence : Gauss–Legendre segmentée d'ordre 48 en espace des quantiles,
 32 segments, avec lois SciPy construites directement à partir des paramètres
-physiques et sans appel au moteur de convolution PyAge.
+physiques et sans appel au moteur de convolution PyAges.
 
 {_markdown(pd.DataFrame([_error_summary(default_matrix, "1x")]))}
 

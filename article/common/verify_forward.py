@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Rebuild the forward summary from existing case-level comparison rows."""
 
 from __future__ import annotations
@@ -9,7 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT = ROOT / "validation/tracerlpm/benchmark/generated/pyage_comparison"
+OUTPUT = ROOT / "validation/tracerlpm/benchmark/generated/pyages_comparison"
 
 
 def main() -> int:
@@ -49,7 +53,7 @@ def main() -> int:
         json.dumps(payload, indent=2) + "\n", encoding="utf-8", newline="\n"
     )
     lines = [
-        "# PyAge forward comparison (existing outputs)",
+        "# PyAges forward comparison (existing outputs)",
         "",
         "| Model | Cases | Bias | MAE | RMSE | Max absolute | Max symmetric relative |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",

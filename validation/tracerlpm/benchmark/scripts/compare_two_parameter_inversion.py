@@ -1,4 +1,8 @@
-"""Compare two-parameter PyAge and TracerLPM inversion results."""
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Compare two-parameter PyAges and TracerLPM inversion results."""
 
 from __future__ import annotations
 
@@ -10,7 +14,7 @@ from pathlib import Path
 import yaml
 
 from .generate_inputs import BENCHMARK_ROOT
-from .invert_pyage_pilot import RESULT_DIR
+from .invert_pyages_pilot import RESULT_DIR
 
 ALIASES = {"SF6": "cfc11", "3H": "cfc12", "NO3-N": "cfc113"}
 
@@ -27,20 +31,20 @@ def compare(run_json: Path) -> dict:
         )
     )
     case = next(item for item in config["cases"] if item["model"] == model)
-    pyage_path = RESULT_DIR / case["case_id"] / "pyage-result.json"
-    pyage = json.loads(pyage_path.read_text(encoding="utf-8"))
+    pyages_path = RESULT_DIR / case["case_id"] / "pyages-result.json"
+    pyages = json.loads(pyages_path.read_text(encoding="utf-8"))
     true_tau = float(case["true_parameters"]["tau"])
-    pyage_tau = float(pyage["estimated_parameters"]["tau"])
+    pyages_tau = float(pyages["estimated_parameters"]["tau"])
     tracer_tau = float(fit["estimatedAge"])
     if model == "EPM":
         secondary_name, true_secondary = (
             "r",
             float(case["true_parameters"]["eta"]) - 1.0,
         )
-        pyage_secondary = float(pyage["estimated_parameters"]["eta"]) - 1.0
+        pyages_secondary = float(pyages["estimated_parameters"]["eta"]) - 1.0
     else:
         secondary_name, true_secondary = "DP", float(case["true_parameters"]["DP"])
-        pyage_secondary = float(pyage["estimated_parameters"]["DP"])
+        pyages_secondary = float(pyages["estimated_parameters"]["DP"])
     tracer_secondary = float(fit["estimatedModelParameter"])
     tau_limit = float(config["acceptance"]["maximum_tau_relative_error"])
     secondary_limit = float(
@@ -50,17 +54,17 @@ def compare(run_json: Path) -> dict:
         {
             "parameter": "tau",
             "true": true_tau,
-            "pyage": pyage_tau,
+            "pyages": pyages_tau,
             "tracerlpm": tracer_tau,
-            "pyage_relative_error": abs(pyage_tau - true_tau) / true_tau,
+            "pyages_relative_error": abs(pyages_tau - true_tau) / true_tau,
             "tracerlpm_relative_error": abs(tracer_tau - true_tau) / true_tau,
         },
         {
             "parameter": secondary_name,
             "true": true_secondary,
-            "pyage": pyage_secondary,
+            "pyages": pyages_secondary,
             "tracerlpm": tracer_secondary,
-            "pyage_relative_error": abs(pyage_secondary - true_secondary)
+            "pyages_relative_error": abs(pyages_secondary - true_secondary)
             / true_secondary,
             "tracerlpm_relative_error": abs(tracer_secondary - true_secondary)
             / true_secondary,
@@ -89,8 +93,8 @@ def compare(run_json: Path) -> dict:
         "model": model,
         "parameter_comparison": parameter_rows,
         "concentration_comparison": concentrations,
-        "pyage_pass": parameter_rows[0]["pyage_relative_error"] <= tau_limit
-        and parameter_rows[1]["pyage_relative_error"] <= secondary_limit,
+        "pyages_pass": parameter_rows[0]["pyages_relative_error"] <= tau_limit
+        and parameter_rows[1]["pyages_relative_error"] <= secondary_limit,
         "tracerlpm_pass": parameter_rows[0]["tracerlpm_relative_error"] <= tau_limit
         and parameter_rows[1]["tracerlpm_relative_error"] <= secondary_limit,
         "tau_relative_error_limit": tau_limit,
@@ -105,16 +109,16 @@ def compare(run_json: Path) -> dict:
     lines = [
         f"# Inversion {model} sans bruit — trois CFC",
         "",
-        "| Paramètre | Vrai | PyAge | TracerLPM | Erreur rel. PyAge | Erreur rel. TracerLPM |",
+        "| Paramètre | Vrai | PyAges | TracerLPM | Erreur rel. PyAges | Erreur rel. TracerLPM |",
         "|---|---:|---:|---:|---:|---:|",
     ]
     for row in parameter_rows:
         lines.append(
-            f"| {row['parameter']} | {row['true']:.9g} | {row['pyage']:.9g} | {row['tracerlpm']:.9g} | {row['pyage_relative_error']:.3%} | {row['tracerlpm_relative_error']:.3%} |"
+            f"| {row['parameter']} | {row['true']:.9g} | {row['pyages']:.9g} | {row['tracerlpm']:.9g} | {row['pyages_relative_error']:.3%} | {row['tracerlpm_relative_error']:.3%} |"
         )
     lines += [
         "",
-        f"Verdicts : PyAge `{'pass' if summary['pyage_pass'] else 'investigate'}` ; TracerLPM `{'pass' if summary['tracerlpm_pass'] else 'investigate'}`.",
+        f"Verdicts : PyAges `{'pass' if summary['pyages_pass'] else 'investigate'}` ; TracerLPM `{'pass' if summary['tracerlpm_pass'] else 'investigate'}`.",
         "",
     ]
     (output / "summary.md").write_text("\n".join(lines), encoding="utf-8", newline="\n")

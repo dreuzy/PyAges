@@ -58,11 +58,11 @@ turning source files into a duplicate manuscript.
 ## Verification completed on 26 August 2026
 
 - The manuscript numbering is aligned to revision v14: Table 3 is the
-  PyAge--TracerLPM comparison and Table 4 is the shifted-exponential benchmark.
+  PyAges--TracerLPM comparison and Table 4 is the shifted-exponential benchmark.
   Historical filenames such as `table3_final.*` are retained but labeled.
 - The normative/thematic split was reviewed so equations, adaptive settings,
   objective transformations, and MH retention rules have one normative source.
-- `pyage check`, `pyage list lpms`, and `pyage list tracers` pass and report 12
+- `pyages check`, `pyages list lpms`, and `pyages list tracers` pass and report 12
   registered LPMs and 13 distributed tracers.
 - The targeted robustness/reproducibility tests pass (`9 passed`).
 - A clean Sphinx HTML build with `-E -a -W --keep-going` succeeds for all

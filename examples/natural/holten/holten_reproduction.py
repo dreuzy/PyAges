@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Reproduce the Holten four-bin benchmark with tritiogenic helium.
 
 This module deliberately stays local to the Holten example.  It adds the
 fourth observable used by Visser et al. (2013), tritiogenic 3He, without
-changing the generic PyAge calibration stack or the Ploemeur example.
+changing the generic PyAges calibration stack or the Ploemeur example.
 """
 
 from __future__ import annotations
@@ -39,7 +43,7 @@ from examples.natural.holten.holten_four_bin import (
     load_paper_4bin_fractions,
 )
 from examples.natural.holten.holten_prepare import prepare_holten_inputs
-from pyage.tracer.tracer_protocol import SyntheticTracer
+from pyages.tracer.tracer_protocol import SyntheticTracer
 
 TRACERS_3 = ("3H", "kr85", "39Ar")
 TRACERS_4 = ("3H", "3He_trit", "kr85", "39Ar")
@@ -719,7 +723,7 @@ def plot_figure10b_reproduction(
             where="post",
             color="#1f4b99",
             lw=2,
-            label="PyAge 4-observable",
+            label="PyAges 4-observable",
         )
         ax.set_title(well_id)
         ax.grid(alpha=0.25)
@@ -768,11 +772,11 @@ def plot_new_figure3(comparison: pd.DataFrame, output_path: Path) -> None:
     """Plot Visser, current 3-observable, and corrected 4-observable fractions."""
 
     scenarios = {
-        "current_3_observables": ("#888888", "o", "PyAge current: ³H, ⁸⁵Kr, ³⁹Ar"),
+        "current_3_observables": ("#888888", "o", "PyAges current: ³H, ⁸⁵Kr, ³⁹Ar"),
         "corrected_4_observables": (
             "#1f4b99",
             "s",
-            "PyAge corrected: ³H, tritiogenic ³He, ⁸⁵Kr, ³⁹Ar",
+            "PyAges corrected: ³H, tritiogenic ³He, ⁸⁵Kr, ³⁹Ar",
         ),
     }
     wells = comparison["well_id"].drop_duplicates().tolist()

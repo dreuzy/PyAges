@@ -1,23 +1,29 @@
 # Version, manuscript, citation, and DOI identity
 
-PyAge currently has two different identifiers that must not be conflated:
+PyAges currently has two different identifiers that must not be conflated:
 
 - ``0.1.0b1`` is the released beta software version. It is the value in
-  ``pyage/_version.py``, package metadata, CLI output, documentation, README,
+  ``pyages/_version.py``, package metadata, CLI output, documentation, README,
   changelog, and ``CITATION.cff``.
-- “PyAge v1.0” in the article layer is the **target manuscript/reproducibility
+- “PyAges v1.0” in the article layer is the **target manuscript/reproducibility
   package name** for the future stable release. It is not evidence that
   ``1.0.0`` has been released.
 
-The repository also contains the historical Git tag ``1.0`` at commit
-``de835be`` (17 January 2026), whose tag message identifies it as the state
-*before complete refactoring*. That legacy tag is an ancestor marker, not the
-current package release and not the future reviewed ``v1.0.0`` artifact. Do not
-cite or archive it as the software corresponding to the manuscript. The
-``repository_release_tag_at_inventory`` fields in article manifests record
-that this tag existed when the inventory was made; they do not qualify it.
+The project naming contract is otherwise singular and deliberate:
+``pip install pyages``, ``import pyages``, and the ``pyages`` command all refer
+to this project. The former PyAge names are historical only and are not public
+compatibility aliases.
 
-The article manifests deliberately store ``requested_v1.0_tag: null`` until an
+The misleading historical Git tag ``1.0`` was deleted on 27 August 2026. Its
+former target remains available as commit
+``5af69268da4ed1e22cc5307eac8d6f46522f8ade``, the state identified as *before
+complete refactoring*. Article manifests retain that commit in
+``legacy_pre_refactor_commit`` for provenance without presenting it as a
+release. Do not recreate or cite the old tag as the software corresponding to
+the manuscript. The name ``v1.0.0`` is reserved for the future reviewed stable
+artifact.
+
+The article manifests deliberately store ``requested_stable_tag: null`` until an
 exact reviewed ``v1.0.0`` tag exists. While that value is null, results must be
 cited by their recorded Git commit and environment, not as software release
 ``1.0.0``.

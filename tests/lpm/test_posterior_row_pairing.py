@@ -1,11 +1,15 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Posterior predictions must preserve complete parameter rows."""
 
 from __future__ import annotations
 
 import pandas as pd
 
-from pyage.lpm.distribution_analysis import select_models
-from pyage.lpm.lpm_build import lpm_build
+from pyages.lpm import build_lpm
+from pyages.lpm.samples.analysis import select_model_realizations
 
 
 def _encoded_posterior() -> pd.DataFrame:
@@ -19,9 +23,10 @@ def _encoded_posterior() -> pd.DataFrame:
 
 
 def test_span_posterior_selection_keeps_mu_shift_pairing() -> None:
-    model = lpm_build("exp_shifted")
+    model = build_lpm("exp_shifted")
+    before = model.p.copy()
 
-    selected, _, statistics = select_models(
+    selected, pdf, statistics = select_model_realizations(
         model,
         _encoded_posterior(),
         count=40,
@@ -29,5 +34,8 @@ def test_span_posterior_selection_keeps_mu_shift_pairing() -> None:
     )
 
     assert len(selected) == 40
+    assert pdf.columns[0] == "t"
+    assert all(name[1:].isdigit() for name in pdf.columns[1:])
     assert statistics.notna().all().all()
     assert all(item.p["shift"] == 10.0 * item.p["mu"] for item in selected)
+    assert model.p == before

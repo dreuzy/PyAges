@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
-Tests for lpm_build utilities.
+Tests for LPM factory utilities.
 """
 
 import pytest
 
-from pyage.lpm.lpm_build import UnknownLPMType, lpm_build
+from pyages.lpm import build_lpm
+from pyages.lpm.factory import UnknownLPMType
 
 
-def test_lpm_build_unknown_type_raises():
+def test_build_lpm_unknown_type_raises():
     with pytest.raises(UnknownLPMType):
-        lpm_build("not_a_real_model")
+        build_lpm("not_a_real_model")

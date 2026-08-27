@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Targeted tests for fixed Metropolis--Hastings proposals."""
 
 from __future__ import annotations
@@ -9,12 +13,12 @@ import numpy as np
 import pytest
 from scipy.stats import multivariate_normal
 
-from pyage.calibration.ig_parameterization import (
+from pyages.calibration.ig_parameterization import (
     physical_to_scipy_coordinates,
     scipy_to_physical_coordinates,
 )
-from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyage.calibration.mh_proposals import (
+from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.mh_proposals import (
     GaussianRandomWalk,
     native_to_sum_difference,
     regularize_empirical_covariance,

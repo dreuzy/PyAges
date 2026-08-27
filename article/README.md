@@ -1,13 +1,13 @@
-# Couche de reproductibilité du manuscrit visant PyAge v1.0
+# Couche de reproductibilité du manuscrit visant PyAges v1.0
 
 > **Identité de version.** `v1.0` désigne ici la cible du manuscrit et de sa
 > future archive, pas une version logicielle déjà publiée. La version bêta
-> citable reste `0.1.0b1`. Tant que `requested_v1.0_tag` vaut `null` dans les
+> citable reste `0.1.0b1`. Tant que `requested_stable_tag` vaut `null` dans les
 > manifestes, chaque calcul est identifié par son commit Git et son
 > environnement enregistrés ; aucun DOI futur ne doit être anticipé.
 
 Ce répertoire est une couche d'accès aux calculs du manuscrit. Il ne contient
-ni copie du code scientifique de `pyage`, ni copie des données distribuées de
+ni copie du code scientifique de `pyages`, ni copie des données distribuées de
 `data_core`, ni lien symbolique. Les résultats historiques restent à leur
 emplacement canonique sous `results/` et sont décrits par les manifestes de cas.
 
@@ -15,8 +15,8 @@ Pour recalculer l'ensemble avec la version stabilisée, utiliser le lanceur
 global et un dossier extérieur au dépôt :
 
 ```powershell
-python -m scripts.reproduce_article preflight --output C:\pyage-runs\article-v1
-python -m scripts.reproduce_article resume --output C:\pyage-runs\article-v1 --workers 6
+python -m scripts.reproduce_article preflight --output C:\pyages-runs\article-v1
+python -m scripts.reproduce_article resume --output C:\pyages-runs\article-v1 --workers 6
 ```
 
 Ce parcours est la référence pour une nouvelle archive GMD. Il ne dépend pas
@@ -43,12 +43,25 @@ python article/run_case.py postprocess s3_2_shifted_exponential
 python article/run_case.py run s3_2_shifted_exponential
 ```
 
+Pour redessiner uniquement les figures après une campagne externe terminée,
+sans appeler ni prolonger un sampler :
+
+```powershell
+python article/common/postprocess_existing.py s3_2_shifted_exponential --campaign-root C:\pyages-runs\article-v1
+python article/common/postprocess_existing.py s4_1_holten --campaign-root C:\pyages-runs\article-v1
+python article/common/postprocess_existing.py s4_2_ploemeur --campaign-root C:\pyages-runs\article-v1
+```
+
+L'option `--output` accepte aussi directement le dossier existant d'un cas.
+Pour la sensibilité au prior, fournir en plus `--canonical-holten` si la
+campagne Holten canonique se trouve hors de l'arborescence historique.
+
 `check` ne lance aucun code scientifique. `postprocess` exige que les chaînes
 ou sorties brutes existent déjà et refuse de les créer ou de les prolonger.
 `run` est la seule action autorisée à lancer un calcul complet et affiche un
 avertissement de durée avant exécution. Les campagnes individuelles sont
-écrites par défaut sous le dossier externe `pyage-article-results` voisin du
-dépôt (modifiable par `PYAGE_ARTICLE_RESULTS_DIR`) afin de ne pas réutiliser ni
+écrites par défaut sous le dossier externe `pyages-article-results` voisin du
+dépôt (modifiable par `PYAGES_ARTICLE_RESULTS_DIR`) afin de ne pas réutiliser ni
 écraser les résultats canoniques.
 
 Les garde-fous communs sont regroupés sous `article/common/` :

@@ -11,7 +11,7 @@ dataset:
   verbose: true
 
 lpm:
-  # LPM model identifier as expected by lpm_build.
+  # LPM model identifier as expected by build_lpm.
   model_name: dirac_double
   # Directory containing LPM params.yaml files; relative to repo root is OK.
   data_directory: data_core/data_lpm

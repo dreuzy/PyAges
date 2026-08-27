@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Prior-only MH validation checks with tolerance thresholds.
 """
@@ -6,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from pyage.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyage.calibration.workflows import synthetic_test as cst
-from pyage.config.runtime import DisplayOptions
+from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.workflows import synthetic_test as cst
+from pyages.config.runtime import DisplayOptions
 
 
 @pytest.mark.parametrize("lpm_type", ["exp", "ig", "ig_shifted", "gamma"])

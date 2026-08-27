@@ -1,4 +1,8 @@
-"""Build the retained PyAge/TracerLPM EMM inversion pilot report."""
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Build the retained PyAges/TracerLPM EMM inversion pilot report."""
 
 from __future__ import annotations
 
@@ -10,7 +14,7 @@ from pathlib import Path
 import yaml
 
 from .generate_inputs import BENCHMARK_ROOT
-from .invert_pyage_pilot import RESULT_DIR
+from .invert_pyages_pilot import RESULT_DIR
 
 
 def compare(run_json: Path) -> dict:
@@ -18,14 +22,14 @@ def compare(run_json: Path) -> dict:
     fit = run.get("fit")
     if not fit or fit["model"] != "EMM":
         raise ValueError("Un rapport d'inversion EMM TracerLPM est requis")
-    pyage_path = RESULT_DIR / "inversion-emm-tau20-no-noise" / "pyage-result.json"
-    pyage = json.loads(pyage_path.read_text(encoding="utf-8"))
+    pyages_path = RESULT_DIR / "inversion-emm-tau20-no-noise" / "pyages-result.json"
+    pyages = json.loads(pyages_path.read_text(encoding="utf-8"))
     config = yaml.safe_load(
         (BENCHMARK_ROOT / "configs" / "inversion-campaign.yaml").read_text(
             encoding="utf-8"
         )
     )
-    true_tau = float(pyage["true_tau"])
+    true_tau = float(pyages["true_tau"])
     threshold = float(config["acceptance"]["maximum_tau_absolute_error_years"])
     output = RESULT_DIR / "inversion-emm-tau20-no-noise"
     output.mkdir(parents=True, exist_ok=True)
@@ -34,19 +38,19 @@ def compare(run_json: Path) -> dict:
     summary = {
         "case_id": "inversion-emm-tau20-no-noise",
         "true_tau": true_tau,
-        "pyage_estimated_tau": float(pyage["estimated_tau"]),
-        "pyage_tau_absolute_error": float(pyage["tau_absolute_error"]),
+        "pyages_estimated_tau": float(pyages["estimated_tau"]),
+        "pyages_tau_absolute_error": float(pyages["tau_absolute_error"]),
         "tracerlpm_estimated_tau": float(fit["estimatedAge"]),
         "tracerlpm_tau_absolute_error": abs(float(fit["estimatedAge"]) - true_tau),
         "maximum_tau_absolute_error_years": threshold,
-        "pyage_pass": float(pyage["tau_absolute_error"]) <= threshold,
+        "pyages_pass": float(pyages["tau_absolute_error"]) <= threshold,
         "tracerlpm_pass": abs(float(fit["estimatedAge"]) - true_tau) <= threshold,
         "parameter_comparison": [
             {
                 "parameter": "tau",
                 "unit": "year",
                 "true_value": true_tau,
-                "pyage_value": float(pyage["estimated_tau"]),
+                "pyages_value": float(pyages["estimated_tau"]),
                 "tracerlpm_value": float(fit["estimatedAge"]),
             }
         ],
@@ -64,7 +68,7 @@ def compare(run_json: Path) -> dict:
 
 | Outil | Tau vrai | Tau estimé | Erreur absolue | Seuil | Verdict |
 |---|---:|---:|---:|---:|---|
-| PyAge | {true_tau:g} | {summary["pyage_estimated_tau"]:.9g} | {summary["pyage_tau_absolute_error"]:.6g} | {threshold:g} | {"pass" if summary["pyage_pass"] else "investigate"} |
+| PyAges | {true_tau:g} | {summary["pyages_estimated_tau"]:.9g} | {summary["pyages_tau_absolute_error"]:.6g} | {threshold:g} | {"pass" if summary["pyages_pass"] else "investigate"} |
 | TracerLPM | {true_tau:g} | {summary["tracerlpm_estimated_tau"]:.9g} | {summary["tracerlpm_tau_absolute_error"]:.6g} | {threshold:g} | {"pass" if summary["tracerlpm_pass"] else "investigate"} |
 
 Les deux outils utilisent CFC-11, CFC-12 et CFC-113. TracerLPM les reçoit par

@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Ploemeur workflow orchestration.
 
 Coordinates the loading of observation data, construction of calibration jobs,
 and execution of Metropolis-Hastings calibrations for the Ploemeur site.
 
-Copyright (c) 2025 Jean-Raynald de Dreuzy, CNRS
-Author: Jean-Raynald de Dreuzy
 """
 
 from __future__ import annotations
@@ -18,29 +20,25 @@ from typing import Any
 
 import yaml
 
-import pyage.calibration.methods.metropolis_hastings as cMH
-import pyage.concentrations.concentrations as co
-from pyage.calibration.problem import CalibrationProblem
-from pyage.concentrations import concentrations_time as ct
-from pyage.concentrations.schema import ERROR_COLUMN
-from pyage.config.paths import (
+from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.problem import CalibrationProblem
+from pyages.concentrations import Concentrations
+from pyages.concentrations.concentrations_time import display_concentration_chronicles
+from pyages.concentrations.schema import ERROR_COLUMN
+from pyages.config.paths import (
     ROOT_DIRECTORY,
     ROOT_DIRECTORY_RESULTS,
     result_subdirectory,
 )
-from pyage.config.runtime import DisplayOptions
-from pyage.lpm.distribution_plotting import display_parameter_priors
-from pyage.observations.loader import (
-    build_observation_path,
-    load_observation_concentrations,
-)
+from pyages.config.runtime import DisplayOptions
+from pyages.lpm.plotting.sample_diagnostics import plot_prior_comparison
 from sites.ploemeur.config.models import (
     ObservationMetadataConfig,
     PloemeurWorkflowConfig,
     PriorPipelinePresets,
     WellDateConfig,
 )
-from sites.ploemeur.observations import ploemeur as ploemeur_obs
+from sites.ploemeur.observations.ploemeur import observation_path
 from sites.ploemeur.workflows.job_builder import build_jobs
 from sites.ploemeur.workflows.path_helpers import (
     calibrated_prior_name,
@@ -103,9 +101,9 @@ def load_concentrations(
     error_concentrations: float,
     display,
     output_dir: str | Path,
-) -> co.Concentrations:
+) -> Concentrations:
     """Load concentrations, apply relative errors, display, and write outputs."""
-    cdata = co.Concentrations.from_file(file_path)
+    cdata = Concentrations.from_file(file_path)
     if cdata.cv[ERROR_COLUMN].min() == 0:
         cdata.error_affect_from_value(error_concentrations)
     cdata.display(display)
@@ -169,12 +167,7 @@ def validate_well_dates(
                 f"observations.well_dates.{well} must define start and end years."
             )
         dates = f"{start}_{end}"
-        file_path = build_observation_path(
-            ploemeur_obs.ploemeur_ori_folder(),
-            "ori_ploemeur_",
-            well,
-            dates,
-        )
+        file_path = observation_path(well, dates)
         if not file_path.exists():
             missing_files.append(str(file_path))
     if missing_files:
@@ -446,13 +439,9 @@ def _write_observation_selection(well, dates, start, end):
     """
 
     directory = workflow_temp_folder()
+    Path(directory).mkdir(parents=True, exist_ok=True)
     # Loads concentrations
-    cdata = load_observation_concentrations(
-        ploemeur_obs.ploemeur_ori_folder(),
-        "ori_ploemeur_",
-        well,
-        dates,
-    )
+    cdata = Concentrations.from_file(observation_path(well, dates))
     df = cdata.cv
     # Selects concentrations within the given age range
     dfselec = df.loc[(df["date"] >= start) & (df["date"] <= (end + 1))]
@@ -472,12 +461,7 @@ def _periods_years(well, dates, time_span_and_prior_mode, breakups=()):
         cumulative, successive, span_full, successive_with_prior, span_with_prior.
     """
     validate_time_span_and_prior_mode(time_span_and_prior_mode)
-    cdata = load_observation_concentrations(
-        ploemeur_obs.ploemeur_ori_folder(),
-        "ori_ploemeur_",
-        well,
-        dates,
-    )
+    cdata = Concentrations.from_file(observation_path(well, dates))
     sampling_years = sorted({int(value) for value in cdata.cv["date"]})
 
     start = []
@@ -671,7 +655,7 @@ class PloemeurSingleRun:
         mh_kwargs = {}
         if seed_enabled:
             mh_kwargs["seed"] = seed
-        mh_config = cMH.MHConfig(
+        mh_config = MHConfig(
             nstep=mh_nsteps,
             prior_option=prior,
             likelihood=likelihood,
@@ -683,7 +667,7 @@ class PloemeurSingleRun:
             componentwise_source="model",
             **mh_kwargs,
         )
-        self.calibration_strategy = cMH.MetropolisHastings(config=mh_config)
+        self.calibration_strategy = MetropolisHastings(config=mh_config)
         self.nmodels = explo_res
         self.lpm_number = lpm_number
 
@@ -741,7 +725,7 @@ class PloemeurSingleRun:
         strategy.analysis_calibration(lpm_results)
 
         # Tracers + distributions
-        ct.display_concentration_chronicles(
+        display_concentration_chronicles(
             cdata,
             lpm_results,
             strategy.method,
@@ -749,7 +733,7 @@ class PloemeurSingleRun:
             lpm_number=self.lpm_number,
         )
         if strategy.prior.option:
-            display_parameter_priors(
+            plot_prior_comparison(
                 lpm_results,
                 directory=display_options_case.directory,
                 prior=strategy.prior,

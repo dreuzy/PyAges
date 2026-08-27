@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """
 Integration test script (manual/interactive).
 
 Runs broad, slow checks across LPM generation and calibration methods.
 Not intended for CI; use pytest for automated regression testing.
 
-Author
-------
-Jean-Raynald de Dreuzy
 """
 
 import argparse
@@ -17,22 +18,22 @@ from typing import Optional
 import yaml
 from pydantic import ValidationError
 
-import pyage.calibration.methods.metropolis_hastings as cMH
-import pyage.calibration.methods.simplex as csimp
-import pyage.calibration.workflows.synthetic_test as cst
-import pyage.lpm.lpm_build as lpm_build_module
-from pyage.config.models import SystemCheckConfig
-from pyage.config.paths import (
+import pyages.calibration.methods.metropolis_hastings as cMH
+import pyages.calibration.methods.simplex as csimp
+import pyages.calibration.workflows.synthetic_test as cst
+from pyages.config.models import SystemCheckConfig
+from pyages.config.paths import (
     ROOT_DIRECTORY_RESULTS,
     result_subdirectory,
     timestamp_name,
 )
-from pyage.config.runtime import DisplayOptions
+from pyages.config.runtime import DisplayOptions
+from pyages.lpm.reporting import run_model_diagnostic
 
 
 class TestIntegration:
     """
-    Extensive tests for PyAge
+    Extensive tests for PyAges
 
     Arguments
          ---------
@@ -131,7 +132,7 @@ class TestIntegration:
 
         print("\nGENERATE AND DISPLAY LPM")
         for t in lpm_list:
-            lpm_build_module.test(t, display_options=self.display)
+            run_model_diagnostic(t, display_options=self.display)
 
     def check_calibration(self, single_all="all", single_name=""):
         """
@@ -254,7 +255,7 @@ def _load_config(path: Optional[Path]) -> SystemCheckConfig:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run PyAge integration checks.")
+    parser = argparse.ArgumentParser(description="Run PyAges integration checks.")
     parser.add_argument(
         "--params",
         type=Path,

@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Safety tests for release-artifact cleanup."""
 
 from pathlib import Path
@@ -9,7 +13,7 @@ from scripts.clean_release_artifacts import clean_release_artifacts
 
 def test_clean_release_artifacts_removes_only_known_directories(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text(
-        '[project]\nname = "pyage-groundwater"\n',
+        '[project]\nname = "pyages"\n',
         encoding="utf-8",
     )
     artifact = tmp_path / "dist"

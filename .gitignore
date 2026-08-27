@@ -98,6 +98,5 @@ docs/api/generated/
 /validation/tracerlpm/benchmark/configs/tracerlpm-robustness-*.yaml
 
 # Third-party publications are referenced by DOI instead of redistributed.
-/examples/natural/fontainebleau/doc/*.pdf
 /examples/natural/holten/doc/*.pdf
 /examples/natural/holten/doc/*.pptx

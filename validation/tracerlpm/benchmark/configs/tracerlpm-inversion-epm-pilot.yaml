@@ -5,7 +5,7 @@
   tracerlpm_effective_observation_year: 2020.0
   model1: EPM
   model2: EPM
-  model_parameter: 2.0       # ratio TracerLPM r; eta PyAge = 3
+  model_parameter: 2.0       # ratio TracerLPM r; eta PyAges = 3
   x_axis: SF6
   y_axis: NO3-N
   input_history:
