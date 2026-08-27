@@ -11,11 +11,11 @@ the complete core node-ID list.
 
 | Scope | Collected cases | Modules |
 |---|---|---|
-| Standard selection | 630 | 73 |
+| Standard selection | 633 | 73 |
 | Extensive opt-in | 5 | 2 |
-| Core including extensive | 635 | 73 |
+| Core including extensive | 638 | 73 |
 | TracerLPM validation | 55 | 9 |
-| All documented pytest scopes | 690 | 82 |
+| All documented pytest scopes | 693 | 82 |
 
 ## Cases by area
 
@@ -30,7 +30,7 @@ the complete core node-ID list.
 | `tests/examples/` | 11 | 36 |
 | `tests/io/` | 1 | 24 |
 | `tests/lpm/` | 11 | 127 |
-| `tests/ploemeur/` | 7 | 48 |
+| `tests/ploemeur/` | 7 | 51 |
 | `tests/scripts/` | 10 | 36 |
 | `tests/tracer/` | 4 | 45 |
 | `tests/workflows/` | 2 | 2 |
@@ -89,7 +89,7 @@ the complete core node-ID list.
 | `tests/ploemeur/test_ploemeur_convolution_reference.py` | 6 | 0 |
 | `tests/ploemeur/test_ploemeur_f09_workflow_golden.py` | 1 | 1 |
 | `tests/ploemeur/test_ploemeur_temporal_golden.py` | 1 | 0 |
-| `tests/ploemeur/test_ploemeur_workflow_paths.py` | 1 | 0 |
+| `tests/ploemeur/test_ploemeur_workflow_paths.py` | 4 | 0 |
 | `tests/ploemeur/test_prepare_observations.py` | 4 | 0 |
 | `tests/scripts/test_article_campaign.py` | 5 | 0 |
 | `tests/scripts/test_article_support.py` | 7 | 0 |
