@@ -27,10 +27,17 @@ python -m pytest -q
 python -m sphinx -W --keep-going -b html docs docs/_build/html
 ```
 
+The [testing guide](https://pyage-gw.readthedocs.io/en/latest/dev/testing.html)
+explains the standard, extensive, coverage, TracerLPM, collection, and golden
+scopes. The [continuous-integration reference](https://pyage-gw.readthedocs.io/en/latest/dev/ci.html)
+maps every GitHub Actions job to its local command, trigger, and artifact.
+
 Changes to validation infrastructure should also run
-`python -m pytest -q validation/tracerlpm/benchmark/tests`. Changes affecting
-long scientific calculations must describe the corresponding extensive tests
-and evidence rather than silently replacing golden values.
+`python run_tests.py validation`. Changes affecting long scientific
+calculations should run `python run_tests.py extensive` and must describe the
+corresponding evidence rather than silently replacing golden values. After
+adding, moving, parametrizing, or re-marking tests, regenerate the committed
+inventory with `python -m scripts.generate_test_inventory`.
 
 ## Scientific and data changes
 
