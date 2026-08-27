@@ -48,5 +48,7 @@ python -m pip install --pre pyage-groundwater
 pyage check
 ```
 
-The `--pre` flag is needed for beta and release-candidate versions. Python code
-continues to use `import pyage`.
+The current beta is distributed from the GitHub source tree and is not yet
+published on PyPI. The command above becomes available only after a package
+release is published. The `--pre` flag is needed for beta and release-candidate
+versions. Python code continues to use `import pyage`.

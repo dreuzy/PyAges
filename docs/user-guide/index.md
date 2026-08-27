@@ -5,7 +5,8 @@ guides for day-to-day use of PyAge.
 
 Use this guide by task:
 
-- {doc}`getting-started` installs PyAge and runs a minimal calibration.
+- {doc}`tutorial` performs a first run and explains what was produced.
+- {doc}`getting-started` gives the supported installation and smoke commands.
 - {doc}`configuration` documents the YAML inputs.
 - {doc}`cli-flags` lists command-line overrides.
 - {doc}`running-examples` describes the maintained examples.
@@ -26,6 +27,7 @@ For the relationship between the main scientific objects, see
 ```{toctree}
 :maxdepth: 1
 
+tutorial
 getting-started
 running-examples
 configuration

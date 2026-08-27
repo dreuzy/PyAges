@@ -7,6 +7,8 @@ from pathlib import Path
 
 from pyage.workflows import single_date
 
+ROOT = Path(__file__).resolve().parents[2]
+
 
 def test_quickstart_writes_a_manifest_and_normalized_observations(
     tmp_path: Path,
@@ -33,3 +35,13 @@ def test_quickstart_writes_a_manifest_and_normalized_observations(
     assert manifest["status"] == "complete"
     assert manifest["configuration"]["path"].endswith("quickstart_single.yaml")
     assert "concentrations.txt" in manifest["artifacts_sha256"]
+
+
+def test_quickstart_exercised_here_is_the_documented_tutorial_command() -> None:
+    tutorial = (ROOT / "docs" / "user-guide" / "tutorial.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "pyage run examples/templates/quickstart_single.yaml" in tutorial
+    assert '`"status": "complete"`' not in tutorial
+    assert '"status": "complete"' in tutorial

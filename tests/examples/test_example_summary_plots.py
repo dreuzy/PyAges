@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import pyage.concentrations.concentrations as co
+from pyage.lpm.core.lpm_dist import LpmDist
+from pyage.lpm.lpm_build import lpm_build
 from pyage.workflows.plots import (
     plot_objective_solution_map,
     plot_objective_summary,
@@ -87,6 +89,45 @@ def test_core_summary_plots_smoke(tmp_path: Path) -> None:
     assert len(list(tmp_path.glob("*.png"))) == len(figures)
     for figure in figures:
         plt.close(figure)
+
+
+def test_summary_plots_accept_current_lpm_distribution_api(tmp_path: Path) -> None:
+    observed = pd.DataFrame(
+        {
+            "element": ["cfc11", "cfc12"],
+            "concentration": [230.0, 470.0],
+            "error": [10.0, 15.0],
+            "unit": ["pptv", "pptv"],
+            "date": [2010.0, 2010.0],
+        }
+    )
+    concentrations = co.Concentrations.from_dataframe(observed)
+    concentration_names = concentrations.names_dates()
+    distribution = LpmDist(
+        lpm_build("exp_shifted"),
+        concentration_names,
+    )
+    distribution.append_values(
+        [10.0, 2.0],
+        obj_function=0.8,
+        concentrations=[230.0, 470.0],
+    )
+    reachable = pd.DataFrame(
+        {
+            "cfc11-2010_0": [220.0, 230.0, 240.0],
+            "cfc12-2010_0": [455.0, 470.0, 485.0],
+        }
+    )
+
+    figure = plot_single_date_model_space(
+        concentrations,
+        reachable,
+        {"posterior": distribution},
+        filename=tmp_path / "lpm_distribution.png",
+    )
+
+    assert (tmp_path / "lpm_distribution.png").is_file()
+    plt.close(figure)
 
 
 def test_plot_parameter_distribution_comparison_smoke(tmp_path: Path) -> None:

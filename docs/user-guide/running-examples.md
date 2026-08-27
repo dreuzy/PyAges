@@ -6,10 +6,12 @@ PyAge includes several example workflows demonstrating different use cases. This
 
 | Example | Description | Script |
 |---------|-------------|--------|
+| Synthetic recovery | Known-truth parameter recovery | `run_lpm_recovery_single_date.py` |
 | Ploemeur | Single-date calibration | `pyage run` |
 | Fontainebleau | Single-date calibration (different site) | `run_fontainebleau.py` |
 | Holten | Example-local preparation, benchmark, and calibration reuse | `run_holten.py` |
 | Ploemeur Temporal | Multi-date time series analysis | `pyage run --transient` |
+| Albuquerque | Mixed young/old field example | `pyage run` |
 
 For a minimal, fast run, use the templates under `examples/templates/`.
 
@@ -76,12 +78,18 @@ default because the dataset filename is the result-directory identifier:
 
 | File | Description |
 |------|-------------|
-| `parameters_calibration.txt` | Calibrated parameter values |
-| `results_calibration.txt` | Calibration summary statistics |
-| `lpm_dist_calibrated.txt` | Calibrated age distribution |
-| `lpm_stats_calibrated.txt` | Distribution statistics (mean, std, quartiles) |
-| `concentration_times.png` | Concentration vs age plot |
-| `concentrations_all_models.txt` | Model predictions for all tracers |
+| `concentrations.txt` | Normalized copy of the input observations |
+| `reachable_concentrations/c_reach.txt` | Reachable tracer concentrations when that analysis is enabled |
+| `objective_function_grid.txt` | Sampled objective surface when that analysis is enabled |
+| `<method>/parameters_calibration.txt` | Effective sampler or optimizer settings |
+| `<method>/results_calibration.txt` | Timing and acceptance or termination information |
+| `<method>/lpm_dist_calibrated.txt` | Retained samples for non-simplex calibration methods |
+| `<method>/lpm_stats_calibrated.txt` | Descriptive sample statistics, not convergence diagnostics |
+| `01_*.png`, `02_*.png`, `03_*.png` | Optional summary figures for enabled analyses |
+| `result_manifest.json` | Completion status, provenance, and artifact hashes |
+
+See {doc}`../reference/results` for the complete output contract and temporal
+layout.
 
 ---
 
@@ -348,7 +356,7 @@ pyage run --transient examples/my_site/my_temporal.yaml
 ### 5) Add or update tracers (if needed)
 
 If your `element` names are not available in `data_core/data_tracer/`, create a
-new tracer configuration (see `adding-tracer.md`) and point your data file to
+new tracer configuration (see {doc}`adding-tracer`) and point your data file to
 those tracer names.
 
 ### Adjust MCMC Settings

@@ -91,6 +91,14 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ### Fixed
 
+- Updated the didactic summary plots to consume the current `LpmDist.frame`
+  interface, restoring the synthetic recovery example after the removal of the
+  legacy `dist()` accessor.
+- Made synthetic-input regeneration explicit (`--regenerate`) so an ordinary
+  teaching run cannot silently rewrite versioned scientific reference files.
+- Disabled the unqualified simplex/FUQ branch in the Albuquerque starter
+  configuration; its placeholder zero uncertainties did not provide a robust
+  optimizer-convergence example.
 - `LpmDist.best_model()` now builds a model from the single row with the best
   objective instead of combining independent column minima.
 - Invalid observation tables and tracer configuration values now fail early

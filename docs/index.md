@@ -7,7 +7,8 @@ The documentation is organized by audience: start with the user guide to run
 PyAge and use the scientific and architecture pages to understand its
 contracts. {doc}`Scientific reports <reports/index>` and
 {doc}`archived notes <archive/index>` remain available for traceability but
-are kept outside the primary navigation because they are not user instructions.
+are separated from task-oriented instructions because they are not user
+guides.
 
 ## Quality and validation
 
