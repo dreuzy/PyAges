@@ -180,8 +180,9 @@ python -m sites.ploemeur.studies.HYP-26-0172.postprocessing.validate_submission_
 
 ## Restarting the study later
 
-1. Update curated observations in `sites/ploemeur/data/ori`; do not edit
-   generated `data/temp` files.
+1. Update curated observations in `sites/ploemeur/data/ori`; runtime selection
+   files are generated in an isolated operating-system temporary directory and
+   removed automatically.
 2. Review `experiment_matrix.csv` and its referenced files in `params/`.
 3. Run `scripts/validate_study.py`.
 4. Launch the required matrix rows with `scripts/run_matrix.py`.
