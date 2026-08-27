@@ -123,6 +123,7 @@ linkcheck_timeout = 10
 linkcheck_retries = 3
 linkcheck_report_timeouts_as_broken = False
 linkcheck_ignore = [
+    r"https://hplus\.ore\.fr/en/ploemeur/",
     r"https://doi\.org/10\.1029/2000RG000101",
     r"https://doi\.org/10\.1029/2003WR002436",
     r"https://doi\.org/10\.1002/2013WR014012",
