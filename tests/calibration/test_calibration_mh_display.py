@@ -1,10 +1,14 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Regression tests for Metropolis-Hastings trajectory display."""
 
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from pyage.calibration.methods.metropolis_hastings import MetropolisHastings
-from pyage.calibration.methods.trajectory import MHConfig, TrajOptions
+from pyages.calibration.methods.metropolis_hastings import MetropolisHastings
+from pyages.calibration.methods.trajectory import MHConfig, TrajOptions
 
 
 def test_trajectory_plot_uses_problem_display_directory(tmp_path):
