@@ -34,7 +34,7 @@ gate:
 | `Coverage` | Standard suite with branch measurement | XML artifact retained for 14 days; total coverage must be at least 60% |
 | `TracerLPM validation` | Dedicated benchmark tests under `validation/tracerlpm/benchmark/tests` | Mapping, reference-data, and comparison infrastructure remains valid |
 | `.NET build` | Build the TracerLPM runner with .NET 8 | The adapter compiles on the GitHub Linux runner with Windows targeting enabled |
-| `Documentation` | Strict Sphinx HTML build | HTML artifact retained for 14 days; warnings fail the job |
+| `Documentation` | Strict Sphinx HTML build and external-link check | HTML artifact retained for 14 days; warnings and unignored broken links fail the job |
 | `Package` | Build wheel and source distribution, run `twine check`, install the wheel outside the checkout, exercise CLI and quickstart | Distribution artifact retained for 14 days |
 | `CI gate` | Require every preceding job to succeed | Single required branch-protection status |
 
@@ -95,6 +95,7 @@ python run_tests.py coverage
 python run_tests.py validation
 python -m scripts.generate_test_inventory --check
 python -m sphinx -W --keep-going -b html docs docs/_build/html
+python -m sphinx -W --keep-going -b linkcheck docs docs/_build/linkcheck
 ```
 
 Conda, wheel isolation, and .NET exercise different environments and must not

@@ -101,23 +101,34 @@ html_show_sourcelink = True
 html_static_path = ["_static"]
 html_css_files = ["css/readthedocs.css"]
 html_js_files = ["js/mermaid-click-to-expand.js"]
+github_version = os.environ.get("READTHEDOCS_GIT_COMMIT_HASH", "").strip() or "main"
 html_context = {
     "display_github": True,
     "github_user": "dreuzy",
     "github_repo": "pyage",
-    "github_version": "main",
+    "github_version": github_version,
     "conf_py_path": "/docs/",
 }
 
-# Wiley resolves these valid AGU/Wiley DOIs for browsers but returns HTTP 403
-# to the automated Sphinx checker. Keep every user-facing DOI while excluding
-# only the four known bot-blocked endpoints; all other external links remain
-# checked.
+# Some publishers and data registries resolve these valid DOI links for
+# browsers but block or close automated checker requests. Keep every
+# user-facing DOI while excluding only the known bot-blocked endpoints; all
+# other external links remain checked. Retry transient failures before
+# reporting them as broken.
+linkcheck_retries = 3
+linkcheck_report_timeouts_as_broken = False
 linkcheck_ignore = [
     r"https://doi\.org/10\.1029/2000RG000101",
     r"https://doi\.org/10\.1029/2003WR002436",
     r"https://doi\.org/10\.1002/2013WR014012",
     r"https://doi\.org/10\.1029/2006WR005096",
+    r"https://doi\.org/10\.15138/BVQ6-2S69",
+    r"https://doi\.org/10\.15138/PJ63-H440",
+    r"https://doi\.org/10\.15138/4N0D-4M07",
+    r"https://doi\.org/10\.15138/TQ02-ZX42",
+    r"https://doi\.org/10\.3133/tm4F3",
+    r"https://pubs\.usgs\.gov/publication/tm4F3",
+    r"https://pubs\.usgs\.gov/tm/4-f3/pdf/tm4-F3\.pdf",
 ]
 
 lexers["csv"] = TextLexer()
@@ -132,3 +143,16 @@ else:
         "collapse_navigation": False,
         "navigation_depth": 4,
     }
+
+
+def _html_page_context(app, page_name, template_name, context, doctree) -> None:
+    """Hide edit links whose autosummary source files are not versioned."""
+    del app, template_name, doctree
+    if page_name.startswith("api/generated/"):
+        context["display_github"] = False
+
+
+def setup(app):
+    """Register documentation-only HTML context adjustments."""
+    app.connect("html-page-context", _html_page_context)
+    return {"parallel_read_safe": True, "parallel_write_safe": True}

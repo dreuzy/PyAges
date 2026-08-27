@@ -17,6 +17,21 @@ def test_package_exposes_version() -> None:
     assert pyage.__all__ == ["__version__"]
 
 
+def test_supported_symbols_are_listed_in_api_reference() -> None:
+    api_reference = (ROOT / "docs" / "api" / "index.md").read_text(encoding="utf-8")
+    for symbol in (
+        "pyage.__version__",
+        "pyage.config",
+        "pyage.convolution",
+        "pyage.convolution.DEFAULT_TRACER_GRID_SETTINGS",
+        "pyage.lpm.lpm_build.lpm_build",
+        "pyage.lpm.core.registry.list_available_lpms",
+        "pyage.tracer.tracer_root.Tracer",
+        "pyage.concentrations.concentrations.Concentrations",
+    ):
+        assert symbol in api_reference
+
+
 def test_cli_uses_package_version() -> None:
     result = CliRunner().invoke(cli, ["--version"])
 
@@ -33,8 +48,12 @@ def test_citation_uses_package_version() -> None:
     release_date = citation["date-released"].isoformat()
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    citation_documentation = (ROOT / "docs" / "reference" / "citation.md").read_text(
+        encoding="utf-8"
+    )
     assert f"## {pyage.__version__} - {release_date}" in changelog
     assert f"`{pyage.__version__}`" in readme
+    assert f"`{pyage.__version__}`" in citation_documentation
     for identifier in citation.get("identifiers", []):
         if identifier.get("type") == "doi":
             assert re.fullmatch(r"10\.\d{4,9}/\S+", identifier["value"])

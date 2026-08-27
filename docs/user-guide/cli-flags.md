@@ -1,7 +1,14 @@
 # CLI flags reference
 
-This page summarizes the optional flags exposed by the `pyage` CLI. For up‑to‑date
+This page summarizes the optional flags exposed by the `pyage` CLI. For up-to-date
 usage and defaults, you can always run `pyage --help` or `pyage <command> --help`.
+
+## `pyage`
+
+| Flag | Description |
+| --- | --- |
+| `--version` | Show the installed PyAge version and exit. |
+| `--help` | Show the command groups and exit. |
 
 ## `pyage check`
 

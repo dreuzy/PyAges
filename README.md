@@ -264,9 +264,12 @@ Repository-only research and benchmark commands are catalogued in
 
 Expected outputs (under `<results_root>`):
 
-- single-date workflow: `test_cases/<dataset_name>/` (calibration files + `concentration_times.png`)
+- single-date workflow: `test_cases/<dataset_name>/` (normalized observations,
+  enabled analysis/calibration tables, optional summary figures, and
+  `result_manifest.json`)
 - temporal workflow: `ploemeur_temporal/<dataset_stem>/<mode>/<date>/<lpm_type>/`
-  (calibration files + temporal plots/tables)
+  (calibration files plus enabled temporal plots/tables, with a manifest at the
+  temporal workflow root)
 
 ## Notes
 

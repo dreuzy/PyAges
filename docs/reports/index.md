@@ -8,6 +8,11 @@ Each report states its scope and date. Generated or machine-specific evidence
 may live outside the versioned documentation; the report must identify where
 that evidence can be reproduced.
 
+The active user and scientific references are written in English. Historical
+reports retain their language of record, including French, so that reviewed
+reasoning is not silently rewritten. Use the current thematic pages under
+`science/` for normative conventions; reports may describe superseded states.
+
 ```{toctree}
 :maxdepth: 1
 

@@ -16,6 +16,16 @@ CONFIG_PATH = (
     / "albuquerque"
     / "exemple_albuquerque_shapefree.yaml"
 )
+STARTER_CONFIG_PATH = (
+    REPO_ROOT / "examples" / "natural" / "albuquerque" / "exemple_albuquerque.yaml"
+)
+
+
+def test_albuquerque_starter_avoids_unqualified_simplex_path():
+    params = load_params(REPO_ROOT, STARTER_CONFIG_PATH)
+
+    assert params.run_calibration_metropolis_hastings is True
+    assert params.run_calibration_simplex is False
 
 
 def test_albuquerque_shapefree_config_uses_local_lpm_directory():
