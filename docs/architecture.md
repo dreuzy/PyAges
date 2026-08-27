@@ -94,7 +94,7 @@ understanding of this pipeline-oriented design.
 ## Package dependency diagram
 
 ```{mermaid}
-flowchart LR
+flowchart TB
   DATA[data_core] --> TRACER[tracer]
   DATA --> LPM[lpm]
 
@@ -123,7 +123,7 @@ consume the installable core; the core does not import them.
 ## Runtime diagram
 
 ```{mermaid}
-flowchart LR
+flowchart TB
   YAML[YAML] --> CFG[Validated config]
   OBSFILE[Observation table] --> OBS[Concentrations]
   CFG --> CTX[WorkflowContext]

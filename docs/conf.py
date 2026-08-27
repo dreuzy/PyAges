@@ -57,6 +57,24 @@ myst_enable_extensions = [
 ]
 myst_heading_anchors = 3
 
+# Keep Mermaid labels readable in the constrained Read the Docs content area.
+# Diagrams can also be opened full-screen and zoomed/panned with the mouse.
+mermaid_init_config = {
+    "startOnLoad": False,
+    "flowchart": {
+        "curve": "linear",
+        "nodeSpacing": 55,
+        "rankSpacing": 65,
+    },
+    "themeVariables": {
+        "fontSize": "18px",
+    },
+}
+mermaid_d3_zoom = True
+mermaid_fullscreen = True
+mermaid_fullscreen_button_opacity = "90"
+mermaid_height = "auto"
+
 autosummary_generate = True
 autosummary_imported_members = False
 autosummary_ignore_module_all = False
@@ -80,6 +98,8 @@ napoleon_use_ivar = True
 html_title = "PyAge documentation"
 html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
 html_show_sourcelink = True
+html_static_path = ["_static"]
+html_css_files = ["css/readthedocs.css"]
 html_context = {
     "display_github": True,
     "github_user": "dreuzy",
