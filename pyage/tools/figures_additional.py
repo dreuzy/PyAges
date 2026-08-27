@@ -52,7 +52,7 @@ def cmap_white_jet():
     # combine parts of colormap
     cmap = np.vstack((lower, upper))
     # convert to matplotlib colormap
-    cmap = mpl.colors.ListedColormap(cmap, name="myColorMap", N=cmap.shape[0])
+    cmap = mpl.colors.ListedColormap(cmap, name="myColorMap")
     return cmap
 
 

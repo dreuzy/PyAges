@@ -11,17 +11,17 @@ the complete core node-ID list.
 
 | Scope | Collected cases | Modules |
 |---|---|---|
-| Standard selection | 633 | 73 |
+| Standard selection | 634 | 74 |
 | Extensive opt-in | 5 | 2 |
-| Core including extensive | 638 | 73 |
+| Core including extensive | 639 | 74 |
 | TracerLPM validation | 55 | 9 |
-| All documented pytest scopes | 693 | 82 |
+| All documented pytest scopes | 694 | 83 |
 
 ## Cases by area
 
 | Area | Modules | Collected cases |
 |---|---|---|
-| `tests/(root)/` | 6 | 17 |
+| `tests/(root)/` | 7 | 18 |
 | `tests/calibration/` | 12 | 66 |
 | `tests/cli/` | 1 | 6 |
 | `tests/concentrations/` | 1 | 1 |
@@ -103,6 +103,7 @@ the complete core node-ID list.
 | `tests/scripts/test_run_tests.py` | 10 | 0 |
 | `tests/test_article_reproducibility_layer.py` | 6 | 0 |
 | `tests/test_clean_release_artifacts.py` | 2 | 0 |
+| `tests/test_figures_additional.py` | 1 | 0 |
 | `tests/test_project_metadata.py` | 2 | 0 |
 | `tests/test_public_api.py` | 3 | 0 |
 | `tests/test_result_manifest.py` | 1 | 0 |
