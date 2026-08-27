@@ -6,13 +6,21 @@
 
 from __future__ import annotations
 
+import sys
+from types import ModuleType
 from unittest.mock import Mock
 
-import IPython
 import matplotlib
 import matplotlib.pyplot as plt
 
 from pyages.workflows import plotting_runtime
+
+
+def _install_fake_ipython(monkeypatch, get_ipython) -> None:
+    """Expose the optional IPython hook without requiring the examples extra."""
+    module = ModuleType("IPython")
+    module.get_ipython = get_ipython
+    monkeypatch.setitem(sys.modules, "IPython", module)
 
 
 def test_configure_backend_selects_inline_for_ipython_or_forced_mode(
@@ -21,7 +29,7 @@ def test_configure_backend_selects_inline_for_ipython_or_forced_mode(
     monkeypatch.delenv("MPLBACKEND", raising=False)
     switch_backend = Mock()
     monkeypatch.setattr(plt, "switch_backend", switch_backend)
-    monkeypatch.setattr(IPython, "get_ipython", lambda: None)
+    _install_fake_ipython(monkeypatch, lambda: None)
 
     assert plotting_runtime.configure_backend(force_inline=True) is True
     switch_backend.assert_called_once_with("module://matplotlib_inline.backend_inline")
@@ -33,7 +41,7 @@ def test_configure_backend_selects_desktop_and_recovers_from_detection_error(
     monkeypatch.delenv("MPLBACKEND", raising=False)
     selected = []
     monkeypatch.setattr(matplotlib, "use", selected.append)
-    monkeypatch.setattr(IPython, "get_ipython", lambda: None)
+    _install_fake_ipython(monkeypatch, lambda: None)
 
     assert plotting_runtime.configure_backend(force_inline=False) is False
     assert selected == ["TkAgg"]
@@ -43,7 +51,7 @@ def test_configure_backend_selects_desktop_and_recovers_from_detection_error(
     def detection_failure():
         raise RuntimeError("IPython detection failed")
 
-    monkeypatch.setattr(IPython, "get_ipython", detection_failure)
+    _install_fake_ipython(monkeypatch, detection_failure)
     assert plotting_runtime.configure_backend(force_inline=False) is False
     assert selected == ["TkAgg"]
 
