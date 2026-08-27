@@ -38,6 +38,11 @@ gate:
 | `Package` | Build wheel and source distribution, run `twine check`, install the wheel outside the checkout, exercise CLI and quickstart | Distribution artifact retained for 14 days |
 | `CI gate` | Require every preceding job to succeed | Single required branch-protection status |
 
+Jobs have explicit maximum durations so a stalled runner cannot consume the
+full GitHub Actions default: 15 minutes for Ruff and dependency audit; 20
+minutes for documentation, package, and .NET; 30 minutes for Conda, Python
+tests, coverage, and TracerLPM validation; and 5 minutes for the final CI gate.
+
 The `CI gate` does not perform an additional scientific test. It deliberately
 fails when any prerequisite fails, is cancelled, or is skipped. Consequently,
 a notification can report both the original failed job and `CI gate`; these

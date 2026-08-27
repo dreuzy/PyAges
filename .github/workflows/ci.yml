@@ -26,6 +26,7 @@ jobs:
   ruff:
     name: Ruff
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -47,6 +48,7 @@ jobs:
   dependency-audit:
     name: Dependency audit
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -66,6 +68,7 @@ jobs:
   conda-environment:
     name: Conda environment
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -87,6 +90,7 @@ jobs:
   tests:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -109,6 +113,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -132,6 +137,7 @@ jobs:
   tracerlpm-validation:
     name: TracerLPM validation
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -150,6 +156,7 @@ jobs:
   dotnet-build:
     name: .NET build
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -167,6 +174,7 @@ jobs:
   documentation:
     name: Documentation
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -190,6 +198,7 @@ jobs:
   package:
     name: Package
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -238,6 +247,7 @@ jobs:
       - documentation
       - package
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - name: Reject failed or cancelled prerequisite jobs
         if: >-

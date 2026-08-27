@@ -36,7 +36,8 @@ Directory map
 - `data/`: observation data
   - `brut/`: raw inputs (including original Excel files)
   - `ori/`: cleaned/curated time series generated from brut
-  - `temp/`: intermediate files produced by the workflow (recreated each run)
+- Runtime observation selections are created in an isolated operating-system
+  temporary directory and removed after each workflow execution.
 - `params_lpm/`: site-level LPM parameter files (optional alternative to `data_core/data_lpm`)
 - `studies/`: self-contained, reproducible scientific studies
   - `HYP-26-0172/`: long-term CFC article, including its matrix, configurations,
@@ -49,7 +50,7 @@ Typical workflow (data)
 ```
 Excel / raw files -> data/brut
 data/brut + manual edits -> data/ori
-workflow generates -> data/temp (intermediate)
+workflow generates -> OS temp/pyage-ploemeur-* (removed after execution)
 ```
 
 See `sites/ploemeur/data/README.md` for details about data provenance.
