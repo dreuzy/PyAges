@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -103,6 +104,39 @@ def test_article_package_is_atomic_and_hash_validated(monkeypatch, tmp_path):
     (output / "reports" / "result.txt").write_text("corrupted\n", encoding="utf-8")
     with pytest.raises(RuntimeError, match="hash"):
         package.validate_package(output)
+
+
+def test_execution_sources_can_be_recovered_from_an_exact_worktree(
+    monkeypatch, tmp_path
+):
+    source_root = tmp_path / "old-worktree"
+    relative = Path("data/params.yaml")
+    exact = b"first: line\r\nsecond: line\n"
+    source = source_root / relative
+    source.parent.mkdir(parents=True)
+    source.write_bytes(exact)
+    manifest = tmp_path / "run-manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "git_head": "unneeded-because-source-root-matches",
+                "source_sha256": {
+                    relative.as_posix(): hashlib.sha256(exact).hexdigest()
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(package, "SOURCE_MANIFESTS", {"run": manifest})
+    monkeypatch.setattr(package, "EXECUTION_SOURCE_ROOTS", (source_root,))
+    staging = tmp_path / "staging"
+
+    entries, audit = package._execution_source_snapshots(staging)
+
+    packaged = staging / entries[0]["packaged_path"]
+    assert packaged.read_bytes() == exact
+    assert entries[0]["source"] == "source_root:0"
+    assert audit["run"]["recovered_from_source_root"] == 1
 
 
 def test_article_package_cli_passes_rebased_campaign_inventory(monkeypatch, tmp_path):

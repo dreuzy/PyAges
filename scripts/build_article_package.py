@@ -428,6 +428,12 @@ ARTIFACTS = (
     ),
 )
 
+# Optional worktrees containing byte-exact execution sources that Git cannot
+# reconstruct on its own (for example, mixed line endings from a Windows
+# checkout). Every recovered file is still required to match the SHA-256
+# recorded by the scientific run manifest.
+EXECUTION_SOURCE_ROOTS: tuple[Path, ...] = ()
+
 
 def artifacts_for_campaign(campaign_root: Path) -> tuple[Artifact, ...]:
     """Rebase generated artifacts from ``results/`` to a fresh campaign."""
@@ -505,6 +511,40 @@ def _source_label(path: Path) -> str:
         return path.as_posix()
 
 
+def _recover_execution_source(
+    relative: Path, expected: str, git_head: str
+) -> tuple[bytes, str]:
+    candidates = ((ROOT, "working_tree"),) + tuple(
+        (source_root, f"source_root:{index}")
+        for index, source_root in enumerate(EXECUTION_SOURCE_ROOTS)
+    )
+    for source_root, origin in candidates:
+        candidate = source_root / relative
+        if candidate.is_file():
+            data = candidate.read_bytes()
+            if hashlib.sha256(data).hexdigest() == expected:
+                return data, origin
+
+    revision_path = relative.as_posix()
+    process = subprocess.run(
+        ["git", "show", f"{git_head}:{revision_path}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+    )
+    git_candidates = (
+        (process.stdout, f"git:{git_head}"),
+        (
+            process.stdout.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"),
+            f"git:{git_head}:crlf",
+        ),
+    )
+    for data, origin in git_candidates:
+        if hashlib.sha256(data).hexdigest() == expected:
+            return data, origin
+    raise RuntimeError(f"Cannot recover execution source {relative.as_posix()}")
+
+
 def _execution_source_snapshots(
     staging: Path,
 ) -> tuple[list[dict[str, object]], dict[str, object]]:
@@ -517,30 +557,20 @@ def _execution_source_snapshots(
             "manifest": _source_label(manifest_path),
             "total": 0,
             "working_tree_matches": 0,
+            "recovered_from_source_root": 0,
             "recovered_from_git_head": 0,
         }
         for raw_relative, expected in manifest.get("source_sha256", {}).items():
             relative = Path(raw_relative)
             if relative.is_absolute() or ".." in relative.parts:
                 raise ValueError(f"Unsafe source path in manifest: {raw_relative}")
-            current = ROOT / relative
-            data = current.read_bytes() if current.is_file() else None
-            origin = "working_tree"
-            if data is None or hashlib.sha256(data).hexdigest() != expected:
-                revision_path = relative.as_posix()
-                process = subprocess.run(
-                    ["git", "show", f"{git_head}:{revision_path}"],
-                    cwd=ROOT,
-                    capture_output=True,
-                    check=True,
-                )
-                data = process.stdout
-                origin = f"git:{git_head}"
-            actual = hashlib.sha256(data).hexdigest()
-            if actual != expected:
+            try:
+                data, origin = _recover_execution_source(relative, expected, git_head)
+            except RuntimeError as error:
                 raise RuntimeError(
                     f"Cannot recover execution source {run_name}:{raw_relative}"
-                )
+                ) from error
+            actual = hashlib.sha256(data).hexdigest()
             packaged = Path("provenance") / "execution_source" / run_name / relative
             destination = staging / packaged
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -548,6 +578,8 @@ def _execution_source_snapshots(
             run_audit["total"] += 1
             if origin == "working_tree":
                 run_audit["working_tree_matches"] += 1
+            elif origin.startswith("source_root:"):
+                run_audit["recovered_from_source_root"] += 1
             else:
                 run_audit["recovered_from_git_head"] += 1
             entries.append(
@@ -849,13 +881,23 @@ def replace_package(
 
 
 def main() -> int:
-    global ARTIFACTS, SOURCE_MANIFESTS
+    global ARTIFACTS, EXECUTION_SOURCE_ROOTS, SOURCE_MANIFESTS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument(
         "--campaign-root",
         type=Path,
         help="fresh campaign root containing all newly generated results",
+    )
+    parser.add_argument(
+        "--execution-source-root",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "worktree searched for byte-exact sources recorded by run manifests; "
+            "may be repeated"
+        ),
     )
     parser.add_argument("--validate-only", type=Path)
     parser.add_argument("--replace", action="store_true")
@@ -865,6 +907,7 @@ def main() -> int:
         help="accept an existing package only after full hash validation",
     )
     args = parser.parse_args()
+    EXECUTION_SOURCE_ROOTS = tuple(path.resolve() for path in args.execution_source_root)
     if args.campaign_root is not None:
         ARTIFACTS = artifacts_for_campaign(args.campaign_root)
         SOURCE_MANIFESTS = source_manifests_for_campaign(args.campaign_root)
