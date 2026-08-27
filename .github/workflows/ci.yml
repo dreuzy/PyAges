@@ -140,7 +140,7 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m pip install --force-reinstall "scipy==${{ matrix.scipy-version }}"
-      - run: python -m pytest -q tests/convolution tests/lpm tests/tracers tests/test_public_api.py
+      - run: python -m pytest -q tests/convolution tests/lpm tests/tracer tests/test_public_api.py
 
   coverage:
     name: Coverage
