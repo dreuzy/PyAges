@@ -4,6 +4,9 @@ Releases are built from a clean, reviewed commit. Generated scientific output
 is not mixed with source changes unless it is an intentional golden fixture or
 published reference artifact.
 
+The test scopes and GitHub jobs referenced below are defined in
+{doc}`testing` and {doc}`ci`.
+
 ## Release gate
 
 1. Stop or finish processes that write inside the checkout.

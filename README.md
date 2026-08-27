@@ -59,16 +59,16 @@ Until a final release is published, pip users must opt into prereleases:
 python -m pip install --pre pyage-groundwater
 ```
 
-Run the full test suite:
+Run the standard test suite (extensive scientific tests are opt-in):
 
 ```
-python run_tests.py
+python run_tests.py standard
 ```
 
 Update golden values (when intentionally changing outputs):
 
 ```
-python run_tests.py update
+python run_tests.py standard update
 ```
 
 ## Quickstart (fast, no interactive plots)
@@ -230,16 +230,26 @@ aggregated outputs against stored values in `tests/golden/`.
 Common commands:
 
 ```
-python run_tests.py
-python run_tests.py detail
-python run_tests.py update
+python run_tests.py standard
+python run_tests.py standard detail
+python run_tests.py standard update
+python run_tests.py coverage
+python run_tests.py validation
+python run_tests.py collect
 ```
 
 Run extensive tests (opt-in):
 
 ```
-pytest -q tests --run-extensive
+python run_tests.py extensive
 ```
+
+The [testing guide](https://pyage-gw.readthedocs.io/en/latest/dev/testing.html)
+describes the test families and golden-update rules. The generated
+[test inventory](https://pyage-gw.readthedocs.io/en/latest/dev/test-inventory.html)
+summarizes the current collection. The
+[continuous-integration reference](https://pyage-gw.readthedocs.io/en/latest/dev/ci.html)
+explains every GitHub Actions job, trigger, artifact, and scheduled run.
 
 ## Workflows and diagnostics
 

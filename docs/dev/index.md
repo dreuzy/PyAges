@@ -7,6 +7,9 @@ in {doc}`../archive/index`.
 :maxdepth: 1
 
 contributing
+ci
+testing
+test-inventory
 github-migration
 releasing
 versioning-citation
