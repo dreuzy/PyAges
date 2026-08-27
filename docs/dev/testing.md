@@ -33,23 +33,43 @@ python -m pytest --collect-only -q tests
 but skips them unless `--run-extensive` is present. It is therefore not the
 complete scientific qualification by itself.
 
-## Test families
+## Traceability matrix
 
-| Area | Primary location | Contract covered |
-|---|---|---|
-| Calibration and inference | `tests/calibration/` | Objectives, priors, proposals, parameter grids, public calibration interfaces |
-| LPMs | `tests/lpm/` | Analytical distributions, moments, mixtures, parameter files, generated values |
-| Tracers and convolution | `tests/tracer/`, `tests/convolution/`, `tests/concentrations/` | Decay, chronology, convolution identities, concentration handling |
-| Configuration and CLI | `tests/config/`, `tests/cli/`, root test modules | Configuration validation, paths, manifests, public API, command behavior |
-| Workflows and examples | `tests/workflows/`, `tests/examples/` | Installed workflows, examples, reproducibility helpers, golden outputs |
-| Field cases | `tests/ploemeur/` | Preparation, configuration, convolution references, temporal and full-workflow regressions |
-| Scientific scripts | `tests/scripts/` | Article campaigns, qualification scripts, and reproduction orchestration |
-| Cross-software validation | `validation/tracerlpm/benchmark/tests/` | PyAge/TracerLPM mappings, inputs, observations, pilots, references, and summaries |
+This matrix explains why each family exists and how it contributes evidence.
+It complements the generated module-by-module {doc}`test-inventory`.
+
+| Qualification area | Contract and purpose | Test locations | Scope and CI | Evidence or reference | Important limit |
+|---|---|---|---|---|---|
+| Repository and public API | Protect metadata, manifests, documented imports, paths, cleanup, and repository-wide contracts | Root `tests/test_*.py` modules | Standard suite; package and documentation jobs add non-pytest evidence | {doc}`../reference/public-api`, package metadata, manifest schema | Passing tests do not guarantee backward compatibility for an undocumented interface |
+| LPM analytical behavior | Verify distributions, normalization, moments, mixtures, parameter files, registries, and generated values | `tests/lpm/` | Standard suite | Analytical identities and accepted compact golden values | The sampled parameter combinations are not the full mathematical domain |
+| Tracers and convolution | Verify decay, distributed inputs, concentration chronicles, convolution identities, settings, and tracer coupling | `tests/tracer/`, `tests/concentrations/`, `tests/convolution/` | Standard suite | Analytical invariants and independent high-accuracy calculations described in {doc}`../science/validation` | Numerical agreement is tolerance- and grid-dependent |
+| Calibration and inference | Protect objectives, priors, proposals, parameter grids, initialization, diagnostics, and public calibration APIs | `tests/calibration/` | Standard suite; selected cases require `--run-extensive` | Synthetic cases, proposal qualification, posterior and support contracts | Solver convergence does not establish hydrogeological realism or identifiability for every dataset |
+| Installed interfaces and workflows | Exercise validated configuration, CLI behavior, plotting runtime, installed single-date execution, and wheel use outside the checkout | `tests/config/`, `tests/cli/`, `tests/workflows/`; package smoke test | Standard suite plus Conda and package CI jobs | CLI contract, quickstart configuration, result-manifest schema | The Linux runner does not cover every operating system or interactive backend |
+| Examples and field cases | Detect changes in runnable examples, Holten, Fontainebleau, and Ploemeur preparation and outputs | `tests/examples/`, `tests/ploemeur/` | Standard suite; selected Ploemeur cases are extensive | Reviewed golden fixtures, published or internally consistent case data, {doc}`../science/case-studies` | A golden match detects stability, not independent scientific correctness |
+| Reproducibility orchestration | Verify article registries, campaign preparation, qualification helpers, paths, and resumable execution contracts | `tests/scripts/` | Standard suite; complete campaigns run through documented reproduction commands | {doc}`../science/reproducibility`, case manifests, checksums, and expected artifacts | Unit tests cannot replace absent raw chains, external archives, or independent review |
+| TracerLPM cross-software validation | Verify parameter mappings, inputs, observations, reference outputs, pilots, comparisons, and robustness summaries | `validation/tracerlpm/benchmark/tests/` | Dedicated `TracerLPM validation` CI job; .NET build is separate | Benchmark README, reference fixtures, mapped synthetic cases | CI does not run the proprietary Excel/XLL integration or rank optimizer quality |
 
 See {doc}`../science/validation` for what each scientific qualification layer
 does and does not establish. Repository-only research entry points are listed
 in `scripts/README.md`; they are not automatically tests merely because they
 produce scientific output.
+
+## Description levels
+
+Test intent is documented at four complementary levels:
+
+1. this page records the family-level purpose, evidence, execution scope, and
+   limitations;
+2. {doc}`test-inventory` records every collected module, its generated short
+   purpose, type, case count, and extensive-case count;
+3. `python run_tests.py collect` exposes every parametrized pytest node ID;
+4. test names, parametrization IDs, docstrings, fixtures, and assertions remain
+   the authoritative description of an individual case.
+
+Descriptions are intentionally not copied into a manually maintained list of
+hundreds of node IDs. That list would drift as parametrization changes. The
+inventory generator fails when a new test area has no declared contract, and
+CI fails when the generated inventory is stale.
 
 ## Discovering the exact tests
 

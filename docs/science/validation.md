@@ -17,6 +17,25 @@ that a scientific calculation is correct.
 5. **Field benchmarks** test the complete preparation, forward, inference, and
    reporting workflow against published or internally consistent cases.
 
+## Executable traceability
+
+The table maps each scientific claim category to executable evidence. Exact
+module counts and short purposes are generated in {doc}`../dev/test-inventory`;
+commands and selection rules are maintained in {doc}`../dev/testing`.
+
+| Qualification layer | Executable evidence | CI scope | Supporting reference | Boundary of the evidence |
+|---|---|---|---|---|
+| Analytical invariants | `tests/lpm/`, `tests/tracer/`, and analytical modules in `tests/convolution/` | Standard suite on Python 3.12--3.14 | {doc}`lpm-reference` and {doc}`forward-model` | Covers declared models and sampled parameter regimes, not every possible extension |
+| Independent forward calculations | `tests/convolution/test_convolution_scientific.py`, `tests/ploemeur/test_ploemeur_convolution_reference.py`, and TracerLPM reference tests | Standard suite plus `TracerLPM validation` | Independent quadrature and prepared reference fixtures | Agreement depends on documented grids and tolerances; shared inputs are not fully independent evidence |
+| Cross-software inverse cases | `validation/tracerlpm/benchmark/tests/`, with the adapter compilation checked separately | `TracerLPM validation` and `.NET build` | Benchmark fixtures and mapped synthetic cases | GitHub CI does not execute Excel, the XLL, or native Solver on a qualified Windows host |
+| Posterior diagnostics | Calibration proposal, prior, support, and scientific-contract modules plus article qualification helpers under `tests/scripts/` | Standard suite; selected extensive tests and reproduction campaigns | {doc}`inference` and {doc}`reproducibility` | Convergence diagnostics do not prove uniqueness, tracer consistency, or model adequacy |
+| Field benchmarks | Golden and workflow modules in `tests/examples/` and `tests/ploemeur/` | Standard and scheduled extensive suites | {doc}`case-studies`, versioned case inputs, manifests, and accepted fixtures | Results qualify the documented cases only and do not generalize automatically to another aquifer |
+
+Software delivery checks add a separate layer: CLI, configuration, package,
+Conda, documentation, and workflow tests verify that the qualified scientific
+code can be installed and invoked. They are documented in {doc}`../dev/ci`
+and should not be presented as additional scientific validation results.
+
 ## Results reported in manuscript revision v14
 
 | Qualification | Scope | Result |
@@ -44,4 +63,5 @@ objective as well as discretization and optimization.
 
 Detailed protocols and historical decisions remain in
 {doc}`../reports/index`. Reproduction entry points and manifest rules are
-documented in {doc}`reproducibility`.
+documented in {doc}`reproducibility`. The test traceability matrix is maintained
+in {doc}`../dev/testing`.

@@ -1,8 +1,9 @@
 """Generate the maintained summary of pytest collection.
 
 The detailed node IDs remain discoverable through ``pytest --collect-only``.
-This script records stable module- and area-level counts in the documentation
-and lets CI detect when that summary has not been regenerated.
+This script records stable module- and area-level counts, test types, and
+purposes in the documentation and lets CI detect when that summary has not
+been regenerated.
 """
 
 from __future__ import annotations
@@ -23,6 +24,112 @@ class Collection(NamedTuple):
     core: tuple[str, ...]
     extensive: tuple[str, ...]
     tracerlpm: tuple[str, ...]
+
+
+class AreaInfo(NamedTuple):
+    label: str
+    kind: str
+    contract: str
+    ci_scope: str
+
+
+AREA_INFO = {
+    "tests/(root)": AreaInfo(
+        "Repository-wide contracts",
+        "Contract / integration",
+        "Public API, metadata, manifests, paths, and repository documentation",
+        "Standard CI",
+    ),
+    "tests/calibration": AreaInfo(
+        "Calibration and inference",
+        "Unit / scientific",
+        "Objectives, priors, proposals, parameter grids, and calibration APIs",
+        "Standard CI; selected extensive cases",
+    ),
+    "tests/cli": AreaInfo(
+        "Command-line interface",
+        "Contract / integration",
+        "Installed command behavior, validation, discovery, and user-facing errors",
+        "Standard CI and package smoke test",
+    ),
+    "tests/concentrations": AreaInfo(
+        "Concentration handling",
+        "Unit / data contract",
+        "Chronicle loading and concentration-series behavior",
+        "Standard CI",
+    ),
+    "tests/config": AreaInfo(
+        "Configuration",
+        "Unit / contract",
+        "Validated models, runtime options, and portable path resolution",
+        "Standard CI",
+    ),
+    "tests/convolution": AreaInfo(
+        "Convolution",
+        "Analytical / scientific",
+        "Concentration convolution, numerical identities, settings, and tracer coupling",
+        "Standard CI",
+    ),
+    "tests/examples": AreaInfo(
+        "Examples and case studies",
+        "Integration / golden",
+        "Runnable examples, helper contracts, reproduction modes, and accepted outputs",
+        "Standard CI",
+    ),
+    "tests/io": AreaInfo(
+        "Input/output",
+        "Unit / data contract",
+        "LPM parameter parsing and serialization",
+        "Standard CI",
+    ),
+    "tests/lpm": AreaInfo(
+        "Lumped-parameter models",
+        "Analytical / unit / golden",
+        "Distributions, moments, mixtures, registries, parameters, and generated values",
+        "Standard CI",
+    ),
+    "tests/ploemeur": AreaInfo(
+        "Ploemeur field case",
+        "Field integration / golden",
+        "Preparation, configuration, reference convolution, paths, and workflow outputs",
+        "Standard CI; selected extensive cases",
+    ),
+    "tests/scripts": AreaInfo(
+        "Scientific orchestration",
+        "Integration / reproducibility",
+        "Article campaigns, qualification scripts, and reproducible execution support",
+        "Standard CI",
+    ),
+    "tests/tracer": AreaInfo(
+        "Environmental tracers",
+        "Scientific unit / contract",
+        "Decay, distributed inputs, tracer configuration, and public tracer behavior",
+        "Standard CI",
+    ),
+    "tests/workflows": AreaInfo(
+        "Installed workflows",
+        "Integration / contract",
+        "Plotting runtime and single-date workflow behavior",
+        "Standard CI and package smoke test",
+    ),
+    "validation/tracerlpm": AreaInfo(
+        "TracerLPM cross-software validation",
+        "Cross-software validation",
+        "Mappings, reference inputs, observations, pilots, comparisons, and summaries",
+        "TracerLPM validation job",
+    ),
+}
+
+TOKEN_LABELS = {
+    "api": "API",
+    "cli": "CLI",
+    "f09": "F09",
+    "ig": "inverse Gaussian",
+    "lpm": "LPM",
+    "mh": "Metropolis-Hastings",
+    "mcmc": "MCMC",
+    "yaml": "YAML",
+}
 
 
 def _collect_nodeids(path: str, *, marker: str | None = None) -> tuple[str, ...]:
@@ -73,6 +180,38 @@ def _area(module: str) -> str:
     return "/".join(parts[:2])
 
 
+def _area_info(area: str) -> AreaInfo:
+    try:
+        return AREA_INFO[area]
+    except KeyError as error:
+        raise ValueError(
+            f"No test-area description for {area!r}; update AREA_INFO before "
+            "regenerating the inventory."
+        ) from error
+
+
+def _module_topic(module: str) -> str:
+    stem = Path(module).stem.removeprefix("test_")
+    words = [TOKEN_LABELS.get(word, word) for word in stem.split("_")]
+    topic = " ".join(words)
+    return topic[:1].upper() + topic[1:]
+
+
+def _module_kind(module: str, extensive_cases: int) -> str:
+    if extensive_cases:
+        return "Extensive scientific"
+    if module.startswith("validation/"):
+        return "Cross-software validation"
+    if "golden" in Path(module).stem:
+        return "Golden regression"
+    return _area_info(_area(module)).kind
+
+
+def _module_purpose(module: str) -> str:
+    area = _area_info(_area(module))
+    return f"{_module_topic(module)} within {area.label.lower()}."
+
+
 def _table(
     lines: list[str], headers: tuple[str, ...], rows: list[tuple[object, ...]]
 ) -> None:
@@ -92,6 +231,7 @@ def render_inventory(collection: Collection) -> str:
     area_cases: Counter[str] = Counter()
     for module, count in sorted((core_modules + validation_modules).items()):
         area = _area(module)
+        _area_info(area)
         area_modules.setdefault(area, set()).add(module)
         area_cases[area] += count
 
@@ -134,22 +274,50 @@ def render_inventory(collection: Collection) -> str:
     lines.extend(["", "## Cases by area", ""])
     _table(
         lines,
-        ("Area", "Modules", "Collected cases"),
+        (
+            "Area",
+            "Location",
+            "Primary type",
+            "Contract",
+            "CI scope",
+            "Modules",
+            "Cases",
+        ),
         [
-            (f"`{area}/`", len(area_modules[area]), area_cases[area])
+            (
+                _area_info(area).label,
+                f"`{area}/`",
+                _area_info(area).kind,
+                _area_info(area).contract,
+                _area_info(area).ci_scope,
+                len(area_modules[area]),
+                area_cases[area],
+            )
             for area in sorted(area_modules)
         ],
     )
     lines.extend(["", "## Modules", ""])
     _table(
         lines,
-        ("Module", "Collected cases", "Extensive cases"),
+        ("Module", "Type", "Purpose", "Cases", "Extensive"),
         [
-            (f"`{module}`", core_modules[module], extensive_modules[module])
+            (
+                f"`{module}`",
+                _module_kind(module, extensive_modules[module]),
+                _module_purpose(module),
+                core_modules[module],
+                extensive_modules[module],
+            )
             for module in sorted(core_modules)
         ]
         + [
-            (f"`{module}`", validation_modules[module], 0)
+            (
+                f"`{module}`",
+                _module_kind(module, 0),
+                _module_purpose(module),
+                validation_modules[module],
+                0,
+            )
             for module in sorted(validation_modules)
         ],
     )
