@@ -11,11 +11,11 @@ references.
 | Workflow | Triggers | Purpose |
 |---|---|---|
 | [CI](https://github.com/dreuzy/pyage/actions/workflows/ci.yml) | Pull requests targeting `main`, pushes to `main`, `v*` tags, and manual dispatch | Fast required checks for every supported Python version, packaging, documentation, and validation infrastructure |
-| [Extensive tests](https://github.com/dreuzy/pyage/actions/workflows/extensive-tests.yml) | Manual dispatch and daily at `03:17 UTC` | Opt-in scientific calculations that are too slow for every pull request |
+| [Extensive tests](https://github.com/dreuzy/pyage/actions/workflows/extensive-tests.yml) | Manual dispatch and daily at `01:17 UTC` | Opt-in scientific calculations that are too slow for every pull request |
 | [Release candidate](https://github.com/dreuzy/pyage/actions/workflows/release-candidate.yml) | Manual dispatch for an existing `v`-prefixed tag | Build one candidate, validate its metadata, and smoke-test the same wheel on all supported Python versions |
 
-The daily extensive run starts at 04:17 in metropolitan France during winter
-time and 05:17 during summer time. GitHub may send failure notifications at
+The daily extensive run starts at 02:17 in metropolitan France during winter
+time and 03:17 during summer time. GitHub may send failure notifications at
 those hours. A notification identifies the workflow run, branch, commit, and
 failed job; always inspect a later run on the same branch before assuming that
 the default branch is still failing.
