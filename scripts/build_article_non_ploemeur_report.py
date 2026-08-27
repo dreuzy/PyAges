@@ -61,9 +61,12 @@ def _tracerlpm_summary(run: Path) -> tuple[str, str]:
     if not results_path.exists():
         return "Résultats de robustesse manquants.", "Résultats détaillés manquants."
     frame = pd.read_csv(results_path)
+    model_names = frame["model"]
+    if model_names.isna().any():
+        raise RuntimeError("TracerLPM results contain missing model names")
     counts = {
         "cases": int(len(frame)),
-        "models": sorted(frame["model"].astype(str).unique().tolist()),
+        "models": sorted(model_names.map(str).unique().tolist()),
         "noise": sorted(frame["noise_relative_sd"].astype(float).unique().tolist()),
     }
     numeric = frame.select_dtypes(include=[np.number])

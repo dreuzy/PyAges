@@ -120,7 +120,7 @@ Commandes exécutées depuis la racine du dépôt le 27 août 2026 :
 
 | Commande | Résultat |
 |---|---|
-| `python -m pytest tests/io/test_lpm_results.py tests/lpm/test_lpm_sample_table.py -q` | 16 tests réussis |
+| `python -m pytest tests/data_io/test_lpm_results.py tests/lpm/test_lpm_sample_table.py -q` | 16 tests réussis |
 | tests ciblés des priors et concentrations | 20 tests réussis |
 | `python -m pytest tests -q` | 787 réussis, 5 ignorés |
 | `python -m ruff check .` | réussi |

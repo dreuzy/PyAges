@@ -13,7 +13,7 @@ sample, and export tracer concentration data used by calibration workflows.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from pyages._unit_contract import normalize_observation_units, validate_unit_label
 from pyages.concentrations.schema import (
     CONCENTRATION_COLUMN,
     DATE_COLUMN,
@@ -40,7 +41,6 @@ if TYPE_CHECKING:
 
 
 _DEFAULT_ERROR = 0.0
-_DEFAULT_UNIT = "mol/l"
 
 
 class Concentrations:
@@ -48,9 +48,9 @@ class Concentrations:
     Container for tracer concentrations and their metadata.
 
     The normalized data is stored in :attr:`frame` as a defensive copy. Input
-    tables must contain ``element``, ``concentration`` and ``date``. Missing
-    ``error`` and ``unit`` columns default to zero and ``"mol/l"`` respectively.
-    Extra columns are deliberately discarded at this package boundary.
+    tables must contain ``element``, ``concentration``, ``unit`` and ``date``.
+    A missing ``error`` column defaults to zero. Extra columns are deliberately
+    discarded at this package boundary.
     """
 
     def __init__(self, frame: pd.DataFrame) -> None:
@@ -59,8 +59,14 @@ class Concentrations:
             raise TypeError("frame must be a pandas DataFrame")
         self.frame = frame.copy().reset_index(drop=True)
         self.__ensure_column(ERROR_COLUMN, _DEFAULT_ERROR)
-        self.__ensure_column(UNIT_COLUMN, _DEFAULT_UNIT)
         self.validate()
+
+    @classmethod
+    def _from_validated_frame(cls, frame: pd.DataFrame) -> "Concentrations":
+        """Build from an internally produced canonical frame without revalidation."""
+        instance = cls.__new__(cls)
+        instance.frame = frame.reset_index(drop=True)
+        return instance
 
     @classmethod
     def from_file(cls, path: str | Path) -> "Concentrations":
@@ -173,18 +179,57 @@ class Concentrations:
 
         if normalized[ELEMENT_COLUMN].isna().any():
             raise ValueError("Concentration elements must not be missing")
-        normalized[ELEMENT_COLUMN] = normalized[ELEMENT_COLUMN].astype(str)
+        normalized[ELEMENT_COLUMN] = normalized[ELEMENT_COLUMN].map(str)
         if normalized[ELEMENT_COLUMN].str.strip().eq("").any():
             raise ValueError("Concentration elements must not be empty")
 
-        normalized[UNIT_COLUMN] = (
-            normalized[UNIT_COLUMN].fillna(_DEFAULT_UNIT).astype(str)
+        normalized_units, _ = normalize_observation_units(
+            normalized[ELEMENT_COLUMN],
+            normalized[UNIT_COLUMN],
         )
+        normalized[UNIT_COLUMN] = normalized_units
         self.frame = normalized.reset_index(drop=True)
+
+    def units_by_tracer(self) -> dict[str, str]:
+        """Return the single validated observation unit for each tracer."""
+        _, units = normalize_observation_units(
+            self.frame[ELEMENT_COLUMN],
+            self.frame[UNIT_COLUMN],
+        )
+        return units
+
+    def require_matching_units(self, expected_units: Mapping[str, str]) -> None:
+        """Require exact observation/model unit equality without conversion.
+
+        This check belongs at boundaries where observations and modeled tracers
+        first meet. Numerical kernels can then operate on plain arrays without
+        carrying or repeatedly checking unit metadata.
+        """
+        if not isinstance(expected_units, Mapping):
+            raise TypeError("expected_units must be a mapping of tracer to unit")
+        observed_units = self.units_by_tracer()
+        for tracer, observed_unit in observed_units.items():
+            if tracer not in expected_units:
+                raise ValueError(f"No model unit is declared for tracer {tracer!r}")
+            model_unit = validate_unit_label(
+                expected_units[tracer],
+                context=f"Model unit for tracer {tracer!r}",
+            )
+            if observed_unit != model_unit:
+                raise ValueError(
+                    f"Unit mismatch for tracer {tracer!r}: observations use "
+                    f"{observed_unit!r}, model uses {model_unit!r}. Convert "
+                    "observations explicitly during preprocessing; PyAges "
+                    "does not perform implicit physical unit conversions."
+                )
 
     def sample_with_errors(self, rng: np.random.Generator) -> "Concentrations":
         """
-        Sample independent Gaussian observation errors.
+        Sample independent Gaussian observation errors truncated at zero.
+
+        This is a true lower-truncated normal distribution, not clipping:
+        rejected negative probability mass is renormalized and no artificial
+        point mass is created at zero. Rows with zero error remain unchanged.
 
         Parameters
         ----------
@@ -198,12 +243,35 @@ class Concentrations:
         """
         if not isinstance(rng, np.random.Generator):
             raise TypeError("rng must be a numpy.random.Generator")
-        sampled = self.from_dataframe(self.frame)
-        draw = rng.standard_normal(size=len(sampled.frame))
         base = self.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
         err = self.frame[ERROR_COLUMN].to_numpy(dtype=float)
-        sampled.frame[CONCENTRATION_COLUMN] = base + err * draw
-        return sampled
+        deterministic_negative = (err == 0.0) & (base < 0.0)
+        if np.any(deterministic_negative):
+            rows = np.flatnonzero(deterministic_negative).tolist()
+            raise ValueError(
+                "A zero-truncated Gaussian cannot represent negative "
+                f"concentrations with zero error (rows: {rows})"
+            )
+
+        sampled_values = base.copy()
+        stochastic = err > 0.0
+        if np.any(stochastic):
+            # Imported lazily: ordinary concentration loading does not pay the
+            # comparatively large scipy.stats import cost.
+            from scipy.stats import truncnorm
+
+            lower_bound = -base[stochastic] / err[stochastic]
+            sampled_values[stochastic] = truncnorm.rvs(
+                lower_bound,
+                np.inf,
+                loc=base[stochastic],
+                scale=err[stochastic],
+                size=int(np.count_nonzero(stochastic)),
+                random_state=rng,
+            )
+        sampled_frame = self.frame.copy()
+        sampled_frame[CONCENTRATION_COLUMN] = sampled_values
+        return self._from_validated_frame(sampled_frame)
 
     def display(self, display_options: DisplayOptions) -> None:
         """Display the concentration table when text output is enabled."""

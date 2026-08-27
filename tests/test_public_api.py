@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_package_exposes_version() -> None:
-    assert re.fullmatch(r"\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?", pyages.__version__)
+    assert re.fullmatch(r"\d+\.\d+(?:\.\d+)?(?:(?:a|b|rc)\d+)?", pyages.__version__)
     assert pyages.__all__ == ["__version__"]
 
 

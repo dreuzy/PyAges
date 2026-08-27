@@ -25,7 +25,7 @@ from pyages.workflows.plots.common import (
 
 
 def plot_observations_overview(
-    cdata,
+    observations,
     filename: str | Path | None = None,
     title: str = "Observed concentrations",
     highlight_dates: list[float] | None = None,
@@ -36,7 +36,7 @@ def plot_observations_overview(
     Plot observation-only panels for each tracer.
     """
     apply_example_style()
-    df = cdata.frame.copy()
+    df = observations.frame.copy()
     tracers = list(dict.fromkeys(df["element"].tolist()))
     ncols = 2 if len(tracers) == 4 else min(3, max(len(tracers), 1))
     nrows = ceil(max(len(tracers), 1) / ncols)

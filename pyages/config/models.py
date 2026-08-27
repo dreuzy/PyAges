@@ -211,7 +211,9 @@ class LauncherObjectiveCfg(_BaseCfg):
 class LauncherMetropolisCfg(_BaseCfg):
     """Metropolis-Hastings configuration (single-date launcher)."""
 
-    nstep: int = Field(default=5000, ge=1)
+    # The launcher fixes burn_in=0.2 and nskip=10. Eleven transitions are the
+    # smallest configuration that retains a state under the strict rule.
+    nstep: int = Field(default=5000, ge=11)
     prior_option: bool = False
     likelihood: bool = True
     monitor: bool = False

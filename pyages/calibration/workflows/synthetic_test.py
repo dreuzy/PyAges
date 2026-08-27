@@ -183,16 +183,16 @@ class CalibrationSyntheticTest:
                 self.__lpm_type = lpm_target.name
 
         # 2. Convolve the tracers at the configured date to obtain synthetic data.
-        cdata = self.tracers.convolve(
+        observations = self.tracers.convolve(
             lpm_target,
             return_type="concentrations",
         )
         # Apply the configured uncertainty using the instance's reproducible RNG.
-        cdata.set_relative_errors(self.__error)
+        observations.set_relative_errors(self.__error)
 
         # 3. Prepare a same-family LPM calibration from the synthetic data.
         problem = CalibrationProblem(
-            cdata,
+            observations,
             self.__lpm_type,
             display_options=display_options_case,
             sample_count=self.__nmodels,
@@ -210,12 +210,12 @@ class CalibrationSyntheticTest:
             os.path.join(display_options_case.directory, "lpm_target.txt"),
         )
         self.__calib_strategy.write_calibrated_lpm(lpm_results)
-        cdata.frame.to_csv(
+        observations.frame.to_csv(
             os.path.join(display_options_case.directory, "concentrations.txt"), sep="\t"
         )
         # Display the concentration histories.
         export_calibrated_chronicles(
-            cdata,
+            observations,
             lpm_results,
             str(i),
             self.__display_options,
@@ -229,7 +229,7 @@ class CalibrationSyntheticTest:
         target_vals = np.array([lpm_target.p[k] for k in keys], dtype=float)
         estim_vals = np.array([stats.loc["mean"][k] for k in keys], dtype=float)
         distance = float(np.linalg.norm(estim_vals - target_vals))
-        return lpm_target, self.__calib_strategy, cdata, lpm_results, distance
+        return lpm_target, self.__calib_strategy, observations, lpm_results, distance
 
     def perform_ncase(self):
         """Perform all cases, write their results, and return the mean distance."""

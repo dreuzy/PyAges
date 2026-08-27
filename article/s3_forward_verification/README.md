@@ -23,5 +23,5 @@ The historical 133-comparison campaign calculated
 `abs(PyAges - reference) / abs(reference)` when the reference was non-zero and
 stored `NaN` when it was zero. It did not apply a `1e-14` denominator floor.
 The checksum-protected historical report and its manifests are retained
-unchanged; this correction governs current documentation and future PyAges 1.0
+unchanged; this correction governs current documentation and PyAges 1.0
 campaigns without rewriting the archived evidence.

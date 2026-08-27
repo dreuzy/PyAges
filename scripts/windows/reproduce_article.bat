@@ -1,5 +1,6 @@
 @echo off
 setlocal
+set "PYTHONNOUSERSITE=1"
 cd /d "%~dp0\..\.."
 if "%~1"=="" (
   echo Usage: scripts\windows\reproduce_article.bat OUTPUT_DIRECTORY [extra arguments]

@@ -2,7 +2,7 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Command-line entry point for cases targeting the future PyAges v1.0 article.
+"""Command-line entry point for cases supporting the PyAges 1.0 article.
 
 This module deliberately keeps checking, post-processing, and simulation as
 three separate operations. In particular, ``check`` audits the optional

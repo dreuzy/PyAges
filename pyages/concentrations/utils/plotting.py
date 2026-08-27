@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from pyages.concentrations.utils.tables import normalize_series
+from pyages.concentrations.utils.temporal import summarize_temporal_predictions
 
 
 def _pretty_tracer_name(name: str) -> str:
@@ -156,25 +157,12 @@ def plot_concentration_chronicles_summary(
     axs = np.atleast_1d(axs).flatten()
     tracer_names = list(dict.fromkeys(observations.frame["element"].tolist()))
 
-    predictions: dict[str, list[np.ndarray]] = {}
-    prediction_dates: dict[str, np.ndarray] = {}
-    for lpm in lpm_list:
-        concentration_dict = tracers.convolve_date_range(lpm, start_year, end_year)
-        for tracer_name, tracer_df in concentration_dict.items():
-            ordered = tracer_df.sort_values("date")
-            dates = ordered["date"].to_numpy(dtype=float)
-            existing_dates = prediction_dates.get(tracer_name)
-            if existing_dates is not None and (
-                existing_dates.shape != dates.shape
-                or not np.allclose(existing_dates, dates, rtol=0.0, atol=1e-10)
-            ):
-                raise ValueError(
-                    f"Model realizations use inconsistent date grids for {tracer_name!r}"
-                )
-            prediction_dates[tracer_name] = dates
-            predictions.setdefault(tracer_name, []).append(
-                ordered["concentration"].to_numpy(dtype=float)
-            )
+    summaries = summarize_temporal_predictions(
+        tracers,
+        lpm_list,
+        start_year,
+        end_year,
+    )
 
     for idx, tracer_name in enumerate(tracer_names):
         if idx >= len(axs):
@@ -189,22 +177,30 @@ def plot_concentration_chronicles_summary(
             else None
         )
 
-        if tracer_name in predictions:
-            pred_array = np.vstack(predictions[tracer_name])
-            pred_dates = prediction_dates[tracer_name]
-            q10, q25, q50, q75, q90 = np.quantile(
-                pred_array,
-                [0.10, 0.25, 0.50, 0.75, 0.90],
-                axis=0,
+        if tracer_name in summaries:
+            summary = summaries[tracer_name]
+            ax.fill_between(
+                summary.dates,
+                summary.q10,
+                summary.q90,
+                color="#c6dbef",
+                alpha=0.8,
+                label="90% interval",
             )
             ax.fill_between(
-                pred_dates, q10, q90, color="#c6dbef", alpha=0.8, label="90% interval"
-            )
-            ax.fill_between(
-                pred_dates, q25, q75, color="#6baed6", alpha=0.75, label="50% interval"
+                summary.dates,
+                summary.q25,
+                summary.q75,
+                color="#6baed6",
+                alpha=0.75,
+                label="50% interval",
             )
             ax.plot(
-                pred_dates, q50, color="#08519c", linewidth=2.2, label="Median model"
+                summary.dates,
+                summary.median,
+                color="#08519c",
+                linewidth=2.2,
+                label="Median model",
             )
 
         has_error = "error" in observed.columns and np.any(

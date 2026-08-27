@@ -17,6 +17,10 @@ from matplotlib.patches import Patch
 from matplotlib.ticker import MaxNLocator
 
 import pyages.convolution.convolution_tracers as convolution_tracers
+from pyages.concentrations.utils.temporal import (
+    TemporalPredictionSummary,
+    summarize_temporal_predictions,
+)
 from pyages.lpm.factory import build_lpm
 from pyages.lpm.samples.table import LpmSampleTable
 from pyages.workflows.plots.common import (
@@ -61,7 +65,7 @@ def _posterior_predictions(
     start_year: float,
     end_year: float,
     lpm_number: int,
-) -> dict[str, dict[str, tuple[np.ndarray, np.ndarray]]]:
+) -> dict[str, dict[str, TemporalPredictionSummary]]:
     """Convolve a compact LPM selection for every posterior source."""
     predictions = {}
     for label, frame in posterior_frames.items():
@@ -74,21 +78,12 @@ def _posterior_predictions(
             count=lpm_number,
             resolution=1000,
         )
-        source: dict[str, tuple[np.ndarray, np.ndarray]] = {}
-        for lpm in lpms:
-            for tracer_name, frame in tracers.convolve_date_range(
-                lpm, start_year, end_year
-            ).items():
-                ordered = frame.sort_values("date")
-                dates = ordered["date"].to_numpy(dtype=float)
-                values = ordered["concentration"].to_numpy(dtype=float)[None, :]
-                previous = source.get(tracer_name)
-                source[tracer_name] = (
-                    (dates, values)
-                    if previous is None
-                    else (previous[0], np.vstack([previous[1], values]))
-                )
-        predictions[label] = source
+        predictions[label] = summarize_temporal_predictions(
+            tracers,
+            lpms,
+            start_year,
+            end_year,
+        )
     return predictions
 
 
@@ -148,16 +143,20 @@ def _plot_prediction_intervals(axs, tracer_names, predictions, legend_handles) -
         for ax, tracer_name in zip(axs.flatten(), tracer_names, strict=False):
             if tracer_name not in source:
                 continue
-            dates, values = source[tracer_name]
-            q10, q50, q90 = np.quantile(values, [0.10, 0.50, 0.90], axis=0)
+            summary = source[tracer_name]
             ax.fill_between(
-                dates,
-                q10,
-                q90,
+                summary.dates,
+                summary.q10,
+                summary.q90,
                 color=style["band"],
                 alpha=0.55 if source_index else 0.75,
             )
-            ax.plot(dates, q50, color=style["line"], linewidth=2.3)
+            ax.plot(
+                summary.dates,
+                summary.median,
+                color=style["line"],
+                linewidth=2.3,
+            )
 
 
 def _plot_observed_temporal_panel(
@@ -257,6 +256,7 @@ def plot_temporal_fit_comparison(
         names=observations.frame["element"].unique(),
         date=end_year,
     )
+    tracers.validate_observation_units(observations)
 
     predictions = _posterior_predictions(
         posterior_frames,
@@ -325,6 +325,7 @@ def plot_temporal_fit_summary(
         names=observations.frame["element"].unique(),
         date=end_year,
     )
+    tracers.validate_observation_units(observations)
     lpm_list, _, _ = lpm_results.select(
         count=lpm_number,
         resolution=1000,
@@ -332,16 +333,12 @@ def plot_temporal_fit_summary(
     if not lpm_list:
         raise ValueError("No calibrated LPMs available to build temporal fit figure.")
 
-    predictions: dict[str, list[np.ndarray]] = {}
-    prediction_dates: dict[str, np.ndarray] = {}
-    for lpm in lpm_list:
-        concentration_dict = tracers.convolve_date_range(lpm, start_year, end_year)
-        for tracer_name, tracer_df in concentration_dict.items():
-            ordered = tracer_df.sort_values("date")
-            prediction_dates[tracer_name] = ordered["date"].to_numpy(dtype=float)
-            predictions.setdefault(tracer_name, []).append(
-                ordered["concentration"].to_numpy(dtype=float)
-            )
+    summaries = summarize_temporal_predictions(
+        tracers,
+        lpm_list,
+        start_year,
+        end_year,
+    )
 
     tracer_names = list(dict.fromkeys(observations.frame["element"].tolist()))
     ncols = min(2, max(len(tracer_names), 1))
@@ -363,19 +360,28 @@ def plot_temporal_fit_summary(
             else None
         )
 
-        pred_array = np.vstack(predictions[tracer_name])
-        pred_dates = prediction_dates[tracer_name]
-        q10, q25, q50, q75, q90 = np.quantile(
-            pred_array, [0.10, 0.25, 0.50, 0.75, 0.90], axis=0
-        )
+        summary = summaries[tracer_name]
 
         band90 = ax.fill_between(
-            pred_dates, q10, q90, color=INTERVAL_90_COLOR, alpha=0.8
+            summary.dates,
+            summary.q10,
+            summary.q90,
+            color=INTERVAL_90_COLOR,
+            alpha=0.8,
         )
         band50 = ax.fill_between(
-            pred_dates, q25, q75, color=INTERVAL_50_COLOR, alpha=0.75
+            summary.dates,
+            summary.q25,
+            summary.q75,
+            color=INTERVAL_50_COLOR,
+            alpha=0.75,
         )
-        (median_line,) = ax.plot(pred_dates, q50, color=MEDIAN_COLOR, linewidth=2.2)
+        (median_line,) = ax.plot(
+            summary.dates,
+            summary.median,
+            color=MEDIAN_COLOR,
+            linewidth=2.2,
+        )
 
         has_error = "error" in observed.columns and np.any(
             pd.to_numeric(observed["error"], errors="coerce") > 0

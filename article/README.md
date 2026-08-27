@@ -1,27 +1,40 @@
-# Couche de reproductibilité du manuscrit visant PyAges v1.0
+# Couche de reproductibilité du manuscrit PyAges 1.0
 
-> **Identité de version.** `v1.0` désigne ici la cible du manuscrit et de sa
-> future archive, pas une version logicielle déjà publiée. La version bêta
-> citable reste `0.1.0b1`. Tant que `requested_stable_tag` vaut `null` dans les
-> manifestes, chaque calcul est identifié par son commit Git et son
-> environnement enregistrés ; aucun DOI futur ne doit être anticipé.
+> **Identité de version.** La campagne fraîche utilise la version logicielle et
+> le tag exacts `1.0`. Le préflight exige que ce tag pointe sur le commit propre
+> exécuté et les manifestes frais enregistrent aussi son SHA Git. Les manifestes
+> historiques conservent volontairement `requested_stable_tag: null` : ils
+> décrivent des calculs antérieurs et ne doivent pas être réécrits.
 
 Ce répertoire est une couche d'accès aux calculs du manuscrit. Il ne contient
 ni copie du code scientifique de `pyages`, ni copie des données distribuées de
 `data_core`, ni lien symbolique. Les résultats historiques restent à leur
 emplacement canonique sous `results/` et sont décrits par les manifestes de cas.
 
+Les preuves éditoriales sont regroupées sous `article/audit/`. Les instantanés
+qui ne décrivent plus l'état courant sont datés sous `article/archive/` ; ils
+restent versionnés pour la provenance mais ne constituent pas des instructions
+actives.
+
 Pour recalculer l'ensemble avec la version stabilisée, utiliser le lanceur
 global et un dossier extérieur au dépôt :
 
 ```powershell
-python -m scripts.reproduce_article preflight --output C:\pyages-runs\article-v1
-python -m scripts.reproduce_article resume --output C:\pyages-runs\article-v1 --workers 6
+$env:PYTHONNOUSERSITE = "1"
+python -m scripts.reproduce_article preflight --output C:\pyages-runs\article-1.0
+python -m scripts.reproduce_article resume --output C:\pyages-runs\article-1.0 --workers 6
+python -m scripts.reproduce_article validate --output C:\pyages-runs\article-1.0
 ```
 
 Ce parcours est la référence pour une nouvelle archive GMD. Il ne dépend pas
 des anciens dossiers `results/HYP-26-0172`; ceux-ci ne servent, le cas échéant,
 qu'à une comparaison historique distincte.
+
+Le tag `1.0` doit être annoté, immuable et présent sur `HEAD` avant la campagne
+canonique. `--allow-dirty` et `--allow-untagged` sont réservés aux contrôles de
+développement et ne doivent jamais être utilisés pour le dépôt final.
+Le préflight exige également `PYTHONNOUSERSITE=1` afin qu'aucun paquet Python
+installé au niveau utilisateur ne puisse masquer l'environnement qualifié.
 
 | Manuscript section | Case | Main output | Reproduce |
 | --- | --- | --- | --- |
@@ -47,9 +60,9 @@ Pour redessiner uniquement les figures après une campagne externe terminée,
 sans appeler ni prolonger un sampler :
 
 ```powershell
-python article/common/postprocess_existing.py s3_2_shifted_exponential --campaign-root C:\pyages-runs\article-v1
-python article/common/postprocess_existing.py s4_1_holten --campaign-root C:\pyages-runs\article-v1
-python article/common/postprocess_existing.py s4_2_ploemeur --campaign-root C:\pyages-runs\article-v1
+python article/common/postprocess_existing.py s3_2_shifted_exponential --campaign-root C:\pyages-runs\article-1.0
+python article/common/postprocess_existing.py s4_1_holten --campaign-root C:\pyages-runs\article-1.0
+python article/common/postprocess_existing.py s4_2_ploemeur --campaign-root C:\pyages-runs\article-1.0
 ```
 
 L'option `--output` accepte aussi directement le dossier existant d'un cas.

@@ -48,17 +48,54 @@ compatibilité. L'attribut `cv` devient `frame`, `ConcentrationTime` devient
 des noms explicites. Les modules `concentrations.py` et
 `concentrations_time.py` ne sont pas conservés comme façades.
 
-Le schéma tabulaire et les résultats numériques restent inchangés. Le tirage
-gaussien reste non tronqué et peut donc produire une valeur négative ; un autre
-modèle d'erreur demanderait une décision scientifique distincte.
+Le schéma tabulaire reste inchangé. À la suite de la décision scientifique de
+ce suivi, le tirage d'erreur suit désormais une vraie loi gaussienne tronquée à
+zéro. Les valeurs négatives ne sont ni conservées ni simplement écrêtées : la
+masse de probabilité admissible est renormalisée, sans accumulation artificielle
+de valeurs exactement nulles. Cette décision modifie volontairement les tirages
+numériques reproductibles qui possèdent une erreur strictement positive.
+
+Le calcul des prédictions temporelles est également centralisé : les deux
+familles de figures utilisent maintenant les mêmes contrôles de traceurs et de
+grilles de dates, puis les mêmes quantiles 10, 25, 50, 75 et 90 %. Les workflows
+ne conservent que leurs choix de présentation.
+
+Le contrat d'unités est maintenant évalué aux frontières de l'API. Une unité
+explicite et canonique est exigée à la lecture, chaque traceur ne peut avoir
+qu'une unité par table, puis l'unité d'observation est comparée exactement à
+celle du traceur avant calibration ou tracé temporel. Aucune conversion ou
+vérification d'unité n'est exécutée dans les convolutions, objectifs,
+optimisations ou boucles d'échantillonnage. Les conversions physiques restent
+des opérations de prétraitement explicites.
+
+## Nettoyage de suivi
+
+La recherche finale des noms supprimés a révélé un contrôle `.cv` encore actif
+dans le tracé optionnel d'une concentration de référence, ainsi que trois
+notebooks qui utilisaient toujours les anciens constructeurs. Le contrôle de
+tracé repose désormais sur le contrat canonique `.frame`, couvert par un test
+avec un véritable objet `Concentrations`.
+
+Les notebooks Albuquerque, Ploemeur et Ploemeur temporel utilisent maintenant
+`Concentrations.from_file()`, `Concentrations.from_dataframe()`, `.frame`,
+`tracer_names()` et `observation_keys()`. Les anciens imports profonds et les
+anciens mots-clés de `SystematicSampling` ont été supprimés. Les variables
+internes `cv` et `cdata` ont également été renommées. Enfin, le contrôle
+d'unités s'appelle `require_matching_units()` afin d'indiquer qu'il exige une
+égalité exacte et ne réalise aucune conversion ; aucun alias de l'ancien nom
+n'est conservé.
 
 ## Validation
 
 Résultats finaux dans l'arbre stabilisé après renommage du paquet en `pyages` :
 
-- `python -m pytest -q` : **824 réussis, 5 ignorés** ;
+- `python -m pytest -q` : **943 réussis, 5 ignorés** ;
 - tests ciblés du sous-package, de son API et de sa documentation :
-  **57 réussis** ;
-- `python -m ruff check pyages/concentrations tests/concentrations` : réussi ;
-- `python -m compileall -q pyages/concentrations` : réussi ;
+  **49 réussis** pour les contrats de concentration, d'unités, de tracé et de
+  documentation, complétés par **221 réussis** pour les workflows, la
+  convolution et l'API publique ;
+- les trois notebooks modifiés sont des documents JSON valides, leurs cellules
+  Python compilent et leurs jeux de données se chargent avec l'API canonique ;
+- `python -m ruff check .` : réussi ;
+- `python -m compileall -q pyages` : réussi ;
 - construction Sphinx stricte (`-W --keep-going`) : réussie sans avertissement.

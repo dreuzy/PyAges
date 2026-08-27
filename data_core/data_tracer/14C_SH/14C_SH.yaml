@@ -11,8 +11,8 @@
 # =============================================================================
 
 # Unit of concentration measurement
-# pCm% = percent modern carbon
-unit: pCm%
+# pmC = percent modern carbon
+unit: pmC
 
 # =============================================================================
 # Recharge Configuration

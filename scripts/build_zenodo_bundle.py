@@ -339,7 +339,12 @@ print(f"Validated {{entries}} Zenodo bundle files")
 
 
 def _metadata(
-    *, title: str, version: str, citation: dict[str, object], doi: str | None
+    *,
+    title: str,
+    version: str,
+    citation: dict[str, object],
+    doi: str | None,
+    article_doi: str | None,
 ) -> dict[str, object]:
     description = (
         "Complete reproduction evidence for the associated Geoscientific Model "
@@ -348,6 +353,22 @@ def _metadata(
         "Holten Dirichlet(1,1,1,1) prior-sensitivity analysis, and the exact USGS "
         "TracerLPM dependencies used for cross-software validation."
     )
+    related_identifiers = [
+        {
+            "identifier": str(citation.get("repository-code", "")),
+            "relation": "isSupplementedBy",
+            "resource_type": "software",
+        }
+    ]
+    if article_doi:
+        related_identifiers.insert(
+            0,
+            {
+                "identifier": article_doi,
+                "relation": "isSupplementTo",
+                "resource_type": "publication-article",
+            },
+        )
     return {
         "status": "DRAFT - review before publishing",
         "doi": doi or "RESERVE IN ZENODO AND REBUILD THE BUNDLE WITH --doi",
@@ -368,18 +389,7 @@ def _metadata(
             {"identifier": "public-domain", "applies_to": "USGS TracerLPM"},
         ],
         "keywords": list(KEYWORDS),
-        "related_identifiers_to_add": [
-            {
-                "identifier": "ADD THE GMD ARTICLE OR PREPRINT DOI",
-                "relation": "isSupplementTo",
-                "resource_type": "publication-article",
-            },
-            {
-                "identifier": str(citation.get("repository-code", "")),
-                "relation": "isSupplementedBy",
-                "resource_type": "software",
-            },
-        ],
+        "related_identifiers_to_add": related_identifiers,
         "publisher": "Zenodo",
     }
 
@@ -551,8 +561,9 @@ def build_bundle(
     *,
     workbook: Path,
     xll: Path,
-    title: str,
+    title: str | None = None,
     doi: str | None = None,
+    article_doi: str | None = None,
 ) -> tuple[Path, Path]:
     """Create and validate a Zenodo directory plus its uploadable ZIP."""
     archive = archive.resolve()
@@ -571,6 +582,21 @@ def build_bundle(
     with zipfile.ZipFile(source_zip) as source:
         citation = yaml.safe_load(source.read("CITATION.cff"))
     version = str(citation["version"])
+    title = title or f"PyAges {version} - complete article reproduction archive"
+    if core_manifest.get("pyages_version") != version:
+        raise RuntimeError(
+            "Core archive and CITATION.cff versions differ: "
+            f"{core_manifest.get('pyages_version')!r} != {version!r}"
+        )
+    if core_manifest.get("release_tag") != version:
+        raise RuntimeError(
+            "Core archive release tag and software version differ: "
+            f"{core_manifest.get('release_tag')!r} != {version!r}"
+        )
+    if version not in core_manifest.get("git_tags_at_head", []):
+        raise RuntimeError(
+            f"Core archive source commit is not identified by release tag {version!r}"
+        )
     scientific = _scientific_summary(archive)
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(
@@ -620,6 +646,7 @@ def build_bundle(
                     version=version,
                     citation=citation,
                     doi=doi,
+                    article_doi=article_doi,
                 ),
                 ensure_ascii=False,
                 indent=2,
@@ -651,11 +678,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--zip-output", type=Path)
     parser.add_argument("--tracerlpm-workbook", type=Path)
     parser.add_argument("--tracerlpm-xll", type=Path)
-    parser.add_argument(
-        "--title",
-        default="PyAges 0.1.0b1 - complete article reproduction archive",
-    )
+    parser.add_argument("--title")
     parser.add_argument("--doi", help="reserved Zenodo DOI, e.g. 10.5281/zenodo.123")
+    parser.add_argument("--article-doi", help="GMD article or preprint DOI")
+    parser.add_argument(
+        "--draft",
+        action="store_true",
+        help="allow a review bundle without a reserved Zenodo DOI",
+    )
     parser.add_argument("--validate-only", type=Path)
     args = parser.parse_args(argv)
     if args.validate_only is not None:
@@ -677,6 +707,8 @@ def main(argv: list[str] | None = None) -> int:
     missing = [name for name, value in required.items() if value is None]
     if missing:
         parser.error(f"required for build: {', '.join(missing)}")
+    if args.doi is None and not args.draft:
+        parser.error("--doi is required for a final bundle; use --draft for review")
     output, zip_output = build_bundle(
         args.archive,
         args.output,
@@ -685,6 +717,7 @@ def main(argv: list[str] | None = None) -> int:
         xll=args.tracerlpm_xll,
         title=args.title,
         doi=args.doi,
+        article_doi=args.article_doi,
     )
     manifest = validate_bundle(output)
     print(

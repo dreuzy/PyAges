@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -131,6 +132,50 @@ def test_append_rejects_different_concentration_schemas() -> None:
 
     with pytest.raises(ValueError, match="different concentrations"):
         distribution.append(other)
+
+
+def test_append_into_empty_table_preserves_source_dtypes_and_independence() -> None:
+    distribution, name, _ = _distribution()
+    other = LpmSampleTable(
+        distribution.lpm_template,
+        c_names=distribution.get_concentration_names(),
+    )
+    source = pd.DataFrame(
+        {
+            name: pd.Series([42], dtype="int64"),
+            "obj_function": pd.Series([1.5], dtype="float64"),
+            "cfc11@2010.0#0": pd.Series([2.5], dtype="float64"),
+            "param_in_bounds": pd.Series([True], dtype="bool"),
+        }
+    )
+    other.replace_frame(source)
+    other.frame.index = pd.Index([12])
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        distribution.append(other)
+
+    pd.testing.assert_frame_equal(distribution.frame, source)
+    assert distribution.frame.index.tolist() == [0]
+    other.frame.loc[12, name] = 99
+    assert distribution.frame.loc[0, name] == 42
+
+
+def test_append_empty_table_is_a_warning_free_noop() -> None:
+    distribution, name, initial = _distribution()
+    distribution.append_sample({name: initial}, obj_function=1.0, concentrations=[2.0])
+    before = distribution.frame.copy(deep=True)
+    other = LpmSampleTable(
+        distribution.lpm_template,
+        c_names=distribution.get_concentration_names(),
+    )
+    other.frame["derived"] = pd.Series(dtype="float64")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        distribution.append(other)
+
+    pd.testing.assert_frame_equal(distribution.frame, before)
 
 
 def test_tabular_outputs_keep_the_existing_tsv_layout(tmp_path) -> None:

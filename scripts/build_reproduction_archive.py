@@ -17,7 +17,10 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from pyages import __version__
+
 ROOT = Path(__file__).resolve().parents[1]
+RELEASE_TAG = "1.0"
 EXCLUDED_PARTS = {"work", "__pycache__", ".pytest_cache"}
 
 
@@ -42,6 +45,22 @@ def _campaign_files(campaign: Path):
             yield path, relative
 
 
+def _release_tags(expected_tag: str, allow_untagged: bool) -> list[str]:
+    tags = [tag for tag in _git("tag", "--points-at", "HEAD").splitlines() if tag]
+    if expected_tag not in tags and not allow_untagged:
+        raise RuntimeError(
+            f"Refusing to archive HEAD without release tag {expected_tag!r}"
+        )
+    if (
+        expected_tag in tags
+        and _git("cat-file", "-t", f"refs/tags/{expected_tag}") != "tag"
+    ):
+        raise RuntimeError(
+            f"Refusing to archive lightweight release tag {expected_tag!r}"
+        )
+    return tags
+
+
 def validate_archive(output: Path) -> dict[str, object]:
     manifest_path = output.resolve() / "ARCHIVE_MANIFEST.json"
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -59,7 +78,14 @@ def validate_archive(output: Path) -> dict[str, object]:
     return payload
 
 
-def build_archive(campaign: Path, output: Path, *, allow_dirty: bool = False) -> Path:
+def build_archive(
+    campaign: Path,
+    output: Path,
+    *,
+    allow_dirty: bool = False,
+    expected_tag: str = RELEASE_TAG,
+    allow_untagged: bool = False,
+) -> Path:
     campaign = campaign.resolve()
     output = output.resolve()
     if not (campaign / "campaign_manifest.json").is_file():
@@ -69,6 +95,7 @@ def build_archive(campaign: Path, output: Path, *, allow_dirty: bool = False) ->
     dirty = _git("status", "--short")
     if dirty and not allow_dirty:
         raise RuntimeError("Refusing to archive a dirty Git worktree")
+    tags = _release_tags(expected_tag, allow_untagged)
     if output.exists():
         raise FileExistsError(f"Refusing to replace existing archive: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -122,7 +149,10 @@ def build_archive(campaign: Path, output: Path, *, allow_dirty: bool = False) ->
             "schema_version": 1,
             "created_at": datetime.now(ZoneInfo("Europe/Paris")).isoformat(),
             "git_head": head,
+            "git_tags_at_head": tags,
             "git_dirty": bool(dirty),
+            "release_tag": expected_tag,
+            "pyages_version": __version__,
             "campaign_source": str(campaign),
             "scope": (
                 "complete article campaign evidence, retained MCMC states, derived "
@@ -152,6 +182,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--campaign", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--allow-dirty", action="store_true")
+    parser.add_argument("--expected-tag", default=RELEASE_TAG)
+    parser.add_argument("--allow-untagged", action="store_true")
     parser.add_argument(
         "--reuse-valid",
         action="store_true",
@@ -169,9 +201,25 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.reuse_valid and args.output.exists():
         payload = validate_archive(args.output)
+        if payload.get("release_tag") != args.expected_tag:
+            raise RuntimeError(
+                "Existing archive release tag does not match the requested tag: "
+                f"{payload.get('release_tag')!r} != {args.expected_tag!r}"
+            )
+        if payload.get("pyages_version") != __version__:
+            raise RuntimeError(
+                "Existing archive PyAges version does not match the source tree: "
+                f"{payload.get('pyages_version')!r} != {__version__!r}"
+            )
         print(f"Reused valid archive with {len(payload['files'])} files: {args.output}")
         return 0
-    built = build_archive(args.campaign, args.output, allow_dirty=args.allow_dirty)
+    built = build_archive(
+        args.campaign,
+        args.output,
+        allow_dirty=args.allow_dirty,
+        expected_tag=args.expected_tag,
+        allow_untagged=args.allow_untagged,
+    )
     print(f"Built complete reproduction archive: {built}")
     return 0
 

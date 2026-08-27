@@ -5,7 +5,7 @@ All notable changes to PyAges are recorded in this file.
 The project follows semantic versioning for its public API from version 1.0.
 Before 1.0, incompatible public changes are identified explicitly below.
 
-## Unreleased
+## 1.0 - 2026-08-27
 
 ### Changed
 
@@ -14,6 +14,13 @@ Before 1.0, incompatible public changes are identified explicitly below.
   result-manifest fields, validation identifiers, documentation, and citation
   metadata now consistently use `pyages`/`PYAGES`; no `pyage` compatibility
   alias is provided. This is an explicit pre-1.0 compatibility change.
+- Separated packaged `data_core` runtime resources from provenance workbooks
+  under an explicit `sources/` tree and removed the obsolete, unreferenced
+  `MHapriori-normal.txt` definition. Supported runtime resource paths are
+  unchanged. The I/O tests now mirror the `pyages.data_io` package name, and
+  maintained repository scripts are catalogued by responsibility.
+- Standardized parametric-prior YAML on the canonical `uniform` and `normal`
+  names and removed the pre-1.0 `gaussian` alias.
 - Moved inverse-Gaussian quantile robustness from the generic SciPy adapter to
   a private model-family implementation and removed the misleading
   `scipy_safe` template-generator choice. Exact support endpoints are now
@@ -44,6 +51,21 @@ Before 1.0, incompatible public changes are identified explicitly below.
   `name_date`, `error_affect_*`, `names_dates`, and deep-module aliases after
   migrating the repository to the explicit `frame`, `ConcentrationChronicle`,
   and observation-key APIs.
+- Changed concentration-error sampling to a true Gaussian distribution
+  truncated at zero, preventing non-physical negative draws without creating
+  an artificial point mass at zero. Centralized temporal prediction-grid
+  validation and posterior quantiles so concentration and workflow plots share
+  one numerical summary implementation.
+- Made concentration units explicit at input boundaries, rejected placeholder
+  and non-canonical labels, required one exact unit per tracer, and added a
+  one-time observation/model exact-match check before calibration and
+  temporal prediction plots. Physical unit conversions remain explicit
+  preprocessing operations and numerical loops remain unit-check free.
+- Migrated the Albuquerque and Ploemeur notebooks to the canonical
+  concentration constructors, `frame`, tracer-name, and observation-key APIs;
+  removed their remaining legacy imports and systematic-sampling keyword
+  aliases. Internal `cv`/`cdata` names and the final plotting-time `cv`
+  capability check were removed without compatibility shims.
 - Renamed the sample container to `LpmSampleTable` and grouped LPM sample
   storage and analysis under `pyages.lpm.samples`; model reporting and plotting
   now live under explicit `pyages.lpm.reporting` and `pyages.lpm.plotting`
@@ -90,9 +112,9 @@ Before 1.0, incompatible public changes are identified explicitly below.
   equations and boundaries, grid tolerances, inverse-Gaussian coordinates,
   objective transformations, Metropolis-Hastings acceptance, and traceability
   to tests and qualification reports.
-- Distinguished the released `0.1.0b1` software identity from the manuscript's
-  future “PyAges v1.0” target and documented the DOI/archive synchronization
-  gate.
+- Aligned the stable software, manuscript campaign, archive, and release-tag
+  identity on `1.0`, with a clean tagged-commit gate and DOI/archive
+  synchronization checks.
 - Upgraded public workflow manifests to schema 2. They are now written only
   after successful completion and include input, artifact, environment, Git
   diff, and complete tracked-workspace fingerprints.

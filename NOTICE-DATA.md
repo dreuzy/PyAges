@@ -16,9 +16,9 @@ source repository. Source-specific attribution and restrictions still apply.
 
 | Repository material | Source and transformations | Redistribution and attribution |
 | --- | --- | --- |
-| `data_core/data_tracer/CFC-SF6 chronicles, December 2025.xlsx` | Working compilation of Northern Hemisphere CFC-11, CFC-12, CFC-113, and SF6 atmospheric histories. The workbook metadata identifies Barbara Yvard as creator. Its cells and comments refer to USGS age-dating air curves and NOAA Global Monitoring Laboratory HATS data. | Project redistribution confirmed. Cite USGS and NOAA and identify PyAges/local updates when redistributing a modified copy. |
-| `data_core/data_tracer/CFC-SF6 chronicles, Octobre 2024.xlsx` | Earlier working compilation of CFC and SF6 atmospheric histories; workbook metadata identifies Barbara Yvard as creator. | Project redistribution confirmed. Cite USGS and NOAA and identify local modifications. |
-| `data_core/data_tracer/CFCs-SF6 chronicles 1940-2020.xlsx` | Historical working compilation used to prepare tracer recharge series. Workbook metadata identifies Barbara Yvard as creator and Jean-Raynald de Dreuzy as a later editor. | Project redistribution confirmed. Cite the upstream atmospheric-data providers and identify local modifications. |
+| `data_core/sources/tracer/CFC-SF6 chronicles, December 2025.xlsx` | Working compilation of Northern Hemisphere CFC-11, CFC-12, CFC-113, and SF6 atmospheric histories. The workbook metadata identifies Barbara Yvard as creator. Its cells and comments refer to USGS age-dating air curves and NOAA Global Monitoring Laboratory HATS data. | Project redistribution confirmed. Cite USGS and NOAA and identify PyAges/local updates when redistributing a modified copy. |
+| `data_core/sources/tracer/CFC-SF6 chronicles, Octobre 2024.xlsx` | Earlier working compilation of CFC and SF6 atmospheric histories; workbook metadata identifies Barbara Yvard as creator. | Project redistribution confirmed. Cite USGS and NOAA and identify local modifications. |
+| `data_core/sources/tracer/CFCs-SF6 chronicles 1940-2020.xlsx` | Historical working compilation used to prepare tracer recharge series. Workbook metadata identifies Barbara Yvard as creator and Jean-Raynald de Dreuzy as a later editor. | Project redistribution confirmed. Cite the upstream atmospheric-data providers and identify local modifications. |
 | `data_core/data_tracer/cfc11/recharge.csv` | NOAA Global Monitoring Laboratory CFC-11 combined record, supplemented before the observational period by a legacy reconstruction and sampled on a semi-annual grid. Citation: Dutton et al. (2025), <https://doi.org/10.15138/BVQ6-2S69>. | NOAA material is generally public domain in the United States. Cite NOAA GML and the dataset DOI. Do not imply NOAA endorsement. |
 | `data_core/data_tracer/cfc12/recharge.csv` | NOAA Global Monitoring Laboratory CFC-12 combined record, supplemented before the observational period by a legacy reconstruction and sampled on a semi-annual grid. Citation: Dutton et al. (2025), <https://doi.org/10.15138/PJ63-H440>. | Same conditions as the CFC-11 record. |
 | `data_core/data_tracer/cfc113/recharge.csv` | NOAA Global Monitoring Laboratory CFC-113 combined record, with a retained legacy reconstruction before 1992 and semi-annual sampling. Citation: Dutton et al. (2025), <https://doi.org/10.15138/4N0D-4M07>. | Same conditions as the CFC-11 record. |
@@ -33,10 +33,10 @@ Official source information:
 - USGS software user-rights notice: <https://water.usgs.gov/software/CAP/code/1.0/UserRightsNotice.html>
 - NOAA digital-media conditions: <https://sos.noaa.gov/copyright/>
 
-The three working spreadsheets are retained in the source repository for
-provenance and auditability. They are not runtime resources and are excluded
-from the Python wheel; the normalized CSV and YAML resources are the packaged
-inputs used by PyAges.
+The three working spreadsheets are grouped under `data_core/sources/tracer/`
+and retained in the source repository for provenance and auditability. They are
+not runtime resources and are excluded from built Python distributions; the
+normalized CSV and YAML resources are the packaged inputs used by PyAges.
 
 ## Ploemeur observations
 

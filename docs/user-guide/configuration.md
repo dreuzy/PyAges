@@ -143,7 +143,7 @@ calibration_metropolis_hastings:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `nstep` | integer | 5000 | Number of MCMC transitions; at least 1 |
+| `nstep` | integer | 5000 | Number of MCMC transitions; at least 11 so the fixed burn-in/thinning defaults retain a state |
 | `prior_option` | boolean | false | Include prior probability in acceptance |
 | `likelihood` | boolean | true | Use likelihood function |
 | `monitor` | boolean | false | Monitor and display acceptance rates |
@@ -153,6 +153,7 @@ These launcher fields do not by themselves demonstrate MCMC convergence.
 Acceptance, retention, prior, and proposal equations are given in
 {doc}`../scientific-methods`; article results additionally require the
 multiple-chain diagnostics described in {doc}`../science/inference`.
+The operational calibration checklist is in {doc}`calibration`.
 
 ### Simplex Section
 
@@ -353,18 +354,17 @@ must be finite and strictly positive.
 
 ```yaml
 prior:
-  type: uniform                     # 'uniform' or 'normal'/'gaussian'
+  type: uniform                     # 'uniform' or 'normal'
   min: 0.0                          # Prior minimum
   max: 100.0                        # Prior maximum
   unit: year                        # Unit (for documentation)
 ```
 
-For a normal prior, replace `min` and `max` with `mean` and `std`. `gaussian`
-is accepted as an alias for `normal`. A uniform prior requires finite values
-with `min < max`; a normal prior requires a finite mean and a finite,
-strictly-positive standard deviation. Unknown prior types and incomplete prior
-mappings are rejected while loading `params.yaml`. When parametric priors are
-enabled, every model parameter must define one.
+For a normal prior, replace `min` and `max` with `mean` and `std`. A uniform
+prior requires finite values with `min < max`; a normal prior requires a finite
+mean and a finite, strictly-positive standard deviation. Unknown prior types
+and incomplete prior mappings are rejected while loading `params.yaml`. When
+parametric priors are enabled, every model parameter must define one.
 
 Parameter bounds remain active independently of the prior and define the
 admissible calibration domain. Scientific analyses should report both the

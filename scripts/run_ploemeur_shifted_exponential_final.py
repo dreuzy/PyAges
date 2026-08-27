@@ -202,7 +202,10 @@ def _verify_raw_values() -> pd.DataFrame:
     for well, expected in EXPECTED_2024.items():
         raw = pd.read_table(RAW_DIRECTORY / f"{well}_brut.txt", header=None)
         header = [str(value).strip().lower().replace("-", "") for value in raw.iloc[0]]
-        match = raw.loc[raw.iloc[:, 0].astype(str).str.strip() == "31/10/2024"]
+        normalized_dates = raw.iloc[:, 0].map(
+            lambda value: "" if pd.isna(value) else str(value).strip()
+        )
+        match = raw.loc[normalized_dates.eq("31/10/2024")]
         if len(match) != 1:
             raise RuntimeError(
                 f"Expected one 31/10/2024 raw row for {well}, found {len(match)}"
@@ -257,7 +260,8 @@ def prepare_data_and_exports(output: Path) -> None:
             )
         )
         frame = pd.read_table(destination)
-        if set(frame["unit"].astype(str)) != {"pptv"}:
+        units = frame["unit"]
+        if units.isna().any() or set(units.map(str)) != {"pptv"}:
             raise RuntimeError(f"Final unit metadata is not pptv in {normalized}")
         old_concentrations = (
             old_frame.groupby(["element", "concentration"]).size().rename("old_count")

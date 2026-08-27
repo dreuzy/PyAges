@@ -217,7 +217,7 @@ def _build_mh_config(cal_cfg: TemporalCalibrationCfg) -> MHConfig:
 
 
 def _run_calibration(
-    cdata: Concentrations,
+    observations: Concentrations,
     lpm_type: str,
     output_dir: Path,
     lpm_directory: Path,
@@ -229,7 +229,7 @@ def _run_calibration(
 
     Parameters
     ----------
-    cdata : Concentrations
+    observations : Concentrations
         Concentration data (single-date or multi-date subset).
     lpm_type : str
         LPM name to calibrate (e.g., exp_shifted).
@@ -260,7 +260,7 @@ def _run_calibration(
 
     # Core calibration setup (data, model, solver options).
     problem = CalibrationProblem(
-        cdata,
+        observations,
         lpm_type,
         display_options=display,
         lpm_directory=lpm_directory,
@@ -278,7 +278,7 @@ def _run_calibration(
     # Temporal figures (chronicles) if enabled.
     if figures_cfg.temporal:
         export_calibrated_chronicles(
-            cdata,
+            observations,
             lpm_results,
             calstrat.method,
             display,
@@ -300,7 +300,7 @@ def _run_calibration(
             plot_concentration_diagnostics(
                 lpm_results,
                 self_method=calstrat.method,
-                concentrations_reference=cdata,
+                concentrations_reference=observations,
                 directory=display.directory,
             )
 
@@ -344,21 +344,21 @@ def _load_concentrations(
     return concentrations
 
 
-def _case_frames(cdata: Concentrations, mode: str):
+def _case_frames(observations: Concentrations, mode: str):
     """Return the observation subsets required by one workflow mode."""
     if mode == "span":
-        return [("span_full", cdata.frame)]
+        return [("span_full", observations.frame)]
     return [
         (
             f"date_{_format_date_label(date)}",
-            cdata.frame[cdata.frame["date"] == date],
+            observations.frame[observations.frame["date"] == date],
         )
-        for date in sorted(cdata.frame["date"].unique())
+        for date in sorted(observations.frame["date"].unique())
     ]
 
 
 def _run_temporal_cases(
-    cdata: Concentrations,
+    observations: Concentrations,
     mode_root: Path,
     mode: str,
     models: list[str],
@@ -368,7 +368,7 @@ def _run_temporal_cases(
 ) -> list[Path]:
     """Execute every observation-subset and LPM combination."""
     written_case_dirs = []
-    for date_label, frame in _case_frames(cdata, mode):
+    for date_label, frame in _case_frames(observations, mode):
         case_data = Concentrations.from_dataframe(frame)
         case_dir = result_subdirectory(mode_root, date_label)
         written_case_dirs.append(case_dir)
@@ -383,7 +383,7 @@ def _run_temporal_cases(
             plt.close(figure)
         for lpm_type in models:
             _run_calibration(
-                cdata=case_data,
+                observations=case_data,
                 lpm_type=lpm_type,
                 output_dir=result_subdirectory(case_dir, lpm_type),
                 lpm_directory=lpm_directory,

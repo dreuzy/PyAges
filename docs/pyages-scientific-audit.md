@@ -211,22 +211,24 @@ comme une correction scientifique versionnée, non comme un refactoring.
 
 ### 3.5 Unités et validation des observations
 
-Les unités sont actuellement surtout descriptives. Une colonne absente reçoit
-par défaut `mol/l`, même pour un CFC ou SF₆. Les unités d’observation ne sont pas
-systématiquement comparées à celles du traceur utilisé pour la convolution.
+L’audit initial avait relevé une unité `mol/l` ajoutée par défaut, l’absence de
+comparaison systématique entre observations et traceurs, ainsi que plusieurs
+graphies du pourcentage de carbone moderne.
 
-Le fichier ³H annonce `mol` dans son YAML alors que sa chronique est documentée
-en TU. Des variantes ¹⁴C utilisent `pCm%`, `pmC` ou `%modern`.
+#### Correction appliquée
 
-#### Modification proposée
+- aucune bibliothèque générale d’unités n’est chargée dans le cœur numérique ;
+- l’unité est explicite et textuelle dans toute table d’observations ;
+- les graphies connues sont canoniques, notamment `TU` et `pmC`, sans alias
+  silencieux ;
+- un traceur ne peut avoir qu’une unité dans une même table ;
+- l’égalité exacte observation/traceur est vérifiée une fois avant calibration
+  ou tracé temporel ;
+- les conversions physiques eau/atmosphère restent des prétraitements nommés et
+  documentés, jamais implicites.
 
-- ne pas introduire immédiatement une bibliothèque générale d’unités ;
-- définir un petit registre d’unités canoniques et d’alias ;
-- exiger une unité explicite à l’entrée, ou utiliser `unknown` plutôt que
-  `mol/l` par défaut ;
-- vérifier l’égalité canonique observation/traceur avant calibration ;
-- réserver les conversions physiques eau/atmosphère à des fonctions nommées et
-  documentées, jamais implicites.
+Les convolutions et les boucles d’optimisation ou d’échantillonnage ne portent
+donc aucun coût de vérification d’unités.
 
 ### 3.6 Lecture des chroniques CSV
 

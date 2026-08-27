@@ -45,9 +45,11 @@ Time-series recharge histories are linearly interpolated inside their declared
 date range and return zero outside that range. Constant-recharge tracers use the
 configured value for every evaluated recharge date.
 
-PyAges records unit metadata but does not perform physical unit conversion.
-Observations, uncertainties, and tracer input histories must therefore be
-prepared on mutually consistent scales before calibration. In particular,
+PyAges requires explicit observation units and verifies their exact equality
+with the modeled tracer units before calibration, but it does not perform
+physical unit conversion. The check runs once at the API boundary rather than
+inside numerical loops. Observations, uncertainties, and tracer input histories
+must therefore be prepared on mutually consistent scales. In particular,
 the distributed CFC and SF6 histories are atmospheric-equivalent mixing ratios;
 conversion of measured dissolved-gas concentrations belongs to preprocessing.
 Dataset sources, local transformations, attribution, and redistribution limits

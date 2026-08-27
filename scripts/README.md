@@ -50,14 +50,30 @@ You can override this with `PYAGES_RESULTS_DIR` (see the root `README.md`).
 
 ## Script overview
 
+The module paths below are stable repository entry points. They remain flat
+until after the 1.0 release so documented commands, tests, and reproduction
+manifests do not break merely for cosmetic grouping.
+
+| Family | Maintained modules | Purpose |
+| --- | --- | --- |
+| Diagnostics and qualification | `run_system_check`, `run_calibration_benchmark`, `qualify_mh_proposals` | Fast environment checks, calibration comparison, and MH proposal qualification |
+| Article campaigns | `reproduce_article`, `run_article_non_ploemeur`, `run_remaining_non_ploemeur_simulations`, `run_final_shifted_exponential`, `run_final_holten_h4`, `run_holten_prior_robustness`, `run_ploemeur_shifted_exponential_final`, `run_ploemeur_targeted_ig_reproduction`, `run_tracerlpm_article_campaign` | Complete or focused scientific campaigns |
+| Post-processing and audit | `reproduce_manuscript_figure2`, `postprocess_shifted_exponential_mtt_uncertainty`, `update_manuscript_figures`, `audit_ploemeur_article_nonregression`, `build_final_scientific_audit`, `build_article_non_ploemeur_report` | Derive figures, tables, and audit reports from existing evidence |
+| Publication archives | `build_article_package`, `build_reproduction_archive`, `build_zenodo_bundle` | Build and validate publication-facing artifacts |
+| Repository maintenance | `check_licensing`, `check_project_metadata`, `clean_release_artifacts`, `generate_test_inventory` | Check metadata and licensing, clean generated artifacts, and refresh test documentation |
+
+Invoke a module as `python -m scripts.<module> --help` when it exposes a CLI.
+The complete article campaign below is the canonical high-level entry point.
+
 ### Complete article reproduction
 
 Use an output directory outside the repository:
 
 ```powershell
-python -m scripts.reproduce_article preflight --output C:\pyages-runs\article-v1
-python -m scripts.reproduce_article resume --output C:\pyages-runs\article-v1 --workers 6
-python -m scripts.reproduce_article validate --output C:\pyages-runs\article-v1
+$env:PYTHONNOUSERSITE = "1"
+python -m scripts.reproduce_article preflight --output C:\pyages-runs\article-1.0
+python -m scripts.reproduce_article resume --output C:\pyages-runs\article-1.0 --workers 6
+python -m scripts.reproduce_article validate --output C:\pyages-runs\article-1.0
 ```
 
 The workflow covers the independent forward cases, paired TracerLPM/Excel
@@ -68,6 +84,28 @@ stage. `resume` reuses validated stages and individual chain/shard
 outputs. `validate` checks the fresh campaign manifest, expected stage files,
 package hashes, and archive hashes. Canonical runs require a clean Git worktree;
 `--allow-dirty` is intended only for development checks.
+
+The canonical preflight also requires the direct versions recorded in
+`install/environment.yml`, an installed PyAges version matching the source,
+the exact annotated tag `1.0` at `HEAD`, and a disabled Python user-site. Keep
+`PYTHONNOUSERSITE=1` set for direct commands; both Windows wrappers set it
+automatically. `--allow-untagged` is development only.
+
+After the campaign validates and a Zenodo DOI has been reserved, build the
+final uploadable bundle:
+
+```powershell
+python -m scripts.build_zenodo_bundle `
+  --archive C:\pyages-runs\article-1.0-gmd-archive `
+  --output C:\pyages-runs\pyages-1.0-zenodo `
+  --zip-output C:\pyages-runs\pyages-1.0-zenodo.zip `
+  --tracerlpm-workbook C:\TracerLPM-Test\working\TracerLPM_V_1_0_FourTracers_v17.xlsm `
+  --tracerlpm-xll C:\Users\dreuzy\AppData\Roaming\Microsoft\AddIns\TracerLPMfunctions_64_v_1.xll `
+  --doi 10.5281/zenodo.REPLACE_WITH_RESERVED_ID
+```
+
+Use `--draft` only for a pre-DOI review bundle. The final CLI refuses to build
+without `--doi` and validates both the complete core archive and final ZIP.
 
 `python article/run_case.py check <case>` has a different purpose: it audits
 the optional historical `results/` inventory. Its result must not be used as

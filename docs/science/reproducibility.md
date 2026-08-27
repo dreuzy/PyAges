@@ -17,14 +17,25 @@ checkout and records resumable stage status. Its own validator is the canonical
 technical gate for the fresh evidence:
 
 ```powershell
-python -m scripts.reproduce_article preflight --output C:\pyages-runs\article-v1
-python -m scripts.reproduce_article resume --output C:\pyages-runs\article-v1 --workers 6
-python -m scripts.reproduce_article status --output C:\pyages-runs\article-v1
-python -m scripts.reproduce_article validate --output C:\pyages-runs\article-v1
+$env:PYTHONNOUSERSITE = "1"
+python -m scripts.reproduce_article preflight --output C:\pyages-runs\article-1.0
+python -m scripts.reproduce_article resume --output C:\pyages-runs\article-1.0 --workers 6
+python -m scripts.reproduce_article status --output C:\pyages-runs\article-1.0
+python -m scripts.reproduce_article validate --output C:\pyages-runs\article-1.0
 ```
 
+The canonical launch is accepted only from the qualified direct environment,
+a clean worktree, and a commit carrying the exact annotated tag `1.0`. The
+preflight checks the direct versions in `install/environment.yml`, the source
+and installed PyAges versions, the tag at `HEAD`, versioned inputs, and the
+hash-qualified TracerLPM dependencies. It also refuses a Python process whose
+per-user package directory is enabled, because that directory can shadow the
+qualified environment. `--allow-dirty` and `--allow-untagged` exist for
+development diagnostics only and invalidate the final-release route.
+
 On Windows, the equivalent wrapper is
-`scripts\windows\reproduce_article.bat C:\pyages-runs\article-v1`. The default
+`scripts\windows\reproduce_article.bat C:\pyages-runs\article-1.0`. The wrapper
+sets `PYTHONNOUSERSITE=1` automatically. The default
 sequence recalculates the independent forward benchmark, the paired
 PyAges/TracerLPM robustness campaign, the stabilized shifted-exponential,
 Holten H4 and Ploemeur MCMC campaigns, the distinct Holten--Dirichlet
@@ -123,6 +134,33 @@ revisions, and provenance metadata for the published release. Until that
 external archive and DOI exist, the local archive, Git revisions, and case
 manifests provide traceability but not a permanent deposit.
 
-“PyAges v1.0” is currently a manuscript target rather than the released package
-version. The beta/software/DOI identity rules and the future archive sequence
-are maintained in {doc}`../dev/versioning-citation`.
+## Final Zenodo bundle
+
+The complete campaign ends with the core archive
+`C:\pyages-runs\article-v1-gmd-archive`. After reserving the Zenodo DOI, build
+the uploadable reader bundle without rerunning simulations:
+
+```powershell
+python -m scripts.build_zenodo_bundle `
+  --archive C:\pyages-runs\article-v1-gmd-archive `
+  --output C:\pyages-runs\pyages-1.0-zenodo `
+  --zip-output C:\pyages-runs\pyages-1.0-zenodo.zip `
+  --tracerlpm-workbook C:\TracerLPM-Test\working\TracerLPM_V_1_0_FourTracers_v17.xlsm `
+  --tracerlpm-xll C:\Users\dreuzy\AppData\Roaming\Microsoft\AddIns\TracerLPMfunctions_64_v_1.xll `
+  --doi 10.5281/zenodo.REPLACE_WITH_RESERVED_ID
+```
+
+Add `--article-doi` when the GMD article or preprint DOI is known. For a local
+metadata review before DOI reservation, use `--draft`; the final command
+refuses a missing DOI. Validate the directory and ZIP together with:
+
+```powershell
+python -m scripts.build_zenodo_bundle `
+  --validate-only C:\pyages-runs\pyages-1.0-zenodo `
+  --zip-output C:\pyages-runs\pyages-1.0-zenodo.zip
+```
+
+The source tree carries the prepared `1.0` identity. It becomes the released
+version only when tag `1.0`, its commit, the validated archive, and the Zenodo
+record agree. The full identity and DOI rules are maintained in
+{doc}`../dev/versioning-citation`.

@@ -67,6 +67,7 @@ def test_core_summary_plots_smoke(tmp_path: Path) -> None:
             concentrations,
             reachable,
             {"posterior": posterior},
+            reference_concentrations=concentrations,
             filename=tmp_path / "model_space.png",
         ),
         plot_parameter_summary(
@@ -130,10 +131,10 @@ def test_plot_temporal_fit_comparison_smoke(tmp_path: Path) -> None:
             "date": [2010.0, 2012.0, 2010.0, 2012.0],
             "concentration": [4.2, 3.7, 12.1, 10.8],
             "error": [0.2, 0.2, 0.4, 0.4],
-            "unit": ["TU", "TU", "pmc", "pmc"],
+            "unit": ["TU", "TU", "pptv", "pptv"],
         }
     )
-    cdata = Concentrations.from_dataframe(observed)
+    observations = Concentrations.from_dataframe(observed)
     transient = pd.DataFrame(
         {
             "mu": [12.0, 13.5, 14.0, 15.0, 16.0, 16.5],
@@ -151,7 +152,7 @@ def test_plot_temporal_fit_comparison_smoke(tmp_path: Path) -> None:
     out_path = tmp_path / "temporal_fit_comparison.png"
 
     fig = plot_temporal_fit_comparison(
-        observations=cdata,
+        observations=observations,
         posterior_frames={
             "Transient posterior": transient,
             "Single-date posterior": single_date,

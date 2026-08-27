@@ -10,7 +10,7 @@ Trois ensembles de preuve ont été distingués:
 2. les preuves historiques versionnées de la matrice forward 133 cas;
 3. la campagne stabilisée existante `C:\pyage-runs\article-v1` et son paquet d'article.
 
-Les manifests historiques sous `article/` pointent vers d'anciens commits et des résultats bruts absents du dépôt. Les six commandes légères `python article/run_case.py check <case_id>` ne valident donc pas l'état local actuel (artefacts historiques manquants et/ou checksums divergents). La campagne externe stabilisée fournit les résultats utilisés dans le présent audit, mais elle ne transforme pas les anciens manifests en preuve de release v1.0. Le futur fichier `audit/reproducibility_release_check.md` n'a volontairement pas été créé.
+Les manifests historiques sous `article/` pointent vers d'anciens commits et des résultats bruts absents du dépôt. Les six commandes légères `python article/run_case.py check <case_id>` ne valident donc pas l'état local actuel (artefacts historiques manquants et/ou checksums divergents). La campagne externe stabilisée fournit les résultats utilisés dans le présent audit, mais elle ne transforme pas les anciens manifests en preuve de release v1.0. Le futur fichier `article/audit/reproducibility_release_check.md` n'a volontairement pas été créé.
 
 ## 1. Diagnostics MCMC — `NEEDS MANUSCRIPT REVISION`
 

@@ -101,6 +101,7 @@ class CalibrationProblem:
             date=self.observations.frame["date"],
             tracer_data_dir=self.tracer_data_directory,
         )
+        self.tracers.validate_observation_units(self.observations)
         self.observations.fill_missing_errors_from_means(
             self.tracers.mean_value(self.observations.frame["date"].mean())
         )

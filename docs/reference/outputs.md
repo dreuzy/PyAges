@@ -128,7 +128,8 @@ The same calibration files are used by both workflows.
 
 A headerless two-column key/value table containing the resolved algorithm
 configuration. Metropolis-Hastings records the transition count, burn-in,
-thinning, proposal, seed, initialization source, and resolved prior metadata.
+thinning, derived retained-sample count, proposal, seed, initialization source,
+and resolved prior metadata.
 Simplex/FUQ records the method, tolerances, initialization count and seeds, and
 the uncertainty sample count where applicable. Values that are lists or
 mappings use their Python text representation.

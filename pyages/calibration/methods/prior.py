@@ -189,15 +189,11 @@ class Prior:
             prior_type = prior.get("type")
             if not prior_type:
                 continue
-            self.MHapriori_dist[name] = (
-                "normal" if prior_type == "gaussian" else prior_type
-            )
+            self.MHapriori_dist[name] = prior_type
             if prior_type == "uniform":
                 self.MHapriori_para[name] = [prior.get("min"), prior.get("max")]
-            elif prior_type in {"normal", "gaussian"}:
+            elif prior_type == "normal":
                 self.MHapriori_para[name] = [prior.get("mean"), prior.get("std")]
-            else:
-                self.MHapriori_para[name] = list(prior.get("args", []))[:2]
         expected = list(lpm.p)
         missing = [name for name in expected if name not in self.MHapriori_dist]
         extra = [name for name in self.MHapriori_dist if name not in lpm.p]

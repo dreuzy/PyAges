@@ -71,6 +71,11 @@ class MHConfig:
 
     def __post_init__(self) -> None:
         """Reject invalid controls before allocating or running a chain."""
+        self._validate_chain_controls()
+        self._validate_proposal_controls()
+
+    def _validate_chain_controls(self) -> None:
+        """Validate transition, retention, prior, and seed settings."""
         if (
             isinstance(self.nstep, bool)
             or not isinstance(self.nstep, int)
@@ -89,6 +94,19 @@ class MHConfig:
             raise ValueError("seed must be an integer")
         if self.prior_type not in {"parametric", "empirical"}:
             raise ValueError("prior_type must be 'parametric' or 'empirical'")
+        if self.retained_sample_count() == 0:
+            raise ValueError(
+                "nstep, burn_in, and nskip retain no samples under the strict "
+                "burn-in rule"
+            )
+
+    def _validate_proposal_controls(self) -> None:
+        """Validate proposal selection and mutually exclusive settings."""
+        self._validate_proposal_selection()
+        self._validate_proposal_payload()
+
+    def _validate_proposal_selection(self) -> None:
+        """Validate proposal names and scalar controls."""
         valid_kinds = {
             "componentwise",
             "diagonal",
@@ -105,6 +123,55 @@ class MHConfig:
             or self.componentwise_fraction <= 0.0
         ):
             raise ValueError("componentwise_fraction must be finite and positive")
+        if (
+            isinstance(self.proposal_multiplier, bool)
+            or not math.isfinite(self.proposal_multiplier)
+            or self.proposal_multiplier <= 0.0
+        ):
+            raise ValueError("proposal_multiplier must be finite and positive")
+
+    def _validate_proposal_payload(self) -> None:
+        """Validate the parameters accepted by the selected proposal."""
+        if self.proposal_kind == "componentwise":
+            if (
+                self.proposal_scales is not None
+                or self.proposal_covariance is not None
+                or self.proposal_multiplier != 1.0
+            ):
+                raise ValueError(
+                    "componentwise proposals do not accept explicit scales, "
+                    "covariance, or multiplier"
+                )
+        elif self.proposal_kind in {"diagonal", "sum_difference"}:
+            if self.proposal_scales is None:
+                raise ValueError(f"{self.proposal_kind} requires proposal_scales")
+            if self.proposal_covariance is not None:
+                raise ValueError(
+                    f"{self.proposal_kind} does not accept proposal_covariance"
+                )
+        else:
+            if self.proposal_covariance is None:
+                raise ValueError(f"{self.proposal_kind} requires proposal_covariance")
+            if self.proposal_scales is not None:
+                raise ValueError(
+                    f"{self.proposal_kind} does not accept proposal_scales"
+                )
+
+    def should_retain(self, iteration: int) -> bool:
+        """Return whether one zero-based transition is retained."""
+        return (
+            0 <= iteration < self.nstep
+            and iteration > self.burn_in * self.nstep
+            and iteration % self.nskip == 0
+        )
+
+    def retained_sample_count(self) -> int:
+        """Return the retained row count in constant time."""
+        threshold = self.burn_in * self.nstep
+        first = (math.floor(threshold / self.nskip) + 1) * self.nskip
+        if first >= self.nstep:
+            return 0
+        return 1 + (self.nstep - 1 - first) // self.nskip
 
 
 @dataclass(frozen=True)

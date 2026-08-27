@@ -517,7 +517,11 @@ def posterior_predictions(output: Path) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for well in prepared.context.selected_wells:
         observations = build_observations(prepared, well, True)
-        matrix = _matrix(endmembers, observations["element"].astype(str).tolist())
+        elements = observations["element"]
+        if elements.isna().any():
+            raise RuntimeError(f"Missing tracer name in observations for {well}")
+        tracer_names = elements.map(str).tolist()
+        matrix = _matrix(endmembers, tracer_names)
         fractions = np.concatenate(
             [
                 _load(_chain_path(output, well, chain))["fractions"]
@@ -529,7 +533,7 @@ def posterior_predictions(output: Path) -> pd.DataFrame:
         errors = observations["error"].to_numpy(float)
         median_modeled = np.median(modeled, axis=0)
         standardized = (observed - median_modeled) / errors
-        for index, tracer in enumerate(observations["element"].astype(str)):
+        for index, tracer in enumerate(tracer_names):
             rows.append(
                 {
                     "prior": "dirichlet_1",

@@ -59,9 +59,10 @@ def build_pytest_command(modes: Sequence[str]) -> list[str]:
                 verbosity,
                 "tests",
                 "--cov=pyages",
+                "--cov-branch",
                 "--cov-report=term-missing",
                 "--cov-report=xml",
-                "--cov-fail-under=60",
+                "--cov-fail-under=75",
             ]
         )
     else:

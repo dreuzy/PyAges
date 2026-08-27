@@ -113,6 +113,11 @@ class ConvolutionTracers:
         """Gets units of tracers."""
         return [t.unit for t in self.elements]
 
+    def validate_observation_units(self, observations: Concentrations) -> None:
+        """Validate observation/model units once before numerical work."""
+        expected_units = dict(zip(self.element_names(), self.units(), strict=True))
+        observations.require_matching_units(expected_units)
+
     def convolve(
         self,
         lpm: LPM,

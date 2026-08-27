@@ -241,9 +241,16 @@ class LpmSampleTable:
             raise ValueError("Cannot merge sample tables with different concentrations")
         self.validate()
         other.validate()
-        self.__dist = pd.concat(
-            [self.__dist, other.frame], ignore_index=True, sort=False
-        )
+        source = other.frame
+        if source.empty:
+            return
+        if self.__dist.empty:
+            columns = list(dict.fromkeys([*self.__dist.columns, *source.columns]))
+            self.__dist = (
+                source.reindex(columns=columns).reset_index(drop=True).copy(deep=True)
+            )
+            return
+        self.__dist = pd.concat([self.__dist, source], ignore_index=True, sort=False)
 
     def replace_frame(self, frame: pd.DataFrame) -> None:
         """Replace all samples with a validated data frame.

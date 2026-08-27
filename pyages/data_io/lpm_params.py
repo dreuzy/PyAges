@@ -120,7 +120,7 @@ def _validated_prior(
         raise LPMParamsError(
             f"{model_name}: prior for parameter {parameter_name!r} must define a type"
         )
-    if prior_type not in {"uniform", "normal", "gaussian"}:
+    if prior_type not in {"uniform", "normal"}:
         raise LPMParamsError(
             f"{model_name}: unsupported prior type {prior_type!r} "
             f"for parameter {parameter_name!r}"

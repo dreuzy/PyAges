@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from scripts import build_article_non_ploemeur_report as non_ploemeur_report
 from scripts import build_article_package as package
 from scripts import run_ploemeur_shifted_exponential_final as ploemeur_runner
 from scripts import run_ploemeur_targeted_ig_reproduction as ig_runner
@@ -78,6 +79,34 @@ def test_markdown_table_rounds_and_escapes_without_tabulate():
 
     assert "a\\|b" in rendered
     assert "1.235" in rendered
+
+
+def test_article_boolean_diagnostics_treat_missing_values_as_false():
+    values = pd.Series([True, " TRUE ", False, "no", None, pd.NA])
+
+    assert package._true_mask(values).tolist() == [
+        True,
+        True,
+        False,
+        False,
+        False,
+        False,
+    ]
+
+
+def test_tracerlpm_report_rejects_missing_model_names(monkeypatch, tmp_path):
+    generated = tmp_path / "generated" / "robustness-study"
+    generated.mkdir(parents=True)
+    pd.DataFrame(
+        {
+            "model": ["exp", None],
+            "noise_relative_sd": [0.0, 0.01],
+        }
+    ).to_csv(generated / "results.csv", index=False)
+    monkeypatch.setattr(non_ploemeur_report, "TRACERLPM", tmp_path)
+
+    with pytest.raises(RuntimeError, match="missing model names"):
+        non_ploemeur_report._tracerlpm_summary(tmp_path / "absent-run")
 
 
 def test_article_package_is_atomic_and_hash_validated(monkeypatch, tmp_path):

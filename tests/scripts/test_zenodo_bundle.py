@@ -101,6 +101,9 @@ def _core_archive(tmp_path: Path, workbook: Path, xll: Path) -> Path:
         json.dumps(
             {
                 "git_head": "test-head",
+                "git_tags_at_head": ["test-version"],
+                "release_tag": "test-version",
+                "pyages_version": "test-version",
                 "scope": "complete article evidence including Holten prior-sensitivity",
                 "files": files,
             }
@@ -192,3 +195,21 @@ def test_zenodo_bundle_rejects_archive_without_prior_sensitivity(tmp_path):
             xll=xll,
             title="PyAges test archive",
         )
+
+
+def test_zenodo_cli_requires_doi_unless_explicitly_building_a_draft(tmp_path):
+    arguments = [
+        "--archive",
+        str(tmp_path / "archive"),
+        "--output",
+        str(tmp_path / "bundle"),
+        "--zip-output",
+        str(tmp_path / "bundle.zip"),
+        "--tracerlpm-workbook",
+        str(tmp_path / "workbook.xlsm"),
+        "--tracerlpm-xll",
+        str(tmp_path / "functions.xll"),
+    ]
+
+    with pytest.raises(SystemExit, match="2"):
+        build_zenodo_bundle.main(arguments)

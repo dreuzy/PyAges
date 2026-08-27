@@ -33,7 +33,7 @@ promise is {doc}`../reference/public-api`.
    pyages.calibration.methods.trajectory
 ```
 
-## I/O, CLI, and site integration
+## I/O, CLI, and workflows
 
 ```{eval-rst}
 .. autosummary::
@@ -43,7 +43,6 @@ promise is {doc}`../reference/public-api`.
    pyages.data_io.lpm_results
    pyages.data_io.lpm_distribution
    pyages.cli.main
-   pyages.site.base_site
    pyages.workflows
    pyages.workflows.result_manifest
 ```

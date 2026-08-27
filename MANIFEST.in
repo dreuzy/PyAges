@@ -9,4 +9,5 @@ include THIRD_PARTY_NOTICES.md
 include install/README.md
 include install/environment.yml
 include install/constraints.txt
+prune data_core/sources
 prune tests

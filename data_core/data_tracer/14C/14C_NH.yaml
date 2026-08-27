@@ -11,15 +11,15 @@
 # =============================================================================
 
 # Unit of concentration measurement
-# pCm% = percent modern carbon
-unit: pCm%
+# pmC = percent modern carbon
+unit: pmC
 
 # =============================================================================
 # Recharge Configuration
 # =============================================================================
 
 # Constant recharge concentration (no temporal variation)
-# For 14C, atmospheric concentration is considered constant at 100 pCm%
+# For 14C, atmospheric concentration is considered constant at 100 pmC
 recharge_constant: 100
 
 # Enable recharge chronicle from external file

@@ -80,7 +80,7 @@ AREA_INFO = {
         "Runnable examples, helper contracts, reproduction modes, and accepted outputs",
         "Standard CI",
     ),
-    "tests/io": AreaInfo(
+    "tests/data_io": AreaInfo(
         "Input/output",
         "Unit / data contract",
         "LPM parameter parsing and serialization",

@@ -300,7 +300,7 @@ def build_residual_table(
 
     table = pd.DataFrame(
         {
-            "tracer": observations.frame["element"].astype(str).to_numpy(),
+            "tracer": observations.frame["element"].map(str).to_numpy(),
             "observed": observed,
             "sigma": sigma,
             "modelled_best_mh": modelled,

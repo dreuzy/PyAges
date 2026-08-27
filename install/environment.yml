@@ -1,6 +1,8 @@
 # Historical article-reproduction direct baseline. This is not a lock of the
 # original platform-specific transitive solve and is distinct from the
-# candidate user constraints in constraints.txt.
+# candidate user constraints in constraints.txt. Launch the campaign with
+# PYTHONNOUSERSITE=1 so packages from the per-user Python directory cannot
+# shadow this environment.
 name: pyages-article-reproduction
 channels:
   - conda-forge

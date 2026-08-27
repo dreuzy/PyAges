@@ -683,9 +683,10 @@ def analyze(output: Path, steps: int = PRODUCTION_STEPS) -> dict[str, Path]:
     )
     if published_path.exists():
         published = pd.read_csv(published_path)
-        published = published.loc[
-            published["is_reference"].astype(str).str.lower() == "true"
-        ].copy()
+        is_reference = published["is_reference"].map(
+            lambda value: not pd.isna(value) and str(value).strip().lower() == "true"
+        )
+        published = published.loc[is_reference].copy()
         published["parameter"] = published["parameter"].replace({"mu_plus_t0": "mtt"})
         selected = published[
             [

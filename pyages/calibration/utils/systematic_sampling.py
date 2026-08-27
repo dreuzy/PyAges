@@ -53,6 +53,8 @@ class SystematicSampling:
         self._target_size = sample_count
         self._date = date
         self._observations = observations
+        if observations is not None:
+            self._tracers.validate_observation_units(observations)
         self.display = display_options or DisplayOptions()
         self.display_objective = bool(explore_objective)
         self.display_reachable = bool(explore_reachable)
@@ -121,7 +123,7 @@ class SystematicSampling:
         if len(observed) != len(modeled.columns):
             raise ValueError("Observation and model dimensions do not match")
 
-        observed_names = observed["element"].astype(str).tolist()
+        observed_names = observed["element"].map(str).tolist()
         modeled_names = [str(name) for name in modeled.columns]
         if observed_names != modeled_names:
             raise ValueError(

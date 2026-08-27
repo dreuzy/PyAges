@@ -163,6 +163,10 @@ def test_shared_schema_rejects_invalid_optional_metadata(field, value, message) 
     ("prior", "message"),
     [
         ({"min": 0.0, "max": 1.0}, "must define a type"),
+        (
+            {"type": "gaussian", "mean": 0.0, "std": 1.0},
+            "unsupported prior type",
+        ),
         ({"type": "lognormal", "args": [0.0, 1.0]}, "unsupported prior type"),
         ({"type": "uniform", "min": 0.0}, "requires 'min' and 'max'"),
         (
@@ -196,8 +200,7 @@ def test_schema_rejects_invalid_parametric_priors(prior, message) -> None:
         lpm_params.parse_parameter_schema(params)
 
 
-@pytest.mark.parametrize("prior_type", ["normal", "gaussian"])
-def test_schema_accepts_supported_normal_prior_aliases(prior_type) -> None:
+def test_schema_accepts_normal_prior() -> None:
     params = {
         "model": "custom",
         "version": 1,
@@ -206,14 +209,14 @@ def test_schema_accepts_supported_normal_prior_aliases(prior_type) -> None:
                 "name": "mu",
                 "bounds": [0.0, 10.0],
                 "init": 1.0,
-                "prior": {"type": prior_type, "mean": 2.0, "std": 0.5},
+                "prior": {"type": "normal", "mean": 2.0, "std": 0.5},
             }
         ],
     }
 
     schema = lpm_params.parse_parameter_schema(params)
     assert lpm_params.get_priors(schema)["mu"] == {
-        "type": prior_type,
+        "type": "normal",
         "mean": 2.0,
         "std": 0.5,
     }

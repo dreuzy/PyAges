@@ -3,16 +3,16 @@
 # ============================================================================
 #
 # Tracer: 14C_SH
-# Unit: pCm% (percent modern carbon)
+# Unit: pmC (percent modern carbon)
 #
 # Notes:
-# - Placeholder constant recharge (100 pCm%) for Southern Hemisphere
+# - Placeholder constant recharge (100 pmC) for Southern Hemisphere
 # - Replace with a region-specific chronicle when available
 #
 # File Format: CSV
 # Column Descriptions:
 #   date: Decimal year
-#   concentration: Recharge concentration in pCm%
+#   concentration: Recharge concentration in pmC
 # ============================================================================
 #	
 # Notes:	

@@ -50,7 +50,6 @@ from time import perf_counter
 from pyages.calibration.methods.base import CalibrationMethod
 from pyages.calibration.outputs import write_key_values
 from pyages.calibration.utils.objective_functions import normalized_residual_norm
-from pyages.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
 from pyages.lpm.samples import LpmSampleTable
 
 
@@ -64,8 +63,7 @@ class MyMethod(CalibrationMethod):
 
     def perform(self) -> LpmSampleTable:
         started = perf_counter()
-        observed = self.observations.frame[CONCENTRATION_COLUMN].to_numpy(float)
-        errors = self.observations.frame[ERROR_COLUMN].to_numpy(float)
+        observed, errors = self.observation_arrays()
 
         # Replace this initial point with the new search algorithm.
         parameters = self.lpm.param_init()

@@ -104,14 +104,14 @@ def release_identity_errors(tag: str | None = None) -> list[str]:
         )
     if not re.search(rf"^## {re.escape(version)}(?:\s+-|$)", changelog, re.MULTILINE):
         errors.append(f"CHANGELOG.md has no release heading for {version}")
-    if tag is not None and tag.removeprefix("v") != version:
+    if tag is not None and tag != version:
         errors.append(f"tag/version mismatch: tag={tag}, package={version}")
     return errors
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tag", help="Expected Git tag, normally v<version>.")
+    parser.add_argument("--tag", help="Expected Git tag; release 1.0 uses tag 1.0.")
     args = parser.parse_args(argv)
     errors = dependency_alignment_errors() + release_identity_errors(args.tag)
     if errors:

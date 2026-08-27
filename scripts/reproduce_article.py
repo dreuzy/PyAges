@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import os
 import platform
 import shutil
+import site
 import subprocess
 import sys
 import tempfile
@@ -22,8 +24,14 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import yaml
+from packaging.version import Version
+
+from pyages import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
+RELEASE_TAG = "1.0"
+RELEASE_VERSION = "1.0"
+REPRODUCTION_ENVIRONMENT = ROOT / "install/environment.yml"
 ALL_STAGES = (
     "forward",
     "tracerlpm",
@@ -70,13 +78,21 @@ def _outside_repository(path: Path) -> bool:
     return False
 
 
-def _stage_map(output: Path, workers: int, tracer_config: Path, allow_dirty: bool):
+def _stage_map(
+    output: Path,
+    workers: int,
+    tracer_config: Path,
+    allow_dirty: bool,
+    expected_tag: str = RELEASE_TAG,
+    allow_untagged: bool = False,
+):
     python = sys.executable
     archive = output.with_name(f"{output.name}-gmd-archive")
     shifted_summary = (
         output / "ploemeur_shifted_exponential/ploemeur_shiftedexp_final_summary.csv"
     )
     dirty_flag = ("--allow-dirty",) if allow_dirty else ()
+    untagged_flag = ("--allow-untagged",) if allow_untagged else ()
     return {
         "forward": Stage(
             "forward",
@@ -208,7 +224,10 @@ def _stage_map(output: Path, workers: int, tracer_config: Path, allow_dirty: boo
                 "--output",
                 str(archive),
                 "--reuse-valid",
+                "--expected-tag",
+                expected_tag,
                 *dirty_flag,
+                *untagged_flag,
             ),
             (archive / "ARCHIVE_MANIFEST.json", archive / "CHECKSUMS.sha256"),
         ),
@@ -255,11 +274,91 @@ def _check_tracer_config(path: Path) -> list[str]:
     return errors
 
 
+def _check_release_identity(expected_tag: str, allow_untagged: bool) -> list[str]:
+    errors = []
+    if Version(__version__) != Version(RELEASE_VERSION):
+        errors.append(
+            f"PyAges {RELEASE_VERSION} required, source reports {__version__}"
+        )
+    try:
+        installed = importlib.metadata.version("pyages")
+    except importlib.metadata.PackageNotFoundError:
+        errors.append(
+            "PyAges is not installed; run `python -m pip install --no-deps -e .`"
+        )
+    else:
+        if Version(installed) != Version(__version__):
+            errors.append(
+                "installed PyAges version does not match the source tree: "
+                f"installed={installed}, source={__version__}; reinstall with "
+                "`python -m pip install --no-deps -e .`"
+            )
+
+    tags = {tag for tag in _git("tag", "--points-at", "HEAD").splitlines() if tag}
+    if expected_tag not in tags and not allow_untagged:
+        errors.append(
+            f"release tag {expected_tag!r} does not point at HEAD; tag the exact "
+            "reviewed commit or use --allow-untagged for development checks only"
+        )
+    elif (
+        expected_tag in tags
+        and _git("cat-file", "-t", f"refs/tags/{expected_tag}") != "tag"
+    ):
+        errors.append(
+            f"release tag {expected_tag!r} must be annotated, not lightweight"
+        )
+    return errors
+
+
+def _check_reproduction_environment() -> tuple[dict[str, str], list[str]]:
+    """Check the direct versions recorded for the article campaign."""
+    payload = yaml.safe_load(REPRODUCTION_ENVIRONMENT.read_text(encoding="utf-8"))
+    observed = {
+        "python": platform.python_version(),
+        "executable": sys.executable,
+    }
+    errors = []
+    observed["user_site_enabled"] = str(bool(site.ENABLE_USER_SITE)).lower()
+    if site.ENABLE_USER_SITE:
+        errors.append(
+            "Python user-site packages are enabled; set PYTHONNOUSERSITE=1 "
+            "before launching the article campaign"
+        )
+    for raw in payload["dependencies"]:
+        if not isinstance(raw, str) or "=" not in raw:
+            continue
+        name, expected = raw.split("=", 1)
+        normalized = name.strip().lower()
+        expected = expected.strip()
+        if normalized == "python":
+            actual = platform.python_version()
+            observed[normalized] = actual
+            if not actual.startswith(f"{expected}.") and actual != expected:
+                errors.append(
+                    f"article environment requires Python {expected}.x, found {actual}"
+                )
+            continue
+        try:
+            actual = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            errors.append(f"missing article-environment dependency: {name}=={expected}")
+            continue
+        observed[normalized] = actual
+        if Version(actual) != Version(expected):
+            errors.append(
+                f"article environment mismatch for {name}: expected {expected}, "
+                f"found {actual}"
+            )
+    return observed, errors
+
+
 def preflight(
     output: Path,
     selected: tuple[str, ...],
     tracer_config: Path,
     allow_dirty: bool,
+    expected_tag: str = RELEASE_TAG,
+    allow_untagged: bool = False,
 ) -> dict[str, object]:
     errors = []
     if not _outside_repository(output):
@@ -276,10 +375,18 @@ def preflight(
         )
     if "tracerlpm" in selected:
         errors.extend(_check_tracer_config(tracer_config))
+    environment, environment_errors = _check_reproduction_environment()
+    errors.extend(environment_errors)
+    errors.extend(_check_release_identity(expected_tag, allow_untagged))
+    tags = [tag for tag in _git("tag", "--points-at", "HEAD").splitlines() if tag]
     report = {
         "checked_at": _now(),
         "git_head": _git("rev-parse", "HEAD"),
         "git_dirty": bool(dirty),
+        "git_tags_at_head": tags,
+        "expected_release_tag": expected_tag,
+        "pyages_version": __version__,
+        "environment": environment,
         "output": str(output),
         "selected_stages": list(selected),
         "errors": errors,
@@ -301,6 +408,9 @@ def _write_json_atomic(path: Path, payload: dict[str, object]) -> None:
 
 def _load_manifest(path: Path, output: Path) -> dict[str, object]:
     current_head = _git("rev-parse", "HEAD")
+    current_tags = [
+        tag for tag in _git("tag", "--points-at", "HEAD").splitlines() if tag
+    ]
     if path.is_file():
         payload = json.loads(path.read_text(encoding="utf-8"))
         previous_head = str(payload.get("git_head", current_head))
@@ -311,11 +421,17 @@ def _load_manifest(path: Path, output: Path) -> dict[str, object]:
                 if isinstance(record, dict):
                     record.setdefault("git_head", previous_head)
         payload["git_head"] = current_head
+        payload["git_tags_at_head"] = current_tags
+        payload.setdefault("release_tag", RELEASE_TAG)
+        payload["pyages_version"] = __version__
         return payload
     return {
         "schema_version": 1,
         "created_at": _now(),
         "git_head": current_head,
+        "git_tags_at_head": current_tags,
+        "release_tag": RELEASE_TAG,
+        "pyages_version": __version__,
         "initial_git_head": current_head,
         "campaign_root": str(output),
         "stages": {},
@@ -449,6 +565,17 @@ def validate_campaign(
 
     if selected == ALL_STAGES and not manifest.get("completed_at"):
         errors.append("campaign manifest has no completion timestamp")
+    if selected == ALL_STAGES:
+        if manifest.get("pyages_version") != __version__:
+            errors.append(
+                "campaign manifest version does not match the current release: "
+                f"{manifest.get('pyages_version')!r} != {__version__!r}"
+            )
+        if manifest.get("release_tag") != RELEASE_TAG:
+            errors.append(
+                "campaign manifest release tag does not match the intended tag: "
+                f"{manifest.get('release_tag')!r} != {RELEASE_TAG!r}"
+            )
 
     return {
         "schema_version": 1,
@@ -471,6 +598,8 @@ def _run_stage(stage: Stage, log: Path) -> int:
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("a", encoding="utf-8", newline="\n") as stream:
         stream.write(f"[{_now()}] {subprocess.list2cmdline(stage.command)}\n")
+        environment = os.environ.copy()
+        environment["PYTHONNOUSERSITE"] = "1"
         process = subprocess.Popen(
             stage.command,
             cwd=ROOT,
@@ -479,7 +608,7 @@ def _run_stage(stage: Stage, log: Path) -> int:
             text=True,
             encoding="utf-8",
             errors="replace",
-            env=os.environ.copy(),
+            env=environment,
         )
         assert process.stdout is not None
         for line in process.stdout:
@@ -518,6 +647,10 @@ def run_campaign(
             "status": "running",
             "started_at": _now(),
             "git_head": _git("rev-parse", "HEAD"),
+            "git_tags_at_head": [
+                tag for tag in _git("tag", "--points-at", "HEAD").splitlines() if tag
+            ],
+            "pyages_version": __version__,
             "command": list(stage.command),
             "expected": [str(path) for path in stage.expected],
         }
@@ -571,6 +704,12 @@ def main(argv: list[str] | None = None) -> int:
         / "validation/tracerlpm/config/runner-config.robustness.local.yaml",
     )
     parser.add_argument("--allow-dirty", action="store_true")
+    parser.add_argument("--expected-tag", default=RELEASE_TAG)
+    parser.add_argument(
+        "--allow-untagged",
+        action="store_true",
+        help="development only: do not require the release tag to point at HEAD",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     output = args.output.resolve()
@@ -579,7 +718,12 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as error:
         parser.error(str(error))
     stages = _stage_map(
-        output, args.workers, args.tracerlpm_config.resolve(), args.allow_dirty
+        output,
+        args.workers,
+        args.tracerlpm_config.resolve(),
+        args.allow_dirty,
+        args.expected_tag,
+        args.allow_untagged,
     )
     if args.action == "status":
         path = output / "campaign_manifest.json"
@@ -593,7 +737,12 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 0 if report["status"] == "valid" else 1
     report = preflight(
-        output, selected, args.tracerlpm_config.resolve(), args.allow_dirty
+        output,
+        selected,
+        args.tracerlpm_config.resolve(),
+        args.allow_dirty,
+        args.expected_tag,
+        args.allow_untagged,
     )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     if args.action == "preflight":

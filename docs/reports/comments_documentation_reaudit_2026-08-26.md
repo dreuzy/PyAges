@@ -10,7 +10,8 @@
 **Date:** 26 August 2026  
 **Base commit:** `04e6ebaa4b7a67154bbb4532e112e543563790ad`  
 **Scope:** versioned Python code and documentation; the untracked
-`submission_candidate/` directory was excluded.
+The candidate snapshot now archived under
+`article/archive/submission-candidate-2026-08-26/` was excluded.
 
 During final validation, concurrent work appeared outside the audit, including
 `.github/workflows/ci.yml`, `scripts/_runtime_probe.py`,

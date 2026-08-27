@@ -151,12 +151,7 @@ def _plot_interpolated_objective_surface(ax, x, y, values, vmin: float, vmax: fl
 def _reference_concentration_lookup(reference_concentrations):
     if reference_concentrations is None:
         return None
-    if hasattr(reference_concentrations, "cv"):
-        frame = reference_concentrations.frame.copy()
-    elif isinstance(reference_concentrations, pd.DataFrame):
-        frame = reference_concentrations.copy()
-    else:
-        raise TypeError("reference_concentrations must be a DataFrame or expose .frame")
+    frame = _ensure_frame(reference_concentrations)
     required = {"element", "date", "concentration"}
     if not required.issubset(frame.columns):
         raise ValueError(

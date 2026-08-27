@@ -189,6 +189,7 @@ def export_concentration_chronicles(
                 names=observations.frame["element"].unique(),
                 date=max(observations.frame["date"]),
             )
+            tracers.validate_observation_units(observations)
 
             # --- Load distribution of parameters ---
             dist = read_distribution(distribution_file)
@@ -267,6 +268,7 @@ def export_calibrated_chronicles(
         names=tracer_names,
         date=max(observations.frame["date"]),
     )
+    tracers.validate_observation_units(observations)
 
     # LPM selection
     lpm_list, pdf, lpm_statistics = lpm_results.select(

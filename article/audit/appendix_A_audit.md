@@ -50,7 +50,7 @@ Cette référence est indépendante du calcul de production parce qu'elle n'util
 
 ## 4. Sensibilité 0.5× / 1× / 2×
 
-Les valeurs exactes sont dans `audit/appendix_A_values.csv`. Au réglage par défaut, le 95e percentile vaut `3.595558353699866e-05`, le maximum `1.413462328021509e-04` et la médiane 308 bins.
+Les valeurs exactes sont dans `article/audit/appendix_A_values.csv`. Au réglage par défaut, le 95e percentile vaut `3.595558353699866e-05`, le maximum `1.413462328021509e-04` et la médiane 308 bins.
 
 Les temps totaux et relatifs ne sont pas sauvegardés dans le CSV compact. Le rapport précise que les temps observés sur l'hôte partagé étaient anormaux et n'ont pas été retenus. Ils ne peuvent pas être reconstruits par post-traitement du CSV; il faut retrouver les sorties/logs bruts historiques ou relancer l'expérience sur un hôte contrôlé. Aucun rerun n'a été lancé pendant cet audit.
 

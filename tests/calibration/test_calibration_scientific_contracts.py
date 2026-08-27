@@ -112,8 +112,37 @@ def test_trajectory_records_negative_log_posterior_and_acceptance_state():
         ({"prior_type": "unknown"}, "prior_type"),
         ({"proposal_kind": "unknown"}, "proposal_kind"),
         ({"componentwise_fraction": 0.0}, "componentwise_fraction"),
+        ({"proposal_multiplier": 0.0}, "proposal_multiplier"),
+        (
+            {"proposal_scales": (1.0,)},
+            "componentwise proposals do not accept",
+        ),
+        (
+            {"proposal_kind": "diagonal"},
+            "diagonal requires proposal_scales",
+        ),
+        (
+            {"proposal_kind": "correlated"},
+            "correlated requires proposal_covariance",
+        ),
+        (
+            {"nstep": 5, "burn_in": 0.9, "nskip": 5},
+            "retain no samples",
+        ),
     ],
 )
 def test_mh_config_rejects_invalid_scientific_controls(kwargs, message):
     with pytest.raises(ValueError, match=message):
         MHConfig(**kwargs)
+
+
+def test_mh_retained_sample_count_matches_the_documented_rule() -> None:
+    config = MHConfig(nstep=17, burn_in=0.2, nskip=3)
+    retained = [
+        iteration
+        for iteration in range(config.nstep)
+        if config.should_retain(iteration)
+    ]
+
+    assert retained == [6, 9, 12, 15]
+    assert config.retained_sample_count() == len(retained)

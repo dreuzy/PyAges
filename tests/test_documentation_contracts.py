@@ -13,6 +13,21 @@ def _first_python_block(section: str) -> str:
     return section.split("```python", 1)[1].split("```", 1)[0].strip()
 
 
+def test_article_evidence_roots_are_consolidated() -> None:
+    assert not (ROOT / "audit").exists()
+    assert not (ROOT / "submission_candidate").exists()
+    assert (ROOT / "article/audit/README.md").is_file()
+    assert (
+        ROOT / "article/archive/submission-candidate-2026-08-26/README.md"
+    ).is_file()
+
+    repository_readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    article_readme = (ROOT / "article/README.md").read_text(encoding="utf-8")
+    assert "editorial audits, and dated archives" in repository_readme
+    assert "article/audit/" in article_readme
+    assert "article/archive/" in article_readme
+
+
 def test_lpm_extension_examples_include_the_continuous_convolution_contract() -> None:
     document = (ROOT / "docs/user-guide/adding-lpm.md").read_text(encoding="utf-8")
     manual_example = document.split("### Step 1: Create the Python Class", 1)[1].split(
@@ -104,6 +119,36 @@ def test_configuration_reference_states_exact_temporal_constraints() -> None:
     assert "unknown section or field" in document
 
 
+def test_natural_notebooks_use_only_canonical_concentration_api() -> None:
+    notebook_paths = (
+        ROOT / "examples/natural/albuquerque/exemple_albuquerque.ipynb",
+        ROOT / "examples/natural/ploemeur/exemple_ploemeur.ipynb",
+        ROOT / "examples/natural/ploemeur_temporal/exemple_ploemeur_temporal.ipynb",
+    )
+    removed_api_markers = (
+        "pyages.concentrations.concentrations",
+        "concentrations_time",
+        "pyages.observations.loader",
+        "dataframe_load=",
+        "file_load=",
+        ".cv",
+        ".names(",
+        ".names_dates(",
+        "error_affect_from_",
+        "cdata=",
+        "nmodels=resolution",
+        "nmodels=objective_nmodels",
+        "objfunc=",
+        "reachconc=",
+        "display_concentration_times",
+    )
+
+    for notebook_path in notebook_paths:
+        notebook = notebook_path.read_text(encoding="utf-8")
+        assert "from pyages.concentrations import Concentrations" in notebook
+        assert all(marker not in notebook for marker in removed_api_markers)
+
+
 def test_contributor_extension_contract_is_navigable_and_compilable() -> None:
     document = (ROOT / "docs/dev/extending-calibration-workflows.md").read_text(
         encoding="utf-8"
@@ -114,3 +159,14 @@ def test_contributor_extension_contract_is_navigable_and_compilable() -> None:
     assert "write_result_manifest" in document
     assert "**last**" in document
     compile(_first_python_block(document), "extending-calibration-workflows", "exec")
+
+
+def test_calibration_guide_covers_operational_and_scientific_gates() -> None:
+    document = (ROOT / "docs/user-guide/calibration.md").read_text(encoding="utf-8")
+    user_index = (ROOT / "docs/user-guide/index.md").read_text(encoding="utf-8")
+
+    assert "calibration" in user_index
+    assert "retained_sample_count" in document
+    assert "result_manifest.json" in document
+    assert "split-$\\hat R$" in document
+    assert "Only `CalibrationProblem`" in document

@@ -21,6 +21,8 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from pyages import __version__
+
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "results" / "article_package"
 SOURCE_MANIFESTS = {
@@ -685,15 +687,20 @@ def _execution_source_snapshots(
     return entries, audit
 
 
+def _true_mask(values: pd.Series) -> pd.Series:
+    """Interpret missing or non-true diagnostic values as false."""
+    return values.map(
+        lambda value: not pd.isna(value) and str(value).strip().lower() == "true"
+    )
+
+
 def _standard_diagnostic(path: Path, group: str, ess_column: str) -> dict[str, object]:
     frame = pd.read_csv(path)
     return {
         "groups": int(frame[group].nunique()),
         "max_split_rhat": float(frame["split_rhat"].max()),
         "min_ess": float(frame[ess_column].min()),
-        "all_converged": bool(
-            frame["converged"].astype(str).str.lower().eq("true").all()
-        ),
+        "all_converged": bool(_true_mask(frame["converged"]).all()),
     }
 
 
@@ -721,11 +728,9 @@ def scientific_summary() -> dict[str, object]:
         "thresholds": {"split_rhat_lt": 1.01, "ess_gte": 300.0},
         "pyages_tracerlpm": {
             "paired_cases": int(len(tracerlpm)),
-            "pyages_successful": int(
-                tracerlpm["pyages_success"].astype(str).str.lower().eq("true").sum()
-            ),
+            "pyages_successful": int(_true_mask(tracerlpm["pyages_success"]).sum()),
             "tracerlpm_successful": int(
-                tracerlpm["tracerlpm_success"].astype(str).str.lower().eq("true").sum()
+                _true_mask(tracerlpm["tracerlpm_success"]).sum()
             ),
         },
         "forward_verification": {
@@ -926,7 +931,12 @@ def build_package(
             "schema_version": 1,
             "created_at": datetime.now(ZoneInfo("Europe/Paris")).isoformat(),
             "git_head": _git("rev-parse", "HEAD"),
+            "git_tags_at_head": [
+                tag for tag in _git("tag", "--points-at", "HEAD").splitlines() if tag
+            ],
             "git_dirty": bool(_git("status", "--short")),
+            "release_tag": "1.0",
+            "pyages_version": __version__,
             "scope": (
                 "Publication-facing Tables 3–4, Figures 1–4 and Figure C1 "
                 "prior-sensitivity evidence with audit support"

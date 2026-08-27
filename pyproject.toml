@@ -18,7 +18,7 @@ license-files = [
 authors = [{name = "Jean-Raynald de Dreuzy"}]
 keywords = ["groundwater", "age dating", "lumped parameter model", "hydrogeology", "tracers"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
@@ -79,6 +79,7 @@ include = ["pyages*", "data_core*"]
 
 [tool.setuptools.package-data]
 data_core = [
+    "README.md",
     "data_lpm/*/*.yaml",
     "data_tracer/*/*.csv",
     "data_tracer/*/*.txt",

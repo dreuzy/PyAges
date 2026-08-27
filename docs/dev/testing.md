@@ -14,6 +14,7 @@ list.
 | Detailed standard suite | `python run_tests.py standard detail` | Diagnosing a failure or reviewing parametrized cases |
 | Extensive suite | `python run_tests.py extensive` | Scientific changes, golden changes, nightly qualification, and releases |
 | Coverage | `python run_tests.py coverage` | Changes that add behavior or alter tested paths |
+| pandas compatibility | CI `pandas-compatibility` job | Changes to tables, data types, indexing, assignment, or serialization |
 | TracerLPM validation | `python run_tests.py validation` | Changes to LPM mappings, tracer observations, comparison logic, or the adapter |
 | Test collection | `python run_tests.py collect` | Inspecting the exact standard-suite node IDs without executing them |
 | Golden update | `python run_tests.py standard update` | Only after independently justifying an intentional numerical-contract change |
@@ -23,10 +24,16 @@ The direct pytest equivalents used by GitHub Actions are:
 ```bash
 python -m pytest -q
 python -m pytest -q --run-extensive
-python -m pytest -q --cov=pyages --cov-report=term-missing --cov-report=xml --cov-fail-under=60
+python -m pytest -q --cov=pyages --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=75
 python -m pytest -q validation/tracerlpm/benchmark/tests
 python -m pytest --collect-only -q tests
 ```
+
+The pandas compatibility job runs the standard suite on the supported 2.2.3
+lower bound with `FutureWarning` promoted to errors. It then repeats the suite
+with future string inference and Copy-on-Write diagnostics enabled. The normal
+Python matrix and coverage job exercise the qualified pandas 3 version from
+`install/constraints.txt`.
 
 `python run_tests.py` without a mode remains a backward-compatible alias for
 `python run_tests.py standard`. The standard suite collects extensive tests

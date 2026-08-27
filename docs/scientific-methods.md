@@ -27,6 +27,13 @@ recharge date $t-\tau$. $K$ includes configured radioactive decay or in-situ
 production. $C$ and $K$ retain the concentration unit declared by the tracer;
 $F$ and all objective values are dimensionless.
 
+Observation units are explicit and must match the corresponding tracer unit
+exactly. This contract is checked once when the calibration or temporal-plot
+boundary assembles observations and tracers. No unit lookup, conversion, or
+comparison occurs in convolution, objective, optimization, or sampling loops.
+Physical preprocessing conversions such as dissolved CFC `pmol/kg` to an
+atmospheric-equivalent `pptv` scale are never implicit.
+
 The integration window is the closed interval $[0,T_{max}]$. Mass older than
 the available recharge record contributes zero and is **not renormalized**.
 Consequently, a constant unit tracer returns the represented window mass, not
@@ -201,10 +208,13 @@ $\log(S_{proposed}/S_{current})$.
 ``i``, PyAges retains the current state when
 ``i > burn_in * nstep`` and ``i % nskip == 0``. Rejected proposals therefore
 appear as repeated states, as required for an unbiased chain sample. The seed
-initializes NumPy ``default_rng``. Burn-in, thinning, and an acceptance fraction
-are not convergence diagnostics: publication runs should report multiple-chain
+initializes NumPy ``default_rng``. A configuration retaining no state is
+rejected before chain allocation, and the derived row count is recorded with
+the sampler configuration. Burn-in, thinning, and an acceptance fraction are
+not convergence diagnostics: publication runs should report multiple-chain
 $\hat R$, effective sample size, and Monte Carlo uncertainty. Proposal
-qualification evidence is in {doc}`reports/mh_proposal_qualification`.
+qualification evidence is in {doc}`reports/mh_proposal_qualification` and the
+operational checklist is in {doc}`user-guide/calibration`.
 
 ## Traceability matrix
 

@@ -1,6 +1,6 @@
 # Audit final v28 — manuscrit, code courant et campagne canonique
 
-Date de l'audit : 27 août 2026. Périmètre strictement en lecture seule pour le code, le manuscrit et la campagne. Seuls les quatre livrables sous `audit/` ont été créés.
+Date de l'audit : 27 août 2026. Périmètre strictement en lecture seule pour le code, le manuscrit et la campagne. Seuls les quatre livrables désormais conservés sous `article/audit/` ont été créés.
 
 ## Verdict exécutif
 
@@ -63,7 +63,7 @@ Aucun `SCIENTIFIC MISMATCH` n'est prouvé avec les sources disponibles. Cela ne 
 - Dans une tâche d'édition de code séparée et autorisée, remplacer l'unité de prior `year` de `mix_exp_shifted.rate` par `-` et ajouter explicitement l'unité dimensionless au paramètre.
 - Uniformiser la représentation dimensionless de `dirac_double.rate`.
 
-Le détail ligne par ligne se trouve dans `audit/table1_manuscript_code_audit.csv`. Les seuls écarts nécessitant une décision sont résumés dans `audit/table1_code_audit.md`.
+Le détail ligne par ligne se trouve dans `article/audit/table1_manuscript_code_audit.csv`. Les seuls écarts nécessitant une décision sont résumés dans `article/audit/table1_code_audit.md`.
 
 ## 2. Numerical cross-check
 
@@ -144,7 +144,7 @@ Le blocage opérationnel avant gel est néanmoins absolu : l'audit demandé n'es
 
 Aucune instruction sûre de type « Page/section/table X: replace `...` with `...` » ne peut être émise sans connaître le texte, la pagination et les cellules de la v28. Donner une substitution à partir de la v23 ou du seul cahier d'audit constituerait une correction non vérifiée.
 
-Action sûre : placer `PyAge_v1.0_revised_v28_code_audit_sync.docx` dans les fichiers de travail ou l'attacher, puis exécuter la passe différentielle. Les valeurs canoniques exactes à utiliser pour cette passe sont consignées dans `audit/v28_canonical_numeric_crosscheck.csv`.
+Action sûre : placer `PyAge_v1.0_revised_v28_code_audit_sync.docx` dans les fichiers de travail ou l'attacher, puis exécuter la passe différentielle. Les valeurs canoniques exactes à utiliser pour cette passe sont consignées dans `article/audit/v28_canonical_numeric_crosscheck.csv`.
 
 Correction de métadonnée code proposée, à ne faire que dans une tâche d'édition distincte :
 

@@ -14,6 +14,7 @@ import pytest
 from pyages.calibration.methods.simplex import SIMPLEX, Simplex
 from pyages.calibration.problem import CalibrationProblem
 from pyages.calibration.utils.systematic_sampling import SystematicSampling
+from pyages.concentrations import Concentrations
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
@@ -55,6 +56,21 @@ def test_problem_uses_composition_and_preserves_the_target_objective(tmp_path):
     assert np.allclose(modeled, problem.observations.frame["concentration"])
 
 
+def test_objective_loop_does_not_repeat_unit_validation(tmp_path):
+    problem = _prepared_problem(tmp_path)
+    parameters = problem.lpm.get_parameters_to_array()
+    observed = problem.observations.frame["concentration"].to_numpy(dtype=float)
+    errors = problem.observations.frame["error"].to_numpy(dtype=float)
+
+    with patch.object(
+        problem.observations,
+        "require_matching_units",
+        side_effect=AssertionError("unit validation leaked into objective loop"),
+    ):
+        problem.objective_function(parameters, observed, errors)
+        problem.objective_function(parameters, observed, errors)
+
+
 def test_systematic_exploration_is_built_only_when_requested(tmp_path):
     with patch("pyages.calibration.problem.SystematicSampling") as sampling_class:
         problem = _prepared_problem(tmp_path)
@@ -86,3 +102,22 @@ def test_problem_rejects_non_positive_observation_errors(tmp_path):
             np.array([1.0]),
             np.array([0.0]),
         )
+
+
+def test_problem_rejects_observation_model_unit_mismatch_before_calibration(
+    tmp_path,
+):
+    observations = Concentrations.from_dataframe(
+        _prepared_problem(tmp_path).observations.frame.assign(unit="pmol/kg")
+    )
+    problem = CalibrationProblem(
+        observations,
+        "exp",
+        explore_objective=False,
+        explore_reachable=False,
+    )
+
+    with pytest.raises(
+        ValueError, match="observations use 'pmol/kg'.*model uses 'pptv'"
+    ):
+        problem.prepare()

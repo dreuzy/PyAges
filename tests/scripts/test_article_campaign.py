@@ -47,6 +47,70 @@ def test_forward_stage_uses_the_versioned_qualification_config(tmp_path):
     )
 
 
+def test_archive_stage_requires_the_exact_release_tag(tmp_path):
+    stages = reproduce_article._stage_map(
+        tmp_path,
+        workers=1,
+        tracer_config=tmp_path / "tracerlpm.yaml",
+        allow_dirty=False,
+    )
+
+    command = stages["archive"].command
+
+    assert command[command.index("--expected-tag") + 1] == "1.0"
+    assert "--allow-untagged" not in command
+
+
+def test_release_identity_requires_matching_installed_version_and_annotated_tag(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        reproduce_article.importlib.metadata,
+        "version",
+        lambda unused: reproduce_article.__version__,
+    )
+
+    def tagged_git(*args):
+        if args[:2] == ("tag", "--points-at"):
+            return "1.0"
+        if args[:2] == ("cat-file", "-t"):
+            return "tag"
+        raise AssertionError(args)
+
+    monkeypatch.setattr(reproduce_article, "_git", tagged_git)
+
+    assert reproduce_article._check_release_identity("1.0", False) == []
+
+
+def test_release_identity_rejects_lightweight_tag(monkeypatch):
+    monkeypatch.setattr(
+        reproduce_article.importlib.metadata,
+        "version",
+        lambda unused: reproduce_article.__version__,
+    )
+    monkeypatch.setattr(
+        reproduce_article,
+        "_git",
+        lambda *args: "1.0" if args[:2] == ("tag", "--points-at") else "commit",
+    )
+
+    assert reproduce_article._check_release_identity("1.0", False) == [
+        "release tag '1.0' must be annotated, not lightweight"
+    ]
+
+
+def test_reproduction_environment_rejects_enabled_user_site(monkeypatch):
+    monkeypatch.setattr(reproduce_article.site, "ENABLE_USER_SITE", True)
+
+    observed, errors = reproduce_article._check_reproduction_environment()
+
+    assert observed["user_site_enabled"] == "true"
+    assert (
+        "Python user-site packages are enabled; set PYTHONNOUSERSITE=1 before "
+        "launching the article campaign"
+    ) in errors
+
+
 def test_campaign_resume_requires_status_and_expected_artifacts(monkeypatch, tmp_path):
     expected = tmp_path / "result.json"
     stage = reproduce_article.Stage("short", ("python", "short.py"), (expected,))

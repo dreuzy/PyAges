@@ -13,11 +13,17 @@ install PyAges without changing those dependencies with:
 ```bash
 conda env create -f install/environment.yml
 conda activate pyages-article-reproduction
+$env:PYTHONNOUSERSITE = "1"  # PowerShell; use export ...=1 in POSIX shells
 python -m pip install --no-deps -e .
 ```
 
-`constraints.txt` is the separately qualified candidate baseline for the
-future PyAges 1.0 user/development environment. It pins SciPy 1.18.1 and is
+Keep `PYTHONNOUSERSITE=1` set for the preflight and the complete campaign. This
+prevents packages installed in the per-user Python directory from shadowing the
+qualified Conda environment. The Windows reproduction wrappers set it
+automatically.
+
+`constraints.txt` is the separately qualified baseline for the PyAges 1.0
+user/development environment. It pins SciPy 1.18.1 and is
 exercised by CI on Python 3.12, 3.13, and 3.14. Create a normal virtual
 environment, then install PyAges with:
 
@@ -45,6 +51,13 @@ for [SciPy 1.14.1](https://pypi.org/project/scipy/1.14.1/),
 [SciPy 1.16.1](https://pypi.org/project/scipy/1.16.1/), and
 [SciPy 1.18.1](https://pypi.org/project/scipy/1.18.1/).
 
+The package metadata accepts pandas 2.2 through the 3.x series. The normal CI
+matrix exercises the qualified pandas 3 pin from `constraints.txt`. A separate
+compatibility job installs pandas 2.2.3, promotes `FutureWarning` to errors, and
+repeats the suite with future string inference and Copy-on-Write diagnostics
+enabled. The historical article environment remains pinned independently and
+is not changed by this compatibility check.
+
 The optional IDE and media stack is intentionally separate from the reference
 environment because it is not required by the package:
 
@@ -53,8 +66,9 @@ conda install -c conda-forge spyder imageio ffmpeg av imageio-ffmpeg
 ```
 
 The distribution, import package, and CLI share the same `pyages` name. No
-PyAges distribution is currently published on PyPI; after a beta or release
-candidate is uploaded, install it with:
+PyAges distribution is currently published on PyPI. Until the `1.0` tag and
+distribution are published, install the reviewed source checkout. A
+prerelease artifact, if one is uploaded, can be installed with:
 
 ```bash
 python -m pip install --pre pyages

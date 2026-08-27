@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import math
-import time
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 import numpy as np
@@ -26,7 +26,6 @@ from pyages.calibration.methods.trajectory import (
 from pyages.calibration.mh_proposals import GaussianRandomWalk
 from pyages.calibration.outputs import write_key_values
 from pyages.calibration.utils.objective_functions import normalized_residual_norm
-from pyages.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
 from pyages.lpm.samples.table import LpmSampleTable
 
 __all__ = [
@@ -203,10 +202,7 @@ class MetropolisHastings(CalibrationMethod):
 
     def __should_retain(self, iteration: int) -> bool:
         """Return whether one zero-based MCMC iteration must be stored."""
-        return (
-            iteration > self.config.burn_in * self.config.nstep
-            and iteration % self.config.nskip == 0
-        )
+        return self.config.should_retain(iteration)
 
     def __prepare_storage(self) -> tuple[np.ndarray, list[str]]:
         """
@@ -218,9 +214,7 @@ class MetropolisHastings(CalibrationMethod):
             with the required shape for the storage
         """
         # Number of lines that should be stored
-        row_count = sum(
-            self.__should_retain(iteration) for iteration in range(self.config.nstep)
-        )
+        row_count = self.config.retained_sample_count()
         # Likelihood-free runs leave concentration values missing while using
         # the same canonical columns as likelihood-based calibrations.
         concentration_names = self.observations.observation_keys()
@@ -315,14 +309,13 @@ class MetropolisHastings(CalibrationMethod):
             text=self.config.display_text,
         )
         rng = np.random.default_rng(self.config.seed)
-        data_conc = self.observations.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
-        data_error = self.observations.frame[ERROR_COLUMN].to_numpy(dtype=float)
+        data_conc, data_error = self.observation_arrays()
         if self.config.proposal_kind == "componentwise":
             self.proposal_step.prepare(self.lpm)
         self.__prepare_proposal()
         # Trajectory monitoring
         traj = (
-            MHTrajectory(self.lpm.p.keys(), self.config.nstep)
+            MHTrajectory(self.lpm.p.keys(), self.config.retained_sample_count())
             if traj_options.monitor
             else None
         )
@@ -413,7 +406,7 @@ class MetropolisHastings(CalibrationMethod):
         posterior summaries are used scientifically.
         """
 
-        start = time.time()
+        start = perf_counter()
 
         # --------------- PREPARATION PHASE ------------------------
         (
@@ -482,8 +475,7 @@ class MetropolisHastings(CalibrationMethod):
                 traj.path, self.lpm
             )
 
-        end = time.time()
-        self.time_perform = end - start
+        self.time_perform = perf_counter() - start
 
         return lpm_results
 
@@ -494,6 +486,7 @@ class MetropolisHastings(CalibrationMethod):
         data["nstep"] = self.config.nstep
         data["burn-in"] = self.config.burn_in
         data["nskip"] = self.config.nskip
+        data["retained_sample_count"] = self.config.retained_sample_count()
         data["prior_option"] = self.prior.option
         data["prior_type"] = self.config.prior_type
         data["prior_file"] = self.config.prior_file

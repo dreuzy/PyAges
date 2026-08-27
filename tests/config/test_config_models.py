@@ -234,6 +234,13 @@ def test_documented_single_date_run_defaults_remain_all_enabled():
     assert all(value is True for value in defaults.values())
 
 
+def test_single_date_mh_requires_at_least_one_retained_state() -> None:
+    with pytest.raises(ValidationError, match="greater than or equal to 11"):
+        LauncherMetropolisCfg(nstep=10)
+
+    assert LauncherMetropolisCfg(nstep=11).nstep == 11
+
+
 def test_all_documented_yaml_blocks_are_parseable():
     document = CONFIGURATION_DOC.read_text(encoding="utf-8")
     blocks = re.findall(r"```yaml\s*\n(.*?)```", document, flags=re.DOTALL)

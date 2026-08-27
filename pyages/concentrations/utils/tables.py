@@ -43,7 +43,7 @@ def _normalized_series_frame(frame: pd.DataFrame, *, tracer: str) -> pd.DataFram
     normalized = frame.loc[
         :, [DATE_COLUMN, CONCENTRATION_COLUMN, ELEMENT_COLUMN]
     ].copy()
-    elements = normalized[ELEMENT_COLUMN].dropna().astype(str).unique().tolist()
+    elements = normalized[ELEMENT_COLUMN].dropna().map(str).unique().tolist()
     if elements and elements != [tracer]:
         raise ValueError(
             f"Concentration series key {tracer!r} does not match element values "
@@ -85,12 +85,12 @@ def normalize_series(
             )
         if concentrations[ELEMENT_COLUMN].isna().any():
             raise ValueError("Concentration elements must not be missing")
-        cv: ConcentrationSeries = {}
+        series_by_tracer: ConcentrationSeries = {}
         for tracer, group in concentrations.groupby(ELEMENT_COLUMN, sort=False):
             if not isinstance(tracer, str) or not tracer.strip():
                 raise ValueError("Concentration elements must be non-empty strings")
-            cv[tracer] = _normalized_series_frame(group, tracer=tracer)
-        return cv
+            series_by_tracer[tracer] = _normalized_series_frame(group, tracer=tracer)
+        return series_by_tracer
     raise TypeError(
         "Unsupported 'concentrations' format (expected dict or DataFrame with 'element')."
     )

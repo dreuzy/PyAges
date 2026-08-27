@@ -421,7 +421,11 @@ def _posterior_predictions(
         if not converged:
             continue
         observations = build_observations(prepared, well, True)
-        matrix = _matrix(endmembers, observations["element"].astype(str).tolist())
+        elements = observations["element"]
+        if elements.isna().any():
+            raise RuntimeError(f"Missing tracer name in observations for {well}")
+        tracer_names = elements.map(str).tolist()
+        matrix = _matrix(endmembers, tracer_names)
         fractions = np.concatenate(
             [
                 _load(_chain_path(output, well, chain, lengths[well]))["fractions"]
@@ -435,7 +439,7 @@ def _posterior_predictions(
         median_modeled = np.median(modeled, axis=0)
         standardized = (observed - median_modeled) / errors
         total = float(np.sum(standardized**2))
-        for index, tracer in enumerate(observations["element"].astype(str)):
+        for index, tracer in enumerate(tracer_names):
             rows.append(
                 {
                     "well": well,

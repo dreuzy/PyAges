@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
 
 from pyages.calibration.outputs import (
     display_calibrated_models,
@@ -16,6 +18,10 @@ from pyages.calibration.outputs import (
     write_key_values,
 )
 from pyages.calibration.problem import CalibrationProblem
+from pyages.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
+
+if TYPE_CHECKING:
+    from pyages.concentrations import Concentrations
 
 
 class CalibrationMethod(ABC):
@@ -80,6 +86,22 @@ class CalibrationMethod(ABC):
             observed_errors,
             return_concentrations=conc,
         )
+
+    def observation_arrays(
+        self,
+        observations: Concentrations | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return ordered concentration and error arrays for one run.
+
+        Calibration methods should use this boundary helper instead of
+        depending on dataframe column positions or repeating schema access.
+        A supplied observation table is useful for uncertainty propagation;
+        otherwise the observations bound through :meth:`run` are used.
+        """
+        source = self.observations if observations is None else observations
+        values = source.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
+        errors = source.frame[ERROR_COLUMN].to_numpy(dtype=float)
+        return values, errors
 
     def analysis_calibration(self, results=None) -> None:
         """Run the problem's optional systematic analysis."""
