@@ -21,6 +21,15 @@
   min-width: 900px;
 }
 
+.mermaid-container > pre.mermaid[data-click-to-expand="true"] {
+  cursor: zoom-in;
+}
+
+.mermaid-container > pre.mermaid[data-click-to-expand="true"]:focus-visible {
+  outline: 3px solid #2980b9;
+  outline-offset: 3px;
+}
+
 .mermaid-container > pre.mermaid > svg {
   height: auto !important;
   min-height: 420px;
@@ -30,6 +39,19 @@
 /* The full-screen control is a primary readability feature, not decoration. */
 .mermaid-fullscreen-btn {
   opacity: 0.9 !important;
+}
+
+.mermaid-expand-hint {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.5rem;
+  z-index: 2;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 92%);
+  color: #34495e;
+  font-size: 0.8rem;
+  pointer-events: none;
 }
 
 @media screen and (max-width: 768px) {

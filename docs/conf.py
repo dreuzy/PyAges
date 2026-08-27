@@ -100,6 +100,7 @@ html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
 html_show_sourcelink = True
 html_static_path = ["_static"]
 html_css_files = ["css/readthedocs.css"]
+html_js_files = ["js/mermaid-click-to-expand.js"]
 html_context = {
     "display_github": True,
     "github_user": "dreuzy",
