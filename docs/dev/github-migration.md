@@ -1,6 +1,6 @@
 # GitHub migration
 
-GitHub is the canonical host for new PyAge changes, pull requests, checks, and
+GitHub is the canonical host for new PyAges changes, pull requests, checks, and
 future releases. The GitLab repository is retained and is not closed by this
 migration. Maintainers must avoid pushing divergent development to both hosts.
 
@@ -37,6 +37,6 @@ new public history.
 
 The Read the Docs configuration remains in `.readthedocs.yaml`. The public
 project must be imported through the Read the Docs GitHub App under an
-available project slug, such as `pyage-groundwater`. Add the live documentation
+available project slug, such as `pyages`. Add the live documentation
 URL to `pyproject.toml`, the repository homepage, and README only after the
 first successful public build.

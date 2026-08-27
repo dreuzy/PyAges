@@ -26,7 +26,7 @@ de tracé invalides interprétées comme un autre mode.
 - validation des fractions d'erreur et de la dimension des moyennes, avec
   incertitudes toujours non négatives ;
 - exigence d'un `numpy.random.Generator` explicite pour les tirages gaussiens ;
-- constructeur `ConcentrationTime` exigeant exactement une représentation
+- constructeur `ConcentrationChronicle` exigeant exactement une représentation
   d'entrée et réalisant des copies défensives ;
 - normalisation commune des dictionnaires de chroniques, ordre des traceurs
   préservé et dates triées ;
@@ -39,17 +39,18 @@ de tracé invalides interprétées comme un autre mode.
 - export public concis depuis `pyages.concentrations` et nouveau guide du schéma
   d'observations.
 
-## Compatibilité et décisions conservées
+## Rupture pré-1.0
 
-Le schéma canonique et l'attribut historique `cv` sont conservés. La fonction
-`name_date()` garde volontairement son arrondi à une décimale parce que les
-tables d'exploration systématique utilisent déjà ce format. Les colonnes
-supplémentaires continuent d'être supprimées à la construction. Le tirage
-gaussien reste non tronqué et peut donc produire une valeur négative.
+Les noms historiques et imports profonds ont été supprimés sans alias de
+compatibilité. L'attribut `cv` devient `frame`, `ConcentrationTime` devient
+`ConcentrationChronicle`, et les anciennes méthodes `error_affect_*`,
+`names_dates`, `figure_concentrations` et `cv_key_name_date` sont remplacées par
+des noms explicites. Les modules `concentrations.py` et
+`concentrations_time.py` ne sont pas conservés comme façades.
 
-Ces trois comportements doivent être réévalués uniquement dans une migration
-versionnée : précision non ambiguë des clés, encapsulation éventuelle de `cv`,
-et choix explicite d'un modèle d'erreur tronqué ou logarithmique.
+Le schéma tabulaire et les résultats numériques restent inchangés. Le tirage
+gaussien reste non tronqué et peut donc produire une valeur négative ; un autre
+modèle d'erreur demanderait une décision scientifique distincte.
 
 ## Validation
 

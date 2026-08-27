@@ -33,7 +33,7 @@ A returned sample table must preserve these semantics:
 |---|---|
 | parameter columns | Every model parameter in `lpm.get_param_names()` order |
 | `obj_function` | $\sqrt{\chi^2/n}$, dimensionless; not raw $\chi^2$ |
-| concentration columns | Values in `observations.names_dates()` order and in each tracer's declared unit |
+| concentration columns | Values in `observations.observation_keys()` order and in each tracer's declared unit |
 | rows | Joint states; rejected MCMC proposals remain repeated rows when retained |
 | derived moments | `mean`, `std`, and quantiles should be added with `add_moments()` before serialization |
 
@@ -64,8 +64,8 @@ class MyMethod(CalibrationMethod):
 
     def perform(self) -> LpmSampleTable:
         started = perf_counter()
-        observed = self.observations.cv[CONCENTRATION_COLUMN].to_numpy(float)
-        errors = self.observations.cv[ERROR_COLUMN].to_numpy(float)
+        observed = self.observations.frame[CONCENTRATION_COLUMN].to_numpy(float)
+        errors = self.observations.frame[ERROR_COLUMN].to_numpy(float)
 
         # Replace this initial point with the new search algorithm.
         parameters = self.lpm.param_init()
@@ -75,7 +75,8 @@ class MyMethod(CalibrationMethod):
         self.evaluations = 1
 
         results = LpmSampleTable(
-            self.lpm, c_names=self.observations.names_dates()
+            self.lpm,
+            c_names=self.observations.observation_keys(),
         )
         results.append_sample(
             self.lpm.p.copy(),
@@ -165,4 +166,3 @@ delete an earlier result directory.
 - record random seeds and numerical settings that affect results;
 - add a migration note and golden updates for changes that alter scientific
   results.
-

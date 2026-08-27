@@ -116,7 +116,7 @@ def plot_reachable_concentrations(
             s=10,
         )
         if observations is not None:
-            observations.figure_concentrations(first, second)
+            observations.plot_pair(first, second)
         _finish(display, name)
 
 

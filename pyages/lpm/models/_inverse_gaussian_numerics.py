@@ -87,7 +87,9 @@ class _InverseGaussianLpmBase(LpmScipy):
         std = float(self.scipy_dist.std(*args, loc=loc, scale=scale))
         upper = loc + max(mean - loc, std, 1.0)
 
-        while float(self.scipy_dist.cdf(upper, *args, loc=loc, scale=scale)) < probability:
+        while (
+            float(self.scipy_dist.cdf(upper, *args, loc=loc, scale=scale)) < probability
+        ):
             width = upper - loc
             if not np.isfinite(width) or width >= np.finfo(float).max / 2.0:
                 raise RuntimeError(
@@ -98,10 +100,10 @@ class _InverseGaussianLpmBase(LpmScipy):
 
         return float(
             brentq(
-                lambda age: float(
-                    self.scipy_dist.cdf(age, *args, loc=loc, scale=scale)
-                )
-                - probability,
+                lambda age: (
+                    float(self.scipy_dist.cdf(age, *args, loc=loc, scale=scale))
+                    - probability
+                ),
                 loc,
                 upper,
             )

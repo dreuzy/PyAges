@@ -29,7 +29,7 @@ def _distribution() -> tuple[LpmSampleTable, str, float]:
     model = build_lpm("exp")
     name = model.get_param_names()[0]
     initial = float(model.p[name])
-    distribution = LpmSampleTable(model, c_names=["cfc11_2010_0"])
+    distribution = LpmSampleTable(model, c_names=["cfc11@2010.0#0"])
     return distribution, name, initial
 
 
@@ -119,7 +119,7 @@ def test_replace_frame_validates_atomically() -> None:
         distribution.replace_frame(
             pd.DataFrame(
                 [[initial, 0.0, 1.0, initial]],
-                columns=[name, "obj_function", "cfc11_2010_0", name],
+                columns=[name, "obj_function", "cfc11@2010.0#0", name],
             )
         )
     pd.testing.assert_frame_equal(distribution.frame, before)
@@ -127,7 +127,7 @@ def test_replace_frame_validates_atomically() -> None:
 
 def test_append_rejects_different_concentration_schemas() -> None:
     distribution, _, _ = _distribution()
-    other = LpmSampleTable(distribution.lpm_template, c_names=["sf6_2010_0"])
+    other = LpmSampleTable(distribution.lpm_template, c_names=["sf6@2010.0#0"])
 
     with pytest.raises(ValueError, match="different concentrations"):
         distribution.append(other)
@@ -147,7 +147,7 @@ def test_tabular_outputs_keep_the_existing_tsv_layout(tmp_path) -> None:
     samples = pd.read_table(samples_path)
     histogram = pd.read_table(tmp_path / f"histogram_{name}.txt")
     statistics = pd.read_table(statistics_path)
-    assert {name, "obj_function", "cfc11_2010_0"}.issubset(samples.columns)
+    assert {name, "obj_function", "cfc11@2010.0#0"}.issubset(samples.columns)
     assert list(histogram.columns) == ["val", "hist"]
     assert name in statistics.columns
     assert "mean" in set(statistics.iloc[:, 0])

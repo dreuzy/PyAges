@@ -40,7 +40,10 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Hardened concentration-table validation, error assignment, chronicle
   copying, wide-table merges, and plotting contracts; `Concentrations` is now
   exported directly from `pyages.concentrations` and its input schema is
-  documented in the user guide.
+  documented in the user guide. Removed the pre-1.0 `cv`, `ConcentrationTime`,
+  `name_date`, `error_affect_*`, `names_dates`, and deep-module aliases after
+  migrating the repository to the explicit `frame`, `ConcentrationChronicle`,
+  and observation-key APIs.
 - Renamed the sample container to `LpmSampleTable` and grouped LPM sample
   storage and analysis under `pyages.lpm.samples`; model reporting and plotting
   now live under explicit `pyages.lpm.reporting` and `pyages.lpm.plotting`

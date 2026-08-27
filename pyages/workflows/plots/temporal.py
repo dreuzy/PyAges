@@ -227,7 +227,7 @@ def _plot_observed_temporal_panel(
 
 
 def plot_temporal_fit_comparison(
-    craw,
+    observations,
     posterior_frames: dict[str, pd.DataFrame],
     lpm_name: str,
     lpm_directory: str | Path,
@@ -243,7 +243,7 @@ def plot_temporal_fit_comparison(
     Overlay temporal fit summaries from multiple posterior distributions.
     """
     apply_example_style()
-    tracer_names = list(dict.fromkeys(craw.cv["element"].tolist()))
+    tracer_names = list(dict.fromkeys(observations.frame["element"].tolist()))
     ncols = len(tracer_names) if len(tracer_names) <= 3 else 2
     nrows = ceil(max(len(tracer_names), 1) / ncols)
     fig, axs = plt.subplots(
@@ -252,9 +252,9 @@ def plot_temporal_fit_comparison(
     highlight_array = np.asarray(highlight_dates or [], dtype=float)
     highlighted_any = False
 
-    end_year = float(craw.cv["date"].max())
+    end_year = float(observations.frame["date"].max())
     tracers = convolution_tracers.ConvolutionTracers(
-        names=craw.cv["element"].unique(),
+        names=observations.frame["element"].unique(),
         date=end_year,
     )
 
@@ -271,7 +271,9 @@ def plot_temporal_fit_comparison(
     _plot_prediction_intervals(axs, tracer_names, predictions, legend_handles)
 
     for ax, tracer_name in zip(axs.flatten(), tracer_names, strict=False):
-        observed = craw.cv[craw.cv["element"] == tracer_name].sort_values("date")
+        observed = observations.frame[
+            observations.frame["element"] == tracer_name
+        ].sort_values("date")
         highlighted_any |= _plot_observed_temporal_panel(
             ax,
             observed,
@@ -307,7 +309,7 @@ def plot_temporal_fit_comparison(
 
 
 def plot_temporal_fit_summary(
-    craw,
+    observations,
     lpm_results,
     lpm_number: int,
     filename: str | Path | None = None,
@@ -318,9 +320,9 @@ def plot_temporal_fit_summary(
     Plot median model response and uncertainty bands against observations.
     """
     apply_example_style()
-    end_year = float(craw.cv["date"].max())
+    end_year = float(observations.frame["date"].max())
     tracers = convolution_tracers.ConvolutionTracers(
-        names=craw.cv["element"].unique(),
+        names=observations.frame["element"].unique(),
         date=end_year,
     )
     lpm_list, _, _ = lpm_results.select(
@@ -341,7 +343,7 @@ def plot_temporal_fit_summary(
                 ordered["concentration"].to_numpy(dtype=float)
             )
 
-    tracer_names = list(dict.fromkeys(craw.cv["element"].tolist()))
+    tracer_names = list(dict.fromkeys(observations.frame["element"].tolist()))
     ncols = min(2, max(len(tracer_names), 1))
     nrows = ceil(max(len(tracer_names), 1) / ncols)
     fig, axs = plt.subplots(
@@ -352,7 +354,9 @@ def plot_temporal_fit_summary(
     legend_labels = []
 
     for ax, tracer_name in zip(axs.flatten(), tracer_names, strict=False):
-        observed = craw.cv[craw.cv["element"] == tracer_name].sort_values("date")
+        observed = observations.frame[
+            observations.frame["element"] == tracer_name
+        ].sort_values("date")
         unit = (
             observed["unit"].iloc[0]
             if "unit" in observed.columns and not observed.empty

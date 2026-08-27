@@ -46,7 +46,7 @@ def load_cfc_pairs(well: str, date_range: str) -> pd.DataFrame:
     concentrations = Concentrations.from_file(
         observation_path(well, date_range, root=REPOSITORY_ROOT)
     )
-    table = concentrations.cv.copy()
+    table = concentrations.frame.copy()
     table = table[table["element"].isin(["cfc11", "cfc12"])]
     units = table.groupby("element")["unit"].unique().to_dict()
     if any(len(values) != 1 for values in units.values()):

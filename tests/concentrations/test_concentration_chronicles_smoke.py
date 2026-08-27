@@ -16,9 +16,9 @@ import pytest
 matplotlib.use("Agg", force=True)
 
 from pyages.concentrations import Concentrations
-from pyages.concentrations.concentrations_time import (
-    ConcentrationTime,
-    display_concentration_chronicles,
+from pyages.concentrations.chronicles import (
+    ConcentrationChronicle,
+    export_calibrated_chronicles,
 )
 from pyages.config.runtime import DisplayOptions
 from pyages.lpm import build_lpm
@@ -62,7 +62,7 @@ def test_concentration_chronicles_smoke(tmp_path, update_golden):
         / "data"
         / "ori_ploemeur_F09_2005_2024.txt"
     )
-    craw = Concentrations.from_file(data_path)
+    observations = Concentrations.from_file(data_path)
 
     display = DisplayOptions()
     display.text = False
@@ -71,19 +71,19 @@ def test_concentration_chronicles_smoke(tmp_path, update_golden):
     display.figure_save = True
     display.directory = tmp_path
 
-    conc_data = ConcentrationTime(craw=craw)
-    conc_data.save_to_file(tmp_path / "concentrations_wide.txt")
+    chronicle = ConcentrationChronicle(observations=observations)
+    chronicle.save(tmp_path / "concentrations_wide.txt")
 
     # Build a minimal sample table with one parameter set for the plotting path.
     lpm = build_lpm("exp_shifted")
-    lpm_results = LpmSampleTable(lpm, craw.names_dates())
+    lpm_results = LpmSampleTable(lpm, observations.observation_keys())
     lpm_results.append_sample(
         lpm.p,
         obj_function=0.0,
-        concentrations=[0.0] * len(craw.names_dates()),
+        concentrations=[0.0] * len(observations.observation_keys()),
     )
-    display_concentration_chronicles(
-        craw,
+    export_calibrated_chronicles(
+        observations,
         lpm_results,
         "smoke",
         display,

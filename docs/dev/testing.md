@@ -1,6 +1,6 @@
 # Testing
 
-PyAge separates fast software checks, scientific regression tests,
+PyAges separates fast software checks, scientific regression tests,
 cross-software validation, and release smoke tests. No single number describes
 all of these layers. The generated {doc}`test-inventory` is the current
 collection summary; pytest collection remains the authoritative detailed
@@ -23,7 +23,7 @@ The direct pytest equivalents used by GitHub Actions are:
 ```bash
 python -m pytest -q
 python -m pytest -q --run-extensive
-python -m pytest -q --cov=pyage --cov-report=term-missing --cov-report=xml --cov-fail-under=60
+python -m pytest -q --cov=pyages --cov-report=term-missing --cov-report=xml --cov-fail-under=60
 python -m pytest -q validation/tracerlpm/benchmark/tests
 python -m pytest --collect-only -q tests
 ```

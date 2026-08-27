@@ -171,7 +171,7 @@ def _model(mu: float, t0: float):
 def _observations(mu: float, t0: float):
     tracers = ConvolutionTracers(names=list(TRACERS), date=DATE)
     observations = tracers.convolve(_model(mu, t0), return_type="concentrations")
-    observations.error_affect_from_value(0.08)
+    observations.set_relative_errors(0.08)
     return observations
 
 

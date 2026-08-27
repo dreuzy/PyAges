@@ -12,9 +12,7 @@ from sites.ploemeur.workflows import ploemeur_workflow
 
 
 def test_observation_path_encodes_ploemeur_naming_convention(tmp_path):
-    path = ploemeur_observations.observation_path(
-        "F09", "2005_2024", root=tmp_path
-    )
+    path = ploemeur_observations.observation_path("F09", "2005_2024", root=tmp_path)
 
     assert path == (
         tmp_path
@@ -30,7 +28,7 @@ def test_observation_path_encodes_ploemeur_naming_convention(tmp_path):
 def test_observation_selection_creates_temp_directory(monkeypatch, tmp_path):
     temp_directory = tmp_path / "missing" / "temp"
     observations = SimpleNamespace(
-        cv=pd.DataFrame(
+        frame=pd.DataFrame(
             {
                 "date": [2005.0, 2006.0],
                 "cfc11": [1.0, 2.0],

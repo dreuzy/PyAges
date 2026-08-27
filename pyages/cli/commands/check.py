@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from importlib import import_module
+from importlib import metadata
 
 import click
+from packaging.requirements import InvalidRequirement, Requirement
 from pydantic import ValidationError
 
 from pyages.config.models import CliCheckParams
@@ -32,40 +33,70 @@ def _fail(message: str) -> None:
     click.echo(click.style("[FAIL]", fg="red") + f" {message}")
 
 
+def _python_version_supported(version_info: tuple[int, int, int]) -> bool:
+    return (3, 12) <= version_info < (3, 15)
+
+
 def _check_python() -> CheckResult:
-    version = (
-        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-    )
-    if sys.version_info >= (3, 12):
+    version_info = sys.version_info[:3]
+    version = ".".join(str(part) for part in version_info)
+    if _python_version_supported(version_info):
         _ok(f"Python version: {version}")
         return CheckResult(passed=1)
-    _fail(f"Python version: {version} (requires >= 3.12)")
+    _fail(f"Python version: {version} (requires >= 3.12,<3.15)")
     return CheckResult(failed=1)
 
 
+def _active_runtime_requirements() -> list[Requirement]:
+    """Return the installed distribution's active non-extra requirements."""
+
+    try:
+        declared = metadata.requires("pyages")
+    except metadata.PackageNotFoundError:
+        return []
+
+    requirements = []
+    for raw_requirement in declared or []:
+        try:
+            requirement = Requirement(raw_requirement)
+        except InvalidRequirement:
+            continue
+        if requirement.marker is None or requirement.marker.evaluate({"extra": ""}):
+            requirements.append(requirement)
+    return requirements
+
+
 def _check_dependencies(verbose: bool) -> CheckResult:
-    dependencies = [
-        ("numpy", "numpy"),
-        ("scipy", "scipy"),
-        ("pandas", "pandas"),
-        ("matplotlib", "matplotlib"),
-        ("yaml", "pyyaml"),
-        ("click", "click"),
-    ]
+    dependencies = _active_runtime_requirements()
+    if not dependencies:
+        _fail("Distribution metadata unavailable; install PyAges with pip")
+        return CheckResult(failed=1)
+
     passed = 0
     failed = 0
-    for module_name, package_name in dependencies:
+    for requirement in dependencies:
         try:
-            module = import_module(module_name)
-        except ImportError:
-            _fail(f"{package_name} not installed")
+            installed_version = metadata.version(requirement.name)
+        except metadata.PackageNotFoundError:
+            _fail(
+                f"{requirement.name} not installed (requires {requirement.specifier})"
+            )
             failed += 1
             continue
+
+        if installed_version not in requirement.specifier:
+            _fail(
+                f"{requirement.name}: {installed_version} does not satisfy "
+                f"{requirement.specifier}"
+            )
+            failed += 1
+            continue
+
         passed += 1
         if verbose:
-            _ok(f"{package_name}: {getattr(module, '__version__', '?')}")
+            _ok(f"{requirement.name}: {installed_version}")
     if not verbose and failed == 0:
-        _ok(f"Dependencies: {passed} packages found")
+        _ok(f"Dependencies: {passed} version constraints satisfied")
     return CheckResult(passed=passed, failed=failed)
 
 
@@ -144,8 +175,8 @@ def check(verbose: bool) -> None:
 
     \b
     Verifies:
-      - Python version >= 3.12
-      - Required dependencies are installed
+      - Python version >= 3.12,<3.15
+      - Required dependency versions satisfy package metadata
       - LPM models can be loaded
       - Tracers can be discovered
     """

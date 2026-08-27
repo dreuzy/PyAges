@@ -29,6 +29,7 @@ from pyages.concentrations.schema import (
     ERROR_COLUMN,
     REFERENCE_COLUMNS,
     UNIT_COLUMN,
+    tracer_date_key,
 )
 
 if TYPE_CHECKING:
@@ -42,16 +43,11 @@ _DEFAULT_ERROR = 0.0
 _DEFAULT_UNIT = "mol/l"
 
 
-def name_date(name: str, date: float) -> str:
-    """Build the historical one-decimal tracer/date key used by model tables."""
-    return f"{name}-{date:.1f}".replace(".", "_")
-
-
 class Concentrations:
     """
     Container for tracer concentrations and their metadata.
 
-    The normalized data is stored in :attr:`cv` as a defensive copy. Input
+    The normalized data is stored in :attr:`frame` as a defensive copy. Input
     tables must contain ``element``, ``concentration`` and ``date``. Missing
     ``error`` and ``unit`` columns default to zero and ``"mol/l"`` respectively.
     Extra columns are deliberately discarded at this package boundary.
@@ -61,7 +57,7 @@ class Concentrations:
         """Normalize and validate a copy of an observation dataframe."""
         if not isinstance(frame, pd.DataFrame):
             raise TypeError("frame must be a pandas DataFrame")
-        self.cv = frame.copy().reset_index(drop=True)
+        self.frame = frame.copy().reset_index(drop=True)
         self.__ensure_column(ERROR_COLUMN, _DEFAULT_ERROR)
         self.__ensure_column(UNIT_COLUMN, _DEFAULT_UNIT)
         self.validate()
@@ -76,7 +72,7 @@ class Concentrations:
         """Build observations from an existing dataframe copy."""
         return cls(frame)
 
-    def error_affect_from_mean(
+    def fill_missing_errors_from_means(
         self, mean_value: Iterable[float], fraction: float = 0.01
     ) -> None:
         """
@@ -99,17 +95,19 @@ class Concentrations:
         """
         fraction = self._validate_fraction(fraction)
         mean_array = np.asarray(mean_value, dtype=float)
-        if mean_array.shape != (len(self.cv),):
+        if mean_array.shape != (len(self.frame),):
             raise ValueError(
                 "mean_value must contain exactly one value per concentration row "
-                f"({len(self.cv)} expected, received {mean_array.size})"
+                f"({len(self.frame)} expected, received {mean_array.size})"
             )
         if not np.all(np.isfinite(mean_array)) or np.any(mean_array < 0.0):
             raise ValueError("mean_value entries must be finite and non-negative")
-        missing_error = self.cv[ERROR_COLUMN].to_numpy(dtype=float) == 0.0
-        self.cv.loc[missing_error, ERROR_COLUMN] = mean_array[missing_error] * fraction
+        missing_error = self.frame[ERROR_COLUMN].to_numpy(dtype=float) == 0.0
+        self.frame.loc[missing_error, ERROR_COLUMN] = (
+            mean_array[missing_error] * fraction
+        )
 
-    def error_affect_from_value(self, fraction: float) -> None:
+    def set_relative_errors(self, fraction: float) -> None:
         """
         Assign errors proportional to concentration values.
 
@@ -122,8 +120,8 @@ class Concentrations:
             Non-negative fraction of the concentration magnitude used as error.
         """
         fraction = self._validate_fraction(fraction)
-        values = self.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
-        self.cv[ERROR_COLUMN] = fraction * np.abs(values)
+        values = self.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
+        self.frame[ERROR_COLUMN] = fraction * np.abs(values)
 
     @staticmethod
     def _validate_fraction(fraction: float) -> float:
@@ -136,27 +134,27 @@ class Concentrations:
         return normalized
 
     def __ensure_column(self, name: str, default_value) -> None:
-        """Ensure a column exists in cv; insert a default when missing."""
-        if name not in self.cv.columns:
-            self.cv[name] = default_value
+        """Ensure a column exists in the frame; insert a default when missing."""
+        if name not in self.frame.columns:
+            self.frame[name] = default_value
 
     def validate(self) -> None:
         """Validate values and normalize the table to the canonical schema."""
-        duplicate_columns = self.cv.columns[self.cv.columns.duplicated()].tolist()
+        duplicate_columns = self.frame.columns[self.frame.columns.duplicated()].tolist()
         if duplicate_columns:
             raise ValueError(
                 "Duplicate concentration columns are not allowed: "
                 + ", ".join(map(str, duplicate_columns))
             )
-        missing = [column for column in REFERENCE_COLUMNS if column not in self.cv]
+        missing = [column for column in REFERENCE_COLUMNS if column not in self.frame]
         if missing:
             raise ValueError(
                 "Missing required columns in concentrations: " + ", ".join(missing)
             )
-        if self.cv.empty:
+        if self.frame.empty:
             raise ValueError("Concentrations must contain at least one observation")
 
-        normalized = self.cv.loc[:, list(REFERENCE_COLUMNS)].copy()
+        normalized = self.frame.loc[:, list(REFERENCE_COLUMNS)].copy()
         for column in (CONCENTRATION_COLUMN, ERROR_COLUMN, DATE_COLUMN):
             try:
                 normalized[column] = pd.to_numeric(normalized[column], errors="raise")
@@ -182,11 +180,9 @@ class Concentrations:
         normalized[UNIT_COLUMN] = (
             normalized[UNIT_COLUMN].fillna(_DEFAULT_UNIT).astype(str)
         )
-        self.cv = normalized.reset_index(drop=True)
+        self.frame = normalized.reset_index(drop=True)
 
-    def sample_concentrations_with_errors(
-        self, rng: np.random.Generator
-    ) -> "Concentrations":
+    def sample_with_errors(self, rng: np.random.Generator) -> "Concentrations":
         """
         Sample independent Gaussian observation errors.
 
@@ -202,19 +198,19 @@ class Concentrations:
         """
         if not isinstance(rng, np.random.Generator):
             raise TypeError("rng must be a numpy.random.Generator")
-        sampled = self.from_dataframe(self.cv)
-        draw = rng.standard_normal(size=len(sampled.cv))
-        base = self.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
-        err = self.cv[ERROR_COLUMN].to_numpy(dtype=float)
-        sampled.cv[CONCENTRATION_COLUMN] = base + err * draw
+        sampled = self.from_dataframe(self.frame)
+        draw = rng.standard_normal(size=len(sampled.frame))
+        base = self.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
+        err = self.frame[ERROR_COLUMN].to_numpy(dtype=float)
+        sampled.frame[CONCENTRATION_COLUMN] = base + err * draw
         return sampled
 
     def display(self, display_options: DisplayOptions) -> None:
         """Display the concentration table when text output is enabled."""
         if display_options.text:
-            print(self.cv)
+            print(self.frame)
 
-    def figure_concentrations(
+    def plot_pair(
         self,
         i1: int,
         i2: int,
@@ -234,14 +230,14 @@ class Concentrations:
             or not isinstance(i2, int)
             or i1 < 0
             or i2 < 0
-            or i1 >= len(self.cv)
-            or i2 >= len(self.cv)
+            or i1 >= len(self.frame)
+            or i2 >= len(self.frame)
         ):
             raise IndexError("Index out of range for concentration plot.")
         target = ax if ax is not None else plt.gca()
         artist = target.scatter(
-            self.cv[CONCENTRATION_COLUMN].iloc[i1],
-            self.cv[CONCENTRATION_COLUMN].iloc[i2],
+            self.frame[CONCENTRATION_COLUMN].iloc[i1],
+            self.frame[CONCENTRATION_COLUMN].iloc[i2],
             marker="o",
             c="r",
             s=150,
@@ -252,24 +248,24 @@ class Concentrations:
             target.set_ylabel(label_y)
         return artist
 
-    def names(self) -> list[str]:
+    def tracer_names(self) -> list[str]:
         """Return tracer names as a list."""
-        return self.cv[ELEMENT_COLUMN].tolist()
+        return self.frame[ELEMENT_COLUMN].tolist()
 
-    def names_dates(self) -> list[str]:
-        """Return tracer names combined with date and index."""
+    def observation_keys(self) -> list[str]:
+        """Return unique tracer/date/index keys in observation-row order."""
         return [
-            f"{element}_{date}_{index}"
+            f"{tracer_date_key(element, date)}#{index}"
             for index, (element, date) in enumerate(
                 zip(
-                    self.cv[ELEMENT_COLUMN],
-                    self.cv[DATE_COLUMN],
+                    self.frame[ELEMENT_COLUMN],
+                    self.frame[DATE_COLUMN],
                     strict=True,
                 )
             )
         ]
 
-    def cv_key_name_date(self) -> pd.DataFrame:
+    def with_tracer_date_keys(self) -> pd.DataFrame:
         """
         Return a copy with element keys expanded to element-date.
 
@@ -280,13 +276,13 @@ class Concentrations:
         Returns:
             DataFrame with element replaced by element-date keys.
         """
-        cv = self.cv.copy()
-        cv[ELEMENT_COLUMN] = [
-            name_date(element, date)
+        keyed = self.frame.copy()
+        keyed[ELEMENT_COLUMN] = [
+            tracer_date_key(element, date)
             for element, date in zip(
-                cv[ELEMENT_COLUMN],
-                cv[DATE_COLUMN],
+                keyed[ELEMENT_COLUMN],
+                keyed[DATE_COLUMN],
                 strict=True,
             )
         ]
-        return cv
+        return keyed

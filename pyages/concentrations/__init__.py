@@ -4,7 +4,7 @@
 
 """Validated concentration observations used by PyAges workflows."""
 
-from pyages.concentrations.concentrations import Concentrations, name_date
+from pyages.concentrations._container import Concentrations
 from pyages.concentrations.schema import (
     CONCENTRATION_COLUMN,
     DATE_COLUMN,
@@ -22,5 +22,4 @@ __all__ = [
     "ERROR_COLUMN",
     "REFERENCE_COLUMNS",
     "UNIT_COLUMN",
-    "name_date",
 ]

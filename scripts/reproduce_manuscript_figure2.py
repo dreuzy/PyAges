@@ -114,7 +114,7 @@ def build_synthetic_data(config: Figure2Config, target):
         target,
         return_type="concentrations",
     )
-    observations.error_affect_from_value(config.relative_error)
+    observations.set_relative_errors(config.relative_error)
     return observations
 
 
@@ -285,11 +285,11 @@ def build_residual_table(
         raise RuntimeError("Metropolis-Hastings returned no posterior samples")
 
     concentration_columns = posterior.get_concentration_names()
-    if len(concentration_columns) != len(observations.cv):
+    if len(concentration_columns) != len(observations.frame):
         raise RuntimeError("Posterior concentration columns do not match observations")
 
-    observed = observations.cv["concentration"].to_numpy(dtype=float)
-    sigma = observations.cv["error"].to_numpy(dtype=float)
+    observed = observations.frame["concentration"].to_numpy(dtype=float)
+    sigma = observations.frame["error"].to_numpy(dtype=float)
     modelled = best[concentration_columns].to_numpy(dtype=float)
     residual = modelled - observed
     normalized = residual / sigma
@@ -300,7 +300,7 @@ def build_residual_table(
 
     table = pd.DataFrame(
         {
-            "tracer": observations.cv["element"].astype(str).to_numpy(),
+            "tracer": observations.frame["element"].astype(str).to_numpy(),
             "observed": observed,
             "sigma": sigma,
             "modelled_best_mh": modelled,

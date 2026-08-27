@@ -276,19 +276,19 @@ The supported public surface and compatibility policy are documented in
 
 PyAges is distributed under the CeCILL 2.1 license. The complete authoritative
 texts are included in French in
-[`LICENSE`](https://github.com/dreuzy/pyages/blob/main/LICENSE) and in English in
-[`LICENSE.en`](https://github.com/dreuzy/pyages/blob/main/LICENSE.en). Source
+[`LICENSE`](https://github.com/dreuzy/PyAges/blob/main/LICENSE) and in English in
+[`LICENSE.en`](https://github.com/dreuzy/PyAges/blob/main/LICENSE.en). Source
 files carry the SPDX identifier `CECILL-2.1`.
 
 Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS).
 Jean-Raynald de Dreuzy is the principal author and contributor. See
-[`COPYRIGHT`](https://github.com/dreuzy/pyages/blob/main/COPYRIGHT) for the
+[`COPYRIGHT`](https://github.com/dreuzy/PyAges/blob/main/COPYRIGHT) for the
 complete authorship and rights notice,
-[`LICENSE`](https://github.com/dreuzy/pyages/blob/main/LICENSE) and
-[`LICENSE.en`](https://github.com/dreuzy/pyages/blob/main/LICENSE.en) for the
+[`LICENSE`](https://github.com/dreuzy/PyAges/blob/main/LICENSE) and
+[`LICENSE.en`](https://github.com/dreuzy/PyAges/blob/main/LICENSE.en) for the
 license terms,
-[`NOTICE-DATA.md`](https://github.com/dreuzy/pyages/blob/main/NOTICE-DATA.md) for
+[`NOTICE-DATA.md`](https://github.com/dreuzy/PyAges/blob/main/NOTICE-DATA.md) for
 the separate provenance and terms of the data distributed with the project,
 and
-[`THIRD_PARTY_NOTICES.md`](https://github.com/dreuzy/pyages/blob/main/THIRD_PARTY_NOTICES.md)
+[`THIRD_PARTY_NOTICES.md`](https://github.com/dreuzy/PyAges/blob/main/THIRD_PARTY_NOTICES.md)
 for the direct dependency licence audit.

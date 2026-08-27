@@ -51,8 +51,8 @@ def test_simplex_persists_the_reported_optimum_as_one_joint_sample(
     )
     assert row["mu"] == pytest.approx(optimum[0])
     assert row["obj_function"] == pytest.approx(0.0, abs=1e-12)
-    assert row[problem.observations.names_dates()[0]] == pytest.approx(
-        problem.observations.cv["concentration"].iloc[0]
+    assert row[problem.observations.observation_keys()[0]] == pytest.approx(
+        problem.observations.frame["concentration"].iloc[0]
     )
 
 

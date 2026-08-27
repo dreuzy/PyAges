@@ -52,7 +52,7 @@ def _normalized_series_frame(frame: pd.DataFrame, *, tracer: str) -> pd.DataFram
     return normalized.sort_values(DATE_COLUMN).reset_index(drop=True)
 
 
-def to_cv_dict(
+def normalize_series(
     concentrations: pd.DataFrame | Mapping[str, pd.DataFrame],
 ) -> ConcentrationSeries:
     """
@@ -98,7 +98,7 @@ def to_cv_dict(
 
 def merge_model_into_table(
     merged: pd.DataFrame | None,
-    cv_dict: Mapping[str, pd.DataFrame],
+    series_by_tracer: Mapping[str, pd.DataFrame],
     model_id: int,
 ) -> pd.DataFrame:
     """
@@ -108,7 +108,7 @@ def merge_model_into_table(
     ----------
     merged : DataFrame or None
         Existing merged table, or None to initialize.
-    cv_dict : dict
+    series_by_tracer : dict
         Dict of tracer -> DataFrame(date, concentration, element).
     model_id : int
         Identifier suffix for column names (e.g., cfc11_3).
@@ -126,9 +126,9 @@ def merge_model_into_table(
     if isinstance(model_id, bool) or not isinstance(model_id, int) or model_id < 1:
         raise ValueError("model_id must be a positive integer")
 
-    series = to_cv_dict(cv_dict)
+    series = normalize_series(series_by_tracer)
     if not series:
-        raise ValueError("cv_dict must contain at least one tracer series")
+        raise ValueError("series_by_tracer must contain at least one tracer series")
 
     if merged is None:
         result = pd.DataFrame(columns=[DATE_COLUMN])

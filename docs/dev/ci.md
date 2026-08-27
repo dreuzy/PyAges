@@ -1,6 +1,6 @@
 # Continuous integration
 
-GitHub Actions is the canonical continuous-integration service for PyAge. The
+GitHub Actions is the canonical continuous-integration service for PyAges. The
 workflow files remain the executable source of truth, while this page explains
 their intent, triggers, outputs, and failure semantics. The workflows use
 read-only repository permissions and do not publish releases or modify Git
@@ -10,9 +10,9 @@ references.
 
 | Workflow | Triggers | Purpose |
 |---|---|---|
-| [CI](https://github.com/dreuzy/pyage/actions/workflows/ci.yml) | Pull requests targeting `main`, pushes to `main`, `v*` tags, and manual dispatch | Fast required checks for every supported Python version, packaging, documentation, and validation infrastructure |
-| [Extensive tests](https://github.com/dreuzy/pyage/actions/workflows/extensive-tests.yml) | Manual dispatch and daily at `01:17 UTC` | Opt-in scientific calculations that are too slow for every pull request |
-| [Release candidate](https://github.com/dreuzy/pyage/actions/workflows/release-candidate.yml) | Manual dispatch for an existing `v`-prefixed tag | Build one candidate, validate its metadata, and smoke-test the same wheel on all supported Python versions |
+| [CI](https://github.com/dreuzy/PyAges/actions/workflows/ci.yml) | Pull requests targeting `main`, pushes to `main`, `v*` tags, and manual dispatch | Fast required checks for every supported Python version, packaging, documentation, and validation infrastructure |
+| [Extensive tests](https://github.com/dreuzy/PyAges/actions/workflows/extensive-tests.yml) | Manual dispatch and daily at `01:17 UTC` | Opt-in scientific calculations that are too slow for every pull request |
+| [Release candidate](https://github.com/dreuzy/PyAges/actions/workflows/release-candidate.yml) | Manual dispatch for an existing `v`-prefixed tag | Build one candidate, validate its metadata, and smoke-test the same wheel on all supported Python versions |
 
 The daily extensive run starts at 02:17 in metropolitan France during winter
 time and 03:17 during summer time. GitHub may send failure notifications at
@@ -29,7 +29,7 @@ gate:
 |---|---|---|
 | `Ruff` | `ruff check`, `ruff format --check`, generated test-inventory check | Lint, formatting, and test documentation must be current |
 | `Dependency audit` | Qualified install, `pip check`, `pip-audit` | Dependency consistency and known-vulnerability check |
-| `Conda environment` | Create `install/environment.yml`, install PyAge without dependency replacement, exercise CLI discovery | Conda environment and packaged entry points are usable |
+| `Conda environment` | Create `install/environment.yml`, install PyAges without dependency replacement, exercise CLI discovery | Conda environment and packaged entry points are usable |
 | `Tests (Python …)` | Standard pytest suite on Python 3.12, 3.13, and 3.14 | Supported-version compatibility |
 | `Coverage` | Standard suite with branch measurement | XML artifact retained for 14 days; total coverage must be at least 60% |
 | `TracerLPM validation` | Dedicated benchmark tests under `validation/tracerlpm/benchmark/tests` | Mapping, reference-data, and comparison infrastructure remains valid |

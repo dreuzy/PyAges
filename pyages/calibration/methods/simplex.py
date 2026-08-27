@@ -67,8 +67,8 @@ class Simplex(CalibrationMethod):
     def _run_single(self, parameters=None) -> LpmSampleTable:
         """Run one Nelder-Mead optimization."""
         initial = self.lpm.param_init() if parameters is None else parameters
-        observed = self.observations.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
-        errors = self.observations.cv[ERROR_COLUMN].to_numpy(dtype=float)
+        observed = self.observations.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
+        errors = self.observations.frame[ERROR_COLUMN].to_numpy(dtype=float)
         bounds = list(zip(*self.lpm.get_param_interval(), strict=True))
         optimization = minimize(
             self.objective_function,
@@ -116,11 +116,11 @@ class Simplex(CalibrationMethod):
                 "chi_square": float(chi_square),
             }
         )
-        results = LpmSampleTable(self.lpm, c_names=self.observations.names_dates())
+        results = LpmSampleTable(self.lpm, c_names=self.observations.observation_keys())
         results.append_sample(
             self.lpm.p.copy(),
             obj_function=normalized_residual_norm(
-                chi_square, len(self.observations.cv)
+                chi_square, len(self.observations.frame)
             ),
             concentrations=concentrations,
             param_in_bounds=True,
@@ -129,7 +129,7 @@ class Simplex(CalibrationMethod):
 
     def _run_multiple(self) -> LpmSampleTable:
         """Run Nelder-Mead from several reproducible random starts."""
-        results = LpmSampleTable(self.lpm, c_names=self.observations.names_dates())
+        results = LpmSampleTable(self.lpm, c_names=self.observations.observation_keys())
         rng = np.random.default_rng(self.initialization_seed)
         for _ in range(self.initialization_count):
             self.lpm.random_uniform(rng=rng)
@@ -138,14 +138,14 @@ class Simplex(CalibrationMethod):
 
     def _run_forward_uncertainty(self) -> LpmSampleTable:
         """Calibrate several observation draws within measurement errors."""
-        results = LpmSampleTable(self.lpm, c_names=self.observations.names_dates())
+        results = LpmSampleTable(self.lpm, c_names=self.observations.observation_keys())
         sampled_method = copy.deepcopy(self)
         sampled_method.method = MULTI_START
         uncertainty_rng = np.random.default_rng(self.uncertainty_seed)
         initialization_rng = np.random.default_rng(self.initialization_seed)
         for _ in range(self.uncertainty_sample_count):
-            sampled_method.problem.observations = (
-                self.observations.sample_concentrations_with_errors(uncertainty_rng)
+            sampled_method.problem.observations = self.observations.sample_with_errors(
+                uncertainty_rng
             )
             for _ in range(self.initialization_count):
                 if self.initialization_count == 1:

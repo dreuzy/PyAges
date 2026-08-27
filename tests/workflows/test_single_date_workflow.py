@@ -21,8 +21,8 @@ def test_quickstart_writes_a_manifest_and_normalized_observations(
     output = tmp_path / "quickstart"
     monkeypatch.setattr(single_date, "dataset_results_directory", lambda _name: output)
     monkeypatch.setattr(
-        single_date.concentrations_time,
-        "display_concentration_times",
+        single_date,
+        "export_concentration_chronicles",
         lambda *_args, **_kwargs: None,
     )
 
@@ -46,6 +46,6 @@ def test_quickstart_exercised_here_is_the_documented_tutorial_command() -> None:
         encoding="utf-8"
     )
 
-    assert "pyage run examples/templates/quickstart_single.yaml" in tutorial
+    assert "pyages run examples/templates/quickstart_single.yaml" in tutorial
     assert '`"status": "complete"`' not in tutorial
     assert '"status": "complete"' in tutorial

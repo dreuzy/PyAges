@@ -56,7 +56,7 @@ from pyages.calibration.ig_parameterization import (
 )
 from pyages.calibration.mh_proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
-from pyages.concentrations.concentrations import Concentrations
+from pyages.concentrations import Concentrations
 from scripts.common.mcmc_diagnostics import (
     ess as _ess,
     rank_normalize as _rank_normalize,
@@ -109,13 +109,13 @@ def _load_observations(
     observations = Concentrations.from_file(OBSERVATIONS[well])
     if interval is not None:
         start, end = interval
-        frame = observations.cv.loc[
-            observations.cv["date"].between(start, end, inclusive="both")
+        frame = observations.frame.loc[
+            observations.frame["date"].between(start, end, inclusive="both")
         ]
         observations = Concentrations.from_dataframe(frame)
-    observations.cv["unit"] = "pptv"
-    observations.error_affect_from_value(0.2)
-    if set(observations.names()) != {"cfc11", "cfc12", "cfc113"}:
+    observations.frame["unit"] = "pptv"
+    observations.set_relative_errors(0.2)
+    if set(observations.tracer_names()) != {"cfc11", "cfc12", "cfc113"}:
         raise RuntimeError(f"Unexpected tracer set for {well}")
     return observations
 
@@ -135,8 +135,8 @@ def _prepare_problem(well: str, interval: tuple[float, float] | None):
 def _bootstrap_samples(well: str, interval: tuple[float, float] | None) -> pd.DataFrame:
     """Build deterministic, data-informed starts without archived posteriors."""
     problem, observations = _prepare_problem(well, interval)
-    observed = observations.cv["concentration"].to_numpy(dtype=float)
-    errors = observations.cv["error"].to_numpy(dtype=float)
+    observed = observations.frame["concentration"].to_numpy(dtype=float)
+    errors = observations.frame["error"].to_numpy(dtype=float)
     rows = []
     for shape in (0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 25.0, 60.0):
         for scale in (0.5, 1.0, 2.0, 4.0, 8.0, 15.0, 25.0):
@@ -205,8 +205,8 @@ def _conditional_log_prior(params: np.ndarray, spec: dict[str, list[float]]) -> 
 
 def _run_chain_worker(payload: dict[str, Any]) -> ChainResult:
     problem, observations = _prepare_problem(payload["well"], payload["interval"])
-    observed = observations.cv["concentration"].to_numpy(dtype=float)
-    errors = observations.cv["error"].to_numpy(dtype=float)
+    observed = observations.frame["concentration"].to_numpy(dtype=float)
+    errors = observations.frame["error"].to_numpy(dtype=float)
     conditional = payload.get("conditional_prior")
 
     def evaluate(params: np.ndarray) -> tuple[float, float]:
@@ -777,8 +777,8 @@ def _distribution_verification() -> pd.DataFrame:
                 scale=row.M**3 / row.S**2,
             )
             problem, observations = _prepare_problem(well, (2014.0, 2016.0))
-            observed = observations.cv["concentration"].to_numpy(dtype=float)
-            errors = observations.cv["error"].to_numpy(dtype=float)
+            observed = observations.frame["concentration"].to_numpy(dtype=float)
+            errors = observations.frame["error"].to_numpy(dtype=float)
             _, concentrations = problem.objective_function(
                 [row.M, row.S, row.t0], observed, errors, return_concentrations=True
             )

@@ -109,7 +109,7 @@ github_version = os.environ.get("READTHEDOCS_GIT_COMMIT_HASH", "").strip() or "m
 html_context = {
     "display_github": True,
     "github_user": "dreuzy",
-    "github_repo": "pyage",
+    "github_repo": "PyAges",
     "github_version": github_version,
     "conf_py_path": "/docs/",
 }
@@ -119,6 +119,7 @@ html_context = {
 # user-facing DOI while excluding only the known bot-blocked endpoints; all
 # other external links remain checked. Retry transient failures before
 # reporting them as broken.
+linkcheck_timeout = 10
 linkcheck_retries = 3
 linkcheck_report_timeouts_as_broken = False
 linkcheck_ignore = [

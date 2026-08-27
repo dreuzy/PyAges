@@ -50,7 +50,7 @@ Typical workflow (data)
 ```
 Excel / raw files -> data/brut
 data/brut + manual edits -> data/ori
-workflow generates -> OS temp/pyage-ploemeur-* (removed after execution)
+workflow generates -> OS temp/pyages-ploemeur-* (removed after execution)
 ```
 
 See `sites/ploemeur/data/README.md` for details about data provenance.

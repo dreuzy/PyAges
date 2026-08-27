@@ -74,7 +74,7 @@ required review includes explaining the affected output families, comparing a
 qualified Windows run or declaring Linux canonical, inspecting representative
 acceptance trajectories, and checking scientific invariants independently of
 the stored golden values. Track that review in [GitHub issue
-#9](https://github.com/dreuzy/pyage/issues/9).
+#9](https://github.com/dreuzy/PyAges/issues/9).
 
 The TracerLPM/Excel case remains only partially portable, and the external
 Holten Dirichlet-sensitivity campaign remains locally unvalidated until its

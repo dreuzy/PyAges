@@ -24,7 +24,7 @@ from pyages.data_io.lpm_results import write_lpm_name
 from pyages.lpm.factory import build_lpm
 
 if TYPE_CHECKING:
-    from pyages.concentrations.concentrations import Concentrations
+    from pyages.concentrations import Concentrations
 
 
 class SystematicSampling:
@@ -70,7 +70,7 @@ class SystematicSampling:
     def compute_concentrations(self) -> pd.DataFrame:
         """Evaluate every tracer for every parameter combination."""
         points = self._grid.points()
-        columns = self._tracers.element_names_dates()
+        columns = self._tracers.tracer_date_keys()
         values = np.zeros((len(points), len(columns)))
         self._tracers.prepare(self._lpm)
         for index, parameters in enumerate(points):
@@ -117,7 +117,7 @@ class SystematicSampling:
         if self._observations is None:
             raise RuntimeError("Observation data is required to build the objective")
         modeled = self._require_concentrations()
-        observed = self._observations.cv_key_name_date().reset_index(drop=True)
+        observed = self._observations.with_tracer_date_keys().reset_index(drop=True)
         if len(observed) != len(modeled.columns):
             raise ValueError("Observation and model dimensions do not match")
 

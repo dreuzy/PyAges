@@ -1,7 +1,7 @@
 # Concentration observations
 
 PyAges represents observation data with `pyages.concentrations.Concentrations`.
-The object owns a normalized copy of the input table in its `cv` attribute, so
+The object owns a normalized copy of the input table in its `frame` attribute, so
 later edits to the source DataFrame do not alter a calibration.
 
 ## Canonical table
@@ -25,6 +25,7 @@ rows before constructing `Concentrations`.
 import pandas as pd
 
 from pyages.concentrations import Concentrations
+from pyages.concentrations.chronicles import ConcentrationChronicle
 
 observations = Concentrations.from_dataframe(
     pd.DataFrame(
@@ -53,11 +54,11 @@ uncertainty requires strictly positive errors.
 
 ## Assigning and sampling errors
 
-`error_affect_from_value(fraction)` replaces every error with the requested
+`set_relative_errors(fraction)` replaces every error with the requested
 fraction of the absolute observed concentration. The fraction must be finite
 and non-negative.
 
-`error_affect_from_mean(values, fraction=0.01)` fills only zero errors. Supply
+`fill_missing_errors_from_means(values, fraction=0.01)` fills only zero errors. Supply
 exactly one finite, non-negative mean value per observation row. Existing
 positive errors are preserved.
 
@@ -67,9 +68,7 @@ stream visible and reproducible:
 ```python
 import numpy as np
 
-sampled = observations.sample_concentrations_with_errors(
-    np.random.default_rng(12345)
-)
+sampled = observations.sample_with_errors(np.random.default_rng(12345))
 ```
 
 The sampled object is independent from `observations`. Gaussian draws are not
@@ -77,15 +76,20 @@ truncated, so a large uncertainty can produce a negative sampled value; that is
 a property of the selected observation-error model, not a concentration-table
 validation failure.
 
+`observation_keys()` returns stable result-column names in the form
+`tracer@date#index`, for example `cfc11@2010.0#0`. The index distinguishes
+replicate observations. Reachable-model tables, which contain one value per
+tracer and date, use `tracer@date` without rounding the date.
+
 ## Time series and wide exports
 
-`ConcentrationTime(craw=observations)` groups the long table by tracer for
+`ConcentrationChronicle(observations=observations)` groups the long table by tracer for
 chronicle plots. Alternatively, construct it with exactly one pre-grouped
-mapping through `ConcentrationTime(cv=series)`.
+mapping through `ConcentrationChronicle(series=series)`.
 
 Long observation tables may contain replicate measurements for the same tracer
 and date. A wide table has no replicate identifier, however, so
-`save_to_file()` rejects duplicate tracer/date pairs instead of performing a
+`save()` rejects duplicate tracer/date pairs instead of performing a
 many-to-many merge that would silently multiply rows. Aggregate replicates or
 retain them in long form before requesting a wide export.
 

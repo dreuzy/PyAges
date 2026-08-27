@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-import pyages.concentrations.concentrations as co
+from pyages.concentrations import Concentrations
 from pyages.convolution.convolution_tracers import ConvolutionTracers
 from pyages.data_io.lpm_distribution import read_distribution, read_statistics
 from pyages.lpm import build_lpm
@@ -119,7 +119,7 @@ def generate_synthetic_case(
         lpm,
         return_type="concentrations",
     )
-    true_frame = true_concentrations.cv.copy()
+    true_frame = true_concentrations.frame.copy()
     observed_frame = true_frame.copy()
     observed_frame["error"] = relative_error * true_frame["concentration"]
 
@@ -241,7 +241,7 @@ def build_truth_aware_figures(
 
     paths = case_paths()
     observed_path = dataset_path or paths.dataset_path
-    observed = co.Concentrations.from_file(observed_path)
+    observed = Concentrations.from_file(observed_path)
     true_frame = true_concentration_frame(truth)
     posterior_frame = read_distribution(
         results_dir / method / "lpm_dist_calibrated.txt"

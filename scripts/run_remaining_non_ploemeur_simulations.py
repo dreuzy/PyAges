@@ -519,7 +519,7 @@ def run_mcmc(output: Path) -> dict[str, Path]:
     for case_name, mu, t0 in MCMC_CASES:
         target_model = _model("exp_shifted", {"mu": mu, "shift": t0})
         observations = tracers.convolve(target_model, return_type="concentrations")
-        observations.error_affect_from_value(0.08)
+        observations.set_relative_errors(0.08)
         for steps in MCMC_LENGTHS:
             seeds = (REFERENCE_SEED,) if steps == 10_000 else SHORT_SEEDS
             for seed in seeds:

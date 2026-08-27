@@ -47,7 +47,7 @@ if str(ROOT) not in sys.path:
 from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
 from pyages.calibration.mh_proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
-from pyages.concentrations.concentrations import Concentrations
+from pyages.concentrations import Concentrations
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
@@ -332,13 +332,13 @@ def _observations(case: Case) -> Concentrations:
     observations = Concentrations.from_file(_observation_path(case.well))
     if case.interval is not None:
         start, end = case.interval
-        frame = observations.cv.loc[
-            (observations.cv["date"] >= start) & (observations.cv["date"] < end)
+        frame = observations.frame.loc[
+            (observations.frame["date"] >= start) & (observations.frame["date"] < end)
         ]
         observations = Concentrations.from_dataframe(frame)
-    observations.cv["unit"] = "pptv"
-    observations.error_affect_from_value(RELATIVE_ERROR)
-    if set(observations.names()) != set(TRACERS):
+    observations.frame["unit"] = "pptv"
+    observations.set_relative_errors(RELATIVE_ERROR)
+    if set(observations.tracer_names()) != set(TRACERS):
         raise RuntimeError(f"Unexpected tracer set for {case.key}")
     return observations
 
@@ -823,7 +823,7 @@ def _figure4(output: Path, lengths: dict[str, int]) -> pd.DataFrame:
 def _tracer_fit_diagnostics(output: Path, intervals: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for case in CASES:
-        observations = _observations(case).cv
+        observations = _observations(case).frame
         for tracer in TRACERS:
             observed = (
                 observations.loc[observations["element"] == tracer]

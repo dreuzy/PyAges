@@ -13,6 +13,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from pyages.concentrations.schema import tracer_date_key
 from pyages.workflows.plots.common import (
     MEDIAN_COLOR,
     OBSERVED_COLOR,
@@ -22,7 +23,6 @@ from pyages.workflows.plots.common import (
     _ensure_frame,
     _method_color,
     _pretty_tracer_name,
-    _reachable_column_name,
     _reference_concentration_lookup,
     _save_figure,
     apply_example_style,
@@ -113,11 +113,11 @@ def plot_single_date_model_space(
     Plot pairwise concentration panels for the single-date example.
     """
     apply_example_style()
-    observed = concentration_sampled.cv.reset_index(drop=True)
+    observed = concentration_sampled.frame.reset_index(drop=True)
     reference_lookup = _reference_concentration_lookup(reference_concentrations)
-    concentration_columns = concentration_sampled.names_dates()
+    concentration_columns = concentration_sampled.observation_keys()
     reachable_columns = [
-        _reachable_column_name(row["element"], float(row["date"]))
+        tracer_date_key(row["element"], float(row["date"]))
         for _, row in observed.iterrows()
     ]
     pairs = list(combinations(range(len(concentration_columns)), 2))

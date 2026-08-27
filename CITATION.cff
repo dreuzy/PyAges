@@ -8,5 +8,5 @@ authors:
     affiliation: "Univ Rennes, CNRS, Géosciences Rennes – UMR 6118, F-35000 Rennes, France."
 version: "0.1.0b1"
 date-released: 2026-08-19
-repository-code: "https://github.com/dreuzy/pyages.git"
+repository-code: "https://github.com/dreuzy/PyAges.git"
 license: CECILL-2.1

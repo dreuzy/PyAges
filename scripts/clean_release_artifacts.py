@@ -21,9 +21,8 @@ def clean_release_artifacts(root: Path | None = None) -> list[Path]:
     """Delete generated build directories below a verified PyAges checkout."""
     repository = (root or Path(__file__).resolve().parents[1]).resolve()
     project_file = repository / "pyproject.toml"
-    if (
-        not project_file.is_file()
-        or 'name = "pyages"' not in project_file.read_text(encoding="utf-8")
+    if not project_file.is_file() or 'name = "pyages"' not in project_file.read_text(
+        encoding="utf-8"
     ):
         raise RuntimeError(f"Refusing to clean unverified repository: {repository}")
 

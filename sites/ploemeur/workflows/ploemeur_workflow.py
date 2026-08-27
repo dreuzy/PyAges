@@ -24,7 +24,7 @@ import yaml
 from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
-from pyages.concentrations.concentrations_time import display_concentration_chronicles
+from pyages.concentrations.chronicles import export_calibrated_chronicles
 from pyages.concentrations.schema import ERROR_COLUMN
 from pyages.config.paths import (
     ROOT_DIRECTORY,
@@ -105,10 +105,10 @@ def load_concentrations(
 ) -> Concentrations:
     """Load concentrations, apply relative errors, display, and write outputs."""
     cdata = Concentrations.from_file(file_path)
-    if cdata.cv[ERROR_COLUMN].min() == 0:
-        cdata.error_affect_from_value(error_concentrations)
+    if cdata.frame[ERROR_COLUMN].min() == 0:
+        cdata.set_relative_errors(error_concentrations)
     cdata.display(display)
-    cdata.cv.to_csv(
+    cdata.frame.to_csv(
         data_file_path(output_dir, "concentrations.txt"), sep="\t", index=False
     )
     return cdata
@@ -455,9 +455,10 @@ def _write_observation_selection(well, dates, start, end, directory=None):
     """
 
     directory = directory or workflow_temp_folder()
+    Path(directory).mkdir(parents=True, exist_ok=True)
     # Loads concentrations
     cdata = Concentrations.from_file(observation_path(well, dates))
-    df = cdata.cv
+    df = cdata.frame
     # Selects concentrations within the given age range
     dfselec = df.loc[(df["date"] >= start) & (df["date"] <= (end + 1))]
     # Writes data in a file
@@ -477,7 +478,7 @@ def _periods_years(well, dates, time_span_and_prior_mode, breakups=()):
     """
     validate_time_span_and_prior_mode(time_span_and_prior_mode)
     cdata = Concentrations.from_file(observation_path(well, dates))
-    sampling_years = sorted({int(value) for value in cdata.cv["date"]})
+    sampling_years = sorted({int(value) for value in cdata.frame["date"]})
 
     start = []
     end = []
@@ -754,7 +755,7 @@ class PloemeurSingleRun:
         strategy.analysis_calibration(lpm_results)
 
         # Tracers + distributions
-        display_concentration_chronicles(
+        export_calibrated_chronicles(
             cdata,
             lpm_results,
             strategy.method,

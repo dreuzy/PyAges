@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import importlib
+
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -16,11 +18,11 @@ matplotlib.use("Agg", force=True)
 import matplotlib.pyplot as plt
 
 from pyages.concentrations import Concentrations
-from pyages.concentrations.concentrations_time import ConcentrationTime
-from pyages.concentrations.schema import REFERENCE_COLUMNS
+from pyages.concentrations.chronicles import ConcentrationChronicle
+from pyages.concentrations.schema import REFERENCE_COLUMNS, tracer_date_key
 from pyages.concentrations.utils.plotting import plot_tracer_series
 from pyages.concentrations.utils.storage import save_tracer_series_table
-from pyages.concentrations.utils.tables import merge_model_into_table, to_cv_dict
+from pyages.concentrations.utils.tables import merge_model_into_table, normalize_series
 
 
 def _frame() -> pd.DataFrame:
@@ -44,15 +46,45 @@ def _series(tracer: str, dates=(2000.0, 2001.0)) -> pd.DataFrame:
     )
 
 
+def test_legacy_modules_and_method_aliases_are_absent() -> None:
+    for module_name in (
+        "pyages.concentrations.concentrations",
+        "pyages.concentrations.concentrations_time",
+    ):
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module(module_name)
+
+    removed_names = {
+        "cv",
+        "cv_key_name_date",
+        "error_affect_from_mean",
+        "error_affect_from_value",
+        "figure_concentrations",
+        "names",
+        "names_dates",
+        "sample_concentrations_with_errors",
+    }
+    assert removed_names.isdisjoint(vars(Concentrations))
+
+
 def test_concentrations_normalizes_a_defensive_copy() -> None:
     source = _frame()
     concentrations = Concentrations.from_dataframe(source)
 
     source.loc[0, "concentration"] = 99.0
-    assert list(concentrations.cv.columns) == list(REFERENCE_COLUMNS)
-    assert concentrations.cv.loc[0, "concentration"] == 1.0
-    assert concentrations.cv["error"].tolist() == [0.0, 0.0]
-    assert concentrations.cv["unit"].tolist() == ["mol/l", "mol/l"]
+    assert not hasattr(concentrations, "cv")
+    assert list(concentrations.frame.columns) == list(REFERENCE_COLUMNS)
+    assert concentrations.frame.loc[0, "concentration"] == 1.0
+    assert concentrations.frame["error"].tolist() == [0.0, 0.0]
+    assert concentrations.frame["unit"].tolist() == ["mol/l", "mol/l"]
+    assert concentrations.observation_keys() == [
+        "cfc11@2000.0#0",
+        "cfc12@2001.0#1",
+    ]
+
+
+def test_tracer_date_keys_do_not_collapse_distinct_dates() -> None:
+    assert tracer_date_key("cfc11", 2000.04) != tracer_date_key("cfc11", 2000.049)
 
 
 @pytest.mark.parametrize(
@@ -83,54 +115,48 @@ def test_concentrations_rejects_duplicate_columns() -> None:
 def test_error_assignment_validates_shape_fraction_and_sign() -> None:
     frame = _frame().assign(concentration=[-2.0, 4.0])
     concentrations = Concentrations.from_dataframe(frame)
-    concentrations.error_affect_from_value(0.25)
+    concentrations.set_relative_errors(0.25)
 
-    assert concentrations.cv["error"].tolist() == [0.5, 1.0]
+    assert concentrations.frame["error"].tolist() == [0.5, 1.0]
     with pytest.raises(ValueError, match="non-negative"):
-        concentrations.error_affect_from_value(-0.1)
+        concentrations.set_relative_errors(-0.1)
     with pytest.raises(ValueError, match="exactly one value"):
-        concentrations.error_affect_from_mean([1.0])
+        concentrations.fill_missing_errors_from_means([1.0])
     with pytest.raises(ValueError, match="finite and non-negative"):
-        concentrations.error_affect_from_mean([1.0, np.nan])
+        concentrations.fill_missing_errors_from_means([1.0, np.nan])
 
 
 def test_error_assignment_from_mean_preserves_existing_errors() -> None:
     concentrations = Concentrations.from_dataframe(_frame().assign(error=[3.0, 0.0]))
 
-    concentrations.error_affect_from_mean([10.0, 20.0], fraction=0.1)
+    concentrations.fill_missing_errors_from_means([10.0, 20.0], fraction=0.1)
 
-    assert concentrations.cv["error"].tolist() == [3.0, 2.0]
+    assert concentrations.frame["error"].tolist() == [3.0, 2.0]
 
 
 def test_sampling_is_reproducible_and_does_not_mutate_source() -> None:
     concentrations = Concentrations.from_dataframe(_frame().assign(error=[0.5, 1.0]))
 
-    sampled = concentrations.sample_concentrations_with_errors(
-        np.random.default_rng(123)
-    )
+    sampled = concentrations.sample_with_errors(np.random.default_rng(123))
 
-    assert concentrations.cv["concentration"].tolist() == [1.0, 2.0]
-    assert sampled.cv["concentration"].to_numpy() == pytest.approx(
+    assert concentrations.frame["concentration"].tolist() == [1.0, 2.0]
+    assert sampled.frame["concentration"].to_numpy() == pytest.approx(
         [0.5054393248260746, 1.6322133485321169]
     )
     with pytest.raises(TypeError, match="numpy.random.Generator"):
-        concentrations.sample_concentrations_with_errors(None)  # type: ignore[arg-type]
+        concentrations.sample_with_errors(None)  # type: ignore[arg-type]
 
 
-def test_figure_concentrations_uses_explicit_axes_and_rejects_negative_indices() -> (
-    None
-):
+def test_plot_pair_uses_explicit_axes_and_rejects_negative_indices() -> None:
     concentrations = Concentrations.from_dataframe(_frame())
     fig, ax = plt.subplots()
     try:
-        artist = concentrations.figure_concentrations(
-            0, 1, label_x="x", label_y="y", ax=ax
-        )
+        artist = concentrations.plot_pair(0, 1, label_x="x", label_y="y", ax=ax)
         assert artist.axes is ax
         assert ax.get_xlabel() == "x"
         assert ax.get_ylabel() == "y"
         with pytest.raises(IndexError, match="out of range"):
-            concentrations.figure_concentrations(-1, 0, ax=ax)
+            concentrations.plot_pair(-1, 0, ax=ax)
     finally:
         plt.close(fig)
 
@@ -138,17 +164,17 @@ def test_figure_concentrations_uses_explicit_axes_and_rejects_negative_indices()
 def test_concentration_time_requires_one_input_and_copies_series() -> None:
     raw = Concentrations.from_dataframe(_frame())
     with pytest.raises(ValueError, match="exactly one"):
-        ConcentrationTime()
+        ConcentrationChronicle()
     with pytest.raises(ValueError, match="exactly one"):
-        ConcentrationTime(craw=raw, cv={"cfc11": _series("cfc11")})
+        ConcentrationChronicle(observations=raw, series={"cfc11": _series("cfc11")})
 
     source = {"cfc11": _series("cfc11")}
-    chronicle = ConcentrationTime(cv=source)
+    chronicle = ConcentrationChronicle(series=source)
     source["cfc11"].loc[0, "concentration"] = 999.0
-    assert chronicle.cv["cfc11"].loc[0, "concentration"] == 1.0
+    assert chronicle.series["cfc11"].loc[0, "concentration"] == 1.0
 
 
-def test_to_cv_dict_preserves_tracer_order_and_sorts_dates() -> None:
+def test_normalize_series_preserves_tracer_order_and_sorts_dates() -> None:
     frame = pd.concat(
         [
             _series("cfc12", dates=(2002.0, 2000.0)),
@@ -157,7 +183,7 @@ def test_to_cv_dict_preserves_tracer_order_and_sorts_dates() -> None:
         ignore_index=True,
     )
 
-    series = to_cv_dict(frame)
+    series = normalize_series(frame)
 
     assert list(series) == ["cfc12", "cfc11"]
     assert series["cfc12"]["date"].tolist() == [2000.0, 2002.0]

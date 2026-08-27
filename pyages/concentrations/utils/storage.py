@@ -18,7 +18,7 @@ from pathlib import Path
 import pandas as pd
 
 from pyages.concentrations.schema import DATE_COLUMN
-from pyages.concentrations.utils.tables import to_cv_dict
+from pyages.concentrations.utils.tables import normalize_series
 
 
 def save_concentrations_table(table: pd.DataFrame, filepath: str | Path) -> None:
@@ -39,18 +39,20 @@ def save_concentrations_table(table: pd.DataFrame, filepath: str | Path) -> None
     table.to_csv(path, sep="\t", index=False, encoding="utf-8")
 
 
-def save_tracer_series_table(cv: dict[str, pd.DataFrame], filepath: str | Path) -> None:
+def save_tracer_series_table(
+    series_by_tracer: dict[str, pd.DataFrame], filepath: str | Path
+) -> None:
     """
     Save tracer series as a single wide table.
 
     Parameters
     ----------
-    cv : dict
+    series_by_tracer : dict
         Dict {tracer: DataFrame(date, concentration, element)}.
     filepath : str or Path
         Output file path.
     """
-    series = to_cv_dict(cv)
+    series = normalize_series(series_by_tracer)
     merged: pd.DataFrame | None = None
     for tracer, df in series.items():
         if df[DATE_COLUMN].duplicated().any():

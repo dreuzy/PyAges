@@ -1,3 +1,7 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
 """Validate release identity and qualified dependency metadata."""
 
 from __future__ import annotations
@@ -8,6 +12,7 @@ import tomllib
 from pathlib import Path
 
 import yaml
+from packaging.markers import default_environment
 from packaging.requirements import Requirement
 from packaging.version import Version
 
@@ -16,13 +21,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _normalized_name(value: str) -> str:
     return re.sub(r"[-_.]+", "-", value).lower()
-
-
-def _dependency_name(value: str) -> str:
-    match = re.match(r"\s*([A-Za-z0-9_.-]+)", value)
-    if match is None:
-        raise ValueError(f"Cannot parse dependency: {value!r}")
-    return _normalized_name(match.group(1))
 
 
 def _qualified_pip_versions() -> dict[str, str]:
@@ -53,23 +51,39 @@ def _qualified_conda_versions() -> dict[str, str]:
 
 def dependency_alignment_errors() -> list[str]:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    runtime_requirements = {
-        _dependency_name(item): Requirement(item)
-        for item in project["project"]["dependencies"]
-    }
+    runtime_requirements = [
+        Requirement(item) for item in project["project"]["dependencies"]
+    ]
     pip_versions = _qualified_pip_versions()
     conda_versions = _qualified_conda_versions()
     errors = []
-    for name, requirement in sorted(runtime_requirements.items()):
-        if name not in pip_versions:
-            errors.append(f"runtime dependency missing from constraints: {name}")
-        if name not in conda_versions:
-            errors.append(f"runtime dependency missing from Conda environment: {name}")
-        for source, versions in (("pip", pip_versions), ("conda", conda_versions)):
-            if (
-                name in versions
-                and Version(versions[name]) not in requirement.specifier
-            ):
+
+    targets = [
+        ("pip/Python 3.12", pip_versions, "3.12"),
+        ("pip/Python 3.13", pip_versions, "3.13"),
+        ("pip/Python 3.14", pip_versions, "3.14"),
+        ("conda/Python 3.12", conda_versions, "3.12"),
+    ]
+    for source, versions, python_version in targets:
+        environment = default_environment()
+        environment.update(
+            {
+                "python_version": python_version,
+                "python_full_version": f"{python_version}.0",
+                "extra": "",
+            }
+        )
+        active_requirements = [
+            requirement
+            for requirement in runtime_requirements
+            if requirement.marker is None or requirement.marker.evaluate(environment)
+        ]
+        for requirement in active_requirements:
+            name = _normalized_name(requirement.name)
+            if name not in versions:
+                errors.append(f"runtime dependency missing from {source}: {name}")
+                continue
+            if Version(versions[name]) not in requirement.specifier:
                 errors.append(
                     f"qualified {source} version for {name} is outside "
                     f"{requirement.specifier}: {versions[name]}"
@@ -79,7 +93,7 @@ def dependency_alignment_errors() -> list[str]:
 
 def release_identity_errors(tag: str | None = None) -> list[str]:
     namespace: dict[str, object] = {}
-    exec((ROOT / "pyage/_version.py").read_text(encoding="utf-8"), namespace)
+    exec((ROOT / "pyages/_version.py").read_text(encoding="utf-8"), namespace)
     version = str(namespace["__version__"])
     citation = yaml.safe_load((ROOT / "CITATION.cff").read_text(encoding="utf-8"))
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")

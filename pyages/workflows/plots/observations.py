@@ -36,7 +36,7 @@ def plot_observations_overview(
     Plot observation-only panels for each tracer.
     """
     apply_example_style()
-    df = cdata.cv.copy()
+    df = cdata.frame.copy()
     tracers = list(dict.fromkeys(df["element"].tolist()))
     ncols = 2 if len(tracers) == 4 else min(3, max(len(tracers), 1))
     nrows = ceil(max(len(tracers), 1) / ncols)

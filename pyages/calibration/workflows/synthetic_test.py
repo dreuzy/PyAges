@@ -15,7 +15,7 @@ import pandas as pd
 
 import pyages.convolution.convolution_tracers as convolution_tracers
 from pyages.calibration.problem import CalibrationProblem
-from pyages.concentrations.concentrations_time import display_concentration_chronicles
+from pyages.concentrations.chronicles import export_calibrated_chronicles
 from pyages.config.paths import result_subdirectory
 from pyages.config.runtime import DisplayOptions
 from pyages.data_io.lpm_results import write_lpm
@@ -188,7 +188,7 @@ class CalibrationSyntheticTest:
             return_type="concentrations",
         )
         # Apply the configured uncertainty using the instance's reproducible RNG.
-        cdata.error_affect_from_value(self.__error)
+        cdata.set_relative_errors(self.__error)
 
         # 3. Prepare a same-family LPM calibration from the synthetic data.
         problem = CalibrationProblem(
@@ -210,11 +210,11 @@ class CalibrationSyntheticTest:
             os.path.join(display_options_case.directory, "lpm_target.txt"),
         )
         self.__calib_strategy.write_calibrated_lpm(lpm_results)
-        cdata.cv.to_csv(
+        cdata.frame.to_csv(
             os.path.join(display_options_case.directory, "concentrations.txt"), sep="\t"
         )
         # Display the concentration histories.
-        display_concentration_chronicles(
+        export_calibrated_chronicles(
             cdata,
             lpm_results,
             str(i),

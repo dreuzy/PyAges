@@ -7,7 +7,7 @@ Python 3.12 environment used by the historical article campaign.
 ## Install from a source checkout
 
 ```bash
-git clone https://github.com/dreuzy/pyages.git
+git clone https://github.com/dreuzy/PyAges.git
 cd pyages
 python -m venv .venv
 source .venv/bin/activate

@@ -18,7 +18,7 @@ The generation settings define:
 
 ## Run
 
-From a source checkout with PyAge installed:
+From a source checkout with PyAges installed:
 
 ```bash
 python -m examples.synthetic.lpm_recovery_single_date.run_lpm_recovery_single_date

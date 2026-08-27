@@ -47,8 +47,8 @@ def test_core_summary_plots_smoke(tmp_path: Path) -> None:
     )
     reachable = pd.DataFrame(
         {
-            "cfc11-2010_0": [210.0, 230.0, 250.0],
-            "cfc12-2010_0": [440.0, 470.0, 500.0],
+            "cfc11@2010.0": [210.0, 230.0, 250.0],
+            "cfc12@2010.0": [440.0, 470.0, 500.0],
         }
     )
     objective = pd.DataFrame(

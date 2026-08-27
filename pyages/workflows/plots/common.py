@@ -88,10 +88,6 @@ def _axis_label(tracer: str, unit: str | None) -> str:
     return label
 
 
-def _reachable_column_name(tracer: str, date_value: float) -> str:
-    return f"{tracer}-{date_value:.1f}".replace(".", "_")
-
-
 def _save_figure(fig, filename: str | Path | None, dpi: int = 220):
     if filename is not None:
         path = Path(filename)
@@ -156,11 +152,11 @@ def _reference_concentration_lookup(reference_concentrations):
     if reference_concentrations is None:
         return None
     if hasattr(reference_concentrations, "cv"):
-        frame = reference_concentrations.cv.copy()
+        frame = reference_concentrations.frame.copy()
     elif isinstance(reference_concentrations, pd.DataFrame):
         frame = reference_concentrations.copy()
     else:
-        raise TypeError("reference_concentrations must be a DataFrame or expose .cv")
+        raise TypeError("reference_concentrations must be a DataFrame or expose .frame")
     required = {"element", "date", "concentration"}
     if not required.issubset(frame.columns):
         raise ValueError(

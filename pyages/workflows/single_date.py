@@ -16,8 +16,8 @@ from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, M
 from pyages.calibration.methods.simplex import FORWARD_UNCERTAINTY, Simplex
 from pyages.calibration.problem import CalibrationProblem
 from pyages.calibration.utils.systematic_sampling import SystematicSampling
-from pyages.concentrations import concentrations_time
-from pyages.concentrations.concentrations import Concentrations
+from pyages.concentrations import Concentrations
+from pyages.concentrations.chronicles import export_concentration_chronicles
 from pyages.config.paths import result_subdirectory
 from pyages.config.runtime import DisplayOptions
 from pyages.lpm.factory import build_lpm
@@ -85,7 +85,7 @@ def _prepare_context(
     live_display = _display_options(None, save=False, text=params.verbose)
     saved_display = _display_options(output_directory, save=True)
     observations = _load_observations(params, live_display)
-    observations.cv.to_csv(output_directory / "concentrations.txt", sep="\t")
+    observations.frame.to_csv(output_directory / "concentrations.txt", sep="\t")
     return WorkflowContext(
         config_path=config_path,
         root=root,
@@ -123,8 +123,8 @@ def _reachable_concentrations(context: WorkflowContext) -> pd.DataFrame | None:
     )
     sampling = SystematicSampling(
         context.params.lpm_model_name,
-        context.observations.names(),
-        date=context.observations.cv["date"],
+        context.observations.tracer_names(),
+        date=context.observations.frame["date"],
         sample_count=context.params.reachable_concentration_nmodels,
         display_options=display,
         lpm_directory=context.params.directory_lpm,
@@ -231,8 +231,8 @@ def _run_objective_analysis(
 
     sampling = SystematicSampling(
         context.params.lpm_model_name,
-        context.observations.names(),
-        date=context.observations.cv["date"],
+        context.observations.tracer_names(),
+        date=context.observations.frame["date"],
         observations=context.observations,
         sample_count=context.params.objective_function_nmodels,
         display_options=context.live_display,
@@ -265,7 +265,7 @@ def _write_concentration_outputs(context: WorkflowContext) -> None:
         context.params.lpm_model_name,
         directory_lpm=context.params.directory_lpm,
     )
-    concentrations_time.display_concentration_times(
+    export_concentration_chronicles(
         [context.output_directory],
         model,
         context.saved_display,

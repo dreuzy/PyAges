@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import pandas as pd
 
-from pyages.concentrations.concentrations import Concentrations, name_date
+from pyages.concentrations import Concentrations
+from pyages.concentrations.schema import tracer_date_key
 from pyages.config.paths import DIRECTORY_TRACER_DATA
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution.convolution import Convolution
@@ -78,9 +79,9 @@ class ConvolutionTracers:
         """Gets the list of element names."""
         return [x.name for x in self.elements]
 
-    def element_names_dates(self) -> list[str]:
-        """Gets the list of element names with dates."""
-        return [name_date(x.name, x.date) for x in self.elements]
+    def tracer_date_keys(self) -> list[str]:
+        """Return canonical tracer/date keys in convolution order."""
+        return [tracer_date_key(x.name, x.date) for x in self.elements]
 
     def mean_value(self, date: float) -> list[float]:
         """

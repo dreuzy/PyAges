@@ -23,7 +23,7 @@ def _prepared_problem(tmp_path) -> CalibrationProblem:
     target = build_lpm("exp")
     tracers = ConvolutionTracers(names=["cfc11"], date=2010.0)
     observations = tracers.convolve(target, return_type="concentrations")
-    observations.error_affect_from_value(0.05)
+    observations.set_relative_errors(0.05)
     display = DisplayOptions()
     display.figure = False
     display.text = False
@@ -46,13 +46,13 @@ def test_problem_uses_composition_and_preserves_the_target_objective(tmp_path):
     assert problem.sampling is problem.sampling
     objective, modeled = problem.objective_function(
         problem.lpm.get_parameters_to_array(),
-        problem.observations.cv["concentration"].to_numpy(dtype=float),
-        problem.observations.cv["error"].to_numpy(dtype=float),
+        problem.observations.frame["concentration"].to_numpy(dtype=float),
+        problem.observations.frame["error"].to_numpy(dtype=float),
         return_concentrations=True,
     )
 
     assert objective == pytest.approx(0.0, abs=1e-12)
-    assert np.allclose(modeled, problem.observations.cv["concentration"])
+    assert np.allclose(modeled, problem.observations.frame["concentration"])
 
 
 def test_systematic_exploration_is_built_only_when_requested(tmp_path):

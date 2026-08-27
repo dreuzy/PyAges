@@ -17,9 +17,9 @@ python -m pip install --no-deps -e .
 ```
 
 `constraints.txt` is the separately qualified candidate baseline for the
-future PyAges 1.0 user/development environment. It
-pins SciPy 1.18.1 and is exercised by CI on Python 3.12, 3.13, and 3.14. Create
-a normal virtual environment, then install PyAges with:
+future PyAges 1.0 user/development environment. It pins SciPy 1.18.1 and is
+exercised by CI on Python 3.12, 3.13, and 3.14. Create a normal virtual
+environment, then install PyAges with:
 
 ```bash
 python -m pip install -c install/constraints.txt -e .

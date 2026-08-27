@@ -51,7 +51,9 @@ def study(
     config_path: Path = DEFAULT_CONFIG, output_dir: Path = DEFAULT_OUTPUT
 ) -> dict:
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    tolerance_scales = [float(value) for value in config["pyages_grid_tolerance_scales"]]
+    tolerance_scales = [
+        float(value) for value in config["pyages_grid_tolerance_scales"]
+    ]
     reports = []
     for scale in tolerance_scales:
         settings = replace(

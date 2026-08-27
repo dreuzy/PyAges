@@ -17,7 +17,7 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
-from pyages.concentrations.utils.tables import to_cv_dict
+from pyages.concentrations.utils.tables import normalize_series
 
 
 def _pretty_tracer_name(name: str) -> str:
@@ -30,7 +30,7 @@ def _pretty_tracer_name(name: str) -> str:
 
 
 def plot_tracer_series(
-    cv_dict: Mapping[str, pd.DataFrame],
+    series_by_tracer: Mapping[str, pd.DataFrame],
     axs,
     graph_type: Literal["scatter", "line"] = "scatter",
     title_prefix: str = "",
@@ -41,7 +41,7 @@ def plot_tracer_series(
 
     Parameters
     ----------
-    cv_dict : dict
+    series_by_tracer : dict
         Dict {tracer: DataFrame(date, concentration, ...)}.
     axs : array-like of matplotlib axes
         Axes grid or list of axes.
@@ -59,7 +59,7 @@ def plot_tracer_series(
     """
     if graph_type not in {"scatter", "line"}:
         raise ValueError("graph_type must be either 'scatter' or 'line'")
-    series = to_cv_dict(cv_dict)
+    series = normalize_series(series_by_tracer)
     flat_axes = np.atleast_1d(axs).flatten()
     if len(flat_axes) < len(series):
         raise ValueError(
@@ -86,7 +86,7 @@ def plot_tracer_series(
 def plot_concentration_chronicles(
     fig,
     axs,
-    conc_data,
+    chronicle,
     tracers,
     lpm_list: Sequence,
     start_year: float,
@@ -102,7 +102,7 @@ def plot_concentration_chronicles(
         Target figure.
     axs : array-like of matplotlib axes
         Axes grid to draw into.
-    conc_data : ConcentrationTime
+    chronicle : ConcentrationChronicle
         Observed concentration data.
     tracers : ConvolutionTracers
         Tracers used for convolution.
@@ -119,17 +119,17 @@ def plot_concentration_chronicles(
         raise TypeError("plot_stride must be an integer")
     if plot_stride < 1:
         raise ValueError("plot_stride must be at least 1")
-    conc_data.display(fig, axs, graph_type="scatter")
+    chronicle.plot(fig, axs, graph_type="scatter")
     for i, lpm in enumerate(lpm_list, start=1):
         concentrations = tracers.convolve_date_range(lpm, start_year, end_year)
-        conc_model = type(conc_data)(cv=concentrations)
+        model_chronicle = type(chronicle)(series=concentrations)
         if plot_stride <= 1 or i % plot_stride == 0:
-            conc_model.display(fig, axs, graph_type="line")
+            model_chronicle.plot(fig, axs, graph_type="line")
 
 
 def plot_concentration_chronicles_summary(
     axs,
-    craw,
+    observations,
     tracers,
     lpm_list: Sequence,
     start_year: float,
@@ -142,7 +142,7 @@ def plot_concentration_chronicles_summary(
     ----------
     axs : array-like of matplotlib axes
         Axes grid to draw into.
-    craw : Concentrations
+    observations : Concentrations
         Observed concentrations in long format.
     tracers : ConvolutionTracers
         Tracers used for convolution.
@@ -154,7 +154,7 @@ def plot_concentration_chronicles_summary(
         End year for model chronicle computation.
     """
     axs = np.atleast_1d(axs).flatten()
-    tracer_names = list(dict.fromkeys(craw.cv["element"].tolist()))
+    tracer_names = list(dict.fromkeys(observations.frame["element"].tolist()))
 
     predictions: dict[str, list[np.ndarray]] = {}
     prediction_dates: dict[str, np.ndarray] = {}
@@ -180,7 +180,9 @@ def plot_concentration_chronicles_summary(
         if idx >= len(axs):
             break
         ax = axs[idx]
-        observed = craw.cv[craw.cv["element"] == tracer_name].sort_values("date")
+        observed = observations.frame[
+            observations.frame["element"] == tracer_name
+        ].sort_values("date")
         unit = (
             observed["unit"].iloc[0]
             if "unit" in observed.columns and not observed.empty

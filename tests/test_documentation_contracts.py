@@ -95,9 +95,7 @@ def test_workflow_output_reference_covers_stable_artifacts_and_manifest() -> Non
 
 
 def test_configuration_reference_states_exact_temporal_constraints() -> None:
-    document = (ROOT / "docs/user-guide/configuration.md").read_text(
-        encoding="utf-8"
-    )
+    document = (ROOT / "docs/user-guide/configuration.md").read_text(encoding="utf-8")
 
     assert "strictly greater than 100" in document
     assert "`[0, 0.5)`" in document
@@ -107,9 +105,9 @@ def test_configuration_reference_states_exact_temporal_constraints() -> None:
 
 
 def test_contributor_extension_contract_is_navigable_and_compilable() -> None:
-    document = (
-        ROOT / "docs/dev/extending-calibration-workflows.md"
-    ).read_text(encoding="utf-8")
+    document = (ROOT / "docs/dev/extending-calibration-workflows.md").read_text(
+        encoding="utf-8"
+    )
     dev_index = (ROOT / "docs/dev/index.md").read_text(encoding="utf-8")
 
     assert "extending-calibration-workflows" in dev_index

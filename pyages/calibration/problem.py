@@ -19,7 +19,7 @@ from pyages.convolution.convolution_tracers import ConvolutionTracers
 from pyages.lpm.factory import build_lpm
 
 if TYPE_CHECKING:
-    from pyages.concentrations.concentrations import Concentrations
+    from pyages.concentrations import Concentrations
     from pyages.lpm.core.lpm_base import LpmBase
 
 
@@ -82,8 +82,8 @@ class CalibrationProblem:
         """Build systematic exploration only when a caller requests it."""
         return SystematicSampling(
             self.lpm_type,
-            self.observations.names(),
-            date=self.observations.cv["date"],
+            self.observations.tracer_names(),
+            date=self.observations.frame["date"],
             observations=self.observations,
             sample_count=self.sample_count,
             explore_objective=self.explore_objective,
@@ -97,12 +97,12 @@ class CalibrationProblem:
         """Build the LPM and tracer collection required by calibration."""
         self.lpm = build_lpm(self.lpm_type, self.lpm_directory)
         self.tracers = ConvolutionTracers(
-            names=self.observations.cv.iloc[:, 0],
-            date=self.observations.cv["date"],
+            names=self.observations.frame.iloc[:, 0],
+            date=self.observations.frame["date"],
             tracer_data_dir=self.tracer_data_directory,
         )
-        self.observations.error_affect_from_mean(
-            self.tracers.mean_value(self.observations.cv["date"].mean())
+        self.observations.fill_missing_errors_from_means(
+            self.tracers.mean_value(self.observations.frame["date"].mean())
         )
         self.tracers.prepare(self.lpm)
         self._sampling = None

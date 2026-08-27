@@ -10,13 +10,13 @@ shape-free model with an explicitly bounded old bin.
 The canonical single-date configuration is:
 
 ```bash
-pyage run examples/natural/albuquerque/exemple_albuquerque.yaml
+pyages run examples/natural/albuquerque/exemple_albuquerque.yaml
 ```
 
 The shape-free variant is:
 
 ```bash
-pyage run examples/natural/albuquerque/exemple_albuquerque_shapefree.yaml
+pyages run examples/natural/albuquerque/exemple_albuquerque_shapefree.yaml
 ```
 
 The second command uses
@@ -26,7 +26,7 @@ choice, not a universal bound for Albuquerque groundwater.
 
 ## Interpretation limits
 
-The bundled measurements include zero-valued uncertainty fields. PyAge applies
+The bundled measurements include zero-valued uncertainty fields. PyAges applies
 the workflow's error handling before calibration, but a scientific reuse must
 replace placeholder or imputed uncertainties with justified analytical error
 models. A successful optimizer or MCMC chain does not by itself establish that

@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-import pyages.concentrations.concentrations as co
+from pyages.concentrations import Concentrations
 from tests.utils import golden as golden_utils
 
 GOLDEN_PATH = (
@@ -47,8 +47,8 @@ def _record_from_data(frame: pd.DataFrame) -> dict:
 
 
 def test_ploemeur_golden(update_golden):
-    conc = co.Concentrations.from_file(DATA_PATH)
-    record = _record_from_data(conc.cv)
+    conc = Concentrations.from_file(DATA_PATH)
+    record = _record_from_data(conc.frame)
 
     store = golden_utils.load_golden(GOLDEN_PATH)
     key = DATA_PATH.name

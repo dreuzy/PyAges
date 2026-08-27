@@ -121,7 +121,7 @@ def _model(mu: float, t0: float):
 def _observations(mu: float, t0: float):
     tracers = ConvolutionTracers(names=list(TRACERS), date=DATE)
     observations = tracers.convolve(_model(mu, t0), return_type="concentrations")
-    observations.error_affect_from_value(RELATIVE_ERROR)
+    observations.set_relative_errors(RELATIVE_ERROR)
     return observations
 
 
@@ -505,7 +505,7 @@ def _table4(
         }
         for tracer, concentration in zip(
             TRACERS,
-            observations.cv["concentration"].to_numpy(float),
+            observations.frame["concentration"].to_numpy(float),
             strict=True,
         ):
             row[f"C_{tracer}"] = concentration

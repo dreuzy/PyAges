@@ -7,7 +7,7 @@ users can propose changes, but cannot push to or delete repository content.
 ## Development setup
 
 ```bash
-git clone https://github.com/dreuzy/pyages.git
+git clone https://github.com/dreuzy/PyAges.git
 cd pyages
 python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
 ```

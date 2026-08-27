@@ -34,7 +34,7 @@ def test_tracer_fit_preserves_duplicate_observations_and_float_roundtrip(
     monkeypatch.setattr(runner, "CASES", (case,))
     monkeypatch.setattr(runner, "TRACERS", ("cfc11",))
     monkeypatch.setattr(
-        runner, "_observations", lambda unused_case: SimpleNamespace(cv=observations)
+        runner, "_observations", lambda unused_case: SimpleNamespace(frame=observations)
     )
 
     result = runner._tracer_fit_diagnostics(tmp_path, intervals)

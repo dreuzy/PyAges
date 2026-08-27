@@ -4,6 +4,12 @@ This page summarizes the optional flags exposed by the `pyages` CLI. For the
 usage installed in the current environment, run `pyages --help` or
 `pyages <command> --help`.
 
+## `pyages`
+
+| Flag | Type | Description |
+| --- | --- | --- |
+| `--version` | flag | Show the installed PyAges version and exit. |
+
 ## Exit status and failure behavior
 
 | Status | Meaning |

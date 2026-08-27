@@ -55,8 +55,8 @@ def test_convolution_tracers_golden(lpm_name, update_golden):
     df = tracers.convolve(lpm, return_type="dataframe")
 
     stats = {
-        "mean_concentration": float(concentrations.cv["concentration"].mean()),
-        "mean_error": float(concentrations.cv["error"].mean()),
+        "mean_concentration": float(concentrations.frame["concentration"].mean()),
+        "mean_error": float(concentrations.frame["error"].mean()),
         "dataframe_mean_concentration": float(df["concentration"].mean()),
     }
 

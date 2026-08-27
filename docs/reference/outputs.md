@@ -74,7 +74,8 @@ The `reachable_concentrations` directory contains:
 - `parameters.txt`: key/value metadata (`date`, `lpm`, tracer names, and
   requested model count);
 - `c_reach.txt`: the sampled reachable concentrations, with one column per
-  tracer/date observation.
+  tracer/date observation. Column keys use the lossless `tracer@date` form,
+  for example `cfc11@2010.0`.
 
 `objective_function_grid.txt` contains the sampled LPM parameters followed by
 `half_log_chi_square`. That objective is

@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem in PyAge
+description: Report a reproducible problem in PyAges
 title: "[Bug]: "
 labels:
   - bug
@@ -24,7 +24,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: PyAge version or commit
+      label: PyAges version or commit
       placeholder: 0.1.0b1 or commit SHA
     validations:
       required: true

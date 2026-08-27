@@ -1,7 +1,7 @@
 # Result files and provenance
 
-Public workflows write results below `PYAGE_RESULTS_DIR`, whose default is
-`~/results/PyAge`. Text tables use tab-separated values (TSV) unless stated
+Public workflows write results below `PYAGES_RESULTS_DIR`, whose default is
+`~/results/PyAges`. Text tables use tab-separated values (TSV) unless stated
 otherwise. The set of optional files depends on the analyses and figures
 enabled in the YAML configuration.
 
@@ -18,7 +18,7 @@ Manifest schema 2 contains:
 | `schema_version` | Version of the result/provenance contract; currently `2`. |
 | `status` | `complete`; incomplete workflows do not write a success manifest. |
 | `created_at_utc` | UTC completion timestamp in ISO 8601 form. |
-| `pyage_version` | Installed PyAge version. |
+| `pyages_version` | Installed PyAges version. |
 | `workflow` | `single_date` or `temporal`. |
 | `command` | Process argument vector recorded by Python. |
 | `configuration` | Portable configuration path and SHA-256 digest. |
@@ -101,6 +101,6 @@ per LPM and the same calibration files described above. The root manifest's
 - Do not infer convergence from `lpm_stats_calibrated.txt`. Publication runs
   require independent chains, split-$\hat R$, ESS, MCSE, and acceptance
   information as described in {doc}`../science/inference`.
-- Compare the observation and tracer-history units yourself. PyAge records
+- Compare the observation and tracer-history units yourself. PyAges records
   unit metadata but does not perform physical unit conversion.
 - Keep `result_manifest.json` with every shared or archived result directory.

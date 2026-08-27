@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 import pyages.convolution.convolution_tracers as convolution_tracers
-from pyages.concentrations.concentrations import Concentrations
+from pyages.concentrations import Concentrations
 from pyages.concentrations.utils.plotting import (
     plot_concentration_chronicles,
     plot_concentration_chronicles_summary,
@@ -35,7 +35,7 @@ from pyages.concentrations.utils.storage import (
     save_distributions_tables,
     save_tracer_series_table,
 )
-from pyages.concentrations.utils.tables import merge_model_into_table, to_cv_dict
+from pyages.concentrations.utils.tables import merge_model_into_table, normalize_series
 from pyages.data_io.lpm_distribution import read_distribution
 from pyages.lpm.samples.analysis import select_model_realizations
 
@@ -48,31 +48,31 @@ if TYPE_CHECKING:
     from pyages.lpm.samples.table import LpmSampleTable
 
 
-class ConcentrationTime:
+class ConcentrationChronicle:
     """
     Concentration chronicle, grouped by tracer across time.
 
     Attributes
     ----------
-    craw : Concentrations
+    observations : Concentrations
         Raw concentration table (long format).
-    cv : dict[str, DataFrame]
+    series : dict[str, DataFrame]
         Dict of tracer -> DataFrame(date, concentration, element).
     """
 
     def __init__(
         self,
-        craw: Concentrations | None = None,
-        cv: Mapping[str, pd.DataFrame] | pd.DataFrame | None = None,
+        observations: Concentrations | None = None,
+        series: Mapping[str, pd.DataFrame] | pd.DataFrame | None = None,
     ) -> None:
         """
         Build the chronicle either from raw data or from a prepared dict.
 
         Parameters
         ----------
-        craw : Concentrations, optional
+        observations : Concentrations, optional
             Raw concentration table to reshape by tracer.
-        cv : dict[str, DataFrame], optional
+        series : dict[str, DataFrame], optional
             Precomputed tracer tables.
 
         Raises
@@ -80,17 +80,17 @@ class ConcentrationTime:
         ValueError
             If neither or both input representations are supplied.
         """
-        if (craw is None) == (cv is None):
-            raise ValueError("Provide exactly one of craw or cv")
-        if craw is not None:
-            if not isinstance(craw, Concentrations):
-                raise TypeError("craw must be a Concentrations instance")
-            self.craw = craw
-            self.cv = to_cv_dict(craw.cv)
+        if (observations is None) == (series is None):
+            raise ValueError("Provide exactly one of observations or series")
+        if observations is not None:
+            if not isinstance(observations, Concentrations):
+                raise TypeError("observations must be a Concentrations instance")
+            self.observations = observations
+            self.series = normalize_series(observations.frame)
             return
-        self.cv = to_cv_dict(cv)
+        self.series = normalize_series(series)
 
-    def display(
+    def plot(
         self,
         fig: Figure,
         axs: Axes | Sequence[Axes],
@@ -108,16 +108,18 @@ class ConcentrationTime:
         graph_type : str, optional
             Plot style (e.g., "scatter" or "line").
         """
-        plot_tracer_series(self.cv, axs, graph_type=graph_type)
+        plot_tracer_series(self.series, axs, graph_type=graph_type)
         fig.suptitle("Tracer", fontsize=16, y=1.02)
 
-    def build(self) -> None:
+    def rebuild(self) -> None:
         """Rebuild defensive tracer-specific tables from raw concentrations."""
-        if not hasattr(self, "craw"):
-            raise RuntimeError("build() requires a chronicle created from craw")
-        self.cv = to_cv_dict(self.craw.cv)
+        if not hasattr(self, "observations"):
+            raise RuntimeError(
+                "rebuild() requires a chronicle created from observations"
+            )
+        self.series = normalize_series(self.observations.frame)
 
-    def save_to_file(self, filename: str | Path) -> None:
+    def save(self, filename: str | Path) -> None:
         """
         Save the tracer chronicle to a single table.
 
@@ -126,10 +128,10 @@ class ConcentrationTime:
         filename : str or Path
             Output file path (TSV).
         """
-        save_tracer_series_table(self.cv, filename)
+        save_tracer_series_table(self.series, filename)
 
 
-def display_concentration_times(
+def export_concentration_chronicles(
     dir_names: Sequence[str | Path],
     lpm: LpmBase,
     display: DisplayOptions,
@@ -175,15 +177,17 @@ def display_concentration_times(
                 continue
 
             # --- Load concentration data ---
-            craw = Concentrations.from_file(result_directory / "concentrations.txt")
-            n_tracers = len(craw.cv["element"].unique())
+            observations = Concentrations.from_file(
+                result_directory / "concentrations.txt"
+            )
+            n_tracers = len(observations.frame["element"].unique())
             ncols = 2
             nrows = int(np.ceil(n_tracers / ncols))
 
             # --- Convolution tracers ---
             tracers = convolution_tracers.ConvolutionTracers(
-                names=craw.cv["element"].unique(),
-                date=max(craw.cv["date"]),
+                names=observations.frame["element"].unique(),
+                date=max(observations.frame["date"]),
             )
 
             # --- Load distribution of parameters ---
@@ -200,13 +204,17 @@ def display_concentration_times(
 
             if plot:
                 fig, axs = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
-                conc_data = ConcentrationTime(craw=craw)
+                chronicle = ConcentrationChronicle(observations=observations)
                 effective_stride = plot_stride or max(lpm_number // 10, 1)
-                final_year = end_year if end_year is not None else max(craw.cv["date"])
+                final_year = (
+                    end_year
+                    if end_year is not None
+                    else max(observations.frame["date"])
+                )
                 plot_concentration_chronicles(
                     fig,
                     axs,
-                    conc_data,
+                    chronicle,
                     tracers,
                     lpm_list,
                     start_year=start_year,
@@ -221,8 +229,8 @@ def display_concentration_times(
             save_distributions_tables(pdf, lpm_statistics, method_directory)
 
 
-def display_concentration_chronicles(
-    craw: Concentrations,
+def export_calibrated_chronicles(
+    observations: Concentrations,
     lpm_results: LpmSampleTable,
     method: str,
     display: DisplayOptions,
@@ -233,7 +241,7 @@ def display_concentration_chronicles(
 
     Parameters
     ----------
-    craw : Concentrations
+    observations : Concentrations
         Tracer concentrations table.
     lpm_results : LpmSampleTable
         LPM parameter distribution.
@@ -252,12 +260,12 @@ def display_concentration_chronicles(
         raise TypeError("lpm_number must be an integer")
     if lpm_number < 1:
         raise ValueError("lpm_number must be at least 1")
-    tracer_names = craw.cv["element"].unique()
+    tracer_names = observations.frame["element"].unique()
 
     # Tracers
     tracers = convolution_tracers.ConvolutionTracers(
         names=tracer_names,
-        date=max(craw.cv["date"]),
+        date=max(observations.frame["date"]),
     )
 
     # LPM selection
@@ -281,18 +289,20 @@ def display_concentration_chronicles(
         )
         plot_concentration_chronicles_summary(
             axs,
-            craw,
+            observations,
             tracers,
             lpm_list,
             start_year=1960,
-            end_year=max(craw.cv["date"]),
+            end_year=max(observations.frame["date"]),
         )
 
     for i, lpm in enumerate(lpm_list, start=1):
-        concentrations = tracers.convolve_date_range(lpm, 1960, max(craw.cv["date"]))
-        cv_dict = to_cv_dict(concentrations)
+        concentrations = tracers.convolve_date_range(
+            lpm, 1960, max(observations.frame["date"])
+        )
+        series_by_tracer = normalize_series(concentrations)
         merged_all_models = merge_model_into_table(
-            merged_all_models, cv_dict, model_id=i
+            merged_all_models, series_by_tracer, model_id=i
         )
 
     # Finalisation: sauvegarde + fermeture via display_options

@@ -1,6 +1,6 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions and usage help
-    url: https://github.com/dreuzy/pyages/discussions
+    url: https://github.com/dreuzy/PyAges/discussions
     about: Ask questions and discuss PyAges usage.
 

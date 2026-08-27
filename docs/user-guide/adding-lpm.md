@@ -468,9 +468,7 @@ class LognormalLpm(LpmScipy):
         first_moment = np.zeros_like(values, dtype=float)
         positive = values > 0.0
         if np.any(positive):
-            z = (
-                np.log(values[positive]) - mu_ln - sigma_ln**2
-            ) / sigma_ln
+            z = (np.log(values[positive]) - mu_ln - sigma_ln**2) / sigma_ln
             first_moment[positive] = mean * ndtr(z)
         if values.ndim == 0:
             return float(cdf), float(first_moment)

@@ -321,12 +321,12 @@ def _plot_concentration_pair(
     refx = (
         None
         if concentrations_reference is None
-        else concentrations_reference.cv["concentration"][index]
+        else concentrations_reference.frame["concentration"][index]
     )
     refy = (
         None
         if concentrations_reference is None
-        else concentrations_reference.cv["concentration"][index_next]
+        else concentrations_reference.frame["concentration"][index_next]
     )
     figadd.hist_scatter(
         histo=other is not None,

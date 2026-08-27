@@ -11,6 +11,7 @@ import json
 import subprocess
 import sys
 import tomllib
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,7 +30,17 @@ def _normalized_digest(path: Path) -> str:
     return hashlib.sha256(normalized.encode()).hexdigest()
 
 
-def _repository_sources() -> list[Path]:
+def _inside_virtual_environment(path: Path) -> bool:
+    """Return whether *path* is below a Python virtual environment."""
+    for parent in path.parents:
+        if parent == ROOT:
+            return False
+        if (parent / "pyvenv.cfg").is_file():
+            return True
+    return False
+
+
+def _repository_files() -> list[Path]:
     output = subprocess.check_output(
         [
             "git",
@@ -45,8 +56,14 @@ def _repository_sources() -> list[Path]:
     return sorted(
         path
         for path in paths
-        if path.is_file() and path.suffix.lower() in SOURCE_SUFFIXES
+        if path.is_file() and not _inside_virtual_environment(path)
     )
+
+
+def _repository_sources() -> list[Path]:
+    return [
+        path for path in _repository_files() if path.suffix.lower() in SOURCE_SUFFIXES
+    ]
 
 
 def _check_license_texts(errors: list[str]) -> None:
@@ -112,6 +129,37 @@ def _check_dependency_inventory(errors: list[str]) -> None:
         name, version = line.split("==", maxsplit=1)
         if f"| `{name}` | `{version}` |" not in notices:
             errors.append(f"dependency notice is stale or missing: {name}=={version}")
+
+    for project_file in (
+        path for path in _repository_files() if path.suffix.lower() == ".csproj"
+    ):
+        try:
+            root = ET.parse(project_file).getroot()
+        except ET.ParseError as exc:
+            errors.append(
+                f"invalid .NET project file {project_file.relative_to(ROOT)}: {exc}"
+            )
+            continue
+
+        for reference in root.iter():
+            if reference.tag.rsplit("}", maxsplit=1)[-1] != "PackageReference":
+                continue
+            name = reference.get("Include") or reference.get("Update")
+            version = reference.get("Version") or reference.get("VersionOverride")
+            if version is None:
+                version_element = next(
+                    (
+                        child
+                        for child in reference
+                        if child.tag.rsplit("}", maxsplit=1)[-1] == "Version"
+                    ),
+                    None,
+                )
+                version = version_element.text if version_element is not None else None
+            if name and version and f"| `{name}` | `{version}` |" not in notices:
+                errors.append(
+                    f"dependency notice is stale or missing: {name}=={version}"
+                )
 
 
 def main() -> int:

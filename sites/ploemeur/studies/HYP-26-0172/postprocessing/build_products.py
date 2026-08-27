@@ -310,9 +310,7 @@ def plot_figure6(
                 label=well,
             )
     if broken:
-        top.set_ylim(
-            max(25, high["p50_mean"].min() - 8), high["p50_mean"].max() + 8
-        )
+        top.set_ylim(max(25, high["p50_mean"].min() - 8), high["p50_mean"].max() + 8)
         bottom.set_ylim(0, max(12, low["p50_mean"].max() + 3))
         top.spines.bottom.set_visible(False)
         bottom.spines.top.set_visible(False)
@@ -348,9 +346,7 @@ def plot_figure_a1(frame: pd.DataFrame, figures: Path) -> list[Path]:
             "p50_mean"
         ].mean()
         for model, data in grouped.groupby("lpm"):
-            ax.plot(
-                100 * data["relative_error"], data["p50_mean"], "o-", label=model
-            )
+            ax.plot(100 * data["relative_error"], data["p50_mean"], "o-", label=model)
         ax.set_title(well, loc="left", fontweight="bold")
         ax.grid(alpha=0.25)
     axes[0].legend(frameon=False)

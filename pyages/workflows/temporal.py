@@ -43,7 +43,7 @@ from typing import cast
 from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
-from pyages.concentrations.concentrations_time import display_concentration_chronicles
+from pyages.concentrations.chronicles import export_calibrated_chronicles
 from pyages.concentrations.schema import ERROR_COLUMN
 from pyages.config.loading import resolve_from, validate_yaml_model
 
@@ -277,7 +277,7 @@ def _run_calibration(
 
     # Temporal figures (chronicles) if enabled.
     if figures_cfg.temporal:
-        display_concentration_chronicles(
+        export_calibrated_chronicles(
             cdata,
             lpm_results,
             calstrat.method,
@@ -339,21 +339,21 @@ def _load_concentrations(
 ) -> Concentrations:
     """Load observations and fill missing relative errors when requested."""
     concentrations = Concentrations.from_file(dataset_path)
-    if error_rel is not None and concentrations.cv[ERROR_COLUMN].min() == 0:
-        concentrations.error_affect_from_value(float(error_rel))
+    if error_rel is not None and concentrations.frame[ERROR_COLUMN].min() == 0:
+        concentrations.set_relative_errors(float(error_rel))
     return concentrations
 
 
 def _case_frames(cdata: Concentrations, mode: str):
     """Return the observation subsets required by one workflow mode."""
     if mode == "span":
-        return [("span_full", cdata.cv)]
+        return [("span_full", cdata.frame)]
     return [
         (
             f"date_{_format_date_label(date)}",
-            cdata.cv[cdata.cv["date"] == date],
+            cdata.frame[cdata.frame["date"] == date],
         )
-        for date in sorted(cdata.cv["date"].unique())
+        for date in sorted(cdata.frame["date"].unique())
     ]
 
 

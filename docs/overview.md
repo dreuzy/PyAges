@@ -1,11 +1,11 @@
 # Overview
 
-PyAge estimates groundwater transit-time distributions from environmental
+PyAges estimates groundwater transit-time distributions from environmental
 tracer observations. It combines tracer recharge histories, lumped-parameter
 models (LPMs), numerical convolution, and calibration workflows in one Python
 package.
 
-The supported user interface is the `pyage` command. A typical analysis has
+The supported user interface is the `pyages` command. A typical analysis has
 four inputs:
 
 1. a table of tracer concentrations, uncertainties, units, and sampling dates;
@@ -13,7 +13,7 @@ four inputs:
 3. an LPM family and its parameter bounds;
 4. a YAML workflow configuration.
 
-PyAge writes tabular results, optional figures, and a versioned
+PyAges writes tabular results, optional figures, and a versioned
 `result_manifest.json` that records the configuration, inputs, software
 environment, Git state, and hashes of generated artifacts.
 
@@ -28,11 +28,11 @@ environment, Git state, and hashes of generated artifacts.
 
 ## Project status
 
-PyAge is currently beta software. Its supported interfaces are documented in
+PyAges is currently beta software. Its supported interfaces are documented in
 {doc}`reference/public-api`; incompatible pre-1.0 changes are recorded in the
 {doc}`reference/changelog`. Scientific conclusions remain conditional on the
 selected LPM, tracer histories, observation uncertainties, and validation
 scope described in {doc}`science/validation`.
 
 The source repository, issue tracker, contribution policy, and security policy
-are hosted on [GitHub](https://github.com/dreuzy/pyage).
+are hosted on [GitHub](https://github.com/dreuzy/PyAges).

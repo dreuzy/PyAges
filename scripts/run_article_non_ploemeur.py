@@ -975,7 +975,7 @@ def _summary_row(
         "stored_samples": len(frame),
     }
     observed_values = (
-        observations.cv["concentration"].to_numpy(dtype=float)
+        observations.frame["concentration"].to_numpy(dtype=float)
         if hasattr(observations, "cv")
         else np.asarray(observations, dtype=float)
     )
@@ -1014,7 +1014,7 @@ def run_table3(output: Path, steps: int = 10_000, skip: int = 5) -> dict[str, ob
     for index, (mu, shift) in enumerate(TABLE3_PAIRS, start=1):
         target = _model("exp_shifted", {"mu": mu, "shift": shift})
         observations = tracers.convolve(target, return_type="concentrations")
-        observations.error_affect_from_value(0.08)
+        observations.set_relative_errors(0.08)
         final_chain_path = chains / f"case_{index:02d}_mu{mu:g}_t0{shift:g}.csv"
         if final_chain_path.exists():
             frame = pd.read_csv(final_chain_path)

@@ -130,7 +130,9 @@ def _case_row(phase: str, case: dict, run_output: Path) -> dict:
     secondary_bounds = [
         float(value) - offset for value in case["bounds"][secondary_key]
     ]
-    pyages_observed, pyages_calculated = _paired_observations(pyages, fit, case["case_id"])
+    pyages_observed, pyages_calculated = _paired_observations(
+        pyages, fit, case["case_id"]
+    )
     tracer_calculated = _best_calculated_concentrations(fit)
     pyages_l1, pyages_l2 = _relative_objectives(pyages_observed, pyages_calculated)
     tracer_l1, tracer_l2 = _relative_objectives(fit["observations"], tracer_calculated)

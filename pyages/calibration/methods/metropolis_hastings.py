@@ -223,7 +223,7 @@ class MetropolisHastings(CalibrationMethod):
         )
         # Likelihood-free runs leave concentration values missing while using
         # the same canonical columns as likelihood-based calibrations.
-        concentration_names = self.observations.names_dates()
+        concentration_names = self.observations.observation_keys()
         column_names = (
             self.lpm.get_param_names()
             + ["obj_function"]
@@ -315,8 +315,8 @@ class MetropolisHastings(CalibrationMethod):
             text=self.config.display_text,
         )
         rng = np.random.default_rng(self.config.seed)
-        data_conc = self.observations.cv[CONCENTRATION_COLUMN].to_numpy(dtype=float)
-        data_error = self.observations.cv[ERROR_COLUMN].to_numpy(dtype=float)
+        data_conc = self.observations.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
+        data_error = self.observations.frame[ERROR_COLUMN].to_numpy(dtype=float)
         if self.config.proposal_kind == "componentwise":
             self.proposal_step.prepare(self.lpm)
         self.__prepare_proposal()
@@ -461,7 +461,9 @@ class MetropolisHastings(CalibrationMethod):
         # --------------- POSTPROCESSING PHASE -------------------
         # Results consolidation
         self.__success_rate = nsuccess / self.config.nstep
-        lpm_results = LpmSampleTable(self.lpm, c_names=self.observations.names_dates())
+        lpm_results = LpmSampleTable(
+            self.lpm, c_names=self.observations.observation_keys()
+        )
         lpm_results.replace_frame(pd.DataFrame(array_results, columns=array_col_names))
 
         # Derive LPM moments for every retained joint sample.

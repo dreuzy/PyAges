@@ -37,6 +37,50 @@ def test_cli_check_help():
     assert "Check PyAges" in result.output
 
 
+def test_cli_check_enforces_supported_python_range():
+    assert check_cmd._python_version_supported((3, 12, 0))
+    assert check_cmd._python_version_supported((3, 14, 9))
+    assert not check_cmd._python_version_supported((3, 11, 9))
+    assert not check_cmd._python_version_supported((3, 15, 0))
+
+
+def test_cli_check_validates_all_active_metadata_requirements(monkeypatch):
+    declared = [
+        "numpy>=2,<3",
+        "pydantic>=2.9,<3",
+        "packaging>=24,<27",
+        'pytest>=9; extra == "dev"',
+    ]
+    installed = {
+        "numpy": "2.5.2",
+        "pydantic": "2.13.4",
+        "packaging": "26.3",
+    }
+    monkeypatch.setattr(check_cmd.metadata, "requires", lambda _name: declared)
+    monkeypatch.setattr(
+        check_cmd.metadata,
+        "version",
+        lambda name: installed[name],
+    )
+
+    result = check_cmd._check_dependencies(verbose=False)
+
+    assert result == check_cmd.CheckResult(passed=3, failed=0)
+
+
+def test_cli_check_rejects_out_of_range_dependency(monkeypatch):
+    monkeypatch.setattr(
+        check_cmd.metadata,
+        "requires",
+        lambda _name: ["numpy>=2,<3"],
+    )
+    monkeypatch.setattr(check_cmd.metadata, "version", lambda _name: "1.26.4")
+
+    result = check_cmd._check_dependencies(verbose=False)
+
+    assert result == check_cmd.CheckResult(failed=1)
+
+
 def test_cli_run_dispatch_single_date(tmp_path, monkeypatch):
     config_path = _write_minimal_config(tmp_path)
     called = {}
