@@ -159,8 +159,10 @@ jobs:
             install/constraints.txt
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
-      - name: Install the supported pandas lower bound
-        run: python -m pip install --force-reinstall "pandas==2.2.3"
+      - name: Install the supported pandas lower bound and string backend
+        run: >-
+          python -m pip install --force-reinstall
+          "pandas==2.2.3" "pyarrow>=10.0.1"
       - run: python -m pip check
       - name: Run the lower-bound suite with pandas deprecations as errors
         run: python -m pytest -q -W error::FutureWarning

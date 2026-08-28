@@ -17,6 +17,17 @@ def test_qualified_runtime_dependencies_are_compatible():
     assert dependency_alignment_errors() == []
 
 
+def test_pandas_future_string_ci_installs_its_required_backend():
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    pandas_job = workflow.split("  pandas-compatibility:", maxsplit=1)[1].split(
+        "\n  coverage:", maxsplit=1
+    )[0]
+
+    assert '"pandas==2.2.3"' in pandas_job
+    assert '"pyarrow>=10.0.1"' in pandas_job
+    assert "pd.options.future.infer_string = True" in pandas_job
+
+
 def test_release_identity_is_aligned():
     assert release_identity_errors("1.0") == []
     assert release_identity_errors("v1.0") == [
