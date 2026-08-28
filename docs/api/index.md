@@ -25,7 +25,6 @@ promise is {doc}`../reference/public-api`.
    pyages.lpm.core.registry
    pyages.tracer.protocols
    pyages.tracer.simple_tracers
-   pyages.tracer.tracer_protocol
    pyages.tracer.config
    pyages.tracer.tracer_root
    pyages.concentrations
