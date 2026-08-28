@@ -117,6 +117,33 @@ def _campaign_promotion(
     )
 
 
+def reuse_archive(
+    campaign: Path,
+    output: Path,
+    *,
+    expected_tag: str,
+) -> dict[str, object]:
+    dirty = _git("status", "--short")
+    if dirty:
+        raise RuntimeError("Refusing to reuse an archive from a dirty Git worktree")
+    tags = _release_tags(expected_tag, allow_untagged=False)
+    head = _git("rev-parse", "HEAD")
+    promotion = _campaign_promotion(campaign.resolve(), head, expected_tag)
+    payload = validate_archive(output)
+    if payload.get("git_head") != head:
+        raise RuntimeError("Existing archive Git commit does not match HEAD")
+    if payload.get("git_tags_at_head") != tags:
+        raise RuntimeError("Existing archive Git tags do not match HEAD")
+    expected_mode = (
+        "maintainer-functional-equivalence"
+        if promotion is not None
+        else "single-release-commit"
+    )
+    if payload.get("numerical_provenance_mode") != expected_mode:
+        raise RuntimeError("Existing archive numerical provenance mode is stale")
+    return payload
+
+
 def build_archive(
     campaign: Path,
     output: Path,
@@ -254,7 +281,11 @@ def main(argv: list[str] | None = None) -> int:
             "--campaign and --output are required unless --validate-only is used"
         )
     if args.reuse_valid and args.output.exists():
-        payload = validate_archive(args.output)
+        payload = reuse_archive(
+            args.campaign,
+            args.output,
+            expected_tag=args.expected_tag,
+        )
         if payload.get("release_tag") != args.expected_tag:
             raise RuntimeError(
                 "Existing archive release tag does not match the requested tag: "

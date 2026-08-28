@@ -321,6 +321,8 @@ def _validate_release_identity(
         return failures
     if release.get("expected_release_tag") != expected_tag:
         failures.append("expected_release_tag")
+    if expected_tag not in release.get("git_tags_at_head", []):
+        failures.append("recorded_release_tag_not_at_head")
     tags = [tag for tag in _git("tag", "--points-at", "HEAD").splitlines() if tag]
     if expected_tag not in tags:
         failures.append("release_tag_not_at_head")

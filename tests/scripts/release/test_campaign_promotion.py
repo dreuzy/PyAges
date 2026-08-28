@@ -140,3 +140,46 @@ def test_archive_requires_promotion_for_historical_numerical_commits(
         build_reproduction_archive.build_archive(
             campaign, tmp_path / "archive", expected_tag="1.0"
         )
+
+
+def test_reuse_archive_requires_current_release_identity(tmp_path, monkeypatch):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    (campaign / "campaign_manifest.json").write_text(
+        json.dumps(
+            {
+                "stages": {
+                    name: {"git_head": "release-head"}
+                    for name in promotion.NUMERICAL_STAGES
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_git(*args):
+        if args == ("status", "--short"):
+            return ""
+        if args == ("tag", "--points-at", "HEAD"):
+            return "1.0"
+        if args == ("cat-file", "-t", "refs/tags/1.0"):
+            return "tag"
+        if args == ("rev-parse", "HEAD"):
+            return "release-head"
+        raise AssertionError(args)
+
+    monkeypatch.setattr(build_reproduction_archive, "_git", fake_git)
+    monkeypatch.setattr(
+        build_reproduction_archive,
+        "validate_archive",
+        lambda unused: {
+            "git_head": "old-head",
+            "git_tags_at_head": [],
+            "numerical_provenance_mode": "single-release-commit",
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="does not match HEAD"):
+        build_reproduction_archive.reuse_archive(
+            campaign, tmp_path / "archive", expected_tag="1.0"
+        )
