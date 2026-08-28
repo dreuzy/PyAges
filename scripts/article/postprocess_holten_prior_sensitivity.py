@@ -37,9 +37,7 @@ from scripts.common.publication_plotting import (  # noqa: E402
     save_pdf_png,
 )
 
-DEFAULT_BASELINE = (
-    ROOT / "results" / "final_article_simulations" / "holten_h4_final"
-)
+DEFAULT_BASELINE = ROOT / "results" / "final_article_simulations" / "holten_h4_final"
 DEFAULT_DIRICHLET = ROOT / "results" / "robustness" / "holten_prior_dirichlet1"
 DEFAULT_OUTPUT = (
     ROOT / "results" / "robustness" / "holten_prior_sensitivity_postprocessed"
@@ -134,9 +132,7 @@ def compare_age_fractions(
     for statistic in ("median", "q10", "q90"):
         result[f"baseline_{statistic}"] = baseline_grid[statistic]
         result[f"dirichlet_{statistic}"] = dirichlet_grid[statistic]
-    result["signed_change"] = (
-        result["dirichlet_median"] - result["baseline_median"]
-    )
+    result["signed_change"] = result["dirichlet_median"] - result["baseline_median"]
     result["absolute_change"] = result["signed_change"].abs()
     result["signed_change_percentage_points"] = 100.0 * result["signed_change"]
     result["absolute_change_percentage_points"] = 100.0 * result["absolute_change"]
@@ -172,7 +168,9 @@ def compare_age_fractions(
     return result
 
 
-def _residual_metrics(residuals: pd.DataFrame, prior: str, well: str | None) -> dict[str, float]:
+def _residual_metrics(
+    residuals: pd.DataFrame, prior: str, well: str | None
+) -> dict[str, float]:
     selected = residuals.loc[residuals["prior"].eq(prior)]
     if well is not None:
         selected = selected.loc[selected["well"].eq(well)]
@@ -206,11 +204,14 @@ def summarize_by_well(
         raise ValueError(
             "standardized_residuals.csv must contain exactly uniform_z and dirichlet_1"
         )
-    expected_pairs = {(well, tracer) for well in WELL_ORDER for tracer in residuals["tracer"].unique()}
+    expected_pairs = {
+        (well, tracer) for well in WELL_ORDER for tracer in residuals["tracer"].unique()
+    }
     for prior in expected_priors:
         pairs = set(
-            residuals.loc[residuals["prior"].eq(prior), ["well", "tracer"]]
-            .itertuples(index=False, name=None)
+            residuals.loc[residuals["prior"].eq(prior), ["well", "tracer"]].itertuples(
+                index=False, name=None
+            )
         )
         if pairs != expected_pairs:
             raise ValueError(f"Residual well/tracer grid differs for {prior}")
@@ -264,11 +265,16 @@ def validate_convergence(convergence: pd.DataFrame, source: Path) -> dict[str, f
     if len(convergence) != 49 or set(convergence["well"]) != set(WELL_ORDER):
         raise ValueError("Expected the complete 49-row Dirichlet convergence table")
     if set(convergence["prior"]) != {"dirichlet_1"}:
-        raise ValueError("Convergence diagnostics contain a prior other than dirichlet_1")
+        raise ValueError(
+            "Convergence diagnostics contain a prior other than dirichlet_1"
+        )
     rhat = pd.to_numeric(convergence["split_rhat"], errors="raise")
     ess = pd.to_numeric(convergence["ess_sum_chains"], errors="raise")
-    converged = convergence["converged"].astype(str).str.lower().map(
-        {"true": True, "false": False}
+    converged = (
+        convergence["converged"]
+        .astype(str)
+        .str.lower()
+        .map({"true": True, "false": False})
     )
     if converged.isna().any():
         raise ValueError("Convergence diagnostics contain invalid converged flags")
@@ -282,7 +288,9 @@ def validate_convergence(convergence: pd.DataFrame, source: Path) -> dict[str, f
     if not minimum_ess >= MIN_ESS:
         failures.append(f"min ESS {minimum_ess:.6g} is not >= {MIN_ESS:g}")
     if failures:
-        raise RuntimeError("Dirichlet convergence criteria failed: " + "; ".join(failures))
+        raise RuntimeError(
+            "Dirichlet convergence criteria failed: " + "; ".join(failures)
+        )
     return {"maximum_split_rhat": maximum_rhat, "minimum_ess": minimum_ess}
 
 
@@ -296,7 +304,9 @@ def validate_prior_only(prior_only: pd.DataFrame, source: Path) -> None:
     )
     expected_priors = {"uniform_z", "dirichlet_1_truncated_to_z_bounds"}
     if set(prior_only["prior"]) != expected_priors:
-        raise ValueError(f"{source} does not contain the two expected prior-only groups")
+        raise ValueError(
+            f"{source} does not contain the two expected prior-only groups"
+        )
     for prior in expected_priors:
         subset = prior_only.loc[prior_only["prior"].eq(prior)]
         if set(subset["fraction"]) != set(AGE_PARAMETERS) or len(subset) != 4:
@@ -419,12 +429,12 @@ def _summary_markdown(summary: dict[str, Any]) -> str:
     rms = summary["global_rms_standardized_residual"]
     return f"""# Holten prior sensitivity summary
 
-- Largest change in age fraction: **{largest['percentage_points']:.3f} percentage points** ({largest['well']}, {largest['age_class']}; signed change {largest['signed_percentage_points']:+.3f} percentage points).
-- Median of the largest change per well: **{summary['median_largest_age_class_change_by_well_percentage_points']:.3f} percentage points**.
-- Largest total fraction redistributed between age classes: **{redistributed['percentage_points']:.3f} percentage points** ({redistributed['well']}).
-- Median total fraction redistributed between age classes: **{summary['median_total_fraction_redistributed_percentage_points']:.3f} percentage points**.
-- Global RMS standardized residual: **{rms['baseline_uniform_z_prior']:.6f}** for the baseline uniform-z prior and **{rms['dirichlet_prior']:.6f}** for the Dirichlet prior.
-- Dirichlet calculation convergence: maximum split-Rhat **{summary['maximum_split_rhat']:.6f}**; minimum ESS **{summary['minimum_ess']:.1f}**.
+- Largest change in age fraction: **{largest["percentage_points"]:.3f} percentage points** ({largest["well"]}, {largest["age_class"]}; signed change {largest["signed_percentage_points"]:+.3f} percentage points).
+- Median of the largest change per well: **{summary["median_largest_age_class_change_by_well_percentage_points"]:.3f} percentage points**.
+- Largest total fraction redistributed between age classes: **{redistributed["percentage_points"]:.3f} percentage points** ({redistributed["well"]}).
+- Median total fraction redistributed between age classes: **{summary["median_total_fraction_redistributed_percentage_points"]:.3f} percentage points**.
+- Global RMS standardized residual: **{rms["baseline_uniform_z_prior"]:.6f}** for the baseline uniform-z prior and **{rms["dirichlet_prior"]:.6f}** for the Dirichlet prior.
+- Dirichlet calculation convergence: maximum split-Rhat **{summary["maximum_split_rhat"]:.6f}**; minimum ESS **{summary["minimum_ess"]:.1f}**.
 - The implementation of the change of variables was verified numerically using the existing reproducibility results.
 """
 
@@ -456,7 +466,9 @@ def make_figure(output: Path, comparison: pd.DataFrame) -> tuple[Path, Path]:
                         color=AGE_CLASS_COLORS[parameter],
                         edgecolor="white",
                         linewidth=0.45,
-                        label=age_label if well_index == 0 and prior_label == "Baseline" else None,
+                        label=age_label
+                        if well_index == 0 and prior_label == "Baseline"
+                        else None,
                     )
                     left += width
 
@@ -491,7 +503,9 @@ def make_figure(output: Path, comparison: pd.DataFrame) -> tuple[Path, Path]:
     return paths
 
 
-def postprocess(baseline_dir: Path, dirichlet_dir: Path, output: Path) -> dict[str, Any]:
+def postprocess(
+    baseline_dir: Path, dirichlet_dir: Path, output: Path
+) -> dict[str, Any]:
     """Run the read-only scientific post-processing and write new artifacts."""
 
     baseline_dir = baseline_dir.resolve()
@@ -511,12 +525,8 @@ def postprocess(baseline_dir: Path, dirichlet_dir: Path, output: Path) -> dict[s
     prior_only_path = dirichlet_dir / "prior_only_comparison.csv"
     validation_path = dirichlet_dir / "jacobian_validation.csv"
 
-    baseline = _read_csv(
-        baseline_path, ("well", "parameter", "median", "q10", "q90")
-    )
-    dirichlet = _read_csv(
-        dirichlet_path, ("well", "parameter", "median", "q10", "q90")
-    )
+    baseline = _read_csv(baseline_path, ("well", "parameter", "median", "q10", "q90"))
+    dirichlet = _read_csv(dirichlet_path, ("well", "parameter", "median", "q10", "q90"))
     residuals = _read_csv(
         residuals_path, ("prior", "well", "tracer", "standardized_residual")
     )
@@ -545,9 +555,13 @@ def postprocess(baseline_dir: Path, dirichlet_dir: Path, output: Path) -> dict[s
     summary = _summary(comparison, by_well, residuals, convergence)
 
     output.mkdir(parents=True, exist_ok=True)
-    comparison.to_csv(output / "posterior_age_fraction_prior_comparison.csv", index=False)
+    comparison.to_csv(
+        output / "posterior_age_fraction_prior_comparison.csv", index=False
+    )
     by_well.to_csv(output / "prior_sensitivity_by_well.csv", index=False)
-    with (output / "prior_sensitivity_summary.json").open("w", encoding="utf-8") as stream:
+    with (output / "prior_sensitivity_summary.json").open(
+        "w", encoding="utf-8"
+    ) as stream:
         json.dump(summary, stream, indent=2, ensure_ascii=False)
         stream.write("\n")
     (output / "prior_sensitivity_summary.md").write_text(

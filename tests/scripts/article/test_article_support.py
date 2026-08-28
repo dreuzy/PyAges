@@ -272,9 +272,7 @@ def test_holten_prior_postprocess_uses_completed_results_without_sampling(tmp_pa
         2.0
     )
     assert (baseline / "posterior_summaries.csv").read_bytes() == baseline_before
-    assert {
-        path.name for path in output.iterdir()
-    } == {
+    assert {path.name for path in output.iterdir()} == {
         "figureC1_holten_prior_sensitivity.pdf",
         "figureC1_holten_prior_sensitivity.png",
         "posterior_age_fraction_prior_comparison.csv",
