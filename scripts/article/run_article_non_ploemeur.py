@@ -37,16 +37,17 @@ from scipy import integrate, stats
 
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.calibration.problem import CalibrationProblem
+from pyages.concentrations import Concentrations
 from pyages.config.paths import DIRECTORY_LPM_DATA, DIRECTORY_TRACER_DATA
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution import (
-    DEFAULT_TRACER_GRID_SETTINGS,
+    DEFAULT_CONVOLUTION_SETTINGS,
     Convolution,
+    ConvolutionSettings,
     ConvolutionTracers,
-    TracerGridSettings,
 )
 from pyages.lpm import build_lpm
-from pyages.tracer.tracer_protocol import ConstantTracer, SyntheticTracer
+from pyages.tracer.simple_tracers import ConstantTracer, SyntheticTracer
 from pyages.tracer.tracer_root import Tracer
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -150,7 +151,7 @@ def write_manifest(output: Path) -> Path:
     tracked_hash, scoped_hash, snapshot_hash, untracked_count = _workspace_snapshot(
         output
     )
-    grid = asdict(DEFAULT_TRACER_GRID_SETTINGS)
+    grid = asdict(DEFAULT_CONVOLUTION_SETTINGS)
     tracer_hashes: dict[str, dict[str, str]] = {}
     for tracer in TRACERS:
         directory = DIRECTORY_TRACER_DATA / tracer
@@ -626,7 +627,7 @@ def _analytical_rows() -> list[dict[str, object]]:
     return rows
 
 
-def _validation_matrix(settings: TracerGridSettings) -> pd.DataFrame:
+def _validation_matrix(settings: ConvolutionSettings) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     for tracer_name in TRACERS:
         tracer = Tracer(DIRECTORY_TRACER_DATA, tracer_name)
@@ -673,7 +674,7 @@ def _error_summary(frame: pd.DataFrame, label: str) -> dict[str, object]:
     }
 
 
-def _tolerance_timing(settings: TracerGridSettings) -> dict[str, float]:
+def _tolerance_timing(settings: ConvolutionSettings) -> dict[str, float]:
     """Time one four-tracer preparation and 1,000 cached convolutions."""
     model = _model("exp_shifted", {"mu": 10.0, "shift": 20.0})
     group = ConvolutionTracers(
@@ -740,15 +741,15 @@ def run_s1(output: Path) -> dict[str, object]:
     output.mkdir(parents=True, exist_ok=True)
     analytical = pd.DataFrame(_analytical_rows())
     analytical.to_csv(output / "analytical_invariants.csv", index=False)
-    default = DEFAULT_TRACER_GRID_SETTINGS
+    default = DEFAULT_CONVOLUTION_SETTINGS
     configurations = {
-        "0.5x": TracerGridSettings(
+        "0.5x": ConvolutionSettings(
             absolute_tolerance_factor=default.absolute_tolerance_factor * 0.5,
             relative_tolerance=default.relative_tolerance * 0.5,
             linear_curvature_factor=default.linear_curvature_factor * 0.5,
         ),
         "1x": default,
-        "2x": TracerGridSettings(
+        "2x": ConvolutionSettings(
             absolute_tolerance_factor=default.absolute_tolerance_factor * 2.0,
             relative_tolerance=default.relative_tolerance * 2.0,
             linear_curvature_factor=default.linear_curvature_factor * 2.0,
@@ -966,7 +967,7 @@ def _summary_row(
     index: int,
     mu: float,
     shift: float,
-    observations,
+    observations: Concentrations,
     frame: pd.DataFrame,
     steps: int,
 ) -> dict[str, object]:
@@ -980,11 +981,7 @@ def _summary_row(
         "steps": steps,
         "stored_samples": len(frame),
     }
-    observed_values = (
-        observations.frame["concentration"].to_numpy(dtype=float)
-        if hasattr(observations, "cv")
-        else np.asarray(observations, dtype=float)
-    )
+    observed_values = observations.frame["concentration"].to_numpy(dtype=float)
     for tracer_name, concentration in zip(
         TABLE3_TRACERS, observed_values, strict=False
     ):

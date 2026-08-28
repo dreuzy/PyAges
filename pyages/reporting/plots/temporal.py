@@ -23,7 +23,7 @@ from pyages.concentrations.temporal import (
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm.factory import build_lpm
 from pyages.lpm.samples.table import LpmSampleTable
-from pyages.workflows.plots.common import (
+from pyages.reporting.plots._common import (
     INTERVAL_50_COLOR,
     INTERVAL_90_COLOR,
     MEDIAN_COLOR,

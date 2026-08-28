@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from pyages.concentrations import Concentrations
-from pyages.workflows.plots import (
+from pyages.reporting.plots import (
     plot_objective_solution_map,
     plot_objective_summary,
     plot_observations_overview,

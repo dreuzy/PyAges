@@ -2,7 +2,7 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Shared styles and data helpers for workflow figures."""
+"""Shared styles and data helpers for scientific result figures."""
 
 from __future__ import annotations
 

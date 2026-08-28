@@ -229,4 +229,7 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
     click.echo("     - Implement cdf_and_partial_first_moment()")
     click.echo(f"  2. Edit {params_file}")
     click.echo("     - Adjust parameter bounds, init values, and priors")
-    click.echo(f"  3. Verify that '{name}' appears in: pyages list lpms")
+    click.echo(
+        "  3. Ensure the model belongs to the importable pyages.lpm.models package"
+    )
+    click.echo(f"  4. Verify that '{name}' appears in: pyages list lpms")

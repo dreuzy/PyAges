@@ -90,6 +90,13 @@ La clôture opérationnelle exige, sur un même état Git stabilisé :
 6. audit de dépendances, métadonnées de licence et paquet construit ;
 7. matrice CI Python 3.12–3.14 et bornes basses après publication du commit.
 
+L'exécution locale de clôture du 28 août 2026 a validé les six premières
+portes : Ruff sur 467 fichiers, inventaire courant, 1 078 tests standard
+réussis et 5 ignorés, couverture de branches à 85,77 %, 5 tests extensifs
+réussis, Sphinx HTML et `linkcheck` stricts, absence de vulnérabilité connue,
+licences cohérentes, puis sdist et wheel acceptés par `twine check`. La matrice
+multi-version reste volontairement une preuve CI post-commit.
+
 Les validations externes de l'article, l'archive immuable et le DOI restent des
 portes de publication distinctes ; elles ne rouvrent pas l'audit intrinsèque du
 code.

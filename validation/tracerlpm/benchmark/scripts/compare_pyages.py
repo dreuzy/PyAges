@@ -18,11 +18,11 @@ import yaml
 
 from pyages.convolution.convolution import Convolution
 from pyages.convolution.settings import (
-    DEFAULT_TRACER_GRID_SETTINGS,
-    TracerGridSettings,
+    DEFAULT_CONVOLUTION_SETTINGS,
+    ConvolutionSettings,
 )
 from pyages.lpm import build_lpm
-from pyages.tracer.tracer_protocol import SyntheticTracer
+from pyages.tracer.simple_tracers import SyntheticTracer
 
 from .generate_inputs import BENCHMARK_ROOT, DEFAULT_CONFIG
 from .mappings import dm_to_inverse_gaussian, epm_to_shifted_exponential
@@ -242,7 +242,7 @@ def compare(
     reference_path: Path = DEFAULT_REFERENCE,
     input_dir: Path = DEFAULT_INPUT_DIR,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
-    grid_settings: TracerGridSettings | None = None,
+    grid_settings: ConvolutionSettings | None = None,
     qualification_config_path: Path = DEFAULT_CONFIG,
     qualification_thresholds: ForwardQualificationThresholds | None = None,
 ) -> dict:
@@ -252,7 +252,7 @@ def compare(
     tracers = {path.stem: load_tracer(path) for path in input_paths}
     input_scales = {path.stem: input_concentration_scale(path) for path in input_paths}
     lpms = {model: build_lpm(name) for model, name in MODEL_NAMES.items()}
-    effective_grid_settings = grid_settings or DEFAULT_TRACER_GRID_SETTINGS
+    effective_grid_settings = grid_settings or DEFAULT_CONVOLUTION_SETTINGS
     effective_thresholds = qualification_thresholds or load_qualification_thresholds(
         qualification_config_path
     )

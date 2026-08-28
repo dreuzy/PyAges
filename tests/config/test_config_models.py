@@ -265,6 +265,28 @@ def test_temporal_explicit_model_list_must_be_unambiguous(models) -> None:
         TemporalLpmModelsCfg(list=models)
 
 
+@pytest.mark.parametrize(
+    ("model", "payload"),
+    [
+        (LauncherDatasetCfg, {"name": "../observations.txt"}),
+        (LauncherDatasetCfg, {"name": "..\\observations.txt"}),
+        (LauncherDatasetCfg, {"name": "D:observations.txt"}),
+        (LauncherLpmCfg, {"model_name": "../exp"}),
+        (TemporalLpmModelsCfg, {"list": ["../exp"]}),
+        (TemporalResultsCfg, {"study_name": ".."}),
+    ],
+)
+def test_result_path_components_cannot_escape_their_parent(model, payload) -> None:
+    with pytest.raises(ValidationError, match="single non-empty path component"):
+        model.model_validate(payload)
+
+
+@pytest.mark.parametrize("directory", [None, "", "   "])
+def test_custom_temporal_results_require_a_directory(directory) -> None:
+    with pytest.raises(ValidationError, match="results.directory must be set"):
+        TemporalResultsCfg(use_default=False, directory=directory)
+
+
 def test_all_documented_yaml_blocks_are_parseable():
     document = CONFIGURATION_DOC.read_text(encoding="utf-8")
     blocks = re.findall(r"```yaml\s*\n(.*?)```", document, flags=re.DOTALL)

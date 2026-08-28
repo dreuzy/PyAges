@@ -130,7 +130,7 @@ inherit from them. Follow the sequence below:
 5. construct and prepare `CalibrationProblem`;
 6. call `method.run(problem)` and write standard calibration outputs;
 7. write workflow-specific tables and optional figures;
-8. write {py:func}`pyages.workflows.result_manifest.write_result_manifest`
+8. write {py:func}`pyages.workflows.runtime.manifest.write_result_manifest`
    **last**;
 9. return the result path.
 
@@ -141,7 +141,8 @@ a `complete` manifest from a `finally` block or after catching and suppressing
 an incomplete calculation.
 
 Use `pyages.config.paths.result_subdirectory()` for fixed child names, but
-validate any user-derived directory component before passing it. A public
+validate any user-derived directory component with
+`pyages.config.paths.validate_path_component()` before passing it. A public
 workflow must have a deterministic, documented layout and must not silently
 delete an earlier result directory.
 

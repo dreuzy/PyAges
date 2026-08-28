@@ -11,29 +11,29 @@ the complete core node-ID list.
 
 | Scope | Collected cases | Modules |
 |---|---|---|
-| Standard selection | 1050 | 96 |
+| Standard selection | 1078 | 98 |
 | Extensive opt-in | 5 | 2 |
-| Core including extensive | 1055 | 96 |
+| Core including extensive | 1083 | 98 |
 | TracerLPM validation | 65 | 9 |
-| All documented pytest scopes | 1120 | 105 |
+| All documented pytest scopes | 1148 | 107 |
 
 ## Cases by area
 
 | Area | Location | Primary type | Contract | CI scope | Modules | Cases |
 |---|---|---|---|---|---|---|
-| Repository-wide contracts | `tests/(root)/` | Contract / integration | Public API, metadata, manifests, paths, and repository documentation | Standard CI | 9 | 48 |
+| Repository-wide contracts | `tests/(root)/` | Contract / integration | Public API, metadata, manifests, paths, and repository documentation | Standard CI | 10 | 66 |
 | Calibration and inference | `tests/calibration/` | Unit / scientific | Objectives, priors, proposals, parameter grids, and calibration APIs | Standard CI; selected extensive cases | 16 | 123 |
 | Command-line interface | `tests/cli/` | Contract / integration | Installed command behavior, validation, discovery, and user-facing errors | Standard CI and package smoke test | 3 | 33 |
 | Concentration handling | `tests/concentrations/` | Unit / data contract | Chronicle loading and concentration-series behavior | Standard CI | 3 | 54 |
-| Configuration | `tests/config/` | Unit / contract | Validated models, runtime options, and portable path resolution | Standard CI | 3 | 40 |
-| Convolution | `tests/convolution/` | Analytical / scientific | Concentration convolution, numerical identities, settings, and tracer coupling | Standard CI | 5 | 235 |
+| Configuration | `tests/config/` | Unit / contract | Validated models, runtime options, and portable path resolution | Standard CI | 3 | 49 |
+| Convolution | `tests/convolution/` | Analytical / scientific | Concentration convolution, numerical identities, settings, and tracer coupling | Standard CI | 5 | 238 |
 | Input/output | `tests/data_io/` | Unit / data contract | LPM parameter parsing and serialization | Standard CI | 2 | 46 |
 | Examples and case studies | `tests/examples/` | Integration / golden | Runnable examples, helper contracts, reproduction modes, and accepted outputs | Standard CI | 9 | 30 |
 | Lumped-parameter models | `tests/lpm/` | Analytical / unit / golden | Distributions, moments, mixtures, registries, parameters, and generated values | Standard CI | 15 | 241 |
-| Ploemeur field case | `tests/ploemeur/` | Field integration / golden | Preparation, configuration, reference convolution, paths, and workflow outputs | Standard CI; selected extensive cases | 8 | 53 |
+| Ploemeur field case | `tests/ploemeur/` | Field integration / golden | Preparation, configuration, reference convolution, paths, and workflow outputs | Standard CI; selected extensive cases | 8 | 54 |
 | Scientific orchestration | `tests/scripts/` | Integration / reproducibility | Article campaigns, qualification scripts, and reproducible execution support | Standard CI | 12 | 68 |
-| Environmental tracers | `tests/tracer/` | Scientific unit / contract | Decay, distributed inputs, tracer configuration, and public tracer behavior | Standard CI | 4 | 51 |
-| Installed workflows | `tests/workflows/` | Integration / contract | Plotting runtime and single-date workflow behavior | Standard CI and package smoke test | 7 | 33 |
+| Environmental tracers | `tests/tracer/` | Scientific unit / contract | Decay, distributed inputs, tracer configuration, and public tracer behavior | Standard CI | 5 | 53 |
+| Installed workflows | `tests/workflows/` | Integration / contract | Plotting runtime and single-date workflow behavior | Standard CI and package smoke test | 7 | 28 |
 | TracerLPM cross-software validation | `validation/tracerlpm/` | Cross-software validation | Mappings, reference inputs, observations, pilots, comparisons, and summaries | TracerLPM validation job | 9 | 65 |
 
 ## Modules
@@ -62,14 +62,14 @@ the complete core node-ID list.
 | `tests/concentrations/test_concentration_chronicles_smoke.py` | Unit / data contract | Concentration chronicles smoke within concentration handling. | 1 | 0 |
 | `tests/concentrations/test_concentration_contracts.py` | Unit / data contract | Concentration contracts within concentration handling. | 41 | 0 |
 | `tests/concentrations/test_temporal_prediction_validation.py` | Unit / data contract | Temporal prediction validation within concentration handling. | 12 | 0 |
-| `tests/config/test_config_models.py` | Unit / contract | Config models within configuration. | 33 | 0 |
+| `tests/config/test_config_models.py` | Unit / contract | Config models within configuration. | 42 | 0 |
 | `tests/config/test_paths.py` | Unit / contract | Paths within configuration. | 2 | 0 |
 | `tests/config/test_runtime.py` | Unit / contract | Runtime within configuration. | 5 | 0 |
 | `tests/convolution/test_batch.py` | Analytical / scientific | Batch within convolution. | 19 | 0 |
 | `tests/convolution/test_concentrations.py` | Analytical / scientific | Concentrations within convolution. | 7 | 0 |
 | `tests/convolution/test_convolution.py` | Analytical / scientific | Convolution within convolution. | 119 | 0 |
 | `tests/convolution/test_convolution_scientific.py` | Analytical / scientific | Convolution scientific within convolution. | 68 | 0 |
-| `tests/convolution/test_convolution_settings.py` | Analytical / scientific | Convolution settings within convolution. | 22 | 0 |
+| `tests/convolution/test_convolution_settings.py` | Analytical / scientific | Convolution settings within convolution. | 25 | 0 |
 | `tests/data_io/test_lpm_params.py` | Unit / data contract | LPM params within input/output. | 43 | 0 |
 | `tests/data_io/test_lpm_results.py` | Unit / data contract | LPM results within input/output. | 3 | 0 |
 | `tests/examples/test_albuquerque_helpers.py` | Integration / golden | Albuquerque helpers within examples and case studies. | 2 | 0 |
@@ -101,7 +101,7 @@ the complete core node-ID list.
 | `tests/ploemeur/test_ploemeur_convolution_reference.py` | Field integration / golden | Ploemeur convolution reference within ploemeur field case. | 6 | 0 |
 | `tests/ploemeur/test_ploemeur_f09_workflow_golden.py` | Extensive scientific | Ploemeur F09 workflow golden within ploemeur field case. | 1 | 1 |
 | `tests/ploemeur/test_ploemeur_temporal_golden.py` | Golden regression | Ploemeur temporal golden within ploemeur field case. | 1 | 0 |
-| `tests/ploemeur/test_ploemeur_workflow.py` | Field integration / golden | Ploemeur workflow within ploemeur field case. | 2 | 0 |
+| `tests/ploemeur/test_ploemeur_workflow.py` | Field integration / golden | Ploemeur workflow within ploemeur field case. | 3 | 0 |
 | `tests/ploemeur/test_ploemeur_workflow_paths.py` | Field integration / golden | Ploemeur workflow paths within ploemeur field case. | 4 | 0 |
 | `tests/ploemeur/test_prepare_observations.py` | Field integration / golden | Prepare observations within ploemeur field case. | 4 | 0 |
 | `tests/scripts/article/test_article_campaign.py` | Integration / reproducibility | Article campaign within scientific orchestration. | 16 | 0 |
@@ -121,20 +121,22 @@ the complete core node-ID list.
 | `tests/test_documentation_contracts.py` | Contract / integration | Documentation contracts within repository-wide contracts. | 10 | 0 |
 | `tests/test_plotting_helpers.py` | Contract / integration | Plotting helpers within repository-wide contracts. | 12 | 0 |
 | `tests/test_project_metadata.py` | Contract / integration | Project metadata within repository-wide contracts. | 5 | 0 |
-| `tests/test_public_api.py` | Contract / integration | Public API within repository-wide contracts. | 3 | 0 |
+| `tests/test_public_api.py` | Contract / integration | Public API within repository-wide contracts. | 5 | 0 |
 | `tests/test_public_docstrings.py` | Contract / integration | Public docstrings within repository-wide contracts. | 1 | 0 |
-| `tests/test_result_manifest.py` | Contract / integration | Result manifest within repository-wide contracts. | 5 | 0 |
-| `tests/test_workflow_paths.py` | Contract / integration | Workflow paths within repository-wide contracts. | 3 | 0 |
+| `tests/test_qualification.py` | Contract / integration | Qualification within repository-wide contracts. | 9 | 0 |
+| `tests/test_result_manifest.py` | Contract / integration | Result manifest within repository-wide contracts. | 7 | 0 |
+| `tests/test_workflow_paths.py` | Contract / integration | Workflow paths within repository-wide contracts. | 8 | 0 |
 | `tests/tracer/test_decay_contract.py` | Scientific unit / contract | Decay contract within environmental tracers. | 7 | 0 |
 | `tests/tracer/test_distributed_tracer_contracts.py` | Scientific unit / contract | Distributed tracer contracts within environmental tracers. | 9 | 0 |
 | `tests/tracer/test_tracer_config.py` | Scientific unit / contract | Tracer config within environmental tracers. | 8 | 0 |
+| `tests/tracer/test_tracer_protocols.py` | Scientific unit / contract | Tracer protocols within environmental tracers. | 2 | 0 |
 | `tests/tracer/test_tracer_root.py` | Scientific unit / contract | Tracer root within environmental tracers. | 27 | 0 |
-| `tests/workflows/test_plotting_runtime.py` | Integration / contract | Plotting runtime within installed workflows. | 1 | 0 |
-| `tests/workflows/test_plotting_runtime_additional.py` | Integration / contract | Plotting runtime additional within installed workflows. | 5 | 0 |
-| `tests/workflows/test_single_date_components.py` | Integration / contract | Single date components within installed workflows. | 8 | 0 |
+| `tests/workflows/test_reporting_chronicles.py` | Integration / contract | Reporting chronicles within installed workflows. | 1 | 0 |
+| `tests/workflows/test_runtime_plotting.py` | Integration / contract | Runtime plotting within installed workflows. | 1 | 0 |
+| `tests/workflows/test_runtime_plotting_additional.py` | Integration / contract | Runtime plotting additional within installed workflows. | 5 | 0 |
+| `tests/workflows/test_single_date_components.py` | Integration / contract | Single date components within installed workflows. | 10 | 0 |
 | `tests/workflows/test_single_date_workflow.py` | Integration / contract | Single date workflow within installed workflows. | 3 | 0 |
-| `tests/workflows/test_synthetic_recovery.py` | Integration / contract | Synthetic recovery within installed workflows. | 9 | 0 |
-| `tests/workflows/test_temporal_components.py` | Integration / contract | Temporal components within installed workflows. | 5 | 0 |
+| `tests/workflows/test_temporal_components.py` | Integration / contract | Temporal components within installed workflows. | 6 | 0 |
 | `tests/workflows/test_temporal_plotting.py` | Integration / contract | Temporal plotting within installed workflows. | 2 | 0 |
 | `validation/tracerlpm/benchmark/tests/test_compare_pyages.py` | Cross-software validation | Compare pyages within tracerlpm cross-software validation. | 14 | 0 |
 | `validation/tracerlpm/benchmark/tests/test_generate_inputs.py` | Cross-software validation | Generate inputs within tracerlpm cross-software validation. | 2 | 0 |

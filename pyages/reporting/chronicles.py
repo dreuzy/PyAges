@@ -2,7 +2,7 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Orchestrate calibrated LPM chronicle figures and table exports."""
+"""Build calibrated concentration chronicle figures and result tables."""
 
 from __future__ import annotations
 
@@ -46,6 +46,7 @@ def export_concentration_chronicles(
     start_year: float = 1960,
     end_year: float | None = None,
     plot_stride: int | None = None,
+    tracer_data_dir: str | Path | None = None,
 ) -> None:
     """
     Display/export concentration chronologies for multiple result folders.
@@ -66,6 +67,9 @@ def export_concentration_chronicles(
         End year for the plotting range; defaults to max observation year.
     plot_stride : int, optional
         Plot every N-th LPM realization (controls plot density).
+    tracer_data_dir : str or pathlib.Path, optional
+        Directory containing tracer input data. The packaged tracer data are
+        used when this argument is omitted.
     """
     if plot_stride is not None and (
         isinstance(plot_stride, bool)
@@ -97,6 +101,7 @@ def export_concentration_chronicles(
             tracers = ConvolutionTracers(
                 names=observations.unique_tracer_names(),
                 date=max(observations.frame["date"]),
+                tracer_data_dir=tracer_data_dir,
             )
             tracers.validate_observation_units(observations)
 

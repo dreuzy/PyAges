@@ -11,7 +11,7 @@ import pytest
 
 from pyages.convolution import Convolution
 from pyages.lpm import build_lpm
-from pyages.tracer.tracer_protocol import SyntheticTracer
+from pyages.tracer.simple_tracers import SyntheticTracer
 from tests.utils import paths as test_paths
 
 

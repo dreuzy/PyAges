@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from pyages.concentrations.schema import tracer_date_key
-from pyages.workflows.plots.common import (
+from pyages.reporting.plots._common import (
     MEDIAN_COLOR,
     OBSERVED_COLOR,
     REACHABLE_COLOR,

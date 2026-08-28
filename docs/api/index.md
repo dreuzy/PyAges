@@ -48,8 +48,13 @@ promise is {doc}`../reference/public-api`.
    pyages.data_io.concentrations
    pyages.cli.main
    pyages.workflows
-   pyages.workflows.concentration_exports
-   pyages.workflows.result_manifest
+   pyages.workflows.single_date
+   pyages.workflows.temporal
+   pyages.workflows.runtime.manifest
+   pyages.reporting
+   pyages.reporting.chronicles
+   pyages.reporting.plots
+   pyages.qualification
 ```
 
 ```{toctree}

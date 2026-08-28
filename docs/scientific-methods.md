@@ -89,7 +89,7 @@ compatible with floating-point roundoff are clipped.
 
 ### Adaptive-grid controls
 
-{py:class}`pyages.convolution.settings.TracerGridSettings` accepts a bin when
+{py:class}`pyages.convolution.settings.ConvolutionSettings` accepts a bin when
 
 ```{math}
 \max(K_a,K_m,K_b)-\min(K_a,K_m,K_b)

@@ -2,14 +2,20 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Contracts for tracer-grid settings and cache invalidation."""
+"""Contracts for convolution settings and cache invalidation."""
 
 import numpy as np
 import pytest
 
-from pyages.convolution import Convolution, PreparedTracerGrid, TracerGridSettings
-from pyages.tracer.protocols import ConvolutionTracerProtocol, TracerProtocol
-from pyages.tracer.tracer_protocol import ConstantTracer
+import pyages.convolution as convolution_api
+from pyages.convolution import (
+    DEFAULT_CONVOLUTION_SETTINGS,
+    Convolution,
+    ConvolutionSettings,
+    PreparedTracerGrid,
+)
+from pyages.tracer.protocols import ConvolutionTracerProtocol
+from pyages.tracer.simple_tracers import ConstantTracer
 
 
 class _IncompleteTracer:
@@ -46,9 +52,18 @@ class _MinimalConvolutionTracer:
         ("max_bins", 0),
     ],
 )
-def test_invalid_grid_settings_are_rejected(field, value):
+def test_invalid_convolution_settings_are_rejected(field, value):
     with pytest.raises(ValueError, match=field):
-        TracerGridSettings(**{field: value})
+        ConvolutionSettings(**{field: value})
+
+
+def test_default_convolution_settings_have_the_public_type():
+    assert isinstance(DEFAULT_CONVOLUTION_SETTINGS, ConvolutionSettings)
+
+
+def test_historical_settings_names_are_absent():
+    assert not hasattr(convolution_api, "TracerGridSettings")
+    assert not hasattr(convolution_api, "DEFAULT_TRACER_GRID_SETTINGS")
 
 
 def test_observation_date_change_invalidates_grid_and_diagnostics():
@@ -76,7 +91,8 @@ def test_minimal_convolution_tracer_is_accepted_without_summary_methods():
     tracer = _MinimalConvolutionTracer()
 
     assert isinstance(tracer, ConvolutionTracerProtocol)
-    assert not isinstance(tracer, TracerProtocol)
+    assert not hasattr(tracer, "mean_value")
+    assert not hasattr(tracer, "max_value")
 
     convolution = Convolution(tracer, date=2010.0)
     grid = convolution.prepare()

@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.ticker import MaxNLocator
 
-from pyages.workflows.plots.common import (
+from pyages.reporting.plots._common import (
     OBSERVED_COLOR,
     _best_row,
     _ensure_frame,

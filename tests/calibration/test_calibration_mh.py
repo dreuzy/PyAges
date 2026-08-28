@@ -19,7 +19,7 @@ import pytest
 from pyages.calibration.exploration.systematic import SystematicSampling
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.config.runtime import DisplayOptions
-from pyages.workflows.synthetic_recovery import SyntheticRecoveryWorkflow
+from pyages.qualification import SyntheticRecoveryExperiment
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -64,7 +64,7 @@ def _run_mh_one_case(
     calib_mh = MetropolisHastings(config=mh_config)
 
     # Synthetic calibration setup (single case)
-    calib = SyntheticRecoveryWorkflow(
+    calib = SyntheticRecoveryExperiment(
         calib_strategy=calib_mh,
         ncase=1,
         error=0.03,
@@ -202,7 +202,7 @@ def test_calibration_mh_extensive(lpm_type, tmp_path):
     )
     calib_mh = MetropolisHastings(config=mh_config)
 
-    calib = SyntheticRecoveryWorkflow(
+    calib = SyntheticRecoveryExperiment(
         calib_strategy=calib_mh,
         ncase=5,
         error=0.03,

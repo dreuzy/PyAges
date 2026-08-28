@@ -13,7 +13,7 @@ from pathlib import Path
 
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.config.runtime import DisplayOptions
-from pyages.workflows.synthetic_recovery import SyntheticRecoveryWorkflow
+from pyages.qualification import SyntheticRecoveryExperiment
 
 
 def test_calibration_mh_prior_smoke(tmp_path: Path):
@@ -35,7 +35,7 @@ def test_calibration_mh_prior_smoke(tmp_path: Path):
     )
     calib_mh = MetropolisHastings(config=mh_config)
 
-    calib = SyntheticRecoveryWorkflow(
+    calib = SyntheticRecoveryExperiment(
         calib_strategy=calib_mh,
         ncase=1,
         error=0.0,

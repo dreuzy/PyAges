@@ -8,24 +8,22 @@ The package exposes the single- and multi-tracer engines together with the
 immutable grid records, diagnostics, errors, and numerical settings they use.
 """
 
-from pyages.convolution.batch import ConvolutionTracers
+from pyages.convolution.continuous_integration import ConvolutionDiagnostics
 from pyages.convolution.convolution import Convolution
-from pyages.convolution.models import (
-    ConvolutionDiagnostics,
-    ConvolutionError,
-    PreparedTracerGrid,
-)
+from pyages.convolution.errors import ConvolutionError
+from pyages.convolution.multi_tracer import ConvolutionTracers
 from pyages.convolution.settings import (
-    DEFAULT_TRACER_GRID_SETTINGS,
-    TracerGridSettings,
+    DEFAULT_CONVOLUTION_SETTINGS,
+    ConvolutionSettings,
 )
+from pyages.convolution.tracer_grid import PreparedTracerGrid
 
 __all__ = [
     "Convolution",
     "ConvolutionDiagnostics",
     "ConvolutionError",
+    "ConvolutionSettings",
     "ConvolutionTracers",
-    "DEFAULT_TRACER_GRID_SETTINGS",
+    "DEFAULT_CONVOLUTION_SETTINGS",
     "PreparedTracerGrid",
-    "TracerGridSettings",
 ]

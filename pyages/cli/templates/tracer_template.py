@@ -200,4 +200,5 @@ def generate_tracer_template(
         click.echo(f"  2. Edit {tracer_dir / 'recharge.csv'}")
         click.echo("     - Replace placeholder data with actual atmospheric chronicle")
         click.echo("     - Add data source and citation")
-    click.echo(f"  3. Verify: pyages list tracers | grep {name}")
+    click.echo(f"  3. In workflow YAML, set tracers.data_directory to {tracer_output}")
+    click.echo(f"  4. Verify by running a workflow that loads '{name}'")

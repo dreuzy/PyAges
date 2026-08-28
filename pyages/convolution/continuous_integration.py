@@ -9,26 +9,57 @@ never samples an LPM probability density or renormalizes the finite age window.
 """
 
 from collections.abc import Callable
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
 
-from pyages.convolution.models import (
-    ConvolutionDiagnostics,
-    ConvolutionError,
-    PreparedTracerGrid,
-)
-from pyages.convolution.settings import TracerGridSettings
+from pyages.convolution.errors import ConvolutionError
+from pyages.convolution.settings import ConvolutionSettings
+from pyages.convolution.tracer_grid import PreparedTracerGrid
 
-Array = npt.NDArray[np.float64]
-MomentProvider = Callable[[Array], tuple[npt.ArrayLike, npt.ArrayLike]]
+
+@dataclass(frozen=True)
+class ConvolutionDiagnostics:
+    """Diagnostics from the latest continuous or mixed convolution.
+
+    The integration kernel creates this record together with its concentration
+    result. Mixed convolutions then adjust it to describe the complete mixture.
+
+    Attributes
+    ----------
+    window_mass : float
+        Probability mass represented in the available tracer-history window.
+        Omitted older mass is not renormalized.
+    n_bins : int
+        Number of prepared tracer-response bins used for integration.
+    min_weight : float
+        Smallest raw CDF difference before round-off-sized negative values are
+        clipped.
+    clipped_weight_count : int
+        Number of negative bin weights clipped as floating-point round-off.
+
+    Notes
+    -----
+    Pure Dirac and double-Dirac convolutions do not create diagnostics; use
+    :meth:`pyages.convolution.convolution.Convolution.window_mass` for their
+    represented mass.
+    """
+
+    window_mass: float
+    n_bins: int
+    min_weight: float
+    clipped_weight_count: int
 
 
 def _evaluate_moments(
-    provider: MomentProvider,
-    edges: Array,
+    provider: Callable[
+        [npt.NDArray[np.float64]],
+        tuple[npt.ArrayLike, npt.ArrayLike],
+    ],
+    edges: npt.NDArray[np.float64],
     distribution_name: str,
-) -> tuple[Array, Array]:
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Evaluate the vectorized CDF/partial-moment numerical contract.
 
     A provider must return one finite CDF value and one finite raw partial first
@@ -63,10 +94,10 @@ def _evaluate_moments(
 
 
 def _bin_weights(
-    f_edges: Array,
+    f_edges: npt.NDArray[np.float64],
     distribution_name: str,
-    settings: TracerGridSettings,
-) -> tuple[Array, ConvolutionDiagnostics]:
+    settings: ConvolutionSettings,
+) -> tuple[npt.NDArray[np.float64], ConvolutionDiagnostics]:
     """Turn edge CDF values into validated, non-negative bin masses.
 
     Only deviations compatible with floating-point round-off are clipped.
@@ -111,10 +142,13 @@ def _bin_weights(
 
 
 def window_mass_from_provider(
-    provider: MomentProvider,
+    provider: Callable[
+        [npt.NDArray[np.float64]],
+        tuple[npt.ArrayLike, npt.ArrayLike],
+    ],
     upper_age: float,
     distribution_name: str,
-    settings: TracerGridSettings,
+    settings: ConvolutionSettings,
 ) -> float:
     """Return finite-window mass using the production integration contract.
 
@@ -140,12 +174,12 @@ def window_mass_from_provider(
 
 
 def _centered_moments(
-    first_moment_edges: Array,
-    edges: Array,
-    weights: Array,
+    first_moment_edges: npt.NDArray[np.float64],
+    edges: npt.NDArray[np.float64],
+    weights: npt.NDArray[np.float64],
     distribution_name: str,
-    settings: TracerGridSettings,
-) -> Array:
+    settings: ConvolutionSettings,
+) -> npt.NDArray[np.float64]:
     r"""Return first moments centered on each bin's left edge.
 
     For a bin ``[a, b]`` with mass :math:`w`, the centered moment is
@@ -170,9 +204,9 @@ def _centered_moments(
 
 def _integrate_response(
     grid: PreparedTracerGrid,
-    weights: Array,
-    centered_moments: Array,
-    settings: TracerGridSettings,
+    weights: npt.NDArray[np.float64],
+    centered_moments: npt.NDArray[np.float64],
+    settings: ConvolutionSettings,
 ) -> float:
     """Combine exact bin masses with a local tracer-response approximation.
 
@@ -210,9 +244,12 @@ def _integrate_response(
 
 def convolve_prepared_grid(
     grid: PreparedTracerGrid,
-    provider: MomentProvider,
+    provider: Callable[
+        [npt.NDArray[np.float64]],
+        tuple[npt.ArrayLike, npt.ArrayLike],
+    ],
     distribution_name: str,
-    settings: TracerGridSettings,
+    settings: ConvolutionSettings,
 ) -> tuple[float, ConvolutionDiagnostics]:
     r"""Integrate a continuous LPM over a prepared tracer-response grid.
 
@@ -242,7 +279,7 @@ def convolve_prepared_grid(
         Vectorized callable returning ``(F(t), M(t))`` at all grid edges.
     distribution_name : str
         Name included in numerical-contract errors.
-    settings : TracerGridSettings
+    settings : ConvolutionSettings
         Curvature and floating-point consistency controls.
 
     Returns

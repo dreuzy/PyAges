@@ -2,7 +2,7 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Pydantic-validated parameter loader for the single-date workflow."""
+"""Configuration adapter for the single-date workflow."""
 
 from pathlib import Path
 
@@ -50,4 +50,4 @@ def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
     return load_params_payload(root_dir, load_yaml_mapping(params_path))
 
 
-__all__ = ["LauncherParams", "load_params", "load_params_payload"]
+__all__ = ["load_params", "load_params_payload"]

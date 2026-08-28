@@ -2,6 +2,13 @@
 
 This guide explains how to add a new environmental tracer to PyAges. Tracers are chemical species with known atmospheric histories used for groundwater age dating.
 
+The default paths below are relative to the current working directory. Run the
+commands from the root of a PyAges source checkout when contributing a tracer
+to the packaged catalogue. For a project-specific tracer, use `--output` to
+select a separate tracer root, then set `tracers.data_directory` to that same
+root in the workflow YAML. `pyages list tracers` and `pyages check` inspect the
+packaged tracer root; they do not apply a workflow-specific override.
+
 ## Quick Method: Use the Template Generator
 
 The easiest way to create a new tracer is with the template generator:
@@ -13,7 +20,7 @@ pyages new tracer <name> [--with-decay] [--no-chronicle] [-o <output_dir>]
 **Options:**
 - `--with-decay`: Include radioactive decay configuration
 - `--no-chronicle`: Use constant recharge instead of a chronicle template
-- `--output`, `-o`: Select the generated tracer directory
+- `--output`, `-o`: Select the tracer root under which `<name>/` is generated
 
 **Examples:**
 
@@ -26,11 +33,22 @@ pyages new tracer argon39 --with-decay
 
 # Constant-recharge tracer
 pyages new tracer synthetic --no-chronicle
+
+# Project-specific tracer root
+pyages new tracer krypton85 --output project-data/tracers
 ```
 
-This creates:
+With the default output, this creates:
 - `data_core/data_tracer/<name>/<name>.yaml` - Configuration file
 - `data_core/data_tracer/<name>/recharge.csv` - Sample data (replace with real data)
+
+For a custom output such as `project-data/tracers`, configure the same root in
+the workflow:
+
+```yaml
+tracers:
+  data_directory: project-data/tracers
+```
 
 ---
 
@@ -88,10 +106,15 @@ date,concentration
 ### Step 4: Test the Tracer
 
 ```python
+from pathlib import Path
+
 from pyages.config.paths import DIRECTORY_TRACER_DATA
 from pyages.tracer.tracer_root import Tracer
 
-tracer = Tracer(DIRECTORY_TRACER_DATA, name="mytracer")
+tracer_root = DIRECTORY_TRACER_DATA
+# For a project-specific tracer, use its root instead:
+# tracer_root = Path("project-data/tracers")
+tracer = Tracer(tracer_root, name="mytracer")
 print(f"Name: {tracer.name}")
 print(f"Unit: {tracer.unit}")
 print(f"Date range: {tracer.datemin} - {tracer.datemax}")
@@ -377,7 +400,9 @@ C_prod = (production_rate / β) × (1 - exp(-βτ))  (with decay)
 
 - Check directory name matches tracer name
 - Verify YAML file is named `<tracer>/<tracer>.yaml`
-- Run `pyages check` and `pyages list tracers`.
+- For a packaged tracer, run `pyages check` and `pyages list tracers`.
+- For a project-specific tracer, verify that `tracers.data_directory` points to
+  the root containing the tracer directory.
 
 ### "FileNotFoundError: recharge.csv"
 

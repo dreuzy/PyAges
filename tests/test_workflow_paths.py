@@ -6,7 +6,10 @@
 
 from pathlib import Path
 
-from pyages.workflows.single_date_paths import configuration_root
+import pytest
+
+from pyages.config.paths import configuration_root
+from pyages.workflows.single_date.paths import dataset_results_directory
 
 
 def test_configuration_root_finds_checkout_from_nested_config(tmp_path: Path) -> None:
@@ -45,3 +48,12 @@ def test_configuration_root_accepts_checkout_working_directory(
     monkeypatch.chdir(checkout)
 
     assert configuration_root(config) == checkout
+
+
+@pytest.mark.parametrize(
+    "dataset_name",
+    ["../escape.txt", "..\\escape.txt", "D:escape.txt", ".", ".."],
+)
+def test_dataset_results_directory_rejects_path_components(dataset_name: str) -> None:
+    with pytest.raises(ValueError, match="single non-empty path component"):
+        dataset_results_directory(dataset_name)

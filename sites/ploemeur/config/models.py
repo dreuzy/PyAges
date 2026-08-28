@@ -14,7 +14,6 @@ from pydantic import (
     ConfigDict,
     Field,
     RootModel,
-    ValidationError,
     field_validator,
     model_validator,
 )
@@ -217,6 +216,5 @@ __all__ = [
     "PriorPipelinePresets",
     "PriorPipelineStep",
     "TimeSpanMode",
-    "ValidationError",
     "WellDateConfig",
 ]

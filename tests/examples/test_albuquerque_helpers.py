@@ -10,7 +10,7 @@ Smoke tests for Albuquerque example configurations.
 from pathlib import Path
 
 from pyages.lpm import build_lpm
-from pyages.workflows.single_date_config import load_params
+from pyages.workflows.single_date.config import load_params
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = (

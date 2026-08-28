@@ -17,6 +17,7 @@ The following interfaces are intended for users:
 - `pyages.concentrations.Concentrations`, constructed with `from_file()` or
   `from_dataframe()`, and `pyages.concentrations.ConcentrationChronicle`;
 - the validated models exported by `pyages.config`;
+- `pyages.workflows.run_single_date` and `pyages.workflows.run_temporal`;
 - documented YAML configuration fields and the result files defined in
   {doc}`outputs`.
 
@@ -35,6 +36,22 @@ files directly to users. Contributor code should read these formats with
 `read_distribution()`, `read_statistics()`, and `read_histograms()` from
 `pyages.data_io.lpm_distribution`, rather than duplicating pandas parser
 options.
+
+## Contributor imports
+
+Import continuous-convolution controls from `pyages.convolution` as
+`ConvolutionSettings` and `DEFAULT_CONVOLUTION_SETTINGS`. For tracer
+extensions, import `ConvolutionTracerProtocol` from
+`pyages.tracer.protocols` and analytical implementations from
+`pyages.tracer.simple_tracers`. Pre-1.0 names and compatibility modules are not
+part of the supported surface.
+
+Import reusable result exports and figures from `pyages.reporting`, workflow
+execution services from `pyages.workflows.runtime`, and synthetic recovery
+experiments from `pyages.qualification`. The former flat workflow utility
+modules and the internal `pyages.workflows.plots` and
+`pyages.workflows.synthetic_recovery` paths are removed before 1.0; contributor
+code must use the canonical imports above.
 
 ## Compatibility policy
 

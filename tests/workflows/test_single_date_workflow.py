@@ -12,7 +12,9 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from pyages.workflows import single_date
+from pyages.workflows.single_date import context as single_context
+from pyages.workflows.single_date import reporting as single_reporting
+from pyages.workflows.single_date import runner as single_date
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -22,9 +24,11 @@ def test_quickstart_writes_a_manifest_and_normalized_observations(
     monkeypatch,
 ) -> None:
     output = tmp_path / "quickstart"
-    monkeypatch.setattr(single_date, "dataset_results_directory", lambda _name: output)
     monkeypatch.setattr(
-        single_date,
+        single_context, "dataset_results_directory", lambda _name: output
+    )
+    monkeypatch.setattr(
+        single_reporting,
         "export_concentration_chronicles",
         lambda *_args, **_kwargs: None,
     )
@@ -82,9 +86,11 @@ def test_objective_only_run_uses_resolved_errors_without_calibration(
     config = tmp_path / "objective_only.yaml"
     config.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     output = tmp_path / "objective_only"
-    monkeypatch.setattr(single_date, "dataset_results_directory", lambda _name: output)
     monkeypatch.setattr(
-        single_date,
+        single_context, "dataset_results_directory", lambda _name: output
+    )
+    monkeypatch.setattr(
+        single_reporting,
         "export_concentration_chronicles",
         lambda *_args, **_kwargs: None,
     )

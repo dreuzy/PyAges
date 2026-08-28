@@ -18,7 +18,7 @@ from pyages.lpm import build_lpm
 from pyages.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyages.lpm.models.dirac_double_1_set import DiracDouble1SetLpm
 from pyages.lpm.models.mix_exponential_shifted import MixExponentialShiftedLpm
-from pyages.tracer.tracer_protocol import ConstantTracer, SyntheticTracer
+from pyages.tracer.simple_tracers import ConstantTracer, SyntheticTracer
 from pyages.tracer.tracer_root import Tracer
 from tests.utils import paths as test_paths
 

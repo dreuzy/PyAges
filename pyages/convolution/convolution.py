@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
@@ -17,19 +16,17 @@ import pandas as pd
 
 from pyages.config.runtime import subdivide_interval
 from pyages.convolution.continuous_integration import (
+    ConvolutionDiagnostics,
     convolve_prepared_grid,
     window_mass_from_provider,
 )
-from pyages.convolution.models import (
-    ConvolutionDiagnostics,
-    ConvolutionError,
-    PreparedTracerGrid,
-)
+from pyages.convolution.errors import ConvolutionError
 from pyages.convolution.settings import (
-    DEFAULT_TRACER_GRID_SETTINGS,
-    TracerGridSettings,
+    DEFAULT_CONVOLUTION_SETTINGS,
+    ConvolutionSettings,
 )
 from pyages.convolution.tracer_grid import (
+    PreparedTracerGrid,
     evaluate_tracer_response,
     prepare_tracer_grid,
 )
@@ -78,7 +75,7 @@ class Convolution:
     --------
     >>> from pyages.convolution import Convolution
     >>> from pyages.lpm import build_lpm
-    >>> from pyages.tracer.tracer_protocol import ConstantTracer
+    >>> from pyages.tracer.simple_tracers import ConstantTracer
     >>> tracer = ConstantTracer(concentration=1.0, datemin=1900.0)
     >>> lpm = build_lpm("exp")
     >>> conv = Convolution(tracer, date=2010.0)
@@ -88,7 +85,7 @@ class Convolution:
 
     See Also
     --------
-    pyages.convolution.settings.TracerGridSettings
+    pyages.convolution.settings.ConvolutionSettings
         Numerical controls whose non-default values should be reported.
 
     Notes
@@ -102,7 +99,7 @@ class Convolution:
         self,
         tracer: ConvolutionTracerProtocol,
         date: float = 2010,
-        grid_settings: TracerGridSettings | None = None,
+        grid_settings: ConvolutionSettings | None = None,
     ) -> None:
         """
         Initialize Convolution with a tracer instance.
@@ -115,8 +112,8 @@ class Convolution:
         date : float
             Finite decimal year at which convolution will be computed. It must
             not precede the tracer's ``datemin``.
-        grid_settings : TracerGridSettings, optional
-            Accuracy and safety controls for the cached tracer-response grid.
+        grid_settings : ConvolutionSettings, optional
+            Numerical controls for tracer-grid preparation and integration.
 
         Examples
         --------
@@ -129,7 +126,7 @@ class Convolution:
             )
         self._tracer: ConvolutionTracerProtocol = tracer
         self._date = self._validated_observation_date(date)
-        self._grid_settings = grid_settings or DEFAULT_TRACER_GRID_SETTINGS
+        self._grid_settings = grid_settings or DEFAULT_CONVOLUTION_SETTINGS
         self._prepared_grid: PreparedTracerGrid | None = None
         self._last_diagnostics: ConvolutionDiagnostics | None = None
 
@@ -346,7 +343,7 @@ class Convolution:
         return self._prepared_grid
 
     @property
-    def grid_settings(self) -> TracerGridSettings:
+    def grid_settings(self) -> ConvolutionSettings:
         """Return the immutable tracer-grid settings used by this instance."""
         return self._grid_settings
 

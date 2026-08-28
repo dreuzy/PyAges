@@ -27,7 +27,7 @@ from pyages.lpm.plotting.sample_diagnostics import (
     plot_concentration_diagnostics,
     plot_parameter_diagnostics,
 )
-from pyages.workflows.synthetic_recovery import SyntheticRecoveryWorkflow
+from pyages.qualification import SyntheticRecoveryExperiment
 
 
 class comparison_MH_fuq:
@@ -95,7 +95,7 @@ class comparison_MH_fuq:
                 init_multiples_n=self.init_multiples_n,
                 fuq_n=self.fuq_n,
             )
-            calstrat[0] = SyntheticRecoveryWorkflow(
+            calstrat[0] = SyntheticRecoveryExperiment(
                 calib_strategy=calib_simplex,
                 ncase=ncase,
                 error=error,
@@ -117,7 +117,7 @@ class comparison_MH_fuq:
                 componentwise_source="model",
             )
             calib_mh = MetropolisHastings(config=mh_config)
-            calstrat[1] = SyntheticRecoveryWorkflow(
+            calstrat[1] = SyntheticRecoveryExperiment(
                 calib_strategy=calib_mh,
                 ncase=ncase,
                 error=error,

@@ -90,19 +90,20 @@ return type is rejected before numerical work begins.
 ## Numerical controls
 
 ```python
-from pyages.convolution import TracerGridSettings
+from pyages.convolution import ConvolutionSettings
 
-settings = TracerGridSettings(
+settings = ConvolutionSettings(
     absolute_tolerance_factor=2.5e-4,
     relative_tolerance=1.0e-2,
 )
 convolution = Convolution(tracer, date=2010.0, grid_settings=settings)
 ```
 
-Grid controls resolve the tracer response, not the LPM density, and are not a
-formal total-error bound. Keep the defaults unless a documented sensitivity
-study supports another choice. Publication calculations using non-default
-settings should record every value and archive a convergence comparison.
+These controls cover both tracer-grid preparation and continuous integration;
+they do not sample the LPM density and are not a formal total-error bound. Keep
+the defaults unless a documented sensitivity study supports another choice.
+Publication calculations using non-default settings should record every value
+and archive a convergence comparison.
 
 ## Errors that stop a calculation
 

@@ -172,7 +172,7 @@ accepté lorsque :
    +2\times10^{-2}K_{\mathrm{local}}.
 \]
 
-Ces valeurs sont regroupées dans l’objet immuable `TracerGridSettings`, qui
+Ces valeurs sont regroupées dans l’objet immuable `ConvolutionSettings`, qui
 peut être transmis au constructeur de la convolution et enregistré avec un
 calcul reproductible. Ce sont des paramètres numériques, non des paramètres
 scientifiques du modèle. Une analyse de sensibilité reste recommandée dans le
@@ -743,7 +743,7 @@ Les principaux éléments sont accessibles dans :
   intégration continue ;
 - `pyages/convolution/convolution.py` : orchestration, diagnostics, composantes
   Dirac et mélanges ;
-- `pyages/convolution/batch.py` : préparation et évaluation multi-traceurs ;
+- `pyages/convolution/multi_tracer.py` : préparation et évaluation multi-traceurs ;
 - `pyages/lpm/models/` : expressions analytiques des CDF et premiers moments ;
 - `tests/convolution/test_convolution_scientific.py` : invariants de masse,
   cache, troncature, cas pathologiques et références indépendantes ;

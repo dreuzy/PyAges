@@ -21,7 +21,7 @@ Le rapport `docs/reports/convolution_grid_sensitivity_2026-08-26.md` affirme au 
 
 ## 2. Contrôles de grille par défaut
 
-Tous sont définis dans `pyage/convolution/settings.py::TracerGridSettings`.
+Tous sont définis dans `pyage/convolution/settings.py::ConvolutionSettings`.
 
 | Nom | Défaut | Unité | Rôle |
 |---|---:|---|---|

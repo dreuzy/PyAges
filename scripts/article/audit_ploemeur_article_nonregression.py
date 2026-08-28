@@ -36,7 +36,7 @@ from pyages.convolution import Convolution
 from pyages.data_io.lpm_distribution import read_distribution
 from pyages.lpm.models.inverse_gaussian import scipy_params_from_mean_std
 from pyages.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
-from pyages.tracer.tracer_protocol import SyntheticTracer
+from pyages.tracer.simple_tracers import SyntheticTracer
 from pyages.tracer.tracer_root import Tracer
 
 

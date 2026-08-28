@@ -14,7 +14,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import pytest
 
-from pyages.workflows import plotting_runtime
+from pyages.workflows.runtime import plotting
 
 
 def _install_fake_ipython(monkeypatch, get_ipython) -> None:
@@ -32,7 +32,7 @@ def test_configure_backend_selects_inline_for_ipython_or_forced_mode(
     monkeypatch.setattr(plt, "switch_backend", switch_backend)
     _install_fake_ipython(monkeypatch, lambda: None)
 
-    assert plotting_runtime.configure_backend(force_inline=True) is True
+    assert plotting.configure_backend(force_inline=True) is True
     switch_backend.assert_called_once_with("module://matplotlib_inline.backend_inline")
 
 
@@ -44,14 +44,14 @@ def test_configure_backend_preserves_auto_backend_and_recovers_from_detection_er
     monkeypatch.setattr(matplotlib, "use", select_backend)
     _install_fake_ipython(monkeypatch, lambda: None)
 
-    assert plotting_runtime.configure_backend(force_inline=False) is False
+    assert plotting.configure_backend(force_inline=False) is False
     select_backend.assert_not_called()
 
     def detection_failure():
         raise RuntimeError("IPython detection failed")
 
     _install_fake_ipython(monkeypatch, detection_failure)
-    assert plotting_runtime.configure_backend(force_inline=False) is False
+    assert plotting.configure_backend(force_inline=False) is False
     select_backend.assert_not_called()
 
 
@@ -65,11 +65,11 @@ def test_configure_backend_reports_a_forced_inline_failure(monkeypatch) -> None:
     )
 
     with pytest.raises(RuntimeError, match="inline Matplotlib backend"):
-        plotting_runtime.configure_backend(force_inline=True)
+        plotting.configure_backend(force_inline=True)
 
 
 def test_plot_session_manages_interactive_figure_lifecycle(monkeypatch) -> None:
-    monkeypatch.setattr(plotting_runtime, "configure_backend", lambda **_kwargs: True)
+    monkeypatch.setattr(plotting, "configure_backend", lambda **_kwargs: True)
     ion = Mock()
     show = Mock()
     close = Mock()
@@ -77,20 +77,22 @@ def test_plot_session_manages_interactive_figure_lifecycle(monkeypatch) -> None:
     monkeypatch.setattr(plt, "show", show)
     monkeypatch.setattr(plt, "close", close)
 
-    session = plotting_runtime.PlotSession.start(force_inline=True)
+    session = plotting.PlotSession.start(force_inline=True)
     figure = object()
     session.show()
     session.close(figure)
+    session.close_all()
     session.finish()
 
     ion.assert_called_once_with()
     show.assert_called_once_with()
-    close.assert_called_once_with(figure)
+    assert close.call_args_list[0].args == (figure,)
+    assert close.call_args_list[1].args == ("all",)
 
 
 def test_plot_session_blocks_only_for_desktop_runs() -> None:
     pyplot = Mock()
 
-    plotting_runtime.PlotSession(pyplot=pyplot, interactive=False).finish()
+    plotting.PlotSession(pyplot=pyplot, interactive=False).finish()
 
     pyplot.show.assert_called_once_with(block=True)

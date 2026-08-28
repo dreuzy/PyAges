@@ -2,11 +2,11 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Tests for workflow plotting backend selection."""
+"""Tests for workflow runtime plotting backend selection."""
 
 import matplotlib
 
-from pyages.workflows.plotting_runtime import configure_backend
+from pyages.workflows.runtime.plotting import configure_backend
 
 
 def test_configure_backend_respects_environment(monkeypatch) -> None:

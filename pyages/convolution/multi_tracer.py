@@ -23,7 +23,7 @@ from pyages.concentrations.schema import tracer_date_key
 from pyages.config.paths import DIRECTORY_TRACER_DATA
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution.convolution import Convolution
-from pyages.convolution.settings import TracerGridSettings
+from pyages.convolution.settings import ConvolutionSettings
 from pyages.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyages.tracer.tracer_root import Tracer
 
@@ -44,7 +44,7 @@ class ConvolutionTracers:
         names: Iterable[str] | None = None,
         date: float | Iterable[float] = 2010,
         tracer_data_dir: str | Path | None = None,
-        grid_settings: TracerGridSettings | None = None,
+        grid_settings: ConvolutionSettings | None = None,
     ) -> None:
         """Load named tracers and bind each one to its sampling date.
 

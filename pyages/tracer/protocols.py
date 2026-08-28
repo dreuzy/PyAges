@@ -2,12 +2,7 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Structural interfaces for tracer consumers.
-
-``ConvolutionTracerProtocol`` is the narrow numerical contract required by
-the convolution engine. ``TracerProtocol`` extends it with the summary
-metadata historically exposed by :mod:`pyages.tracer.tracer_protocol`.
-"""
+"""Structural interface required by tracer consumers."""
 
 from __future__ import annotations
 
@@ -55,27 +50,4 @@ class ConvolutionTracerProtocol(Protocol):
         ...
 
 
-@runtime_checkable
-class TracerProtocol(ConvolutionTracerProtocol, Protocol):
-    """Full historical tracer interface, including reporting summaries.
-
-    Consumers that only perform convolution should depend on
-    :class:`ConvolutionTracerProtocol`. This extended contract remains useful
-    for reporting code and preserves the existing contributor interface.
-    """
-
-    @property
-    def unit(self) -> str:
-        """Concentration units (for example ``"pptv"`` or ``"TU"``)."""
-        ...
-
-    def mean_value(self, date: float) -> float:
-        """Return a representative mean concentration at a reference date."""
-        ...
-
-    def max_value(self) -> float:
-        """Return the maximum tracer-response value."""
-        ...
-
-
-__all__ = ["ConvolutionTracerProtocol", "TracerProtocol"]
+__all__ = ["ConvolutionTracerProtocol"]

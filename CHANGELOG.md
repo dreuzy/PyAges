@@ -45,20 +45,38 @@ Before 1.0, incompatible public changes are identified explicitly below.
   `CalibrationProblem` and `CalibrationMethod` composition.
 - Reorganized calibration internals by responsibility: systematic exploration
   now lives under `pyages.calibration.exploration`, Metropolis--Hastings under
-  `pyages.calibration.methods.mh`, and synthetic recovery under
-  `pyages.workflows.synthetic_recovery`. Removed the former `utils`, flat MH,
-  and `CalibrationSyntheticTest` paths without compatibility aliases before
-  1.0. The synthetic workflow now accepts only `sample_count`, and repository
+  `pyages.calibration.methods.mh`, and synthetic recovery in
+  `pyages.qualification`. Removed the former `utils`, flat MH,
+  `CalibrationSyntheticTest`, and `pyages.workflows.synthetic_recovery` paths
+  before 1.0. The synthetic recovery experiment
+  now accepts only `sample_count`, and repository
   qualification scripts import calibration symbols directly instead of using
   abbreviated module aliases. Empirical priors now use their documented
   piecewise-linear density, missing-error defaults respect each observation
   date, and systematic output reports both actual and requested grid sizes.
-- Introduced typed workflow contexts and split plotting helpers by purpose.
+- Introduced descriptive `SingleDateContext` and `TemporalContext` runtime
+  contexts. Split both workflow launchers into config/context/orchestration
+  modules, temporal case/calibration modules, and plotting helpers by output
+  product.
 - Hardened workflow completion and provenance: reruns invalidate the preceding
   success manifest, manifests are replaced atomically and hash selected LPM and
   tracer resources, normalized outputs contain the effective uncertainties,
   temporal chains use recorded fresh seeds unless a fixed seed is enabled, and
   Matplotlib retains its environment-selected desktop or headless backend.
+- Rejected path traversal in workflow-derived result components, moved shared
+  configuration-root and result-component rules to `pyages.config.paths`, and
+  kept dataset-specific result layout in
+  `pyages.workflows.single_date.paths`. It also validates custom temporal result
+  roots during YAML parsing and closes Matplotlib figures when a single-date
+  run aborts.
+- Separated reporting, qualification, and workflow runtime services into
+  dedicated modules or packages. The former flat workflow utilities, internal
+  workflow plots, and synthetic recovery paths are removed before 1.0 after
+  migrating repository consumers to canonical imports.
+- Renamed the internal qualification class to `SyntheticRecoveryExperiment`
+  without retaining a workflow-named alias. Replaced the Holten schema's
+  inheritance from the generic launcher schema with explicit Pydantic
+  composition while preserving its existing flat YAML format.
 - Made missing-error inference explicit through `dataset.missing_error_rel`
   in single-date and temporal workflows. Result manifests now record every
   observation-error transformation, its fraction, affected rows, and count.
@@ -83,7 +101,7 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Reorganized concentration handling by responsibility: series, temporal
   summaries, and plotting now live in explicit `pyages.concentrations` modules,
   serialization lives in `pyages.data_io.concentrations`, and calibrated export
-  orchestration lives in `pyages.workflows.concentration_exports`. Removed the
+  orchestration lives in `pyages.reporting.chronicles`. Removed the
   former `concentrations.chronicles` and `concentrations.utils` paths without
   pre-1.0 aliases. Replaced ambiguous `tracer_names()` with explicit
   `observation_tracer_names()` and `unique_tracer_names()` methods.
@@ -135,8 +153,14 @@ Before 1.0, incompatible public changes are identified explicitly below.
   extension contract explicit for CDFs and partial first moments.
 - Separated tracer-grid construction from continuous CDF/moment integration,
   leaving `Convolution` responsible for orchestration and cache state. Renamed
-  the internal multi-tracer module to `pyages.convolution.batch`; the supported
-  `pyages.convolution.ConvolutionTracers` import is unchanged.
+  the internal multi-tracer module to `pyages.convolution.multi_tracer`; the
+  supported `pyages.convolution.ConvolutionTracers` import is unchanged.
+- Renamed the shared continuous-convolution controls to
+  `ConvolutionSettings` and `DEFAULT_CONVOLUTION_SETTINGS`, removing the
+  pre-1.0 `TracerGridSettings` and `DEFAULT_TRACER_GRID_SETTINGS` names.
+- Reduced the tracer contributor contract to the numerical
+  `ConvolutionTracerProtocol` and removed the unused extended `TracerProtocol`
+  together with the pre-1.0 `pyages.tracer.tracer_protocol` import facade.
 - Removed the pre-1.0 tracer-method forwarding facade from `Convolution`:
   tracer metadata and response methods now remain on its explicit `tracer`
   collaborator. Multi-tracer batches expose `convolutions` and
@@ -146,9 +170,10 @@ Before 1.0, incompatible public changes are identified explicitly below.
   keeping lightweight utility imports independent from the scientific stack.
 - Systematic exploration now uses the same explicit parameter names as
   `CalibrationProblem` (`observations`, `sample_count`, and data directories).
-- Removed the pre-0.1 calibration, workflow, plotting, and repository-script
-  compatibility facades after migrating package code, examples, and notebooks
-  to their canonical imports.
+- Removed the pre-0.1 calibration, obsolete workflow launcher, plotting, and
+  repository-script compatibility facades after migrating package code,
+  examples, and notebooks to their canonical imports. The remaining flat
+  workflow utility facades are also removed before 1.0.
 - Replaced historical internal names such as `MH_step`, `MH_Trajectory`,
   `cdata`, and `random_each` with the canonical proposal, trajectory,
   observation, and row-selection interfaces.

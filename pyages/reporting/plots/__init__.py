@@ -2,20 +2,18 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Figures used by installed PyAges workflows."""
+"""Figures used by installed PyAges reporting and workflows."""
 
-from pyages.workflows.plots.common import apply_example_style
-from pyages.workflows.plots.model_space import plot_single_date_model_space
-from pyages.workflows.plots.objective import (
-    plot_objective_solution_map,
-    plot_objective_summary,
-)
-from pyages.workflows.plots.observations import plot_observations_overview
-from pyages.workflows.plots.parameters import (
+from pyages.reporting.plots._common import apply_example_style
+from pyages.reporting.plots.model_space import plot_single_date_model_space
+from pyages.reporting.plots.objective_solution import plot_objective_solution_map
+from pyages.reporting.plots.objective_summary import plot_objective_summary
+from pyages.reporting.plots.observations import plot_observations_overview
+from pyages.reporting.plots.parameters import (
     plot_parameter_distribution_comparison,
     plot_parameter_summary,
 )
-from pyages.workflows.plots.temporal import (
+from pyages.reporting.plots.temporal import (
     plot_temporal_fit_comparison,
     plot_temporal_fit_summary,
 )

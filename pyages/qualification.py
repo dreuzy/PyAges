@@ -1,17 +1,16 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Synthetic recovery workflow for end-to-end calibration checks.
+"""Synthetic recovery qualification for end-to-end calibration checks.
 
 Each case draws or accepts a target LPM, generates internally consistent tracer
 observations, attaches the configured relative uncertainty, and calibrates the
-same model family. The workflow persists both scientific inputs and recovery
+same model family. The experiment persists both scientific inputs and recovery
 summaries so differences can be attributed to calibration rather than hidden
 data preparation.
 
-The workflow is reusable; the automated assertions that qualify it live under
+The experiment is reusable; the automated assertions that qualify it live under
 ``tests/``.
 """
 
@@ -28,10 +27,10 @@ from pyages.config.paths import result_subdirectory
 from pyages.convolution import ConvolutionTracers
 from pyages.data_io.lpm_results import write_lpm
 from pyages.lpm.factory import build_random_lpm
-from pyages.workflows.concentration_exports import export_calibrated_chronicles
+from pyages.reporting.chronicles import export_calibrated_chronicles
 
 
-class SyntheticRecoveryWorkflow:
+class SyntheticRecoveryExperiment:
     """Exercise a calibration strategy against generated synthetic cases.
 
     Each case generates or accepts a target LPM, convolves it with the chosen
@@ -122,7 +121,7 @@ class SyntheticRecoveryWorkflow:
         self.__calib_strategy = calib_strategy
         self._sample_count = sample_count
 
-        # Copy display options so this workflow can derive subdirectories
+        # Copy display options so this experiment can derive subdirectories
         # without mutating configuration owned by its caller.
         self.__display_options = copy.deepcopy(display_options)
         self.__display_options.directory = result_subdirectory(
@@ -162,7 +161,7 @@ class SyntheticRecoveryWorkflow:
             self.store = pd.concat([self.store, pd.DataFrame(data)])
 
     def get_directory(self):
-        """Return the directory where this synthetic workflow writes outputs."""
+        """Return the directory where this synthetic experiment writes outputs."""
         return self.__display_options.directory
 
     def write_results(self):
@@ -314,4 +313,4 @@ class SyntheticRecoveryWorkflow:
         return float("nan")
 
 
-__all__ = ["SyntheticRecoveryWorkflow"]
+__all__ = ["SyntheticRecoveryExperiment"]

@@ -10,18 +10,27 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pandas as pd
+import pytest
 
-from pyages.config.models import TemporalCalibrationCfg
-from pyages.workflows import temporal
+from pyages.config.models import (
+    TemporalCalibrationCfg,
+    TemporalResultsCfg,
+)
+from pyages.workflows.temporal import calibration as temporal_calibration
+from pyages.workflows.temporal import cases as temporal_cases
+from pyages.workflows.temporal import context as temporal_context
+from pyages.workflows.temporal import runner as temporal
 
 
 def test_temporal_mh_uses_an_explicit_fresh_seed_when_fixed_seed_is_disabled(
     monkeypatch,
 ) -> None:
     random_seed = Mock(return_value=987654321)
-    monkeypatch.setattr(temporal.secrets, "randbits", random_seed)
+    monkeypatch.setattr(temporal_calibration.secrets, "randbits", random_seed)
 
-    config = temporal._build_mh_config(TemporalCalibrationCfg(seed_enabled=False))
+    config = temporal_calibration.build_mh_config(
+        TemporalCalibrationCfg(seed_enabled=False)
+    )
 
     assert config.seed == 987654321
     random_seed.assert_called_once_with(63)
@@ -29,9 +38,9 @@ def test_temporal_mh_uses_an_explicit_fresh_seed_when_fixed_seed_is_disabled(
 
 def test_temporal_mh_preserves_an_enabled_fixed_seed(monkeypatch) -> None:
     random_seed = Mock(side_effect=AssertionError("fresh seed must not be requested"))
-    monkeypatch.setattr(temporal.secrets, "randbits", random_seed)
+    monkeypatch.setattr(temporal_calibration.secrets, "randbits", random_seed)
 
-    config = temporal._build_mh_config(
+    config = temporal_calibration.build_mh_config(
         TemporalCalibrationCfg(seed_enabled=True, seed=42)
     )
 
@@ -53,7 +62,10 @@ def test_successive_date_labels_preserve_close_distinct_dates() -> None:
     )
 
     labels = [
-        label for label, _frame in temporal._case_frames(observations, "successive")
+        label
+        for label, _frame in temporal_cases.build_case_frames(
+            observations, "successive"
+        )
     ]
 
     assert labels == ["date_2005_4300001", "date_2005_4300002"]
@@ -73,9 +85,9 @@ def test_load_concentrations_resolves_errors_after_optional_override(
         }
     ).to_csv(dataset, sep="\t", index=False)
     resolved = Mock()
-    monkeypatch.setattr(temporal, "resolve_observation_errors", resolved)
+    monkeypatch.setattr(temporal_context, "resolve_observation_errors", resolved)
 
-    observations = temporal._load_concentrations(dataset, error_rel=0.2)
+    observations = temporal_context._load_concentrations(dataset, error_rel=0.2)
 
     assert observations.frame["error"].tolist() == [2.0, 4.0]
     resolved.assert_called_once_with(
@@ -84,7 +96,7 @@ def test_load_concentrations_resolves_errors_after_optional_override(
     )
 
 
-def test_run_temporal_invalidates_manifest_and_writes_effective_observations(
+def test_run_temporal_writes_effective_observations_and_manifest(
     tmp_path, monkeypatch
 ) -> None:
     output = tmp_path / "results"
@@ -116,11 +128,9 @@ def test_run_temporal_invalidates_manifest_and_writes_effective_observations(
             figures=SimpleNamespace(),
         ),
     )
-    begin = Mock()
     manifest = Mock()
     case_directory = output / "span_full"
-    monkeypatch.setattr(temporal, "_prepare_context", lambda _path: context)
-    monkeypatch.setattr(temporal, "begin_result_run", begin)
+    monkeypatch.setattr(temporal, "prepare_context", lambda _path: context)
     monkeypatch.setattr(
         temporal,
         "_run_temporal_cases",
@@ -131,7 +141,6 @@ def test_run_temporal_invalidates_manifest_and_writes_effective_observations(
     result = temporal.run_temporal(context.config_path)
 
     assert result == case_directory
-    begin.assert_called_once_with(output)
     written = pd.read_table(output / "concentrations.txt")
     pd.testing.assert_frame_equal(written, observations.frame)
     assert manifest.call_args.kwargs["input_paths"][0] == context.dataset_path
@@ -140,3 +149,33 @@ def test_run_temporal_invalidates_manifest_and_writes_effective_observations(
         "missing_error_rel": 0.01,
         "transformations": [],
     }
+
+
+def test_prepare_temporal_context_invalidates_before_missing_dataset_failure(
+    tmp_path, monkeypatch
+) -> None:
+    config_path = tmp_path / "config.yaml"
+    results_root = tmp_path / "results"
+    params = SimpleNamespace(
+        dataset=SimpleNamespace(file="missing.txt"),
+        results=TemporalResultsCfg(
+            use_default=False,
+            directory=str(results_root),
+            study_name="audit",
+        ),
+        workflow=SimpleNamespace(mode="span"),
+    )
+    begin = Mock()
+    monkeypatch.setattr(temporal_context, "configuration_root", lambda _path: tmp_path)
+    monkeypatch.setattr(
+        temporal_context,
+        "_load_params_validated",
+        lambda _path: params,
+    )
+    monkeypatch.setattr(temporal_context, "begin_result_run", begin)
+
+    with pytest.raises(FileNotFoundError, match="Dataset file not found"):
+        temporal_context.prepare_context(config_path)
+
+    expected_output = results_root / "audit" / "missing" / "span"
+    begin.assert_called_once_with(expected_output)

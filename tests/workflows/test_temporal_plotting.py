@@ -15,7 +15,7 @@ matplotlib.use("Agg", force=True)
 import matplotlib.pyplot as plt
 
 from pyages.concentrations import Concentrations
-from pyages.workflows.plots import temporal as temporal_plots
+from pyages.reporting.plots import temporal as temporal_plots
 
 
 class _TemporalTracers:

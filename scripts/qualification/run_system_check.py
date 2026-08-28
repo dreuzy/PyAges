@@ -28,7 +28,7 @@ from pyages.config.paths import (
 )
 from pyages.config.runtime import DisplayOptions
 from pyages.lpm.reporting import run_model_diagnostic
-from pyages.workflows.synthetic_recovery import SyntheticRecoveryWorkflow
+from pyages.qualification import SyntheticRecoveryExperiment
 
 
 class TestIntegration:
@@ -171,7 +171,7 @@ class TestIntegration:
                 monitor=False,
             )
             calib_mh = MetropolisHastings(config=mh_config)
-            calib = SyntheticRecoveryWorkflow(
+            calib = SyntheticRecoveryExperiment(
                 calib_strategy=calib_mh,
                 ncase=2,
                 error=0.03,
@@ -189,7 +189,7 @@ class TestIntegration:
         ]
         for lpm in lpm_list_simplex:
             calib_simplex = Simplex("Simplex_multi_start", init_multiples_n=10)
-            calib = SyntheticRecoveryWorkflow(
+            calib = SyntheticRecoveryExperiment(
                 calib_strategy=calib_simplex,
                 ncase=2,
                 error=0.001,
@@ -205,7 +205,7 @@ class TestIntegration:
         # Does not work for ig_shifted (3 parameters) and for uniform
         for lpm in lpm_list_simplex:
             calib_simplex = Simplex("Simplex")
-            calib = SyntheticRecoveryWorkflow(
+            calib = SyntheticRecoveryExperiment(
                 calib_strategy=calib_simplex,
                 ncase=2,
                 error=0.01,
@@ -222,7 +222,7 @@ class TestIntegration:
             calib_simplex = Simplex(
                 "forward_uncertainty_quantification", init_multiples_n=2, fuq_n=2
             )
-            calib = SyntheticRecoveryWorkflow(
+            calib = SyntheticRecoveryExperiment(
                 calib_strategy=calib_simplex,
                 ncase=2,
                 error=0.04,

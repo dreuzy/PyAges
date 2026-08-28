@@ -11,23 +11,86 @@ on an LPM—so one prepared grid can serve many distributions during calibration
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
 
-from pyages.convolution.models import ConvolutionError, PreparedTracerGrid
-from pyages.convolution.settings import TracerGridSettings
+from pyages.convolution.errors import ConvolutionError
+from pyages.convolution.settings import ConvolutionSettings
 from pyages.tracer.protocols import ConvolutionTracerProtocol
 
-Array = npt.NDArray[np.float64]
-TracerEvaluator = Callable[[npt.ArrayLike], Array]
+
+@dataclass(frozen=True)
+class PreparedTracerGrid:
+    """Immutable tracer-response samples cached for one observation date.
+
+    This is the validated output of :func:`prepare_tracer_grid`. Keeping the
+    record beside its builder makes the grid topology and its construction
+    contract explicit in one module.
+
+    Attributes
+    ----------
+    date : float
+        Finite observation date represented by the grid.
+    edges : numpy.ndarray
+        Strictly increasing age-bin edges. A one-element array represents an
+        empty integration window.
+    k_left, k_mid, k_right : numpy.ndarray
+        Tracer responses at the left edge, midpoint, and right edge of every
+        bin. Arrays are copied and marked read-only at construction.
+    """
+
+    date: float
+    edges: npt.NDArray[np.float64]
+    k_left: npt.NDArray[np.float64]
+    k_mid: npt.NDArray[np.float64]
+    k_right: npt.NDArray[np.float64]
+
+    def __post_init__(self) -> None:
+        """Validate the grid topology and protect cached arrays from mutation."""
+        date = float(self.date)
+        if not np.isfinite(date):
+            raise ValueError("PreparedTracerGrid.date must be finite")
+
+        arrays: dict[str, npt.NDArray[np.float64]] = {}
+        for name in ("edges", "k_left", "k_mid", "k_right"):
+            values = np.array(getattr(self, name), dtype=float, copy=True)
+            if values.ndim != 1 or not np.all(np.isfinite(values)):
+                raise ValueError(f"PreparedTracerGrid.{name} must be a finite vector")
+            arrays[name] = values
+
+        edges = arrays["edges"]
+        if edges.size < 1:
+            raise ValueError("PreparedTracerGrid.edges must contain at least one value")
+        if edges.size > 1 and np.any(np.diff(edges) <= 0.0):
+            raise ValueError("PreparedTracerGrid.edges must be strictly increasing")
+
+        bin_count = edges.size - 1
+        for name in ("k_left", "k_mid", "k_right"):
+            if arrays[name].size != bin_count:
+                raise ValueError(
+                    f"PreparedTracerGrid.{name} must contain {bin_count} values"
+                )
+
+        object.__setattr__(self, "date", date)
+        # Copies sever aliases to caller-owned arrays; read-only flags then make
+        # a cached grid a stable snapshot throughout repeated LPM evaluations.
+        for name, values in arrays.items():
+            values.setflags(write=False)
+            object.__setattr__(self, name, values)
+
+    @property
+    def midpoints(self) -> npt.NDArray[np.float64]:
+        """Return bin midpoints without storing redundant state."""
+        return 0.5 * (self.edges[:-1] + self.edges[1:])
 
 
 def evaluate_tracer_response(
     tracer: ConvolutionTracerProtocol,
     date: float,
     ages: npt.ArrayLike,
-) -> Array:
+) -> npt.NDArray[np.float64]:
     """Evaluate the complete tracer response on a vectorized age grid.
 
     ``get_concentration`` receives both recharge date ``date - age`` and age,
@@ -59,8 +122,8 @@ def _initial_age_edges(
     tracer: ConvolutionTracerProtocol,
     date: float,
     upper_age: float,
-    settings: TracerGridSettings,
-) -> Array:
+    settings: ConvolutionSettings,
+) -> npt.NDArray[np.float64]:
     """Seed age-bin edges from known chronicle nodes or a bounded fallback."""
     if upper_age == 0.0:
         return np.array([0.0], dtype=float)
@@ -99,9 +162,9 @@ def _initial_age_edges(
 def _right_edge_values(
     tracer: ConvolutionTracerProtocol,
     date: float,
-    initial_edges: Array,
-    edge_values: Array,
-) -> Array:
+    initial_edges: npt.NDArray[np.float64],
+    edge_values: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
     """Use the correct one-sided value at the newest chronicle boundary.
 
     At age ``date - datemax``, evaluation exactly on ``datemax`` may return the
@@ -136,18 +199,18 @@ def _right_edge_values(
 def _refine_adaptive_grid(
     *,
     date: float,
-    initial_edges: Array,
-    edge_values: Array,
-    right_edge_values: Array,
-    evaluate: TracerEvaluator,
-    settings: TracerGridSettings,
+    initial_edges: npt.NDArray[np.float64],
+    edge_values: npt.NDArray[np.float64],
+    right_edge_values: npt.NDArray[np.float64],
+    evaluate: Callable[[npt.ArrayLike], npt.NDArray[np.float64]],
+    settings: ConvolutionSettings,
 ) -> PreparedTracerGrid:
     r"""Bisect age bins until the tracer response is locally resolved.
 
     For each age interval :math:`[a,b]`, the routine evaluates the complete
     tracer response :math:`K` at ``a``, ``(a+b)/2``, and ``b``. It accepts the
     interval using the mixed global/local criterion documented by
-    :class:`~pyages.convolution.settings.TracerGridSettings`; otherwise it
+    :class:`~pyages.convolution.settings.ConvolutionSettings`; otherwise it
     bisects the interval. Initial edges should therefore include known
     chronicle knots and discontinuities.
 
@@ -253,7 +316,7 @@ def prepare_tracer_grid(
     tracer: ConvolutionTracerProtocol,
     date: float,
     upper_age: float,
-    settings: TracerGridSettings,
+    settings: ConvolutionSettings,
 ) -> PreparedTracerGrid:
     """Build a validated, immutable tracer-only grid for one observation date.
 
@@ -276,7 +339,7 @@ def prepare_tracer_grid(
             k_right=empty,
         )
 
-    def evaluate(ages: npt.ArrayLike) -> Array:
+    def evaluate(ages: npt.ArrayLike) -> npt.NDArray[np.float64]:
         return evaluate_tracer_response(tracer, date, ages)
 
     edge_values = evaluate(initial_edges)
@@ -296,4 +359,8 @@ def prepare_tracer_grid(
     )
 
 
-__all__ = ["evaluate_tracer_response", "prepare_tracer_grid"]
+__all__ = [
+    "PreparedTracerGrid",
+    "evaluate_tracer_response",
+    "prepare_tracer_grid",
+]

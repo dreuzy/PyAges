@@ -32,7 +32,7 @@ from pyages.config.paths import (
 )
 from pyages.config.runtime import DisplayOptions
 from pyages.lpm.plotting.sample_diagnostics import plot_prior_comparison
-from pyages.workflows.concentration_exports import export_calibrated_chronicles
+from pyages.reporting.chronicles import export_calibrated_chronicles
 from sites.ploemeur.config.models import (
     ObservationMetadataConfig,
     PloemeurWorkflowConfig,

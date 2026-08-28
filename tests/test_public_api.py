@@ -11,6 +11,7 @@ import yaml
 from click.testing import CliRunner
 
 import pyages
+import pyages.qualification as qualification
 from pyages.cli.main import cli
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,3 +44,24 @@ def test_citation_uses_package_version() -> None:
         if identifier.get("type") == "doi":
             assert re.fullmatch(r"10\.\d{4,9}/\S+", identifier["value"])
             assert not re.search(r"TBD|TODO|PLACEHOLDER", identifier["value"], re.I)
+
+
+def test_removed_compatibility_facades_are_absent() -> None:
+    removed_paths = (
+        "pyages/qualification/__init__.py",
+        "pyages/qualification/synthetic_recovery.py",
+        "pyages/workflows/concentration_exports.py",
+        "pyages/workflows/plotting_runtime.py",
+        "pyages/workflows/plots/__init__.py",
+        "pyages/workflows/result_manifest.py",
+        "pyages/workflows/single_date_config.py",
+        "pyages/workflows/single_date_paths.py",
+        "pyages/workflows/synthetic_recovery.py",
+    )
+
+    assert all(not (ROOT / path).exists() for path in removed_paths)
+
+
+def test_qualification_exposes_the_experiment_without_a_workflow_alias() -> None:
+    assert qualification.__all__ == ["SyntheticRecoveryExperiment"]
+    assert not hasattr(qualification, "SyntheticRecoveryWorkflow")

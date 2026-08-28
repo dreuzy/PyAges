@@ -10,9 +10,13 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pandas as pd
+import pytest
 
-import pyages.workflows.plots as workflow_plots
-from pyages.workflows import single_date
+import pyages.reporting.plots as workflow_plots
+from pyages.workflows.single_date import calibration as single_calibration
+from pyages.workflows.single_date import context as single_context
+from pyages.workflows.single_date import reporting as single_reporting
+from pyages.workflows.single_date import runner as single_date
 
 
 def _context(tmp_path, **overrides):
@@ -46,7 +50,9 @@ def _context(tmp_path, **overrides):
         ),
         live_display=SimpleNamespace(),
         saved_display=SimpleNamespace(directory=tmp_path / "results"),
-        plots=SimpleNamespace(show=Mock(), close=Mock(), finish=Mock()),
+        plots=SimpleNamespace(
+            show=Mock(), close=Mock(), close_all=Mock(), finish=Mock()
+        ),
     )
 
 
@@ -61,30 +67,32 @@ def test_run_calibrations_respects_independent_enable_flags(
     simplex_result = object()
     mh_result = object()
     monkeypatch.setattr(
-        single_date, "_run_simplex", lambda _context: ("Simplex", simplex_result)
+        single_calibration,
+        "_run_simplex",
+        lambda _context: ("Simplex", simplex_result),
     )
     monkeypatch.setattr(
-        single_date,
+        single_calibration,
         "_run_metropolis_hastings",
         lambda _context: ("Metropolis_Hastings", mh_result),
     )
 
-    assert single_date._run_calibrations(context) == {
+    assert single_calibration.run_calibrations(context) == {
         "Simplex": simplex_result,
         "Metropolis_Hastings": mh_result,
     }
-    assert single_date._run_calibrations(_context(tmp_path)) == {}
+    assert single_calibration.run_calibrations(_context(tmp_path)) == {}
 
 
 def test_case_label_prefers_explicit_label_and_normalizes_filename() -> None:
     assert (
-        single_date._case_label(
+        single_reporting.case_label(
             SimpleNamespace(dataset_label="Published case", dataset_name="ignored.txt")
         )
         == "Published case"
     )
     assert (
-        single_date._case_label(
+        single_reporting.case_label(
             SimpleNamespace(dataset_label=None, dataset_name="audit_case.txt")
         )
         == "audit case"
@@ -105,7 +113,7 @@ def test_render_summary_writes_model_space_and_parameter_figures(
     posterior = SimpleNamespace(get_param_names=lambda: ["mu"])
     reachable = pd.DataFrame({"cfc11": [1.0]})
 
-    single_date._render_summary(context, reachable, {"MH": posterior})
+    single_reporting.render_summary(context, reachable, {"MH": posterior})
 
     model_space.assert_called_once()
     assert model_space.call_args.kwargs["filename"].name == "01_data_model_space.png"
@@ -120,7 +128,7 @@ def test_render_summary_writes_model_space_and_parameter_figures(
 def test_render_summary_is_a_noop_without_calibrations(tmp_path) -> None:
     context = _context(tmp_path)
 
-    single_date._render_summary(context, pd.DataFrame(), {})
+    single_reporting.render_summary(context, pd.DataFrame(), {})
 
     context.plots.show.assert_not_called()
     context.plots.close.assert_not_called()
@@ -139,10 +147,10 @@ def test_objective_analysis_builds_table_and_figure(tmp_path, monkeypatch) -> No
     sampling_class = Mock(return_value=sampling)
     figure = object()
     plot = Mock(return_value=figure)
-    monkeypatch.setattr(single_date, "SystematicSampling", sampling_class)
+    monkeypatch.setattr(single_reporting, "SystematicSampling", sampling_class)
     monkeypatch.setattr(workflow_plots, "plot_objective_summary", plot)
 
-    single_date._run_objective_analysis(context, {"MH": object()})
+    single_reporting.run_objective_analysis(context, {"MH": object()})
 
     sampling.compute_concentrations.assert_called_once_with()
     sampling.objective_function_build.assert_called_once_with()
@@ -160,14 +168,17 @@ def test_concentration_output_builds_model_and_exports_result_directory(
     model = object()
     build = Mock(return_value=model)
     export = Mock()
-    monkeypatch.setattr(single_date, "build_lpm", build)
-    monkeypatch.setattr(single_date, "export_concentration_chronicles", export)
+    monkeypatch.setattr(single_reporting, "build_lpm", build)
+    monkeypatch.setattr(single_reporting, "export_concentration_chronicles", export)
 
-    single_date._write_concentration_outputs(context)
+    single_reporting.write_concentration_outputs(context)
 
     build.assert_called_once_with("exp", directory_lpm=context.params.directory_lpm)
     export.assert_called_once_with(
-        [context.output_directory], model, context.saved_display
+        [context.output_directory],
+        model,
+        context.saved_display,
+        tracer_data_dir=context.params.tracer_data_dir,
     )
 
 
@@ -179,21 +190,17 @@ def test_run_single_date_orchestrates_steps_and_manifest(tmp_path, monkeypatch) 
     render = Mock()
     objective = Mock()
     concentration_outputs = Mock()
-    begin = Mock()
     manifest = Mock()
     monkeypatch.setattr(
-        single_date, "_prepare_context", lambda *_args, **_kwargs: context
+        single_date, "prepare_context", lambda *_args, **_kwargs: context
     )
+    monkeypatch.setattr(single_date, "reachable_concentrations", lambda _ctx: reachable)
+    monkeypatch.setattr(single_date, "run_calibrations", lambda _ctx: calibrated)
+    monkeypatch.setattr(single_date, "render_summary", render)
+    monkeypatch.setattr(single_date, "run_objective_analysis", objective)
     monkeypatch.setattr(
-        single_date, "_reachable_concentrations", lambda _ctx: reachable
+        single_date, "write_concentration_outputs", concentration_outputs
     )
-    monkeypatch.setattr(single_date, "_run_calibrations", lambda _ctx: calibrated)
-    monkeypatch.setattr(single_date, "_render_summary", render)
-    monkeypatch.setattr(single_date, "_run_objective_analysis", objective)
-    monkeypatch.setattr(
-        single_date, "_write_concentration_outputs", concentration_outputs
-    )
-    monkeypatch.setattr(single_date, "begin_result_run", begin)
     monkeypatch.setattr(single_date, "write_result_manifest", manifest)
 
     result = single_date.run_single_date(context.config_path, force_inline=True)
@@ -202,8 +209,8 @@ def test_run_single_date_orchestrates_steps_and_manifest(tmp_path, monkeypatch) 
     render.assert_called_once_with(context, reachable, calibrated)
     objective.assert_called_once_with(context, calibrated)
     concentration_outputs.assert_called_once_with(context)
-    begin.assert_called_once_with(context.output_directory)
     context.plots.finish.assert_called_once_with()
+    context.plots.close_all.assert_not_called()
     assert manifest.call_args.kwargs["details"]["dataset_year"] == 2010
     assert manifest.call_args.kwargs["details"]["observation_error_policy"] == {
         "missing_error_rel": 0.01,
@@ -222,3 +229,56 @@ def test_run_single_date_requires_a_configuration_path() -> None:
         assert "params_path is required" in str(error)
     else:
         raise AssertionError("run_single_date(None) must fail")
+
+
+def test_run_single_date_closes_figures_and_keeps_manifest_absent_on_failure(
+    tmp_path, monkeypatch
+) -> None:
+    context = _context(tmp_path)
+    context.output_directory.mkdir()
+    manifest = Mock()
+    monkeypatch.setattr(
+        single_date, "prepare_context", lambda *_args, **_kwargs: context
+    )
+    monkeypatch.setattr(
+        single_date,
+        "reachable_concentrations",
+        Mock(side_effect=RuntimeError("calculation failed")),
+    )
+    monkeypatch.setattr(single_date, "write_result_manifest", manifest)
+
+    with pytest.raises(RuntimeError, match="calculation failed"):
+        single_date.run_single_date(context.config_path)
+
+    context.plots.close_all.assert_called_once_with()
+    context.plots.finish.assert_not_called()
+    manifest.assert_not_called()
+
+
+def test_prepare_context_invalidates_manifest_before_loading_observations(
+    tmp_path, monkeypatch
+) -> None:
+    output = tmp_path / "results"
+    session = SimpleNamespace(close_all=Mock())
+    params = SimpleNamespace(dataset_name="case.txt", verbose=False)
+    begin = Mock()
+    monkeypatch.setattr(single_context, "configuration_root", lambda _path: tmp_path)
+    monkeypatch.setattr(single_context, "load_params", lambda *_args: params)
+    monkeypatch.setattr(
+        single_context,
+        "dataset_results_directory",
+        lambda _name: output,
+    )
+    monkeypatch.setattr(single_context, "begin_result_run", begin)
+    monkeypatch.setattr(single_context.PlotSession, "start", lambda **_kwargs: session)
+    monkeypatch.setattr(
+        single_context,
+        "_load_observations",
+        Mock(side_effect=FileNotFoundError("missing observations")),
+    )
+
+    with pytest.raises(FileNotFoundError, match="missing observations"):
+        single_context.prepare_context(tmp_path / "config.yaml", force_inline=False)
+
+    begin.assert_called_once_with(output)
+    session.close_all.assert_called_once_with()

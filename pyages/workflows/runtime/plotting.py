@@ -2,7 +2,7 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Matplotlib runtime helpers for packaged workflows."""
+"""Matplotlib runtime services shared by packaged workflows."""
 
 from __future__ import annotations
 
@@ -98,6 +98,10 @@ class PlotSession:
     def close(self, figure) -> None:
         """Close a completed figure."""
         self.pyplot.close(figure)
+
+    def close_all(self) -> None:
+        """Close every figure when a workflow aborts before normal completion."""
+        self.pyplot.close("all")
 
     def finish(self) -> None:
         """Block on figures only for a non-interactive desktop run."""

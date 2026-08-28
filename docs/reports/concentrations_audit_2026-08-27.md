@@ -54,7 +54,7 @@ résultats LPM, et les noms de modules expriment leur responsabilité.
 | prédictions et quantiles temporels | `pyages.concentrations.temporal` |
 | rendu sur axes fournis | `pyages.concentrations.plotting` |
 | sérialisation TSV | `pyages.data_io.concentrations` |
-| sélection LPM, convolution et export | `pyages.workflows.concentration_exports` |
+| sélection LPM, convolution et export | `pyages.reporting.chronicles` |
 
 Le répertoire générique `concentrations/utils` et le module mixte
 `concentrations/chronicles.py` ont été supprimés sans alias pré-1.0. Le tracé

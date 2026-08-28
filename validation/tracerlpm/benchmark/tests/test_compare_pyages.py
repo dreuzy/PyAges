@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from pyages.convolution.settings import TracerGridSettings
+from pyages.convolution.settings import ConvolutionSettings
 from validation.tracerlpm.benchmark.scripts import (
     compare_pyages,
     study_pyages_convergence,
@@ -50,7 +50,7 @@ def test_reference_contains_expected_number_of_cases():
 
 def test_invalid_grid_settings_are_rejected():
     with pytest.raises(ValueError, match="relative_tolerance"):
-        TracerGridSettings(relative_tolerance=-1.0)
+        ConvolutionSettings(relative_tolerance=-1.0)
 
 
 def test_versioned_forward_qualification_thresholds():

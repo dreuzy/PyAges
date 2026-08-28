@@ -47,11 +47,43 @@ DIRECTORY_LPM_DATA = _DATA_CORE_DIRECTORY / "data_lpm"
 # -------------------------------------------------------
 
 
+def configuration_root(config_path: str | Path) -> Path:
+    """Resolve checkout-relative configs while supporting standalone projects."""
+    path = Path(config_path).resolve()
+    for candidate in (path.parent, *path.parents):
+        if (candidate / "pyproject.toml").is_file() and (
+            candidate / "data_core"
+        ).is_dir():
+            return candidate
+    current_directory = Path.cwd().resolve()
+    if (current_directory / "pyproject.toml").is_file() and (
+        current_directory / "data_core"
+    ).is_dir():
+        return current_directory
+    return path.parent
+
+
 def result_subdirectory(directory: str | Path, sub_directory: str) -> Path:
     """Create and return one named subdirectory below a results directory."""
     path = Path(directory) / sub_directory
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def validate_path_component(value: str, *, label: str) -> str:
+    """Return a user-derived path component after rejecting path traversal."""
+    if not isinstance(value, str):
+        raise TypeError(f"{label} must be a string")
+    if (
+        not value.strip()
+        or value in {".", ".."}
+        or "/" in value
+        or "\\" in value
+        or ":" in value
+        or "\0" in value
+    ):
+        raise ValueError(f"{label} must be a single non-empty path component")
+    return value
 
 
 def timestamp_name() -> str:
@@ -65,6 +97,8 @@ __all__ = [
     "DIRECTORY_TRACER_DATA",
     "ROOT_DIRECTORY",
     "ROOT_DIRECTORY_RESULTS",
+    "configuration_root",
     "result_subdirectory",
     "timestamp_name",
+    "validate_path_component",
 ]

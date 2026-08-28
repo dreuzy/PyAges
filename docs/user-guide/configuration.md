@@ -30,7 +30,7 @@ dataset:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | No | Input data filename; placeholder default `example_dataset` |
+| `name` | string | No | Portable input filename as one path component (no separator, drive prefix, `.` or `..`); placeholder default `example_dataset` |
 | `label` | string or null | No | Optional display label; default `null` |
 | `year` | integer | No | Reference year for metadata; default `2010` |
 | `data_dir` | path | No | Observation directory; placeholder default `examples/data` |
@@ -55,7 +55,7 @@ lpm:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `model_name` | string | No | LPM model name; default `dirac_double` |
+| `model_name` | string | No | LPM model identifier as one path component; default `dirac_double` |
 | `data_directory` | path | No | Directory containing `<model>/params.yaml`; default `data_core/data_lpm` |
 
 ### Tracer Data Override
@@ -209,7 +209,7 @@ lpm_models:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `list` | array or null | No | Unique, non-empty LPM models to evaluate; `null` selects `exp_shifted`, `ig`, and `ig_shifted`, while an explicit empty array is rejected |
+| `list` | array or null | No | Unique, non-empty LPM identifiers without path separators; `null` selects `exp_shifted`, `ig`, and `ig_shifted`, while an explicit empty array is rejected |
 | `directory` | path or null | No | Existing LPM parameters directory; defaults to packaged `data_core/data_lpm` |
 
 ### Workflow Section
@@ -279,7 +279,7 @@ results:
 |-------|------|---------|-------------|
 | `use_default` | boolean | true | Use `PYAGES_RESULTS_DIR` or the user-level default root |
 | `directory` | path or null | null | Custom root, required and created when `use_default` is false |
-| `study_name` | non-empty string | `temporal` | Result namespace containing only letters, digits, `.`, `_`, or `-` |
+| `study_name` | non-empty string | `temporal` | One result-directory component containing only letters, digits, `.`, `_`, or `-`; `.` and `..` are rejected |
 
 The result layout and the exact meaning of every generated table are defined
 in {doc}`../reference/outputs`.

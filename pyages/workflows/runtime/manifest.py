@@ -2,7 +2,7 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Versioned provenance manifest for public workflow result directories."""
+"""Versioned provenance manifests for public workflow result directories."""
 
 from __future__ import annotations
 
@@ -100,24 +100,32 @@ def _indexed_files(
 ) -> list[dict[str, Any]]:
     indexed = []
     seen: set[Path] = set()
-    for raw in paths:
+    for root_index, raw in enumerate(paths):
         path = Path(raw).resolve()
         if path.is_file():
-            candidates = [path]
+            candidates = [(path, Path(path.name))]
         elif path.is_dir():
             candidates = sorted(
-                candidate for candidate in path.rglob("*") if candidate.is_file()
+                (candidate, candidate.relative_to(path))
+                for candidate in path.rglob("*")
+                if candidate.is_file()
             )
         else:
             raise FileNotFoundError(f"Cannot manifest missing input: {path}")
-        for candidate in candidates:
+        for candidate, relative_to_root in candidates:
             resolved = candidate.resolve()
             if resolved in seen:
                 continue
             seen.add(resolved)
+            try:
+                portable_path = resolved.relative_to(repository).as_posix()
+            except ValueError:
+                portable_path = (
+                    Path("external") / str(root_index) / relative_to_root
+                ).as_posix()
             indexed.append(
                 {
-                    "path": _portable_path(resolved, repository),
+                    "path": portable_path,
                     "sha256": _sha256(resolved),
                 }
             )
@@ -155,7 +163,7 @@ def write_result_manifest(
     config = Path(config_path).resolve()
     if not config.is_file():
         raise FileNotFoundError(f"Cannot manifest missing configuration: {config}")
-    repository = Path(__file__).resolve().parents[2]
+    repository = Path(__file__).resolve().parents[3]
     payload: dict[str, Any] = {
         "schema_version": RESULT_SCHEMA_VERSION,
         "status": "complete",

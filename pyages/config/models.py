@@ -13,17 +13,19 @@ and errors are reported early and clearly.
 
 from __future__ import annotations
 
+import builtins
 from pathlib import Path
-from typing import List, Self
+from typing import Self
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    ValidationError,
     field_validator,
     model_validator,
 )
+
+from pyages.config.paths import validate_path_component
 
 TEMPORAL_VALID_MODES = {"span", "successive"}
 
@@ -156,12 +158,17 @@ class SystemCheckConfig(_BaseCfg):
 class LauncherDatasetCfg(_BaseCfg):
     """Dataset section of the single-date launcher YAML."""
 
-    name: str = "example_dataset"
+    name: str = Field(default="example_dataset", min_length=1)
     label: str | None = None
     year: int = 2010
     data_dir: Path = Path("examples/data")
     verbose: bool = True
     missing_error_rel: float = Field(default=0.01, gt=0.0, lt=1.0)
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        return validate_path_component(value, label="dataset.name")
 
     @field_validator("data_dir")
     @classmethod
@@ -174,6 +181,11 @@ class LauncherLpmCfg(_BaseCfg):
 
     model_name: str = "dirac_double"
     data_directory: Path = Path("data_core/data_lpm")
+
+    @field_validator("model_name")
+    @classmethod
+    def _validate_model_name(cls, value: str) -> str:
+        return validate_path_component(value, label="lpm.model_name")
 
     @field_validator("data_directory")
     @classmethod
@@ -339,12 +351,14 @@ class TemporalWorkflowCfg(_BaseCfg):
 class TemporalLpmModelsCfg(_BaseCfg):
     """LPM selection and optional parameter directory override."""
 
-    list: List[str] | None = None
+    list: builtins.list[str] | None = None
     directory: str | None = None
 
     @field_validator("list")
     @classmethod
-    def _validate_model_list(cls, value: List[str] | None) -> List[str] | None:
+    def _validate_model_list(
+        cls, value: builtins.list[str] | None
+    ) -> builtins.list[str] | None:
         if value is None:
             return None
         normalized = [model.strip() for model in value]
@@ -352,7 +366,10 @@ class TemporalLpmModelsCfg(_BaseCfg):
             raise ValueError("lpm_models.list must contain non-empty model names")
         if len(normalized) != len(set(normalized)):
             raise ValueError("lpm_models.list must not contain duplicate models")
-        return normalized
+        return [
+            validate_path_component(model, label="lpm_models.list item")
+            for model in normalized
+        ]
 
 
 class TemporalResultsCfg(_BaseCfg):
@@ -364,12 +381,18 @@ class TemporalResultsCfg(_BaseCfg):
         default="temporal", min_length=1, pattern=r"^[A-Za-z0-9_.-]+$"
     )
 
-    @field_validator("directory")
+    @field_validator("study_name")
     @classmethod
-    def _require_directory_when_not_default(cls, value: str | None, info):
-        if info.data.get("use_default") is False and not value:
+    def _validate_study_name(cls, value: str) -> str:
+        return validate_path_component(value, label="results.study_name")
+
+    @model_validator(mode="after")
+    def _require_directory_when_not_default(self) -> Self:
+        if not self.use_default and (
+            self.directory is None or not self.directory.strip()
+        ):
             raise ValueError("results.directory must be set when use_default is false.")
-        return value
+        return self
 
 
 class TemporalParams(_BaseCfg):
@@ -386,7 +409,6 @@ class TemporalParams(_BaseCfg):
 __all__ = [
     "CliRunParams",
     "CliCheckParams",
-    "ValidationError",
     "SystemCheckConfig",
     "LauncherConfig",
     "LauncherParams",

@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
 
-from pyages.workflows.plots.common import (
+from pyages.reporting.plots._common import (
     MEDIAN_COLOR,
     SINGLE_DATE_HIGHLIGHT_COLOR,
     _axis_label,

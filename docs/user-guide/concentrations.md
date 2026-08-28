@@ -145,7 +145,7 @@ retain them in long form before requesting a wide export.
 
 The `series`, `temporal`, and `plotting` modules are contributor interfaces.
 High-level file and figure orchestration lives under
-`pyages.workflows.concentration_exports`; concentration serialization lives in
+`pyages.reporting.chronicles`; concentration serialization lives in
 `pyages.data_io.concentrations`. The supported user interface consists of the
 `Concentrations` and `ConcentrationChronicle` classes exported by
 `pyages.concentrations`.

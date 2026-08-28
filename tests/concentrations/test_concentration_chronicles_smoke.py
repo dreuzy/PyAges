@@ -20,7 +20,7 @@ from pyages.config.runtime import DisplayOptions
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
 from pyages.lpm.samples.table import LpmSampleTable
-from pyages.workflows.concentration_exports import export_calibrated_chronicles
+from pyages.reporting.chronicles import export_calibrated_chronicles
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 

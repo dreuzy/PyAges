@@ -2,6 +2,13 @@
 
 This guide explains how to add a new Lumped Parameter Model (LPM) to PyAges. LPMs describe probability distributions of groundwater transit times.
 
+Adding an LPM is a source-development workflow: the Python model must be part
+of the importable `pyages.lpm.models` package. Work from the root of a writable
+source checkout and install it in editable mode while developing the model.
+An arbitrary directory passed with `--output` is not scanned automatically;
+the generated module must still be integrated into `pyages/lpm/models/` before
+the registry can discover it.
+
 ## Choose the implementation path
 
 PyAges separates the model's **scientific parameterization** from the generic
@@ -76,6 +83,10 @@ The easiest way to create a new LPM is with the template generator (CLI):
 ```bash
 pyages new lpm <name> [--base scipy|root] [-o <output_dir>]
 ```
+
+Run this command from the root of the source checkout. `--output` changes only
+the destination of the Python model file. The parameter file is always created
+under `data_core/data_lpm/<name>/` relative to the current working directory.
 
 Example for a Weibull distribution:
 
@@ -234,7 +245,9 @@ notes: |
 
 ### Step 3: Verify the Registration
 
-The `@register_lpm("weibull")` decorator automatically registers the model. Verify with:
+The `@register_lpm("weibull")` decorator registers the model when its module is
+discovered inside `pyages.lpm.models`. In the editable development environment,
+verify with:
 
 ```bash
 pyages list lpms
@@ -544,7 +557,8 @@ notes: |
 ### "Unknown LPM type: 'mymodel'"
 
 - Check that `@register_lpm("mymodel")` decorator is present
-- Verify the file is in `pyages/lpm/models/`
+- Verify the file is in the importable checkout at `pyages/lpm/models/`
+- Ensure the checkout is installed in editable mode in the active environment
 - Ensure no import errors: `python -c "import pyages.lpm.models.mymodel"`
 
 ### "Parameter 'x' not found in bounds"

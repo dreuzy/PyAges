@@ -38,11 +38,7 @@ from pyages.lpm.samples.table import LpmSampleTable
 
 logger = logging.getLogger(__name__)
 
-__all__ = [
-    "MHConfig",
-    "MHTrajectory",
-    "MetropolisHastings",
-]
+__all__ = ["MetropolisHastings"]
 
 
 class MetropolisHastings(CalibrationMethod):
