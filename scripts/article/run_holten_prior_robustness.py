@@ -28,12 +28,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy
+from matplotlib.ticker import FormatStrFormatter
 from scipy.special import expit
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from examples.natural.holten.holten_case import build_context  # noqa: E402
 from examples.natural.holten.holten_four_bin import (  # noqa: E402
     BIN_ORDER,
     load_paper_4bin_fractions,
@@ -86,6 +88,15 @@ PRIOR_SAMPLE_SIZE = 1_000_000
 PRIOR_SEED = 530_000
 JACOBIAN_SEED = 530_001
 LOG_DIRICHLET_NORMALIZATION = math.lgamma(4.0)  # log Gamma(sum alpha)
+FIGURE_C1_WIDTH_MM = 165
+FIGURE_C1_HEIGHT_MM = 78
+FIGURE_C1_PANEL_TITLES = (
+    "(a) 0\N{EN DASH}20 yr",
+    "(b) 20\N{EN DASH}40 yr",
+    "(c) 40\N{EN DASH}60 yr",
+    "(d) >60 yr",
+)
+FIGURE_C1_STATISTICS = ("median", "q10", "q90")
 
 
 def _scientific_inputs():
@@ -696,45 +707,154 @@ def global_metrics(
     return metrics
 
 
-def make_figure(output: Path, comparison: pd.DataFrame) -> None:
+def _figure_c1_summary_grid(
+    summaries: pd.DataFrame,
+    *,
+    source_name: str,
+    wells: tuple[str, ...],
+) -> pd.DataFrame:
+    """Return the complete Holten fraction grid in Figure C1 plotting order."""
+
+    required = {"well", "parameter", *FIGURE_C1_STATISTICS}
+    missing = sorted(required.difference(summaries.columns))
+    if missing:
+        raise ValueError(f"{source_name} is missing columns: {missing}")
+
+    selected = summaries.loc[
+        summaries["parameter"].isin(BIN_ORDER),
+        ["well", "parameter", *FIGURE_C1_STATISTICS],
+    ].copy()
+    duplicate = selected.duplicated(["well", "parameter"], keep=False)
+    if duplicate.any():
+        keys = selected.loc[duplicate, ["well", "parameter"]].values.tolist()
+        raise ValueError(f"{source_name} contains duplicate fraction rows: {keys}")
+
+    expected_index = pd.MultiIndex.from_product(
+        [wells, BIN_ORDER], names=["well", "parameter"]
+    )
+    indexed = selected.set_index(["well", "parameter"])
+    missing_keys = expected_index.difference(indexed.index).tolist()
+    extra_keys = indexed.index.difference(expected_index).tolist()
+    if missing_keys or extra_keys:
+        raise ValueError(
+            f"{source_name} does not contain exactly the Figure C1 well/fraction "
+            f"grid (missing={missing_keys}, extra={extra_keys})"
+        )
+    return indexed.reindex(expected_index)
+
+
+def _validate_figure_c1_inputs(
+    comparison: pd.DataFrame,
+    reference_summaries: pd.DataFrame,
+    dirichlet_summaries: pd.DataFrame,
+) -> tuple[str, ...]:
+    """Verify completeness, order, and exact agreement with posterior summaries."""
+
+    wells = tuple(build_context().selected_wells)
+    required = {"well", "fraction"}
+    required.update(
+        f"{prefix}_{statistic}"
+        for prefix in ("reference", "dirichlet")
+        for statistic in FIGURE_C1_STATISTICS
+    )
+    missing = sorted(required.difference(comparison.columns))
+    if missing:
+        raise ValueError(f"Figure C1 comparison is missing columns: {missing}")
+
+    expected_keys = [(well, fraction) for well in wells for fraction in BIN_ORDER]
+    actual_keys = list(
+        comparison[["well", "fraction"]].itertuples(index=False, name=None)
+    )
+    if actual_keys != expected_keys:
+        raise ValueError(
+            "Figure C1 comparison rows must contain exactly the configured Holten "
+            "wells and age classes, in Figure 3 order"
+        )
+
+    source_grids = {
+        "reference": _figure_c1_summary_grid(
+            reference_summaries,
+            source_name="Baseline posterior summaries",
+            wells=wells,
+        ),
+        "dirichlet": _figure_c1_summary_grid(
+            dirichlet_summaries,
+            source_name="Dirichlet posterior summaries",
+            wells=wells,
+        ),
+    }
+    for prefix, source_grid in source_grids.items():
+        for statistic in FIGURE_C1_STATISTICS:
+            plotted = comparison[f"{prefix}_{statistic}"].to_numpy(dtype=float)
+            source = source_grid[statistic].to_numpy(dtype=float)
+            if not np.isfinite(plotted).all():
+                raise ValueError(
+                    f"Figure C1 contains non-finite {prefix}_{statistic} values"
+                )
+            if not np.array_equal(plotted, source):
+                mismatch = int(np.flatnonzero(plotted != source)[0])
+                well, fraction = expected_keys[mismatch]
+                raise ValueError(
+                    f"Figure C1 {prefix}_{statistic} for {well}/{fraction} does "
+                    "not match its final posterior summaries file"
+                )
+
+        q10 = comparison[f"{prefix}_q10"].to_numpy(dtype=float)
+        median = comparison[f"{prefix}_median"].to_numpy(dtype=float)
+        q90 = comparison[f"{prefix}_q90"].to_numpy(dtype=float)
+        if not ((0.0 <= q10).all() and (q90 <= 1.0).all()):
+            raise ValueError(f"Figure C1 {prefix} intervals must lie within [0, 1]")
+        if not ((q10 <= median).all() and (median <= q90).all()):
+            raise ValueError(
+                f"Figure C1 {prefix} summaries must satisfy q10 <= median <= q90"
+            )
+    return wells
+
+
+def make_figure(
+    output: Path,
+    comparison: pd.DataFrame,
+    *,
+    reference_summaries: pd.DataFrame | None = None,
+    dirichlet_summaries: pd.DataFrame | None = None,
+) -> None:
+    if reference_summaries is None:
+        reference_summaries = pd.read_csv(CANONICAL / "posterior_summaries.csv")
+    if dirichlet_summaries is None:
+        dirichlet_summaries = pd.read_csv(output / "posterior_summaries_dirichlet1.csv")
+    wells = _validate_figure_c1_inputs(
+        comparison, reference_summaries, dirichlet_summaries
+    )
+
     with plt.rc_context(PUBLICATION_RC):
-        wells = comparison["well"].drop_duplicates().tolist()
+        tab10 = plt.get_cmap("tab10").colors
+        styles = (
+            ("reference", -0.09, tab10[0], "o", "Latent-uniform prior"),
+            (
+                "dirichlet",
+                0.09,
+                tab10[1],
+                "D",
+                "Dirichlet(1,1,1,1) prior",
+            ),
+        )
         fig, axes = plt.subplots(
             1,
             4,
-            figsize=(mm_to_in(165), mm_to_in(78)),
+            figsize=(mm_to_in(FIGURE_C1_WIDTH_MM), mm_to_in(FIGURE_C1_HEIGHT_MM)),
             sharey=True,
         )
         y = np.arange(len(wells))
-        panel_titles = (
-            "(a) 0–20 yr",
-            "(b) 20–40 yr",
-            "(c) 40–60 yr",
-            "(d) >60 yr",
-        )
         for panel_index, (axis, fraction, title) in enumerate(
-            zip(axes, BIN_ORDER, panel_titles, strict=True)
+            zip(axes, BIN_ORDER, FIGURE_C1_PANEL_TITLES, strict=True)
         ):
             values = (
                 comparison.loc[comparison["fraction"] == fraction]
                 .set_index("well")
-                .loc[wells]
+                .loc[list(wells)]
             )
             for row, well in enumerate(wells):
-                for prefix, offset, color, label in (
-                    (
-                        "reference",
-                        -0.10,
-                        "#1f77b4",
-                        "Latent-logit uniform prior",
-                    ),
-                    (
-                        "dirichlet",
-                        0.10,
-                        "#d95f02",
-                        "Dirichlet(1,1,1,1) fraction prior",
-                    ),
-                ):
+                for prefix, offset, color, marker, label in styles:
                     median = values.loc[well, f"{prefix}_median"]
                     axis.errorbar(
                         median,
@@ -743,34 +863,47 @@ def make_figure(output: Path, comparison: pd.DataFrame) -> None:
                             [median - values.loc[well, f"{prefix}_q10"]],
                             [values.loc[well, f"{prefix}_q90"] - median],
                         ],
-                        fmt="o",
+                        fmt=marker,
                         color=color,
-                        markersize=4.0,
-                        elinewidth=1.2,
-                        capsize=2.0,
+                        ecolor=color,
+                        markersize=4.6,
+                        markeredgewidth=0.8,
+                        elinewidth=1.4,
+                        capsize=2.3,
+                        capthick=1.1,
+                        zorder=3,
                         label=label if row == 0 else None,
                     )
             axis.set_title(title, fontweight="bold", fontsize=9.0)
-            axis.set_xlim(-0.025, 1.025)
+            axis.set_xlim(0.0, 1.0)
             axis.set_xticks((0.0, 0.5, 1.0))
-            axis.grid(alpha=0.22)
+            axis.xaxis.set_major_formatter(FormatStrFormatter("%g"))
+            axis.set_axisbelow(True)
+            axis.grid(
+                True,
+                axis="x",
+                color="#d9d9d9",
+                linewidth=0.6,
+                alpha=0.65,
+            )
+            axis.grid(False, axis="y")
             if panel_index != 0:
                 axis.tick_params(axis="y", labelleft=False)
         axes[0].set_yticks(y, wells)
         axes[0].invert_yaxis()
         handles, labels = axes[0].get_legend_handles_labels()
+        handles_by_label = dict(zip(labels, handles, strict=False))
+        legend_labels = tuple(style[-1] for style in styles)
         fig.supxlabel("Age fraction", x=0.55, y=0.19)
-        legend = fig.legend(
-            handles,
-            labels,
-            title="Posterior median and 10–90 % credible interval",
+        fig.legend(
+            [handles_by_label[label] for label in legend_labels],
+            legend_labels,
             loc="lower center",
             bbox_to_anchor=(0.5, 0.015),
             ncol=2,
             frameon=False,
         )
-        legend.get_title().set_fontsize(8.5)
-        fig.subplots_adjust(left=0.10, right=0.99, top=0.84, bottom=0.30, wspace=0.12)
+        fig.subplots_adjust(left=0.10, right=0.99, top=0.84, bottom=0.29, wspace=0.18)
         save_pdf_png(fig, output, "figureC1_holten_prior_sensitivity")
         plt.close(fig)
 
@@ -964,7 +1097,7 @@ def main() -> int:
     residuals = posterior_predictions(output)
     comparison = compare_posteriors(output, summaries)
     global_metrics(output, comparison, convergence, chains, residuals)
-    make_figure(output, comparison)
+    make_figure(output, comparison, dirichlet_summaries=summaries)
     canonical_after = verify_canonical()
     if canonical_after != canonical_before:
         raise RuntimeError("Canonical campaign changed during robustness run")

@@ -663,8 +663,8 @@ def _sha256(path: Path) -> str:
 def _manifest(output: Path, lengths: dict[int, int]) -> None:
     sources = (
         Path(__file__).resolve(),
-        ROOT / "pyages" / "calibration" / "mh_proposals.py",
-        ROOT / "pyages" / "calibration" / "methods" / "metropolis_hastings.py",
+        ROOT / "pyages" / "calibration" / "methods" / "mh" / "proposals.py",
+        ROOT / "pyages" / "calibration" / "methods" / "mh" / "sampler.py",
         ROOT / "pyages" / "convolution" / "convolution.py",
         ROOT / "pyages" / "lpm" / "models" / "exponential_shifted.py",
         ROOT / "data_core" / "data_lpm" / "exp_shifted" / "params.yaml",

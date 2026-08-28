@@ -56,5 +56,33 @@ For the stable article archive:
    commit, tag, file inventory, sizes, and SHA-256 digests;
 7. upload the already validated ZIP without rebuilding or modifying it.
 
+## Promotion of retained calculations by functional equivalence
+
+The project maintainer may approve retained calculations for the release
+without numerical replay when changes made during execution have been reviewed
+and found non-functional for the published calculations. This is an explicit
+provenance decision, not a claim that every calculation ran at the release
+commit.
+
+Such a promotion is acceptable only when all of the following hold:
+
+1. historical stage commits, tags, commands, and manifests remain unchanged;
+2. every retained numerical tree is frozen by a deterministic SHA-256 digest;
+3. all recorded artifact hashes validate and every recorded execution source
+   is preserved byte-for-byte in Git, the campaign, or the editorial snapshot;
+4. gaps without per-source hashes are disclosed and covered by an explicit
+   maintainer functional-equivalence attestation;
+5. ``release_promotion.json`` is created and validated from the clean reviewed
+   release tree with ``scripts.release.promote_article_campaign``;
+6. the editorial package includes the promotion document, and the final archive
+   records ``numerical_provenance_mode: maintainer-functional-equivalence``;
+7. the release commit itself still carries the annotated ``1.0`` tag and all
+   package, archive, and Zenodo validation gates pass without development flags.
+
+This route preserves the distinction between the version that generated each
+stage and the version under which the maintainer accepts the unchanged
+scientific results. It must never be implemented by rewriting historical
+manifests or adding a release tag retroactively to their recorded tag lists.
+
 Until the tag and archive are public, cite calculations by the recorded commit
 and environment and describe ``1.0`` as being prepared, not released.

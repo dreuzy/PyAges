@@ -560,6 +560,17 @@ def artifacts_for_campaign(campaign_root: Path) -> tuple[Artifact, ...]:
                 artifact.description,
             )
         )
+    promotion = campaign_root / "release_promotion.json"
+    if promotion.is_file():
+        rebased.append(
+            Artifact(
+                "release_promotion",
+                "provenance",
+                promotion,
+                Path("provenance/release_promotion.json"),
+                "Maintainer functional-equivalence promotion of retained results",
+            )
+        )
     return tuple(rebased)
 
 
@@ -976,6 +987,8 @@ def replace_package(
 ) -> Path:
     """Transactionally replace a package that already passes validation."""
     output = output.resolve()
+    if not output.exists():
+        return build_package(output, artifacts)
     validate_package(output)
     backup = output.with_name(f".{output.name}.backup-{os.getpid()}")
     if backup.exists():
