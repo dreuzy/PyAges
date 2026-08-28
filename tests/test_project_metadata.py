@@ -86,6 +86,7 @@ def test_repository_scripts_are_grouped_by_responsibility():
             "build_article_package.py",
             "build_reproduction_archive.py",
             "build_zenodo_bundle.py",
+            "promote_article_campaign.py",
         },
         "maintenance": {
             "check_licensing.py",
@@ -121,7 +122,7 @@ def test_script_tests_mirror_entrypoint_families():
             "test_reproduce_manuscript_figure2.py",
         },
         "qualification": {"test_qualify_mh_proposals.py"},
-        "release": {"test_zenodo_bundle.py"},
+        "release": {"test_campaign_promotion.py", "test_zenodo_bundle.py"},
         "maintenance": {
             "test_generate_test_inventory.py",
             "test_run_tests.py",
