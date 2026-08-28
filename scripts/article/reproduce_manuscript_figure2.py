@@ -39,13 +39,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages._plotting import white_low_colormap
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.paths import ROOT_DIRECTORY_RESULTS
 from pyages.config.runtime import DisplayOptions
-from pyages.convolution.convolution_tracers import ConvolutionTracers
+from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
-from pyages.tools.figures_additional import cmap_white_jet
 
 
 @dataclass(frozen=True)
@@ -210,7 +210,7 @@ def plot_figure2(
         shift_values,
         surface.to_numpy(dtype=float),
         shading="auto",
-        cmap=cmap_white_jet(),
+        cmap=white_low_colormap(base="jet"),
         rasterized=True,
     )
     colorbar = fig.colorbar(colour, ax=ax)

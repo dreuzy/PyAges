@@ -118,7 +118,7 @@ par cet audit.
 | Racine locale | Nature | Action recommandée |
 |---|---|---|
 | `.pytest_cache/`, `.ruff_cache/`, `__pycache__/` | Caches recréables | Supprimer périodiquement ou via une option de nettoyage dédiée |
-| `dist/`, `pyages.egg-info/` | Artefacts de construction du paquet | Nettoyer avec `python -m scripts.clean_release_artifacts` avant une nouvelle construction |
+| `dist/`, `pyages.egg-info/` | Artefacts de construction du paquet | Nettoyer avec `python -m scripts.maintenance.clean_release_artifacts` avant une nouvelle construction |
 | `results/` | Sorties de calcul ignorées | Ne jamais supprimer automatiquement ; retirer seulement si les résultats ont été archivés ou si le dossier est vide |
 | `.claude/`, `.vscode/` | Réglages propres au poste | Conserver localement s'ils sont utiles ; ils ne font pas partie du dépôt |
 
@@ -143,7 +143,6 @@ exclut volontairement `results/`, `.claude/` et `.vscode/`.
 │   ├── audit/                         # ancien audit/
 │   ├── archive/
 │   │   └── submission-candidate-2026-08-26/
-│   ├── common/
 │   ├── reports/
 │   └── s*/
 ├── data_core/
@@ -152,8 +151,19 @@ exclut volontairement `results/`, `.claude/` et `.vscode/`.
 ├── install/
 ├── pyages/
 ├── scripts/
+│   ├── article/
+│   ├── common/
+│   ├── maintenance/
+│   ├── qualification/
+│   ├── release/
+│   └── windows/
 ├── sites/
 ├── tests/
+│   └── scripts/
+│       ├── article/
+│       ├── maintenance/
+│       ├── qualification/
+│       └── release/
 └── validation/
 ```
 
@@ -181,7 +191,7 @@ paquet.
 4. Les contrôles de références, de packaging, de documentation et de tests
    sont consignés dans le bilan de ce refactoring.
 
-### Clarification interne de `data_core` : réalisée
+### Clarifications internes de `data_core` et `scripts` : réalisées
 
 La frontière a été rendue explicite sans changer les chemins des ressources
 d'exécution :
@@ -194,8 +204,13 @@ d'exécution :
   sa provenance reste accessible dans l'historique Git ;
 - `data_core/README.md` documente le contrat et est livré dans le wheel ;
 - `tests/data_io/` reflète désormais le nom du paquet `pyages.data_io` ;
-- le catalogue de `scripts/` classe les 25 commandes maintenues par fonction,
-  sans casser leurs chemins de module avant la version 1.0.
+- les 29 commandes maintenues sont physiquement regroupées sous
+  `scripts/article/`, `scripts/qualification/`, `scripts/release/` et
+  `scripts/maintenance/` ; les aides partagées et wrappers restent sous
+  `scripts/common/` et `scripts/windows/` ;
+- `article/` ne contient plus de code Python exécutable : il conserve les cas,
+  manifestes, audits et archives, tandis que `tests/scripts/` reflète les
+  familles de commandes.
 
 ### P2 — décision de packaging, sans urgence
 
@@ -211,8 +226,8 @@ Le gain d'une seule racine ne justifie pas cette migration aujourd'hui.
 |---|---|
 | Racines déplacées | 28 fichiers présents sous `article/` ; anciennes racines absentes |
 | Références actives | aucune référence aux deux anciens chemins hors notices historiques |
-| Contrats ciblés | 92 tests réussis, incluant article, documentation, métadonnées, nettoyage et validation TracerLPM |
-| Suite standard | 944 tests réussis, 5 ignorés après la clarification de `data_core` et `tests/data_io` |
+| Contrats ciblés | 89 tests réussis pour les scripts, le registre article, la documentation, les métadonnées et le nettoyage |
+| Suite standard | 1 012 tests réussis, 5 ignorés après la consolidation des scripts et les refactorings parallèles |
 | Qualité du nettoyeur | Ruff réussi ; 3 tests de sécurité réussis |
 | Documentation | construction Sphinx stricte `-W` réussie sur 94 pages |
 | Packaging | wheel et sdist `pyages-1.0` construits ; `twine check` réussi |

@@ -330,17 +330,24 @@ df_out.to_csv("data_core/data_tracer/cfc11_updated/recharge.csv", index=False)
 
 ### The Convolution Equation
 
-The measured concentration `C(t)` at time `t` is:
+For a tracer history beginning at `t_min`, the concentration calculated by
+PyAges at time `t` is:
 
 ```
-C(t) = ∫₀^∞ [C_in(t - τ) × exp(-βτ) + C_prod(τ)] × g(τ) dτ
+C(t) = ∫₀^(t - t_min) [C_in(t - τ) × exp(-βτ) + C_prod(τ)] dF(τ)
 ```
 
 Where:
+
 - `C_in(t - τ)` = Input concentration at recharge time
-- `g(τ)` = Transit time distribution (from LPM)
+- `F(τ)` = Transit-time probability measure supplied by the LPM
 - `exp(-βτ)` = Radioactive decay factor
 - `C_prod` = Geoproduction contribution
+
+Probability mass older than the available tracer history contributes zero and
+is not renormalized. Inspect `Convolution.window_mass()` when the old tail may
+extend before `t_min`. The normative equation and all boundary conventions are
+defined in {doc}`../scientific-methods`.
 
 ### Decay Correction
 

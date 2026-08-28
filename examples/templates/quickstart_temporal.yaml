@@ -3,6 +3,7 @@
 dataset:
   file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
   error_rel: 0.2
+  missing_error_rel: 0.01
 
 lpm_models:
   list: ["exp_shifted"]

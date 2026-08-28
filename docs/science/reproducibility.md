@@ -9,7 +9,7 @@ recording its historical inputs, outputs, checksums, environment, and seeds.
 
 The case manifests under `article/` describe the optional historical evidence
 inventory. They must remain unchanged because their paths and checksums identify
-the older calculations. `article/run_case.py check` reports whether that exact
+the older calculations. `scripts.article.run_case check` reports whether that exact
 inventory is locally available; it is not the release gate for a fresh run.
 
 The complete campaign writes every generated file outside the Git
@@ -18,10 +18,10 @@ technical gate for the fresh evidence:
 
 ```powershell
 $env:PYTHONNOUSERSITE = "1"
-python -m scripts.reproduce_article preflight --output C:\pyages-runs\article-1.0
-python -m scripts.reproduce_article resume --output C:\pyages-runs\article-1.0 --workers 6
-python -m scripts.reproduce_article status --output C:\pyages-runs\article-1.0
-python -m scripts.reproduce_article validate --output C:\pyages-runs\article-1.0
+python -m scripts.article.reproduce_article preflight --output C:\pyages-runs\article-1.0
+python -m scripts.article.reproduce_article resume --output C:\pyages-runs\article-1.0 --workers 6
+python -m scripts.article.reproduce_article status --output C:\pyages-runs\article-1.0
+python -m scripts.article.reproduce_article validate --output C:\pyages-runs\article-1.0
 ```
 
 The canonical launch is accepted only from the qualified direct environment,
@@ -47,10 +47,10 @@ Git worktree.
 From the repository root:
 
 ```powershell
-python article/run_case.py list
-python article/run_case.py check s3_2_shifted_exponential
-python article/run_case.py postprocess s3_2_shifted_exponential
-python article/run_case.py run s3_2_shifted_exponential
+python -m scripts.article.run_case list
+python -m scripts.article.run_case check s3_2_shifted_exponential
+python -m scripts.article.run_case postprocess s3_2_shifted_exponential
+python -m scripts.article.run_case run s3_2_shifted_exponential
 ```
 
 - `check` verifies paths and recorded provenance for the optional historical
@@ -141,7 +141,7 @@ The complete campaign ends with the core archive
 the uploadable reader bundle without rerunning simulations:
 
 ```powershell
-python -m scripts.build_zenodo_bundle `
+python -m scripts.release.build_zenodo_bundle `
   --archive C:\pyages-runs\article-v1-gmd-archive `
   --output C:\pyages-runs\pyages-1.0-zenodo `
   --zip-output C:\pyages-runs\pyages-1.0-zenodo.zip `
@@ -155,7 +155,7 @@ metadata review before DOI reservation, use `--draft`; the final command
 refuses a missing DOI. Validate the directory and ZIP together with:
 
 ```powershell
-python -m scripts.build_zenodo_bundle `
+python -m scripts.release.build_zenodo_bundle `
   --validate-only C:\pyages-runs\pyages-1.0-zenodo `
   --zip-output C:\pyages-runs\pyages-1.0-zenodo.zip
 ```

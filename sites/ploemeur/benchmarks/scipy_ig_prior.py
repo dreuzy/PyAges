@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from typing import Sequence
 
-from pyages.calibration.ig_parameterization import physical_moments_to_scipy
+from pyages.calibration.methods.mh.ig_coordinates import physical_moments_to_scipy
 
 BENCHMARK_NAME = "ploemeur_article_scipy_ig_prior"
 SHAPE_BOUNDS = (0.1, 100.0)

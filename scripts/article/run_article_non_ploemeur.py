@@ -35,18 +35,21 @@ import yaml
 from numpy.polynomial.legendre import leggauss
 from scipy import integrate, stats
 
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.paths import DIRECTORY_LPM_DATA, DIRECTORY_TRACER_DATA
 from pyages.config.runtime import DisplayOptions
-from pyages.convolution.convolution import Convolution
-from pyages.convolution.convolution_tracers import ConvolutionTracers
-from pyages.convolution.settings import DEFAULT_TRACER_GRID_SETTINGS, TracerGridSettings
+from pyages.convolution import (
+    DEFAULT_TRACER_GRID_SETTINGS,
+    Convolution,
+    ConvolutionTracers,
+    TracerGridSettings,
+)
 from pyages.lpm import build_lpm
 from pyages.tracer.tracer_protocol import ConstantTracer, SyntheticTracer
 from pyages.tracer.tracer_root import Tracer
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = ROOT / "results" / "article_non_ploemeur_final"
 TRACERS = ("cfc11", "cfc12", "cfc113", "sf6", "3H", "39Ar", "kr85")
 TABLE3_TRACERS = ("cfc11", "cfc12", "cfc113", "sf6")
@@ -711,7 +714,10 @@ def _performance(output: Path) -> pd.DataFrame:
             for _ in range(1000):
                 group.convolve(model)
             repeated_seconds = time.perf_counter() - start
-            bins = [element.prepared_grid.edges.size - 1 for element in group.elements]
+            bins = [
+                convolution.prepared_grid.edges.size - 1
+                for convolution in group.convolutions
+            ]
             rows.append(
                 {
                     "LPM": name,

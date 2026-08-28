@@ -5,7 +5,6 @@
 """Run the documented PyAges pytest scopes from the repository root.
 
 Examples:
-  python run_tests.py
   python run_tests.py standard
   python run_tests.py standard detail
   python run_tests.py extensive
@@ -13,9 +12,6 @@ Examples:
   python run_tests.py validation
   python run_tests.py collect
   python run_tests.py standard update
-
-The no-argument, ``detail``, and ``update detail`` forms remain compatible
-with the historical helper interface.
 """
 
 import argparse
@@ -38,10 +34,12 @@ def build_pytest_command(modes: Sequence[str]) -> list[str]:
         raise ValueError(f"unknown mode(s): {names}")
 
     scopes = requested & PRIMARY_SCOPES
+    if not scopes:
+        raise ValueError("choose exactly one test scope")
     if len(scopes) > 1:
         names = ", ".join(sorted(scopes))
         raise ValueError(f"choose exactly one test scope, not: {names}")
-    scope = next(iter(scopes), "standard")
+    scope = next(iter(scopes))
 
     if "update" in requested and scope not in {"standard", "extensive"}:
         raise ValueError("update is supported only for standard or extensive tests")

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
@@ -15,9 +14,16 @@ and errors are reported early and clearly.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
+from typing import List, Self
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 TEMPORAL_VALID_MODES = {"span", "successive"}
 
@@ -155,6 +161,7 @@ class LauncherDatasetCfg(_BaseCfg):
     year: int = 2010
     data_dir: Path = Path("examples/data")
     verbose: bool = True
+    missing_error_rel: float = Field(default=0.01, gt=0.0, lt=1.0)
 
     @field_validator("data_dir")
     @classmethod
@@ -256,6 +263,7 @@ class LauncherParams(_BaseCfg):
     dataset_year: int
     dataset_data_dir: Path
     verbose: bool
+    missing_error_rel: float
     lpm_model_name: str
     directory_lpm: Path
     tracer_data_dir: Path | None = None
@@ -283,7 +291,8 @@ class TemporalDatasetCfg(_BaseCfg):
     """Dataset inputs (file path + optional relative error)."""
 
     file: str = Field(..., min_length=1)
-    error_rel: float | None = Field(default=None, ge=0.0, lt=1.0)
+    error_rel: float | None = Field(default=None, gt=0.0, lt=1.0)
+    missing_error_rel: float = Field(default=0.01, gt=0.0, lt=1.0)
 
 
 class TemporalCalibrationCfg(_BaseCfg):
@@ -295,7 +304,13 @@ class TemporalCalibrationCfg(_BaseCfg):
     lpm_number: int = Field(default=10, ge=0)
     explo_res: int = Field(default=20, ge=1)
     seed_enabled: bool = False
-    seed: int | None = None
+    seed: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _require_enabled_seed(self) -> Self:
+        if self.seed_enabled and self.seed is None:
+            raise ValueError("calibration.seed is required when seed_enabled is true")
+        return self
 
 
 class TemporalFiguresCfg(_BaseCfg):
@@ -326,6 +341,18 @@ class TemporalLpmModelsCfg(_BaseCfg):
 
     list: List[str] | None = None
     directory: str | None = None
+
+    @field_validator("list")
+    @classmethod
+    def _validate_model_list(cls, value: List[str] | None) -> List[str] | None:
+        if value is None:
+            return None
+        normalized = [model.strip() for model in value]
+        if not normalized or any(not model for model in normalized):
+            raise ValueError("lpm_models.list must contain non-empty model names")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("lpm_models.list must not contain duplicate models")
+        return normalized
 
 
 class TemporalResultsCfg(_BaseCfg):

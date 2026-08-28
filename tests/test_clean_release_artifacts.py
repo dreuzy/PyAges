@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.clean_release_artifacts import clean_release_artifacts
+from scripts.maintenance.clean_release_artifacts import clean_release_artifacts
 
 
 def test_clean_release_artifacts_removes_only_known_directories(tmp_path: Path) -> None:

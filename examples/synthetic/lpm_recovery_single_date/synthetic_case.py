@@ -17,7 +17,7 @@ import pandas as pd
 import yaml
 
 from pyages.concentrations import Concentrations
-from pyages.convolution.convolution_tracers import ConvolutionTracers
+from pyages.convolution import ConvolutionTracers
 from pyages.data_io.lpm_distribution import read_distribution, read_statistics
 from pyages.lpm import build_lpm
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
@@ -21,11 +20,8 @@ from pathlib import Path
 # Root directories
 # -------------------------------------------------------
 
-# Root Directory of Application (resolved from this file location)
-ROOT_DIRECTORY_SRC = Path(__file__).resolve().parents[1]
-
 # Root Directory of Repository
-ROOT_DIRECTORY = ROOT_DIRECTORY_SRC.parent
+ROOT_DIRECTORY = Path(__file__).resolve().parents[2]
 
 # Root Directory of Results (absolute via env, or user-level default)
 _results_env = os.environ.get("PYAGES_RESULTS_DIR", "").strip()
@@ -43,7 +39,6 @@ else:
 # wheel installation, without assuming where site-packages is located.
 _DATA_CORE_DIRECTORY = Path(str(files("data_core")))
 DIRECTORY_TRACER_DATA = _DATA_CORE_DIRECTORY / "data_tracer"
-DIRECTORY_TEST = ROOT_DIRECTORY / "tests" / "data"
 DIRECTORY_LPM_DATA = _DATA_CORE_DIRECTORY / "data_lpm"
 
 
@@ -67,11 +62,9 @@ def timestamp_name() -> str:
 
 __all__ = [
     "DIRECTORY_LPM_DATA",
-    "DIRECTORY_TEST",
     "DIRECTORY_TRACER_DATA",
     "ROOT_DIRECTORY",
     "ROOT_DIRECTORY_RESULTS",
-    "ROOT_DIRECTORY_SRC",
     "result_subdirectory",
     "timestamp_name",
 ]

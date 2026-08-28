@@ -12,6 +12,7 @@ from unittest.mock import Mock
 
 import matplotlib
 import matplotlib.pyplot as plt
+import pytest
 
 from pyages.workflows import plotting_runtime
 
@@ -35,25 +36,36 @@ def test_configure_backend_selects_inline_for_ipython_or_forced_mode(
     switch_backend.assert_called_once_with("module://matplotlib_inline.backend_inline")
 
 
-def test_configure_backend_selects_desktop_and_recovers_from_detection_error(
+def test_configure_backend_preserves_auto_backend_and_recovers_from_detection_error(
     monkeypatch,
 ) -> None:
     monkeypatch.delenv("MPLBACKEND", raising=False)
-    selected = []
-    monkeypatch.setattr(matplotlib, "use", selected.append)
+    select_backend = Mock()
+    monkeypatch.setattr(matplotlib, "use", select_backend)
     _install_fake_ipython(monkeypatch, lambda: None)
 
     assert plotting_runtime.configure_backend(force_inline=False) is False
-    assert selected == ["TkAgg"]
-
-    selected.clear()
+    select_backend.assert_not_called()
 
     def detection_failure():
         raise RuntimeError("IPython detection failed")
 
     _install_fake_ipython(monkeypatch, detection_failure)
     assert plotting_runtime.configure_backend(force_inline=False) is False
-    assert selected == ["TkAgg"]
+    select_backend.assert_not_called()
+
+
+def test_configure_backend_reports_a_forced_inline_failure(monkeypatch) -> None:
+    monkeypatch.delenv("MPLBACKEND", raising=False)
+    _install_fake_ipython(monkeypatch, lambda: None)
+    monkeypatch.setattr(
+        plt,
+        "switch_backend",
+        Mock(side_effect=ImportError("matplotlib-inline missing")),
+    )
+
+    with pytest.raises(RuntimeError, match="inline Matplotlib backend"):
+        plotting_runtime.configure_backend(force_inline=True)
 
 
 def test_plot_session_manages_interactive_figure_lifecycle(monkeypatch) -> None:

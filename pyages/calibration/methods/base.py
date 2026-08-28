@@ -2,7 +2,14 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Common interface for calibration algorithms."""
+"""Shared lifecycle and output boundary for calibration algorithms.
+
+A calibration method owns algorithmic state such as optimizer diagnostics or
+MCMC acceptance counts.  The scientific inputs remain in a separately prepared
+:class:`~pyages.calibration.problem.CalibrationProblem`.  This separation keeps
+observation ordering, tracer preparation, objective evaluation, plotting, and
+serialization consistent across Simplex and Metropolis--Hastings methods.
+"""
 
 from __future__ import annotations
 
@@ -25,7 +32,12 @@ if TYPE_CHECKING:
 
 
 class CalibrationMethod(ABC):
-    """A calibration algorithm bound explicitly to a prepared problem."""
+    """A calibration algorithm bound explicitly to a prepared problem.
+
+    Subclasses implement :meth:`perform` and the method-specific serialization
+    hooks.  Callers enter through :meth:`run`; direct calls to :meth:`perform`
+    are valid only after a problem has been bound and prepared.
+    """
 
     method: str
 
@@ -64,11 +76,16 @@ class CalibrationMethod(ABC):
         return self.problem.display_options
 
     def _bind_problem(self, problem: CalibrationProblem) -> None:
+        """Validate the scientific context before exposing it to a method."""
         problem.ensure_prepared()
         self._problem = problem
 
     def run(self, problem: CalibrationProblem):
-        """Bind a prepared problem and execute the algorithm."""
+        """Bind a prepared problem and execute the algorithm.
+
+        Binding is explicit so a method never copies or silently rebuilds the
+        LPM, tracer histories, or observation table owned by ``problem``.
+        """
         self._bind_problem(problem)
         return self.perform()
 

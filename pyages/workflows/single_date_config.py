@@ -1,13 +1,8 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""
-Created on Wed Mar 24 20:35:54 2021
-
-Parameter loader for the packaged single-date workflow (Pydantic-validated).
-"""
+"""Pydantic-validated parameter loader for the single-date workflow."""
 
 from pathlib import Path
 
@@ -30,6 +25,7 @@ def load_params_payload(root_dir: Path, data: dict) -> LauncherParams:
         dataset_year=cfg.dataset.year,
         dataset_data_dir=cfg.dataset.data_dir,
         verbose=cfg.dataset.verbose,
+        missing_error_rel=cfg.dataset.missing_error_rel,
         lpm_model_name=cfg.lpm.model_name,
         directory_lpm=cfg.lpm.data_directory,
         tracer_data_dir=cfg.tracers.data_directory,

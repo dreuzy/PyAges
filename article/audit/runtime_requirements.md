@@ -41,7 +41,7 @@ Ces fichiers sont des gels de dépendances directes, pas un lock complet des dé
 
 Le manuel est la documentation Sphinx/MyST «PyAge documentation», dont la section utilisateur commence à `docs/user-guide/index.md`; les sources sont en Markdown sous `docs/user-guide/`. La construction HTML canonique est `python -m sphinx -b html docs docs/_build/html`.
 
-Les sources `docs/` sont suivies par Git et entrent donc dans le `pyage-source.zip` produit par `scripts/build_reproduction_archive.py` via `git archive`. Elles ne sont pas déclarées comme données du wheel dans `pyproject.toml`, et `MANIFEST.in` n'inclut pas explicitement `docs/`; il ne faut donc pas affirmer que le manuel HTML est installé avec le paquet Python. L'archive de reproduction planifiée contient les sources, pas nécessairement un build HTML.
+Les sources `docs/` sont suivies par Git et entrent donc dans le `pyage-source.zip` produit par `scripts/release/build_reproduction_archive.py` via `git archive`. Elles ne sont pas déclarées comme données du wheel dans `pyproject.toml`, et `MANIFEST.in` n'inclut pas explicitement `docs/`; il ne faut donc pas affirmer que le manuel HTML est installé avec le paquet Python. L'archive de reproduction planifiée contient les sources, pas nécessairement un build HTML.
 
 ## Licence
 
@@ -51,6 +51,6 @@ Les sources `docs/` sont suivies par Git et entrent donc dans le `pyage-source.z
 
 - `pyproject.toml`, `pyage/_version.py`, `install/constraints.txt`, `install/environment.yml`, `install/README.md`
 - manifests sous `C:\pyage-runs\article-v1`
-- `scripts/build_reproduction_archive.py`
+- `scripts/release/build_reproduction_archive.py`
 - `docs/index.md`, `docs/user-guide/index.md`, `docs/conf.py`
 - `LICENSE`

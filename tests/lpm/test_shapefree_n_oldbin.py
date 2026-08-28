@@ -9,7 +9,7 @@ from textwrap import dedent
 import numpy as np
 import pytest
 
-from pyages.convolution.convolution import Convolution
+from pyages.convolution import Convolution
 from pyages.lpm import build_lpm
 from pyages.tracer.tracer_protocol import SyntheticTracer
 from tests.utils import paths as test_paths

@@ -28,7 +28,7 @@ from packaging.version import Version
 
 from pyages import __version__
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 RELEASE_TAG = "1.0"
 RELEASE_VERSION = "1.0"
 REPRODUCTION_ENVIRONMENT = ROOT / "install/environment.yml"
@@ -112,7 +112,7 @@ def _stage_map(
             (
                 python,
                 "-m",
-                "scripts.run_tracerlpm_article_campaign",
+                "scripts.article.run_tracerlpm_article_campaign",
                 "--output",
                 str(output / "tracerlpm"),
                 "--config",
@@ -130,7 +130,7 @@ def _stage_map(
             (
                 python,
                 "-m",
-                "scripts.run_final_shifted_exponential",
+                "scripts.article.run_final_shifted_exponential",
                 "all",
                 "--output",
                 str(output / "shifted_exponential"),
@@ -144,7 +144,7 @@ def _stage_map(
             (
                 python,
                 "-m",
-                "scripts.run_final_holten_h4",
+                "scripts.article.run_final_holten_h4",
                 "all",
                 "--output",
                 str(output / "holten_h4"),
@@ -156,7 +156,7 @@ def _stage_map(
             (
                 python,
                 "-m",
-                "scripts.run_holten_prior_robustness",
+                "scripts.article.run_holten_prior_robustness",
                 "--output",
                 str(output / "holten_prior_dirichlet1"),
                 "--canonical-holten",
@@ -175,7 +175,7 @@ def _stage_map(
             (
                 python,
                 "-m",
-                "scripts.run_ploemeur_shifted_exponential_final",
+                "scripts.article.run_ploemeur_shifted_exponential_final",
                 "all",
                 "--output",
                 str(output / "ploemeur_shifted_exponential"),
@@ -189,7 +189,7 @@ def _stage_map(
             (
                 python,
                 "-m",
-                "scripts.run_ploemeur_targeted_ig_reproduction",
+                "scripts.article.run_ploemeur_targeted_ig_reproduction",
                 "--stage",
                 "resume",
                 "--output",
@@ -204,7 +204,7 @@ def _stage_map(
             (
                 python,
                 "-m",
-                "scripts.build_article_package",
+                "scripts.release.build_article_package",
                 "--campaign-root",
                 str(output),
                 "--output",
@@ -218,7 +218,7 @@ def _stage_map(
             (
                 python,
                 "-m",
-                "scripts.build_reproduction_archive",
+                "scripts.release.build_reproduction_archive",
                 "--campaign",
                 str(output),
                 "--output",
@@ -352,8 +352,70 @@ def _check_reproduction_environment() -> tuple[dict[str, str], list[str]]:
     return observed, errors
 
 
+def _check_stage_entrypoints(
+    stages: dict[str, Stage], selected: tuple[str, ...]
+) -> tuple[dict[str, str], list[str]]:
+    """Import selected Python entry points in one isolated subprocess."""
+    modules: dict[str, str] = {}
+    errors: list[str] = []
+    for name in selected:
+        command = stages[name].command
+        try:
+            module_index = command.index("-m") + 1
+            module = command[module_index]
+        except (IndexError, ValueError):
+            continue
+        modules[name] = module
+
+    if not modules:
+        return modules, errors
+
+    probe = """
+import importlib
+import json
+import sys
+
+modules = json.loads(sys.argv[1])
+failures = {}
+for stage, module in modules.items():
+    try:
+        importlib.import_module(module)
+    except Exception as error:
+        failures[stage] = f"{type(error).__name__}: {error}"
+print(json.dumps(failures))
+"""
+    environment = os.environ.copy()
+    environment["PYTHONNOUSERSITE"] = "1"
+    completed = subprocess.run(
+        [sys.executable, "-c", probe, json.dumps(modules)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=environment,
+        check=False,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip()
+        return modules, [
+            "stage entry-point import probe failed" + (f": {detail}" if detail else "")
+        ]
+    lines = [line for line in completed.stdout.splitlines() if line.strip()]
+    try:
+        failures = json.loads(lines[-1])
+    except (IndexError, json.JSONDecodeError):
+        return modules, ["stage entry-point import probe returned invalid output"]
+    errors.extend(
+        f"stage {name} entry point {modules[name]!r} is not importable: {message}"
+        for name, message in failures.items()
+    )
+    return modules, errors
+
+
 def preflight(
     output: Path,
+    stages: dict[str, Stage],
     selected: tuple[str, ...],
     tracer_config: Path,
     allow_dirty: bool,
@@ -377,6 +439,8 @@ def preflight(
         errors.extend(_check_tracer_config(tracer_config))
     environment, environment_errors = _check_reproduction_environment()
     errors.extend(environment_errors)
+    entrypoints, entrypoint_errors = _check_stage_entrypoints(stages, selected)
+    errors.extend(entrypoint_errors)
     errors.extend(_check_release_identity(expected_tag, allow_untagged))
     tags = [tag for tag in _git("tag", "--points-at", "HEAD").splitlines() if tag]
     report = {
@@ -387,6 +451,7 @@ def preflight(
         "expected_release_tag": expected_tag,
         "pyages_version": __version__,
         "environment": environment,
+        "stage_entrypoints": entrypoints,
         "output": str(output),
         "selected_stages": list(selected),
         "errors": errors,
@@ -515,12 +580,12 @@ def validate_campaign(
     """Validate recorded stage completion and hash-protected deliverables.
 
     This is the canonical gate for a fresh campaign. It does not inspect the
-    optional historical result tree used by ``article/run_case.py check`` and
+    optional historical result tree used by ``scripts.article.run_case check`` and
     it does not turn measured numerical results into scientific qualification
     decisions.
     """
 
-    from scripts import build_article_package, build_reproduction_archive
+    from scripts.release import build_article_package, build_reproduction_archive
 
     output = output.resolve()
     manifest_path = output / "campaign_manifest.json"
@@ -738,6 +803,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report["status"] == "valid" else 1
     report = preflight(
         output,
+        stages,
         selected,
         args.tracerlpm_config.resolve(),
         args.allow_dirty,

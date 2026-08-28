@@ -93,7 +93,7 @@ python -m ruff format --check .
 python run_tests.py standard
 python run_tests.py coverage
 python run_tests.py validation
-python -m scripts.generate_test_inventory --check
+python -m scripts.maintenance.generate_test_inventory --check
 python -m sphinx -W --keep-going -b html docs docs/_build/html
 python -m sphinx -W --keep-going -b linkcheck docs docs/_build/linkcheck
 ```

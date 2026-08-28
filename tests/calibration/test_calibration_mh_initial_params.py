@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 
 
 class _FakeLpm:
@@ -48,8 +48,7 @@ def _initialize(initial_params):
     )
     problem = SimpleNamespace(lpm=_FakeLpm(), ensure_prepared=lambda: None)
     mh._bind_problem(problem)
-    mh.proposal_step.value = {"mu": 1.5, "shift": 1.5}
-    params, *_ = mh._MetropolisHastings__initialize_state(  # noqa: SLF001
+    params, *_ = mh._initialize_state(  # noqa: SLF001
         np.array([]), np.array([])
     )
     return mh, params
@@ -59,7 +58,7 @@ def test_explicit_initial_params_are_applied_without_prior():
     mh, params = _initialize({"mu": 35.0, "shift": 20.0})
 
     assert params == [35.0, 20.0]
-    payload = mh._MetropolisHastings__parameters_payload()  # noqa: SLF001
+    payload = mh._parameters_payload()  # noqa: SLF001
     assert payload["initialization_source"] == "config"
     assert payload["initial_mu"] == 35.0
     assert payload["initial_shift"] == 20.0
@@ -69,7 +68,7 @@ def test_initial_params_are_optional_and_keep_lpm_defaults():
     mh, params = _initialize(None)
 
     assert params == [10.0, 10.0]
-    payload = mh._MetropolisHastings__parameters_payload()  # noqa: SLF001
+    payload = mh._parameters_payload()  # noqa: SLF001
     assert payload["initialization_source"] == "lpm_default"
 
 

@@ -12,6 +12,7 @@ import json
 import platform
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -31,13 +32,16 @@ def _sha256(path: Path) -> str:
 
 
 def _run_git(repository: Path, *args: str, binary: bool = False):
-    result = subprocess.run(
-        ["git", *args],
-        cwd=repository,
-        capture_output=True,
-        text=not binary,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=repository,
+            capture_output=True,
+            text=not binary,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
     return result.stdout if result.returncode == 0 else None
 
 
@@ -95,13 +99,28 @@ def _indexed_files(
     paths: Iterable[str | Path], repository: Path
 ) -> list[dict[str, Any]]:
     indexed = []
+    seen: set[Path] = set()
     for raw in paths:
         path = Path(raw).resolve()
-        if not path.is_file():
+        if path.is_file():
+            candidates = [path]
+        elif path.is_dir():
+            candidates = sorted(
+                candidate for candidate in path.rglob("*") if candidate.is_file()
+            )
+        else:
             raise FileNotFoundError(f"Cannot manifest missing input: {path}")
-        indexed.append(
-            {"path": _portable_path(path, repository), "sha256": _sha256(path)}
-        )
+        for candidate in candidates:
+            resolved = candidate.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            indexed.append(
+                {
+                    "path": _portable_path(resolved, repository),
+                    "sha256": _sha256(resolved),
+                }
+            )
     return indexed
 
 
@@ -111,6 +130,15 @@ def _artifacts(directory: Path) -> dict[str, str]:
         for path in sorted(directory.rglob("*"))
         if path.is_file() and path.name != "result_manifest.json"
     }
+
+
+def begin_result_run(directory: str | Path) -> Path:
+    """Invalidate any previous success marker for a reused result directory."""
+    output_directory = Path(directory).resolve()
+    output_directory.mkdir(parents=True, exist_ok=True)
+    manifest = output_directory / "result_manifest.json"
+    manifest.unlink(missing_ok=True)
+    return output_directory
 
 
 def write_result_manifest(
@@ -147,11 +175,25 @@ def write_result_manifest(
     if details:
         payload["details"] = dict(details)
     target = output_directory / "result_manifest.json"
-    target.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=output_directory,
+            prefix=".result_manifest.",
+            suffix=".tmp",
+            delete=False,
+        ) as stream:
+            temporary_path = Path(stream.name)
+            stream.write(
+                json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+            )
+        temporary_path.replace(target)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
     return target
 
 
-__all__ = ["RESULT_SCHEMA_VERSION", "write_result_manifest"]
+__all__ = ["RESULT_SCHEMA_VERSION", "begin_result_run", "write_result_manifest"]

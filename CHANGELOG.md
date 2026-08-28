@@ -17,8 +17,15 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Separated packaged `data_core` runtime resources from provenance workbooks
   under an explicit `sources/` tree and removed the obsolete, unreferenced
   `MHapriori-normal.txt` definition. Supported runtime resource paths are
-  unchanged. The I/O tests now mirror the `pyages.data_io` package name, and
-  maintained repository scripts are catalogued by responsibility.
+  unchanged. The I/O tests now mirror the `pyages.data_io` package name.
+- Grouped maintained repository scripts into `scripts.article`,
+  `scripts.qualification`, `scripts.release`, and `scripts.maintenance`, with
+  shared helpers and Windows wrappers kept in their dedicated directories.
+  Article case dispatch and guarded post-processing now live in
+  `scripts.article` as well, leaving `article/` for declarative reproduction
+  records; orchestration tests mirror the same responsibility families.
+  The former flat module paths are intentionally removed before 1.0;
+  historical reproduction manifests retain their recorded paths and hashes.
 - Standardized parametric-prior YAML on the canonical `uniform` and `normal`
   names and removed the pre-1.0 `gaussian` alias.
 - Moved inverse-Gaussian quantile robustness from the generic SciPy adapter to
@@ -36,7 +43,29 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Migrated repository automation and project links from GitLab to GitHub.
 - Replaced calibration inheritance and attribute copying with explicit
   `CalibrationProblem` and `CalibrationMethod` composition.
+- Reorganized calibration internals by responsibility: systematic exploration
+  now lives under `pyages.calibration.exploration`, Metropolis--Hastings under
+  `pyages.calibration.methods.mh`, and synthetic recovery under
+  `pyages.workflows.synthetic_recovery`. Removed the former `utils`, flat MH,
+  and `CalibrationSyntheticTest` paths without compatibility aliases before
+  1.0. The synthetic workflow now accepts only `sample_count`, and repository
+  qualification scripts import calibration symbols directly instead of using
+  abbreviated module aliases. Empirical priors now use their documented
+  piecewise-linear density, missing-error defaults respect each observation
+  date, and systematic output reports both actual and requested grid sizes.
 - Introduced typed workflow contexts and split plotting helpers by purpose.
+- Hardened workflow completion and provenance: reruns invalidate the preceding
+  success manifest, manifests are replaced atomically and hash selected LPM and
+  tracer resources, normalized outputs contain the effective uncertainties,
+  temporal chains use recorded fresh seeds unless a fixed seed is enabled, and
+  Matplotlib retains its environment-selected desktop or headless backend.
+- Made missing-error inference explicit through `dataset.missing_error_rel`
+  in single-date and temporal workflows. Result manifests now record every
+  observation-error transformation, its fraction, affected rows, and count.
+- Rationalized the carbon-14 runtime definitions as three intentional
+  contracts (`14C` constant recharge, `14C_NH`, and `14C_SH` chronicles),
+  removed the unused duplicate YAML, and aligned every definition on the
+  published 5730-year half-life.
 - Replaced the flag-based `Concentrations` constructor with explicit
   `from_file()` and `from_dataframe()` constructors.
 - Removed the redundant `pyages.observations` loading facade. Observation
@@ -51,6 +80,17 @@ Before 1.0, incompatible public changes are identified explicitly below.
   `name_date`, `error_affect_*`, `names_dates`, and deep-module aliases after
   migrating the repository to the explicit `frame`, `ConcentrationChronicle`,
   and observation-key APIs.
+- Reorganized concentration handling by responsibility: series, temporal
+  summaries, and plotting now live in explicit `pyages.concentrations` modules,
+  serialization lives in `pyages.data_io.concentrations`, and calibrated export
+  orchestration lives in `pyages.workflows.concentration_exports`. Removed the
+  former `concentrations.chronicles` and `concentrations.utils` paths without
+  pre-1.0 aliases. Replaced ambiguous `tracer_names()` with explicit
+  `observation_tracer_names()` and `unique_tracer_names()` methods.
+- Strengthened contributor-series validation, made chronicle-summary layouts
+  reject missing axes and mismatched tracer sets, stopped concentration imports
+  from initializing Matplotlib, and reused each temporal convolution across
+  quantiles, figures, and wide-table exports.
 - Changed concentration-error sampling to a true Gaussian distribution
   truncated at zero, preventing non-physical negative draws without creating
   an artificial point mass at zero. Centralized temporal prediction-grid
@@ -79,10 +119,29 @@ Before 1.0, incompatible public changes are identified explicitly below.
   sampling plots; parameter grids now support any positive dimension count.
 - Calibration problems now create their optional systematic exploration only
   when requested, avoiding duplicate tracer and LPM loading in ordinary runs.
-- Simplified multi-tracer convolution construction and added an explicit error
-  for mismatched tracer and sampling-date counts.
+- Simplified multi-tracer convolution construction, added an explicit error
+  for mismatched tracer and sampling-date counts, and reject duplicate tracer
+  names before constructing a name-keyed date-range result.
 - Date-range convolution now exposes its resolution and restores the original
-  convolution date after evaluating the requested range.
+  convolution date, prepared grid, and diagnostics after evaluating the
+  requested range.
+- Hardened convolution boundaries for finite observation dates, integral date
+  resolutions, finite Dirac responses and ages, valid mixture weights, bounded
+  CDFs, and consistent production/window-mass providers. Prepared tracer grids
+  are now validated read-only snapshots, and invalid batch return types fail
+  before numerical work begins.
+- Added a task-oriented direct-convolution guide covering finite histories,
+  batches, diagnostics, cached grids, and numerical controls, and made the LPM
+  extension contract explicit for CDFs and partial first moments.
+- Separated tracer-grid construction from continuous CDF/moment integration,
+  leaving `Convolution` responsible for orchestration and cache state. Renamed
+  the internal multi-tracer module to `pyages.convolution.batch`; the supported
+  `pyages.convolution.ConvolutionTracers` import is unchanged.
+- Removed the pre-1.0 tracer-method forwarding facade from `Convolution`:
+  tracer metadata and response methods now remain on its explicit `tracer`
+  collaborator. Multi-tracer batches expose `convolutions` and
+  `tracer_names()` instead of the ambiguous `elements` and `element_names()`,
+  and repository consumers no longer retain module or `LPM` type aliases.
 - The top-level calibration package now loads its public problem class lazily,
   keeping lightweight utility imports independent from the scientific stack.
 - Systematic exploration now uses the same explicit parameter names as

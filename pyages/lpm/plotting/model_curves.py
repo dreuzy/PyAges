@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import matplotlib.pyplot as plt
 import numpy as np
+
+from pyages._plotting import create_figure, finalize_figure
 
 if TYPE_CHECKING:
     from pyages.lpm.core.lpm_base import LpmBase
@@ -26,21 +27,23 @@ def plot_model_curve(lpm: "LpmBase", kind: str, display_options: Any) -> None:
             f"Dimension mismatch: len(t)={len(times)} != len(values)={len(values)}"
         )
 
-    plt.figure()
-    plt.xlabel("t", fontsize=16, fontweight="bold")
-    plt.xticks(fontsize=14)
-    plt.ylabel("f(t)", fontsize=14, fontweight="bold")
-    plt.yticks(fontsize=14)
-    plt.title(f"{kind} of {lpm.name}", fontsize=22, fontweight="bold")
-    plt.grid(True)
-    plt.plot(times, values, "r", label=lpm.name)
-    plt.xlim((0, max(times)))
+    figure, axis = create_figure(
+        x_label="t",
+        y_label="f(t)",
+        title=f"{kind} of {lpm.name}",
+    )
+    axis.plot(times, values, "r", label=lpm.name)
+    axis.set_xlim((0, max(times)))
 
     maximum = max(values)
     ylim = maximum * 1.1 if maximum > 0 else 1
     if np.isfinite(ylim):
-        plt.ylim((0, ylim))
-    display_options.figure_close_fx(f"{lpm.name}_{kind}")
+        axis.set_ylim((0, ylim))
+    finalize_figure(
+        figure,
+        display_options.figure_path(f"{lpm.name}_{kind}"),
+        close=display_options.figure_close,
+    )
 
 
 def plot_pdf_cdf(lpm: "LpmBase", display_options: Any) -> None:

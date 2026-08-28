@@ -13,7 +13,7 @@ The test scopes and GitHub jobs referenced below are defined in
 2. Confirm that every modified, deleted, and untracked file is intentional.
    Install the qualified direct dependency set with
    `python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"`.
-   Run `python -m scripts.check_project_metadata` to verify that the qualified
+   Run `python -m scripts.maintenance.check_project_metadata` to verify that the qualified
    pip and Conda pins satisfy the declared compatibility ranges and that the
    release identity files agree. The article-reproduction environment is
    stricter: its direct versions must match `install/environment.yml` exactly.
@@ -56,7 +56,7 @@ The test scopes and GitHub jobs referenced below are defined in
 7. Build and validate both distribution formats:
 
    ```bash
-   python -m scripts.clean_release_artifacts
+   python -m scripts.maintenance.clean_release_artifacts
    python -m build
    python -m twine check dist/*
    python -m zipfile -l dist/*.whl
@@ -64,7 +64,7 @@ The test scopes and GitHub jobs referenced below are defined in
 
    The default cleanup preserves test caches, documentation builds, coverage
    files, local editor settings, and scientific results. Maintainers may use
-   `python -m scripts.clean_release_artifacts --include-caches` for a deeper
+   `python -m scripts.maintenance.clean_release_artifacts --include-caches` for a deeper
    reproducible-artifact cleanup, including nested project `__pycache__`
    directories and TracerLPM `bin/`/`obj/` outputs. This option still never
    removes `results/`, `.claude/`, or `.vscode/`.

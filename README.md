@@ -67,13 +67,13 @@ python -m pip install --pre pyages
 Run the full test suite:
 
 ```
-python run_tests.py
+python run_tests.py standard
 ```
 
 Update golden values (when intentionally changing outputs):
 
 ```
-python run_tests.py update
+python run_tests.py standard update
 ```
 
 ## Quickstart (fast, no interactive plots)
@@ -153,14 +153,19 @@ setx PYAGES_RESULTS_DIR "D:\results\PyAges"
   - `pyages/concentrations/`: concentration data handling and time series helpers
   - `pyages/calibration/`: calibration methods, workflows, and objective functions
   - `pyages/config/`: validated configuration models, paths, and runtime helpers
-  - `pyages/tools/`: plotting and miscellaneous utilities used across modules
+  - `pyages/_plotting.py`: private plotting primitives shared across modules
 - `data_core/`: shared model data for LPMs and tracers (not observations)
   - `data_core/data_lpm/`: LPM parameter files (`params.yaml`, bounds, etc.)
   - `data_core/data_tracer/`: tracer chronologies and recharge series
   - `data_core/sources/`: provenance sources excluded from runtime packages
 - `sites/`: site-specific workflows, data, and scripts (e.g., `ploemeur/`)
 - `examples/`: runnable examples and their data (e.g., `holten/`, `ploemeur/`)
-- `scripts/`: maintained qualification, reproduction, and release tools
+- `scripts/`: maintained repository entry points grouped by responsibility
+  - `scripts/article/`: article campaigns, post-processing, and audits
+  - `scripts/qualification/`: diagnostics and numerical qualification
+  - `scripts/release/`: publication packages and archives
+  - `scripts/maintenance/`: repository checks, cleanup, and inventory
+  - `scripts/common/` and `scripts/windows/`: shared helpers and wrappers
 - `tests/`: automated tests, fixtures, contracts, and golden references
 - `validation/`: independent scientific and cross-software validation
 - `docs/`: user, scientific, reference, maintainer, and report documentation
@@ -239,15 +244,15 @@ aggregated outputs against stored values in `tests/golden/`.
 Common commands:
 
 ```
-python run_tests.py
-python run_tests.py detail
-python run_tests.py update
+python run_tests.py standard
+python run_tests.py standard detail
+python run_tests.py standard update
 ```
 
 Run extensive tests (opt-in):
 
 ```
-pytest -q tests --run-extensive
+python run_tests.py extensive
 ```
 
 ## Workflows and diagnostics

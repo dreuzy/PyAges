@@ -56,4 +56,4 @@ Comme pour le shifted synthétique, le sampler générique conserve 7 999 tirage
 
 ## Preuve utilisée
 
-Les constantes et fonctions ont été vérifiées dans `scripts/run_final_shifted_exponential.py`, `scripts/run_final_holten_h4.py`, `scripts/run_holten_prior_robustness.py`, `scripts/run_ploemeur_shifted_exponential_final.py` et `pyage/calibration/mh_proposals.py`, puis confrontées aux quatre manifests sous `C:\pyage-runs\article-v1`.
+Les constantes et fonctions ont été vérifiées dans `scripts/article/run_final_shifted_exponential.py`, `scripts/article/run_final_holten_h4.py`, `scripts/article/run_holten_prior_robustness.py`, `scripts/article/run_ploemeur_shifted_exponential_final.py` et `pyage/calibration/mh_proposals.py`, puis confrontées aux quatre manifests sous `C:\pyage-runs\article-v1`.

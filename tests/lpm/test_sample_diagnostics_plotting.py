@@ -51,11 +51,15 @@ def test_parameter_diagnostics_route_all_one_and_two_dimensional_views(
     closed = []
     pair_plot = Mock()
     monkeypatch.setattr(
-        sample_diagnostics.figadd,
-        "figure_close",
-        lambda filename=None: (closed.append(filename), plt.close()),
+        sample_diagnostics.plotting,
+        "finalize_figure",
+        lambda _figure, filename=None: (closed.append(filename), plt.close()),
     )
-    monkeypatch.setattr(sample_diagnostics.figadd, "hist_scatter", pair_plot)
+    monkeypatch.setattr(
+        sample_diagnostics.plotting,
+        "plot_histogram_scatter",
+        pair_plot,
+    )
 
     sample_diagnostics.plot_parameter_diagnostics(
         distribution,
@@ -82,7 +86,7 @@ def test_prior_and_concentration_diagnostics_route_overlays(monkeypatch) -> None
     comparison = _sample_table(offset=0.01)
     reference = build_lpm("ig")
     prior = SimpleNamespace(
-        MHapriori_para={
+        parameters={
             name: np.column_stack(
                 (
                     np.linspace(
@@ -94,10 +98,14 @@ def test_prior_and_concentration_diagnostics_route_overlays(monkeypatch) -> None
             for name in distribution.get_param_names()
         }
     )
-    close = Mock(side_effect=lambda **_kwargs: plt.close())
+    close = Mock(side_effect=lambda *_args, **_kwargs: plt.close())
     pair_plot = Mock()
-    monkeypatch.setattr(sample_diagnostics.figadd, "figure_close", close)
-    monkeypatch.setattr(sample_diagnostics.figadd, "hist_scatter", pair_plot)
+    monkeypatch.setattr(sample_diagnostics.plotting, "finalize_figure", close)
+    monkeypatch.setattr(
+        sample_diagnostics.plotting,
+        "plot_histogram_scatter",
+        pair_plot,
+    )
 
     sample_diagnostics.plot_prior_comparison(
         distribution,
@@ -120,6 +128,34 @@ def test_prior_and_concentration_diagnostics_route_overlays(monkeypatch) -> None
 
     assert close.call_count == len(distribution.get_param_names())
     assert pair_plot.call_count == len(distribution.get_concentration_names())
+
+
+def test_parameter_diagnostics_render_and_close_shared_figures(tmp_path) -> None:
+    distribution = _sample_table()
+    comparison = _sample_table(offset=0.01)
+    reference = build_lpm("ig")
+    names = distribution.get_param_names()
+    plt.close("all")
+
+    sample_diagnostics.plot_parameter_diagnostics(
+        distribution,
+        self_method="MH",
+        lpm_reference=reference,
+        lpm_2nd=comparison,
+        lpm_2nd_method="comparison",
+        directory=tmp_path,
+    )
+
+    expected = {
+        *(f"comp_{name}.png" for name in names),
+        *(f"objfunction_{name}.png" for name in names),
+        *(
+            f"comp2D_{name}_{names[(index + 1) % len(names)]}.png"
+            for index, name in enumerate(names)
+        ),
+    }
+    assert {path.name for path in tmp_path.glob("*.png")} == expected
+    assert plt.get_fignums() == []
 
 
 def test_parameter_helpers_filter_nonfinite_values_and_invalid_bins() -> None:
@@ -146,10 +182,18 @@ def test_empty_parameter_and_concentration_tables_are_safe(monkeypatch) -> None:
     distribution = _sample_table()
     name = distribution.get_param_names()[0]
     distribution.frame.loc[:, name] = np.nan
-    figure_init = Mock()
+    create_figure = Mock()
     pair_plot = Mock()
-    monkeypatch.setattr(sample_diagnostics.figadd, "figure_init", figure_init)
-    monkeypatch.setattr(sample_diagnostics.figadd, "hist_scatter", pair_plot)
+    monkeypatch.setattr(
+        sample_diagnostics.plotting,
+        "create_figure",
+        create_figure,
+    )
+    monkeypatch.setattr(
+        sample_diagnostics.plotting,
+        "plot_histogram_scatter",
+        pair_plot,
+    )
 
     sample_diagnostics._plot_param_histogram(
         distribution, name, "MH", None, None, "", None
@@ -157,5 +201,5 @@ def test_empty_parameter_and_concentration_tables_are_safe(monkeypatch) -> None:
     empty_concentrations = LpmSampleTable(build_lpm("exp"), c_names=[])
     sample_diagnostics.plot_concentration_diagnostics(empty_concentrations)
 
-    figure_init.assert_not_called()
+    create_figure.assert_not_called()
     pair_plot.assert_not_called()

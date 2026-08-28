@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from pyages.calibration.methods.prior import Prior
+from pyages.calibration.methods.mh.prior import Prior
 from pyages.data_io.lpm_distribution import write_frame
 from pyages.lpm import build_lpm
 
@@ -29,8 +29,8 @@ class _TwoParameterModel:
 
 def test_uniform_prior_has_exact_zero_support():
     prior = Prior(option=True, typ="parametric")
-    prior.MHapriori_dist = {"mu": "uniform"}
-    prior.MHapriori_para = {"mu": [1.0, 2.0]}
+    prior.distributions = {"mu": "uniform"}
+    prior.parameters = {"mu": [1.0, 2.0]}
     model = _OneParameterModel()
 
     assert prior.evaluate(model, [0.5]) == 0.0
@@ -75,5 +75,5 @@ def test_loading_empirical_priors_uses_the_histogram_file_family(tmp_path) -> No
 
     prior.load(model)
 
-    assert list(prior.MHapriori_para) == ["mu"]
-    assert prior.MHapriori_para["mu"].shape == (101, 2)
+    assert list(prior.parameters) == ["mu"]
+    assert prior.parameters["mu"].shape == (101, 2)

@@ -2,15 +2,19 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Public API for tracer/LPM convolution."""
+"""Public entry point for tracer/LPM convolution.
 
-from pyages.convolution.convolution import (
-    Convolution,
+The package exposes the single- and multi-tracer engines together with the
+immutable grid records, diagnostics, errors, and numerical settings they use.
+"""
+
+from pyages.convolution.batch import ConvolutionTracers
+from pyages.convolution.convolution import Convolution
+from pyages.convolution.models import (
     ConvolutionDiagnostics,
     ConvolutionError,
     PreparedTracerGrid,
 )
-from pyages.convolution.convolution_tracers import ConvolutionTracers
 from pyages.convolution.settings import (
     DEFAULT_TRACER_GRID_SETTINGS,
     TracerGridSettings,

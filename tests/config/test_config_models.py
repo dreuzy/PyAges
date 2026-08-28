@@ -241,6 +241,30 @@ def test_single_date_mh_requires_at_least_one_retained_state() -> None:
     assert LauncherMetropolisCfg(nstep=11).nstep == 11
 
 
+def test_temporal_fixed_seed_requires_a_non_negative_value() -> None:
+    with pytest.raises(ValidationError, match="seed is required"):
+        TemporalCalibrationCfg(seed_enabled=True)
+    with pytest.raises(ValidationError, match="greater than or equal to 0"):
+        TemporalCalibrationCfg(seed_enabled=True, seed=-1)
+
+    assert TemporalCalibrationCfg(seed_enabled=True, seed=0).seed == 0
+
+
+def test_temporal_relative_error_must_be_strictly_positive() -> None:
+    with pytest.raises(ValidationError, match="greater than 0"):
+        TemporalDatasetCfg(file="observations.txt", error_rel=0.0)
+    with pytest.raises(ValidationError, match="greater than 0"):
+        TemporalDatasetCfg(file="observations.txt", missing_error_rel=0.0)
+    with pytest.raises(ValidationError, match="greater than 0"):
+        LauncherDatasetCfg(missing_error_rel=0.0)
+
+
+@pytest.mark.parametrize("models", [[], ["exp", ""], ["exp", "exp"]])
+def test_temporal_explicit_model_list_must_be_unambiguous(models) -> None:
+    with pytest.raises(ValidationError, match="lpm_models.list"):
+        TemporalLpmModelsCfg(list=models)
+
+
 def test_all_documented_yaml_blocks_are_parseable():
     document = CONFIGURATION_DOC.read_text(encoding="utf-8")
     blocks = re.findall(r"```yaml\s*\n(.*?)```", document, flags=re.DOTALL)

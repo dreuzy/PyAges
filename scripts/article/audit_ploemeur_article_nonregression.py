@@ -27,12 +27,12 @@ from scipy import integrate
 from scipy.interpolate import interp1d
 from scipy.stats import invgauss
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from pyages.config.paths import DIRECTORY_TRACER_DATA
-from pyages.convolution.convolution import Convolution
+from pyages.convolution import Convolution
 from pyages.data_io.lpm_distribution import read_distribution
 from pyages.lpm.models.inverse_gaussian import scipy_params_from_mean_std
 from pyages.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm

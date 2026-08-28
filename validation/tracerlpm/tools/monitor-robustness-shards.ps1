@@ -31,10 +31,9 @@ while ($true) {
     Start-Sleep -Seconds 30
 }
 
-# Les files de reprise sont disjointes. Après publication du dernier rapport,
-# laisser aux runners jusqu'à 30 secondes pour fermer proprement leur instance
-# Excel. Ne jamais rechercher ou arrêter une instance Excel par date ou titre :
-# elle pourrait appartenir à l'utilisateur.
+# Resume queues are disjoint. After the final report is published, allow runners
+# up to 30 seconds to close their Excel instance cleanly. Never search for or
+# stop an Excel instance by date or title: it could belong to the user.
 $shutdownDeadline = (Get-Date).AddSeconds(30)
 while (@(Get-Process -Id $runnerProcessIds -ErrorAction SilentlyContinue).Count -gt 0 -and
        (Get-Date) -lt $shutdownDeadline) {

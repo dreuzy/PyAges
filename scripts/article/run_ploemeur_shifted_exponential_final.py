@@ -40,12 +40,12 @@ import numpy as np
 import pandas as pd
 import scipy
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyages.calibration.mh_proposals import regularize_empirical_covariance
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
 from pyages.config.runtime import DisplayOptions
@@ -342,7 +342,7 @@ def _observations(case: Case) -> Concentrations:
         observations = Concentrations.from_dataframe(frame)
     observations.frame["unit"] = "pptv"
     observations.set_relative_errors(RELATIVE_ERROR)
-    if set(observations.tracer_names()) != set(TRACERS):
+    if set(observations.unique_tracer_names()) != set(TRACERS):
         raise RuntimeError(f"Unexpected tracer set for {case.key}")
     return observations
 
@@ -771,9 +771,8 @@ def _render_figure4(output: Path, intervals: pd.DataFrame) -> None:
             hspace=0.34,
         )
         final_paths = save_pdf_png(figure, output, "figure4_ploemeur_final")
-        legacy_paths = save_pdf_png(figure, output, "figure4_ploemeur_shiftedexp_final")
         INSERTION_OUTPUT.mkdir(parents=True, exist_ok=True)
-        for destination in (*final_paths, *legacy_paths):
+        for destination in final_paths:
             shutil.copy2(destination, INSERTION_OUTPUT / destination.name)
         plt.close(figure)
 
@@ -1046,7 +1045,7 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
         ROOT / "sites/ploemeur/scripts/prepare_observations.py",
         ROOT / "pyages/lpm/samples/analysis.py",
         ROOT / "pyages/lpm/core/lpm_base.py",
-        ROOT / "pyages/convolution/continuous.py",
+        ROOT / "pyages/convolution/continuous_integration.py",
         ROOT / "pyages/lpm/models/exponential_shifted.py",
     ]
     payload = {

@@ -29,9 +29,8 @@ recharge_constant: 100
 # Radioactive Decay
 # =============================================================================
 
-# Decay characteristic time in years (half-life / ln(2))
-# 14C half-life is ~5730 years, characteristic time = 5730/ln(2) ≈ 8267 years
-# However, here we use a shorter effective decay time of 573 years
+# Published radioactive half-life in years. The loader converts it once to
+# the decay rate ln(2) / half_life.
 half_life: 5730
 
 # =============================================================================

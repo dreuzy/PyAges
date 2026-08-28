@@ -36,8 +36,7 @@ from scipy.integrate import IntegrationWarning, quad
 from scipy.special import ndtri
 from scipy.stats import rankdata
 
-from pyages.convolution.convolution import Convolution
-from pyages.convolution.settings import DEFAULT_TRACER_GRID_SETTINGS
+from pyages.convolution import DEFAULT_TRACER_GRID_SETTINGS, Convolution
 from pyages.lpm.models.inverse_gaussian_shifted import (
     InverseGaussianShiftedLpm,
 )

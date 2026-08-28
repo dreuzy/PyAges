@@ -82,10 +82,10 @@ C_i=K(a_i)w_i+s_iq_i.
 
 This expression is exact for affine $K$ regardless of the width or position of
 the LPM density. When the sampled midpoint curvature is too large for the
-affine assumption, the code uses $K((a_i+b_i)/2)w_i$ in that bin. CDF
-non-monotonicity and inconsistent partial moments raise a
-``ConvolutionError``; only negative values compatible with floating-point
-roundoff are clipped.
+affine assumption, the code uses $K((a_i+b_i)/2)w_i$ in that bin. CDF values
+outside $[0,1]$, CDF non-monotonicity, and inconsistent partial moments raise
+a ``ConvolutionError``; only probability-bound or negative-weight deviations
+compatible with floating-point roundoff are clipped.
 
 ### Adaptive-grid controls
 
@@ -167,7 +167,7 @@ This assumes independent, unbiased Gaussian errors with known standard
 deviations. PyAges does not currently represent an observation-error covariance
 matrix. Parameter bounds and priors are separate from $\chi^2$.
 
-Three legacy output names must not be interchanged:
+Three objective quantities must not be interchanged:
 
 | Context | Stored name | Quantity |
 | --- | --- | --- |
@@ -220,8 +220,8 @@ operational checklist is in {doc}`user-guide/calibration`.
 
 | Scientific claim | Code contract | User/manual entry | Qualification evidence |
 | --- | --- | --- | --- |
-| finite-window convolution and mass | ``pyages/convolution/convolution.py`` | this page; {doc}`user-guide/configuration` | ``tests/convolution/test_convolution_scientific.py``; {doc}`convolution-method-evolution-report` |
-| adaptive tolerance semantics | ``pyages/convolution/settings.py`` and ``continuous.py`` | this page | ``tests/convolution/test_convolution_settings.py`` |
+| finite-window convolution and mass | ``pyages/convolution/convolution.py`` and ``continuous_integration.py`` | this page; {doc}`user-guide/convolution` | ``tests/convolution/test_convolution_scientific.py``; {doc}`convolution-method-evolution-report` |
+| adaptive tracer-grid semantics | ``pyages/convolution/tracer_grid.py`` and ``settings.py`` | this page | ``tests/convolution/test_convolution_settings.py`` |
 | independent forward acceptance | ``validation/tracerlpm/benchmark/scripts/compare_pyages.py`` | this page | ``validation/tracerlpm/benchmark/tests/test_compare_pyages.py``; {doc}`reports/forward_qualification_2026-08-27` |
 | IG physical moments and shift | ``pyages/lpm/models/inverse_gaussian*.py`` | this page; {doc}`user-guide/adding-lpm` | ``tests/lpm/test_inverse_gaussian_analytics.py``; {doc}`scientific-migration-ig-decay` |
 | normalized-residual objective | ``pyages/calibration/problem.py`` and ``utils/objective_functions.py`` | this page | ``tests/calibration/test_calibration_problem.py`` |

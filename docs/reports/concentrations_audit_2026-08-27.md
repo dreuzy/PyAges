@@ -1,6 +1,7 @@
 # Audit du sous-package `concentrations`
 
 **Date :** 27 août 2026  
+**Relance achevée :** 28 août 2026
 **Périmètre :** `pyages/concentrations`, tests unitaires et documentation de son
 contrat public  
 **Nature :** refactoring défensif sans modification des résultats numériques
@@ -8,10 +9,10 @@ pour les entrées valides existantes
 
 ## Synthèse
 
-L'audit a séparé trois responsabilités auparavant entremêlées : le conteneur
-d'observations validé, la normalisation/fusion des chroniques et leur
-présentation. Les calculs de convolution et de calibration restent hors de ce
-périmètre.
+L'audit a séparé le conteneur d'observations, les séries, les calculs temporels,
+le tracé, la sérialisation et l'orchestration des exports. Les primitives de
+convolution et de calibration restent hors de `pyages.concentrations` ; les
+workflows sont désormais les seuls à coordonner ces domaines.
 
 Les principaux risques constatés étaient des entrées scientifiques non finies
 acceptées jusqu'à un calcul aval, des erreurs négatives possibles, un
@@ -34,10 +35,51 @@ de tracé invalides interprétées comme un autre mode.
   des collisions de noms de colonnes ;
 - rejet documenté des répétitions traceur/date uniquement aux frontières qui
   exportent une table large ; elles restent autorisées dans le format long ;
-- validation des modes de tracé, du nombre d'axes, des strides et de la
-  cohérence des grilles temporelles entre réalisations ;
+- validation des modes de tracé, du nombre d'axes, des ensembles de traceurs,
+  des strides et de la cohérence des grilles temporelles entre réalisations ;
 - export public concis depuis `pyages.concentrations` et nouveau guide du schéma
   d'observations.
+
+## Ré-audit de la structure des fichiers
+
+**Verdict :** le découpage est maintenant cohérent avec l'architecture de
+`pyages.lpm` : le paquet de données ne dépend plus de la convolution ou des
+résultats LPM, et les noms de modules expriment leur responsabilité.
+
+| Responsabilité | Emplacement retenu |
+| --- | --- |
+| observations validées | `pyages.concentrations._container` |
+| schéma tabulaire | `pyages.concentrations.schema` |
+| chroniques, normalisation et fusion | `pyages.concentrations.series` |
+| prédictions et quantiles temporels | `pyages.concentrations.temporal` |
+| rendu sur axes fournis | `pyages.concentrations.plotting` |
+| sérialisation TSV | `pyages.data_io.concentrations` |
+| sélection LPM, convolution et export | `pyages.workflows.concentration_exports` |
+
+Le répertoire générique `concentrations/utils` et le module mixte
+`concentrations/chronicles.py` ont été supprimés sans alias pré-1.0. Le tracé
+par paire est délégué avec un import paresseux : l'import public du conteneur ne
+charge plus `matplotlib.pyplot`.
+
+Les deux lacunes de contrat relevées pendant la relance sont corrigées. Le
+résumé temporel exige assez d'axes et un ensemble de traceurs identique aux
+observations. `normalize_series()` rejette désormais les tables vides, colonnes
+dupliquées, valeurs non numériques ou non finies, clés non normalisées et
+désaccords entre clé et colonne `element`.
+
+Enfin, les convolutions temporelles sont évaluées une seule fois par
+réalisation. Les mêmes tables alimentent les quantiles, les figures et l'export
+large, ce qui supprime le double calcul lorsque les figures sont activées.
+
+## Style des commentaires
+
+Les commentaires de `concentrations` suivent désormais la convention employée
+dans les parties explicatives de `lpm` : ils documentent une raison, un
+invariant ou une frontière de responsabilité. Les intertitres qui répétaient
+simplement l'instruction suivante (`Load`, `Save`, `Tracers`, `LPM selection`)
+ont été supprimés ou remplacés par l'explication du contrat de reproductibilité,
+de la grille temporelle commune, de l'union déterministe des dates ou de
+l'indépendance entre affichage et export numérique.
 
 ## Rupture pré-1.0
 
@@ -46,7 +88,11 @@ compatibilité. L'attribut `cv` devient `frame`, `ConcentrationTime` devient
 `ConcentrationChronicle`, et les anciennes méthodes `error_affect_*`,
 `names_dates`, `figure_concentrations` et `cv_key_name_date` sont remplacées par
 des noms explicites. Les modules `concentrations.py` et
-`concentrations_time.py` ne sont pas conservés comme façades.
+`concentrations_time.py` ne sont pas conservés comme façades. La relance retire
+également `concentrations.chronicles`, `concentrations.utils` et la méthode
+ambiguë `tracer_names()` ; leurs consommateurs utilisent les modules
+sémantiques et les méthodes `observation_tracer_names()` ou
+`unique_tracer_names()`.
 
 Le schéma tabulaire reste inchangé. À la suite de la décision scientifique de
 ce suivi, le tirage d'erreur suit désormais une vraie loi gaussienne tronquée à
@@ -78,14 +124,15 @@ avec un véritable objet `Concentrations`.
 
 Les notebooks Albuquerque, Ploemeur et Ploemeur temporel utilisent maintenant
 `Concentrations.from_file()`, `Concentrations.from_dataframe()`, `.frame`,
-`tracer_names()` et `observation_keys()`. Les anciens imports profonds et les
-anciens mots-clés de `SystematicSampling` ont été supprimés. Les variables
+`observation_tracer_names()` et `observation_keys()`. Les anciens imports
+profonds et les anciens mots-clés de `SystematicSampling` ont été supprimés.
+Les variables
 internes `cv` et `cdata` ont également été renommées. Enfin, le contrôle
 d'unités s'appelle `require_matching_units()` afin d'indiquer qu'il exige une
 égalité exacte et ne réalise aucune conversion ; aucun alias de l'ancien nom
 n'est conservé.
 
-## Validation
+## Validation initiale
 
 Résultats finaux dans l'arbre stabilisé après renommage du paquet en `pyages` :
 
@@ -99,3 +146,23 @@ Résultats finaux dans l'arbre stabilisé après renommage du paquet en `pyages`
 - `python -m ruff check .` : réussi ;
 - `python -m compileall -q pyages` : réussi ;
 - construction Sphinx stricte (`-W --keep-going`) : réussie sans avertissement.
+
+## Validation de la relance
+
+La relance a été exécutée dans un arbre de travail contenant d'autres
+refactorings non stabilisés :
+
+- contrats ciblés de concentration et non-régression associée : **60 réussis** ;
+- consommateurs `tests/concentrations`, `tests/convolution` et
+  `tests/workflows` : **295 réussis** ;
+- suite globale : **1 012 réussis, 5 ignorés** ;
+- couverture ciblée du nouveau périmètre concentration, sérialisation et export :
+  **81 %** au total, dont **91 %** pour le conteneur et les résumés temporels ;
+- `python -m ruff check .` : réussi ;
+- `python -m ruff format --check` sur les fichiers Python concernés : réussi ;
+- `python -m compileall -q pyages` : réussi ;
+- `git diff --check` sur le périmètre modifié : réussi ;
+- construction Sphinx HTML stricte (`-E -a -W --keep-going`) : réussie sans
+  avertissement ;
+- les trois notebooks naturels sont des documents JSON valides et leurs cellules
+  transformées par IPython compilent.

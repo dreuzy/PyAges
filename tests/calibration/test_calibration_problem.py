@@ -9,11 +9,12 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import numpy as np
+import pandas as pd
 import pytest
 
+from pyages.calibration.exploration.systematic import SystematicSampling
 from pyages.calibration.methods.simplex import SIMPLEX, Simplex
-from pyages.calibration.problem import CalibrationProblem
-from pyages.calibration.utils.systematic_sampling import SystematicSampling
+from pyages.calibration.problem import CalibrationProblem, resolve_observation_errors
 from pyages.concentrations import Concentrations
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution import ConvolutionTracers
@@ -121,3 +122,90 @@ def test_problem_rejects_observation_model_unit_mismatch_before_calibration(
         ValueError, match="observations use 'pmol/kg'.*model uses 'pptv'"
     ):
         problem.prepare()
+
+
+def test_missing_errors_use_each_observation_sampling_date(tmp_path) -> None:
+    target = build_lpm("exp")
+    source_tracers = ConvolutionTracers(
+        names=["cfc11", "cfc11"],
+        date=[1990.0, 2010.0],
+    )
+    observations = source_tracers.convolve(target, return_type="concentrations")
+
+    display = DisplayOptions()
+    display.directory = tmp_path
+    problem = CalibrationProblem(
+        observations,
+        "exp",
+        display_options=display,
+        missing_error_relative_fraction=0.05,
+        explore_objective=False,
+        explore_reachable=False,
+    ).prepare()
+
+    expected = 0.05 * np.asarray(
+        problem.tracers.mean_values_at_sampling_dates(), dtype=float
+    )
+    actual = observations.frame["error"].to_numpy(dtype=float)
+    np.testing.assert_allclose(actual, expected)
+    assert expected[0] != pytest.approx(expected[1])
+    assert observations.error_provenance[0]["fraction"] == 0.05
+
+
+def test_resolved_observation_errors_must_be_strictly_positive() -> None:
+    observations = Concentrations.from_dataframe(
+        pd.DataFrame(
+            {
+                "element": ["cfc11"],
+                "concentration": [0.0],
+                "error": [0.0],
+                "unit": ["pptv"],
+                "date": [2010.0],
+            }
+        )
+    )
+    tracers = patch("pyages.calibration.problem.ConvolutionTracers")
+    with tracers as tracer_class:
+        tracer_class.return_value.mean_values_at_sampling_dates.return_value = [0.0]
+        with pytest.raises(ValueError, match="strictly positive"):
+            resolve_observation_errors(observations)
+
+
+def test_disabled_systematic_analysis_performs_no_convolution(tmp_path) -> None:
+    display = DisplayOptions()
+    display.directory = tmp_path
+    sampling = SystematicSampling(
+        "exp",
+        ["cfc11"],
+        sample_count=2,
+        explore_objective=False,
+        explore_reachable=False,
+        display_options=display,
+    )
+
+    with patch.object(
+        sampling,
+        "compute_concentrations",
+        side_effect=AssertionError("disabled exploration performed convolution"),
+    ):
+        sampling.analysis_calibration()
+
+
+def test_systematic_output_reports_actual_and_target_grid_sizes(tmp_path) -> None:
+    display = DisplayOptions()
+    display.directory = tmp_path
+    sampling = SystematicSampling(
+        "exp",
+        ["cfc11"],
+        sample_count=2,
+        explore_objective=False,
+        explore_reachable=True,
+        display_options=display,
+    )
+
+    sampling.compute_concentrations()
+    sampling.output()
+
+    metadata = (tmp_path / "parameters.txt").read_text(encoding="utf-8")
+    assert "nmodels\t3\n" in metadata
+    assert "target_nmodels\t2\n" in metadata

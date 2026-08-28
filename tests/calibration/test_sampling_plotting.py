@@ -12,8 +12,8 @@ from unittest.mock import Mock
 import numpy as np
 import pandas as pd
 
-from pyages.calibration.utils import sampling_plotting
-from pyages.calibration.utils.parameter_grid import ParameterGrid
+from pyages.calibration.exploration import plotting as sampling_plotting
+from pyages.calibration.exploration.grid import ParameterGrid
 
 
 def test_parameter_grid_plot_is_disabled_without_figure_output(monkeypatch) -> None:
@@ -89,12 +89,14 @@ def test_reachable_concentration_plot_respects_pair_limit_and_observations(
 ) -> None:
     axis = Mock()
     monkeypatch.setattr(
-        sampling_plotting.figures,
-        "figure_init",
+        sampling_plotting.plotting,
+        "create_figure",
         lambda **_kwargs: (object(), axis),
     )
+    finish = Mock()
+    monkeypatch.setattr(sampling_plotting, "_finish", finish)
     observations = SimpleNamespace(plot_pair=Mock())
-    display = SimpleNamespace(figure=True, figure_close_fx=Mock())
+    display = SimpleNamespace(figure=True)
     concentrations = pd.DataFrame(
         {
             "cfc11": [1.0, 2.0],
@@ -113,4 +115,4 @@ def test_reachable_concentration_plot_respects_pair_limit_and_observations(
     assert axis.scatter.call_count == 2
     assert observations.plot_pair.call_args_list[0].args == (0, 1)
     assert observations.plot_pair.call_args_list[1].args == (0, 2)
-    assert display.figure_close_fx.call_count == 2
+    assert finish.call_count == 2

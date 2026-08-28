@@ -49,7 +49,7 @@ from time import perf_counter
 
 from pyages.calibration.methods.base import CalibrationMethod
 from pyages.calibration.outputs import write_key_values
-from pyages.calibration.utils.objective_functions import normalized_residual_norm
+from pyages.calibration.objective import normalized_residual_norm
 from pyages.lpm.samples import LpmSampleTable
 
 

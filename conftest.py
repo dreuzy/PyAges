@@ -11,28 +11,28 @@ import pytest
 from tests.utils import golden as golden_utils
 
 # ---------------------------------------------------------------------------
-# 1) Localisation du projet + ajout de "pyages/" au PYTHONPATH des tests
+# 1) Locate the project and add "pyages/" to the test PYTHONPATH
 # ---------------------------------------------------------------------------
 
-# REPO_ROOT = dossier où se trouve ce fichier conftest.py (généralement la racine du repo)
+# REPO_ROOT = directory containing this conftest.py file (usually the repository root)
 REPO_ROOT = Path(__file__).resolve().parent
 
-# Dossier racine du repo (pour importer pyages.*)
+# Repository root directory (used to import pyages.*)
 SRC_DIR = REPO_ROOT
 
-# sys.path = liste des dossiers dans lesquels Python cherche les modules à importer.
-# Ici on ajoute la racine du repo pour que les imports du projet (pyages.*) fonctionnent,
-# même si le projet n'est pas installé comme un package (pip install -e .).
+# sys.path = list of directories where Python looks for modules to import.
+# Add the repository root here so that project imports (pyages.*) work even if
+# the project is not installed as a package (pip install -e .).
 if SRC_DIR.exists() and str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 
 # ---------------------------------------------------------------------------
-# 2) Emplacement du fichier "golden" (valeurs de référence)
+# 2) Location of the golden reference file
 # ---------------------------------------------------------------------------
 
-# Le fichier JSON où l'on stocke les valeurs de référence (golden values).
-# Exemple de contenu:
+# JSON file that stores the golden reference values.
+# Example content:
 # {
 #   "cfc11:date=2001.0,time=25.0": 0.002347891234
 # }
@@ -40,15 +40,15 @@ GOLDEN_PATH = REPO_ROOT / "tests" / "golden" / "tracer_values.json"
 
 
 # ---------------------------------------------------------------------------
-# 3) Ajout d'une option de ligne de commande à pytest
+# 3) Add a pytest command-line option
 # ---------------------------------------------------------------------------
 
 
 def pytest_addoption(parser):
     """
-    Hook pytest: permet d'ajouter des options à la commande `pytest ...`.
+    Pytest hook used to add options to the `pytest ...` command.
 
-    Ici on ajoute:
+    This adds:
       --update-golden
 
     Usage:
@@ -56,7 +56,7 @@ def pytest_addoption(parser):
     """
     parser.addoption(
         "--update-golden",
-        action="store_true",  # option booléenne: présente => True, absente => False
+        action="store_true",  # Boolean option: present => True, absent => False
         default=False,
         help="Update golden reference values instead of asserting.",
     )
@@ -77,21 +77,21 @@ def pytest_configure(config):
 
 
 # ---------------------------------------------------------------------------
-# 4) Fixtures: accès aux options et aux données golden dans les tests
+# 4) Fixtures: access options and golden data in tests
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
 def update_golden(request) -> bool:
     """
-    Fixture pytest qui expose le booléen update_golden aux tests.
+    Pytest fixture that exposes the update_golden Boolean to tests.
 
-    Dans un test:
+    In a test:
       def test_x(update_golden):
           if update_golden:
-              ... # mode mise à jour
+              ... # update mode
           else:
-              ... # mode comparaison
+              ... # comparison mode
     """
     return bool(request.config.getoption("--update-golden"))
 
@@ -109,44 +109,44 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture
 def golden_store() -> dict:
     """
-    Fixture pytest qui charge (au début d'un test) le fichier JSON des valeurs golden.
+    Pytest fixture that loads the golden-value JSON file at the start of a test.
 
-    - Crée le dossier tests/golden/ s'il n'existe pas
-    - Si le fichier JSON n'existe pas, renvoie {}
-    - Si le JSON est invalide (fichier corrompu ou édité à la main avec une erreur),
-      on lève une erreur "UsageError" pytest (message clair et arrêt).
+    - Creates the tests/golden/ directory if it does not exist
+    - Returns {} if the JSON file does not exist
+    - Raises a pytest "UsageError" if the JSON is invalid (a corrupted file or
+      an invalid manual edit), providing a clear message and stopping the run
     """
-    # S'assure que le dossier existe (même s'il est vide)
+    # Ensure that the directory exists, even if it is empty.
     GOLDEN_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    # Aucun fichier => aucune référence => dictionnaire vide
+    # No file means no reference values, so return an empty dictionary.
     if not GOLDEN_PATH.exists():
         return {}
 
-    # Si le fichier existe, on tente de le parser en JSON
+    # If the file exists, attempt to parse it as JSON.
     try:
         return golden_utils.load_golden(GOLDEN_PATH)
     except json.JSONDecodeError as e:
-        # UsageError est une erreur "de configuration/usage" plus parlante qu'un traceback brut
+        # UsageError reports a configuration/usage issue more clearly than a raw traceback.
         raise pytest.UsageError(
             f"Golden file is not valid JSON: {GOLDEN_PATH}\n{e}"
         ) from e
 
 
 # ---------------------------------------------------------------------------
-# 5) Fonction utilitaire: sauvegarder les valeurs golden de manière sûre
+# 5) Utility function: save golden values safely
 # ---------------------------------------------------------------------------
 
 
 def save_golden_store(store: dict) -> None:
     """
-    Écrit le dictionnaire `store` dans le fichier GOLDEN_PATH.
+    Write the `store` dictionary to GOLDEN_PATH.
 
-    On écrit de façon "atomique":
-      1) on écrit d'abord dans un fichier temporaire *.tmp
-      2) puis on remplace le fichier final
+    Write it atomically:
+      1) first write to a temporary *.tmp file
+      2) then replace the final file
 
-    Avantage: si le processus est interrompu pendant l'écriture, tu évites d'avoir
-    un tracer_values.json partiellement écrit/corrompu.
+    This prevents a partially written or corrupted tracer_values.json file if
+    the process is interrupted during the write.
     """
     golden_utils.save_golden(GOLDEN_PATH, store)

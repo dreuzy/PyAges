@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyages.calibration.workflows import synthetic_test as cst
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.config.runtime import DisplayOptions
+from pyages.workflows.synthetic_recovery import SyntheticRecoveryWorkflow
 
 
 @pytest.mark.parametrize("lpm_type", ["exp", "ig", "ig_shifted", "gamma"])
@@ -35,7 +35,7 @@ def test_calibration_mh_prior_validation_tolerances(tmp_path: Path, lpm_type: st
     )
     calib_mh = MetropolisHastings(config=mh_config)
 
-    calib = cst.CalibrationSyntheticTest(
+    calib = SyntheticRecoveryWorkflow(
         calib_strategy=calib_mh,
         ncase=1,
         error=0.0,

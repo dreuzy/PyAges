@@ -1,24 +1,24 @@
-# Copier ce fichier vers runner-config.local.yaml et adapter les chemins.
-# Le fichier local est ignoré par Git car il dépend de l'installation Windows.
+# Copy this file to runner-config.local.yaml and adjust the paths.
+# Git ignores the local file because it depends on the Windows installation.
 
-# Chemin absolu de la copie qualifiée du classeur; le fichier n'est jamais modifié.
+# Absolute path to the qualified workbook copy; the file is never modified.
 workbook_path: C:\CHEMIN\VERS\TracerLPM_V_1_0_Example1_fr_solver.xlsm
-# SHA-256 obligatoire du classeur ci-dessus; empêche l'emploi d'une autre version.
+# Required SHA-256 of the workbook above; prevents use of another version.
 workbook_sha256: 92F1D717AF519B9E0A701438BC99061D7633FD71C90A0657B787A0C563DFB179
 
-# Chemin absolu du complément natif correspondant à Excel 64 bits.
+# Absolute path to the native add-in for 64-bit Excel.
 xll_path: C:\CHEMIN\VERS\TracerLPMfunctions_64_v_1.xll
-# SHA-256 obligatoire du XLL qualifié.
+# Required SHA-256 of the qualified XLL.
 xll_sha256: 17C37328D606864754A2F115FEC1CA56A70A06FC05BC5123DEB1A462FC91F9A7
 
-# Mapping des feuilles, contrôles, macros et plages pour ce hash de classeur.
+# Mapping of sheets, controls, macros, and ranges for this workbook hash.
 workbook_map_path: C:\codes\pyages\validation\tracerlpm\config\workbook-map.yaml
-# Copies isolées créées pour chaque simulation; contenu temporaire ignoré par Git.
+# Isolated copies created for each simulation; Git ignores temporary content.
 work_root: C:\codes\pyages\validation\tracerlpm\work
-# Rapports JSON, CSV et Markdown; contenu d'exécution ignoré par Git.
+# JSON, CSV, and Markdown reports; Git ignores run output.
 output_root: C:\codes\pyages\validation\tracerlpm\output
 
-# Affiche Excel pendant le calcul. Garder true pour diagnostiquer les dialogues.
+# Show Excel during computation. Keep true to diagnose dialog boxes.
 excel_visible: true
-# Durée maximale, en secondes, accordée au recalcul complet d'un cas.
+# Maximum time, in seconds, allowed for a complete case recalculation.
 timeout_seconds: 180

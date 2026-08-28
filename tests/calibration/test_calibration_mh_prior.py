@@ -11,9 +11,9 @@ to keep the test fast and deterministic.
 
 from pathlib import Path
 
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyages.calibration.workflows import synthetic_test as cst
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.config.runtime import DisplayOptions
+from pyages.workflows.synthetic_recovery import SyntheticRecoveryWorkflow
 
 
 def test_calibration_mh_prior_smoke(tmp_path: Path):
@@ -35,7 +35,7 @@ def test_calibration_mh_prior_smoke(tmp_path: Path):
     )
     calib_mh = MetropolisHastings(config=mh_config)
 
-    calib = cst.CalibrationSyntheticTest(
+    calib = SyntheticRecoveryWorkflow(
         calib_strategy=calib_mh,
         ncase=1,
         error=0.0,

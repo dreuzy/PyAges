@@ -8,7 +8,7 @@ La matrice historique de 133 comparaisons est documentée et ses statistiques co
 
 ## 1. Relative discrepancy réellement calculée
 
-Le code au commit source archivé `17b38579a616f899944441f73d52f9780655648a`, comme le code actuel dans `scripts/run_article_non_ploemeur.py::_validation_matrix`, calcule:
+Le code au commit source archivé `17b38579a616f899944441f73d52f9780655648a`, comme le code actuel dans `scripts/article/run_article_non_ploemeur.py::_validation_matrix`, calcule:
 
 \[
 e_i = \frac{|C_{\mathrm{PyAge},i}-C_{\mathrm{ref},i}|}{|C_{\mathrm{ref},i}|}
@@ -36,7 +36,7 @@ Le critère d'acceptation documenté et implémenté est `K_range <= fa*max(glob
 
 ## 3. Référence indépendante des 133 comparaisons
 
-La fonction `independent_reference` de `scripts/run_article_non_ploemeur.py` procède comme suit:
+La fonction `independent_reference` de `scripts/article/run_article_non_ploemeur.py` procède comme suit:
 
 1. elle construit directement les lois SciPy à partir des paramètres physiques, sans appeler le moteur de convolution PyAge;
 2. elle intègre en espace des probabilités entre `F(0)` et `F(tmax)`;
@@ -71,7 +71,7 @@ L'utilisateur peut appeler `Convolution.window_mass(lpm)`. Après une convolutio
 - `docs/reports/convolution_grid_sensitivity_2026-08-26.md`
 - `docs/reports/data/convolution_grid_sensitivity_2026-08-26.csv`
 - commit source `17b38579a616f899944441f73d52f9780655648a`
-- `scripts/run_article_non_ploemeur.py`
-- `pyage/convolution/settings.py`, `continuous.py`, `convolution.py`
+- `scripts/article/run_article_non_ploemeur.py`
+- `pyage/convolution/settings.py`, `continuous_integration.py`, `convolution.py`
 
 La campagne externe actuelle `C:\pyage-runs\article-v1\forward` contient une autre matrice de 270 cas. Elle ne remplace pas la preuve historique des 133 comparaisons de l'Appendix A.

@@ -30,7 +30,7 @@ import pandas as pd
 import scipy
 from scipy.special import expit
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -49,17 +49,17 @@ from examples.natural.holten.holten_reproduction import (  # noqa: E402
     build_reproduction_endmembers,
     optimize_well,
 )
+from scripts.article.run_final_shifted_exponential import (  # noqa: E402
+    _iact_ess,
+    _split_rhat,
+    _summary,
+)
 from scripts.common.mcmc_diagnostics import mcse_mean  # noqa: E402
 from scripts.common.provenance import repository_provenance  # noqa: E402
 from scripts.common.publication_plotting import (  # noqa: E402
     PUBLICATION_RC,
     mm_to_in,
     save_pdf_png,
-)
-from scripts.run_final_shifted_exponential import (  # noqa: E402
-    _iact_ess,
-    _split_rhat,
-    _summary,
 )
 
 OUTPUT = ROOT / "results" / "robustness" / "holten_prior_dirichlet1"
@@ -772,7 +772,6 @@ def make_figure(output: Path, comparison: pd.DataFrame) -> None:
         legend.get_title().set_fontsize(8.5)
         fig.subplots_adjust(left=0.10, right=0.99, top=0.84, bottom=0.30, wspace=0.12)
         save_pdf_png(fig, output, "figureC1_holten_prior_sensitivity")
-        save_pdf_png(fig, output, "holten_prior_robustness_posteriors")
         plt.close(fig)
 
 
@@ -933,8 +932,8 @@ def write_manifest(
             "examples/natural/holten/holten_four_bin.py": _sha256(
                 ROOT / "examples" / "natural" / "holten" / "holten_four_bin.py"
             ),
-            "scripts/run_final_shifted_exponential.py": _sha256(
-                ROOT / "scripts" / "run_final_shifted_exponential.py"
+            "scripts/article/run_final_shifted_exponential.py": _sha256(
+                ROOT / "scripts" / "article" / "run_final_shifted_exponential.py"
             ),
         },
         "canonical_manifest_sha256": _sha256(CANONICAL / "manifest.json"),

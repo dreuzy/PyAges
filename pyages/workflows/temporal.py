@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
@@ -35,15 +34,15 @@ Code architecture choices (why it is written this way)
 
 from __future__ import annotations
 
+import secrets
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 # Core library imports (use pyages.* consistently to avoid duplicate modules).
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyages.calibration.problem import CalibrationProblem
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.problem import CalibrationProblem, resolve_observation_errors
 from pyages.concentrations import Concentrations
-from pyages.concentrations.chronicles import export_calibrated_chronicles
 from pyages.concentrations.schema import ERROR_COLUMN
 from pyages.config.loading import resolve_from, validate_yaml_model
 
@@ -58,16 +57,18 @@ from pyages.config.models import (
 )
 from pyages.config.paths import (
     DIRECTORY_LPM_DATA,
+    DIRECTORY_TRACER_DATA,
     ROOT_DIRECTORY_RESULTS,
     result_subdirectory,
 )
 from pyages.config.runtime import DisplayOptions
 from pyages.lpm.plotting.sample_diagnostics import plot_concentration_diagnostics
+from pyages.workflows.concentration_exports import export_calibrated_chronicles
 from pyages.workflows.plots import (
     plot_observations_overview,
     plot_parameter_summary,
 )
-from pyages.workflows.result_manifest import write_result_manifest
+from pyages.workflows.result_manifest import begin_result_run, write_result_manifest
 from pyages.workflows.single_date_paths import configuration_root
 
 DEFAULT_LPMS = ["exp_shifted", "ig", "ig_shifted"]
@@ -114,7 +115,10 @@ def _format_date_label(date_value: float) -> str:
     str
         Sanitized label suitable for folder names.
     """
-    return f"{date_value:.6f}".rstrip("0").rstrip(".").replace(".", "_")
+    label = repr(float(date_value))
+    if label.endswith(".0"):
+        label = label[:-2]
+    return label.replace(".", "_")
 
 
 def _results_root(
@@ -195,12 +199,11 @@ def _build_mh_config(cal_cfg: TemporalCalibrationCfg) -> MHConfig:
     MHConfig
         Metropolis-Hastings configuration object ready for calibration runs.
     """
-    # Optional reproducibility: only attach a seed when enabled.
-    seed_enabled = cal_cfg.seed_enabled
-    seed_value = cal_cfg.seed if seed_enabled else None
-    mh_kwargs = {}
-    if seed_enabled:
-        mh_kwargs["seed"] = seed_value
+    # Disabled fixed seeding means a fresh, explicit seed for each chain. The
+    # resolved value is persisted by the MH result writer.
+    seed_value = cal_cfg.seed if cal_cfg.seed_enabled else secrets.randbits(63)
+    if seed_value is None:
+        raise ValueError("calibration.seed is required when seed_enabled is true")
     return MHConfig(
         nstep=int(cal_cfg.mh_nsteps),
         burn_in=float(cal_cfg.burn_in),
@@ -212,7 +215,7 @@ def _build_mh_config(cal_cfg: TemporalCalibrationCfg) -> MHConfig:
         display_traj=False,
         display_text=False,
         componentwise_source="model",
-        **mh_kwargs,
+        seed=seed_value,
     )
 
 
@@ -311,7 +314,7 @@ def _resolve_dataset(
 ) -> Path:
     """Resolve and validate the temporal observation file."""
     dataset_path = resolve_from(configuration_directory, dataset_cfg.file)
-    if not dataset_path.exists():
+    if not dataset_path.is_file():
         raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
     return dataset_path
 
@@ -321,26 +324,31 @@ def _resolve_lpms(
     configuration_directory: Path,
 ) -> tuple[list[str], Path]:
     """Resolve the requested models and their parameter directory."""
-    models = lpm_cfg.list or DEFAULT_LPMS
+    models = DEFAULT_LPMS.copy() if lpm_cfg.list is None else list(lpm_cfg.list)
     if not models:
         raise ValueError("lpm_models.list must be a non-empty list.")
     directory = resolve_from(
         configuration_directory,
         lpm_cfg.directory or DIRECTORY_LPM_DATA,
     )
-    if not directory.exists():
-        raise ValueError(f"lpm_models.directory does not exist: {directory}")
+    if not directory.is_dir():
+        raise ValueError(f"lpm_models.directory is not a directory: {directory}")
     return models, directory
 
 
 def _load_concentrations(
     dataset_path: Path,
     error_rel: float | None,
+    missing_error_rel: float = 0.01,
 ) -> Concentrations:
     """Load observations and fill missing relative errors when requested."""
     concentrations = Concentrations.from_file(dataset_path)
     if error_rel is not None and concentrations.frame[ERROR_COLUMN].min() == 0:
         concentrations.set_relative_errors(float(error_rel))
+    resolve_observation_errors(
+        concentrations,
+        missing_error_relative_fraction=missing_error_rel,
+    )
     return concentrations
 
 
@@ -348,13 +356,17 @@ def _case_frames(observations: Concentrations, mode: str):
     """Return the observation subsets required by one workflow mode."""
     if mode == "span":
         return [("span_full", observations.frame)]
-    return [
+    cases = [
         (
             f"date_{_format_date_label(date)}",
             observations.frame[observations.frame["date"] == date],
         )
         for date in sorted(observations.frame["date"].unique())
     ]
+    labels = [label for label, _frame in cases]
+    if len(labels) != len(set(labels)):
+        raise ValueError("Distinct observation dates produce colliding case labels")
+    return cases
 
 
 def _run_temporal_cases(
@@ -403,7 +415,11 @@ def _prepare_context(params_path: str | Path) -> TemporalContext:
         params.lpm_models,
         configuration_directory,
     )
-    observations = _load_concentrations(dataset_path, params.dataset.error_rel)
+    observations = _load_concentrations(
+        dataset_path,
+        params.dataset.error_rel,
+        params.dataset.missing_error_rel,
+    )
     results_root = _results_root(params.results, configuration_directory)
     output_directory = result_subdirectory(
         result_subdirectory(
@@ -423,6 +439,18 @@ def _prepare_context(params_path: str | Path) -> TemporalContext:
         observations=observations,
         output_directory=output_directory,
     )
+
+
+def _scientific_input_paths(context: TemporalContext) -> list[Path]:
+    """Return every observation, model, and tracer resource used by the run."""
+    return [
+        context.dataset_path,
+        *(context.lpm_directory / model for model in context.models),
+        *(
+            DIRECTORY_TRACER_DATA / tracer
+            for tracer in context.observations.observation_tracer_names()
+        ),
+    ]
 
 
 def run_temporal(params_path: Path) -> Path:
@@ -464,7 +492,8 @@ def run_temporal(params_path: Path) -> Path:
     Output layout::
 
         <results_root>/<study_name>/<dataset_stem>/<mode>/
-          span_full/ or date_<yyyy_xxxxxx>/
+          concentrations.txt
+          span_full/ or date_<decimal_year>/
             <lpm_type>/
               parameters_calibration.txt
               results_calibration.txt
@@ -480,6 +509,12 @@ def run_temporal(params_path: Path) -> Path:
     defaults; see the configuration reference for their exact values.
     """
     context = _prepare_context(params_path)
+    begin_result_run(context.output_directory)
+    context.observations.frame.to_csv(
+        context.output_directory / "concentrations.txt",
+        sep="\t",
+        index=False,
+    )
     written_case_dirs = _run_temporal_cases(
         context.observations,
         context.output_directory,
@@ -493,11 +528,16 @@ def run_temporal(params_path: Path) -> Path:
         context.output_directory,
         workflow="temporal",
         config_path=context.config_path,
-        input_paths=[context.dataset_path],
+        input_paths=_scientific_input_paths(context),
         details={
             "dataset": context.dataset_path.name,
             "mode": context.mode,
             "lpms": context.models,
+            "observation_error_policy": {
+                "error_rel": context.params.dataset.error_rel,
+                "missing_error_rel": context.params.dataset.missing_error_rel,
+                "transformations": context.observations.error_provenance,
+            },
             "case_directories": [
                 path.relative_to(context.output_directory).as_posix()
                 for path in written_case_dirs

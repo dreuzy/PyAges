@@ -17,7 +17,7 @@ $previousNoUserSite = $env:PYTHONNOUSERSITE
 $env:PYTHONNOUSERSITE = '1'
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $arguments = @(
-    '-u', '-m', 'scripts.reproduce_article', 'resume',
+    '-u', '-m', 'scripts.article.reproduce_article', 'resume',
     '--output', [System.IO.Path]::GetFullPath($Output),
     '--workers', $Workers,
     '--expected-tag', $ExpectedTag

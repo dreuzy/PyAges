@@ -1,14 +1,9 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""
-Created on Tue Mar 23 03:23:24 2021
+"""Core tracer data model and I/O utilities.
 
-Purpose
--------
-Core tracer data model and I/O utilities.
 Loads tracer recharge chronologies from local datasets, provides
 interpolation and accessors for concentration values, and exposes
 helper methods used by convolution and calibration modules. This
@@ -19,7 +14,6 @@ normalization.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,6 +21,7 @@ import numpy.typing as npt
 import pandas as pd
 from scipy import interpolate
 
+from pyages._plotting import create_figure, finalize_figure
 from pyages.config.runtime import DisplayOptions
 from pyages.tracer.config import load_tracer_config
 from pyages.tracer.errors import TracerConfigError, TracerDataError
@@ -67,7 +62,7 @@ class Tracer:
 
     """
 
-    def __init__(self, dir_tracer: Union[Path, str], name: str = "") -> None:
+    def __init__(self, dir_tracer: Path | str, name: str = "") -> None:
         """
         Tracer Class Constructor from an ensemble of external files.
 
@@ -155,7 +150,7 @@ class Tracer:
         """Tracer name (e.g., 'cfc11', 'kr85', '3H')."""
         return self.__name
 
-    def __check_date_range(self, date: Union[float, npt.NDArray[np.float64]]) -> bool:
+    def __check_date_range(self, date: float | npt.NDArray[np.float64]) -> bool:
         """
         Checks that date is in admissible range, whether it is a scalar or an array.
 
@@ -176,9 +171,9 @@ class Tracer:
 
     def get_concentration(
         self,
-        date: Union[float, npt.NDArray[np.float64]],
-        time: Union[float, npt.NDArray[np.float64]],
-    ) -> Union[float, npt.NDArray[np.float64]]:
+        date: float | npt.NDArray[np.float64],
+        time: float | npt.NDArray[np.float64],
+    ) -> float | npt.NDArray[np.float64]:
         """
         Computes concentrations of tracers.
 
@@ -306,32 +301,40 @@ class Tracer:
         if display_options.text:
             print("chemical:", self.__name)
 
+        if not display_options.figure:
+            return
+
         # Plotting the input chronicle
         if self.__has_chronicle:
-            plt.figure()  # Create new figure for recharge chronicle
+            recharge_figure, recharge_axis = plt.subplots(figsize=(6, 4))
             self.__recharge_chronicle_file.plot(
                 x=self.__recharge_chronicle_file.columns[0],
                 y=self.__recharge_chronicle_file.columns[1],
                 title="input chronicle (recharge) for " + self.__name,
+                ax=recharge_axis,
             )
-            display_options.figure_close_fx(self.__name + "_recharge")
+            finalize_figure(
+                recharge_figure,
+                display_options.figure_path(self.__name + "_recharge"),
+                close=display_options.figure_close,
+            )
 
         # extracting the data
         date = np.linspace(self.datemin, self.datemax, 1000)
         time = self.datemax - date
         c = self.get_concentration(date, time)
 
-        # Create new figure for concentration plot
-        plt.figure()
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.set_xlabel("date", fontsize=16, fontweight="bold")
-        ax.set_ylabel("concentrations", fontsize=14, fontweight="bold")
-        ax.tick_params(axis="x", labelsize=14)
-        ax.tick_params(axis="y", labelsize=14)
-        ax.grid(True)
-        ax.set_title(self.__name, fontsize=22, fontweight="bold")
+        figure, axis = create_figure(
+            x_label="date",
+            y_label="concentrations",
+            title=self.__name,
+        )
 
         # plot of the data
-        ax.plot(date, c, "r", label=self.__name)
+        axis.plot(date, c, "r", label=self.__name)
 
-        display_options.figure_close_fx(self.__name + "_chronicle")
+        finalize_figure(
+            figure,
+            display_options.figure_path(self.__name + "_chronicle"),
+            close=display_options.figure_close,
+        )

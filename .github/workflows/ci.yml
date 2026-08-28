@@ -43,9 +43,9 @@ jobs:
       - run: python -m ruff check .
       - run: python -m ruff format --check .
       - name: Verify licensing metadata
-        run: python scripts/check_licensing.py
+        run: python -m scripts.maintenance.check_licensing
       - name: Verify generated test inventory
-        run: python -m scripts.generate_test_inventory --check
+        run: python -m scripts.maintenance.generate_test_inventory --check
 
   dependency-audit:
     name: Dependency audit

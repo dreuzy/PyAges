@@ -16,7 +16,6 @@ from pathlib import Path
 import click
 
 LPM_MODEL_TEMPLATE = '''\
-# -*- coding: utf-8 -*-
 # Copyright (c) {year} [Copyright holder]
 # SPDX-License-Identifier: CECILL-2.1
 

@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -41,7 +41,7 @@ from examples.natural.holten.holten_four_bin import (  # noqa: E402
 )
 from examples.natural.holten.holten_prepare import prepare_holten_inputs  # noqa: E402
 from pyages.convolution import ConvolutionTracers  # noqa: E402
-from scripts.run_article_non_ploemeur import (  # noqa: E402
+from scripts.article.run_article_non_ploemeur import (  # noqa: E402
     DATE,
     TABLE3_TRACERS,
     _model,

@@ -10,8 +10,8 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from pyages.lpm import factory
+from pyages.lpm import reporting as model_summary
 from pyages.lpm.plotting import model_curves
-from pyages.lpm.reporting import model_summary
 
 
 def _model(**parameters):

@@ -12,7 +12,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pyages.calibration.methods.prior import Prior, make_prior_expo, moments_histo
+from pyages.calibration.methods.mh.prior import (
+    Prior,
+    build_empirical_prior_grid,
+    histogram_moments,
+)
 
 
 class _TwoParameterModel:
@@ -33,7 +37,7 @@ class _TwoParameterModel:
 
 
 def test_exponential_prior_extension_is_positive_and_normalized() -> None:
-    values, density = make_prior_expo(
+    values, density = build_empirical_prior_grid(
         [2.0, 3.0],
         [1.0, 0.5],
         xmin=0.0,
@@ -61,14 +65,14 @@ def test_histogram_moments_require_positive_finite_mass(density) -> None:
     histogram = np.column_stack(([0.0, 1.0, 2.0], density))
 
     with pytest.raises(ValueError, match="positive finite mass"):
-        moments_histo(histogram)
+        histogram_moments(histogram)
 
 
 def test_parametric_map_initialization_clips_to_model_bounds() -> None:
     model = _TwoParameterModel()
     prior = Prior(typ="parametric")
-    prior.MHapriori_dist = {"mu": "normal", "width": "uniform"}
-    prior.MHapriori_para = {"mu": [12.0, 2.0], "width": [-4.0, 4.0]}
+    prior.distributions = {"mu": "normal", "width": "uniform"}
+    prior.parameters = {"mu": [12.0, 2.0], "width": [-4.0, 4.0]}
 
     prior.param_init(model, strategy="map")
 
@@ -77,8 +81,8 @@ def test_parametric_map_initialization_clips_to_model_bounds() -> None:
 
 def test_parametric_sample_initialization_is_seeded_and_bounded() -> None:
     prior = Prior(typ="parametric")
-    prior.MHapriori_dist = {"mu": "normal", "width": "uniform"}
-    prior.MHapriori_para = {"mu": [5.0, 2.0], "width": [2.0, 8.0]}
+    prior.distributions = {"mu": "normal", "width": "uniform"}
+    prior.parameters = {"mu": [5.0, 2.0], "width": [2.0, 8.0]}
     first = _TwoParameterModel()
     second = _TwoParameterModel()
 
@@ -93,7 +97,7 @@ def test_parametric_sample_initialization_is_seeded_and_bounded() -> None:
 def test_empirical_initialization_handles_map_sample_and_zero_mass() -> None:
     model = _TwoParameterModel()
     prior = Prior(typ="empirical")
-    prior.MHapriori_para = {
+    prior.parameters = {
         "mu": np.array([[0.0, 0.0], [4.0, 2.0], [10.0, 0.0]]),
         "width": np.array([[1.0, 0.0], [5.0, 0.0], [9.0, 0.0]]),
     }
@@ -101,7 +105,7 @@ def test_empirical_initialization_handles_map_sample_and_zero_mass() -> None:
     prior.param_init(model, strategy="map")
     assert model.p == {"mu": 4.0, "width": 5.0}
 
-    prior.MHapriori_para["width"][:, 1] = [0.0, 1.0, 0.0]
+    prior.parameters["width"][:, 1] = [0.0, 1.0, 0.0]
     prior.param_init(model, strategy="sample", rng=np.random.default_rng(7))
     assert 0.0 <= model.p["mu"] <= 10.0
     assert 1.0 <= model.p["width"] <= 9.0
@@ -114,8 +118,8 @@ def test_prior_initialization_rejects_unknown_strategy_and_distribution() -> Non
     with pytest.raises(ValueError, match="strategy"):
         prior.param_init(model, strategy="median")
 
-    prior.MHapriori_dist = {"mu": "triangular", "width": "uniform"}
-    prior.MHapriori_para = {"mu": [1.0, 2.0], "width": [1.0, 9.0]}
+    prior.distributions = {"mu": "triangular", "width": "uniform"}
+    prior.parameters = {"mu": [1.0, 2.0], "width": [1.0, 9.0]}
     with pytest.raises(ValueError, match="Unsupported prior distribution"):
         prior.param_init(model)
 
@@ -123,8 +127,8 @@ def test_prior_initialization_rejects_unknown_strategy_and_distribution() -> Non
 def test_parametric_density_and_log_density_are_consistent() -> None:
     model = _TwoParameterModel()
     prior = Prior(typ="parametric")
-    prior.MHapriori_dist = {"mu": "normal", "width": "uniform"}
-    prior.MHapriori_para = {"mu": [5.0, 2.0], "width": [1.0, 9.0]}
+    prior.distributions = {"mu": "normal", "width": "uniform"}
+    prior.parameters = {"mu": [5.0, 2.0], "width": [1.0, 9.0]}
 
     density = prior.evaluate(model, [6.0, 4.0])
 
@@ -146,8 +150,8 @@ def test_log_prior_rejects_invalid_parametric_definitions(
     model = _TwoParameterModel()
     model.p = {"mu": 0.0}
     prior = Prior(typ="parametric")
-    prior.MHapriori_dist = {"mu": distribution}
-    prior.MHapriori_para = {"mu": parameters}
+    prior.distributions = {"mu": distribution}
+    prior.parameters = {"mu": parameters}
 
     with pytest.raises(ValueError, match=message):
         prior.log_evaluate(model, [4.0])
@@ -157,7 +161,7 @@ def test_empirical_prior_has_exact_support_and_rejects_zero_density() -> None:
     model = _TwoParameterModel()
     model.p = {"mu": 0.0}
     prior = Prior(typ="empirical")
-    prior.MHapriori_para = {"mu": np.array([[0.0, 0.0], [1.0, 0.5], [2.0, np.nan]])}
+    prior.parameters = {"mu": np.array([[0.0, 0.0], [1.0, 0.5], [2.0, np.nan]])}
 
     assert prior.evaluate(model, [-1.0]) == 0.0
     assert prior.log_evaluate(model, [-1.0]) == -math.inf
@@ -166,21 +170,42 @@ def test_empirical_prior_has_exact_support_and_rejects_zero_density() -> None:
     assert prior.log_evaluate(model, [1.0]) == pytest.approx(math.log(0.5))
 
 
-def test_prior_load_is_a_noop_when_disabled_and_rejects_unknown_type() -> None:
-    Prior(option=False, typ="unknown").load(object())
+def test_empirical_prior_evaluation_interpolates_between_grid_points() -> None:
+    model = _TwoParameterModel()
+    model.p = {"mu": 0.0}
+    prior = Prior(typ="empirical")
+    prior.parameters = {"mu": np.array([[0.0, 0.0], [1.0, 0.5], [2.0, 1.0]])}
 
+    assert prior.evaluate(model, [0.5]) == pytest.approx(0.25)
+    assert prior.log_evaluate(model, [0.5]) == pytest.approx(math.log(0.25))
+
+
+@pytest.mark.parametrize(
+    ("x_data", "y_data", "message"),
+    [
+        ([0.0], [1.0], "at least two"),
+        ([0.0, 0.0], [1.0, 1.0], "strictly increasing"),
+        ([0.0, 1.0], [1.0, -1.0], "non-negative"),
+    ],
+)
+def test_empirical_prior_grid_rejects_invalid_inputs(x_data, y_data, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        build_empirical_prior_grid(x_data, y_data)
+
+
+def test_prior_load_is_a_noop_when_disabled_and_rejects_unknown_type() -> None:
     with pytest.raises(ValueError, match="Unsupported prior type"):
-        Prior(option=True, typ="unknown").load(object())
+        Prior(option=False, typ="unknown")
 
 
 def test_prior_validation_reports_parametric_theory() -> None:
     model = _TwoParameterModel()
     prior = Prior(typ="parametric")
-    prior.MHapriori_dist = {"mu": "normal", "width": "uniform"}
-    prior.MHapriori_para = {"mu": [5.0, 2.0], "width": [1.0, 9.0]}
+    prior.distributions = {"mu": "normal", "width": "uniform"}
+    prior.parameters = {"mu": [5.0, 2.0], "width": [1.0, 9.0]}
     path = pd.DataFrame({"mu": [3.0, 5.0, 7.0], "width": [1.0, 5.0, 9.0]})
 
-    result = prior.validation_MH_prior(path, model)
+    result = prior.validate_chain_moments(path, model)
 
     assert result["theory"]["mu"] == {"mean": 5.0, "var": 4.0}
     assert result["theory"]["width"]["mean"] == 5.0

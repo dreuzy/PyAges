@@ -35,10 +35,10 @@ with future string inference and Copy-on-Write diagnostics enabled. The normal
 Python matrix and coverage job exercise the qualified pandas 3 version from
 `install/constraints.txt`.
 
-`python run_tests.py` without a mode remains a backward-compatible alias for
-`python run_tests.py standard`. The standard suite collects extensive tests
-but skips them unless `--run-extensive` is present. It is therefore not the
-complete scientific qualification by itself.
+A test scope is mandatory; modifiers such as `detail` and `update` cannot be
+used alone. The standard suite collects extensive tests but skips them unless
+`--run-extensive` is present. It is therefore not the complete scientific
+qualification by itself.
 
 ## Traceability matrix
 
@@ -93,13 +93,13 @@ The repository keeps a generated summary in {doc}`test-inventory`. Regenerate
 it after adding, deleting, moving, parametrizing, or re-marking tests:
 
 ```bash
-python -m scripts.generate_test_inventory
+python -m scripts.maintenance.generate_test_inventory
 ```
 
 CI verifies the committed summary without rewriting it:
 
 ```bash
-python -m scripts.generate_test_inventory --check
+python -m scripts.maintenance.generate_test_inventory --check
 ```
 
 ## Golden files

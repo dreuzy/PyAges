@@ -18,7 +18,7 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SOURCE_BENCHMARK = ROOT / "validation/tracerlpm/benchmark"
 RUNNER_PROJECT = ROOT / "validation/tracerlpm/TracerLpmRunner.sln"
 RUNNER = (

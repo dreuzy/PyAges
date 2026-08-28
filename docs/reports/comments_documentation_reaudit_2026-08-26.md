@@ -15,10 +15,10 @@ The candidate snapshot now archived under
 
 During final validation, concurrent work appeared outside the audit, including
 `.github/workflows/ci.yml`, `scripts/_runtime_probe.py`,
-`scripts/run_ploemeur_targeted_ig_reproduction.py`,
+`scripts/article/run_ploemeur_targeted_ig_reproduction.py`,
 `sites/ploemeur/workflows/ploemeur_workflow.py`,
 `tests/ploemeur/test_ploemeur_workflow.py`, and
-`tests/scripts/test_article_support.py`. Those changes were preserved and
+`tests/scripts/article/test_article_support.py`. Those changes were preserved and
 excluded from this audit.
 
 ## Executive conclusion
@@ -56,7 +56,7 @@ is protected by a CLI regression test.
 
 ## Current article-evidence status
 
-All six read-only `article/run_case.py check` commands still fail in this
+All six read-only `scripts.article.run_case check` commands still fail in this
 checkout:
 
 | Case | Current local result |

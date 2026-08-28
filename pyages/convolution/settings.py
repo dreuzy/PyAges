@@ -2,7 +2,11 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Numerical settings for tracer-driven convolution grids."""
+"""Define accuracy guards and resource limits for adaptive tracer grids.
+
+The controls resolve the tracer response, while hard subdivision and bin limits
+turn non-convergence into an explicit error instead of a silent approximation.
+"""
 
 from __future__ import annotations
 
@@ -67,6 +71,8 @@ class TracerGridSettings:
 
     def __post_init__(self) -> None:
         """Reject non-finite, negative, or non-integral grid controls."""
+        # Tolerance factors may be zero for strict experiments, but never
+        # negative or non-finite.
         for name in (
             "absolute_tolerance_factor",
             "relative_tolerance",
@@ -76,6 +82,8 @@ class TracerGridSettings:
             value = getattr(self, name)
             if not isfinite(value) or value < 0.0:
                 raise ValueError(f"{name} must be finite and non-negative")
+        # Booleans are integers in Python; reject them explicitly because they
+        # are nonsensical resource limits.
         for name, minimum in (("max_subdivisions", 0), ("max_bins", 1)):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < minimum:

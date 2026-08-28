@@ -61,7 +61,7 @@ def test_reproduction_docs_distinguish_historical_and_fresh_evidence() -> None:
     ).read_text(encoding="utf-8")
 
     assert "## Two evidence layers" in guide
-    assert "scripts.reproduce_article validate" in guide
+    assert "scripts.article.reproduce_article validate" in guide
     assert "optional historical" in guide
     assert "**0/6**" in report
     assert "**9/9**" in report
@@ -114,12 +114,12 @@ def test_configuration_reference_states_exact_temporal_constraints() -> None:
 
     assert "strictly greater than 100" in document
     assert "`[0, 0.5)`" in document
-    assert "Relative error in `[0, 1)`" in document
+    assert "Relative error in `(0, 1)`" in document
     assert "iteration > burn_in * mh_nsteps" in document
     assert "unknown section or field" in document
 
 
-def test_natural_notebooks_use_only_canonical_concentration_api() -> None:
+def test_natural_notebooks_use_only_canonical_public_apis() -> None:
     notebook_paths = (
         ROOT / "examples/natural/albuquerque/exemple_albuquerque.ipynb",
         ROOT / "examples/natural/ploemeur/exemple_ploemeur.ipynb",
@@ -127,6 +127,14 @@ def test_natural_notebooks_use_only_canonical_concentration_api() -> None:
     )
     removed_api_markers = (
         "pyages.concentrations.concentrations",
+        "pyages.concentrations.chronicles",
+        "pyages.concentrations.utils",
+        "pyages.calibration.utils",
+        "pyages.calibration.methods.metropolis_hastings",
+        "pyages.calibration.methods.prior",
+        "pyages.calibration.methods.trajectory",
+        "pyages.calibration.mh_proposals",
+        "pyages.calibration.ig_parameterization",
         "concentrations_time",
         "pyages.observations.loader",
         "dataframe_load=",
@@ -134,6 +142,7 @@ def test_natural_notebooks_use_only_canonical_concentration_api() -> None:
         ".cv",
         ".names(",
         ".names_dates(",
+        ".tracer_names(",
         "error_affect_from_",
         "cdata=",
         "nmodels=resolution",

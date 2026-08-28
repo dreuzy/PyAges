@@ -79,7 +79,7 @@ paquet d'article.
 
 Le post-processeur accepte désormais soit `--output` pour un cas, soit
 `--campaign-root` pour une campagne externe produite par
-`scripts.reproduce_article`. Il vérifie la présence des chaînes avant toute
+`scripts.article.reproduce_article`. Il vérifie la présence des chaînes avant toute
 opération et n'appelle aucun sampler.
 
 - Figure 2 : variantes 100, 110 et 120 mm ; alias final réglé sur 110 mm.
@@ -111,10 +111,10 @@ Le chemin Linux demandé, `/mnt/data`, n'est pas monté dans cet environnement.
 
 | Figure | Script canonique identifié | Données de redessin requises | Résultat |
 | --- | --- | --- | --- |
-| Figure 2 | `scripts/run_final_shifted_exponential.py` | chaînes finales du cas `(mu, t0) = (10, 30)` et grille `sqrt(J/4)` | absentes |
-| Figure 3 | `scripts/run_final_holten_h4.py` | `visser_vs_pyages_h4.csv` ou `posterior_summaries.csv` final | absentes |
-| Figure 4 | `scripts/run_ploemeur_shifted_exponential_final.py` | `figure4_prediction_intervals.csv` ou prédictions row-wise finales | absentes |
-| Figure C1 | `scripts/run_holten_prior_robustness.py` | `holten_prior_robustness_fractions.csv` et résumés finaux des deux priors | absentes |
+| Figure 2 | `scripts/article/run_final_shifted_exponential.py` | chaînes finales du cas `(mu, t0) = (10, 30)` et grille `sqrt(J/4)` | absentes |
+| Figure 3 | `scripts/article/run_final_holten_h4.py` | `visser_vs_pyages_h4.csv` ou `posterior_summaries.csv` final | absentes |
+| Figure 4 | `scripts/article/run_ploemeur_shifted_exponential_final.py` | `figure4_prediction_intervals.csv` ou prédictions row-wise finales | absentes |
+| Figure C1 | `scripts/article/run_holten_prior_robustness.py` | `holten_prior_robustness_fractions.csv` et résumés finaux des deux priors | absentes |
 | Figure 1 | `docs/figures/figure1_overview.md` et `figure1_overview.svg` | aucune donnée scientifique | source scriptée présente ; non régénérée dans ce lot bloqué |
 
 Les manifestes versionnés pointent vers des artefacts sous
@@ -126,7 +126,7 @@ paquet de résultats scientifiques n'y est publié.
 
 Un ancien jeu `C:\Users\dreuzy\results\PyAges\manuscript_figure2` est présent,
 mais il provient du lanceur historique à chaîne unique
-`scripts/reproduce_manuscript_figure2.py`. Il n'a pas été utilisé, car la
+`scripts/article/reproduce_manuscript_figure2.py`. Il n'a pas été utilisé, car la
 mission exige les cinq chaînes finales convergées.
 
 Les PNG intégrés au DOCX v23 montrent bien les figures finales antérieures,

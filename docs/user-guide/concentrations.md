@@ -24,8 +24,7 @@ rows before constructing `Concentrations`.
 ```python
 import pandas as pd
 
-from pyages.concentrations import Concentrations
-from pyages.concentrations.chronicles import ConcentrationChronicle
+from pyages.concentrations import ConcentrationChronicle, Concentrations
 
 observations = Concentrations.from_dataframe(
     pd.DataFrame(
@@ -101,6 +100,11 @@ and non-negative.
 exactly one finite, non-negative mean value per observation row. Existing
 positive errors are preserved.
 
+Both assignment methods append a structured event to
+`observations.error_provenance`, including the method, fraction, affected row
+indices, and row count. Public workflows expose the fallback as
+`dataset.missing_error_rel` and copy these events into the result manifest.
+
 Zero-truncated Gaussian perturbations require an explicit NumPy generator,
 making the random stream visible and reproducible:
 
@@ -122,6 +126,11 @@ with zero error cannot define this distribution and is rejected when sampling.
 replicate observations. Reachable-model tables, which contain one value per
 tracer and date, use `tracer@date` without rounding the date.
 
+`observation_tracer_names()` returns one tracer name per observation row and is
+therefore aligned with concentration, error, and date arrays.
+`unique_tracer_names()` returns each tracer once, preserving first-observation
+order; use it for displays and tracer-level metadata.
+
 ## Time series and wide exports
 
 `ConcentrationChronicle(observations=observations)` groups the long table by tracer for
@@ -134,6 +143,9 @@ and date. A wide table has no replicate identifier, however, so
 many-to-many merge that would silently multiply rows. Aggregate replicates or
 retain them in long form before requesting a wide export.
 
-The modules below `pyages.concentrations.utils` and the high-level chronicle
-display functions are contributor interfaces. The supported user interface is
-the `Concentrations` class exported by `pyages.concentrations`.
+The `series`, `temporal`, and `plotting` modules are contributor interfaces.
+High-level file and figure orchestration lives under
+`pyages.workflows.concentration_exports`; concentration serialization lives in
+`pyages.data_io.concentrations`. The supported user interface consists of the
+`Concentrations` and `ConcentrationChronicle` classes exported by
+`pyages.concentrations`.

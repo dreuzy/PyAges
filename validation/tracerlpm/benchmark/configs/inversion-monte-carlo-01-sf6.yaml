@@ -1,4 +1,4 @@
-# Variante A/B de la campagne à 1 % : mêmes graines et paramètres, avec SF6.
+# A/B variant of the 1% campaign: same seeds and parameters, with SF6.
 campaign_id: tracerlpm-inversion-monte-carlo-01-sf6-v1
 observation_year: 2020.0
 
@@ -8,7 +8,7 @@ tracers:
   - {name: cfc113, recharge: data_core/data_tracer/cfc113/recharge.csv, unit: pptv}
   - {name: sf6, recharge: data_core/data_tracer/sf6/recharge.csv, unit: pptv}
 
-# Projection explicite dans le classeur TracerLPM quatre traceurs.
+# Explicit projection into the four-tracer TracerLPM workbook.
 tracerlpm:
   input_history: tracerlpm-input-history.csv
   target_tracers: [CFC-11, CFC-12, CFC-113, SF6]
@@ -21,8 +21,8 @@ tracerlpm:
   x_axis: CFC-11
   y_axis: SF6
 
-# Les graines 201–230 sont rigoureusement identiques à la campagne trois CFC.
-# Le générateur effectue simplement un quatrième tirage pour le SF6.
+# Seeds 201-230 are exactly the same as in the three-CFC campaign.
+# The generator simply performs a fourth draw for SF6.
 case_templates:
   - case_id_pattern: mc01sf6-epm-tau20-r2-seed{seed}
     seeds: [201, 202, 203, 204, 205, 206, 207, 208, 209, 210,

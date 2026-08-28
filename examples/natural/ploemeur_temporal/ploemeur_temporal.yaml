@@ -5,6 +5,8 @@ dataset:
   file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
   # Relative concentration error (applied if error column is zero).
   error_rel: 0.2
+  # Fallback relative to tracer means for any error still equal to zero.
+  missing_error_rel: 0.01
 
 lpm_models:
   # LPMs to evaluate (defaults to exp_shifted, ig, ig_shifted).

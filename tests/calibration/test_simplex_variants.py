@@ -190,7 +190,6 @@ def test_simplex_serializes_variant_settings_and_optimizer_totals(tmp_path) -> N
     assert "fuq_n\t4" in contents
     assert diagnostics == {
         "optimization_run_count": 2,
-        "optimization_all_converged": True,
         "optimization_iterations_total": 5,
         "optimization_evaluations_total": 12,
     }

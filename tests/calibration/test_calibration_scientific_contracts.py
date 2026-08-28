@@ -9,11 +9,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 import pytest
 
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh.trajectory import MHTrajectory
 from pyages.calibration.methods.simplex import SIMPLEX, Simplex
-from pyages.calibration.methods.trajectory import MHTrajectory
 from tests.calibration.test_calibration_mh_initial_params import _FakeLpm
 from tests.calibration.test_calibration_problem import _prepared_problem
 
@@ -86,7 +87,7 @@ def test_explicit_initial_state_takes_precedence_over_prior_map(monkeypatch):
     )
     monkeypatch.setattr(mh.prior, "log_evaluate", lambda *_args: 0.0)
 
-    params, *_ = mh._MetropolisHastings__initialize_state(  # noqa: SLF001
+    params, *_ = mh._initialize_state(  # noqa: SLF001
         np.array([]), np.array([])
     )
 
@@ -101,6 +102,10 @@ def test_trajectory_records_negative_log_posterior_and_acceptance_state():
 
     assert trajectory.path["-log_posterior"].tolist() == [3.5, 2.0]
     assert trajectory.path["incrementation"].tolist() == [0, 1]
+    summary = trajectory.summary()
+    assert summary.loc["mu", "mean"] == pytest.approx(10.5)
+    assert summary.loc["mu", "std"] == pytest.approx(0.5)
+    pd.testing.assert_frame_equal(trajectory.check(), summary)
 
 
 @pytest.mark.parametrize(

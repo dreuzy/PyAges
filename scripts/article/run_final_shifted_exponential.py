@@ -34,17 +34,17 @@ import numpy as np
 import pandas as pd
 import scipy
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyages.calibration.mh_proposals import regularize_empirical_covariance
+from pyages._plotting import white_low_colormap
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
-from pyages.tools.figures_additional import cmap_white_jet
 from scripts.common.mcmc_diagnostics import mcse_mean
 from scripts.common.provenance import repository_provenance
 from scripts.common.publication_plotting import (
@@ -560,7 +560,7 @@ def _render_figure2(
                 surface.index.to_numpy(float),
                 surface.to_numpy(float),
                 shading="auto",
-                cmap=cmap_white_jet(),
+                cmap=white_low_colormap(base="jet"),
                 rasterized=True,
             )
             bar = fig.colorbar(colour, ax=axis, pad=0.025)
@@ -592,11 +592,6 @@ def _render_figure2(
                 ylim=(0, 50),
             )
             axis.legend(loc="upper right", framealpha=0.92)
-            save_pdf_png(
-                fig,
-                output,
-                f"figure2_shifted_exponential_{width_mm}mm",
-            )
             if width_mm == 110:
                 save_pdf_png(fig, output, "figure2_shifted_exponential_final")
                 fig.savefig(
@@ -605,6 +600,12 @@ def _render_figure2(
                     facecolor="white",
                     bbox_inches=None,
                     pil_kwargs={"compression": "tiff_lzw"},
+                )
+            else:
+                save_pdf_png(
+                    fig,
+                    output,
+                    f"figure2_shifted_exponential_{width_mm}mm",
                 )
             plt.close(fig)
 

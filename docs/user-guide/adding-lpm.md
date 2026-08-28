@@ -50,7 +50,8 @@ represented faithfully by one continuous SciPy distribution. This includes:
 
 The model must then implement its probability functions and moments and select
 the appropriate `ConvolutionStrategy`. A custom continuous model must also
-implement `cdf_and_partial_first_moment(t)`.
+implement `cdf_and_partial_first_moment(t)` under the exact contract described
+below. See {doc}`convolution` for direct forward calculations and diagnostics.
 
 ### What is implemented where
 
@@ -311,6 +312,7 @@ class MySpecialLpm(LpmScipy):
 ```
 
 Available strategies:
+
 - `CONTINUOUS`: CDF and partial-first-moment convolution (default)
 - `DIRAC`: Direct lookup for point mass distributions
 - `DIRAC_DOUBLE`: Two-point mass distributions
@@ -319,6 +321,26 @@ Available strategies:
 PyAges does not reconstruct a production CDF from sampled PDF values. A
 continuous model without a trustworthy vectorized CDF and partial first moment
 is rejected explicitly.
+
+For every finite, non-negative vector `t`, the provider must satisfy all of the
+following conditions:
+
+- return two finite arrays with exactly the same shape as `t`;
+- return a CDF `F(t)` in `[0, 1]`, monotonically non-decreasing;
+- return the raw partial moment `M(t) = E[T 1(T <= t)]` in years;
+- for each interval `[a, b]` with mass `w = F(b) - F(a)`, satisfy
+  `a*w <= M(b) - M(a) <= b*w`, up to floating-point roundoff;
+- describe the same normalized continuous distribution through `cdf()`,
+  `pdf()`, and `cdf_and_partial_first_moment()`.
+
+For `MIXED_DIRAC_CONTINUOUS`,
+`continuous_cdf_and_partial_first_moment()` describes the normalized continuous
+component before the mixture weight is applied. The `rate` parameter is the
+Dirac weight and must remain in `[0, 1]`.
+
+Tests for a new continuous LPM should cover a unit constant tracer, an affine
+tracer, a truncated history, probability bounds, moment consistency, and a
+comparison with an independent quadrature or analytical expectation.
 
 ---
 
@@ -349,8 +371,8 @@ print(f"Std:  {lpm.std():.2f} years")
 
 ```python
 from pyages.config.paths import DIRECTORY_TRACER_DATA
+from pyages.convolution import Convolution
 from pyages.tracer.tracer_root import Tracer
-from pyages.convolution.convolution import Convolution
 
 # Load tracer
 tracer = Tracer(DIRECTORY_TRACER_DATA, name="cfc11")

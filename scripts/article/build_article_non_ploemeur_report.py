@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RUN = ROOT / "results" / "article_non_ploemeur_final"
 TRACERLPM = ROOT / "validation" / "tracerlpm" / "benchmark"
 HOLTEN = (

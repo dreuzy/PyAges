@@ -737,8 +737,13 @@ dans la révision v14 du manuscrit ; leur synthèse maintenue se trouve dans
 
 Les principaux éléments sont accessibles dans :
 
-- `pyages/convolution/convolution.py` : préparation de la grille, convolution
-  CDF–moment, diagnostics et mélanges ;
+- `pyages/convolution/tracer_grid.py` : préparation et raffinement adaptatif de
+  la grille pilotée par la réponse du traceur ;
+- `pyages/convolution/continuous_integration.py` : masses CDF, premiers moments et
+  intégration continue ;
+- `pyages/convolution/convolution.py` : orchestration, diagnostics, composantes
+  Dirac et mélanges ;
+- `pyages/convolution/batch.py` : préparation et évaluation multi-traceurs ;
 - `pyages/lpm/models/` : expressions analytiques des CDF et premiers moments ;
 - `tests/convolution/test_convolution_scientific.py` : invariants de masse,
   cache, troncature, cas pathologiques et références indépendantes ;

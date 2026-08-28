@@ -1,13 +1,8 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""
-Created on Wed Mar 24 20:35:54 2021
-
-Matplotlib runtime helpers for packaged workflows.
-"""
+"""Matplotlib runtime helpers for packaged workflows."""
 
 from __future__ import annotations
 
@@ -16,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-def configure_backend(force_inline=False):
+def configure_backend(force_inline: bool = False) -> bool:
     """
     Purpose
     -------
@@ -36,23 +31,29 @@ def configure_backend(force_inline=False):
 
     try:
         from IPython import get_ipython
+    except ImportError:
+        ipy = None
+    else:
+        try:
+            ipy = get_ipython()
+        except Exception:
+            # IPython is optional and third-party detection hooks may fail.
+            ipy = None
 
-        ipy = get_ipython()
+    if ipy is None and not force_inline:
+        return False
+
+    try:
         if ipy is not None:
             ipy.run_line_magic("matplotlib", "inline")
-        if ipy is not None or force_inline:
-            try:
-                import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt
 
-                plt.switch_backend("module://matplotlib_inline.backend_inline")
-            except Exception:
-                pass
-            return True
-        matplotlib.use("TkAgg")
+        plt.switch_backend("module://matplotlib_inline.backend_inline")
+    except Exception as exc:
+        if force_inline:
+            raise RuntimeError("The inline Matplotlib backend is unavailable") from exc
         return False
-    except Exception:
-        matplotlib.use("TkAgg")
-        return False
+    return True
 
 
 def enable_interactive(plt):

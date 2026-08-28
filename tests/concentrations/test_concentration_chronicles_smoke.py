@@ -15,14 +15,12 @@ import pytest
 
 matplotlib.use("Agg", force=True)
 
-from pyages.concentrations import Concentrations
-from pyages.concentrations.chronicles import (
-    ConcentrationChronicle,
-    export_calibrated_chronicles,
-)
+from pyages.concentrations import ConcentrationChronicle, Concentrations
 from pyages.config.runtime import DisplayOptions
+from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
 from pyages.lpm.samples.table import LpmSampleTable
+from pyages.workflows.concentration_exports import export_calibrated_chronicles
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -48,7 +46,7 @@ def _summarize_concentrations(table: pd.DataFrame) -> dict[str, float]:
     return stats
 
 
-def test_concentration_chronicles_smoke(tmp_path, update_golden):
+def test_concentration_chronicles_smoke(tmp_path, update_golden, monkeypatch):
     """
     Ensure concentration chronicles plotting runs and writes outputs.
     """
@@ -82,6 +80,19 @@ def test_concentration_chronicles_smoke(tmp_path, update_golden):
         obj_function=0.0,
         concentrations=[0.0] * len(observations.observation_keys()),
     )
+    convolution_calls = 0
+    original_convolve = ConvolutionTracers.convolve_date_range
+
+    def counted_convolve(self, *args, **kwargs):
+        nonlocal convolution_calls
+        convolution_calls += 1
+        return original_convolve(self, *args, **kwargs)
+
+    monkeypatch.setattr(
+        ConvolutionTracers,
+        "convolve_date_range",
+        counted_convolve,
+    )
     export_calibrated_chronicles(
         observations,
         lpm_results,
@@ -89,6 +100,7 @@ def test_concentration_chronicles_smoke(tmp_path, update_golden):
         display,
         lpm_number=1,
     )
+    assert convolution_calls == 1
 
     assert (tmp_path / "concentrations_wide.txt").exists()
     out_dir = tmp_path / "smoke"

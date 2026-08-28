@@ -1,8 +1,8 @@
-# Première campagne d’inversion : un seul paramètre, aucun bruit.
+# First inversion campaign: one parameter and no noise.
 campaign_id: tracerlpm-inversion-pilot-v1
 observation_year: 2020.0
 
-# Les chemins sont relatifs à la racine du dépôt PyAges.
+# Paths are relative to the PyAges repository root.
 tracers:
   - name: cfc11
     recharge: data_core/data_tracer/cfc11/recharge.csv
@@ -15,8 +15,8 @@ tracers:
     unit: pptv
 
 
-# Les observations sont calculées par scripts/reference.py, sans appeler PyAges
-# ni le XLL TracerLPM.
+# Observations are computed by scripts/reference.py without calling PyAges or
+# the TracerLPM XLL.
 cases:
   - case_id: inversion-emm-tau20-no-noise
     model: EMM
@@ -35,9 +35,9 @@ cases:
       eta: 3.0              # eta PyAges = 1 + ratio TracerLPM r
     bounds:
       tau: [0.1, 200.0]
-      eta: [1.01, 11.0]     # équivaut à r dans [0.01, 10]
+      eta: [1.01, 11.0]     # equivalent to r in [0.01, 10]
     initial_values:
-      # Couples [tau, eta]; côté TracerLPM, r=eta-1.
+      # [tau, eta] pairs; on the TracerLPM side, r=eta-1.
       - [5.0, 1.5]
       - [20.0, 3.0]
       - [80.0, 10.0]
@@ -55,7 +55,7 @@ cases:
       - [80.0, 1.0]
     noise: {kind: none}
 
-# Échelle commune des résidus. Le plancher évite une division par zéro.
+# Shared residual scale. The floor prevents division by zero.
 objective:
   relative_standard_deviation: 0.01
   absolute_floor_fraction_of_tracer_maximum: 0.000001

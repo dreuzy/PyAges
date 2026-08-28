@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
@@ -18,7 +17,6 @@ from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -57,6 +55,7 @@ class Concentrations:
         """Normalize and validate a copy of an observation dataframe."""
         if not isinstance(frame, pd.DataFrame):
             raise TypeError("frame must be a pandas DataFrame")
+        self._error_provenance: list[dict[str, object]] = []
         self.frame = frame.copy().reset_index(drop=True)
         self.__ensure_column(ERROR_COLUMN, _DEFAULT_ERROR)
         self.validate()
@@ -65,6 +64,7 @@ class Concentrations:
     def _from_validated_frame(cls, frame: pd.DataFrame) -> "Concentrations":
         """Build from an internally produced canonical frame without revalidation."""
         instance = cls.__new__(cls)
+        instance._error_provenance = []
         instance.frame = frame.reset_index(drop=True)
         return instance
 
@@ -80,7 +80,7 @@ class Concentrations:
 
     def fill_missing_errors_from_means(
         self, mean_value: Iterable[float], fraction: float = 0.01
-    ) -> None:
+    ) -> int:
         """
         Assign errors proportional to mean tracer concentrations.
 
@@ -98,6 +98,11 @@ class Concentrations:
         ------
         ValueError
             If the fraction or mean values cannot define valid errors.
+
+        Returns
+        -------
+        int
+            Number of rows whose zero error was replaced.
         """
         fraction = self._validate_fraction(fraction)
         mean_array = np.asarray(mean_value, dtype=float)
@@ -109,11 +114,22 @@ class Concentrations:
         if not np.all(np.isfinite(mean_array)) or np.any(mean_array < 0.0):
             raise ValueError("mean_value entries must be finite and non-negative")
         missing_error = self.frame[ERROR_COLUMN].to_numpy(dtype=float) == 0.0
+        row_indices = np.flatnonzero(missing_error).tolist()
         self.frame.loc[missing_error, ERROR_COLUMN] = (
             mean_array[missing_error] * fraction
         )
+        if row_indices:
+            self._error_provenance.append(
+                {
+                    "method": "tracer_mean_fraction",
+                    "fraction": fraction,
+                    "row_indices": row_indices,
+                    "rows_updated": len(row_indices),
+                }
+            )
+        return len(row_indices)
 
-    def set_relative_errors(self, fraction: float) -> None:
+    def set_relative_errors(self, fraction: float) -> int:
         """
         Assign errors proportional to concentration values.
 
@@ -128,6 +144,27 @@ class Concentrations:
         fraction = self._validate_fraction(fraction)
         values = self.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
         self.frame[ERROR_COLUMN] = fraction * np.abs(values)
+        row_indices = list(range(len(self.frame)))
+        self._error_provenance.append(
+            {
+                "method": "observation_fraction",
+                "fraction": fraction,
+                "row_indices": row_indices,
+                "rows_updated": len(row_indices),
+            }
+        )
+        return len(row_indices)
+
+    @property
+    def error_provenance(self) -> list[dict[str, object]]:
+        """Return copies of effective-error transformations in application order."""
+        return [
+            {
+                **event,
+                "row_indices": list(event["row_indices"]),
+            }
+            for event in self._error_provenance
+        ]
 
     @staticmethod
     def _validate_fraction(fraction: float) -> float:
@@ -179,8 +216,8 @@ class Concentrations:
 
         if normalized[ELEMENT_COLUMN].isna().any():
             raise ValueError("Concentration elements must not be missing")
-        normalized[ELEMENT_COLUMN] = normalized[ELEMENT_COLUMN].map(str)
-        if normalized[ELEMENT_COLUMN].str.strip().eq("").any():
+        normalized[ELEMENT_COLUMN] = normalized[ELEMENT_COLUMN].map(str).str.strip()
+        if normalized[ELEMENT_COLUMN].eq("").any():
             raise ValueError("Concentration elements must not be empty")
 
         normalized_units, _ = normalize_observation_units(
@@ -291,34 +328,24 @@ class Concentrations:
 
         Returns the Matplotlib artist so callers can further customize it.
         """
-        if (
-            isinstance(i1, bool)
-            or isinstance(i2, bool)
-            or not isinstance(i1, int)
-            or not isinstance(i2, int)
-            or i1 < 0
-            or i2 < 0
-            or i1 >= len(self.frame)
-            or i2 >= len(self.frame)
-        ):
-            raise IndexError("Index out of range for concentration plot.")
-        target = ax if ax is not None else plt.gca()
-        artist = target.scatter(
-            self.frame[CONCENTRATION_COLUMN].iloc[i1],
-            self.frame[CONCENTRATION_COLUMN].iloc[i2],
-            marker="o",
-            c="r",
-            s=150,
-        )
-        if label_x:
-            target.set_xlabel(label_x)
-        if label_y:
-            target.set_ylabel(label_y)
-        return artist
+        from pyages.concentrations.plotting import plot_concentration_pair
 
-    def tracer_names(self) -> list[str]:
-        """Return tracer names as a list."""
+        return plot_concentration_pair(
+            self.frame,
+            i1,
+            i2,
+            label_x=label_x,
+            label_y=label_y,
+            ax=ax,
+        )
+
+    def observation_tracer_names(self) -> list[str]:
+        """Return one tracer name per observation row, preserving row order."""
         return self.frame[ELEMENT_COLUMN].tolist()
+
+    def unique_tracer_names(self) -> list[str]:
+        """Return distinct tracer names in first-observation order."""
+        return list(dict.fromkeys(self.observation_tracer_names()))
 
     def observation_keys(self) -> list[str]:
         """Return unique tracer/date/index keys in observation-row order."""

@@ -9,6 +9,8 @@ Use this guide by task:
 - {doc}`getting-started` installs PyAges and runs a minimal calibration.
 - {doc}`configuration` documents the YAML inputs.
 - {doc}`concentrations` defines the observation-table schema and validation.
+- {doc}`convolution` explains direct forward calculations, finite histories,
+  diagnostics, batches, and numerical controls.
 - {doc}`calibration` explains method choice, retention, diagnostics, and
   reproducibility.
 - {doc}`cli-flags` lists command-line overrides.
@@ -35,6 +37,7 @@ getting-started
 running-examples
 configuration
 concentrations
+convolution
 calibration
 cli-flags
 adding-lpm

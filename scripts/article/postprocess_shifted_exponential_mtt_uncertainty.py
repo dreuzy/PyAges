@@ -373,7 +373,7 @@ def main() -> None:
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path(__file__).resolve().parents[1],
+        default=Path(__file__).resolve().parents[2],
         help="PyAges project root (default: inferred from this script)",
     )
     parser.add_argument(

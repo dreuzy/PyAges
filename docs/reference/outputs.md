@@ -20,11 +20,13 @@ requested table and figure has been produced. A directory without a manifest
 whose `status` is `complete` is not a completed workflow result, even if it
 contains apparently usable intermediate files.
 
-Workflows reuse their deterministic output directory and do not remove files
-left by an earlier run. For qualification or publication evidence, start from
-an empty result directory or archive the preceding run first. The new manifest
-hashes every file present below the result directory, including any file left
-from an earlier run.
+Once a workflow has prepared its target result directory, it removes any
+previous success manifest before writing new artifacts. A failed rerun can
+therefore not leave an earlier `"status": "complete"` marker behind. Workflows
+still reuse deterministic directories and retain other files from earlier
+runs. For qualification or publication evidence, start from an empty result
+directory or archive the preceding run first. A new success manifest hashes
+every file present below the result directory, including retained files.
 
 ## Single-date layout
 
@@ -67,7 +69,8 @@ The complete layout is conditional on the `run` flags:
 
 `concentrations.txt` is always written. It is the normalized long-form
 observation table used by the workflow and follows the schema in
-{doc}`../user-guide/concentrations`.
+{doc}`../user-guide/concentrations`. Its `error` column contains the effective
+strictly positive uncertainties after zero placeholders have been resolved.
 
 The `reachable_concentrations` directory contains:
 
@@ -92,10 +95,12 @@ sample tables. See {doc}`../scientific-methods` for the normative equations.
 
 `span` creates one `span_full` case. `successive` creates one
 `date_<decimal-year>` case per distinct observation date; the decimal point is
-replaced by an underscore and insignificant trailing zeros are removed.
+replaced by an underscore. The shortest round-trip decimal representation is
+used, so distinct floating-point dates cannot be merged by fixed rounding.
 
 ```text
 <mode>/
+|-- concentrations.txt                         # effective normalized observations
 |-- span_full/ or date_<year>/
 |   |-- 00_observations_overview.png          # if any figures are enabled
 |   `-- <lpm_type>/
@@ -114,8 +119,9 @@ replaced by an underscore and insignificant trailing zeros are removed.
 `-- result_manifest.json                       # successful workflow only
 ```
 
-The manifest belongs to the `<mode>` directory and covers every date/LPM case
-below it. `figures.concentrations_2d` has an effect only when
+The root `concentrations.txt` contains the exact effective errors used by all
+cases. The manifest belongs to the `<mode>` directory and covers every date/LPM
+case below it. `figures.concentrations_2d` has an effect only when
 `figures.distributions` is also true. The `Metropolis_Hastings` presentation
 subdirectory is produced only when `figures.temporal` is true; it is distinct
 from the LPM directory that holds the calibration tables.
@@ -196,14 +202,15 @@ masses exactly.
 | `workflow` | string | `single_date` or `temporal` |
 | `command` | array of strings | Process argument vector used for the run |
 | `configuration` | object | Portable configuration path and SHA-256 digest |
-| `inputs` | array of objects | Portable scientific-input paths and SHA-256 digests |
+| `inputs` | array of objects | Portable observation, selected LPM-resource, and tracer-resource paths with SHA-256 digests |
 | `environment` | object | Python implementation, version, platform, and selected dependency versions |
 | `repository` | object | Git revision, dirty state, status, diff digest, and tracked-workspace digest when available |
 | `artifacts_sha256` | object | Relative artifact path to SHA-256 digest; excludes the manifest itself |
 | `details` | object | Workflow-specific selection metadata |
 
-For `single_date`, `details` records the dataset, LPM, and completed calibration
-methods. For `temporal`, it records the dataset, mode, LPM list, and case
+For `single_date`, `details` records the dataset, configured dataset year, LPM,
+and completed calibration methods. For `temporal`, it records the dataset,
+mode, LPM list, and case
 directories.
 
 The manifest fingerprints the selected direct dependencies, but it is not a

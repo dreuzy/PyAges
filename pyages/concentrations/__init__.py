@@ -13,9 +13,11 @@ from pyages.concentrations.schema import (
     REFERENCE_COLUMNS,
     UNIT_COLUMN,
 )
+from pyages.concentrations.series import ConcentrationChronicle
 
 __all__ = [
     "CONCENTRATION_COLUMN",
+    "ConcentrationChronicle",
     "Concentrations",
     "DATE_COLUMN",
     "ELEMENT_COLUMN",

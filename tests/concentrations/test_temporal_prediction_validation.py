@@ -17,10 +17,10 @@ matplotlib.use("Agg", force=True)
 import matplotlib.pyplot as plt
 
 from pyages.concentrations import Concentrations
-from pyages.concentrations.utils.plotting import (
+from pyages.concentrations.plotting import (
     plot_concentration_chronicles_summary,
 )
-from pyages.concentrations.utils.temporal import summarize_temporal_predictions
+from pyages.concentrations.temporal import summarize_temporal_predictions
 
 
 def _prediction_frame(dates=(2000.0, 2001.0), values=(1.0, 2.0)) -> pd.DataFrame:
@@ -158,15 +158,18 @@ def test_chronicle_summary_plots_shared_quantiles_and_removes_extra_axes() -> No
         ]
     )
     figure, axes = plt.subplots(1, 2)
+    summaries = summarize_temporal_predictions(
+        tracers,
+        [0, 1],
+        start_year=1960.0,
+        end_year=2001.0,
+    )
 
     try:
         plot_concentration_chronicles_summary(
             axes,
             observations,
-            tracers,
-            [0, 1],
-            start_year=1960.0,
-            end_year=2001.0,
+            summaries,
         )
 
         median_line = next(

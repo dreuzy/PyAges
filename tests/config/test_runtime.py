@@ -6,113 +6,50 @@
 
 from __future__ import annotations
 
-from unittest.mock import Mock
-
-import matplotlib
+import numpy as np
 import pytest
-
-matplotlib.use("Agg", force=True)
-
-import matplotlib.pyplot as plt
 
 from pyages.config import runtime
 
 
 def test_subdivide_interval_includes_endpoints_and_rejects_invalid_count() -> None:
     assert runtime.subdivide_interval(2.0, 5.0, 3).tolist() == [2.0, 3.0, 4.0, 5.0]
+    assert runtime.subdivide_interval(2.0, 5.0, np.int64(3)).tolist() == [
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+    ]
 
-    with pytest.raises(ValueError, match="must be positive"):
-        runtime.subdivide_interval(0.0, 1.0, 0)
-
-
-def test_display_options_save_remove_legend_and_close(tmp_path) -> None:
-    display = runtime.DisplayOptions()
-    display.directory = tmp_path
-    display.figure_close = True
-    figure, axis = plt.subplots()
-    axis.plot([0.0, 1.0], [1.0, 2.0], label="model")
-    axis.legend()
-
-    display.save_and_close(
-        figure,
-        "summary.png",
-        method="calibration",
-        dpi=72,
-        ax=axis,
-        with_legend=False,
-    )
-
-    assert (tmp_path / "calibration" / "summary.png").is_file()
-    assert axis.get_legend() is None
-    assert not plt.fignum_exists(figure.number)
+    for invalid_count in (0, -1, 2.5, True, "3"):
+        with pytest.raises(ValueError, match="integer >= 1"):
+            runtime.subdivide_interval(0.0, 1.0, invalid_count)
 
 
-def test_display_options_falls_back_for_legend_layout_and_save_errors(
-    tmp_path, monkeypatch, capsys
+def test_display_options_returns_no_path_when_figure_saving_is_disabled(
+    tmp_path,
 ) -> None:
     display = runtime.DisplayOptions()
     display.directory = tmp_path
-    display.figure_close = True
-    legend_calls = []
-
-    class Axis:
-        def legend(self, **kwargs):
-            legend_calls.append(kwargs)
-            if len(legend_calls) == 1:
-                raise RuntimeError("automatic legend failed")
-
-    figure = Mock()
-    figure.tight_layout.side_effect = RuntimeError("layout failed")
-    figure.savefig.side_effect = OSError("read-only target")
-    close = Mock()
-    monkeypatch.setattr(plt, "close", close)
-
-    display.save_and_close(
-        figure,
-        "summary.png",
-        ax=Axis(),
-        with_legend=True,
-    )
-
-    assert [call["loc"] for call in legend_calls] == ["best", "upper right"]
-    figure.subplots_adjust.assert_called_once_with(top=0.9, bottom=0.1, hspace=0.4)
-    assert "read-only target" in capsys.readouterr().out
-    close.assert_called_once_with(figure)
+    assert display.figure_path("diagnostic.png") is None
 
 
-def test_display_options_uses_fixed_margins_for_tight_layout_warning(tmp_path) -> None:
-    display = runtime.DisplayOptions()
-    display.directory = tmp_path
-    display.figure_close = False
-    figure = Mock()
-
-    def warn_about_layout():
-        import warnings
-
-        warnings.warn("Tight layout not applied: axes are incompatible", stacklevel=2)
-
-    figure.tight_layout.side_effect = warn_about_layout
-
-    display.save_and_close(figure, "summary.png")
-
-    figure.subplots_adjust.assert_called_once_with(top=0.9, bottom=0.1, hspace=0.4)
-    figure.savefig.assert_called_once()
-
-
-def test_figure_close_fx_respects_save_and_close_flags(tmp_path, monkeypatch) -> None:
+def test_display_options_builds_method_figure_path(tmp_path) -> None:
     display = runtime.DisplayOptions()
     display.directory = tmp_path
     display.figure_save = True
-    display.figure_close = True
-    savefig = Mock()
-    close = Mock()
-    monkeypatch.setattr(plt, "savefig", savefig)
-    monkeypatch.setattr(plt, "close", close)
 
-    display.figure_close_fx("diagnostic.png")
+    output = display.figure_path("diagnostic.png", method="calibration")
 
-    savefig.assert_called_once_with(tmp_path / "diagnostic.png", dpi=300)
-    close.assert_called_once_with("all")
+    assert output == tmp_path / "calibration" / "diagnostic.png"
+
+
+def test_display_options_requires_directory_when_saving() -> None:
+    display = runtime.DisplayOptions()
+    display.figure_save = True
+
+    with pytest.raises(ValueError, match="directory must be configured"):
+        display.figure_path("diagnostic.png")
 
 
 def test_simulation_timer_initializes_once_and_reports_remaining_time(

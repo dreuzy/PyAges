@@ -29,7 +29,7 @@ import pandas as pd
 import scipy
 from matplotlib.ticker import FormatStrFormatter
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -45,19 +45,19 @@ from examples.natural.holten.holten_reproduction import (
     build_reproduction_endmembers,
     optimize_well,
 )
-from pyages.calibration.mh_proposals import regularize_empirical_covariance
+from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
+from scripts.article.run_final_shifted_exponential import (
+    _iact_ess,
+    _markdown,
+    _split_rhat,
+    _summary,
+)
 from scripts.common.mcmc_diagnostics import mcse_mean
 from scripts.common.provenance import repository_provenance
 from scripts.common.publication_plotting import (
     PUBLICATION_RC,
     mm_to_in,
     save_pdf_png,
-)
-from scripts.run_final_shifted_exponential import (
-    _iact_ess,
-    _markdown,
-    _split_rhat,
-    _summary,
 )
 
 OUTPUT = ROOT / "results" / "final_article_simulations" / "holten_h4_final"
@@ -617,7 +617,6 @@ def _figure3(comparison: pd.DataFrame, output: Path) -> None:
     with plt.rc_context(PUBLICATION_RC):
         final, _ = _draw_figure3(comparison, layout=(1, 4))
         save_pdf_png(final, output, "figure3_holten_final")
-        save_pdf_png(final, output, "figure3_holten_h4_final")
         plt.close(final)
 
         alternative, _ = _draw_figure3(comparison, layout=(2, 2))

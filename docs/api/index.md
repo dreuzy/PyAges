@@ -15,22 +15,26 @@ promise is {doc}`../reference/public-api`.
    pyages.calibration.methods.base
    pyages.calibration.outputs
    pyages.calibration.problem
-   pyages.calibration.utils.parameter_grid
-   pyages.calibration.utils.systematic_sampling
+   pyages.calibration.exploration.grid
+   pyages.calibration.exploration.systematic
    pyages.convolution
    pyages.lpm.factory
    pyages.lpm.core.lpm_base
    pyages.lpm.samples.table
    pyages.lpm.core.parameter_manager
    pyages.lpm.core.registry
+   pyages.tracer.protocols
+   pyages.tracer.simple_tracers
    pyages.tracer.tracer_protocol
    pyages.tracer.config
    pyages.tracer.tracer_root
    pyages.concentrations
-   pyages.concentrations.chronicles
-   pyages.calibration.methods.metropolis_hastings
-   pyages.calibration.methods.prior
-   pyages.calibration.methods.trajectory
+   pyages.concentrations.series
+   pyages.concentrations.temporal
+   pyages.calibration.methods.mh
+   pyages.calibration.methods.mh.prior
+   pyages.calibration.methods.mh.proposals
+   pyages.calibration.methods.mh.trajectory
 ```
 
 ## I/O, CLI, and workflows
@@ -42,8 +46,10 @@ promise is {doc}`../reference/public-api`.
    pyages.data_io.lpm_params
    pyages.data_io.lpm_results
    pyages.data_io.lpm_distribution
+   pyages.data_io.concentrations
    pyages.cli.main
    pyages.workflows
+   pyages.workflows.concentration_exports
    pyages.workflows.result_manifest
 ```
 

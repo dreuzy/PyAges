@@ -19,7 +19,9 @@ def _context(tmp_path, **overrides):
     parameters = {
         "dataset_label": None,
         "dataset_name": "audit_case.txt",
+        "dataset_year": 2010,
         "dataset_data_dir": tmp_path / "data",
+        "missing_error_rel": 0.01,
         "lpm_model_name": "exp",
         "directory_lpm": tmp_path / "lpm",
         "tracer_data_dir": tmp_path / "tracers",
@@ -36,7 +38,8 @@ def _context(tmp_path, **overrides):
         params=SimpleNamespace(**parameters),
         output_directory=tmp_path / "results",
         observations=SimpleNamespace(
-            tracer_names=lambda: ["cfc11"],
+            observation_tracer_names=lambda: ["cfc11"],
+            error_provenance=[],
             frame=pd.DataFrame(
                 {"element": ["cfc11"], "date": [2010.0], "concentration": [1.0]}
             ),
@@ -176,6 +179,7 @@ def test_run_single_date_orchestrates_steps_and_manifest(tmp_path, monkeypatch) 
     render = Mock()
     objective = Mock()
     concentration_outputs = Mock()
+    begin = Mock()
     manifest = Mock()
     monkeypatch.setattr(
         single_date, "_prepare_context", lambda *_args, **_kwargs: context
@@ -189,6 +193,7 @@ def test_run_single_date_orchestrates_steps_and_manifest(tmp_path, monkeypatch) 
     monkeypatch.setattr(
         single_date, "_write_concentration_outputs", concentration_outputs
     )
+    monkeypatch.setattr(single_date, "begin_result_run", begin)
     monkeypatch.setattr(single_date, "write_result_manifest", manifest)
 
     result = single_date.run_single_date(context.config_path, force_inline=True)
@@ -197,7 +202,13 @@ def test_run_single_date_orchestrates_steps_and_manifest(tmp_path, monkeypatch) 
     render.assert_called_once_with(context, reachable, calibrated)
     objective.assert_called_once_with(context, calibrated)
     concentration_outputs.assert_called_once_with(context)
+    begin.assert_called_once_with(context.output_directory)
     context.plots.finish.assert_called_once_with()
+    assert manifest.call_args.kwargs["details"]["dataset_year"] == 2010
+    assert manifest.call_args.kwargs["details"]["observation_error_policy"] == {
+        "missing_error_rel": 0.01,
+        "transformations": [],
+    }
     assert manifest.call_args.kwargs["details"]["calibrations"] == [
         "Metropolis_Hastings",
         "Simplex",

@@ -12,7 +12,7 @@
   "inputs": [{"path": "examples/natural/holten/doc/sampling_data.txt", "sha256": "5b078f39f674c43d0a7ffc165f2d15d688fe4b368ea01487091abf31ae63565d"}],
   "scripts": [{"path": "scripts/run_holten_prior_robustness.py", "sha256": "5bcebf842cb64791fc7b54a3561af3505d5ec9046ab64b277461d4fe16b39d9e"}],
   "canonical_outputs": [],
-  "sensitivity_outputs": ["results/robustness/holten_prior_dirichlet1/holten_prior_robustness_posteriors.pdf", "results/robustness/holten_prior_dirichlet1/posterior_summaries_dirichlet1.csv"],
+  "sensitivity_outputs": ["results/robustness/holten_prior_dirichlet1/figureC1_holten_prior_sensitivity.pdf", "results/robustness/holten_prior_dirichlet1/posterior_summaries_dirichlet1.csv"],
   "large_outputs": ["results/robustness/holten_prior_dirichlet1/chains/", "results/robustness/holten_prior_dirichlet1/pilots/"],
   "required_paths": ["results/robustness/holten_prior_dirichlet1/chains/", "results/robustness/holten_prior_dirichlet1/pilots/"],
   "resources": [],

@@ -1,4 +1,4 @@
-# Inversion DM à deux paramètres avec les trois CFC communs.
+# Two-parameter DM inversion with the three shared CFCs.
 - case_id: inversion-dm-tau20-dp0_2-no-noise-tracerlpm
   sample: PSW-1-17/08/2004
   observation_year: 2020.0

@@ -19,7 +19,7 @@ import pandas as pd
 
 from pyages.data_io.lpm_distribution import read_distribution
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "results" / "final_scientific_audit_20260821"
 PLOEMEUR = ROOT / "results" / "HYP-26-0172" / "v2"
 SCENARIO_RE = re.compile(
@@ -377,7 +377,7 @@ def figure_provenance() -> pd.DataFrame:
             "namespace": "article core",
             "figure": "Figure 2 shifted-exponential",
             "artifact": f"{shifted}/figure2_shifted_exponential_final.png|pdf|tiff",
-            "builder": "scripts/run_final_shifted_exponential.py",
+            "builder": "scripts/article/run_final_shifted_exponential.py",
             "inputs": f"{shifted}/figure2_final_chain_samples.csv;{shifted}/figure2_objective_grid_sqrt_J_data_over_4.csv",
             "run_config": f"{shifted}/manifest.json",
             "status": "canonical final",
@@ -385,8 +385,8 @@ def figure_provenance() -> pd.DataFrame:
         {
             "namespace": "article core",
             "figure": "Figure 3 Holten H4",
-            "artifact": f"{holten}/figure3_holten_h4_final.png|pdf",
-            "builder": "scripts/run_final_holten_h4.py",
+            "artifact": f"{holten}/figure3_holten_final.png|pdf",
+            "builder": "scripts/article/run_final_holten_h4.py",
             "inputs": f"{holten}/posterior_summaries.csv;{holten}/visser_vs_pyages_h4.csv",
             "run_config": f"{holten}/manifest.json",
             "status": "canonical final",

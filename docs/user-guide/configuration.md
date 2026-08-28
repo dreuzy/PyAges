@@ -25,6 +25,7 @@ dataset:
   year: 2010                        # Reference year for labels/metadata
   data_dir: examples/natural/ploemeur/data  # Observation directory
   verbose: true                     # Print diagnostics
+  missing_error_rel: 0.01           # Fill zero errors from tracer means
 ```
 
 | Field | Type | Required | Description |
@@ -34,6 +35,11 @@ dataset:
 | `year` | integer | No | Reference year for metadata; default `2010` |
 | `data_dir` | path | No | Observation directory; placeholder default `examples/data` |
 | `verbose` | boolean | No | Enable verbose output; default `true` |
+| `missing_error_rel` | number | No | Fraction in `(0, 1)` of the tracer mean used only to replace zero input errors; default `0.01` |
+
+The effective errors are written to `concentrations.txt`. The result manifest
+also records `missing_error_rel` and every row changed by this policy; no
+imputation occurs inside an optimization or MCMC loop.
 
 **Tracer selection rule:** the `element` column in your data file determines
 which tracers are used. Each element must match a tracer folder under
@@ -180,12 +186,18 @@ Used with `pyages run --transient <config.yaml>`.
 dataset:
   file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
   error_rel: 0.2                    # Relative error (20%)
+  missing_error_rel: 0.01           # Fallback for any remaining zero error
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `file` | non-empty string | Yes | Path to an existing multi-date concentration file |
-| `error_rel` | number or null | No | Relative error in `[0, 1)` applied to all rows if any input error is zero; default `null` |
+| `error_rel` | number or null | No | Relative error in `(0, 1)` applied to all rows if any input error is zero; default `null` |
+| `missing_error_rel` | number | No | Fraction in `(0, 1)` of the tracer mean used only for zero errors remaining after `error_rel`; default `0.01` |
+
+Both transformations are applied before analysis. Their fractions, methods,
+row indices, and counts are written under `details.observation_error_policy`
+in the result manifest.
 
 ### LPM Models Section
 
@@ -197,7 +209,7 @@ lpm_models:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `list` | array or null | No | LPM models to evaluate; `null` or an empty array selects `exp_shifted`, `ig`, and `ig_shifted` |
+| `list` | array or null | No | Unique, non-empty LPM models to evaluate; `null` selects `exp_shifted`, `ig`, and `ig_shifted`, while an explicit empty array is rejected |
 | `directory` | path or null | No | Existing LPM parameters directory; defaults to packaged `data_core/data_lpm` |
 
 ### Workflow Section
@@ -231,8 +243,8 @@ calibration:
 | `burn_in` | number | 0.2 | Burn-in fraction in `[0, 0.5)` |
 | `nskip` | integer | 10 | Keep iterations divisible by this value after strict burn-in; at least 1 |
 | `lpm_number` | integer | 10 | Posterior draws used for distribution and concentration plots; non-negative, with 0 selecting an automatic count |
-| `seed_enabled` | boolean | false | Use the configured fixed random seed |
-| `seed` | integer or null | null | Random seed value; set a concrete integer with `seed_enabled: true` for reproducibility |
+| `seed_enabled` | boolean | false | Use the configured fixed random seed; otherwise generate a fresh seed for each chain and record it in `parameters_calibration.txt` |
+| `seed` | non-negative integer or null | null | Required when `seed_enabled: true`; ignored otherwise |
 
 The retention rule is zero-based and strict: a state is retained when
 `iteration > burn_in * mh_nsteps` and `iteration % nskip == 0`. Rejected

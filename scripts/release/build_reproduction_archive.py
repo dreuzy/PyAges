@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 from pyages import __version__
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 RELEASE_TAG = "1.0"
 EXCLUDED_PARTS = {"work", "__pycache__", ".pytest_cache"}
 

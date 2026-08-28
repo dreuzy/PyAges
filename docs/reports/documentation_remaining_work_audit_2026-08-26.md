@@ -54,7 +54,7 @@ L'audit a comparé :
 - la version, les tags Git, `CITATION.cff` et le processus de publication ;
 - les tests, le lint, le formatage, la construction .NET et les commandes CLI.
 
-Le contrôle `article/run_case.py check` ne lance aucun calcul scientifique. Il
+Le contrôle `scripts.article.run_case check` ne lance aucun calcul scientifique. Il
 compare seulement les chemins et empreintes annoncés avec le checkout courant.
 Un échec peut donc signifier une preuve absente ou un code ayant évolué ; il ne
 signifie pas à lui seul qu'un ancien résultat scientifique est faux.
@@ -77,7 +77,7 @@ archive de ce type n'a été trouvée dans le checkout ou dans les emplacements
 locaux d'archive examinés.
 
 La commande
-`python -m scripts.build_article_package --validate-only results/article_package`
+`python -m scripts.release.build_article_package --validate-only results/article_package`
 échoue actuellement car
 `results/article_package/provenance/article_package_manifest.json` est absent,
 alors que le rapport de campagne annonce un paquet de 67 artefacts.
@@ -264,7 +264,7 @@ la matrice de dépendances de publication.
    dépendances, puis ne plus modifier les scripts de calcul de ce gel.
 2. **Assembler les preuves des six cas.** Importer les sorties historiques ou
    externes, notamment Dirichlet et Supplement S2, et exécuter
-   `article/run_case.py check` jusqu'à six succès. Ne jamais remplacer une
+   `scripts.article.run_case check` jusqu'à six succès. Ne jamais remplacer une
    ancienne empreinte pour masquer une évolution : créer un nouveau manifeste
    de run relié à l'ancien.
 3. **Terminé après audit — corriger Table 3/Table 4 dans les générateurs.** Les
@@ -324,13 +324,13 @@ python -m ruff format --check .
 python -m pytest -q
 python -m pytest -q validation/tracerlpm/benchmark/tests
 python -m pytest -q --run-extensive
-python article/run_case.py check s3_forward_verification
-python article/run_case.py check s3_1_tracerlpm
-python article/run_case.py check s3_2_shifted_exponential
-python article/run_case.py check s4_1_holten
-python article/run_case.py check s4_2_ploemeur
-python article/run_case.py check holten_prior_dirichlet1
-python -m scripts.build_article_package --validate-only results/article_package
+python -m scripts.article.run_case check s3_forward_verification
+python -m scripts.article.run_case check s3_1_tracerlpm
+python -m scripts.article.run_case check s3_2_shifted_exponential
+python -m scripts.article.run_case check s4_1_holten
+python -m scripts.article.run_case check s4_2_ploemeur
+python -m scripts.article.run_case check holten_prior_dirichlet1
+python -m scripts.release.build_article_package --validate-only results/article_package
 python -m sphinx -E -a -W --keep-going -b html docs docs/_build/html
 python -m sphinx -E -a -W --keep-going -b linkcheck docs docs/_build/linkcheck
 ```

@@ -21,9 +21,9 @@ global et un dossier extérieur au dépôt :
 
 ```powershell
 $env:PYTHONNOUSERSITE = "1"
-python -m scripts.reproduce_article preflight --output C:\pyages-runs\article-1.0
-python -m scripts.reproduce_article resume --output C:\pyages-runs\article-1.0 --workers 6
-python -m scripts.reproduce_article validate --output C:\pyages-runs\article-1.0
+python -m scripts.article.reproduce_article preflight --output C:\pyages-runs\article-1.0
+python -m scripts.article.reproduce_article resume --output C:\pyages-runs\article-1.0 --workers 6
+python -m scripts.article.reproduce_article validate --output C:\pyages-runs\article-1.0
 ```
 
 Ce parcours est la référence pour une nouvelle archive GMD. Il ne dépend pas
@@ -38,31 +38,31 @@ installé au niveau utilisateur ne puisse masquer l'environnement qualifié.
 
 | Manuscript section | Case | Main output | Reproduce |
 | --- | --- | --- | --- |
-| Section 3 / Supplement S1 | `s3_forward_verification` | Supplement S1 | `python article/run_case.py run s3_forward_verification` |
-| Section 3.1 / Supplement S2 | `s3_1_tracerlpm` | Table 3, Supplement S2 | `python article/run_case.py run s3_1_tracerlpm` |
-| Section 3.2 | `s3_2_shifted_exponential` | Figure 2, Table 4 | `python article/run_case.py run s3_2_shifted_exponential` |
-| Section 4.1 | `s4_1_holten` | Figure 3 | `python article/run_case.py run s4_1_holten` |
-| Section 4.2 | `s4_2_ploemeur` | Figure 4 | `python article/run_case.py run s4_2_ploemeur` |
-| Robustness | `holten_prior_dirichlet1` | Prior-sensitivity figure and tables | `python article/run_case.py run holten_prior_dirichlet1` |
+| Section 3 / Supplement S1 | `s3_forward_verification` | Supplement S1 | `python -m scripts.article.run_case run s3_forward_verification` |
+| Section 3.1 / Supplement S2 | `s3_1_tracerlpm` | Table 3, Supplement S2 | `python -m scripts.article.run_case run s3_1_tracerlpm` |
+| Section 3.2 | `s3_2_shifted_exponential` | Figure 2, Table 4 | `python -m scripts.article.run_case run s3_2_shifted_exponential` |
+| Section 4.1 | `s4_1_holten` | Figure 3 | `python -m scripts.article.run_case run s4_1_holten` |
+| Section 4.2 | `s4_2_ploemeur` | Figure 4 | `python -m scripts.article.run_case run s4_2_ploemeur` |
+| Robustness | `holten_prior_dirichlet1` | Prior-sensitivity figure and tables | `python -m scripts.article.run_case run holten_prior_dirichlet1` |
 
 ## Interface commune
 
 Depuis la racine du dépôt :
 
 ```powershell
-python article/run_case.py list
-python article/run_case.py check s3_2_shifted_exponential
-python article/run_case.py postprocess s3_2_shifted_exponential
-python article/run_case.py run s3_2_shifted_exponential
+python -m scripts.article.run_case list
+python -m scripts.article.run_case check s3_2_shifted_exponential
+python -m scripts.article.run_case postprocess s3_2_shifted_exponential
+python -m scripts.article.run_case run s3_2_shifted_exponential
 ```
 
 Pour redessiner uniquement les figures après une campagne externe terminée,
 sans appeler ni prolonger un sampler :
 
 ```powershell
-python article/common/postprocess_existing.py s3_2_shifted_exponential --campaign-root C:\pyages-runs\article-1.0
-python article/common/postprocess_existing.py s4_1_holten --campaign-root C:\pyages-runs\article-1.0
-python article/common/postprocess_existing.py s4_2_ploemeur --campaign-root C:\pyages-runs\article-1.0
+python -m scripts.article.postprocess_existing s3_2_shifted_exponential --campaign-root C:\pyages-runs\article-1.0
+python -m scripts.article.postprocess_existing s4_1_holten --campaign-root C:\pyages-runs\article-1.0
+python -m scripts.article.postprocess_existing s4_2_ploemeur --campaign-root C:\pyages-runs\article-1.0
 ```
 
 L'option `--output` accepte aussi directement le dossier existant d'un cas.
@@ -77,7 +77,7 @@ avertissement de durée avant exécution. Les campagnes individuelles sont
 dépôt (modifiable par `PYAGES_ARTICLE_RESULTS_DIR`) afin de ne pas réutiliser ni
 écraser les résultats canoniques.
 
-Les garde-fous communs sont regroupés sous `article/common/` :
+Les garde-fous de reproduction sont regroupés sous `scripts/article/` :
 
 - `postprocess_existing.py` exige toutes les chaînes historiques et n'appelle
   aucun pilote, sampler ou prolongement ;

@@ -23,7 +23,7 @@ import pandas as pd
 
 from pyages import __version__
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = ROOT / "results" / "article_package"
 SOURCE_MANIFESTS = {
     "shifted_exponential": ROOT
@@ -143,28 +143,28 @@ ARTIFACTS = (
     _artifact(
         "figure3_png",
         "figure",
-        "results/final_article_simulations/holten_h4_final/figure3_holten_h4_final.png",
+        "results/final_article_simulations/holten_h4_final/figure3_holten_final.png",
         "figures/figure3_holten_h4.png",
         "Figure 3, raster preview",
     ),
     _artifact(
         "figure3_pdf",
         "figure",
-        "results/final_article_simulations/holten_h4_final/figure3_holten_h4_final.pdf",
+        "results/final_article_simulations/holten_h4_final/figure3_holten_final.pdf",
         "figures/figure3_holten_h4.pdf",
         "Figure 3, vector insertion file",
     ),
     _artifact(
         "figure4_png",
         "figure",
-        "results/final_article_simulations/ploemeur_shifted_exponential_final/figure4_ploemeur_shiftedexp_final.png",
+        "results/final_article_simulations/ploemeur_shifted_exponential_final/figure4_ploemeur_final.png",
         "figures/figure4_ploemeur_shifted_exponential.png",
         "Figure 4, raster preview",
     ),
     _artifact(
         "figure4_pdf",
         "figure",
-        "results/final_article_simulations/ploemeur_shifted_exponential_final/figure4_ploemeur_shiftedexp_final.pdf",
+        "results/final_article_simulations/ploemeur_shifted_exponential_final/figure4_ploemeur_final.pdf",
         "figures/figure4_ploemeur_shifted_exponential.pdf",
         "Figure 4, vector insertion file",
     ),
@@ -437,35 +437,35 @@ ARTIFACTS = (
     _artifact(
         "runner_shifted",
         "code",
-        "scripts/run_final_shifted_exponential.py",
+        "scripts/article/run_final_shifted_exponential.py",
         "provenance/code/run_final_shifted_exponential.py",
         "Table 4 and Figure 2 runner",
     ),
     _artifact(
         "runner_holten",
         "code",
-        "scripts/run_final_holten_h4.py",
+        "scripts/article/run_final_holten_h4.py",
         "provenance/code/run_final_holten_h4.py",
         "Figure 3 runner",
     ),
     _artifact(
         "runner_holten_prior",
         "code",
-        "scripts/run_holten_prior_robustness.py",
+        "scripts/article/run_holten_prior_robustness.py",
         "provenance/code/run_holten_prior_robustness.py",
         "Figure C1 and Holten prior-sensitivity runner",
     ),
     _artifact(
         "runner_ploemeur_shifted",
         "code",
-        "scripts/run_ploemeur_shifted_exponential_final.py",
+        "scripts/article/run_ploemeur_shifted_exponential_final.py",
         "provenance/code/run_ploemeur_shifted_exponential_final.py",
         "Figure 4 runner",
     ),
     _artifact(
         "runner_ploemeur_ig",
         "code",
-        "scripts/run_ploemeur_targeted_ig_reproduction.py",
+        "scripts/article/run_ploemeur_targeted_ig_reproduction.py",
         "provenance/code/run_ploemeur_targeted_ig_reproduction.py",
         "Physical-IG reproduction runner",
     ),
@@ -486,7 +486,7 @@ ARTIFACTS = (
     _artifact(
         "package_builder",
         "code",
-        "scripts/build_article_package.py",
+        "scripts/release/build_article_package.py",
         "provenance/code/build_article_package.py",
         "This package builder",
     ),
@@ -840,7 +840,7 @@ versionné est néanmoins inclus pour que le jeu des figures soit complet.
 
 Les chaînes MCMC brutes ne sont pas dupliquées dans ce paquet éditorial. Elles
 restent dans les dossiers de la campagne et sont incluses dans l'archive GMD du
-noyau stabilisé construite par `scripts.build_reproduction_archive`. Les résumés,
+noyau stabilisé construite par `scripts.release.build_reproduction_archive`. Les résumés,
 diagnostics et données tracées nécessaires à l'audit sont inclus ici.
 
 Les sources exactes enregistrées par chaque manifest d'exécution sont copiées
@@ -855,7 +855,7 @@ contre le SHA-256 historique; aucune provenance n'est réécrite rétroactivemen
 paquet depuis la racine du dépôt :
 
 ```powershell
-python -m scripts.build_article_package --validate-only <article-package>
+python -m scripts.release.build_article_package --validate-only <article-package>
 ```
 """
 

@@ -3,9 +3,9 @@
 - **Objective:** validate the forward operator against an independent quadrature.
 - **Manuscript output:** Supplement S1 and its numerical tables.
 - **Inputs/config:** `validation/tracerlpm/benchmark/inputs/`, `references/`, and `configs/campaign.yaml`.
-- **Historical evidence check:** `python article/run_case.py check s3_forward_verification`
-- **Post-process:** `python article/run_case.py postprocess s3_forward_verification` (rebuilds the summary from existing case rows; no forward calculation or MCMC).
-- **Full run:** `python article/run_case.py run s3_forward_verification`.
+- **Historical evidence check:** `python -m scripts.article.run_case check s3_forward_verification`
+- **Post-process:** `python -m scripts.article.run_case postprocess s3_forward_verification` (rebuilds the summary from existing case rows; no forward calculation or MCMC).
+- **Full run:** `python -m scripts.article.run_case run s3_forward_verification`.
 - **Stabilized campaign output:** `<campaign>/forward/`.
 
 The archived Supplement S1 itself is final, but its original consolidator did
@@ -15,7 +15,7 @@ Canonical resources are
 `validation/tracerlpm/benchmark/configs/campaign.yaml`, the `inputs/` and
 `references/` manifests beside it, and the runner
 `validation/tracerlpm/benchmark/scripts/compare_pyages.py`. Existing-output
-summaries are rebuilt by `article/common/verify_forward.py`.
+summaries are rebuilt by `scripts/article/verify_forward.py`.
 
 ## Historical discrepancy metric
 

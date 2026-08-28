@@ -16,11 +16,11 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from matplotlib.ticker import MaxNLocator
 
-import pyages.convolution.convolution_tracers as convolution_tracers
-from pyages.concentrations.utils.temporal import (
+from pyages.concentrations.temporal import (
     TemporalPredictionSummary,
     summarize_temporal_predictions,
 )
+from pyages.convolution import ConvolutionTracers
 from pyages.lpm.factory import build_lpm
 from pyages.lpm.samples.table import LpmSampleTable
 from pyages.workflows.plots.common import (
@@ -242,7 +242,7 @@ def plot_temporal_fit_comparison(
     Overlay temporal fit summaries from multiple posterior distributions.
     """
     apply_example_style()
-    tracer_names = list(dict.fromkeys(observations.frame["element"].tolist()))
+    tracer_names = observations.unique_tracer_names()
     ncols = len(tracer_names) if len(tracer_names) <= 3 else 2
     nrows = ceil(max(len(tracer_names), 1) / ncols)
     fig, axs = plt.subplots(
@@ -252,8 +252,8 @@ def plot_temporal_fit_comparison(
     highlighted_any = False
 
     end_year = float(observations.frame["date"].max())
-    tracers = convolution_tracers.ConvolutionTracers(
-        names=observations.frame["element"].unique(),
+    tracers = ConvolutionTracers(
+        names=observations.unique_tracer_names(),
         date=end_year,
     )
     tracers.validate_observation_units(observations)
@@ -321,8 +321,8 @@ def plot_temporal_fit_summary(
     """
     apply_example_style()
     end_year = float(observations.frame["date"].max())
-    tracers = convolution_tracers.ConvolutionTracers(
-        names=observations.frame["element"].unique(),
+    tracers = ConvolutionTracers(
+        names=observations.unique_tracer_names(),
         date=end_year,
     )
     tracers.validate_observation_units(observations)
@@ -340,7 +340,7 @@ def plot_temporal_fit_summary(
         end_year,
     )
 
-    tracer_names = list(dict.fromkeys(observations.frame["element"].tolist()))
+    tracer_names = observations.unique_tracer_names()
     ncols = min(2, max(len(tracer_names), 1))
     nrows = ceil(max(len(tracer_names), 1) / ncols)
     fig, axs = plt.subplots(

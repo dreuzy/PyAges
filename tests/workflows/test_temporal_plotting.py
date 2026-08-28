@@ -63,7 +63,7 @@ def test_temporal_fit_summary_plots_selected_posterior_quantiles(
 ) -> None:
     tracers = _TemporalTracers()
     monkeypatch.setattr(
-        temporal_plots.convolution_tracers,
+        temporal_plots,
         "ConvolutionTracers",
         lambda **_kwargs: tracers,
     )
@@ -96,7 +96,7 @@ def test_temporal_fit_summary_plots_selected_posterior_quantiles(
 
 def test_temporal_fit_summary_rejects_an_empty_posterior(monkeypatch) -> None:
     monkeypatch.setattr(
-        temporal_plots.convolution_tracers,
+        temporal_plots,
         "ConvolutionTracers",
         lambda **_kwargs: _TemporalTracers(),
     )

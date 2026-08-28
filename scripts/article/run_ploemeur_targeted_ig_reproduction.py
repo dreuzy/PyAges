@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -45,16 +45,16 @@ from scipy.stats import invgauss
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from pyages.calibration.methods.prior import (
-    make_prior_expo,
+from pyages.calibration.methods.mh.prior import (
+    build_empirical_prior_grid,
 )
-from pyages.calibration.ig_parameterization import (
+from pyages.calibration.methods.mh.ig_coordinates import (
     physical_moments_to_scipy,
     physical_to_scipy_coordinates,
     scipy_to_physical_coordinates,
     scipy_to_physical_moments,
 )
-from pyages.calibration.mh_proposals import regularize_empirical_covariance
+from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
 from scripts.common.mcmc_diagnostics import (
@@ -115,7 +115,7 @@ def _load_observations(
         observations = Concentrations.from_dataframe(frame)
     observations.frame["unit"] = "pptv"
     observations.set_relative_errors(0.2)
-    if set(observations.tracer_names()) != {"cfc11", "cfc12", "cfc113"}:
+    if set(observations.unique_tracer_names()) != {"cfc11", "cfc12", "cfc113"}:
         raise RuntimeError(f"Unexpected tracer set for {well}")
     return observations
 
@@ -174,7 +174,7 @@ def _empirical_prior_spec(samples: pd.DataFrame) -> dict[str, list[float]]:
     for name, (lower, upper) in bounds.items():
         histogram, bins = np.histogram(samples[name], bins=100, density=True)
         decay = 500.0 / (upper - lower)
-        x_values, probabilities = make_prior_expo(
+        x_values, probabilities = build_empirical_prior_grid(
             bins[:-1],
             histogram,
             xmin=lower,

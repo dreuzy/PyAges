@@ -15,7 +15,7 @@ The following interfaces are intended for users:
 - `pyages.lpm.samples.LpmSampleTable`;
 - `pyages.tracer.tracer_root.Tracer`;
 - `pyages.concentrations.Concentrations`, constructed with `from_file()` or
-  `from_dataframe()`;
+  `from_dataframe()`, and `pyages.concentrations.ConcentrationChronicle`;
 - the validated models exported by `pyages.config`;
 - documented YAML configuration fields and the result files defined in
   {doc}`outputs`.

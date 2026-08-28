@@ -5,6 +5,7 @@ dataset:
   year: 2010
   data_dir: examples/natural/ploemeur/data
   verbose: false
+  missing_error_rel: 0.01  # Fill only zero errors from tracer means
 
 lpm:
   model_name: exp_shifted

@@ -1,19 +1,19 @@
-# Phase 1 de l'étude de robustesse : largeur de la distribution et bruit.
+# Phase 1 of the robustness study: distribution width and noise.
 #
-# Tous les cas utilisent exactement les quatre mêmes traceurs. Cette campagne
-# ne teste donc aucune combinaison ni suppression de traceur.
+# Every case uses exactly the same four tracers. This campaign therefore tests
+# neither tracer combinations nor tracer removal.
 campaign_id: tracerlpm-robustness-width-noise-v1
 observation_year: 2020.0
 
-# Historiques atmosphériques utilisés pour créer les observations synthétiques
-# avec la convolution de référence indépendante.
+# Atmospheric histories used to create synthetic observations with the
+# independent reference convolution.
 tracers:
   - {name: cfc11, recharge: data_core/data_tracer/cfc11/recharge.csv, unit: pptv}
   - {name: cfc12, recharge: data_core/data_tracer/cfc12/recharge.csv, unit: pptv}
   - {name: cfc113, recharge: data_core/data_tracer/cfc113/recharge.csv, unit: pptv}
   - {name: sf6, recharge: data_core/data_tracer/sf6/recharge.csv, unit: pptv}
 
-# Projection des quatre historiques dans le classeur TracerLPM qualifié.
+# Projection of the four histories into the qualified TracerLPM workbook.
 tracerlpm:
   input_history: tracerlpm-input-history.csv
   target_tracers: [CFC-11, CFC-12, CFC-113, SF6]
@@ -22,27 +22,27 @@ tracerlpm:
   x_axis: CFC-11
   y_axis: SF6
 
-# Chaque matrice est le produit cartésien des valeurs ci-dessous.
-# Les graines 401-410 sont réutilisées pour toutes les largeurs et tous les
-# niveaux de bruit : les comparaisons entre scénarios sont donc appariées.
+# Each matrix is the Cartesian product of the values below.
+# Seeds 401-410 are reused for all widths and noise levels, so comparisons
+# between scenarios are paired.
 case_matrices:
   - case_id_pattern: robust-width-epm-tau{tau_tag}-r{shape_tag}-noise{noise_percent:02d}-seed{seed}
     model: EPM
     tau_values: [20.0]
     secondary_parameter:
-      # TracerLPM expose r, tandis que PyAges utilise eta = 1 + r.
+# TracerLPM exposes r, while PyAges uses eta = 1 + r.
       display_name: r
       model_parameter: eta
       model_offset: 1.0
       # r faible : distribution large, proche de l'exponentielle.
-      # r élevé : distribution étroite, proche du piston.
+# High r: narrow distribution, close to piston flow.
       values: [0.05, 0.5, 2.0, 9.0]
-    # Incertitude relative gaussienne appliquée indépendamment aux quatre
-    # concentrations; 0.20 correspond à 20 %.
+# Relative Gaussian uncertainty applied independently to the four
+# concentrations; 0.20 corresponds to 20%.
     noise_relative_standard_deviations: [0.01, 0.05, 0.10, 0.20]
     seeds: [401, 402, 403, 404, 405, 406, 407, 408, 409, 410]
     bounds: {tau: [0.1, 200.0], eta: [1.01, 11.0]}
-    # Couples [tau, eta] de départ; TracerLPM reçoit automatiquement eta-1.
+# Initial [tau, eta] pairs; TracerLPM automatically receives eta-1.
     initial_values: [[5.0, 1.05], [20.0, 1.5], [20.0, 3.0], [20.0, 10.0], [80.0, 3.0]]
 
   - case_id_pattern: robust-width-dm-tau{tau_tag}-dp{shape_tag}-noise{noise_percent:02d}-seed{seed}
@@ -52,16 +52,16 @@ case_matrices:
       display_name: DP
       model_parameter: DP
       model_offset: 0.0
-      # Pour DM, CV = sigma/tau = sqrt(2*DP) : environ 0.2, 0.63, 1 et 1.41.
+# For DM, CV = sigma/tau = sqrt(2*DP): approximately 0.2, 0.63, 1, and 1.41.
       values: [0.02, 0.2, 0.5, 1.0]
     noise_relative_standard_deviations: [0.01, 0.05, 0.10, 0.20]
     seeds: [401, 402, 403, 404, 405, 406, 407, 408, 409, 410]
     bounds: {tau: [0.1, 200.0], DP: [0.001, 3.0]}
-    # Couples [tau, DP] de départ couvrant les distributions étroites et larges.
+# Initial [tau, DP] pairs covering narrow and wide distributions.
     initial_values: [[5.0, 0.02], [20.0, 0.02], [20.0, 0.2], [20.0, 1.0], [80.0, 0.2]]
 
 objective:
-  # PyAges emploie pour chaque cas le même écart type relatif que celui injecté.
+# For each case, PyAges uses the same relative standard deviation that was injected.
   relative_standard_deviation: match_noise
-  # Plancher numérique pour les concentrations proches de zéro.
+# Numerical floor for concentrations near zero.
   absolute_floor_fraction_of_tracer_maximum: 0.000001

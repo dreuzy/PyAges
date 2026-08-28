@@ -12,18 +12,18 @@ from pathlib import Path
 
 import pandas as pd
 
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.exploration.systematic import SystematicSampling
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.calibration.methods.simplex import FORWARD_UNCERTAINTY, Simplex
-from pyages.calibration.problem import CalibrationProblem
-from pyages.calibration.utils.systematic_sampling import SystematicSampling
+from pyages.calibration.problem import CalibrationProblem, resolve_observation_errors
 from pyages.concentrations import Concentrations
-from pyages.concentrations.chronicles import export_concentration_chronicles
-from pyages.config.paths import result_subdirectory
+from pyages.config.paths import DIRECTORY_TRACER_DATA, result_subdirectory
 from pyages.config.runtime import DisplayOptions
 from pyages.lpm.factory import build_lpm
 from pyages.lpm.samples import LpmSampleTable
+from pyages.workflows.concentration_exports import export_concentration_chronicles
 from pyages.workflows.plotting_runtime import PlotSession
-from pyages.workflows.result_manifest import write_result_manifest
+from pyages.workflows.result_manifest import begin_result_run, write_result_manifest
 from pyages.workflows.single_date_config import LauncherParams, load_params
 from pyages.workflows.single_date_paths import (
     configuration_root,
@@ -68,6 +68,11 @@ def _load_observations(
     if params.verbose:
         print(f"Observation file: {path}")
     observations = Concentrations.from_file(path)
+    resolve_observation_errors(
+        observations,
+        tracer_data_directory=params.tracer_data_dir,
+        missing_error_relative_fraction=params.missing_error_rel,
+    )
     observations.display(display)
     return observations
 
@@ -84,8 +89,8 @@ def _prepare_context(
     output_directory.mkdir(parents=True, exist_ok=True)
     live_display = _display_options(None, save=False, text=params.verbose)
     saved_display = _display_options(output_directory, save=True)
+    plots = PlotSession.start(force_inline=force_inline)
     observations = _load_observations(params, live_display)
-    observations.frame.to_csv(output_directory / "concentrations.txt", sep="\t")
     return WorkflowContext(
         config_path=config_path,
         root=root,
@@ -94,7 +99,7 @@ def _prepare_context(
         live_display=live_display,
         saved_display=saved_display,
         observations=observations,
-        plots=PlotSession.start(force_inline=force_inline),
+        plots=plots,
     )
 
 
@@ -123,7 +128,7 @@ def _reachable_concentrations(context: WorkflowContext) -> pd.DataFrame | None:
     )
     sampling = SystematicSampling(
         context.params.lpm_model_name,
-        context.observations.tracer_names(),
+        context.observations.observation_tracer_names(),
         date=context.observations.frame["date"],
         sample_count=context.params.reachable_concentration_nmodels,
         display_options=display,
@@ -231,7 +236,7 @@ def _run_objective_analysis(
 
     sampling = SystematicSampling(
         context.params.lpm_model_name,
-        context.observations.tracer_names(),
+        context.observations.observation_tracer_names(),
         date=context.observations.frame["date"],
         observations=context.observations,
         sample_count=context.params.objective_function_nmodels,
@@ -272,11 +277,30 @@ def _write_concentration_outputs(context: WorkflowContext) -> None:
     )
 
 
+def _scientific_input_paths(context: WorkflowContext) -> list[Path]:
+    """Return every observation, model, and tracer resource used by the run."""
+    tracer_root = context.params.tracer_data_dir or DIRECTORY_TRACER_DATA
+    return [
+        context.params.dataset_data_dir / context.params.dataset_name,
+        context.params.directory_lpm / context.params.lpm_model_name,
+        *(
+            Path(tracer_root) / tracer
+            for tracer in context.observations.observation_tracer_names()
+        ),
+    ]
+
+
 def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path:
     """Run every enabled step from a single-date YAML configuration."""
     if params_path is None:
         raise ValueError("params_path is required for the launcher")
     context = _prepare_context(params_path, force_inline=force_inline)
+    begin_result_run(context.output_directory)
+    context.observations.frame.to_csv(
+        context.output_directory / "concentrations.txt",
+        sep="\t",
+        index=False,
+    )
     reachable = _reachable_concentrations(context)
     calibrated = _run_calibrations(context)
     _render_summary(context, reachable, calibrated)
@@ -287,11 +311,16 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
         context.output_directory,
         workflow="single_date",
         config_path=context.config_path,
-        input_paths=[context.params.dataset_data_dir / context.params.dataset_name],
+        input_paths=_scientific_input_paths(context),
         details={
             "dataset": context.params.dataset_name,
+            "dataset_year": context.params.dataset_year,
             "lpm": context.params.lpm_model_name,
             "calibrations": sorted(calibrated),
+            "observation_error_policy": {
+                "missing_error_rel": context.params.missing_error_rel,
+                "transformations": context.observations.error_provenance,
+            },
         },
     )
     return context.output_directory

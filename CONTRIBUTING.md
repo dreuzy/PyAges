@@ -37,7 +37,7 @@ Changes to validation infrastructure should also run
 calculations should run `python run_tests.py extensive` and must describe the
 corresponding evidence rather than silently replacing golden values. After
 adding, moving, parametrizing, or re-marking tests, regenerate the committed
-inventory with `python -m scripts.generate_test_inventory`.
+inventory with `python -m scripts.maintenance.generate_test_inventory`.
 
 ## Scientific and data changes
 
