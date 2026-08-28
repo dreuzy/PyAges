@@ -85,7 +85,7 @@ turning source files into a duplicate manuscript.
   final figure and table.
 - The default-grid qualification is archived in
   {doc}`convolution_grid_sensitivity_2026-08-26`; no current production or
-  article path overrides ``TracerGridSettings``. Repeat it if a future article
+  article path overrides ``ConvolutionSettings``. Repeat it if a future article
   calculation introduces non-default settings.
 - Restore or import the raw MCMC evidence, then archive chain count, retained
   draws, $\hat R$, effective sample size, MCSE, and the actual proposal

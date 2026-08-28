@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
@@ -25,7 +24,7 @@ Usage
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from pyages.config.paths import DIRECTORY_LPM_DATA
 from pyages.lpm.core.registry import (
@@ -40,8 +39,8 @@ if TYPE_CHECKING:
 
 
 def _resolve_directory(
-    directory_lpm: Optional[Union[str, Path]],
-) -> Union[str, Path]:
+    directory_lpm: str | Path | None,
+) -> str | Path:
     """
     Resolve the LPM data directory from an override or the canonical default.
 
@@ -60,7 +59,7 @@ def _resolve_directory(
 
 def build_lpm(
     lpm_type: str,
-    directory_lpm: Optional[Union[str, Path]] = None,
+    directory_lpm: str | Path | None = None,
 ) -> "LPM":
     """
     Construct an LPM instance for a given model type.
@@ -105,8 +104,8 @@ def build_lpm(
 
 def build_random_lpm(
     lpm_type: str,
-    rng: Optional[Any] = None,
-    directory_lpm: Optional[Union[str, Path]] = None,
+    rng: Any | None = None,
+    directory_lpm: str | Path | None = None,
 ) -> "LPM":
     """
     Construct an LPM instance and sample its parameters uniformly.

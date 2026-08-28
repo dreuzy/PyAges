@@ -1,4 +1,4 @@
-# Inversion EPM à deux paramètres avec les trois CFC communs.
+# Two-parameter EPM inversion with the three shared CFCs.
 - case_id: inversion-epm-tau20-r2-no-noise-tracerlpm
   sample: PSW-1-17/08/2004
   observation_year: 2020.0
@@ -20,7 +20,7 @@
     model: EPM
     observations:
       SF6: 251.144478169396      # CFC-11
-      3H: 521.878542617659       # CFC-12, décroissance neutralisée
+      3H: 521.878542617659       # CFC-12, decay neutralized
       NO3-N: 77.581368018866     # CFC-113
     initial_ages: [5.0, 20.0, 80.0]
     initial_model_parameters: [0.5, 2.0, 9.0]

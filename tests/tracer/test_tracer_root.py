@@ -3,30 +3,30 @@
 # SPDX-License-Identifier: CECILL-2.1
 
 """
-tests/tracer/test_tracer_root.py (ou test_tracer_concentration.py)
+tests/tracer/test_tracer_root.py (or test_tracer_concentration.py)
 
-Fichier de tests pytest pour la classe Tracer.
+Pytest test file for the Tracer class.
 
-Ce fichier illustre trois "niveaux" de tests utiles en calcul scientifique :
+This file illustrates three useful levels of testing in scientific computing:
 
-1) Tests de cohérence / "smoke tests"
-   - Le code s'initialise
-   - Les propriétés sont définies
-   - Les sorties sont des nombres finis (pas NaN, pas inf)
+1) Consistency tests / smoke tests
+   - The code initializes
+   - Properties are defined
+   - Outputs are finite numbers (not NaN or infinity)
 
-2) Tests de comportement attendu en cas d'usage non supporté
-   - Vérifier qu'une exception est levée (ex: ValueError)
+2) Tests of expected behavior for unsupported usage
+   - Check that an exception is raised (for example, ValueError)
 
-3) Test "golden" (valeur de référence / non-régression)
-   - On compare une valeur calculée à une valeur de référence stockée dans un fichier JSON
-   - Option pytest --update-golden : recalcule et met à jour les valeurs de référence
+3) Golden test (reference value / non-regression)
+   - Compare a computed value with a reference value stored in a JSON file
+   - The pytest --update-golden option recomputes and updates reference values
 
-Prérequis :
-- Un conftest.py à la racine du repo (C:\\codes\\pyages\\conftest.py) qui définit :
-  - l'option --update-golden
-  - les fixtures update_golden et golden_store
-  - la fonction save_golden_store(store)
-- Un fichier de références (golden) :
+Prerequisites:
+- A conftest.py at the repository root (C:\\codes\\pyages\\conftest.py) that defines:
+  - the --update-golden option
+  - the update_golden and golden_store fixtures
+  - the save_golden_store(store) function
+- A golden reference file:
   tests/golden/tracer_values.json
 """
 
@@ -42,15 +42,15 @@ from conftest import save_golden_store
 from pyages.tracer.tracer_root import Tracer
 
 # ---------------------------------------------------------------------------
-# Utilitaire : localiser les données de tests
+# Utility: locate test data
 # ---------------------------------------------------------------------------
 
 
 def _data_tracer_dir() -> Path:
     """
-    Renvoie le chemin vers le dossier contenant les données nécessaires aux tests.
+    Return the path to the directory containing the data required by the tests.
 
-    Hypothèse d'arborescence (exemple) :
+    Expected directory structure (example):
       <repo_root>/
         conftest.py
         pyages/
@@ -61,20 +61,20 @@ def _data_tracer_dir() -> Path:
           tracer/
             test_tracer_root.py
 
-    __file__ = chemin du fichier de test courant.
-    parents[2] remonte de :
-      - parents[0] : dossier du fichier (ex: tests/tracer)
-      - parents[1] : tests
-      - parents[2] : racine du repo
+    __file__ = path to the current test file.
+    parents[2] moves up from:
+      - parents[0]: file directory (for example, tests/tracer)
+      - parents[1]: tests
+      - parents[2]: repository root
 
-    On construit ensuite : <repo_root>/data_core/data_tracer
+    Then construct: <repo_root>/data_core/data_tracer
     """
     return Path(__file__).resolve().parents[2] / "data_core" / "data_tracer"
 
 
 def _tracer_names(exclude=None) -> list[str]:
     """
-    Liste les traceurs disponibles (sous-dossiers avec YAML) en excluant certains.
+    List the available tracers (subdirectories with YAML), excluding selected ones.
     """
     tracer_dir = _data_tracer_dir()
     exclude_set = set(exclude or [])
@@ -89,14 +89,14 @@ def _tracer_names(exclude=None) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Tests de cohérence (smoke tests)
+# Consistency tests (smoke tests)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("tracer_name", _tracer_names(exclude=["NO3"]))
 def test_tracer_smoke_all(tracer_name):
     """
-    Smoke test minimal pour tous les traceurs (sauf NO3).
+    Run a minimal smoke test for all tracers except NO3.
     """
     tracer_dir = _data_tracer_dir()
     tracer = Tracer(tracer_dir, name=tracer_name)
@@ -117,53 +117,53 @@ def test_tracer_smoke_all(tracer_name):
 
 def test_tracer_chronicle_cfc11_basics():
     """
-    Test "smoke" sur un traceur de type chronique (ex: cfc11).
+    Run a smoke test on a chronicle-based tracer (for example, cfc11).
 
-    Objectif :
-    - vérifier que l'objet Tracer s'initialise correctement
-    - vérifier que quelques attributs essentiels sont cohérents
-    - vérifier que les méthodes principales retournent des valeurs numériques finies
+    Objectives:
+    - Check that the Tracer object initializes correctly
+    - Check that key attributes are consistent
+    - Check that the main methods return finite numeric values
 
-    Ce test NE garantit pas la validité scientifique fine :
-    il valide surtout "ça marche" et "les sorties sont raisonnables".
+    This test does NOT guarantee detailed scientific validity; it primarily checks
+    that the code works and that its outputs are reasonable.
     """
     tracer_dir = _data_tracer_dir()
     tracer = Tracer(tracer_dir, name="cfc11")
 
-    # --- attributs de base ---
+    # --- Basic attributes ---
     assert tracer.name == "cfc11"
 
-    # On s'attend à ce que l'unité soit renseignée (sinon données/propriétés incomplètes)
+    # The unit should be set; otherwise, the data or properties are incomplete.
     assert tracer.unit != ""
 
-    # La plage de dates doit être cohérente
+    # The date range must be consistent.
     assert tracer.datemin < tracer.datemax
 
-    # --- sorties numériques : doivent être finies ---
-    # On force float(value) car get_concentration peut renvoyer un numpy scalar
+    # --- Numeric outputs must be finite ---
+    # Force float(value) because get_concentration may return a NumPy scalar.
     value = tracer.get_concentration(date=2010.0, time=20.0)
     assert math.isfinite(float(value))
 
-    # Valeur moyenne (sur une année par exemple)
+    # Mean value (over one year, for example).
     mean_val = tracer.mean_value(2010.0)
     assert math.isfinite(mean_val)
 
-    # Valeur max globale
+    # Global maximum value.
     max_val = tracer.max_value()
     assert math.isfinite(max_val)
 
-    # Hypothèse métier : la concentration ne devrait pas être négative
-    # (à ajuster si, dans ton modèle, des valeurs négatives peuvent exister)
+    # Domain assumption: the concentration should not be negative.
+    # Adjust this if negative values are possible in the model.
     assert max_val >= 0
 
 
 def test_tracer_constant_recharge_so4():
     """
-    Test "smoke" + test d'exception sur un traceur de type "recharge constante" (SO4).
+    Run a smoke test and exception test on a constant-recharge tracer (SO4).
 
-    Objectif :
-    - get_concentration doit fonctionner et renvoyer une valeur finie
-    - max_value n'est peut-être pas défini pour ce type -> on vérifie qu'il lève ValueError
+    Objectives:
+    - get_concentration must work and return a finite value
+    - max_value may not be defined for this type, so check that it raises ValueError
     """
     tracer_dir = _data_tracer_dir()
     tracer = Tracer(tracer_dir, name="SO4")
@@ -171,8 +171,8 @@ def test_tracer_constant_recharge_so4():
     value = tracer.get_concentration(date=2000.0, time=10.0)
     assert math.isfinite(float(value))
 
-    # Ici, on teste un comportement "d'erreur attendue" :
-    # max_value() n'a pas de sens pour ce traceur, donc on veut une exception.
+    # Test expected error behavior here: max_value() is not meaningful for this
+    # tracer, so it should raise an exception.
     with pytest.raises(ValueError):
         tracer.max_value()
 
@@ -207,18 +207,18 @@ def test_tracer_allows_metadata_block(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Test Golden (valeur de référence / non-régression)
+# Golden test (reference value / non-regression)
 # ---------------------------------------------------------------------------
 
 
 def _golden_key(tracer_name: str, date: float, time: float) -> str:
     """
-    Construit une clé stable pour indexer une valeur de référence dans le JSON.
+    Build a stable key for indexing a reference value in the JSON file.
 
-    Exemple :
+    Example:
       "cfc11:date=2001.0,time=25.0"
 
-    Le but est d'éviter toute ambiguïté et d'avoir une clé "copiable" et stable.
+    The goal is to avoid ambiguity and provide a stable, copyable key.
     """
     return f"{tracer_name}:date={date},time={time}"
 
@@ -226,50 +226,50 @@ def _golden_key(tracer_name: str, date: float, time: float) -> str:
 @pytest.mark.parametrize("tracer_name", _tracer_names(exclude=["NO3"]))
 def test_tracer_get_concentration_golden(tracer_name, update_golden, golden_store):
     """
-    Test golden pour get_concentration sur un point précis (date, time).
+    Run a golden test for get_concentration at a specific point (date, time).
 
-    Deux modes :
+    Two modes:
 
-    - Mode normal (sans option) :
-        On compare la valeur calculée à la valeur de référence stockée dans
-        tests/golden/tracer_values.json, sous une clé stable.
+    - Normal mode (without an option):
+        Compare the computed value with the reference value stored under a
+        stable key in tests/golden/tracer_values.json.
 
-    - Mode mise à jour (avec --update-golden) :
-        On recalcule la valeur et on l'écrit dans le JSON,
-        puis on "skip" le test (on ne compare pas).
+    - Update mode (with --update-golden):
+        Recompute the value, write it to the JSON file, and then skip the test
+        without comparing values.
 
-    Pourquoi "skip" en mode update ?
-      - On veut rendre explicite l'intention : "je mets à jour la référence".
-      - On évite de mélanger mise à jour et validation dans la même exécution.
+    Why skip in update mode?
+      - To make the intent explicit: "I am updating the reference."
+      - To avoid mixing updates and validation in the same run.
     """
     tracer_dir = _data_tracer_dir()
     tracer = Tracer(tracer_dir, name=tracer_name)
 
-    # Paramètres du point de test : doit être stable et reproductible
+    # Test-point parameters must be stable and reproducible.
     date = 0.5 * (tracer.datemin + tracer.datemax)
     time = min(10.0, max(0.0, date - tracer.datemin))
 
-    # Valeur calculée
+    # Computed value.
     value = float(tracer.get_concentration(date=date, time=time))
 
-    # Clé de stockage/retrieval dans le golden store
+    # Storage and retrieval key in the golden store.
     key = _golden_key(tracer_name, date, time)
 
-    # Affiche une valeur "copiable" si tu veux l'observer dans la console
-    # (utile pour debug / validation manuelle)
+    # Print a copyable value for inspection in the console.
+    # This is useful for debugging or manual validation.
     print(f"[golden] {key} = {value:.12e}")
 
     if update_golden:
-        # --- Mode mise à jour ---
+        # --- Update mode ---
         golden_store[key] = value
         save_golden_store(golden_store)
 
-        # On ne "valide" pas ici : on signale seulement que la référence a été mise à jour.
+        # Do not validate here; only report that the reference was updated.
         pytest.skip(f"Golden updated: {key} = {value:.12e}")
     else:
-        # --- Mode comparaison ---
-        # Si la référence n'existe pas encore, on force l'utilisateur à la générer
-        # plutôt que de laisser le test passer sans vérifier quoi que ce soit.
+        # --- Comparison mode ---
+        # If the reference does not exist yet, require the user to generate it
+        # instead of allowing the test to pass without checking anything.
         if key not in golden_store:
             pytest.fail(
                 f"Golden value missing for {key}. Run: pytest -s --update-golden"
@@ -277,8 +277,8 @@ def test_tracer_get_concentration_golden(tracer_name, update_golden, golden_stor
 
         expected = float(golden_store[key])
 
-        # Comparaison tolérante pour flottants.
-        # rel = tolérance relative, abs = tolérance absolue.
+        # Floating-point comparison with tolerances.
+        # rel = relative tolerance; abs = absolute tolerance.
         print(
             f"[golden] comparing {key}: computed={value:.12e} expected={expected:.12e}"
         )

@@ -39,7 +39,16 @@ def test_numeric_fields_report_the_tracer_and_field() -> None:
         TracerConfigError,
         match="Tracer sample: recharge_constant must be numeric",
     ):
-        TracerConfig.from_mapping("sample", {"recharge_constant": "many"})
+        TracerConfig.from_mapping(
+            "sample",
+            {"unit": "TU", "recharge_constant": "many"},
+        )
+
+
+@pytest.mark.parametrize("unit", [None, "unknown", "pCm%", "tu"])
+def test_tracer_config_requires_a_canonical_explicit_unit(unit) -> None:
+    with pytest.raises(TracerConfigError, match="unit"):
+        TracerConfig.from_mapping("sample", {"unit": unit})
 
 
 def test_loader_distinguishes_invalid_yaml_from_invalid_configuration(tmp_path) -> None:

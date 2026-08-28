@@ -13,12 +13,13 @@ import numpy as np
 import pytest
 from scipy.stats import multivariate_normal
 
-from pyages.calibration.ig_parameterization import (
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh.ig_coordinates import (
     physical_to_scipy_coordinates,
     scipy_to_physical_coordinates,
 )
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
-from pyages.calibration.mh_proposals import (
+from pyages.calibration.methods.mh.proposals import (
+    ComponentwiseRandomWalk,
     GaussianRandomWalk,
     native_to_sum_difference,
     regularize_empirical_covariance,
@@ -38,14 +39,15 @@ class _BoundedTarget:
 
 def test_componentwise_proposal_uses_the_seeded_scalar_draw_protocol():
     sampler = MetropolisHastings(config=MHConfig(prior_option=False, likelihood=True))
-    sampler.proposal_step.value = {"mu": 1.5, "shift": 2.0}
+    proposal = ComponentwiseRandomWalk("bounds", 0.1)
+    proposal.names = ("mu", "shift")
+    proposal.steps = np.array([1.5, 2.0])
+    sampler._proposal = proposal  # noqa: SLF001
     actual_rng = np.random.default_rng(2468)
     expected_rng = np.random.default_rng(2468)
     current = [10.0, 30.0]
 
-    actual = sampler._MetropolisHastings__draw_proposal(  # noqa: SLF001
-        current, _BoundedTarget(), actual_rng
-    )
+    actual = sampler._draw_proposal(current, actual_rng)  # noqa: SLF001
     expected = [
         current[0] + 1.5 * expected_rng.standard_normal(),
         current[1] + 2.0 * expected_rng.standard_normal(),
@@ -136,10 +138,8 @@ def test_target_and_bounds_do_not_depend_on_proposal_choice():
         )
         sampler._bind_problem(problem)
     args = ([10.0, 30.0], np.array([1.0]), np.array([1.0]))
-    componentwise_target = componentwise._MetropolisHastings__log_posterior_eval(  # noqa: SLF001
-        *args
-    )
-    transformed_target = transformed._MetropolisHastings__log_posterior_eval(*args)  # noqa: SLF001
+    componentwise_target = componentwise._log_posterior_eval(*args)  # noqa: SLF001
+    transformed_target = transformed._log_posterior_eval(*args)  # noqa: SLF001
     assert transformed_target == componentwise_target
 
     transformed._proposal = GaussianRandomWalk.diagonal((100.0, 100.0))
@@ -147,15 +147,13 @@ def test_target_and_bounds_do_not_depend_on_proposal_choice():
     state = [10.0, 30.0]
     log_p, objective, concentration = transformed_target
     for _ in range(500):
-        state, log_p, objective, concentration, _ = (
-            transformed._MetropolisHastings__mcmc_step(  # noqa: SLF001
-                state,
-                log_p,
-                objective,
-                concentration,
-                np.array([1.0]),
-                np.array([1.0]),
-                rng,
-            )
+        state, log_p, objective, concentration, _ = transformed._mcmc_step(  # noqa: SLF001
+            state,
+            log_p,
+            objective,
+            concentration,
+            np.array([1.0]),
+            np.array([1.0]),
+            rng,
         )
         assert _BoundedTarget.param_within_bounds_array(state)

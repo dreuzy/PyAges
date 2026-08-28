@@ -10,14 +10,15 @@
 **Date:** 26 August 2026  
 **Base commit:** `04e6ebaa4b7a67154bbb4532e112e543563790ad`  
 **Scope:** versioned Python code and documentation; the untracked
-`submission_candidate/` directory was excluded.
+The candidate snapshot now archived under
+`article/archive/submission-candidate-2026-08-26/` was excluded.
 
 During final validation, concurrent work appeared outside the audit, including
 `.github/workflows/ci.yml`, `scripts/_runtime_probe.py`,
-`scripts/run_ploemeur_targeted_ig_reproduction.py`,
+`scripts/article/run_ploemeur_targeted_ig_reproduction.py`,
 `sites/ploemeur/workflows/ploemeur_workflow.py`,
 `tests/ploemeur/test_ploemeur_workflow.py`, and
-`tests/scripts/test_article_support.py`. Those changes were preserved and
+`tests/scripts/article/test_article_support.py`. Those changes were preserved and
 excluded from this audit.
 
 ## Executive conclusion
@@ -55,7 +56,7 @@ is protected by a CLI regression test.
 
 ## Current article-evidence status
 
-All six read-only `article/run_case.py check` commands still fail in this
+All six read-only `scripts.article.run_case check` commands still fail in this
 checkout:
 
 | Case | Current local result |

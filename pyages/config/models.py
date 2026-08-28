@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
@@ -14,10 +13,19 @@ and errors are reported early and clearly.
 
 from __future__ import annotations
 
+import builtins
 from pathlib import Path
-from typing import List
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
+
+from pyages.config.paths import validate_path_component
 
 TEMPORAL_VALID_MODES = {"span", "successive"}
 
@@ -150,11 +158,17 @@ class SystemCheckConfig(_BaseCfg):
 class LauncherDatasetCfg(_BaseCfg):
     """Dataset section of the single-date launcher YAML."""
 
-    name: str = "example_dataset"
+    name: str = Field(default="example_dataset", min_length=1)
     label: str | None = None
     year: int = 2010
     data_dir: Path = Path("examples/data")
     verbose: bool = True
+    missing_error_rel: float = Field(default=0.01, gt=0.0, lt=1.0)
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        return validate_path_component(value, label="dataset.name")
 
     @field_validator("data_dir")
     @classmethod
@@ -167,6 +181,11 @@ class LauncherLpmCfg(_BaseCfg):
 
     model_name: str = "dirac_double"
     data_directory: Path = Path("data_core/data_lpm")
+
+    @field_validator("model_name")
+    @classmethod
+    def _validate_model_name(cls, value: str) -> str:
+        return validate_path_component(value, label="lpm.model_name")
 
     @field_validator("data_directory")
     @classmethod
@@ -211,7 +230,9 @@ class LauncherObjectiveCfg(_BaseCfg):
 class LauncherMetropolisCfg(_BaseCfg):
     """Metropolis-Hastings configuration (single-date launcher)."""
 
-    nstep: int = Field(default=5000, ge=1)
+    # The launcher fixes burn_in=0.2 and nskip=10. Eleven transitions are the
+    # smallest configuration that retains a state under the strict rule.
+    nstep: int = Field(default=5000, ge=11)
     prior_option: bool = False
     likelihood: bool = True
     monitor: bool = False
@@ -254,6 +275,7 @@ class LauncherParams(_BaseCfg):
     dataset_year: int
     dataset_data_dir: Path
     verbose: bool
+    missing_error_rel: float
     lpm_model_name: str
     directory_lpm: Path
     tracer_data_dir: Path | None = None
@@ -281,7 +303,8 @@ class TemporalDatasetCfg(_BaseCfg):
     """Dataset inputs (file path + optional relative error)."""
 
     file: str = Field(..., min_length=1)
-    error_rel: float | None = Field(default=None, ge=0.0, lt=1.0)
+    error_rel: float | None = Field(default=None, gt=0.0, lt=1.0)
+    missing_error_rel: float = Field(default=0.01, gt=0.0, lt=1.0)
 
 
 class TemporalCalibrationCfg(_BaseCfg):
@@ -293,7 +316,13 @@ class TemporalCalibrationCfg(_BaseCfg):
     lpm_number: int = Field(default=10, ge=0)
     explo_res: int = Field(default=20, ge=1)
     seed_enabled: bool = False
-    seed: int | None = None
+    seed: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _require_enabled_seed(self) -> Self:
+        if self.seed_enabled and self.seed is None:
+            raise ValueError("calibration.seed is required when seed_enabled is true")
+        return self
 
 
 class TemporalFiguresCfg(_BaseCfg):
@@ -322,8 +351,25 @@ class TemporalWorkflowCfg(_BaseCfg):
 class TemporalLpmModelsCfg(_BaseCfg):
     """LPM selection and optional parameter directory override."""
 
-    list: List[str] | None = None
+    list: builtins.list[str] | None = None
     directory: str | None = None
+
+    @field_validator("list")
+    @classmethod
+    def _validate_model_list(
+        cls, value: builtins.list[str] | None
+    ) -> builtins.list[str] | None:
+        if value is None:
+            return None
+        normalized = [model.strip() for model in value]
+        if not normalized or any(not model for model in normalized):
+            raise ValueError("lpm_models.list must contain non-empty model names")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("lpm_models.list must not contain duplicate models")
+        return [
+            validate_path_component(model, label="lpm_models.list item")
+            for model in normalized
+        ]
 
 
 class TemporalResultsCfg(_BaseCfg):
@@ -335,12 +381,18 @@ class TemporalResultsCfg(_BaseCfg):
         default="temporal", min_length=1, pattern=r"^[A-Za-z0-9_.-]+$"
     )
 
-    @field_validator("directory")
+    @field_validator("study_name")
     @classmethod
-    def _require_directory_when_not_default(cls, value: str | None, info):
-        if info.data.get("use_default") is False and not value:
+    def _validate_study_name(cls, value: str) -> str:
+        return validate_path_component(value, label="results.study_name")
+
+    @model_validator(mode="after")
+    def _require_directory_when_not_default(self) -> Self:
+        if not self.use_default and (
+            self.directory is None or not self.directory.strip()
+        ):
             raise ValueError("results.directory must be set when use_default is false.")
-        return value
+        return self
 
 
 class TemporalParams(_BaseCfg):
@@ -357,7 +409,6 @@ class TemporalParams(_BaseCfg):
 __all__ = [
     "CliRunParams",
     "CliCheckParams",
-    "ValidationError",
     "SystemCheckConfig",
     "LauncherConfig",
     "LauncherParams",

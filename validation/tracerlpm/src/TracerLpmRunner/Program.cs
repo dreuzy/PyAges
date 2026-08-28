@@ -195,9 +195,9 @@ internal static class Program
             Log("macro UpdateTracersForCalcSheets start");
             excel.Run($"'{workbook.Name}'!UpdateTracersForCalcSheets");
             Log("macro UpdateTracersForCalcSheets done");
-            // Workbook_Open affiche un faux avertissement « Solver not found »
-            // lorsque Solver a été chargé par ouverture directe du XLAM. Le runner
-            // rejoue ensuite explicitement tous les événements dont il dépend.
+            // Workbook_Open displays a false "Solver not found" warning when
+            // Solver was loaded by opening the XLAM directly. The runner then
+            // explicitly replays every event on which it depends.
             excel.EnableEvents = false;
             workbook.Save();
             Console.WriteLine($"Four-tracer workbook saved: {targetPath}");
@@ -1120,9 +1120,9 @@ internal static class Program
                 }
                 catch (COMException)
                 {
-                    // Certaines installations Microsoft 365 refusent le basculement
-                    // de Installed par COM, tout en autorisant l'ouverture directe
-                    // du XLAM. Cela charge les mêmes macros dans cette instance.
+                    // Some Microsoft 365 installations reject switching Installed
+                    // through COM while allowing the XLAM to be opened directly.
+                    // This loads the same macros into this instance.
                     var fullName = Convert.ToString(addIn.FullName, CultureInfo.InvariantCulture);
                     if (string.IsNullOrWhiteSpace(fullName) || !File.Exists(fullName)) throw;
                     excel.Workbooks.Open(fullName, 0, true);

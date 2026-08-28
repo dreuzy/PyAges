@@ -1,4 +1,4 @@
-# Monte-Carlo principal : 30 réalisations par modèle avec 1 % de bruit.
+# Main Monte Carlo campaign: 30 realizations per model with 1% noise.
 campaign_id: tracerlpm-inversion-monte-carlo-01-v1
 observation_year: 2020.0
 
@@ -7,8 +7,8 @@ tracers:
   - {name: cfc12, recharge: data_core/data_tracer/cfc12/recharge.csv, unit: pptv}
   - {name: cfc113, recharge: data_core/data_tracer/cfc113/recharge.csv, unit: pptv}
 
-# Les patrons évitent de répéter 60 blocs YAML. Chaque graine produit trois
-# perturbations gaussiennes indépendantes, une par traceur.
+# Templates avoid repeating 60 YAML blocks. Each seed produces three
+# independent Gaussian perturbations, one per tracer.
 case_templates:
   - case_id_pattern: mc01-epm-tau20-r2-seed{seed}
     seeds: [201, 202, 203, 204, 205, 206, 207, 208, 209, 210,

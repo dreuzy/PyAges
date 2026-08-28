@@ -28,9 +28,11 @@ environment, Git state, and hashes of generated artifacts.
 
 ## Project status
 
-PyAges is currently beta software. Its supported interfaces are documented in
-{doc}`reference/public-api`; incompatible pre-1.0 changes are recorded in the
-{doc}`reference/changelog`. Scientific conclusions remain conditional on the
+PyAges is prepared with the stable `1.0` software identity. Its supported
+interfaces are documented in {doc}`reference/public-api` and compatibility is
+managed through {doc}`reference/changelog`. The release becomes immutable when
+the exact reviewed source commit is tagged `1.0`; until then, calculations must
+also report their Git commit. Scientific conclusions remain conditional on the
 selected LPM, tracer histories, observation uncertainties, and validation
 scope described in {doc}`science/validation`.
 

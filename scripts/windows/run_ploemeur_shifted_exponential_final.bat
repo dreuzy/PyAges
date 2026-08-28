@@ -9,7 +9,7 @@ echo [%date% %time%] Starting the four-case Ploemeur shifted-exponential campaig
 echo Existing pilot and chain files will be reused after an interruption.
 echo No Holten or other Ploemeur simulation is launched.
 
-python scripts\run_ploemeur_shifted_exponential_final.py all --workers 5 1> "results\final_article_simulations\ploemeur_shifted_exponential_final\batch.stdout.log" 2> "results\final_article_simulations\ploemeur_shifted_exponential_final\batch.stderr.log"
+python -m scripts.article.run_ploemeur_shifted_exponential_final all --workers 5 1> "results\final_article_simulations\ploemeur_shifted_exponential_final\batch.stdout.log" 2> "results\final_article_simulations\ploemeur_shifted_exponential_final\batch.stderr.log"
 set "PLOEMEUR_EXIT=%ERRORLEVEL%"
 
 if not "%PLOEMEUR_EXIT%"=="0" (
@@ -20,5 +20,5 @@ if not "%PLOEMEUR_EXIT%"=="0" (
 
 echo [%date% %time%] Campaign complete.
 echo Report: results\final_article_simulations\ploemeur_shifted_exponential_final\PLOEMEUR_SHIFTED_EXPONENTIAL_FINAL.md
-echo Figure: results\final_article_simulations\ploemeur_shifted_exponential_final\figure4_ploemeur_shiftedexp_final.png
+echo Figure: results\final_article_simulations\ploemeur_shifted_exponential_final\figure4_ploemeur_final.png
 exit /b 0

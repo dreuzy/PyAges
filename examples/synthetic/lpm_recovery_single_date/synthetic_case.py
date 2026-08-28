@@ -17,7 +17,7 @@ import pandas as pd
 import yaml
 
 from pyages.concentrations import Concentrations
-from pyages.convolution.convolution_tracers import ConvolutionTracers
+from pyages.convolution import ConvolutionTracers
 from pyages.data_io.lpm_distribution import read_distribution, read_statistics
 from pyages.lpm import build_lpm
 
@@ -233,7 +233,7 @@ def build_truth_aware_figures(
     truth = truth_payload or load_ground_truth()
     import matplotlib.pyplot as plt
 
-    from pyages.workflows.plots import (
+    from pyages.reporting.plots import (
         plot_objective_summary,
         plot_parameter_summary,
         plot_single_date_model_space,

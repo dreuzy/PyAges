@@ -6,8 +6,8 @@ Les deux couches de preuve sont désormais distinguées explicitement :
 
 | Couche | Commande | Résultat observé | Rôle |
 | --- | --- | --- | --- |
-| inventaire historique | `python article/run_case.py check <cas>` | **0/6** preuves historiques disponibles localement | comparaison et traçabilité des campagnes des 20–22 août ; ce n'est pas le contrôle de la nouvelle campagne |
-| campagne fraîche | `python -m scripts.reproduce_article validate --output C:\pyages-runs\article-v1` | **9/9** étapes valides, 87 artefacts du paquet et 3 046 fichiers d'archive vérifiés | contrôle canonique de présence, statut d'exécution et empreintes de la campagne complète |
+| inventaire historique | `python -m scripts.article.run_case check <cas>` | **0/6** preuves historiques disponibles localement | comparaison et traçabilité des campagnes des 20–22 août ; ce n'est pas le contrôle de la nouvelle campagne |
+| campagne fraîche | `python -m scripts.article.reproduce_article validate --output C:\pyages-runs\article-v1` | **9/9** étapes valides, 87 artefacts du paquet et 3 046 fichiers d'archive vérifiés | contrôle canonique de présence, statut d'exécution et empreintes de la campagne complète |
 
 L'échec des six anciens contrôles ne signifie donc pas que la nouvelle campagne
 a échoué. Il signifie que le checkout ne contient pas les répertoires
@@ -84,13 +84,13 @@ statut de qualification.
 
 ## Corrections apportées par ce ré-audit
 
-- `article/run_case.py check` annonce maintenant qu'il contrôle uniquement les
+- `scripts.article.run_case check` annonce maintenant qu'il contrôle uniquement les
   preuves historiques et son verdict parle de disponibilité historique.
-- `scripts.reproduce_article validate` fournit le contrôle canonique de la
+- `scripts.article.reproduce_article validate` fournit le contrôle canonique de la
   campagne fraîche, vérifie les étapes, puis recalcule les empreintes du paquet
   et de l'archive.
 - La validation isolée d'une archive fonctionne désormais avec
-  `python -m scripts.build_reproduction_archive --validate-only <archive>`,
+  `python -m scripts.release.build_reproduction_archive --validate-only <archive>`,
   sans imposer des arguments de construction inutiles.
 - La campagne complète inclut maintenant le cas Dirichlet comme sensibilité
   distincte et conserve explicitement la séparation avec Holten canonique.

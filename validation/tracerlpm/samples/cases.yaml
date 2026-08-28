@@ -1,19 +1,19 @@
-# Cas officiel Example 1 livré avec TracerLPM.
-# Les hashes sont des baselines techniques observées et répétées localement;
-# ils ne constituent pas à eux seuls une validation scientifique indépendante.
+# Official Example 1 case distributed with TracerLPM.
+# Hashes are technical baselines observed and repeated locally; on their own,
+# they do not constitute independent scientific validation.
 
 - case_id: modesto-pfm-emm
-  # Libellé exact de la liste Excel: identifiant et date de prélèvement.
+# Exact label from the Excel list: identifier and sampling date.
   sample: PSW-1-17/08/2004
-  # Modèle affiché dans le premier emplacement de sortie.
+# Model displayed in the first output slot.
   model1: PFM
-  # Modèle affiché dans le deuxième emplacement de sortie.
+# Model displayed in the second output slot.
   model2: EMM
-  # Traceur de l'axe horizontal; le libellé doit exister dans Excel.
+# Tracer on the horizontal axis; the label must exist in Excel.
   x_axis: 3H/3Ho
-  # Traceur de l'axe vertical; le libellé doit exister dans Excel.
+# Tracer on the vertical axis; the label must exist in Excel.
   y_axis: SF6
-  # Hash des 61 couples du modèle 1, ordonnés X1,Y1,...,X61,Y61.
+# Hash of the 61 model 1 pairs, ordered X1,Y1,...,X61,Y61.
   expected_model1_sha256: 2E14DA49ACB873C833A0FDFEBD23C26D6483498A7643C7B3DB3A90AB93946FB8
-  # Hash analogue pour le modèle 2; tous deux sont requis pour « conforme ».
+# Equivalent hash for model 2; both are required for a conforming result.
   expected_model2_sha256: 2834E84BFD505DEA2E0CC04EBC7A72FF1C756D50AC5ED14B2D10A7E8E71EECC3

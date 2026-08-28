@@ -77,7 +77,9 @@ def test_article_manifests_do_not_claim_legacy_commit_as_calculation_release():
 
 
 def test_postprocess_wrapper_never_calls_sampling_or_extension_entrypoints():
-    source = (ARTICLE / "common/postprocess_existing.py").read_text(encoding="utf-8")
+    source = (ROOT / "scripts/article/postprocess_existing.py").read_text(
+        encoding="utf-8"
+    )
     tree = ast.parse(source)
     forbidden = {"run_campaign", "run_pilots", "run_production", "analyze_and_extend"}
     calls = {
@@ -100,15 +102,16 @@ def test_article_runs_are_routed_to_common_guard():
         "holten_prior_dirichlet1",
     ):
         command = registry[case_id]["commands"]["run"]
-        assert command[1] == "article/common/run_full.py"
-        assert command[2] == case_id
+        assert command[1:3] == ["-m", "scripts.article.run_full"]
+        assert command[3] == case_id
 
 
 def test_nonportable_tracerlpm_full_run_is_refused():
     result = subprocess.run(
         [
             sys.executable,
-            str(ARTICLE / "common/run_full.py"),
+            "-m",
+            "scripts.article.run_full",
             "s3_1_tracerlpm",
         ],
         cwd=ROOT,

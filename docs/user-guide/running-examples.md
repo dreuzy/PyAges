@@ -39,6 +39,7 @@ dataset:
   year: 2010                        # Reference year
   data_dir: examples/natural/ploemeur/data  # Data directory
   verbose: true
+  missing_error_rel: 0.01
 
 lpm:
   model_name: dirac_double          # LPM model to use
@@ -174,6 +175,7 @@ python -m examples.natural.ploemeur_temporal.run_ploemeur_temporal
 dataset:
   file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
   error_rel: 0.2                    # 20% relative error
+  missing_error_rel: 0.01           # Fallback for remaining zero errors
 
 lpm_models:
   list: ["exp_shifted", "ig", "ig_shifted"]  # Models to compare
@@ -315,6 +317,7 @@ dataset:
   name: my_site_2010.txt
   year: 2010
   data_dir: examples/my_site/data
+  missing_error_rel: 0.01
 
 lpm:
   model_name: exp_shifted
@@ -339,6 +342,7 @@ If your file contains multiple dates, use the temporal launcher:
 dataset:
   file: examples/my_site/data/ori_my_site_2005_2024.txt
   error_rel: 0.2
+  missing_error_rel: 0.01
 
 lpm_models:
   list: ["exp_shifted", "ig"]

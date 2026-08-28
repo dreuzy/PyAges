@@ -27,6 +27,13 @@ recharge date $t-\tau$. $K$ includes configured radioactive decay or in-situ
 production. $C$ and $K$ retain the concentration unit declared by the tracer;
 $F$ and all objective values are dimensionless.
 
+Observation units are explicit and must match the corresponding tracer unit
+exactly. This contract is checked once when the calibration or temporal-plot
+boundary assembles observations and tracers. No unit lookup, conversion, or
+comparison occurs in convolution, objective, optimization, or sampling loops.
+Physical preprocessing conversions such as dissolved CFC `pmol/kg` to an
+atmospheric-equivalent `pptv` scale are never implicit.
+
 The integration window is the closed interval $[0,T_{max}]$. Mass older than
 the available recharge record contributes zero and is **not renormalized**.
 Consequently, a constant unit tracer returns the represented window mass, not
@@ -75,14 +82,14 @@ C_i=K(a_i)w_i+s_iq_i.
 
 This expression is exact for affine $K$ regardless of the width or position of
 the LPM density. When the sampled midpoint curvature is too large for the
-affine assumption, the code uses $K((a_i+b_i)/2)w_i$ in that bin. CDF
-non-monotonicity and inconsistent partial moments raise a
-``ConvolutionError``; only negative values compatible with floating-point
-roundoff are clipped.
+affine assumption, the code uses $K((a_i+b_i)/2)w_i$ in that bin. CDF values
+outside $[0,1]$, CDF non-monotonicity, and inconsistent partial moments raise
+a ``ConvolutionError``; only probability-bound or negative-weight deviations
+compatible with floating-point roundoff are clipped.
 
 ### Adaptive-grid controls
 
-{py:class}`pyages.convolution.settings.TracerGridSettings` accepts a bin when
+{py:class}`pyages.convolution.settings.ConvolutionSettings` accepts a bin when
 
 ```{math}
 \max(K_a,K_m,K_b)-\min(K_a,K_m,K_b)
@@ -160,7 +167,7 @@ This assumes independent, unbiased Gaussian errors with known standard
 deviations. PyAges does not currently represent an observation-error covariance
 matrix. Parameter bounds and priors are separate from $\chi^2$.
 
-Three legacy output names must not be interchanged:
+Three objective quantities must not be interchanged:
 
 | Context | Stored name | Quantity |
 | --- | --- | --- |
@@ -201,17 +208,20 @@ $\log(S_{proposed}/S_{current})$.
 ``i``, PyAges retains the current state when
 ``i > burn_in * nstep`` and ``i % nskip == 0``. Rejected proposals therefore
 appear as repeated states, as required for an unbiased chain sample. The seed
-initializes NumPy ``default_rng``. Burn-in, thinning, and an acceptance fraction
-are not convergence diagnostics: publication runs should report multiple-chain
+initializes NumPy ``default_rng``. A configuration retaining no state is
+rejected before chain allocation, and the derived row count is recorded with
+the sampler configuration. Burn-in, thinning, and an acceptance fraction are
+not convergence diagnostics: publication runs should report multiple-chain
 $\hat R$, effective sample size, and Monte Carlo uncertainty. Proposal
-qualification evidence is in {doc}`reports/mh_proposal_qualification`.
+qualification evidence is in {doc}`reports/mh_proposal_qualification` and the
+operational checklist is in {doc}`user-guide/calibration`.
 
 ## Traceability matrix
 
 | Scientific claim | Code contract | User/manual entry | Qualification evidence |
 | --- | --- | --- | --- |
-| finite-window convolution and mass | ``pyages/convolution/convolution.py`` | this page; {doc}`user-guide/configuration` | ``tests/convolution/test_convolution_scientific.py``; {doc}`convolution-method-evolution-report` |
-| adaptive tolerance semantics | ``pyages/convolution/settings.py`` and ``continuous.py`` | this page | ``tests/convolution/test_convolution_settings.py`` |
+| finite-window convolution and mass | ``pyages/convolution/convolution.py`` and ``continuous_integration.py`` | this page; {doc}`user-guide/convolution` | ``tests/convolution/test_convolution_scientific.py``; {doc}`convolution-method-evolution-report` |
+| adaptive tracer-grid semantics | ``pyages/convolution/tracer_grid.py`` and ``settings.py`` | this page | ``tests/convolution/test_convolution_settings.py`` |
 | independent forward acceptance | ``validation/tracerlpm/benchmark/scripts/compare_pyages.py`` | this page | ``validation/tracerlpm/benchmark/tests/test_compare_pyages.py``; {doc}`reports/forward_qualification_2026-08-27` |
 | IG physical moments and shift | ``pyages/lpm/models/inverse_gaussian*.py`` | this page; {doc}`user-guide/adding-lpm` | ``tests/lpm/test_inverse_gaussian_analytics.py``; {doc}`scientific-migration-ig-decay` |
 | normalized-residual objective | ``pyages/calibration/problem.py`` and ``utils/objective_functions.py`` | this page | ``tests/calibration/test_calibration_problem.py`` |

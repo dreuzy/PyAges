@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
@@ -9,8 +8,8 @@ Runtime configuration helpers (display and timing).
 
 from __future__ import annotations
 
+import operator
 import time
-import warnings
 from pathlib import Path
 
 import numpy as np
@@ -29,65 +28,35 @@ class DisplayOptions:
         self.figure_save = False
         self.directory: str | Path | None = None
 
-    def save_and_close(
-        self, fig, filename, method="", dpi=300, ax=None, with_legend=False
-    ):
-        """Save and optionally close a Matplotlib figure.
+    def figure_path(
+        self,
+        filename: str | Path,
+        *,
+        method: str | Path | None = None,
+    ) -> Path | None:
+        """Return the configured output path, or ``None`` when saving is off."""
+        if not self.figure_save:
+            return None
+        if self.directory is None:
+            raise ValueError("directory must be configured when figure_save is enabled")
 
-        The helper applies a tight layout, falls back to fixed margins when
-        Matplotlib cannot satisfy it, and controls legend placement explicitly.
-        """
-        import matplotlib.pyplot as plt
-
-        filepath = Path(self.directory) / method / filename
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-
-        if ax is not None:
-            if with_legend:
-                try:
-                    ax.legend(loc="best", fontsize=8)
-                except Exception:
-                    ax.legend(loc="upper right", fontsize=8)
-            else:
-                leg = ax.get_legend()
-                if leg is not None:
-                    leg.remove()
-
-        try:
-            with warnings.catch_warnings(record=True) as wlist:
-                warnings.simplefilter("always")
-                fig.tight_layout()
-                for w in wlist:
-                    if "Tight layout not applied" in str(w.message):
-                        fig.subplots_adjust(top=0.9, bottom=0.1, hspace=0.4)
-        except Exception:
-            fig.subplots_adjust(top=0.9, bottom=0.1, hspace=0.4)
-
-        try:
-            fig.savefig(filepath, dpi=dpi)
-        except Exception as e:
-            print(f"Erreur lors de la sauvegarde : {e}")
-
-        if self.figure_close:
-            plt.close(fig)
-
-    def figure_close_fx(self, filename):
-        """Save the active pyplot figure when requested, then close figures."""
-        import matplotlib.pyplot as plt
-
-        if self.figure_save and self.directory is not None:
-            plt.savefig(Path(self.directory) / filename, dpi=300)
-        if self.figure_close:
-            plt.close("all")
+        path = Path(self.directory)
+        if method is not None:
+            path /= method
+        return path / filename
 
 
 def subdivide_interval(lower, upper, subdivision_count):
     """Return both endpoints and every regular subdivision boundary."""
-    if subdivision_count <= 0:
-        raise ValueError("subdivision_count must be positive")
-    return (
-        lower + (upper - lower) * np.arange(subdivision_count + 1) / subdivision_count
-    )
+    if isinstance(subdivision_count, (bool, np.bool_)):
+        raise ValueError("subdivision_count must be an integer >= 1")
+    try:
+        count = operator.index(subdivision_count)
+    except TypeError as exc:
+        raise ValueError("subdivision_count must be an integer >= 1") from exc
+    if count < 1:
+        raise ValueError("subdivision_count must be an integer >= 1")
+    return np.linspace(lower, upper, count + 1)
 
 
 class SimulationTimer:

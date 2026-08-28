@@ -25,15 +25,21 @@ dataset:
   year: 2010                        # Reference year for labels/metadata
   data_dir: examples/natural/ploemeur/data  # Observation directory
   verbose: true                     # Print diagnostics
+  missing_error_rel: 0.01           # Fill zero errors from tracer means
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | No | Input data filename; placeholder default `example_dataset` |
+| `name` | string | No | Portable input filename as one path component (no separator, drive prefix, `.` or `..`); placeholder default `example_dataset` |
 | `label` | string or null | No | Optional display label; default `null` |
 | `year` | integer | No | Reference year for metadata; default `2010` |
 | `data_dir` | path | No | Observation directory; placeholder default `examples/data` |
 | `verbose` | boolean | No | Enable verbose output; default `true` |
+| `missing_error_rel` | number | No | Fraction in `(0, 1)` of the tracer mean used only to replace zero input errors; default `0.01` |
+
+The effective errors are written to `concentrations.txt`. The result manifest
+also records `missing_error_rel` and every row changed by this policy; no
+imputation occurs inside an optimization or MCMC loop.
 
 **Tracer selection rule:** the `element` column in your data file determines
 which tracers are used. Each element must match a tracer folder under
@@ -49,7 +55,7 @@ lpm:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `model_name` | string | No | LPM model name; default `dirac_double` |
+| `model_name` | string | No | LPM model identifier as one path component; default `dirac_double` |
 | `data_directory` | path | No | Directory containing `<model>/params.yaml`; default `data_core/data_lpm` |
 
 ### Tracer Data Override
@@ -143,7 +149,7 @@ calibration_metropolis_hastings:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `nstep` | integer | 5000 | Number of MCMC transitions; at least 1 |
+| `nstep` | integer | 5000 | Number of MCMC transitions; at least 11 so the fixed burn-in/thinning defaults retain a state |
 | `prior_option` | boolean | false | Include prior probability in acceptance |
 | `likelihood` | boolean | true | Use likelihood function |
 | `monitor` | boolean | false | Monitor and display acceptance rates |
@@ -153,6 +159,7 @@ These launcher fields do not by themselves demonstrate MCMC convergence.
 Acceptance, retention, prior, and proposal equations are given in
 {doc}`../scientific-methods`; article results additionally require the
 multiple-chain diagnostics described in {doc}`../science/inference`.
+The operational calibration checklist is in {doc}`calibration`.
 
 ### Simplex Section
 
@@ -179,12 +186,18 @@ Used with `pyages run --transient <config.yaml>`.
 dataset:
   file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
   error_rel: 0.2                    # Relative error (20%)
+  missing_error_rel: 0.01           # Fallback for any remaining zero error
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `file` | non-empty string | Yes | Path to an existing multi-date concentration file |
-| `error_rel` | number or null | No | Relative error in `[0, 1)` applied to all rows if any input error is zero; default `null` |
+| `error_rel` | number or null | No | Relative error in `(0, 1)` applied to all rows if any input error is zero; default `null` |
+| `missing_error_rel` | number | No | Fraction in `(0, 1)` of the tracer mean used only for zero errors remaining after `error_rel`; default `0.01` |
+
+Both transformations are applied before analysis. Their fractions, methods,
+row indices, and counts are written under `details.observation_error_policy`
+in the result manifest.
 
 ### LPM Models Section
 
@@ -196,7 +209,7 @@ lpm_models:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `list` | array or null | No | LPM models to evaluate; `null` or an empty array selects `exp_shifted`, `ig`, and `ig_shifted` |
+| `list` | array or null | No | Unique, non-empty LPM identifiers without path separators; `null` selects `exp_shifted`, `ig`, and `ig_shifted`, while an explicit empty array is rejected |
 | `directory` | path or null | No | Existing LPM parameters directory; defaults to packaged `data_core/data_lpm` |
 
 ### Workflow Section
@@ -230,8 +243,8 @@ calibration:
 | `burn_in` | number | 0.2 | Burn-in fraction in `[0, 0.5)` |
 | `nskip` | integer | 10 | Keep iterations divisible by this value after strict burn-in; at least 1 |
 | `lpm_number` | integer | 10 | Posterior draws used for distribution and concentration plots; non-negative, with 0 selecting an automatic count |
-| `seed_enabled` | boolean | false | Use the configured fixed random seed |
-| `seed` | integer or null | null | Random seed value; set a concrete integer with `seed_enabled: true` for reproducibility |
+| `seed_enabled` | boolean | false | Use the configured fixed random seed; otherwise generate a fresh seed for each chain and record it in `parameters_calibration.txt` |
+| `seed` | non-negative integer or null | null | Required when `seed_enabled: true`; ignored otherwise |
 
 The retention rule is zero-based and strict: a state is retained when
 `iteration > burn_in * mh_nsteps` and `iteration % nskip == 0`. Rejected
@@ -266,7 +279,7 @@ results:
 |-------|------|---------|-------------|
 | `use_default` | boolean | true | Use `PYAGES_RESULTS_DIR` or the user-level default root |
 | `directory` | path or null | null | Custom root, required and created when `use_default` is false |
-| `study_name` | non-empty string | `temporal` | Result namespace containing only letters, digits, `.`, `_`, or `-` |
+| `study_name` | non-empty string | `temporal` | One result-directory component containing only letters, digits, `.`, `_`, or `-`; `.` and `..` are rejected |
 
 The result layout and the exact meaning of every generated table are defined
 in {doc}`../reference/outputs`.
@@ -353,18 +366,17 @@ must be finite and strictly positive.
 
 ```yaml
 prior:
-  type: uniform                     # 'uniform' or 'normal'/'gaussian'
+  type: uniform                     # 'uniform' or 'normal'
   min: 0.0                          # Prior minimum
   max: 100.0                        # Prior maximum
   unit: year                        # Unit (for documentation)
 ```
 
-For a normal prior, replace `min` and `max` with `mean` and `std`. `gaussian`
-is accepted as an alias for `normal`. A uniform prior requires finite values
-with `min < max`; a normal prior requires a finite mean and a finite,
-strictly-positive standard deviation. Unknown prior types and incomplete prior
-mappings are rejected while loading `params.yaml`. When parametric priors are
-enabled, every model parameter must define one.
+For a normal prior, replace `min` and `max` with `mean` and `std`. A uniform
+prior requires finite values with `min < max`; a normal prior requires a finite
+mean and a finite, strictly-positive standard deviation. Unknown prior types
+and incomplete prior mappings are rejected while loading `params.yaml`. When
+parametric priors are enabled, every model parameter must define one.
 
 Parameter bounds remain active independently of the prior and define the
 admissible calibration domain. Scientific analyses should report both the

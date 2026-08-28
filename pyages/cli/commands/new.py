@@ -28,12 +28,18 @@ def new_group():
     "-o",
     type=click.Path(),
     default=None,
-    help="Model output directory (default: ./pyages/lpm/models/).",
+    help=(
+        "Model-module output directory; params remain under "
+        "./data_core/data_lpm/ (default: ./pyages/lpm/models/)."
+    ),
 )
 def new_lpm(name: str, base: str, output: str):
     """Generate a template for a new LPM model.
 
     NAME is the identifier for the new model (e.g., 'weibull', 'lognormal').
+
+    Run this source-development command from an editable checkout. A custom
+    output directory must be integrated into pyages.lpm.models for discovery.
 
     \b
     Creates:
@@ -68,7 +74,10 @@ def new_lpm(name: str, base: str, output: str):
     "-o",
     type=click.Path(),
     default=None,
-    help="Tracer output directory (default: ./data_core/data_tracer/).",
+    help=(
+        "Tracer root directory; configure tracers.data_directory when custom "
+        "(default: ./data_core/data_tracer/)."
+    ),
 )
 def new_tracer(name: str, with_decay: bool, no_chronicle: bool, output: str):
     """Generate a template for a new tracer.

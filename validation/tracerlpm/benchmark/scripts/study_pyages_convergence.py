@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-from pyages.convolution.settings import DEFAULT_TRACER_GRID_SETTINGS
+from pyages.convolution.settings import DEFAULT_CONVOLUTION_SETTINGS
 
 from .compare_pyages import DEFAULT_INPUT_DIR, DEFAULT_REFERENCE, compare
 from .generate_inputs import BENCHMARK_ROOT, DEFAULT_CONFIG
@@ -57,12 +57,12 @@ def study(
     reports = []
     for scale in tolerance_scales:
         settings = replace(
-            DEFAULT_TRACER_GRID_SETTINGS,
+            DEFAULT_CONVOLUTION_SETTINGS,
             absolute_tolerance_factor=(
-                DEFAULT_TRACER_GRID_SETTINGS.absolute_tolerance_factor * scale
+                DEFAULT_CONVOLUTION_SETTINGS.absolute_tolerance_factor * scale
             ),
             relative_tolerance=(
-                DEFAULT_TRACER_GRID_SETTINGS.relative_tolerance * scale
+                DEFAULT_CONVOLUTION_SETTINGS.relative_tolerance * scale
             ),
         )
         label = f"tolerance_scale_{scale:g}".replace(".", "p")

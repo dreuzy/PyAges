@@ -11,7 +11,7 @@ import math
 import numpy as np
 import pytest
 
-from pyages.calibration.ig_parameterization import (
+from pyages.calibration.methods.mh.ig_coordinates import (
     physical_moments_to_scipy,
     scipy_to_physical_abs_det_jacobian,
     scipy_to_physical_moments,

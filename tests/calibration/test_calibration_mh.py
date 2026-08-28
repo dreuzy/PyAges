@@ -16,10 +16,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import pyages.calibration.methods.metropolis_hastings as cMH
-import pyages.calibration.utils.systematic_sampling as cexp
-import pyages.calibration.workflows.synthetic_test as cst
+from pyages.calibration.exploration.systematic import SystematicSampling
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.config.runtime import DisplayOptions
+from pyages.qualification import SyntheticRecoveryExperiment
 from tests.utils import golden as golden_utils
 from tests.utils import paths as test_paths
 
@@ -50,7 +50,7 @@ def _run_mh_one_case(
     display.directory = work_dir
 
     # Configure MH calibration (fixed nstep for reproducibility)
-    mh_config = cMH.MHConfig(
+    mh_config = MHConfig(
         nstep=NSTEP,
         burn_in=0.2,
         nskip=10,
@@ -61,10 +61,10 @@ def _run_mh_one_case(
         display_traj=False,
         display_text=False,
     )
-    calib_mh = cMH.MetropolisHastings(config=mh_config)
+    calib_mh = MetropolisHastings(config=mh_config)
 
     # Synthetic calibration setup (single case)
-    calib = cst.CalibrationSyntheticTest(
+    calib = SyntheticRecoveryExperiment(
         calib_strategy=calib_mh,
         ncase=1,
         error=0.03,
@@ -72,7 +72,7 @@ def _run_mh_one_case(
         date=2010,
         lpm_type=lpm_type,
         display_options=display,
-        nmodels=NMODELS,
+        sample_count=NMODELS,
     )
 
     # Run one synthetic case and extract stats
@@ -99,7 +99,7 @@ def _run_reachconc_mean(lpm_type: str, work_dir: Path) -> dict:
     display.text = False
     display.directory = work_dir
 
-    cr = cexp.SystematicSampling(
+    cr = SystematicSampling(
         lpm_type,
         REACHCONC_TRACERS,
         date=[2010] * len(REACHCONC_TRACERS),
@@ -189,7 +189,7 @@ def test_calibration_mh_extensive(lpm_type, tmp_path):
     display.figure_save = True
     display.directory = tmp_path / "calibration_mh_extensive"
 
-    mh_config = cMH.MHConfig(
+    mh_config = MHConfig(
         nstep=500,
         burn_in=0.2,
         nskip=10,
@@ -200,9 +200,9 @@ def test_calibration_mh_extensive(lpm_type, tmp_path):
         display_traj=False,
         display_text=False,
     )
-    calib_mh = cMH.MetropolisHastings(config=mh_config)
+    calib_mh = MetropolisHastings(config=mh_config)
 
-    calib = cst.CalibrationSyntheticTest(
+    calib = SyntheticRecoveryExperiment(
         calib_strategy=calib_mh,
         ncase=5,
         error=0.03,
@@ -210,7 +210,7 @@ def test_calibration_mh_extensive(lpm_type, tmp_path):
         date=2010,
         lpm_type=lpm_type,
         display_options=display,
-        nmodels=200,
+        sample_count=200,
     )
 
     mean_distance = calib.perform_ncase()

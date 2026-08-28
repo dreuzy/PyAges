@@ -44,8 +44,13 @@ A single-date or temporal workflow performs the same sequence:
 7. Write standard result tables and optional figures.
 
 The workflow modules own orchestration only. Their immutable context objects
-make resolved paths and runtime options explicit. Plot modules are grouped by
-purpose under the canonical `pyages.workflows.plots` import path.
+make resolved paths and runtime options explicit. Cross-domain exports and plot
+modules live under the canonical `pyages.reporting` import path, reusable
+qualification experiments under `pyages.qualification`, and execution services
+under `pyages.workflows.runtime`. Former flat workflow utility imports are
+removed before 1.0. Shared configuration-root and result-path rules live in
+`pyages.config.paths`; user-derived directory components are validated before
+any directory is created.
 
 ## Package map
 
@@ -57,7 +62,9 @@ purpose under the canonical `pyages.workflows.plots` import path.
 | `pyages.lpm` | Model registry, transit-time models, and sample analysis |
 | `pyages.convolution` | Forward scientific model |
 | `pyages.calibration` | Problems, methods, priors, parameter grids, and outputs |
-| `pyages.workflows` | Single-date and temporal orchestration |
+| `pyages.workflows` | Public single-date and temporal orchestration, plus runtime services |
+| `pyages.reporting` | Reusable result tables and figures |
+| `pyages.qualification` | Scientific recovery and benchmark experiments, outside the user API |
 | `pyages.data_io` | Validated YAML loading and stable result-file serialization |
 | `pyages.cli` | Installed command-line entry point |
 
@@ -110,7 +117,7 @@ flowchart TB
   PROBLEM --> METHODS[calibration methods]
   METHODS --> RESULT[LpmSampleTable]
   RESULT --> IO[data_io]
-  RESULT --> PLOTS[workflow plots]
+  RESULT --> REPORTING[reporting tables and plots]
 
   EXAMPLES[examples and sites] -. configure .-> CLI
   TESTS[tests] -. qualify .-> CONV
@@ -139,6 +146,39 @@ flowchart TB
   SAMPLES --> FIGS[Optional figures]
 ```
 
-The same core flow is used by single-date and temporal workflows. Site code
+The context is named `SingleDateContext` or `TemporalContext` in code; the
+generic label above represents their shared role. The same core flow is used
+by single-date and temporal workflows. Site code
 prepares configuration and observations but does not replace the scientific
 components shown here.
+
+## Workflow source layout
+
+The canonical module paths follow responsibilities rather than historical file
+growth:
+
+```text
+pyages/
+  workflows/
+    single_date/   calibration, config, context, paths, reporting glue, runner
+    temporal/      calibration, cases, context, runner
+    runtime/       result manifest and Matplotlib session
+  reporting/
+    chronicles.py
+    plots/         figures split by output product
+  qualification.py  synthetic recovery experiment
+```
+
+`runner.py` is deliberately the orchestration entry point in both workflows.
+New code imports public launchers from `pyages.workflows`, reporting helpers
+from `pyages.reporting`, and the synthetic experiment from
+`pyages.qualification`. The former flat workflow utilities and the internal
+`pyages.workflows.plots` and `pyages.workflows.synthetic_recovery` paths are
+intentionally removed.
+
+Workflow contexts and runners use composition; none inherits from a
+calibration, reporting, or configuration object. The shared Pydantic base
+classes only centralize validation policy. Site schemas, including Holten,
+compose the generic launcher schema instead of subclassing it. The internal
+qualification object is named `SyntheticRecoveryExperiment`; no historical
+`SyntheticRecoveryWorkflow` symbol is retained.

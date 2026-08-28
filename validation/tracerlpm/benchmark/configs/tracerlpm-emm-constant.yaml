@@ -1,8 +1,8 @@
-# Premier cas continu : EMM avec la chronique constante déjà qualifiée en PFM.
+# First continuous case: EMM with the constant chronicle already qualified for PFM.
 - case_id: synthetic-constant-emm
   sample: PSW-1-17/08/2004
   observation_year: 2004.6256830601094
-  # Valeur mise en évidence indépendamment par le test PFM avec rampe.
+# Value established independently by the PFM ramp test.
   tracerlpm_effective_observation_year: 2004.5
   model1: EMM
   model2: EMM

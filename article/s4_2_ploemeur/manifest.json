@@ -11,7 +11,7 @@
   "historical_manifest": "results/final_article_simulations/ploemeur_shifted_exponential_final/manifest.json",
   "inputs": [{"path": "results/final_article_simulations/ploemeur_shifted_exponential_final/data_audit/final_data_sha256.csv", "sha256": "10db00f8378ceec5c0170b955f6c4fa3b17ba600a90e27b2004020020af25b08"}],
   "scripts": [{"path": "scripts/run_ploemeur_shifted_exponential_final.py", "sha256": "2b63b9a41ef8674031f411c069478598afe7227d58a531874e7e17b56ab485f3"}],
-  "canonical_outputs": ["results/final_article_simulations/ploemeur_shifted_exponential_final/figure4_ploemeur_shiftedexp_final.pdf", "results/final_article_simulations/ploemeur_shifted_exponential_final/figure4_prediction_intervals.csv", "results/final_article_simulations/ploemeur_shifted_exponential_final/ploemeur_shiftedexp_final_summary.csv"],
+  "canonical_outputs": ["results/final_article_simulations/ploemeur_shifted_exponential_final/figure4_ploemeur_final.pdf", "results/final_article_simulations/ploemeur_shifted_exponential_final/figure4_prediction_intervals.csv", "results/final_article_simulations/ploemeur_shifted_exponential_final/ploemeur_shiftedexp_final_summary.csv"],
   "large_outputs": ["results/final_article_simulations/ploemeur_shifted_exponential_final/chains/", "results/final_article_simulations/ploemeur_shifted_exponential_final/figure4_rowwise_posterior_predictions.csv.gz"],
   "required_paths": ["results/final_article_simulations/ploemeur_shifted_exponential_final/chains/", "results/final_article_simulations/ploemeur_shifted_exponential_final/data_audit/"],
   "resources": []

@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - "v*"
+      - "*.*"
   pull_request:
     branches:
       - main
@@ -43,9 +43,9 @@ jobs:
       - run: python -m ruff check .
       - run: python -m ruff format --check .
       - name: Verify licensing metadata
-        run: python scripts/check_licensing.py
+        run: python -m scripts.maintenance.check_licensing
       - name: Verify generated test inventory
-        run: python -m scripts.generate_test_inventory --check
+        run: python -m scripts.maintenance.generate_test_inventory --check
 
   dependency-audit:
     name: Dependency audit
@@ -142,6 +142,41 @@ jobs:
       - run: python -m pip install --force-reinstall "scipy==${{ matrix.scipy-version }}"
       - run: python -m pytest -q tests/convolution tests/lpm tests/tracer tests/test_public_api.py
 
+  pandas-compatibility:
+    name: pandas 2.2 compatibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            install/constraints.txt
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -c install/constraints.txt -e ".[dev]"
+      - name: Install the supported pandas lower bound and string backend
+        run: >-
+          python -m pip install --force-reinstall
+          "pandas==2.2.3" "pyarrow>=10.0.1"
+      - run: python -m pip check
+      - name: Run the lower-bound suite with pandas deprecations as errors
+        run: python -m pytest -q -W error::FutureWarning
+      - name: Exercise future string inference and Copy-on-Write
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          import pytest
+
+          pd.options.future.infer_string = True
+          pd.options.mode.copy_on_write = "warn"
+          raise SystemExit(pytest.main(["-q", "-W", "error::FutureWarning"]))
+          PY
+
   coverage:
     name: Coverage
     runs-on: ubuntu-24.04
@@ -159,7 +194,7 @@ jobs:
             install/constraints.txt
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
-      - run: python -m pytest -q --cov=pyages --cov-report=term-missing --cov-report=xml --cov-fail-under=60
+      - run: python -m pytest -q --cov=pyages --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=75
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: coverage
@@ -277,6 +312,7 @@ jobs:
       - conda-environment
       - tests
       - scipy-lower-bounds
+      - pandas-compatibility
       - coverage
       - tracerlpm-validation
       - dotnet-build

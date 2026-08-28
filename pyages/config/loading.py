@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Type
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, ValidationError
@@ -26,7 +26,7 @@ def load_yaml_mapping(path: str | Path) -> dict[str, Any]:
 
 def validate_yaml_model(
     path: str | Path,
-    model_type: Type[BaseModel],
+    model_type: type[BaseModel],
     *,
     context: dict[str, Any] | None = None,
     label: str = "configuration",

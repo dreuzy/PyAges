@@ -7,7 +7,7 @@
 import numpy as np
 import pytest
 
-from pyages.calibration.utils.parameter_grid import ParameterGrid
+from pyages.calibration.exploration.grid import ParameterGrid
 
 
 def test_points_keep_declared_cartesian_order() -> None:

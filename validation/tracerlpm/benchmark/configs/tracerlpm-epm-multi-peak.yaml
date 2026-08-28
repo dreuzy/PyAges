@@ -1,5 +1,5 @@
-# Matrice EPM : TracerLPM saisit r=x*/x; PyAges utilise eta=1+r.
-# Les trois cas ci-dessous correspondent donc à eta=1.5, 3 et 10.
+# EPM matrix: TracerLPM accepts r=x*/x; PyAges uses eta=1+r.
+# The three cases below therefore correspond to eta=1.5, 3, and 10.
 - case_id: synthetic-multi-peak-epm-eta-1_5
   sample: PSW-1-17/08/2004
   observation_year: 2004.6256830601094

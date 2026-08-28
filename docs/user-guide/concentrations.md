@@ -14,7 +14,7 @@ row. Their canonical columns are:
 | `element` | yes | non-empty tracer name |
 | `concentration` | yes | finite numeric observation |
 | `error` | no | finite, non-negative one-sigma uncertainty; defaults to `0.0` |
-| `unit` | no | concentration unit; defaults to `mol/l` |
+| `unit` | yes | explicit concentration unit, consistent for each tracer |
 | `date` | yes | finite numeric sampling year |
 
 Extra columns are discarded when the table enters the scientific core. Keep
@@ -24,8 +24,7 @@ rows before constructing `Concentrations`.
 ```python
 import pandas as pd
 
-from pyages.concentrations import Concentrations
-from pyages.concentrations.chronicles import ConcentrationChronicle
+from pyages.concentrations import ConcentrationChronicle, Concentrations
 
 observations = Concentrations.from_dataframe(
     pd.DataFrame(
@@ -46,11 +45,50 @@ Load the same schema from disk with:
 observations = Concentrations.from_file("observations.tsv")
 ```
 
-Invalid numeric values, negative errors, missing tracer names, empty tables,
-missing required columns, and duplicate column labels are rejected when the
-container is created. Zero error is allowed at this boundary because a
-workflow may derive errors before calibration; an objective that divides by
-uncertainty requires strictly positive errors.
+Invalid numeric values, negative errors, missing tracer names or units, empty
+tables, inconsistent units for one tracer, missing required columns, and
+duplicate column labels are rejected when the container is created. Zero error
+is allowed at this boundary because a workflow may derive errors before
+calibration; an objective that divides by uncertainty requires strictly
+positive errors.
+
+## Unit boundary
+
+Units are checked only when data enter the API and when observations first meet
+their modeled tracers. They are not carried through convolution arrays or
+checked inside optimization and sampling loops.
+
+Known units use one canonical spelling: for example `pptv`, `TU`, `pmC`,
+`fraction_modern`, `mol/l`, `Bq/L`, and `dpm/ccKr`. A spelling such as `tu` or
+the historical `pCm%` is rejected with the canonical spelling in the error
+message. Custom unit labels such as `pmol/kg` are accepted, but a custom
+observation and its custom tracer must declare exactly the same label.
+
+PyAges compares labels but never converts concentration values implicitly. For
+example, the standard CFC tracer produces atmospheric-equivalent `pptv`. An
+observation expressed as dissolved `pmol/kg` is rejected before calibration:
+
+```text
+Unit mismatch for tracer 'cfc11': observations use 'pmol/kg',
+model uses 'pptv'.
+```
+
+That conversion depends on physical preprocessing assumptions such as
+temperature, pressure, salinity, and excess air. It must therefore be performed
+and documented before constructing the calibration problem. This one-time
+boundary policy prevents unit mistakes without adding work to each objective
+evaluation.
+
+The explicit container-level check is `require_matching_units()`. It compares
+labels once and does not transform the data:
+
+```python
+observations.require_matching_units({"cfc11": "pptv", "cfc12": "pptv"})
+```
+
+Workflow entry points call the same contract after loading their modeled
+tracers. Objective and sampling loops therefore receive already-validated
+numeric arrays.
 
 ## Assigning and sampling errors
 
@@ -62,8 +100,13 @@ and non-negative.
 exactly one finite, non-negative mean value per observation row. Existing
 positive errors are preserved.
 
-Gaussian perturbations require an explicit NumPy generator, making the random
-stream visible and reproducible:
+Both assignment methods append a structured event to
+`observations.error_provenance`, including the method, fraction, affected row
+indices, and row count. Public workflows expose the fallback as
+`dataset.missing_error_rel` and copy these events into the result manifest.
+
+Zero-truncated Gaussian perturbations require an explicit NumPy generator,
+making the random stream visible and reproducible:
 
 ```python
 import numpy as np
@@ -71,15 +114,22 @@ import numpy as np
 sampled = observations.sample_with_errors(np.random.default_rng(12345))
 ```
 
-The sampled object is independent from `observations`. Gaussian draws are not
-truncated, so a large uncertainty can produce a negative sampled value; that is
-a property of the selected observation-error model, not a concentration-table
-validation failure.
+The sampled object is independent from `observations`. Each stochastic value
+follows the Gaussian observation-error model conditioned on a non-negative
+concentration. This is a true truncated distribution: negative draws are not
+clipped to zero, so the result has no artificial accumulation of exact zeros.
+A non-negative row with zero error remains unchanged. A negative concentration
+with zero error cannot define this distribution and is rejected when sampling.
 
 `observation_keys()` returns stable result-column names in the form
 `tracer@date#index`, for example `cfc11@2010.0#0`. The index distinguishes
 replicate observations. Reachable-model tables, which contain one value per
 tracer and date, use `tracer@date` without rounding the date.
+
+`observation_tracer_names()` returns one tracer name per observation row and is
+therefore aligned with concentration, error, and date arrays.
+`unique_tracer_names()` returns each tracer once, preserving first-observation
+order; use it for displays and tracer-level metadata.
 
 ## Time series and wide exports
 
@@ -93,6 +143,9 @@ and date. A wide table has no replicate identifier, however, so
 many-to-many merge that would silently multiply rows. Aggregate replicates or
 retain them in long form before requesting a wide export.
 
-The modules below `pyages.concentrations.utils` and the high-level chronicle
-display functions are contributor interfaces. The supported user interface is
-the `Concentrations` class exported by `pyages.concentrations`.
+The `series`, `temporal`, and `plotting` modules are contributor interfaces.
+High-level file and figure orchestration lives under
+`pyages.reporting.chronicles`; concentration serialization lives in
+`pyages.data_io.concentrations`. The supported user interface consists of the
+`Concentrations` and `ConcentrationChronicle` classes exported by
+`pyages.concentrations`.

@@ -4,6 +4,7 @@ dataset:
   year: 2007
   data_dir: examples/natural/albuquerque/data
   verbose: true
+  missing_error_rel: 0.01
 
 lpm:
   model_name: shapefree_n_oldbin

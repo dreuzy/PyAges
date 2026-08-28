@@ -51,7 +51,7 @@ requiring a page for every subpackage.
 | `pyages.workflows` | End-to-end procedures, inputs, outputs, manifests, failure behavior, and reproducibility controls; not every orchestration helper |
 | `pyages.data_io` | Stable file layouts and schemas; Python helpers only when contributors need them |
 | `pyages.cli` | Every installed command, option, default, exit behavior, and practical example; not individual command modules |
-| `pyages.site` and site-specific code | Integration contract when reusable; study details otherwise stay in the relevant local README |
+| Site-specific code | Execution and study details stay in the relevant local README |
 
 Subdirectories such as `core`, `utils`, `models`, `plots`, `templates`, and
 `commands` do not automatically receive separate pages. Their contents appear

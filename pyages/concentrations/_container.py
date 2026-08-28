@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
@@ -13,15 +12,15 @@ sample, and export tracer concentration data used by calibration workflows.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from pyages._unit_contract import normalize_observation_units, validate_unit_label
 from pyages.concentrations.schema import (
     CONCENTRATION_COLUMN,
     DATE_COLUMN,
@@ -40,7 +39,6 @@ if TYPE_CHECKING:
 
 
 _DEFAULT_ERROR = 0.0
-_DEFAULT_UNIT = "mol/l"
 
 
 class Concentrations:
@@ -48,19 +46,27 @@ class Concentrations:
     Container for tracer concentrations and their metadata.
 
     The normalized data is stored in :attr:`frame` as a defensive copy. Input
-    tables must contain ``element``, ``concentration`` and ``date``. Missing
-    ``error`` and ``unit`` columns default to zero and ``"mol/l"`` respectively.
-    Extra columns are deliberately discarded at this package boundary.
+    tables must contain ``element``, ``concentration``, ``unit`` and ``date``.
+    A missing ``error`` column defaults to zero. Extra columns are deliberately
+    discarded at this package boundary.
     """
 
     def __init__(self, frame: pd.DataFrame) -> None:
         """Normalize and validate a copy of an observation dataframe."""
         if not isinstance(frame, pd.DataFrame):
             raise TypeError("frame must be a pandas DataFrame")
+        self._error_provenance: list[dict[str, object]] = []
         self.frame = frame.copy().reset_index(drop=True)
         self.__ensure_column(ERROR_COLUMN, _DEFAULT_ERROR)
-        self.__ensure_column(UNIT_COLUMN, _DEFAULT_UNIT)
         self.validate()
+
+    @classmethod
+    def _from_validated_frame(cls, frame: pd.DataFrame) -> "Concentrations":
+        """Build from an internally produced canonical frame without revalidation."""
+        instance = cls.__new__(cls)
+        instance._error_provenance = []
+        instance.frame = frame.reset_index(drop=True)
+        return instance
 
     @classmethod
     def from_file(cls, path: str | Path) -> "Concentrations":
@@ -74,7 +80,7 @@ class Concentrations:
 
     def fill_missing_errors_from_means(
         self, mean_value: Iterable[float], fraction: float = 0.01
-    ) -> None:
+    ) -> int:
         """
         Assign errors proportional to mean tracer concentrations.
 
@@ -92,6 +98,11 @@ class Concentrations:
         ------
         ValueError
             If the fraction or mean values cannot define valid errors.
+
+        Returns
+        -------
+        int
+            Number of rows whose zero error was replaced.
         """
         fraction = self._validate_fraction(fraction)
         mean_array = np.asarray(mean_value, dtype=float)
@@ -102,12 +113,23 @@ class Concentrations:
             )
         if not np.all(np.isfinite(mean_array)) or np.any(mean_array < 0.0):
             raise ValueError("mean_value entries must be finite and non-negative")
-        missing_error = self.frame[ERROR_COLUMN].to_numpy(dtype=float) == 0.0
-        self.frame.loc[missing_error, ERROR_COLUMN] = (
-            mean_array[missing_error] * fraction
-        )
+        errors = self.frame[ERROR_COLUMN].to_numpy(dtype=float, copy=True)
+        missing_error = errors == 0.0
+        row_indices = np.flatnonzero(missing_error).tolist()
+        errors[missing_error] = mean_array[missing_error] * fraction
+        self.frame[ERROR_COLUMN] = errors
+        if row_indices:
+            self._error_provenance.append(
+                {
+                    "method": "tracer_mean_fraction",
+                    "fraction": fraction,
+                    "row_indices": row_indices,
+                    "rows_updated": len(row_indices),
+                }
+            )
+        return len(row_indices)
 
-    def set_relative_errors(self, fraction: float) -> None:
+    def set_relative_errors(self, fraction: float) -> int:
         """
         Assign errors proportional to concentration values.
 
@@ -122,6 +144,27 @@ class Concentrations:
         fraction = self._validate_fraction(fraction)
         values = self.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
         self.frame[ERROR_COLUMN] = fraction * np.abs(values)
+        row_indices = list(range(len(self.frame)))
+        self._error_provenance.append(
+            {
+                "method": "observation_fraction",
+                "fraction": fraction,
+                "row_indices": row_indices,
+                "rows_updated": len(row_indices),
+            }
+        )
+        return len(row_indices)
+
+    @property
+    def error_provenance(self) -> list[dict[str, object]]:
+        """Return copies of effective-error transformations in application order."""
+        return [
+            {
+                **event,
+                "row_indices": list(event["row_indices"]),
+            }
+            for event in self._error_provenance
+        ]
 
     @staticmethod
     def _validate_fraction(fraction: float) -> float:
@@ -173,18 +216,57 @@ class Concentrations:
 
         if normalized[ELEMENT_COLUMN].isna().any():
             raise ValueError("Concentration elements must not be missing")
-        normalized[ELEMENT_COLUMN] = normalized[ELEMENT_COLUMN].astype(str)
-        if normalized[ELEMENT_COLUMN].str.strip().eq("").any():
+        normalized[ELEMENT_COLUMN] = normalized[ELEMENT_COLUMN].map(str).str.strip()
+        if normalized[ELEMENT_COLUMN].eq("").any():
             raise ValueError("Concentration elements must not be empty")
 
-        normalized[UNIT_COLUMN] = (
-            normalized[UNIT_COLUMN].fillna(_DEFAULT_UNIT).astype(str)
+        normalized_units, _ = normalize_observation_units(
+            normalized[ELEMENT_COLUMN],
+            normalized[UNIT_COLUMN],
         )
+        normalized[UNIT_COLUMN] = normalized_units
         self.frame = normalized.reset_index(drop=True)
+
+    def units_by_tracer(self) -> dict[str, str]:
+        """Return the single validated observation unit for each tracer."""
+        _, units = normalize_observation_units(
+            self.frame[ELEMENT_COLUMN],
+            self.frame[UNIT_COLUMN],
+        )
+        return units
+
+    def require_matching_units(self, expected_units: Mapping[str, str]) -> None:
+        """Require exact observation/model unit equality without conversion.
+
+        This check belongs at boundaries where observations and modeled tracers
+        first meet. Numerical kernels can then operate on plain arrays without
+        carrying or repeatedly checking unit metadata.
+        """
+        if not isinstance(expected_units, Mapping):
+            raise TypeError("expected_units must be a mapping of tracer to unit")
+        observed_units = self.units_by_tracer()
+        for tracer, observed_unit in observed_units.items():
+            if tracer not in expected_units:
+                raise ValueError(f"No model unit is declared for tracer {tracer!r}")
+            model_unit = validate_unit_label(
+                expected_units[tracer],
+                context=f"Model unit for tracer {tracer!r}",
+            )
+            if observed_unit != model_unit:
+                raise ValueError(
+                    f"Unit mismatch for tracer {tracer!r}: observations use "
+                    f"{observed_unit!r}, model uses {model_unit!r}. Convert "
+                    "observations explicitly during preprocessing; PyAges "
+                    "does not perform implicit physical unit conversions."
+                )
 
     def sample_with_errors(self, rng: np.random.Generator) -> "Concentrations":
         """
-        Sample independent Gaussian observation errors.
+        Sample independent Gaussian observation errors truncated at zero.
+
+        This is a true lower-truncated normal distribution, not clipping:
+        rejected negative probability mass is renormalized and no artificial
+        point mass is created at zero. Rows with zero error remain unchanged.
 
         Parameters
         ----------
@@ -198,12 +280,35 @@ class Concentrations:
         """
         if not isinstance(rng, np.random.Generator):
             raise TypeError("rng must be a numpy.random.Generator")
-        sampled = self.from_dataframe(self.frame)
-        draw = rng.standard_normal(size=len(sampled.frame))
         base = self.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
         err = self.frame[ERROR_COLUMN].to_numpy(dtype=float)
-        sampled.frame[CONCENTRATION_COLUMN] = base + err * draw
-        return sampled
+        deterministic_negative = (err == 0.0) & (base < 0.0)
+        if np.any(deterministic_negative):
+            rows = np.flatnonzero(deterministic_negative).tolist()
+            raise ValueError(
+                "A zero-truncated Gaussian cannot represent negative "
+                f"concentrations with zero error (rows: {rows})"
+            )
+
+        sampled_values = base.copy()
+        stochastic = err > 0.0
+        if np.any(stochastic):
+            # Imported lazily: ordinary concentration loading does not pay the
+            # comparatively large scipy.stats import cost.
+            from scipy.stats import truncnorm
+
+            lower_bound = -base[stochastic] / err[stochastic]
+            sampled_values[stochastic] = truncnorm.rvs(
+                lower_bound,
+                np.inf,
+                loc=base[stochastic],
+                scale=err[stochastic],
+                size=int(np.count_nonzero(stochastic)),
+                random_state=rng,
+            )
+        sampled_frame = self.frame.copy()
+        sampled_frame[CONCENTRATION_COLUMN] = sampled_values
+        return self._from_validated_frame(sampled_frame)
 
     def display(self, display_options: DisplayOptions) -> None:
         """Display the concentration table when text output is enabled."""
@@ -223,34 +328,24 @@ class Concentrations:
 
         Returns the Matplotlib artist so callers can further customize it.
         """
-        if (
-            isinstance(i1, bool)
-            or isinstance(i2, bool)
-            or not isinstance(i1, int)
-            or not isinstance(i2, int)
-            or i1 < 0
-            or i2 < 0
-            or i1 >= len(self.frame)
-            or i2 >= len(self.frame)
-        ):
-            raise IndexError("Index out of range for concentration plot.")
-        target = ax if ax is not None else plt.gca()
-        artist = target.scatter(
-            self.frame[CONCENTRATION_COLUMN].iloc[i1],
-            self.frame[CONCENTRATION_COLUMN].iloc[i2],
-            marker="o",
-            c="r",
-            s=150,
-        )
-        if label_x:
-            target.set_xlabel(label_x)
-        if label_y:
-            target.set_ylabel(label_y)
-        return artist
+        from pyages.concentrations.plotting import plot_concentration_pair
 
-    def tracer_names(self) -> list[str]:
-        """Return tracer names as a list."""
+        return plot_concentration_pair(
+            self.frame,
+            i1,
+            i2,
+            label_x=label_x,
+            label_y=label_y,
+            ax=ax,
+        )
+
+    def observation_tracer_names(self) -> list[str]:
+        """Return one tracer name per observation row, preserving row order."""
         return self.frame[ELEMENT_COLUMN].tolist()
+
+    def unique_tracer_names(self) -> list[str]:
+        """Return distinct tracer names in first-observation order."""
+        return list(dict.fromkeys(self.observation_tracer_names()))
 
     def observation_keys(self) -> list[str]:
         """Return unique tracer/date/index keys in observation-row order."""

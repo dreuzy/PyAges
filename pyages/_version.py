@@ -4,4 +4,4 @@
 
 """Single source of truth for the PyAges release version."""
 
-__version__ = "0.1.0b1"
+__version__ = "1.0"

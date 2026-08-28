@@ -36,8 +36,7 @@ from scipy.integrate import IntegrationWarning, quad
 from scipy.special import ndtri
 from scipy.stats import rankdata
 
-from pyages.convolution.convolution import Convolution
-from pyages.convolution.settings import DEFAULT_TRACER_GRID_SETTINGS
+from pyages.convolution import DEFAULT_CONVOLUTION_SETTINGS, Convolution
 from pyages.lpm.models.inverse_gaussian_shifted import (
     InverseGaussianShiftedLpm,
 )
@@ -155,7 +154,7 @@ class PreparedForward:
             [np.full(len(grid.k_mid), i, dtype=int) for i, grid in enumerate(grids)]
         )
         self.n_observations = len(grids)
-        settings = DEFAULT_TRACER_GRID_SETTINGS
+        settings = DEFAULT_CONVOLUTION_SETTINGS
         global_scale = max(
             float(np.max(np.abs(self.k_left))),
             float(np.max(np.abs(self.k_mid))),
@@ -180,12 +179,12 @@ class PreparedForward:
         weights = cdf[self.right] - cdf[self.left]
         centered = moment[self.right] - moment[self.left] - self.edge_left * weights
         weight_tolerance = (
-            DEFAULT_TRACER_GRID_SETTINGS.floating_weight_epsilon_factor
+            DEFAULT_CONVOLUTION_SETTINGS.floating_weight_epsilon_factor
             * np.finfo(float).eps
             * max(1.0, float(np.max(np.abs(cdf))))
         )
         moment_tolerance = (
-            DEFAULT_TRACER_GRID_SETTINGS.floating_weight_epsilon_factor
+            DEFAULT_CONVOLUTION_SETTINGS.floating_weight_epsilon_factor
             * np.finfo(float).eps
             * max(1.0, float(self.edges[-1]))
         )
@@ -918,7 +917,7 @@ def _write_manifest(
                 "thinning": 1,
                 "warmup_saved_separately": True,
             },
-            "convolution": asdict(DEFAULT_TRACER_GRID_SETTINGS),
+            "convolution": asdict(DEFAULT_CONVOLUTION_SETTINGS),
             "posterior_predictive": "actual joint posterior rows only",
         },
         "input_sha256": {_relative(path): _sha256(path) for path in input_paths},

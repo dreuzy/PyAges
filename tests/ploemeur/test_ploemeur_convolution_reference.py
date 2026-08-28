@@ -13,7 +13,7 @@ import pytest
 from scipy.integrate import IntegrationWarning, quad
 
 from pyages.config.paths import DIRECTORY_TRACER_DATA
-from pyages.convolution.convolution import Convolution
+from pyages.convolution import Convolution
 from pyages.lpm import build_lpm
 from pyages.tracer.tracer_root import Tracer
 

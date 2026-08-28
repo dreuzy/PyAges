@@ -2,13 +2,22 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Common interface for calibration algorithms."""
+"""Shared lifecycle and output boundary for calibration algorithms.
+
+A calibration method owns algorithmic state such as optimizer diagnostics or
+MCMC acceptance counts.  The scientific inputs remain in a separately prepared
+:class:`~pyages.calibration.problem.CalibrationProblem`.  This separation keeps
+observation ordering, tracer preparation, objective evaluation, plotting, and
+serialization consistent across Simplex and Metropolis--Hastings methods.
+"""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
 
 from pyages.calibration.outputs import (
     display_calibrated_models,
@@ -16,10 +25,19 @@ from pyages.calibration.outputs import (
     write_key_values,
 )
 from pyages.calibration.problem import CalibrationProblem
+from pyages.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
+
+if TYPE_CHECKING:
+    from pyages.concentrations import Concentrations
 
 
 class CalibrationMethod(ABC):
-    """A calibration algorithm bound explicitly to a prepared problem."""
+    """A calibration algorithm bound explicitly to a prepared problem.
+
+    Subclasses implement :meth:`perform` and the method-specific serialization
+    hooks.  Callers enter through :meth:`run`; direct calls to :meth:`perform`
+    are valid only after a problem has been bound and prepared.
+    """
 
     method: str
 
@@ -58,11 +76,16 @@ class CalibrationMethod(ABC):
         return self.problem.display_options
 
     def _bind_problem(self, problem: CalibrationProblem) -> None:
+        """Validate the scientific context before exposing it to a method."""
         problem.ensure_prepared()
         self._problem = problem
 
     def run(self, problem: CalibrationProblem):
-        """Bind a prepared problem and execute the algorithm."""
+        """Bind a prepared problem and execute the algorithm.
+
+        Binding is explicit so a method never copies or silently rebuilds the
+        LPM, tracer histories, or observation table owned by ``problem``.
+        """
         self._bind_problem(problem)
         return self.perform()
 
@@ -80,6 +103,22 @@ class CalibrationMethod(ABC):
             observed_errors,
             return_concentrations=conc,
         )
+
+    def observation_arrays(
+        self,
+        observations: Concentrations | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return ordered concentration and error arrays for one run.
+
+        Calibration methods should use this boundary helper instead of
+        depending on dataframe column positions or repeating schema access.
+        A supplied observation table is useful for uncertainty propagation;
+        otherwise the observations bound through :meth:`run` are used.
+        """
+        source = self.observations if observations is None else observations
+        values = source.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
+        errors = source.frame[ERROR_COLUMN].to_numpy(dtype=float)
+        return values, errors
 
     def analysis_calibration(self, results=None) -> None:
         """Run the problem's optional systematic analysis."""

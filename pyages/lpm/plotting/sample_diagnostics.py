@@ -12,9 +12,11 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import numpy as np
 
-import pyages.tools.figures_additional as figadd
+import pyages._plotting as plotting
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
     from pyages.lpm.samples.table import LpmSampleTable
 
 
@@ -22,10 +24,24 @@ def _output_path(directory: str | Path | None, filename: str) -> str | None:
     return None if directory is None else str(Path(directory) / filename)
 
 
-def plot_parameter_pair(distribution: "LpmSampleTable", keyx: str, keyy: str) -> None:
+def plot_parameter_pair(
+    distribution: "LpmSampleTable",
+    keyx: str,
+    keyy: str,
+    *,
+    axis: "Axes | None" = None,
+) -> None:
     """Plot one stored parameter against another."""
     frame = distribution.frame
-    plt.scatter(frame[keyx], frame[keyy], marker="+", c="red", s=10, label="model")
+    target = plt.gca() if axis is None else axis
+    target.scatter(
+        frame[keyx],
+        frame[keyy],
+        marker="+",
+        c="red",
+        s=10,
+        label="model",
+    )
 
 
 def plot_parameter_diagnostics(
@@ -160,28 +176,32 @@ def _plot_param_histogram(
     if values.size == 0:
         return
     model = distribution.lpm_template
-    figadd.figure_init(xlab=name, ylab="Count", figname=model.name)
     bins = _parameter_bins(distribution, name, values)
     if bins.size < 2:
         return
-    plt.hist(values, density=True, bins=bins, histtype="barstacked", label=self_method)
+    figure, axis = plotting.create_figure(
+        x_label=name,
+        y_label="Count",
+        title=model.name,
+    )
+    axis.hist(values, density=True, bins=bins, histtype="barstacked", label=self_method)
     if lpm_reference is not None:
-        plt.axvline(lpm_reference.p[name], c="k", linewidth=2.0, label="reference")
+        axis.axvline(lpm_reference.p[name], c="k", linewidth=2.0, label="reference")
     if lpm_2nd is not None:
         values_2nd = _finite_parameter_values(lpm_2nd, name)
         if values_2nd.size > 0:
-            plt.hist(
+            axis.hist(
                 values_2nd,
                 density=True,
                 bins=bins,
                 histtype="barstacked",
                 label=lpm_2nd_method,
             )
-    plt.xlim(model.get_p_min(name), model.get_p_max(name))
-    plt.legend()
+    axis.set_xlim(model.get_p_min(name), model.get_p_max(name))
+    axis.legend()
     output = _output_path(directory, f"comp_{name}")
     if output is not None:
-        figadd.figure_close(filename=output)
+        plotting.finalize_figure(figure, output)
 
 
 def _plot_obj_vs_param(
@@ -195,8 +215,12 @@ def _plot_obj_vs_param(
 ) -> None:
     model = distribution.lpm_template
     frame = distribution.frame
-    figadd.figure_init(xlab=name, ylab="obj_function", figname=model.name)
-    plt.scatter(
+    figure, axis = plotting.create_figure(
+        x_label=name,
+        y_label="obj_function",
+        title=model.name,
+    )
+    axis.scatter(
         frame[name].tolist(),
         frame["obj_function"].tolist(),
         marker="x",
@@ -205,10 +229,10 @@ def _plot_obj_vs_param(
         label=self_method,
     )
     if lpm_reference is not None:
-        plt.axvline(lpm_reference.p[name], c="k", linewidth=2.0, label="reference")
+        axis.axvline(lpm_reference.p[name], c="k", linewidth=2.0, label="reference")
     if lpm_2nd is not None:
         other = lpm_2nd.frame
-        plt.scatter(
+        axis.scatter(
             other[name],
             other["obj_function"],
             marker="+",
@@ -216,10 +240,10 @@ def _plot_obj_vs_param(
             s=10,
             label=lpm_2nd_method,
         )
-    plt.legend()
+    axis.legend()
     output = _output_path(directory, f"objfunction_{name}")
     if output is not None:
-        figadd.figure_close(filename=output)
+        plotting.finalize_figure(figure, output)
 
 
 def _plot_param_pair(
@@ -239,23 +263,23 @@ def _plot_param_pair(
     scattery = frame[names[index_next]].tolist() if scatterx is not None else None
     refx = None if lpm_reference is None else lpm_reference.p[names[index]]
     refy = None if lpm_reference is None else lpm_reference.p[names[index_next]]
-    figadd.hist_scatter(
-        histo=other is not None,
-        histox=None if other is None else other[names[index]],
-        histoy=None if other is None else other[names[index_next]],
-        histolegend=lpm_2nd_method,
-        scatter=True,
-        scatterx=scatterx,
-        scattery=scattery,
-        scatterlegend=self_method,
-        refx=refx,
-        refy=refy,
-        reflegend="reference",
-        namex=names[index],
-        namey=names[index_next],
-        namefig=distribution.lpm_template.name,
-        directory=directory,
-        file=f"comp2D_{names[index]}_{names[index_next]}",
+    plotting.plot_histogram_scatter(
+        histogram_x=None if other is None else other[names[index]],
+        histogram_y=None if other is None else other[names[index_next]],
+        histogram_label=lpm_2nd_method,
+        scatter_x=scatterx,
+        scatter_y=scattery,
+        scatter_label=self_method,
+        reference_x=refx,
+        reference_y=refy,
+        reference_label="reference",
+        x_label=names[index],
+        y_label=names[index_next],
+        title=distribution.lpm_template.name,
+        filename=_output_path(
+            directory,
+            f"comp2D_{names[index]}_{names[index_next]}",
+        ),
     )
 
 
@@ -272,35 +296,39 @@ def _plot_param_histogram_apriori(
     if values.size == 0:
         return
     model = distribution.lpm_template
-    figadd.figure_init(xlab=name, ylab="Count", figname=model.name)
     bins = _parameter_bins(distribution, name, values)
     if bins.size < 2:
         return
-    histogram = plt.hist(
+    figure, axis = plotting.create_figure(
+        x_label=name,
+        y_label="Count",
+        title=model.name,
+    )
+    histogram = axis.hist(
         values, density=True, bins=bins, histtype="barstacked", label="MH"
     )
     nonzero_hist = histogram[0][histogram[0] != 0]
-    prior_density = prior.MHapriori_para[name]
+    prior_density = prior.parameters[name]
     nonzero_prior = prior_density[prior_density[:, 1] != 0, 1]
     rescaling = np.mean(nonzero_hist) / np.mean(nonzero_prior)
-    plt.plot(prior_density[:, 0], prior_density[:, 1] * rescaling)
+    axis.plot(prior_density[:, 0], prior_density[:, 1] * rescaling)
     if lpm_reference is not None:
-        plt.axvline(lpm_reference.p[name], c="k", linewidth=2.0, label="reference")
+        axis.axvline(lpm_reference.p[name], c="k", linewidth=2.0, label="reference")
     if lpm_2nd is not None:
         values_2nd = _finite_parameter_values(lpm_2nd, name)
         if values_2nd.size > 0:
-            plt.hist(
+            axis.hist(
                 values_2nd,
                 density=True,
                 bins=bins,
                 histtype="barstacked",
                 label=lpm_2nd_method,
             )
-    plt.xlim(model.get_p_min(name), model.get_p_max(name))
-    plt.legend()
+    axis.set_xlim(model.get_p_min(name), model.get_p_max(name))
+    axis.legend()
     output = _output_path(directory, f"comp_apriori{name}")
     if output is not None:
-        figadd.figure_close(filename=output)
+        plotting.finalize_figure(figure, output)
 
 
 def _plot_concentration_pair(
@@ -328,21 +356,18 @@ def _plot_concentration_pair(
         if concentrations_reference is None
         else concentrations_reference.frame["concentration"][index_next]
     )
-    figadd.hist_scatter(
-        histo=other is not None,
-        histox=None if other is None else other[names[index]],
-        histoy=None if other is None else other[names[index_next]],
-        histolegend=lpm_2nd_method,
-        scatter=True,
-        scatterx=frame[names[index]],
-        scattery=frame[names[index_next]],
-        scatterlegend=self_method,
-        refx=refx,
-        refy=refy,
-        reflegend="reference",
-        namex=names[index],
-        namey=names[index_next],
-        namefig=distribution.lpm_template.name,
-        directory=directory,
-        file=f"concentrations2D_{index}",
+    plotting.plot_histogram_scatter(
+        histogram_x=None if other is None else other[names[index]],
+        histogram_y=None if other is None else other[names[index_next]],
+        histogram_label=lpm_2nd_method,
+        scatter_x=frame[names[index]],
+        scatter_y=frame[names[index_next]],
+        scatter_label=self_method,
+        reference_x=refx,
+        reference_y=refy,
+        reference_label="reference",
+        x_label=names[index],
+        y_label=names[index_next],
+        title=distribution.lpm_template.name,
+        filename=_output_path(directory, f"concentrations2D_{index}"),
     )

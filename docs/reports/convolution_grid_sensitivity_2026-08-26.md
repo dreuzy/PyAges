@@ -7,14 +7,14 @@
 
 **Qualification date:** 26 August 2026  
 **Source commit:** ``17b38579a616f899944441f73d52f9780655648a``  
-**Command:** ``python -m scripts.run_article_non_ploemeur s1``
+**Command:** ``python -m scripts.article.run_article_non_ploemeur s1``
 
 ## Question and method
 
 This qualification tests whether the default adaptive tracer-grid tolerances
 materially affect PyAges convolution values. The absolute response tolerance,
 relative response tolerance, and linear-curvature criterion in
-{class}`pyages.config.runtime.TracerGridSettings` were multiplied together by
+{class}`pyages.convolution.settings.ConvolutionSettings` were multiplied together by
 0.5, 1, or 2. A factor of 0.5 is stricter and normally creates more bins; a
 factor of 2 is looser.
 
@@ -60,7 +60,7 @@ support the qualification.
 ## Decision and scope
 
 The default settings are qualified for the tested matrix. A source inventory
-found no production or article path that overrides ``TracerGridSettings``;
+found no production or article path that overrides ``ConvolutionSettings``;
 explicit non-default settings occur only in validation and sensitivity
 drivers. No current article result therefore needs a separate non-default
 tolerance justification.

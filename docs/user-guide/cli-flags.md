@@ -53,7 +53,8 @@ pyages list lpms --verbose
 
 ## `pyages list tracers`
 
-Lists available tracers in the data directory.
+Lists tracers in the packaged `data_core/data_tracer` directory. This command
+does not read `tracers.data_directory` from a workflow configuration.
 
 | Flag | Type | Description |
 | --- | --- | --- |
@@ -114,6 +115,12 @@ Generates a template for a new LPM model.
 | `--base <scipy|root>` | option | Base class to extend (default: `scipy`). |
 | `-o`, `--output <path>` | option | Output directory (default: `./pyages/lpm/models/`). |
 
+This is a source-development command. Run it from the root of a writable,
+editable checkout. The option changes only the model-module destination; the
+parameter YAML is generated under `./data_core/data_lpm/<name>/`. A module
+written outside `pyages/lpm/models/` is not discovered until it is integrated
+into that importable package.
+
 Example:
 ```
 pyages new lpm weibull --base scipy
@@ -128,6 +135,10 @@ Generates a template for a new tracer.
 | `--with-decay` | flag | Include radioactive decay configuration. |
 | `--no-chronicle` | flag | Skip chronicle template (use constant concentration). |
 | `-o`, `--output <path>` | option | Output directory (default: `data_core/data_tracer/`). |
+
+The output path is the root containing one directory per tracer. When it is not
+the packaged default, set `tracers.data_directory` to the same root in the
+workflow YAML. `pyages list tracers` continues to show only the packaged root.
 
 Example:
 ```

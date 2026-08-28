@@ -9,8 +9,9 @@ import json
 from pathlib import Path
 
 from pyages import __version__
-from pyages.workflows.result_manifest import (
+from pyages.workflows.runtime.manifest import (
     RESULT_SCHEMA_VERSION,
+    begin_result_run,
     write_result_manifest,
 )
 
@@ -71,3 +72,109 @@ def test_result_manifest_top_level_fields_are_documented(tmp_path) -> None:
 
     for field in payload:
         assert f"`{field}`" in documentation
+
+
+def test_begin_result_run_invalidates_only_the_previous_success_marker(
+    tmp_path,
+) -> None:
+    artifact = tmp_path / "samples.csv"
+    artifact.write_text("mu\n10\n", encoding="utf-8")
+    manifest = tmp_path / "result_manifest.json"
+    manifest.write_text('{"status": "complete"}\n', encoding="utf-8")
+
+    assert begin_result_run(tmp_path) == tmp_path.resolve()
+
+    assert artifact.is_file()
+    assert not manifest.exists()
+
+
+def test_result_manifest_expands_and_deduplicates_input_directories(tmp_path) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    resources = tmp_path / "resources"
+    resources.mkdir()
+    first = resources / "a.txt"
+    second = resources / "b.txt"
+    first.write_text("a\n", encoding="utf-8")
+    second.write_text("b\n", encoding="utf-8")
+
+    target = write_result_manifest(
+        tmp_path,
+        workflow="single_date",
+        config_path=config,
+        input_paths=[resources, first],
+    )
+
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert [item["path"] for item in payload["inputs"]] == [
+        "external/0/a.txt",
+        "external/0/b.txt",
+    ]
+
+
+def test_result_manifest_distinguishes_external_roots_with_same_filename(
+    tmp_path,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+    (first_root / "recharge.csv").write_text("first\n", encoding="utf-8")
+    (second_root / "recharge.csv").write_text("second\n", encoding="utf-8")
+
+    target = write_result_manifest(
+        tmp_path,
+        workflow="single_date",
+        config_path=config,
+        input_paths=[first_root, second_root],
+    )
+
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert [item["path"] for item in payload["inputs"]] == [
+        "external/0/recharge.csv",
+        "external/1/recharge.csv",
+    ]
+
+
+def test_result_manifest_keeps_repository_root_files_repository_relative(
+    tmp_path,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+
+    target = write_result_manifest(
+        tmp_path,
+        workflow="single_date",
+        config_path=config,
+        input_paths=[ROOT / "pyproject.toml"],
+    )
+
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["inputs"][0]["path"] == "pyproject.toml"
+
+
+def test_result_manifest_tolerates_an_unavailable_git_executable(
+    tmp_path, monkeypatch
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+
+    def missing_git(*_args, **_kwargs):
+        raise FileNotFoundError("git executable not found")
+
+    monkeypatch.setattr(
+        "pyages.workflows.runtime.manifest.subprocess.run",
+        missing_git,
+    )
+    target = write_result_manifest(
+        tmp_path,
+        workflow="single_date",
+        config_path=config,
+    )
+
+    repository = json.loads(target.read_text(encoding="utf-8"))["repository"]
+    assert repository["git_head"] is None
+    assert repository["dirty"] is None
+    assert repository["tracked_diff_sha256"] is None

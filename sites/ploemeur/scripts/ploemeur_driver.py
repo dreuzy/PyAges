@@ -7,12 +7,11 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from pydantic import ValidationError
 
 from sites.ploemeur.config.models import PloemeurDriverConfig
-from sites.ploemeur.site_api import PloemeurSite
+from sites.ploemeur.workflows.ploemeur_workflow import run_workflow
 
 
 def _load_driver_config(params_path: str | None) -> PloemeurDriverConfig:
@@ -31,7 +30,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     config = _load_driver_config(args.params)
-    PloemeurSite().run(Path(config.params))
+    run_workflow(config.params)
 
 
 if __name__ == "__main__":

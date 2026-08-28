@@ -7,6 +7,9 @@
 from __future__ import annotations
 
 import importlib
+import subprocess
+import sys
+import warnings
 
 import matplotlib
 import numpy as np
@@ -17,12 +20,18 @@ matplotlib.use("Agg", force=True)
 
 import matplotlib.pyplot as plt
 
-from pyages.concentrations import Concentrations
-from pyages.concentrations.chronicles import ConcentrationChronicle
+from pyages.concentrations import ConcentrationChronicle, Concentrations
+from pyages.concentrations.plotting import (
+    plot_concentration_chronicles_summary,
+    plot_tracer_series,
+)
 from pyages.concentrations.schema import REFERENCE_COLUMNS, tracer_date_key
-from pyages.concentrations.utils.plotting import plot_tracer_series
-from pyages.concentrations.utils.storage import save_tracer_series_table
-from pyages.concentrations.utils.tables import merge_model_into_table, normalize_series
+from pyages.concentrations.series import merge_model_into_table, normalize_series
+from pyages.concentrations.temporal import (
+    TemporalPredictionSummary,
+    summarize_temporal_predictions,
+)
+from pyages.data_io.concentrations import save_tracer_series_table
 
 
 def _frame() -> pd.DataFrame:
@@ -30,6 +39,7 @@ def _frame() -> pd.DataFrame:
         {
             "element": ["cfc11", "cfc12"],
             "concentration": [1.0, 2.0],
+            "unit": ["pptv", "pptv"],
             "date": [2000.0, 2001.0],
             "source": ["a", "b"],
         }
@@ -50,6 +60,8 @@ def test_legacy_modules_and_method_aliases_are_absent() -> None:
     for module_name in (
         "pyages.concentrations.concentrations",
         "pyages.concentrations.concentrations_time",
+        "pyages.concentrations.chronicles",
+        "pyages.concentrations.utils.tables",
     ):
         with pytest.raises(ModuleNotFoundError):
             importlib.import_module(module_name)
@@ -62,7 +74,9 @@ def test_legacy_modules_and_method_aliases_are_absent() -> None:
         "figure_concentrations",
         "names",
         "names_dates",
+        "require_compatible_units",
         "sample_concentrations_with_errors",
+        "tracer_names",
     }
     assert removed_names.isdisjoint(vars(Concentrations))
 
@@ -76,11 +90,38 @@ def test_concentrations_normalizes_a_defensive_copy() -> None:
     assert list(concentrations.frame.columns) == list(REFERENCE_COLUMNS)
     assert concentrations.frame.loc[0, "concentration"] == 1.0
     assert concentrations.frame["error"].tolist() == [0.0, 0.0]
-    assert concentrations.frame["unit"].tolist() == ["mol/l", "mol/l"]
+    assert concentrations.frame["unit"].tolist() == ["pptv", "pptv"]
     assert concentrations.observation_keys() == [
         "cfc11@2000.0#0",
         "cfc12@2001.0#1",
     ]
+    assert concentrations.observation_tracer_names() == ["cfc11", "cfc12"]
+    assert concentrations.unique_tracer_names() == ["cfc11", "cfc12"]
+
+
+def test_public_import_does_not_load_matplotlib_pyplot() -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys, pyages.concentrations; "
+            "raise SystemExit(int('matplotlib.pyplot' in sys.modules))",
+        ],
+        check=False,
+    )
+
+    assert completed.returncode == 0
+
+
+def test_concentrations_strip_names_and_distinguish_row_and_unique_names() -> None:
+    concentrations = Concentrations.from_dataframe(
+        pd.concat([_frame().iloc[[0]], _frame().iloc[[0]]], ignore_index=True).assign(
+            element=[" cfc11 ", "cfc11"]
+        )
+    )
+
+    assert concentrations.observation_tracer_names() == ["cfc11", "cfc11"]
+    assert concentrations.unique_tracer_names() == ["cfc11"]
 
 
 def test_tracer_date_keys_do_not_collapse_distinct_dates() -> None:
@@ -91,6 +132,7 @@ def test_tracer_date_keys_do_not_collapse_distinct_dates() -> None:
     ("mutate", "message"),
     [
         (lambda frame: frame.drop(columns="date"), "Missing required columns"),
+        (lambda frame: frame.drop(columns="unit"), "Missing required columns"),
         (
             lambda frame: frame.assign(concentration=[1.0, np.inf]),
             "only finite values",
@@ -112,10 +154,44 @@ def test_concentrations_rejects_duplicate_columns() -> None:
         Concentrations.from_dataframe(frame)
 
 
+@pytest.mark.parametrize(
+    ("unit", "message"),
+    [
+        (None, "explicit text value"),
+        (0, "explicit text value"),
+        (" ", "non-placeholder unit"),
+        ("unknown", "non-placeholder unit"),
+        ("pCm%", "use 'pmC'"),
+        ("tu", "use 'TU'"),
+    ],
+)
+def test_concentrations_rejects_ambiguous_unit_metadata(unit, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        Concentrations.from_dataframe(_frame().assign(unit=[unit, "pptv"]))
+
+
+def test_concentrations_require_one_unit_per_tracer() -> None:
+    frame = pd.concat([_frame().iloc[[0]], _frame().iloc[[0]]], ignore_index=True)
+    frame.loc[1, "unit"] = "pmol/kg"
+
+    with pytest.raises(ValueError, match="inconsistent observation units"):
+        Concentrations.from_dataframe(frame)
+
+
+def test_model_unit_contract_accepts_custom_exact_units_and_rejects_mismatch() -> None:
+    observations = Concentrations.from_dataframe(
+        _frame().assign(unit=["pmol/kg", "pptv"])
+    )
+
+    observations.require_matching_units({"cfc11": "pmol/kg", "cfc12": "pptv"})
+    with pytest.raises(ValueError, match="Unit mismatch for tracer 'cfc11'"):
+        observations.require_matching_units({"cfc11": "pptv", "cfc12": "pptv"})
+
+
 def test_error_assignment_validates_shape_fraction_and_sign() -> None:
     frame = _frame().assign(concentration=[-2.0, 4.0])
     concentrations = Concentrations.from_dataframe(frame)
-    concentrations.set_relative_errors(0.25)
+    assert concentrations.set_relative_errors(0.25) == 2
 
     assert concentrations.frame["error"].tolist() == [0.5, 1.0]
     with pytest.raises(ValueError, match="non-negative"):
@@ -129,22 +205,85 @@ def test_error_assignment_validates_shape_fraction_and_sign() -> None:
 def test_error_assignment_from_mean_preserves_existing_errors() -> None:
     concentrations = Concentrations.from_dataframe(_frame().assign(error=[3.0, 0.0]))
 
-    concentrations.fill_missing_errors_from_means([10.0, 20.0], fraction=0.1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        updated = concentrations.fill_missing_errors_from_means(
+            [10.0, 20.0], fraction=0.1
+        )
 
+    assert updated == 1
     assert concentrations.frame["error"].tolist() == [3.0, 2.0]
+    assert concentrations.error_provenance == [
+        {
+            "method": "tracer_mean_fraction",
+            "fraction": 0.1,
+            "row_indices": [1],
+            "rows_updated": 1,
+        }
+    ]
 
 
-def test_sampling_is_reproducible_and_does_not_mutate_source() -> None:
+def test_error_provenance_records_relative_override_and_is_defensive() -> None:
+    concentrations = Concentrations.from_dataframe(_frame())
+
+    concentrations.set_relative_errors(0.25)
+    provenance = concentrations.error_provenance
+    provenance[0]["method"] = "changed"
+
+    assert concentrations.error_provenance == [
+        {
+            "method": "observation_fraction",
+            "fraction": 0.25,
+            "row_indices": [0, 1],
+            "rows_updated": 2,
+        }
+    ]
+
+
+def test_sampling_is_zero_truncated_reproducible_and_does_not_mutate_source() -> None:
     concentrations = Concentrations.from_dataframe(_frame().assign(error=[0.5, 1.0]))
 
     sampled = concentrations.sample_with_errors(np.random.default_rng(123))
+    repeated = concentrations.sample_with_errors(np.random.default_rng(123))
 
     assert concentrations.frame["concentration"].tolist() == [1.0, 2.0]
+    pd.testing.assert_frame_equal(sampled.frame, repeated.frame)
+    assert np.all(sampled.frame["concentration"].to_numpy() >= 0.0)
     assert sampled.frame["concentration"].to_numpy() == pytest.approx(
-        [0.5054393248260746, 1.6322133485321169]
+        [1.247327834238698, 0.5629135502677483]
     )
     with pytest.raises(TypeError, match="numpy.random.Generator"):
         concentrations.sample_with_errors(None)  # type: ignore[arg-type]
+
+
+def test_zero_truncated_sampling_has_no_artificial_mass_at_zero() -> None:
+    concentrations = Concentrations.from_dataframe(
+        pd.DataFrame(
+            {
+                "element": ["3H"] * 5_000,
+                "concentration": [0.1] * 5_000,
+                "error": [1.0] * 5_000,
+                "unit": ["TU"] * 5_000,
+                "date": np.arange(5_000, dtype=float),
+            }
+        )
+    )
+
+    sampled = concentrations.sample_with_errors(np.random.default_rng(2026))
+    values = sampled.frame["concentration"].to_numpy(dtype=float)
+
+    assert np.all(values > 0.0)
+    assert not np.any(values == 0.0)
+    assert values.mean() == pytest.approx(0.8353, abs=0.03)
+
+
+def test_zero_truncated_sampling_rejects_negative_deterministic_value() -> None:
+    concentrations = Concentrations.from_dataframe(
+        _frame().assign(concentration=[-1.0, 2.0], error=[0.0, 0.0])
+    )
+
+    with pytest.raises(ValueError, match="negative concentrations with zero error"):
+        concentrations.sample_with_errors(np.random.default_rng(1))
 
 
 def test_plot_pair_uses_explicit_axes_and_rejects_negative_indices() -> None:
@@ -171,7 +310,10 @@ def test_concentration_time_requires_one_input_and_copies_series() -> None:
     source = {"cfc11": _series("cfc11")}
     chronicle = ConcentrationChronicle(series=source)
     source["cfc11"].loc[0, "concentration"] = 999.0
+    assert chronicle.observations is None
     assert chronicle.series["cfc11"].loc[0, "concentration"] == 1.0
+    with pytest.raises(RuntimeError, match="created from observations"):
+        chronicle.rebuild()
 
 
 def test_normalize_series_preserves_tracer_order_and_sorts_dates() -> None:
@@ -187,6 +329,28 @@ def test_normalize_series_preserves_tracer_order_and_sorts_dates() -> None:
 
     assert list(series) == ["cfc12", "cfc11"]
     assert series["cfc12"]["date"].tolist() == [2000.0, 2002.0]
+
+
+@pytest.mark.parametrize(
+    ("series", "message"),
+    [
+        ({}, "at least one tracer"),
+        ({"cfc11": _series("cfc11").iloc[0:0]}, "must not be empty"),
+        (
+            {"cfc11": _series("cfc11").assign(date=[2000.0, np.inf])},
+            "column 'date' must be finite",
+        ),
+        (
+            {"cfc11": _series("cfc11").assign(concentration=[1.0, "bad"])},
+            "column 'concentration' must be numeric",
+        ),
+        ({" cfc11 ": _series(" cfc11 ")}, "stripped strings"),
+        ({"cfc11": _series("cfc12")}, "does not match"),
+    ],
+)
+def test_normalize_series_rejects_invalid_contributor_inputs(series, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        normalize_series(series)
 
 
 def test_merge_model_uses_union_of_dates_without_mutating_input() -> None:
@@ -226,3 +390,77 @@ def test_plot_tracer_series_rejects_invalid_mode_and_insufficient_axes() -> None
             plot_tracer_series(series, ax)
     finally:
         plt.close(fig)
+
+
+def _summary(tracer: str) -> dict[str, TemporalPredictionSummary]:
+    values = np.array([1.0, 2.0])
+    return {
+        tracer: TemporalPredictionSummary(
+            dates=np.array([2000.0, 2001.0]),
+            q10=values,
+            q25=values,
+            median=values,
+            q75=values,
+            q90=values,
+        )
+    }
+
+
+def test_chronicle_summary_requires_enough_axes_and_matching_tracers() -> None:
+    observations = Concentrations.from_dataframe(_frame())
+    fig, ax = plt.subplots()
+    try:
+        with pytest.raises(ValueError, match="Not enough axes"):
+            plot_concentration_chronicles_summary(ax, observations, _summary("cfc11"))
+        with pytest.raises(ValueError, match="missing=.*cfc12.*extra=.*other"):
+            plot_concentration_chronicles_summary(
+                [ax, ax],
+                observations,
+                {**_summary("cfc11"), **_summary("other")},
+            )
+    finally:
+        plt.close(fig)
+
+
+class _TemporalTracerStub:
+    def convolve_date_range(self, realization, start_year, end_year):
+        del start_year, end_year
+        return {
+            "cfc11": pd.DataFrame(
+                {
+                    "date": realization["dates"],
+                    "concentration": realization["values"],
+                }
+            )
+        }
+
+
+def test_temporal_summary_computes_shared_five_quantiles() -> None:
+    summaries = summarize_temporal_predictions(
+        _TemporalTracerStub(),
+        [
+            {"dates": [2000.0, 2001.0], "values": [1.0, 10.0]},
+            {"dates": [2000.0, 2001.0], "values": [3.0, 30.0]},
+        ],
+        1960.0,
+        2001.0,
+    )
+
+    summary = summaries["cfc11"]
+    assert summary.dates.tolist() == [2000.0, 2001.0]
+    assert summary.median.tolist() == [2.0, 20.0]
+    assert summary.q10.tolist() == pytest.approx([1.2, 12.0])
+    assert summary.q90.tolist() == pytest.approx([2.8, 28.0])
+
+
+def test_temporal_summary_rejects_inconsistent_date_grids() -> None:
+    with pytest.raises(ValueError, match="inconsistent date grids"):
+        summarize_temporal_predictions(
+            _TemporalTracerStub(),
+            [
+                {"dates": [2000.0, 2001.0], "values": [1.0, 2.0]},
+                {"dates": [2000.0, 2002.0], "values": [3.0, 4.0]},
+            ],
+            1960.0,
+            2002.0,
+        )

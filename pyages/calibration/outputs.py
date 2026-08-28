@@ -2,7 +2,14 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Presentation and file output helpers for calibration runs."""
+"""Presentation and serialization boundary for calibration runs.
+
+Calibration algorithms produce in-memory diagnostics and joint LPM sample
+tables. This module decides which standard files and plots correspond to each
+method, keeping filesystem layout and presentation logic out of numerical
+loops. Posterior histograms may also be copied into a named prior directory for
+an explicit multi-stage calibration workflow.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +22,7 @@ from pyages.data_io.lpm_distribution import (
     write_statistics,
 )
 from pyages.lpm.plotting.sample_diagnostics import plot_parameter_diagnostics
-from pyages.lpm.reporting.model_summary import print_parameter_comparison
+from pyages.lpm.reporting import print_parameter_comparison
 
 if TYPE_CHECKING:
     from pyages.calibration.methods.base import CalibrationMethod
@@ -30,7 +37,12 @@ def posterior_directory(
     parent_levels: int = 5,
     subdirectory: str = "",
 ) -> Path:
-    """Return the shared directory used to reuse posteriors as priors."""
+    """Return the shared directory used to reuse posteriors as priors.
+
+    ``reference_file`` anchors the calculation and ``parent_levels`` selects a
+    stable ancestor before ``prior_distributions`` is appended. The directory
+    is created here because callers immediately serialize into it.
+    """
     path = Path(reference_file).resolve()
     if parent_levels < 1:
         raise ValueError("parent_levels must be positive")
@@ -53,7 +65,7 @@ def posterior_file_stem(case: str, concentration_error: float, lpm_type: str) ->
 
 
 def write_key_values(path: str | Path, values: dict[str, Any]) -> None:
-    """Write a small tab-separated key/value file."""
+    """Write ordered scalar metadata as a tab-separated key/value file."""
     with Path(path).open("w", encoding="utf-8") as stream:
         for key, value in values.items():
             stream.write(f"{key}\t{value}\n")
@@ -66,7 +78,12 @@ def display_calibrated_models(
     display_options: DisplayOptions,
     reference=None,
 ) -> None:
-    """Render the method-appropriate calibrated model comparison."""
+    """Render the method-appropriate calibrated model comparison.
+
+    Deterministic Simplex runs report their best model against a reference in
+    text. Sample-producing methods use distribution diagnostics when figures
+    are enabled. Display choices never alter stored calibration results.
+    """
     if method.method in {"Simplex", "Simplex_multi_start"}:
         if display_options.text and reference is not None:
             lpm = results.best_model()
@@ -97,15 +114,23 @@ def write_calibrated_result(
     prior_file: str | None = None,
     prior_folder: str = "",
 ) -> None:
-    """Write the standard result files for one calibration method."""
+    """Write the standard result files for one calibration method.
+
+    Every method writes configuration and scalar run diagnostics. Methods that
+    produce more than one meaningful sample also write the joint distribution,
+    marginal histograms, and statistics. Metropolis--Hastings may additionally
+    export histograms for an explicitly requested posterior-to-prior pipeline.
+    """
     base_directory = Path(problem.display_options.directory)
     base_directory.mkdir(parents=True, exist_ok=True)
     method.write_parameters(base_directory / "parameters_calibration.txt")
     method.write_results(base_directory / "results_calibration.txt")
+    # A single deterministic optimum has no empirical distribution to export.
     if method.method != "Simplex":
         write_distribution(results, base_directory / "lpm_dist_calibrated.txt")
         write_histograms(results, base_directory / "lpm_histo_calibrated.txt")
         write_statistics(results, base_directory / "lpm_stats_calibrated.txt")
+    # Posterior reuse is opt-in and restricted to the Bayesian workflow.
     if method.method == "Metropolis_Hastings" and prior_file is not None:
         destination = posterior_directory(
             problem.display_options.directory,

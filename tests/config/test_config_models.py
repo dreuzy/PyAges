@@ -234,6 +234,59 @@ def test_documented_single_date_run_defaults_remain_all_enabled():
     assert all(value is True for value in defaults.values())
 
 
+def test_single_date_mh_requires_at_least_one_retained_state() -> None:
+    with pytest.raises(ValidationError, match="greater than or equal to 11"):
+        LauncherMetropolisCfg(nstep=10)
+
+    assert LauncherMetropolisCfg(nstep=11).nstep == 11
+
+
+def test_temporal_fixed_seed_requires_a_non_negative_value() -> None:
+    with pytest.raises(ValidationError, match="seed is required"):
+        TemporalCalibrationCfg(seed_enabled=True)
+    with pytest.raises(ValidationError, match="greater than or equal to 0"):
+        TemporalCalibrationCfg(seed_enabled=True, seed=-1)
+
+    assert TemporalCalibrationCfg(seed_enabled=True, seed=0).seed == 0
+
+
+def test_temporal_relative_error_must_be_strictly_positive() -> None:
+    with pytest.raises(ValidationError, match="greater than 0"):
+        TemporalDatasetCfg(file="observations.txt", error_rel=0.0)
+    with pytest.raises(ValidationError, match="greater than 0"):
+        TemporalDatasetCfg(file="observations.txt", missing_error_rel=0.0)
+    with pytest.raises(ValidationError, match="greater than 0"):
+        LauncherDatasetCfg(missing_error_rel=0.0)
+
+
+@pytest.mark.parametrize("models", [[], ["exp", ""], ["exp", "exp"]])
+def test_temporal_explicit_model_list_must_be_unambiguous(models) -> None:
+    with pytest.raises(ValidationError, match="lpm_models.list"):
+        TemporalLpmModelsCfg(list=models)
+
+
+@pytest.mark.parametrize(
+    ("model", "payload"),
+    [
+        (LauncherDatasetCfg, {"name": "../observations.txt"}),
+        (LauncherDatasetCfg, {"name": "..\\observations.txt"}),
+        (LauncherDatasetCfg, {"name": "D:observations.txt"}),
+        (LauncherLpmCfg, {"model_name": "../exp"}),
+        (TemporalLpmModelsCfg, {"list": ["../exp"]}),
+        (TemporalResultsCfg, {"study_name": ".."}),
+    ],
+)
+def test_result_path_components_cannot_escape_their_parent(model, payload) -> None:
+    with pytest.raises(ValidationError, match="single non-empty path component"):
+        model.model_validate(payload)
+
+
+@pytest.mark.parametrize("directory", [None, "", "   "])
+def test_custom_temporal_results_require_a_directory(directory) -> None:
+    with pytest.raises(ValidationError, match="results.directory must be set"):
+        TemporalResultsCfg(use_default=False, directory=directory)
+
+
 def test_all_documented_yaml_blocks_are_parseable():
     document = CONFIGURATION_DOC.read_text(encoding="utf-8")
     blocks = re.findall(r"```yaml\s*\n(.*?)```", document, flags=re.DOTALL)

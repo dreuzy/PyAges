@@ -7,7 +7,7 @@
   "data_test_exp_with_errors.txt": {
     "mean_concentration": 89.5,
     "mean_error": 12.5,
-    "sampled_mean_concentration": 78.42107078077646
+    "sampled_mean_concentration": 80.83155498509333
   },
   "ori_ploemeur_F11_2004_2020.txt": {
     "mean_concentration": 117.71288244670752,

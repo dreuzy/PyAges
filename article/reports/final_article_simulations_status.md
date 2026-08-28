@@ -100,8 +100,8 @@ puis **22 tests Ploemeur ciblés passés**, sans échec ni erreur. Aucun golden 
 | --- | --- | --- | --- |
 | Table 4 | 19/19 convergés, aucune extension | `results/final_article_simulations/shifted_exponential/table3_final.csv` et `.md` (noms historiques) | **oui** |
 | Figure 2 | régénérée depuis les chaînes finales et `sqrt(J_data/4)` | `figure2_shifted_exponential_final.{png,pdf,tiff}` | **oui** |
-| Holten Figure 3 | 7/7 convergés, Visser vs H4 uniquement | `figure3_holten_h4_final.{png,pdf}` | **oui** |
-| Ploemeur Figure 4 | 4/4 calibrations convergées, non-régression satisfaite | `figure4_ploemeur_shiftedexp_final.{png,pdf}` | **oui** |
+| Holten Figure 3 | 7/7 convergés, Visser vs H4 uniquement | `figure3_holten_final.{png,pdf}` | **oui** |
+| Ploemeur Figure 4 | 4/4 calibrations convergées, non-régression satisfaite | `figure4_ploemeur_final.{png,pdf}` | **oui** |
 | shifted-exponential posterior text | diagnostics et old/new complets | `results/final_article_simulations/shifted_exponential/shifted_exponential_final.md`, `posterior_summaries.csv` | **oui** |
 | Holten text | diagnostics, résidus, métriques et old/new complets | `results/final_article_simulations/holten_h4_final/holten_h4_final_multichain.md` | **oui** |
 | Ploemeur text | shifted exponential final et IG ciblée reproduite | `results/final_article_simulations/ploemeur_shifted_exponential_final/PLOEMEUR_SHIFTED_EXPONENTIAL_FINAL.md`, `results/ploemeur_targeted_ig_reproduction/PLOEMEUR_TARGETED_IG_REPRODUCTION.md` | **oui** |

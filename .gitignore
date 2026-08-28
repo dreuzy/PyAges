@@ -55,6 +55,11 @@ coverage.xml
 # pyenv
 .python-version
 
+# Local virtual environments
+.venv/
+venv/
+env/
+
 # IDEs
 .vscode/
 .idea/

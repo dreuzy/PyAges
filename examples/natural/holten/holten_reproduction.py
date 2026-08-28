@@ -43,7 +43,7 @@ from examples.natural.holten.holten_four_bin import (
     load_paper_4bin_fractions,
 )
 from examples.natural.holten.holten_prepare import prepare_holten_inputs
-from pyages.tracer.tracer_protocol import SyntheticTracer
+from pyages.tracer.simple_tracers import SyntheticTracer
 
 TRACERS_3 = ("3H", "kr85", "39Ar")
 TRACERS_4 = ("3H", "3He_trit", "kr85", "39Ar")

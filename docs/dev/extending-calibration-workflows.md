@@ -49,8 +49,7 @@ from time import perf_counter
 
 from pyages.calibration.methods.base import CalibrationMethod
 from pyages.calibration.outputs import write_key_values
-from pyages.calibration.utils.objective_functions import normalized_residual_norm
-from pyages.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
+from pyages.calibration.objective import normalized_residual_norm
 from pyages.lpm.samples import LpmSampleTable
 
 
@@ -64,8 +63,7 @@ class MyMethod(CalibrationMethod):
 
     def perform(self) -> LpmSampleTable:
         started = perf_counter()
-        observed = self.observations.frame[CONCENTRATION_COLUMN].to_numpy(float)
-        errors = self.observations.frame[ERROR_COLUMN].to_numpy(float)
+        observed, errors = self.observation_arrays()
 
         # Replace this initial point with the new search algorithm.
         parameters = self.lpm.param_init()
@@ -132,7 +130,7 @@ inherit from them. Follow the sequence below:
 5. construct and prepare `CalibrationProblem`;
 6. call `method.run(problem)` and write standard calibration outputs;
 7. write workflow-specific tables and optional figures;
-8. write {py:func}`pyages.workflows.result_manifest.write_result_manifest`
+8. write {py:func}`pyages.workflows.runtime.manifest.write_result_manifest`
    **last**;
 9. return the result path.
 
@@ -143,7 +141,8 @@ a `complete` manifest from a `finally` block or after catching and suppressing
 an incomplete calculation.
 
 Use `pyages.config.paths.result_subdirectory()` for fixed child names, but
-validate any user-derived directory component before passing it. A public
+validate any user-derived directory component with
+`pyages.config.paths.validate_path_component()` before passing it. A public
 workflow must have a deterministic, documented layout and must not silently
 delete an earlier result directory.
 

@@ -13,12 +13,12 @@ import pytest
 from scipy.integrate import IntegrationWarning, quad
 from scipy.stats import expon
 
-from pyages.convolution.convolution import Convolution, ConvolutionError
+from pyages.convolution import Convolution, ConvolutionError
 from pyages.lpm import build_lpm
 from pyages.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyages.lpm.models.dirac_double_1_set import DiracDouble1SetLpm
 from pyages.lpm.models.mix_exponential_shifted import MixExponentialShiftedLpm
-from pyages.tracer.tracer_protocol import ConstantTracer, SyntheticTracer
+from pyages.tracer.simple_tracers import ConstantTracer, SyntheticTracer
 from pyages.tracer.tracer_root import Tracer
 from tests.utils import paths as test_paths
 
@@ -220,6 +220,18 @@ class _CountingTracer(ConstantTracer):
         return 1.0 + 0.01 * ages
 
 
+class _WrongShapeTracer(ConstantTracer):
+    def get_concentration(self, date, time):
+        return np.ones((2, 2), dtype=float)
+
+
+def test_prepare_rejects_a_tracer_response_with_the_wrong_shape():
+    convolution = Convolution(_WrongShapeTracer(datemin=1900.0), date=2010.0)
+
+    with pytest.raises(ConvolutionError, match="response shape"):
+        convolution.prepare()
+
+
 def test_prepare_caches_all_tracer_evaluations():
     tracer = _CountingTracer()
     lpm = build_lpm("ig", directory_lpm=str(test_paths.lpm_data_dir()))
@@ -400,6 +412,89 @@ def test_continuous_lpm_without_partial_moment_is_rejected():
         match="must implement cdf_and_partial_first_moment",
     ):
         Convolution(tracer, 2010.0).convolve(lpm)
+
+
+def test_dirac_path_rejects_a_non_finite_tracer_response():
+    tracer = SyntheticTracer(
+        datemin=1900.0,
+        concentration_fn=lambda date, age: np.nan,
+    )
+    lpm = build_lpm("dirac", directory_lpm=str(test_paths.lpm_data_dir()))
+
+    with pytest.raises(ConvolutionError, match="non-finite"):
+        Convolution(tracer, 2010.0).convolve(lpm)
+
+
+def test_dirac_path_rejects_a_non_finite_age():
+    tracer = ConstantTracer(concentration=1.0, datemin=1900.0)
+    lpm = build_lpm("dirac", directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm.p["mu"] = np.nan
+
+    with pytest.raises(ConvolutionError, match="Dirac age"):
+        Convolution(tracer, 2010.0).convolve(lpm)
+
+
+@pytest.mark.parametrize("name", ["dirac_double", "mix_exp_shifted"])
+def test_mixture_paths_reject_invalid_probability_weights_before_work(name):
+    tracer = ConstantTracer(concentration=1.0, datemin=1900.0)
+    lpm = build_lpm(name, directory_lpm=str(test_paths.lpm_data_dir()))
+    lpm.p["rate"] = 1.5
+    convolution = Convolution(tracer, 2010.0)
+
+    with pytest.raises(ConvolutionError, match=r"rate must be finite and in \[0, 1\]"):
+        convolution.convolve(lpm)
+    with pytest.raises(ConvolutionError, match=r"rate must be finite and in \[0, 1\]"):
+        convolution.window_mass(lpm)
+
+    assert convolution.prepared_grid is None
+
+
+class _InvalidProbabilityMassLpm:
+    name = "invalid_probability_mass"
+    convolution_strategy = ConvolutionStrategy.CONTINUOUS
+    p = {}
+
+    @staticmethod
+    def cdf(ages):
+        ages = np.asarray(ages, dtype=float)
+        return 0.2 * ages
+
+    @staticmethod
+    def cdf_and_partial_first_moment(ages):
+        ages = np.asarray(ages, dtype=float)
+        return 0.2 * ages, 0.1 * ages**2
+
+
+def test_continuous_path_rejects_cdf_values_outside_probability_bounds():
+    convolution = Convolution(
+        ConstantTracer(concentration=1.0, datemin=2000.0),
+        2010.0,
+    )
+    lpm = _InvalidProbabilityMassLpm()
+
+    with pytest.raises(ConvolutionError, match=r"outside \[0, 1\]"):
+        convolution.convolve(lpm)
+    with pytest.raises(ConvolutionError, match=r"outside \[0, 1\]"):
+        convolution.window_mass(lpm)
+
+
+class _InconsistentCdfLpm(_InvalidProbabilityMassLpm):
+    name = "inconsistent_cdf"
+
+    @staticmethod
+    def cdf(ages):
+        ages = np.asarray(ages, dtype=float)
+        return 0.05 * ages
+
+
+def test_window_mass_uses_the_same_provider_as_continuous_convolution():
+    convolution = Convolution(
+        ConstantTracer(concentration=1.0, datemin=2000.0),
+        2010.0,
+    )
+
+    with pytest.raises(ConvolutionError, match=r"outside \[0, 1\]"):
+        convolution.window_mass(_InconsistentCdfLpm())
 
 
 def test_chronicle_end_discontinuity_is_a_bin_boundary_not_a_refinement_loop():

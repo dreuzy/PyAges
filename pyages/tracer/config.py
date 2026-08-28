@@ -12,6 +12,7 @@ from typing import Any, Mapping
 
 import yaml
 
+from pyages._unit_contract import validate_unit_label
 from pyages.tracer.decay import rate_from_config
 from pyages.tracer.errors import TracerConfigError, TracerDataError
 
@@ -31,7 +32,7 @@ _CORE_KEYS = {
 class TracerConfig:
     """Normalized configuration needed by :class:`pyages.tracer.Tracer`."""
 
-    unit: str = "unknown"
+    unit: str
     recharge_constant: float | None = None
     has_chronicle: bool = False
     production_rate: float | None = None
@@ -58,8 +59,16 @@ class TracerConfig:
                 f"got {production_rate}"
             )
 
+        try:
+            unit = validate_unit_label(
+                values.get("unit"),
+                context=f"Tracer {name} unit",
+            )
+        except ValueError as exc:
+            raise TracerConfigError(str(exc)) from exc
+
         return cls(
-            unit=str(values.get("unit", "unknown")),
+            unit=unit,
             recharge_constant=_optional_float(values, "recharge_constant", name),
             has_chronicle=bool(values.get("recharge", False)),
             production_rate=production_rate,

@@ -9,11 +9,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 import pytest
 
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh.trajectory import MHTrajectory
 from pyages.calibration.methods.simplex import SIMPLEX, Simplex
-from pyages.calibration.methods.trajectory import MHTrajectory
 from tests.calibration.test_calibration_mh_initial_params import _FakeLpm
 from tests.calibration.test_calibration_problem import _prepared_problem
 
@@ -86,7 +87,7 @@ def test_explicit_initial_state_takes_precedence_over_prior_map(monkeypatch):
     )
     monkeypatch.setattr(mh.prior, "log_evaluate", lambda *_args: 0.0)
 
-    params, *_ = mh._MetropolisHastings__initialize_state(  # noqa: SLF001
+    params, *_ = mh._initialize_state(  # noqa: SLF001
         np.array([]), np.array([])
     )
 
@@ -101,6 +102,10 @@ def test_trajectory_records_negative_log_posterior_and_acceptance_state():
 
     assert trajectory.path["-log_posterior"].tolist() == [3.5, 2.0]
     assert trajectory.path["incrementation"].tolist() == [0, 1]
+    summary = trajectory.summary()
+    assert summary.loc["mu", "mean"] == pytest.approx(10.5)
+    assert summary.loc["mu", "std"] == pytest.approx(0.5)
+    pd.testing.assert_frame_equal(trajectory.check(), summary)
 
 
 @pytest.mark.parametrize(
@@ -112,8 +117,37 @@ def test_trajectory_records_negative_log_posterior_and_acceptance_state():
         ({"prior_type": "unknown"}, "prior_type"),
         ({"proposal_kind": "unknown"}, "proposal_kind"),
         ({"componentwise_fraction": 0.0}, "componentwise_fraction"),
+        ({"proposal_multiplier": 0.0}, "proposal_multiplier"),
+        (
+            {"proposal_scales": (1.0,)},
+            "componentwise proposals do not accept",
+        ),
+        (
+            {"proposal_kind": "diagonal"},
+            "diagonal requires proposal_scales",
+        ),
+        (
+            {"proposal_kind": "correlated"},
+            "correlated requires proposal_covariance",
+        ),
+        (
+            {"nstep": 5, "burn_in": 0.9, "nskip": 5},
+            "retain no samples",
+        ),
     ],
 )
 def test_mh_config_rejects_invalid_scientific_controls(kwargs, message):
     with pytest.raises(ValueError, match=message):
         MHConfig(**kwargs)
+
+
+def test_mh_retained_sample_count_matches_the_documented_rule() -> None:
+    config = MHConfig(nstep=17, burn_in=0.2, nskip=3)
+    retained = [
+        iteration
+        for iteration in range(config.nstep)
+        if config.should_retain(iteration)
+    ]
+
+    assert retained == [6, 9, 12, 15]
+    assert config.retained_sample_count() == len(retained)

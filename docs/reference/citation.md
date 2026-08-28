@@ -1,23 +1,25 @@
 # Citing PyAges
 
-For software functionality, cite the exact PyAges release used. The current
-software identity is `0.1.0b1`:
+For software functionality, cite the exact PyAges release used. The prepared
+software identity is `1.0`:
 
 > de Dreuzy, Jean-Raynald (2026). *PyAges: Groundwater Age Dating Toolkit*,
-> version 0.1.0b1. CeCILL 2.1. https://github.com/dreuzy/PyAges
+> version 1.0. CeCILL 2.1. https://github.com/dreuzy/PyAges
 
 The machine-readable citation is `CITATION.cff` at the repository root. It is
 kept synchronized with the package version and changelog by automated tests.
 
-No software DOI has been minted yet. Do not invent or anticipate one. When a
-DOI is available, the citation file, release tag, archive metadata, and this
-page must be updated together.
+The source identity becomes a released citation only when tag `1.0` points to
+the reviewed commit. No software DOI has been minted yet. Do not invent or
+anticipate one. When a DOI is available, the citation file, release tag,
+archive metadata, and this page must be updated together.
 
 ## Citing calculations from an unreleased commit
 
 For results generated from `main` or from a manuscript campaign, report both:
 
-1. the released PyAges version that provides the supported functionality; and
+1. the PyAges version or prepared version identity that provides the
+   functionality; and
 2. the exact Git commit and environment recorded in `result_manifest.json` or
    the article case manifest.
 

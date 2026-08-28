@@ -84,3 +84,28 @@ def test_argon39_distributed_metadata_and_decay() -> None:
     assert tracer.get_concentration(date=2000.0, time=0.0) == pytest.approx(1.0)
     assert tracer.get_concentration(date=2000.0, time=267.0) == pytest.approx(0.5)
     assert rate_from_half_life(267.0) == pytest.approx(math.log(2.0) / 267.0)
+
+
+def test_carbon14_variants_have_distinct_canonical_recharge_contracts() -> None:
+    generic = _tracer("14C")
+    north = _tracer("14C_NH")
+    south = _tracer("14C_SH")
+
+    assert generic.unit == north.unit == south.unit == "pmC"
+    assert generic.get_concentration(date=2000.0, time=0.0) == pytest.approx(100.0)
+    assert north.convolution_dates is not None
+    assert south.convolution_dates is not None
+    assert generic.convolution_dates is None
+    for tracer in (generic, north, south):
+        initial = tracer.get_concentration(date=2000.0, time=0.0)
+        assert tracer.get_concentration(date=2000.0, time=5730.0) == pytest.approx(
+            initial / 2.0
+        )
+
+
+def test_every_carbon14_directory_has_one_canonical_yaml() -> None:
+    for name in ("14C", "14C_NH", "14C_SH"):
+        yaml_files = sorted(
+            path.name for path in (DATA_TRACER_DIR / name).glob("*.yaml")
+        )
+        assert yaml_files == [f"{name}.yaml"]

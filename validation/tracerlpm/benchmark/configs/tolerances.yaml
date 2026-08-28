@@ -1,12 +1,12 @@
-# Tolérances provisoires réservées aux invariants analytiques de Phase 1.
-# Les tolérances PyAges–TracerLPM seront fixées seulement après convergence.
+# Provisional tolerances reserved for the analytical invariants of Phase 1.
+# PyAges-TracerLPM tolerances will be set only after convergence.
 analytic:
   absolute: 1.0e-10
   relative: 1.0e-9
 
-# Plancher utilisé plus tard dans la différence relative symétrique.
+# Floor used later in the symmetric relative difference.
 comparison:
   symmetric_relative_floor: 1.0e-12
-  # Valeurs volontairement nulles : elles seront déterminées en Phase 5.
+# Intentionally null values: they will be determined in Phase 5.
   tracerlpm_absolute: null
   tracerlpm_relative: null

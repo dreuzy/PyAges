@@ -5,10 +5,32 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import matplotlib
+import matplotlib.pyplot as plt
 import pandas as pd
 
 from sites.ploemeur.observations import ploemeur as ploemeur_observations
 from sites.ploemeur.workflows import ploemeur_workflow
+
+
+def test_parallel_worker_uses_headless_backend_and_closes_figures(monkeypatch):
+    calls = []
+    pod = SimpleNamespace(perform=lambda: calls.append("perform"))
+
+    monkeypatch.setattr(
+        matplotlib,
+        "use",
+        lambda backend, *, force: calls.append(("backend", backend, force)),
+    )
+    monkeypatch.setattr(plt, "close", lambda target: calls.append(("close", target)))
+
+    ploemeur_workflow._perform_pod(pod)
+
+    assert calls == [
+        ("backend", "Agg", True),
+        "perform",
+        ("close", "all"),
+    ]
 
 
 def test_observation_path_encodes_ploemeur_naming_convention(tmp_path):

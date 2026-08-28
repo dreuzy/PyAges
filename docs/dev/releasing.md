@@ -13,14 +13,14 @@ The test scopes and GitHub jobs referenced below are defined in
 2. Confirm that every modified, deleted, and untracked file is intentional.
    Install the qualified direct dependency set with
    `python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"`.
-   Run `python -m scripts.check_project_metadata` to verify that the qualified
+   Run `python -m scripts.maintenance.check_project_metadata` to verify that the qualified
    pip and Conda pins satisfy the declared compatibility ranges and that the
-   release identity files agree. Ecosystem-specific micro versions may differ
-   when a release is not yet available from both package indexes.
+   release identity files agree. The article-reproduction environment is
+   stricter: its direct versions must match `install/environment.yml` exactly.
 3. Update `pyages/_version.py`, `CITATION.cff`, `CHANGELOG.md`, and the
    development-status classifier together. Confirm that README and Sphinx show
-   the same release and follow {doc}`versioning-citation`; the manuscript label
-   “PyAges v1.0” is not a substitute for a released `v1.0.0` tag.
+   the same release and follow {doc}`versioning-citation`. Release 1.0 uses the
+   exact tag `1.0`, without a `v` prefix.
 4. Run the standard suite:
 
    ```bash
@@ -28,7 +28,7 @@ The test scopes and GitHub jobs referenced below are defined in
    python -m ruff format --check .
    python -m pytest -q
    python -m pytest -q validation/tracerlpm/benchmark/tests
-   python -m pytest -q --cov=pyages --cov-report=term-missing --cov-fail-under=60
+   python -m pytest -q --cov=pyages --cov-branch --cov-report=term-missing --cov-fail-under=75
    python -m sphinx -W --keep-going -b html docs docs/_build/html
    python -m sphinx -E -a -W --keep-going -b linkcheck docs docs/_build/linkcheck
    ```
@@ -56,11 +56,18 @@ The test scopes and GitHub jobs referenced below are defined in
 7. Build and validate both distribution formats:
 
    ```bash
-   python -m scripts.clean_release_artifacts
+   python -m scripts.maintenance.clean_release_artifacts
    python -m build
    python -m twine check dist/*
    python -m zipfile -l dist/*.whl
    ```
+
+   The default cleanup preserves test caches, documentation builds, coverage
+   files, local editor settings, and scientific results. Maintainers may use
+   `python -m scripts.maintenance.clean_release_artifacts --include-caches` for a deeper
+   reproducible-artifact cleanup, including nested project `__pycache__`
+   directories and TracerLPM `bin/`/`obj/` outputs. This option still never
+   removes `results/`, `.claude/`, or `.vscode/`.
 
    Confirm that `dist/` contains exactly one wheel and one source archive and
    that both filenames carry the intended release version.
@@ -79,8 +86,10 @@ The test scopes and GitHub jobs referenced below are defined in
    Confirm that the smoke result contains `result_manifest.json` with schema
    version 1.
 
-9. Create an annotated, `v`-prefixed tag on the exact reviewed commit. Push the
-   tag only after the protected `main` checks and extensive suite pass.
+9. Create the annotated tag `1.0` on the exact reviewed commit. Because an
+   earlier tag with this name was deleted, verify its local and remote commit
+   explicitly. Push it only after the protected `main` checks and extensive
+   suite pass, and never move it afterward.
 10. Dispatch the read-only GitHub Actions **Release candidate** workflow for
     that tag. Download its `release-distributions-<tag>` artifact and verify its
     digest locally. The workflow validates one build on every supported Python

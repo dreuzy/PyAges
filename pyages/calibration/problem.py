@@ -2,7 +2,15 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Prepared scientific problem shared by calibration methods."""
+"""Scientific state and objective shared by calibration methods.
+
+``CalibrationProblem`` is the boundary between input preparation and search
+algorithms.  It constructs one LPM and one ordered collection of tracer
+convolutions, validates observation units, resolves missing uncertainties, and
+then exposes a single chi-square objective.  Optimizers and samplers therefore
+operate on the same prepared forward model instead of rebuilding scientific
+objects independently.
+"""
 
 from __future__ import annotations
 
@@ -11,16 +19,47 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from pyages.calibration.utils.objective_functions import L2_norm_diff
-from pyages.calibration.utils.systematic_sampling import SystematicSampling
+from pyages.calibration.exploration.systematic import SystematicSampling
+from pyages.calibration.objective import squared_normalized_residuals
 from pyages.config.paths import DIRECTORY_LPM_DATA
 from pyages.config.runtime import DisplayOptions
-from pyages.convolution.convolution_tracers import ConvolutionTracers
+from pyages.convolution import ConvolutionTracers
 from pyages.lpm.factory import build_lpm
 
 if TYPE_CHECKING:
     from pyages.concentrations import Concentrations
     from pyages.lpm.core.lpm_base import LpmBase
+
+
+def resolve_observation_errors(
+    observations: Concentrations,
+    *,
+    tracer_data_directory: str | Path | None = None,
+    missing_error_relative_fraction: float = 0.01,
+) -> ConvolutionTracers:
+    """Validate units and resolve zero observation errors from tracer means.
+
+    This is the shared scientific input boundary used by calibration and by
+    workflows that must persist or analyse the exact effective uncertainties
+    before constructing a :class:`CalibrationProblem`.
+    """
+    tracers = ConvolutionTracers(
+        names=observations.observation_tracer_names(),
+        date=observations.frame["date"],
+        tracer_data_dir=tracer_data_directory,
+    )
+    tracers.validate_observation_units(observations)
+    observations.fill_missing_errors_from_means(
+        tracers.mean_values_at_sampling_dates(),
+        fraction=missing_error_relative_fraction,
+    )
+    errors = observations.frame["error"].to_numpy(dtype=float)
+    if np.any(errors <= 0.0) or not np.all(np.isfinite(errors)):
+        raise ValueError(
+            "Observation errors must be finite and strictly positive after "
+            "resolving missing values"
+        )
+    return tracers
 
 
 class CalibrationProblem:
@@ -40,17 +79,25 @@ class CalibrationProblem:
         display_options: DisplayOptions | None = None,
         lpm_directory: str | Path = DIRECTORY_LPM_DATA,
         tracer_data_directory: str | Path | None = None,
+        missing_error_relative_fraction: float = 0.01,
         sample_count: int = 1000,
         explore_objective: bool = True,
         explore_reachable: bool = True,
     ) -> None:
-        """Store calibration inputs without preparing scientific objects yet."""
+        """Store calibration inputs without preparing scientific objects yet.
+
+        Construction is deliberately cheap.  Call :meth:`prepare` or
+        :meth:`initialize` before passing the problem to a calibration method.
+        Systematic parameter-space exploration is allocated lazily through
+        :attr:`sampling` because ordinary calibrations do not need its grid.
+        """
         self.observations = observations
         self.lpm_type = lpm_type
         self.lpm_directory = Path(lpm_directory)
         self.tracer_data_directory = (
             Path(tracer_data_directory) if tracer_data_directory is not None else None
         )
+        self.missing_error_relative_fraction = missing_error_relative_fraction
         self.sample_count = sample_count
         self.explore_objective = explore_objective
         self.explore_reachable = explore_reachable
@@ -82,7 +129,7 @@ class CalibrationProblem:
         """Build systematic exploration only when a caller requests it."""
         return SystematicSampling(
             self.lpm_type,
-            self.observations.tracer_names(),
+            self.observations.observation_tracer_names(),
             date=self.observations.frame["date"],
             observations=self.observations,
             sample_count=self.sample_count,
@@ -94,15 +141,21 @@ class CalibrationProblem:
         )
 
     def initialize(self) -> None:
-        """Build the LPM and tracer collection required by calibration."""
+        """Build and cross-check the forward model required by calibration.
+
+        The order of these operations is part of the scientific contract:
+        units are checked before missing errors are inferred, and tracer
+        convolutions are prepared only after the observation boundary is
+        valid.  Reinitialization replaces any cached systematic exploration.
+        """
+        # Model parameters and bounds come from the selected LPM definition.
         self.lpm = build_lpm(self.lpm_type, self.lpm_directory)
-        self.tracers = ConvolutionTracers(
-            names=self.observations.frame.iloc[:, 0],
-            date=self.observations.frame["date"],
-            tracer_data_dir=self.tracer_data_directory,
-        )
-        self.observations.fill_missing_errors_from_means(
-            self.tracers.mean_value(self.observations.frame["date"].mean())
+        # Preserve observation row order and resolve zero uncertainty
+        # placeholders once, never inside an optimizer or MCMC transition.
+        self.tracers = resolve_observation_errors(
+            self.observations,
+            tracer_data_directory=self.tracer_data_directory,
+            missing_error_relative_fraction=self.missing_error_relative_fraction,
         )
         self.tracers.prepare(self.lpm)
         self._sampling = None
@@ -166,9 +219,14 @@ class CalibrationProblem:
             raise ValueError("Calibration errors must be finite and strictly positive.")
         assert self.lpm is not None
         assert self.tracers is not None
+        # Objective evaluation is intentionally stateful at this low-level
+        # boundary: the prepared LPM is updated, then every ordered tracer uses
+        # that same parameter vector for its forward calculation.
         self.lpm.set_param_from_array(parameters)
         modeled = self.tracers.convolve(self.lpm)
-        objective = float(sum(L2_norm_diff(observed_values, modeled, errors)))
+        objective = float(
+            np.sum(squared_normalized_residuals(observed_values, modeled, errors))
+        )
         if return_concentrations:
             return objective, modeled
         return objective
@@ -178,4 +236,4 @@ class CalibrationProblem:
         self.sampling.analysis_calibration(results)
 
 
-__all__ = ["CalibrationProblem"]
+__all__ = ["CalibrationProblem", "resolve_observation_errors"]

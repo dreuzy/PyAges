@@ -9,6 +9,7 @@ dataset:
   data_dir: examples/natural/albuquerque/data
   # Print extra diagnostics during loading.
   verbose: true
+  missing_error_rel: 0.01
 
 lpm:
   # LPM model identifier as expected by build_lpm.

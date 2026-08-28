@@ -19,7 +19,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from pyages.config.models import LauncherConfig, LauncherParams
-from pyages.workflows.single_date_config import load_params_payload
+from pyages.workflows.single_date.config import load_params_payload
 from scripts.common.example_case_utils import (
     dump_yaml_dict as dump_yaml,
 )
@@ -92,15 +92,28 @@ class HoltenOptionsConfig(_HoltenBaseConfig):
     validation: HoltenValidationConfig
 
 
-class HoltenFileConfig(LauncherConfig):
-    """Combined strict schema for launcher and Holten-specific sections."""
+class HoltenFileConfig(_HoltenBaseConfig):
+    """Composition of launcher and Holten-specific configuration sections."""
 
+    launcher: LauncherConfig
     holten: HoltenOptionsConfig
 
 
 def _validate_holten_config(payload: dict[str, Any], root: Path) -> None:
+    allowed_fields = {*LauncherConfig.model_fields, "holten"}
+    unknown_fields = sorted(set(payload).difference(allowed_fields))
+    if unknown_fields:
+        raise ValueError(
+            f"Invalid Holten config: unknown top-level fields {unknown_fields}"
+        )
     try:
-        HoltenFileConfig.model_validate(payload, context={"root_dir": root})
+        HoltenFileConfig.model_validate(
+            {
+                "launcher": _launcher_payload(payload),
+                "holten": payload.get("holten"),
+            },
+            context={"root_dir": root},
+        )
     except ValidationError as exc:
         raise ValueError(f"Invalid Holten config:\n{exc}") from exc
 

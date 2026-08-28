@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
@@ -59,7 +58,7 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
-from typing import TYPE_CHECKING, Dict, Type
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pyages.lpm.core.lpm_base import LpmBase as LPM
@@ -67,7 +66,7 @@ if TYPE_CHECKING:
 
 # Process-local catalogue. Values are classes so the factory can create a
 # fresh, independently parameterized model for every request.
-_LPM_REGISTRY: Dict[str, Type[LPM]] = {}
+_LPM_REGISTRY: dict[str, type[LPM]] = {}
 
 # Package discovery is lazy and needs to run successfully only once.
 _discovered: bool = False
@@ -107,7 +106,7 @@ def register_lpm(name: str):
         object is harmless; replacing it implicitly is not.
     """
 
-    def decorator(cls: Type[LPM]) -> Type[LPM]:
+    def decorator(cls: type[LPM]) -> type[LPM]:
         # Never let import order silently decide which implementation wins.
         if name in _LPM_REGISTRY:
             existing = _LPM_REGISTRY[name]
@@ -149,7 +148,7 @@ def discover_lpms() -> None:
     _discovered = True
 
 
-def get_lpm_class(name: str) -> Type[LPM]:
+def get_lpm_class(name: str) -> type[LPM]:
     """Return the LPM implementation class registered under ``name``.
 
     This function does not instantiate the class.  The public

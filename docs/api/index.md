@@ -15,25 +15,28 @@ promise is {doc}`../reference/public-api`.
    pyages.calibration.methods.base
    pyages.calibration.outputs
    pyages.calibration.problem
-   pyages.calibration.utils.parameter_grid
-   pyages.calibration.utils.systematic_sampling
+   pyages.calibration.exploration.grid
+   pyages.calibration.exploration.systematic
    pyages.convolution
    pyages.lpm.factory
    pyages.lpm.core.lpm_base
    pyages.lpm.samples.table
    pyages.lpm.core.parameter_manager
    pyages.lpm.core.registry
-   pyages.tracer.tracer_protocol
+   pyages.tracer.protocols
+   pyages.tracer.simple_tracers
    pyages.tracer.config
    pyages.tracer.tracer_root
    pyages.concentrations
-   pyages.concentrations.chronicles
-   pyages.calibration.methods.metropolis_hastings
-   pyages.calibration.methods.prior
-   pyages.calibration.methods.trajectory
+   pyages.concentrations.series
+   pyages.concentrations.temporal
+   pyages.calibration.methods.mh
+   pyages.calibration.methods.mh.prior
+   pyages.calibration.methods.mh.proposals
+   pyages.calibration.methods.mh.trajectory
 ```
 
-## I/O, CLI, and site integration
+## I/O, CLI, and workflows
 
 ```{eval-rst}
 .. autosummary::
@@ -42,10 +45,16 @@ promise is {doc}`../reference/public-api`.
    pyages.data_io.lpm_params
    pyages.data_io.lpm_results
    pyages.data_io.lpm_distribution
+   pyages.data_io.concentrations
    pyages.cli.main
-   pyages.site.base_site
    pyages.workflows
-   pyages.workflows.result_manifest
+   pyages.workflows.single_date
+   pyages.workflows.temporal
+   pyages.workflows.runtime.manifest
+   pyages.reporting
+   pyages.reporting.chronicles
+   pyages.reporting.plots
+   pyages.qualification
 ```
 
 ```{toctree}

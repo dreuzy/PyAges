@@ -2,7 +2,7 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Numerical settings for tracer-driven convolution grids."""
+"""Define numerical controls shared by convolution preparation and integration."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from math import isfinite
 
 
 @dataclass(frozen=True)
-class TracerGridSettings:
-    r"""Accuracy and safety controls for the cached tracer-response grid.
+class ConvolutionSettings:
+    r"""Accuracy and safety controls for continuous tracer convolution.
 
     The adaptive grid resolves the tracer response :math:`K(\tau)`, not the
     LPM probability density. A bin is accepted when the range of the left,
@@ -22,11 +22,11 @@ class TracerGridSettings:
 
        \Delta K \leq f_a\max(K_g,\epsilon) + f_r K_{\mathrm{local}}.
 
-    Here ``absolute_tolerance_factor`` is :math:`f_a`,
-    ``relative_tolerance`` is :math:`f_r`, and :math:`K_g` is the largest
-    absolute response encountered so far. These dimensionless controls apply
-    to tracer concentrations in the tracer's declared unit; ages and bin
-    widths are decimal years.
+    ``absolute_tolerance_factor``, ``relative_tolerance``,
+    ``max_subdivisions``, and ``max_bins`` control tracer-grid preparation.
+    ``linear_curvature_factor`` and ``floating_weight_epsilon_factor`` control
+    integration on the prepared grid. The response tolerances are intentionally
+    shared by both stages.
 
     Parameters
     ----------
@@ -35,19 +35,20 @@ class TracerGridSettings:
     relative_tolerance : float
         Local response-scale factor :math:`f_r`. The default is ``2e-2``.
     linear_curvature_factor : float
-        Fraction of the preceding acceptance tolerance allowed for midpoint
-        curvature before integration falls back from the affine formula to a
-        midpoint contribution. The default is ``0.1``.
+        Fraction of the acceptance tolerance allowed for midpoint curvature
+        before integration falls back to a midpoint contribution. The default
+        is ``0.1``.
     max_subdivisions : int
         Maximum bisection depth per initial tracer interval. Exhaustion raises
-        :class:`~pyages.convolution.models.ConvolutionError`; it never silently
+        :class:`~pyages.convolution.errors.ConvolutionError`; it never silently
         accepts an unresolved bin.
     max_bins : int
-        Hard upper bound on prepared bins, limiting memory and run time.
+        Hard upper bound on prepared bins, limiting memory and run time. The
+        default is ``20_000``.
     floating_weight_epsilon_factor : float
-        Multiplier of machine epsilon used only to clip round-off-sized
-        negative CDF differences or partial moments. Larger inconsistencies
-        remain errors.
+        Multiplier of machine epsilon used to clip round-off-sized negative CDF
+        differences or partial moments. Larger inconsistencies remain errors;
+        the default multiplier is ``64``.
 
     Notes
     -----
@@ -66,7 +67,9 @@ class TracerGridSettings:
     floating_weight_epsilon_factor: float = 64.0
 
     def __post_init__(self) -> None:
-        """Reject non-finite, negative, or non-integral grid controls."""
+        """Reject non-finite, negative, or non-integral controls."""
+        # Tolerance factors may be zero for strict experiments, but never
+        # negative or non-finite.
         for name in (
             "absolute_tolerance_factor",
             "relative_tolerance",
@@ -76,13 +79,17 @@ class TracerGridSettings:
             value = getattr(self, name)
             if not isfinite(value) or value < 0.0:
                 raise ValueError(f"{name} must be finite and non-negative")
+        # Booleans are integers in Python; reject them explicitly because they
+        # are nonsensical resource limits.
         for name, minimum in (("max_subdivisions", 0), ("max_bins", 1)):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
                 raise ValueError(f"{name} must be an integer >= {minimum}")
 
 
-DEFAULT_TRACER_GRID_SETTINGS = TracerGridSettings()
+DEFAULT_CONVOLUTION_SETTINGS = ConvolutionSettings()
 
-
-__all__ = ["DEFAULT_TRACER_GRID_SETTINGS", "TracerGridSettings"]
+__all__ = [
+    "ConvolutionSettings",
+    "DEFAULT_CONVOLUTION_SETTINGS",
+]

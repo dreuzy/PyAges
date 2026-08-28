@@ -1,8 +1,8 @@
-# Phase 3 de l'étude de robustesse : extension de l'âge moyen.
+# Phase 3 of the robustness study: extension of the mean age.
 #
-# Les cas tau=20 ne sont pas recalculés : ils proviennent de la phase 1. Cette
-# configuration ajoute tau=5 et tau=50 pour les largeurs intermédiaire et très
-# large. La synthèse finale regroupera donc bien tau=5, 20 et 50.
+# The tau=20 cases are not recomputed because they come from Phase 1. This
+# configuration adds tau=5 and tau=50 for intermediate and very wide
+# distributions. The final summary will therefore cover tau=5, 20, and 50.
 campaign_id: tracerlpm-robustness-age-noise-v1
 observation_year: 2020.0
 
@@ -28,13 +28,13 @@ reuses_from_width_campaign:
 case_matrices:
   - case_id_pattern: robust-age-epm-tau{tau_tag}-r{shape_tag}-noise{noise_percent:02d}-seed{seed}
     model: EPM
-    # tau=20 est déjà présent dans la phase 1 et sera fusionné au rapport final.
+# tau=20 is already present in Phase 1 and will be merged into the final report.
     tau_values: [5.0, 50.0]
     secondary_parameter:
       display_name: r
       model_parameter: eta
       model_offset: 1.0
-      # r=2 : largeur intermédiaire; r=0.05 : distribution très large.
+# r=2: intermediate width; r=0.05: very wide distribution.
       values: [0.05, 2.0]
     noise_relative_standard_deviations: [0.10, 0.20]
     seeds: [401, 402, 403, 404, 405, 406, 407, 408, 409, 410]
@@ -48,7 +48,7 @@ case_matrices:
       display_name: DP
       model_parameter: DP
       model_offset: 0.0
-      # DP=0.2 : largeur intermédiaire; DP=1 : distribution très large.
+# DP=0.2: intermediate width; DP=1: very wide distribution.
       values: [0.2, 1.0]
     noise_relative_standard_deviations: [0.10, 0.20]
     seeds: [401, 402, 403, 404, 405, 406, 407, 408, 409, 410]

@@ -2,4 +2,4 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Script entrypoints package for CLI imports."""
+"""Maintained repository entry points grouped by responsibility."""

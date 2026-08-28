@@ -18,9 +18,9 @@ pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
 pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 pyages run examples/templates/quickstart_single.yaml
 pyages run --transient examples/templates/quickstart_temporal.yaml
-python -m scripts.run_system_check
-python -m scripts.run_system_check --params configs/system_check.yaml
-python -m scripts.run_calibration_benchmark
+python -m scripts.qualification.run_system_check
+python -m scripts.qualification.run_system_check --params configs/system_check.yaml
+python -m scripts.qualification.run_calibration_benchmark
 ```
 
 ### Example parameters
@@ -50,14 +50,41 @@ You can override this with `PYAGES_RESULTS_DIR` (see the root `README.md`).
 
 ## Script overview
 
+The maintained entry points are grouped by responsibility:
+
+```text
+scripts/
+├── article/        # article campaigns, figures, post-processing, audits
+├── qualification/  # system checks and numerical qualification
+├── release/        # publication packages and archives
+├── maintenance/    # repository metadata, licensing, cleanup, inventory
+├── common/         # shared implementation helpers
+└── windows/        # Windows wrappers
+```
+
+Historical manifests retain the paths recorded when they were produced. New
+commands and active configuration use the grouped module paths below.
+
+| Family | Maintained modules | Purpose |
+| --- | --- | --- |
+| Diagnostics and qualification | `scripts.qualification` | Fast environment checks, calibration comparison, and MH proposal qualification |
+| Article campaigns, post-processing, and audit | `scripts.article` | Complete or focused campaigns; figures, tables, and audit reports |
+| Publication archives | `scripts.release` | Build and validate publication-facing artifacts |
+| Repository maintenance | `scripts.maintenance` | Check metadata and licensing, clean artifacts, and refresh test documentation |
+| Shared helpers | `scripts.common` | Reusable provenance, reporting, plotting, and launcher helpers; not primary CLIs |
+
+Invoke a module as `python -m scripts.<family>.<module> --help` when it exposes a CLI.
+The complete article campaign below is the canonical high-level entry point.
+
 ### Complete article reproduction
 
 Use an output directory outside the repository:
 
 ```powershell
-python -m scripts.reproduce_article preflight --output C:\pyages-runs\article-v1
-python -m scripts.reproduce_article resume --output C:\pyages-runs\article-v1 --workers 6
-python -m scripts.reproduce_article validate --output C:\pyages-runs\article-v1
+$env:PYTHONNOUSERSITE = "1"
+python -m scripts.article.reproduce_article preflight --output C:\pyages-runs\article-1.0
+python -m scripts.article.reproduce_article resume --output C:\pyages-runs\article-1.0 --workers 6
+python -m scripts.article.reproduce_article validate --output C:\pyages-runs\article-1.0
 ```
 
 The workflow covers the independent forward cases, paired TracerLPM/Excel
@@ -69,7 +96,29 @@ outputs. `validate` checks the fresh campaign manifest, expected stage files,
 package hashes, and archive hashes. Canonical runs require a clean Git worktree;
 `--allow-dirty` is intended only for development checks.
 
-`python article/run_case.py check <case>` has a different purpose: it audits
+The canonical preflight also requires the direct versions recorded in
+`install/environment.yml`, an installed PyAges version matching the source,
+the exact annotated tag `1.0` at `HEAD`, and a disabled Python user-site. Keep
+`PYTHONNOUSERSITE=1` set for direct commands; both Windows wrappers set it
+automatically. `--allow-untagged` is development only.
+
+After the campaign validates and a Zenodo DOI has been reserved, build the
+final uploadable bundle:
+
+```powershell
+python -m scripts.release.build_zenodo_bundle `
+  --archive C:\pyages-runs\article-1.0-gmd-archive `
+  --output C:\pyages-runs\pyages-1.0-zenodo `
+  --zip-output C:\pyages-runs\pyages-1.0-zenodo.zip `
+  --tracerlpm-workbook C:\TracerLPM-Test\working\TracerLPM_V_1_0_FourTracers_v17.xlsm `
+  --tracerlpm-xll C:\Users\dreuzy\AppData\Roaming\Microsoft\AddIns\TracerLPMfunctions_64_v_1.xll `
+  --doi 10.5281/zenodo.REPLACE_WITH_RESERVED_ID
+```
+
+Use `--draft` only for a pre-DOI review bundle. The final CLI refuses to build
+without `--doi` and validates both the complete core archive and final ZIP.
+
+`python -m scripts.article.run_case check <case>` has a different purpose: it audits
 the optional historical `results/` inventory. Its result must not be used as
 the verdict for a fresh campaign.
 
@@ -77,9 +126,9 @@ the verdict for a fresh campaign.
   Canonical single-date workflow (systematic sampling + calibration) driven by YAML.
 - `pyages.workflows.temporal`
   Canonical multi-date Metropolis-Hastings workflow, exposed by the CLI.
-- `run_system_check.py`
+- `scripts.qualification.run_system_check`
   Lightweight end-to-end sanity check (LPM generation, tracers, and plotting).
-- `run_calibration_benchmark.py`
+- `scripts.qualification.run_calibration_benchmark`
   Compare Metropolis-Hastings and forward-uncertainty quantification runs.
 
 Windows-only wrappers are grouped under `scripts/windows/`. The core entry
@@ -179,11 +228,11 @@ validate the installation with `pyages check`.
     - `Metropolis_Hastings/concentrations_all_models.txt`
     - `Metropolis_Hastings/distributions.txt`
     - `Metropolis_Hastings/distributions_stats.txt`
-- `run_system_check.py`
+- `scripts.qualification.run_system_check`
   - Results under: `<results_root>/test/<check_name>/<timestamp>/`
   - Diagnostic plots + console summaries of generated models/tracers.
-  - Optional config override: `python -m scripts.run_system_check --params <file.yaml>`
-- `run_calibration_benchmark.py`
+  - Optional config override: `python -m scripts.qualification.run_system_check --params <file.yaml>`
+- `scripts.qualification.run_calibration_benchmark`
   - Results under:
     `<results_root>/test_calib_comp/<timestamp>/prec_<error>/<tracers>/<lpm>/<case>/`
   - Benchmark results comparing MH and FUQ runs (plots + tables).

@@ -21,10 +21,9 @@ from typing import Any
 
 import yaml
 
-from pyages.calibration.methods.metropolis_hastings import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
-from pyages.concentrations.chronicles import export_calibrated_chronicles
 from pyages.concentrations.schema import ERROR_COLUMN
 from pyages.config.paths import (
     ROOT_DIRECTORY,
@@ -33,6 +32,7 @@ from pyages.config.paths import (
 )
 from pyages.config.runtime import DisplayOptions
 from pyages.lpm.plotting.sample_diagnostics import plot_prior_comparison
+from pyages.reporting.chronicles import export_calibrated_chronicles
 from sites.ploemeur.config.models import (
     ObservationMetadataConfig,
     PloemeurWorkflowConfig,
@@ -180,8 +180,16 @@ def validate_well_dates(
 
 # Proxy function for parallel simulation
 def _perform_pod(pod):
-    """Execute one calibration job in a worker process."""
-    pod.perform()
+    """Execute one calibration job with a headless worker-local plot backend."""
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+
+    try:
+        pod.perform()
+    finally:
+        plt.close("all")
 
 
 class SimulationStrategy:

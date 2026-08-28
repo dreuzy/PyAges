@@ -20,9 +20,9 @@ if (@(Get-Process -Name TracerLpmRunner -ErrorAction SilentlyContinue).Count -gt
     throw 'Un runner TracerLPM est déjà actif. La reprise n''a pas été lancée.'
 }
 
-# Excel COM doit être activé depuis la session Windows interactive de
-# l'utilisateur. Cette sonde ferme immédiatement sa propre instance et ne touche
-# à aucun classeur existant.
+# Excel COM must be activated from the user's interactive Windows session. This
+# probe immediately closes its own instance and does not touch any existing
+# workbook.
 $excel = $null
 try {
     $excel = New-Object -ComObject Excel.Application

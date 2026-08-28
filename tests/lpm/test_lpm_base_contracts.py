@@ -12,11 +12,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pyages.convolution.convolution import Convolution, ConvolutionError
+from pyages.convolution import Convolution, ConvolutionError
 from pyages.lpm import build_lpm
 from pyages.lpm.core.lpm_base import LpmBase
 from pyages.lpm.core.parameter_manager import ParameterManager
-from pyages.tracer.tracer_protocol import ConstantTracer
+from pyages.tracer.simple_tracers import ConstantTracer
 from tests.utils import paths as test_paths
 
 

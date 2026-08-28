@@ -9,7 +9,9 @@ enabled in the YAML configuration.
 
 Every successful public workflow writes `result_manifest.json` last. Treat a
 result directory as complete only when this file exists and contains
-`"status": "complete"`.
+`"status": "complete"`. When a new run starts writing to a prepared result
+directory, it first removes the preceding success manifest; a failed rerun is
+therefore visibly incomplete.
 
 Manifest schema 2 contains:
 
@@ -28,16 +30,20 @@ Manifest schema 2 contains:
 | `artifacts_sha256` | Relative filename-to-SHA-256 map for every artifact written before the manifest. |
 | `details` | Workflow-specific dataset, LPM, mode, calibration, or case-directory information. |
 
+For both public workflows, `details.observation_error_policy` records the
+configured missing-error fraction and the ordered transformations that
+produced the effective errors. Temporal runs also record `error_rel`. Each
+transformation gives its method, fraction, affected row indices, and row count.
+
 The manifest fingerprints a run; it does not by itself prove numerical or
 scientific correctness. Use the validation layers in {doc}`../science/validation`.
 
 For a source checkout, the repository section fingerprints the complete
-tracked workspace, which includes packaged tracer histories and LPM parameter
-files. In an installed wheel without Git metadata, repository fields can be
-empty. The current public workflows list the observation table explicitly in
-`inputs`; they do not enumerate every tracer and LPM resource there. A
-publication archive must therefore preserve the exact package artifact and
-scientific resources in addition to the manifest.
+tracked workspace. In an installed wheel without Git metadata or a Git
+executable, repository fields can be empty. The `inputs` collection explicitly
+hashes the observation table and every file below the selected LPM and tracer
+resource directories. A publication archive must still preserve the exact
+package artifact and environment in addition to the manifest.
 
 ## Single-date layout
 
@@ -51,7 +57,7 @@ Common root files are:
 
 | File | Contents |
 | --- | --- |
-| `concentrations.txt` | Normalized observation table: tracer, concentration, absolute error, unit, and decimal sampling date. |
+| `concentrations.txt` | Normalized observation table: tracer, concentration, effective strictly positive absolute error, unit, and decimal sampling date. |
 | `objective_function_grid.txt` | Optional sampled parameter grid and `half_log_chi_square`; see {doc}`../scientific-methods`. |
 | `01_data_model_space.png` | Optional observation, reachable-space, and calibrated-model summary. |
 | `02_parameter_summary.png` | Optional calibrated parameter distributions. |
@@ -89,7 +95,8 @@ The temporal workflow root is:
 <results_root>/<study_name>/<dataset_stem>/<mode>/
 ```
 
-It contains `span_full/` for a span calibration or one `date_<decimal-date>/`
+It contains the effective normalized `concentrations.txt`, `span_full/` for a
+span calibration, or one `date_<decimal-date>/`
 directory per successive calibration. Each case then contains one directory
 per LPM and the same calibration files described above. The root manifest's
 `details.case_directories` lists the case directories written by that run.

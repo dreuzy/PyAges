@@ -1,4 +1,4 @@
-# Deuxième pilote : la rampe rend visibles les erreurs de date et d'interpolation.
+# Second pilot: the ramp makes date and interpolation errors visible.
 - case_id: synthetic-ramp-pfm
   sample: PSW-1-17/08/2004
   observation_year: 2004.6256830601094
