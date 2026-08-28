@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 
 from scripts.article import build_article_non_ploemeur_report as non_ploemeur_report
+from scripts.article import postprocess_holten_prior_sensitivity as prior_postprocess
 from scripts.article import run_ploemeur_shifted_exponential_final as ploemeur_runner
 from scripts.article import run_ploemeur_targeted_ig_reproduction as ig_runner
 from scripts.common.mcmc_diagnostics import ess, mcse_mean, split_rhat
@@ -138,6 +139,173 @@ def test_article_package_is_atomic_and_hash_validated(monkeypatch, tmp_path):
     (output / "reports" / "result.txt").write_text("corrupted\n", encoding="utf-8")
     with pytest.raises(RuntimeError, match="hash"):
         package.validate_package(output)
+
+
+def test_replace_article_package_builds_when_output_is_absent(monkeypatch, tmp_path):
+    source = tmp_path / "source.txt"
+    source.write_text("article result\n", encoding="utf-8")
+    artifact = package.Artifact(
+        "result",
+        "report",
+        source,
+        Path("reports/result.txt"),
+        "test result",
+    )
+    monkeypatch.setattr(package, "scientific_summary", _summary)
+    monkeypatch.setattr(package, "_git", lambda *unused: "test-git-state")
+    monkeypatch.setattr(package, "_execution_source_snapshots", lambda unused: ([], {}))
+    output = tmp_path / "package"
+
+    package.replace_package(output, (artifact,))
+
+    payload = package.validate_package(output)
+    assert len(payload["artifacts"]) == 1
+    assert (output / "reports" / "result.txt").read_text(encoding="utf-8") == (
+        "article result\n"
+    )
+
+
+def _write_completed_prior_campaigns(baseline, dirichlet):
+    posterior_rows = []
+    alternative_rows = []
+    baseline_medians = (0.1, 0.2, 0.3, 0.4)
+    alternative_medians = (0.12, 0.18, 0.29, 0.41)
+    for well in prior_postprocess.WELL_ORDER:
+        for parameter, baseline_median, alternative_median in zip(
+            prior_postprocess.AGE_PARAMETERS,
+            baseline_medians,
+            alternative_medians,
+            strict=True,
+        ):
+            posterior_rows.append(
+                {
+                    "well": well,
+                    "parameter": parameter,
+                    "median": baseline_median,
+                    "q10": baseline_median - 0.01,
+                    "q90": baseline_median + 0.01,
+                }
+            )
+            alternative_rows.append(
+                {
+                    "well": well,
+                    "parameter": parameter,
+                    "median": alternative_median,
+                    "q10": alternative_median - 0.01,
+                    "q90": alternative_median + 0.01,
+                }
+            )
+    pd.DataFrame(posterior_rows).to_csv(
+        baseline / "posterior_summaries.csv", index=False
+    )
+    pd.DataFrame(alternative_rows).to_csv(
+        dirichlet / "posterior_summaries_dirichlet1.csv", index=False
+    )
+
+    residual_rows = [
+        {
+            "prior": prior,
+            "well": well,
+            "tracer": tracer,
+            "standardized_residual": residual,
+        }
+        for prior, residual in (("uniform_z", 0.5), ("dirichlet_1", 0.4))
+        for well in prior_postprocess.WELL_ORDER
+        for tracer in ("CFC11", "CFC12", "SF6", "H3")
+    ]
+    pd.DataFrame(residual_rows).to_csv(
+        dirichlet / "standardized_residuals.csv", index=False
+    )
+    convergence_rows = [
+        {
+            "prior": "dirichlet_1",
+            "well": well,
+            "parameter": parameter,
+            "split_rhat": 1.001,
+            "ess_sum_chains": 500.0,
+            "converged": True,
+        }
+        for well in prior_postprocess.WELL_ORDER
+        for parameter in range(7)
+    ]
+    pd.DataFrame(convergence_rows).to_csv(
+        dirichlet / "convergence_diagnostics.csv", index=False
+    )
+    prior_rows = [
+        {
+            "prior": prior,
+            "fraction": parameter,
+            "mean": 0.25,
+            "median": 0.25,
+            "q10": 0.1,
+            "q90": 0.4,
+        }
+        for prior in ("uniform_z", "dirichlet_1_truncated_to_z_bounds")
+        for parameter in prior_postprocess.AGE_PARAMETERS
+    ]
+    pd.DataFrame(prior_rows).to_csv(
+        dirichlet / "prior_only_comparison.csv", index=False
+    )
+    pd.DataFrame(
+        {
+            "analytical_abs_det": np.ones(256),
+            "finite_difference_abs_det": np.ones(256),
+            "relative_error": np.zeros(256),
+        }
+    ).to_csv(dirichlet / "jacobian_validation.csv", index=False)
+
+
+def test_holten_prior_postprocess_uses_completed_results_without_sampling(tmp_path):
+    baseline = tmp_path / "baseline"
+    dirichlet = tmp_path / "dirichlet"
+    output = tmp_path / "postprocessed"
+    baseline.mkdir()
+    dirichlet.mkdir()
+    _write_completed_prior_campaigns(baseline, dirichlet)
+    baseline_before = (baseline / "posterior_summaries.csv").read_bytes()
+
+    summary = prior_postprocess.postprocess(baseline, dirichlet, output)
+
+    assert summary["maximum_split_rhat"] == pytest.approx(1.001)
+    assert summary["minimum_ess"] == pytest.approx(500.0)
+    assert summary["largest_age_class_change"]["percentage_points"] == pytest.approx(
+        2.0
+    )
+    assert (baseline / "posterior_summaries.csv").read_bytes() == baseline_before
+    assert {
+        path.name for path in output.iterdir()
+    } == {
+        "figureC1_holten_prior_sensitivity.pdf",
+        "figureC1_holten_prior_sensitivity.png",
+        "posterior_age_fraction_prior_comparison.csv",
+        "prior_sensitivity_by_well.csv",
+        "prior_sensitivity_summary.json",
+        "prior_sensitivity_summary.md",
+        "tableC2_prior_sensitivity_by_well.csv",
+        "tableC2_prior_sensitivity_by_well.md",
+    }
+
+    for protected_output, message in (
+        (baseline, "canonical baseline campaign"),
+        (baseline / "postprocessed", "canonical baseline campaign"),
+        (dirichlet, "Dirichlet campaign"),
+        (dirichlet / "postprocessed", "Dirichlet campaign"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            prior_postprocess.postprocess(baseline, dirichlet, protected_output)
+
+
+def test_holten_prior_postprocess_default_output_is_separate_from_campaigns():
+    assert prior_postprocess.DEFAULT_OUTPUT != prior_postprocess.DEFAULT_BASELINE
+    assert (
+        prior_postprocess.DEFAULT_BASELINE
+        not in prior_postprocess.DEFAULT_OUTPUT.parents
+    )
+    assert prior_postprocess.DEFAULT_OUTPUT != prior_postprocess.DEFAULT_DIRICHLET
+    assert (
+        prior_postprocess.DEFAULT_DIRICHLET
+        not in prior_postprocess.DEFAULT_OUTPUT.parents
+    )
 
 
 def test_execution_sources_can_be_recovered_from_an_exact_worktree(

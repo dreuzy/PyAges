@@ -976,6 +976,8 @@ def replace_package(
 ) -> Path:
     """Transactionally replace a package that already passes validation."""
     output = output.resolve()
+    if not output.exists():
+        return build_package(output, artifacts)
     validate_package(output)
     backup = output.with_name(f".{output.name}.backup-{os.getpid()}")
     if backup.exists():

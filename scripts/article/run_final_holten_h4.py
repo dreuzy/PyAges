@@ -639,7 +639,7 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
         ROOT / "examples" / "natural" / "holten" / "holten_reproduction.py",
         ROOT / "examples" / "natural" / "holten" / "holten_prepare.py",
         ROOT / "examples" / "natural" / "holten" / "holten_four_bin.py",
-        ROOT / "pyages" / "calibration" / "mh_proposals.py",
+        ROOT / "pyages" / "calibration" / "methods" / "mh" / "proposals.py",
     )
     inputs = (
         prepared.context.paths.sampling_raw_path,

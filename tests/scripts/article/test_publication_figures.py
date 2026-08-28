@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.container import ErrorbarContainer
 from matplotlib.text import Text
 from PIL import Image
 
@@ -41,6 +42,7 @@ def _capture_exports(monkeypatch, module):
                 "texts": [text.get_text() for text in figure.findobj(match=Text)],
                 "labels": [axis.get_xlabel() for axis in figure.axes]
                 + [axis.get_ylabel() for axis in figure.axes],
+                "figure": figure,
             }
         )
         return output / f"{stem}.pdf", output / f"{stem}.png"
@@ -78,6 +80,17 @@ def _prior_comparison() -> pd.DataFrame:
         frame[f"{prefix}_q10"] = values + offset - 0.015
         frame[f"{prefix}_q90"] = values + offset + 0.015
     return frame
+
+
+def _posterior_summaries(comparison: pd.DataFrame, prefix: str) -> pd.DataFrame:
+    return comparison.rename(
+        columns={
+            "fraction": "parameter",
+            f"{prefix}_median": "median",
+            f"{prefix}_q10": "q10",
+            f"{prefix}_q90": "q90",
+        }
+    )[["well", "parameter", "median", "q10", "q90"]]
 
 
 def test_publication_export_preserves_physical_size_dpi_and_truetype_fonts(tmp_path):
@@ -146,18 +159,95 @@ def test_figure3_exports_preferred_and_fallback_layouts(monkeypatch, tmp_path):
     assert "q10" not in combined
 
 
-def test_prior_sensitivity_uses_explicit_prior_names(monkeypatch, tmp_path):
+def test_prior_sensitivity_matches_figure3_template(monkeypatch, tmp_path):
     exports = _capture_exports(monkeypatch, prior)
+    comparison = _prior_comparison()
 
-    prior.make_figure(tmp_path, _prior_comparison())
+    prior.make_figure(
+        tmp_path,
+        comparison,
+        reference_summaries=_posterior_summaries(comparison, "reference"),
+        dirichlet_summaries=_posterior_summaries(comparison, "dirichlet"),
+    )
 
     assert [item["stem"] for item in exports] == ["figureC1_holten_prior_sensitivity"]
-    combined = " ".join(exports[0]["texts"] + exports[0]["labels"])
+    export = exports[0]
+    figure = export["figure"]
+    combined = " ".join(export["texts"] + export["labels"])
+    assert export["size"] == pytest.approx(
+        np.array([prior.FIGURE_C1_WIDTH_MM, prior.FIGURE_C1_HEIGHT_MM]) / 25.4
+    )
+    assert len(figure.axes) == 4
+    assert [axis.get_title() for axis in figure.axes] == list(
+        prior.FIGURE_C1_PANEL_TITLES
+    )
+    assert [label.get_text() for label in figure.axes[0].get_yticklabels()] == [
+        "59-05",
+        "67-19",
+        "72-22",
+        "73-29",
+        "85-33",
+        "85-34",
+        "85-35",
+    ]
+    for axis in figure.axes:
+        assert axis.get_xlim() == pytest.approx((0.0, 1.0))
+        assert axis.get_xticks() == pytest.approx((0.0, 0.5, 1.0))
+        assert all(line.get_visible() for line in axis.get_xgridlines())
+        assert not any(line.get_visible() for line in axis.get_ygridlines())
+        intervals = [
+            container
+            for container in axis.containers
+            if isinstance(container, ErrorbarContainer)
+        ]
+        assert len(intervals) == 14
+        assert {container.lines[0].get_marker() for container in intervals} == {
+            "o",
+            "D",
+        }
+    assert figure._suptitle is None
+    assert figure._supxlabel.get_text() == "Age fraction"
+    assert all(not axis.get_xlabel() for axis in figure.axes)
     assert "H4" not in combined
     assert "q10" not in combined
-    assert "Latent-logit uniform prior" in combined
-    assert "Dirichlet(1,1,1,1) fraction prior" in combined
-    assert "Posterior median and 10–90 % credible interval" in combined
+    assert "Latent-uniform prior" in combined
+    assert "Dirichlet(1,1,1,1) prior" in combined
+    assert "Sensitivity of Holten posterior age fractions" not in combined
+    assert "Posterior median and" not in combined
+
+
+def test_prior_sensitivity_rejects_a_value_not_in_posterior_summaries(tmp_path):
+    comparison = _prior_comparison()
+    reference = _posterior_summaries(comparison, "reference")
+    dirichlet = _posterior_summaries(comparison, "dirichlet")
+    comparison.loc[0, "reference_median"] += 0.001
+
+    with pytest.raises(ValueError, match="does not match its final posterior"):
+        prior.make_figure(
+            tmp_path,
+            comparison,
+            reference_summaries=reference,
+            dirichlet_summaries=dirichlet,
+        )
+
+
+@pytest.mark.parametrize("mutation", ["missing", "wrong_order"])
+def test_prior_sensitivity_rejects_incomplete_or_reordered_points(tmp_path, mutation):
+    comparison = _prior_comparison()
+    reference = _posterior_summaries(comparison, "reference")
+    dirichlet = _posterior_summaries(comparison, "dirichlet")
+    if mutation == "missing":
+        comparison = comparison.iloc[:-1]
+    else:
+        comparison = comparison.iloc[::-1]
+
+    with pytest.raises(ValueError, match="exactly the configured Holten"):
+        prior.make_figure(
+            tmp_path,
+            comparison,
+            reference_summaries=reference,
+            dirichlet_summaries=dirichlet,
+        )
 
 
 def test_figure4_uses_six_panels_and_only_calibration_terminology(
