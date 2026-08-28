@@ -113,11 +113,11 @@ class Concentrations:
             )
         if not np.all(np.isfinite(mean_array)) or np.any(mean_array < 0.0):
             raise ValueError("mean_value entries must be finite and non-negative")
-        missing_error = self.frame[ERROR_COLUMN].to_numpy(dtype=float) == 0.0
+        errors = self.frame[ERROR_COLUMN].to_numpy(dtype=float, copy=True)
+        missing_error = errors == 0.0
         row_indices = np.flatnonzero(missing_error).tolist()
-        self.frame.loc[missing_error, ERROR_COLUMN] = (
-            mean_array[missing_error] * fraction
-        )
+        errors[missing_error] = mean_array[missing_error] * fraction
+        self.frame[ERROR_COLUMN] = errors
         if row_indices:
             self._error_provenance.append(
                 {

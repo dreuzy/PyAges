@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib
 import subprocess
 import sys
+import warnings
 
 import matplotlib
 import numpy as np
@@ -204,10 +205,13 @@ def test_error_assignment_validates_shape_fraction_and_sign() -> None:
 def test_error_assignment_from_mean_preserves_existing_errors() -> None:
     concentrations = Concentrations.from_dataframe(_frame().assign(error=[3.0, 0.0]))
 
-    assert (
-        concentrations.fill_missing_errors_from_means([10.0, 20.0], fraction=0.1) == 1
-    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        updated = concentrations.fill_missing_errors_from_means(
+            [10.0, 20.0], fraction=0.1
+        )
 
+    assert updated == 1
     assert concentrations.frame["error"].tolist() == [3.0, 2.0]
     assert concentrations.error_provenance == [
         {
