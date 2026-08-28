@@ -6,10 +6,10 @@ inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
 It provides reusable scientific components in `pyages/` and site-specific
 workflows in `sites/`, with examples and regression tests to support validation.
 
-Project status: **stable-release preparation** (`1.0`). Public interfaces,
-scientific workflows, and validation gates are documented and tested. The
-release becomes immutable only when the reviewed source commit is tagged
-`1.0`; until then, calculations must also cite their exact Git commit.
+Project status: **stable** (`1.0`). Public interfaces, scientific workflows,
+and validation gates are documented and tested. The immutable release source
+is the reviewed commit identified by the exact annotated Git tag `1.0`; an
+untagged checkout must also be identified by its exact Git commit.
 
 Release maturity follows this policy:
 
@@ -21,10 +21,10 @@ Release maturity follows this policy:
 - **stable**: supported public contract, with compatibility managed according
   to semantic versioning.
 
-The source tree carries the final `1.0` identity so the complete article
-campaign, source archive, package metadata, and future tag all record one
-version. Do not publish or cite the release until the `1.0` tag has been placed
-on the exact clean commit that passes the release and reproduction gates.
+The source tree, complete article campaign, source archive, package metadata,
+and release tag all use the single `1.0` identity. Release artifacts must be
+built from the exact clean commit selected by tag `1.0` after the release and
+reproduction gates pass.
 
 ## Quick start
 
@@ -56,9 +56,10 @@ install it with:
 python -m pip install pyages
 ```
 
-No PyAges distribution is currently published on PyPI. Until the stable
-release is published, users should install from the reviewed source checkout.
-Prerelease artifacts, if any, require an explicit prerelease request:
+PyPI availability may lag behind the tagged source release. If no distribution
+is available from the configured package index, install from the exact tagged
+source checkout. Prerelease artifacts, if any, require an explicit prerelease
+request:
 
 ```
 python -m pip install --pre pyages

@@ -12,7 +12,7 @@ references.
 |---|---|---|
 | [CI](https://github.com/dreuzy/PyAges/actions/workflows/ci.yml) | Pull requests targeting `main`, pushes to `main`, `v*` tags, and manual dispatch | Fast required checks for every supported Python version, packaging, documentation, and validation infrastructure |
 | [Extensive tests](https://github.com/dreuzy/PyAges/actions/workflows/extensive-tests.yml) | Manual dispatch and daily at `01:17 UTC` | Opt-in scientific calculations that are too slow for every pull request |
-| [Release candidate](https://github.com/dreuzy/PyAges/actions/workflows/release-candidate.yml) | Manual dispatch for an existing `v`-prefixed tag | Build one candidate, validate its metadata, and smoke-test the same wheel on all supported Python versions |
+| [Release candidate](https://github.com/dreuzy/PyAges/actions/workflows/release-candidate.yml) | Manual dispatch for an existing release tag (`1.0` for this release) | Build one candidate, validate its metadata, and smoke-test the same wheel on all supported Python versions |
 
 The daily extensive run starts at 02:17 in metropolitan France during winter
 time and 03:17 during summer time. GitHub may send failure notifications at
