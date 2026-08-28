@@ -1,3 +1,6 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# SPDX-License-Identifier: CECILL-2.1
+
 import json
 
 import pytest
