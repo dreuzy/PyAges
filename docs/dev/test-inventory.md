@@ -11,11 +11,11 @@ the complete core node-ID list.
 
 | Scope | Collected cases | Modules |
 |---|---|---|
-| Standard selection | 1085 | 98 |
+| Standard selection | 1090 | 99 |
 | Extensive opt-in | 5 | 2 |
-| Core including extensive | 1090 | 98 |
+| Core including extensive | 1095 | 99 |
 | TracerLPM validation | 65 | 9 |
-| All documented pytest scopes | 1155 | 107 |
+| All documented pytest scopes | 1160 | 108 |
 
 ## Cases by area
 
@@ -31,7 +31,7 @@ the complete core node-ID list.
 | Examples and case studies | `tests/examples/` | Integration / golden | Runnable examples, helper contracts, reproduction modes, and accepted outputs | Standard CI | 9 | 30 |
 | Lumped-parameter models | `tests/lpm/` | Analytical / unit / golden | Distributions, moments, mixtures, registries, parameters, and generated values | Standard CI | 15 | 241 |
 | Ploemeur field case | `tests/ploemeur/` | Field integration / golden | Preparation, configuration, reference convolution, paths, and workflow outputs | Standard CI; selected extensive cases | 8 | 54 |
-| Scientific orchestration | `tests/scripts/` | Integration / reproducibility | Article campaigns, qualification scripts, and reproducible execution support | Standard CI | 12 | 74 |
+| Scientific orchestration | `tests/scripts/` | Integration / reproducibility | Article campaigns, qualification scripts, and reproducible execution support | Standard CI | 13 | 79 |
 | Environmental tracers | `tests/tracer/` | Scientific unit / contract | Decay, distributed inputs, tracer configuration, and public tracer behavior | Standard CI | 5 | 53 |
 | Installed workflows | `tests/workflows/` | Integration / contract | Plotting runtime and single-date workflow behavior | Standard CI and package smoke test | 7 | 28 |
 | TracerLPM cross-software validation | `validation/tracerlpm/` | Cross-software validation | Mappings, reference inputs, observations, pilots, comparisons, and summaries | TracerLPM validation job | 9 | 65 |
@@ -115,6 +115,7 @@ the complete core node-ID list.
 | `tests/scripts/maintenance/test_generate_test_inventory.py` | Integration / reproducibility | Generate test inventory within scientific orchestration. | 1 | 0 |
 | `tests/scripts/maintenance/test_run_tests.py` | Integration / reproducibility | Run tests within scientific orchestration. | 12 | 0 |
 | `tests/scripts/qualification/test_qualify_mh_proposals.py` | Integration / reproducibility | Qualify Metropolis-Hastings proposals within scientific orchestration. | 3 | 0 |
+| `tests/scripts/release/test_campaign_promotion.py` | Integration / reproducibility | Campaign promotion within scientific orchestration. | 5 | 0 |
 | `tests/scripts/release/test_zenodo_bundle.py` | Integration / reproducibility | Zenodo bundle within scientific orchestration. | 4 | 0 |
 | `tests/test_article_reproducibility_layer.py` | Contract / integration | Article reproducibility layer within repository-wide contracts. | 6 | 0 |
 | `tests/test_clean_release_artifacts.py` | Contract / integration | Clean release artifacts within repository-wide contracts. | 3 | 0 |
