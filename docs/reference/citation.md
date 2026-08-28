@@ -1,6 +1,6 @@
 # Citing PyAges
 
-For software functionality, cite the exact PyAges release used. The prepared
+For software functionality, cite the exact PyAges release used. The stable
 software identity is `1.0`:
 
 > de Dreuzy, Jean-Raynald (2026). *PyAges: Groundwater Age Dating Toolkit*,
@@ -9,10 +9,11 @@ software identity is `1.0`:
 The machine-readable citation is `CITATION.cff` at the repository root. It is
 kept synchronized with the package version and changelog by automated tests.
 
-The source identity becomes a released citation only when tag `1.0` points to
-the reviewed commit. No software DOI has been minted yet. Do not invent or
-anticipate one. When a DOI is available, the citation file, release tag,
-archive metadata, and this page must be updated together.
+The released source is the reviewed commit identified by tag `1.0`.
+`CITATION.cff` intentionally does not anticipate a software DOI. When the
+Zenodo record is published, use the DOI shown by its verified landing page; a
+later metadata update may add it to the source citation only after the DOI
+identifies this same immutable release.
 
 ## Citing calculations from an unreleased commit
 
