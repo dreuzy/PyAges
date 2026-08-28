@@ -109,7 +109,7 @@ stricte complète.
 
 Vérification finale du second passage sur l'état intégré :
 
-- suite standard : **1 078 tests réussis et 5 ignorés**, avec **85,77 %** de
+- suite standard : **1 079 tests réussis et 5 ignorés**, avec **85,77 %** de
   couverture de branches pour un seuil bloquant de 75 % ;
 - sélection scientifique extensive : **5 tests réussis**, dont le workflow
   Ploemeur F09 multiprocessing et son golden régénéré après le passage des
