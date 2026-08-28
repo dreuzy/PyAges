@@ -11,11 +11,11 @@ the complete core node-ID list.
 
 | Scope | Collected cases | Modules |
 |---|---|---|
-| Standard selection | 1079 | 98 |
+| Standard selection | 1085 | 98 |
 | Extensive opt-in | 5 | 2 |
-| Core including extensive | 1084 | 98 |
+| Core including extensive | 1090 | 98 |
 | TracerLPM validation | 65 | 9 |
-| All documented pytest scopes | 1149 | 107 |
+| All documented pytest scopes | 1155 | 107 |
 
 ## Cases by area
 
@@ -31,7 +31,7 @@ the complete core node-ID list.
 | Examples and case studies | `tests/examples/` | Integration / golden | Runnable examples, helper contracts, reproduction modes, and accepted outputs | Standard CI | 9 | 30 |
 | Lumped-parameter models | `tests/lpm/` | Analytical / unit / golden | Distributions, moments, mixtures, registries, parameters, and generated values | Standard CI | 15 | 241 |
 | Ploemeur field case | `tests/ploemeur/` | Field integration / golden | Preparation, configuration, reference convolution, paths, and workflow outputs | Standard CI; selected extensive cases | 8 | 54 |
-| Scientific orchestration | `tests/scripts/` | Integration / reproducibility | Article campaigns, qualification scripts, and reproducible execution support | Standard CI | 12 | 68 |
+| Scientific orchestration | `tests/scripts/` | Integration / reproducibility | Article campaigns, qualification scripts, and reproducible execution support | Standard CI | 12 | 74 |
 | Environmental tracers | `tests/tracer/` | Scientific unit / contract | Decay, distributed inputs, tracer configuration, and public tracer behavior | Standard CI | 5 | 53 |
 | Installed workflows | `tests/workflows/` | Integration / contract | Plotting runtime and single-date workflow behavior | Standard CI and package smoke test | 7 | 28 |
 | TracerLPM cross-software validation | `validation/tracerlpm/` | Cross-software validation | Mappings, reference inputs, observations, pilots, comparisons, and summaries | TracerLPM validation job | 9 | 65 |
@@ -105,11 +105,11 @@ the complete core node-ID list.
 | `tests/ploemeur/test_ploemeur_workflow_paths.py` | Field integration / golden | Ploemeur workflow paths within ploemeur field case. | 4 | 0 |
 | `tests/ploemeur/test_prepare_observations.py` | Field integration / golden | Prepare observations within ploemeur field case. | 4 | 0 |
 | `tests/scripts/article/test_article_campaign.py` | Integration / reproducibility | Article campaign within scientific orchestration. | 16 | 0 |
-| `tests/scripts/article/test_article_support.py` | Integration / reproducibility | Article support within scientific orchestration. | 15 | 0 |
+| `tests/scripts/article/test_article_support.py` | Integration / reproducibility | Article support within scientific orchestration. | 18 | 0 |
 | `tests/scripts/article/test_holten_prior_robustness.py` | Integration / reproducibility | Holten prior robustness within scientific orchestration. | 3 | 0 |
 | `tests/scripts/article/test_ploemeur_shifted_exponential_final.py` | Integration / reproducibility | Ploemeur shifted exponential final within scientific orchestration. | 1 | 0 |
 | `tests/scripts/article/test_ploemeur_targeted_ig_reproduction.py` | Integration / reproducibility | Ploemeur targeted inverse Gaussian reproduction within scientific orchestration. | 1 | 0 |
-| `tests/scripts/article/test_publication_figures.py` | Integration / reproducibility | Publication figures within scientific orchestration. | 7 | 0 |
+| `tests/scripts/article/test_publication_figures.py` | Integration / reproducibility | Publication figures within scientific orchestration. | 10 | 0 |
 | `tests/scripts/article/test_remaining_non_ploemeur_simulations.py` | Integration / reproducibility | Remaining non ploemeur simulations within scientific orchestration. | 3 | 0 |
 | `tests/scripts/article/test_reproduce_manuscript_figure2.py` | Integration / reproducibility | Reproduce manuscript figure2 within scientific orchestration. | 2 | 0 |
 | `tests/scripts/maintenance/test_generate_test_inventory.py` | Integration / reproducibility | Generate test inventory within scientific orchestration. | 1 | 0 |

@@ -122,6 +122,12 @@ without `--doi` and validates both the complete core archive and final ZIP.
 the optional historical `results/` inventory. Its result must not be used as
 the verdict for a fresh campaign.
 
+An existing multi-commit campaign may be promoted without replay only under the
+maintainer functional-equivalence procedure documented in
+`docs/dev/versioning-citation.md`. Create and validate the separate attestation
+with `python -m scripts.release.promote_article_campaign`; historical manifests
+must remain unchanged.
+
 - `pyages run`
   Canonical single-date workflow (systematic sampling + calibration) driven by YAML.
 - `pyages.workflows.temporal`

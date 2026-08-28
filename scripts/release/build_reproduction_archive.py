@@ -78,6 +78,45 @@ def validate_archive(output: Path) -> dict[str, object]:
     return payload
 
 
+def _campaign_promotion(
+    campaign: Path, head: str, expected_tag: str
+) -> dict[str, object] | None:
+    campaign_manifest = json.loads(
+        (campaign / "campaign_manifest.json").read_text(encoding="utf-8")
+    )
+    numerical_names = {
+        "forward",
+        "tracerlpm",
+        "shifted_exponential",
+        "holten_h4",
+        "holten_prior",
+        "ploemeur_shifted",
+        "ploemeur_ig",
+    }
+    numerical_heads = {
+        record.get("git_head")
+        for name, record in campaign_manifest.get("stages", {}).items()
+        if name in numerical_names and record.get("git_head")
+    }
+    if numerical_heads == {head}:
+        return None
+
+    from scripts.release import promote_article_campaign
+
+    promotion_path = campaign / promote_article_campaign.PROMOTION_NAME
+    if not promotion_path.is_file():
+        raise RuntimeError(
+            "Campaign numerical stages do not share the release commit; "
+            "a validated release_promotion.json is required"
+        )
+    return promote_article_campaign.validate_promotion(
+        campaign,
+        promotion_path,
+        expected_head=head,
+        expected_tag=expected_tag,
+    )
+
+
 def build_archive(
     campaign: Path,
     output: Path,
@@ -96,6 +135,8 @@ def build_archive(
     if dirty and not allow_dirty:
         raise RuntimeError("Refusing to archive a dirty Git worktree")
     tags = _release_tags(expected_tag, allow_untagged)
+    head = _git("rev-parse", "HEAD")
+    promotion = _campaign_promotion(campaign, head, expected_tag)
     if output.exists():
         raise FileExistsError(f"Refusing to replace existing archive: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -111,7 +152,6 @@ def build_archive(
 
         source_dir = staging / "source"
         source_dir.mkdir(parents=True)
-        head = _git("rev-parse", "HEAD")
         subprocess.run(
             [
                 "git",
@@ -154,6 +194,20 @@ def build_archive(
             "release_tag": expected_tag,
             "pyages_version": __version__,
             "campaign_source": str(campaign),
+            "numerical_provenance_mode": (
+                "maintainer-functional-equivalence"
+                if promotion is not None
+                else "single-release-commit"
+            ),
+            "release_promotion": (
+                {
+                    "path": "campaign/release_promotion.json",
+                    "sha256": sha256(campaign / "release_promotion.json"),
+                    "historical_commits": promotion["historical_execution"]["commits"],
+                }
+                if promotion is not None
+                else None
+            ),
             "scope": (
                 "complete article campaign evidence, retained MCMC states, derived "
                 "products, code and environment; includes the distinct Holten "
