@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing Git tag to validate (the 1.0 release uses tag 1.0)
+        description: Existing Git tag to validate (must equal the package version)
         required: true
         type: string
 

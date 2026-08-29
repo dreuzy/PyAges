@@ -6,7 +6,7 @@ authors:
   - family-names: "de Dreuzy"
     given-names: "Jean-Raynald"
     affiliation: "Univ Rennes, CNRS, Géosciences Rennes – UMR 6118, F-35000 Rennes, France."
-version: "1.0"
-date-released: 2026-08-28
+version: "1.0.1"
+date-released: 2026-08-29
 repository-code: "https://github.com/dreuzy/PyAges.git"
 license: CECILL-2.1

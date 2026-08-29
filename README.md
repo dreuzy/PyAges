@@ -6,10 +6,10 @@ inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
 It provides reusable scientific components in `pyages/` and site-specific
 workflows in `sites/`, with examples and regression tests to support validation.
 
-Project status: **stable** (`1.0`). Public interfaces, scientific workflows,
-and validation gates are documented and tested. The immutable release source
-is the reviewed commit identified by the exact annotated Git tag `1.0`; an
-untagged checkout must also be identified by its exact Git commit.
+Project status: **stable** (`1.0.1`). Public interfaces, scientific workflows,
+and validation gates are documented and tested. Each public release source is
+identified by its exact annotated Git tag; an untagged checkout must also be
+identified by its exact Git commit.
 
 Release maturity follows this policy:
 
@@ -21,10 +21,10 @@ Release maturity follows this policy:
 - **stable**: supported public contract, with compatibility managed according
   to semantic versioning.
 
-The source tree, complete article campaign, source archive, package metadata,
-and release tag all use the single `1.0` identity. Release artifacts must be
-built from the exact clean commit selected by tag `1.0` after the release and
-reproduction gates pass.
+The immutable article campaign, scientific archive, and original stable source
+retain the `1.0` identity. Maintenance releases use their own patch tag without
+moving or rewriting `1.0`; artifacts must be built from the exact clean commit
+selected by the corresponding release tag after its gates pass.
 
 ## Quick start
 

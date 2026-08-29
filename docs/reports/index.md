@@ -32,4 +32,5 @@ data_io_refactoring_2026-08-27
 repository_root_structure_audit_2026-08-27
 calibration_audit_refactoring_2026-08-27
 workflows_audit_refactoring_2026-08-28
+ploemeur_f09_golden_qualification_2026-08-29
 ```

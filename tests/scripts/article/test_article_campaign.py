@@ -62,9 +62,12 @@ def test_release_identity_requires_matching_installed_version_and_annotated_tag(
     monkeypatch,
 ):
     monkeypatch.setattr(
+        reproduce_article, "__version__", reproduce_article.RELEASE_VERSION
+    )
+    monkeypatch.setattr(
         reproduce_article.importlib.metadata,
         "version",
-        lambda unused: reproduce_article.__version__,
+        lambda unused: reproduce_article.RELEASE_VERSION,
     )
 
     def tagged_git(*args):
@@ -81,9 +84,12 @@ def test_release_identity_requires_matching_installed_version_and_annotated_tag(
 
 def test_release_identity_rejects_lightweight_tag(monkeypatch):
     monkeypatch.setattr(
+        reproduce_article, "__version__", reproduce_article.RELEASE_VERSION
+    )
+    monkeypatch.setattr(
         reproduce_article.importlib.metadata,
         "version",
-        lambda unused: reproduce_article.__version__,
+        lambda unused: reproduce_article.RELEASE_VERSION,
     )
     monkeypatch.setattr(
         reproduce_article,

@@ -3,7 +3,7 @@ name: Extensive tests
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 1 * * *"
+    - cron: "17 1 * * 1"
 
 permissions:
   contents: read

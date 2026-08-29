@@ -1,17 +1,17 @@
 # Version, manuscript, citation, and DOI identity
 
-PyAges uses one release identity for the final article campaign:
+PyAges uses one immutable release identity for the final article campaign:
 
-- the Python package and CLI version is ``1.0``;
+- the article-campaign Python package and CLI version is ``1.0``;
 - the reviewed Git tag is exactly ``1.0`` (without a ``v`` prefix);
 - ``CITATION.cff``, the changelog, the scientific archive, and the Zenodo
   bundle must all report ``1.0``;
 - every calculation also records the immutable Git commit used for its stage.
 
-The source tree may carry the ``1.0`` version while release preparation is in
-progress. That does not by itself prove that the release exists. The release
-becomes citable as ``1.0`` only when the exact clean, reviewed campaign commit
-is tagged ``1.0`` and the release/archive gates pass.
+The campaign became citable as ``1.0`` only after the exact clean, reviewed
+campaign commit was tagged ``1.0`` and its release/archive gates passed.
+Subsequent maintenance releases use a new patch version and tag, such as
+``1.0.1``; they never move the campaign tag or rewrite its archived evidence.
 
 The project uses one canonical identity: the display name is ``PyAges`` and
 the distribution, import package, and command are all ``pyages``. Therefore
@@ -86,5 +86,6 @@ stage and the version under which the maintainer accepts the unchanged
 scientific results. It must never be implemented by rewriting historical
 manifests or adding a release tag retroactively to their recorded tag lists.
 
-Until the tag and archive are public, cite calculations by the recorded commit
-and environment and describe ``1.0`` as being prepared, not released.
+Calculations must always be cited by their recorded commit, version, and
+environment. A maintenance source release does not retroactively change the
+version attached to an archived calculation.
