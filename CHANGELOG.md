@@ -5,6 +5,21 @@ All notable changes to PyAges are recorded in this file.
 The project follows semantic versioning for its public API from version 1.0.
 Before 1.0, incompatible public changes are identified explicitly below.
 
+## 1.0.1 - 2026-08-29
+
+### Changed
+
+- Completed the canonical PyAges naming pass across public metadata, tracer
+  contacts, migration guidance, and automated metadata checks.
+- Clarified the provenance and redistribution status of the SF6 and krypton-85
+  input curves. The Mendeley Data DOI remains visible to readers while its
+  bot-blocked resolver is excluded precisely from automated link checking.
+- Classified the short, seeded Ploemeur F09 golden as a deterministic software
+  regression fixture rather than a converged scientific posterior reference,
+  following an exact Windows reproduction and an acceptance/trajectory audit.
+- Reduced the extensive scientific CI sentinel from daily to weekly after the
+  regression baseline was reproduced on both Linux and Windows.
+
 ## 1.0 - 2026-08-28
 
 ### Changed

@@ -34,9 +34,9 @@ def test_pandas_future_string_ci_installs_its_required_backend():
 
 
 def test_release_identity_is_aligned():
-    assert release_identity_errors("1.0") == []
-    assert release_identity_errors("v1.0") == [
-        "tag/version mismatch: tag=v1.0, package=1.0"
+    assert release_identity_errors("1.0.1") == []
+    assert release_identity_errors("v1.0.1") == [
+        "tag/version mismatch: tag=v1.0.1, package=1.0.1"
     ]
 
 

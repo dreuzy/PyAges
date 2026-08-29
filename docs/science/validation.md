@@ -64,26 +64,25 @@ native TracerLPM workflow uses an absolute-relative-residual objective through
 Excel Solver. Differences on noisy realizations can therefore reflect the
 objective as well as discretization and optimization.
 
-## Open qualification gaps
+## Qualification decisions and remaining gaps
 
-The refreshed Ploemeur F09 extensive golden baseline is reproducible on two
-independent Ubuntu 24.04/Python 3.12 generations, but it is not yet an
-independently approved scientific reference. The refresh changed 312 numerical
-fields after the August 2026 calibration and reproducibility refactors. The
-required review includes explaining the affected output families, comparing a
-qualified Windows run or declaring Linux canonical, inspecting representative
-acceptance trajectories, and checking scientific invariants independently of
-the stored golden values. Track that review in [GitHub issue
-#9](https://github.com/dreuzy/PyAges/issues/9).
+The refreshed Ploemeur F09 extensive golden is reproducible on Ubuntu and on
+the qualified Windows/Python 3.12 environment. The review in
+{doc}`../reports/ploemeur_f09_golden_qualification_2026-08-29` found exact
+agreement with the committed values and confirmed finite, bounded outputs, but
+also found that the deliberately short 200-transition chains have insufficient
+acceptance and state diversity for posterior interpretation. The fixture is
+therefore qualified as a deterministic software-regression baseline only; it
+is not an independently converged scientific posterior reference.
 
 The TracerLPM/Excel case remains only partially portable, and the external
 Holten Dirichlet-sensitivity campaign remains locally unvalidated until its
 chains, diagnostics, environment, seeds, and checksums are imported and
 reviewed. Current case status is recorded in {doc}`reproducibility`.
 
-These gaps do not invalidate the analytical tests or the separately qualified
-cases above. They do prevent the affected baselines from being described as
-fully independently validated.
+The remaining external gaps do not invalidate the analytical tests or the
+separately qualified cases above. They do prevent the affected external
+baselines from being described as fully independently validated.
 
 ## What these results do not establish
 

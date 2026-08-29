@@ -19,8 +19,9 @@ The test scopes and GitHub jobs referenced below are defined in
    stricter: its direct versions must match `install/environment.yml` exactly.
 3. Update `pyages/_version.py`, `CITATION.cff`, `CHANGELOG.md`, and the
    development-status classifier together. Confirm that README and Sphinx show
-   the same release and follow {doc}`versioning-citation`. Release 1.0 uses the
-   exact tag `1.0`, without a `v` prefix.
+   the same release and follow {doc}`versioning-citation`. The tag must equal
+   the package version exactly, without a `v` prefix; the historical article
+   release uses `1.0` and maintenance releases use their patch version.
 4. Run the standard suite:
 
    ```bash
@@ -86,10 +87,11 @@ The test scopes and GitHub jobs referenced below are defined in
    Confirm that the smoke result contains `result_manifest.json` with schema
    version 1.
 
-9. Create the annotated tag `1.0` on the exact reviewed commit. Because an
-   earlier tag with this name was deleted, verify its local and remote commit
-   explicitly. Push it only after the protected `main` checks and extensive
-   suite pass, and never move it afterward.
+9. Create an annotated tag equal to the package version on the exact reviewed
+   commit. For the historical `1.0` tag, verify its local and remote commit
+   explicitly because an earlier tag with that name was deleted. Push any tag
+   only after the protected `main` checks and extensive suite pass, and never
+   move it afterward.
 10. Dispatch the read-only GitHub Actions **Release candidate** workflow for
     that tag. Download its `release-distributions-<tag>` artifact and verify its
     digest locally. The workflow validates one build on every supported Python

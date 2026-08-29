@@ -149,7 +149,7 @@ def canonical_naming_errors() -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tag", help="Expected Git tag; release 1.0 uses tag 1.0.")
+    parser.add_argument("--tag", help="Expected Git tag; it must equal the version.")
     args = parser.parse_args(argv)
     errors = (
         canonical_naming_errors()
