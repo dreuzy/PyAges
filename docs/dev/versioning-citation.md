@@ -13,9 +13,11 @@ progress. That does not by itself prove that the release exists. The release
 becomes citable as ``1.0`` only when the exact clean, reviewed campaign commit
 is tagged ``1.0`` and the release/archive gates pass.
 
-The project naming contract is singular: ``pip install pyages``,
-``import pyages``, and the ``pyages`` command all refer to this project. Former
-PyAge names are historical only and are not public compatibility aliases.
+The project uses one canonical identity: the display name is ``PyAges`` and
+the distribution, import package, and command are all ``pyages``. Therefore
+``pip install pyages``, ``import pyages``, and the ``pyages`` command all refer
+to this project. Former ``PyAge`` names are historical only and are not public
+compatibility aliases.
 
 ## Reuse of the tag name
 

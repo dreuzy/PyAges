@@ -37,7 +37,7 @@
 #   date: Decimal year
 #   concentration: Atmospheric activity in pptv
 #
-# Contact: pyage-support@univ-rennes1.fr
+# Contact: https://github.com/dreuzy/PyAges/discussions
 # ============================================================================
 date,concentration
 1950.0,0.0001

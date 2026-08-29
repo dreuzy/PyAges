@@ -4,6 +4,11 @@ GitHub is the canonical host for new PyAges changes, pull requests, checks, and
 future releases. The GitLab repository is retained and is not closed by this
 migration. Maintainers must avoid pushing divergent development to both hosts.
 
+The canonical repository name is ``PyAges`` and its path component is
+``pyages``. The canonical GitHub URL is
+``https://github.com/dreuzy/PyAges``. The retained GitLab mirror must use
+``https://gitlab.com/dreuzy/pyages`` once its project path has been renamed.
+
 ## Access model
 
 The GitHub repository is public for reading. Public users may open issues,
@@ -36,7 +41,8 @@ new public history.
 ## Documentation hosting
 
 The Read the Docs configuration remains in `.readthedocs.yaml`. The public
-project must be imported through the Read the Docs GitHub App under an
-available project slug, such as `pyages`. Add the live documentation
-URL to `pyproject.toml`, the repository homepage, and README only after the
-first successful public build.
+project is connected through the Read the Docs GitHub App. Its legacy
+``pyage-gw`` slug remains usable until the project is renamed to an available
+``pyages``-based slug. Update `pyproject.toml`, the repository homepage, and
+documentation links atomically after the renamed site has completed its first
+successful public build; do not publish links to a non-existent slug.

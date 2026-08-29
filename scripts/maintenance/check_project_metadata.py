@@ -109,11 +109,53 @@ def release_identity_errors(tag: str | None = None) -> list[str]:
     return errors
 
 
+def canonical_naming_errors() -> list[str]:
+    """Return public naming inconsistencies for the PyAges project."""
+    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    project = metadata["project"]
+    citation = yaml.safe_load((ROOT / "CITATION.cff").read_text(encoding="utf-8"))
+    errors = []
+
+    if project.get("name") != "pyages":
+        errors.append(f"distribution name must be pyages: {project.get('name')}")
+    if set(project.get("scripts", {})) != {"pyages"}:
+        errors.append("the only installed command must be pyages")
+    if not (ROOT / "pyages/__init__.py").is_file() or (ROOT / "pyage").exists():
+        errors.append("the import package must be pyages with no pyage package alias")
+
+    expected_urls = {
+        "Homepage": "https://github.com/dreuzy/PyAges",
+        "Repository": "https://github.com/dreuzy/PyAges.git",
+        "Issues": "https://github.com/dreuzy/PyAges/issues",
+        "Changelog": "https://github.com/dreuzy/PyAges/blob/main/CHANGELOG.md",
+    }
+    for label, expected in expected_urls.items():
+        actual = project.get("urls", {}).get(label)
+        if actual != expected:
+            errors.append(f"{label} URL must be {expected}: {actual}")
+
+    if not str(citation.get("title", "")).startswith("PyAges:"):
+        errors.append("CITATION.cff title must use the PyAges display name")
+    if citation.get("repository-code") != expected_urls["Repository"]:
+        errors.append("CITATION.cff repository-code must use the canonical GitHub URL")
+
+    for path in (ROOT / "data_core/data_tracer").glob("*/recharge.csv"):
+        if "pyage-support@" in path.read_text(encoding="utf-8").lower():
+            errors.append(
+                f"legacy PyAge support address remains in {path.relative_to(ROOT)}"
+            )
+    return errors
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", help="Expected Git tag; release 1.0 uses tag 1.0.")
     args = parser.parse_args(argv)
-    errors = dependency_alignment_errors() + release_identity_errors(args.tag)
+    errors = (
+        canonical_naming_errors()
+        + dependency_alignment_errors()
+        + release_identity_errors(args.tag)
+    )
     if errors:
         for error in errors:
             print(f"ERROR: {error}")
