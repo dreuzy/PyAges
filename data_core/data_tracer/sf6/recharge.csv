@@ -7,7 +7,7 @@
 # CAS Number: 2551-62-4
 # Unit: pptv (parts per trillion by volume)
 #
-# Data Source: NOAA Global Monitoring Laboratory / AGAGE network
+# Data Source: NOAA Global Monitoring Laboratory (1995+); legacy PyAges/TracerLPM reconstruction before 1995
 # Reference: https://gml.noaa.gov/hats/combined/SF6.html
 # Citation: Dutton et al. (2023), https://doi.org/10.15138/TQ02-ZX42
 #
@@ -21,8 +21,9 @@
 # - Used in electrical equipment and as tracer gas
 # - Concentrations continuously increasing since 1950s
 # - 1995+ values are NOAA GML global monthly means sampled at Jan/Jul (semi-annual)
-# - Pre-1995 values retained from legacy reconstruction
-# - Latest NOAA combined file date: 2023-04-13
+# - Pre-1995 values retained from the legacy PyAges/TracerLPM reconstruction
+# - No direct AGAGE-derived values are identified in the current provenance of this file
+# - Latest NOAA combined file date used here: 2023-04-13
 # - Growth rate approximately exponential until 1990s
 # - Recent growth rate has slowed but remains positive
 # - Excellent tracer for very young groundwater (< 30 years)

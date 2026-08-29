@@ -7,13 +7,14 @@
 # CAS Number: 14993-10-3
 # Unit: pptv (parts per trillion by volume)
 #
-# Data Source: Global atmospheric measurements and nuclear fuel reprocessing data
-# Reference: Ahlswede et al. (2013), Bollhöfer et al. (2019)
-# Citation: Ahlswede et al., J. Environ. Radioact., 2013
+# Data Source: Simplified annual PyAges input function based on published Northern Hemisphere atmospheric 85Kr measurements
+# Primary references: Ahlswede et al. (2013); Bollhöfer et al. (2019)
+# Open reference dataset: Kersting et al. (2020), Atmospheric krypton-85 activity concentrations, Mendeley Data, Version 1
+# Dataset DOI: https://doi.org/10.17632/p32bmw6rgs.1 (CC BY 4.0)
 #
-# Temporal Coverage: 1960.0 - 2020.0
-# Temporal Resolution: Variable
-# Number of Records: 60
+# Temporal Coverage: 1950.0 - 2010.0
+# Temporal Resolution: 1 year
+# Number of Records: 61
 #
 # Notes:
 # - Radioactive noble gas produced by nuclear fission
@@ -21,6 +22,8 @@
 # - Main sources: nuclear fuel reprocessing and weapons testing
 # - Atmospheric concentrations have been increasing since the 1950s
 # - Used as a dating tracer for young groundwater (< 50 years)
+# - The values below form a simplified project input curve; they are not claimed
+#   to reproduce the open Mendeley dataset record-for-record
 #
 # Interpolation Method: Linear interpolation recommended
 # Extrapolation: Not recommended beyond data range
@@ -31,7 +34,7 @@
 # Data Version: v2024.1
 #
 # Column Descriptions:
-#   date: Decimal year (e.g., 2020.5 = July 1, 2020)
+#   date: Decimal year
 #   concentration: Atmospheric activity in pptv
 #
 # Contact: https://github.com/dreuzy/PyAges/discussions
