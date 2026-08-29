@@ -6,6 +6,7 @@ import tomllib
 from pathlib import Path
 
 from scripts.maintenance.check_project_metadata import (
+    canonical_naming_errors,
     dependency_alignment_errors,
     release_identity_errors,
 )
@@ -15,6 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_qualified_runtime_dependencies_are_compatible():
     assert dependency_alignment_errors() == []
+
+
+def test_public_project_identity_is_canonically_pyages():
+    assert canonical_naming_errors() == []
 
 
 def test_pandas_future_string_ci_installs_its_required_backend():

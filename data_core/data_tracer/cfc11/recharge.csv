@@ -38,7 +38,7 @@
 #   - Values < 1 pptv: Reconstructed from production data
 #   - Values >= 1 pptv: Measurement-based or model-constrained
 #
-# Contact: pyage-support@univ-rennes1.fr
+# Contact: https://github.com/dreuzy/PyAges/discussions
 # ============================================================================
 date,concentration
 1940.0,0.01

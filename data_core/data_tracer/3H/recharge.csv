@@ -36,7 +36,7 @@
 #   date: Decimal year (e.g., 2020.5 = July 1, 2020)
 #   concentration: Tritium activity in TU
 #
-# Contact: pyage-support@univ-rennes1.fr
+# Contact: https://github.com/dreuzy/PyAges/discussions
 # ============================================================================
 date,concentration
 1957.5,24
