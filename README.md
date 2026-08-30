@@ -28,11 +28,12 @@ selected by the corresponding release tag after its gates pass.
 
 ## Quick start
 
-Create a user environment and install the qualified dependency set:
+Create and activate a virtual environment, then install the stable release
+from PyPI:
 
 ```
 python -m venv .venv
-python -m pip install -c install/constraints.txt -e .
+python -m pip install "pyages==1.0.1"
 ```
 
 The separate `install/environment.yml` file records the Python 3.12 /
@@ -49,17 +50,16 @@ pyages --version
 The distribution, Python import, and command all use the single identifier
 `pyages`. The wheel contains the reusable library, its CLI,
 and core model data. Repository examples and site studies remain in the Git
-source tree. Once a release is available from the configured package index,
-install it with:
+source tree. The `1.0.1` release is available from
+[PyPI](https://pypi.org/project/pyages/1.0.1/):
 
 ```
-python -m pip install pyages
+python -m pip install "pyages==1.0.1"
 ```
 
-PyPI availability may lag behind the tagged source release. If no distribution
-is available from the configured package index, install from the exact tagged
-source checkout. Prerelease artifacts, if any, require an explicit prerelease
-request:
+Use `python -m pip install pyages` when deliberately selecting the newest
+published compatible release. Prerelease artifacts, if any, require an
+explicit prerelease request:
 
 ```
 python -m pip install --pre pyages
@@ -88,10 +88,10 @@ pyages run --transient examples/templates/quickstart_temporal.yaml
 
 ## Installation and execution
 
-Recommended (installed package):
+Recommended stable package:
 
 ```
-python -m pip install -e .
+python -m pip install "pyages==1.0.1"
 ```
 
 This makes `import pyages` work from any directory and enables the CLI:
@@ -101,6 +101,9 @@ pyages check
 pyages list lpms
 pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
+
+Contributors working from a source checkout should instead use the qualified
+editable installation described in `install/README.md`.
 
 The supported entry point is the installed `pyages` command. Direct execution
 of repository files is not part of the public interface.

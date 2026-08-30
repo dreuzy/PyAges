@@ -65,15 +65,16 @@ environment because it is not required by the package:
 conda install -c conda-forge spyder imageio ffmpeg av imageio-ffmpeg
 ```
 
-The distribution, import package, and CLI share the same `pyages` name. No
-PyAges distribution is currently published on PyPI. Until the `1.0` tag and
-distribution are published, install the reviewed source checkout. A
-prerelease artifact, if one is uploaded, can be installed with:
+The distribution, import package, and CLI share the same `pyages` name. The
+stable `1.0.1` distribution is published on
+[PyPI](https://pypi.org/project/pyages/1.0.1/) and can be installed with:
 
 ```bash
-python -m pip install --pre pyages
+python -m pip install "pyages==1.0.1"
 pyages check
 ```
 
-The `--pre` flag is needed for beta and release-candidate versions. Python code
-continues to use `import pyages`.
+Use the editable commands above for development or exact source-checkout
+qualification. The `--pre` flag is needed only when deliberately installing a
+published beta or release-candidate version. Python code continues to use
+`import pyages`.
