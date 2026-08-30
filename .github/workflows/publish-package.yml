@@ -46,7 +46,7 @@ jobs:
           cache: pip
 
       - name: Install release verification tools
-        run: python -m pip install -c install/constraints.txt packaging twine
+        run: python -m pip install -c install/constraints.txt packaging PyYAML twine
 
       - name: Verify the tag and package metadata
         run: python -m scripts.maintenance.check_project_metadata --tag "$RELEASE_TAG"
