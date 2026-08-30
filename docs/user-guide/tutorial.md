@@ -4,19 +4,17 @@ This tutorial checks an installation, runs the small single-date template, and
 shows how to decide whether a result directory is complete. It is a software
 smoke run, not a calibrated scientific interpretation.
 
-## 1. Install the current beta
+## 1. Install the current release
 
-The current beta is distributed from the GitHub source tree. From a checkout:
+Install the stable distribution from PyPI. Keep a source checkout available
+because this tutorial uses its minimal example template:
 
 ```bash
-conda env create -f install/environment.yml
-conda activate pyages-article-reproduction
-python -m pip install -e .
+python -m pip install "pyages==1.0.1"
 ```
 
-Until `pyages` appears on PyPI, do not expect
-`pip install pyages` to resolve. See {doc}`../reference/install` for
-the qualified environment and prerelease policy.
+See {doc}`../reference/install` for the separate editable development and
+historical article-reproduction environments.
 
 ## 2. Check the installation
 
