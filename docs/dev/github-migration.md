@@ -42,7 +42,10 @@ new public history.
 
 The Read the Docs configuration remains in `.readthedocs.yaml`. The public
 project is connected through the Read the Docs GitHub App. Its legacy
-``pyage-gw`` slug remains usable until the project is renamed to an available
-``pyages``-based slug. Update `pyproject.toml`, the repository homepage, and
-documentation links atomically after the renamed site has completed its first
-successful public build; do not publish links to a non-existent slug.
+``pyage-gw`` slug remains live and supported. Read the Docs does not provide a
+self-service project-slug rename: request a supported rename and redirects
+from ``support@readthedocs.org`` if a ``pyages``-based URL is required. Do not
+delete and recreate the project, because that would break existing inbound
+links. Update `pyproject.toml`, the repository homepage, and documentation
+links only after Read the Docs confirms the new slug and its redirects and the
+renamed site has completed its first successful public build.
