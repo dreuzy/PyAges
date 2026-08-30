@@ -58,6 +58,7 @@ def test_package_publish_workflow_uses_isolated_trusted_publishing_jobs():
     )
     assert "python -m build" not in workflow
     assert 'gh release download "$RELEASE_TAG"' in workflow
+    assert "packaging PyYAML twine" in workflow
 
 
 def test_data_core_separates_runtime_resources_from_sources():
