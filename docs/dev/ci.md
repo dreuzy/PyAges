@@ -2,9 +2,10 @@
 
 GitHub Actions is the canonical continuous-integration service for PyAges. The
 workflow files remain the executable source of truth, while this page explains
-their intent, triggers, outputs, and failure semantics. The workflows use
-read-only repository permissions and do not publish releases or modify Git
-references.
+their intent, triggers, outputs, and failure semantics. Validation workflows
+use read-only repository permissions. Package publication is confined to two
+manual, environment-protected jobs with OpenID Connect identity tokens; no
+workflow modifies Git references.
 
 ## Workflow overview
 
@@ -13,6 +14,7 @@ references.
 | [CI](https://github.com/dreuzy/PyAges/actions/workflows/ci.yml) | Pull requests targeting `main`, pushes to `main`, `v*` tags, and manual dispatch | Fast required checks for every supported Python version, packaging, documentation, and validation infrastructure |
 | [Extensive tests](https://github.com/dreuzy/PyAges/actions/workflows/extensive-tests.yml) | Manual dispatch and daily at `01:17 UTC` | Opt-in scientific calculations that are too slow for every pull request |
 | [Release candidate](https://github.com/dreuzy/PyAges/actions/workflows/release-candidate.yml) | Manual dispatch for an existing release tag (`1.0` for this release) | Build one candidate, validate its metadata, and smoke-test the same wheel on all supported Python versions |
+| [Publish package](https://github.com/dreuzy/PyAges/actions/workflows/publish-package.yml) | Manual dispatch for an existing GitHub Release tag and a selected package index | Verify the existing release assets and their SHA-256 digests, then publish the unchanged files through the protected `testpypi` or `pypi` environment |
 
 The daily extensive run starts at 02:17 in metropolitan France during winter
 time and 03:17 during summer time. GitHub may send failure notifications at
@@ -75,6 +77,20 @@ as a temporary artifact, and installs the same wheel on Python 3.12, 3.13, and
 3.14. It has `contents: read` permission only: tag creation, package
 publication, GitHub Release creation, and deletion remain maintainer actions.
 The complete procedure is in {doc}`releasing`.
+
+## Package publication
+
+The package publication workflow never builds a distribution. It checks out
+the requested tag, verifies the release identity, downloads the wheel and
+source archive already attached to that GitHub Release, and compares each
+download with the digest recorded by GitHub. A temporary Actions artifact
+transfers only those verified files to one isolated publishing job.
+
+The `testpypi` and `pypi` jobs receive `id-token: write` only at job scope and
+authenticate through Trusted Publishing. They receive no repository write
+permission and use no long-lived PyPI token. The `pypi` GitHub environment
+requires maintainer approval. See {doc}`releasing` for the one-time publisher
+identity and the required TestPyPI-first sequence.
 
 ## Reproducing checks locally
 

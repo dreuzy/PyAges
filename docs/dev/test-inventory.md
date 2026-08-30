@@ -11,17 +11,17 @@ the complete core node-ID list.
 
 | Scope | Collected cases | Modules |
 |---|---|---|
-| Standard selection | 1091 | 99 |
+| Standard selection | 1092 | 99 |
 | Extensive opt-in | 5 | 2 |
-| Core including extensive | 1096 | 99 |
+| Core including extensive | 1097 | 99 |
 | TracerLPM validation | 65 | 9 |
-| All documented pytest scopes | 1161 | 108 |
+| All documented pytest scopes | 1162 | 108 |
 
 ## Cases by area
 
 | Area | Location | Primary type | Contract | CI scope | Modules | Cases |
 |---|---|---|---|---|---|---|
-| Repository-wide contracts | `tests/(root)/` | Contract / integration | Public API, metadata, manifests, paths, and repository documentation | Standard CI | 10 | 68 |
+| Repository-wide contracts | `tests/(root)/` | Contract / integration | Public API, metadata, manifests, paths, and repository documentation | Standard CI | 10 | 69 |
 | Calibration and inference | `tests/calibration/` | Unit / scientific | Objectives, priors, proposals, parameter grids, and calibration APIs | Standard CI; selected extensive cases | 16 | 123 |
 | Command-line interface | `tests/cli/` | Contract / integration | Installed command behavior, validation, discovery, and user-facing errors | Standard CI and package smoke test | 3 | 33 |
 | Concentration handling | `tests/concentrations/` | Unit / data contract | Chronicle loading and concentration-series behavior | Standard CI | 3 | 54 |
@@ -121,7 +121,7 @@ the complete core node-ID list.
 | `tests/test_clean_release_artifacts.py` | Contract / integration | Clean release artifacts within repository-wide contracts. | 3 | 0 |
 | `tests/test_documentation_contracts.py` | Contract / integration | Documentation contracts within repository-wide contracts. | 10 | 0 |
 | `tests/test_plotting_helpers.py` | Contract / integration | Plotting helpers within repository-wide contracts. | 12 | 0 |
-| `tests/test_project_metadata.py` | Contract / integration | Project metadata within repository-wide contracts. | 7 | 0 |
+| `tests/test_project_metadata.py` | Contract / integration | Project metadata within repository-wide contracts. | 8 | 0 |
 | `tests/test_public_api.py` | Contract / integration | Public API within repository-wide contracts. | 5 | 0 |
 | `tests/test_public_docstrings.py` | Contract / integration | Public docstrings within repository-wide contracts. | 1 | 0 |
 | `tests/test_qualification.py` | Contract / integration | Qualification within repository-wide contracts. | 9 | 0 |
