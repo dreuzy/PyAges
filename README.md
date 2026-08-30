@@ -26,6 +26,12 @@ retain the `1.0` identity. Maintenance releases use their own patch tag without
 moving or rewriting `1.0`; artifacts must be built from the exact clean commit
 selected by the corresponding release tag after its gates pass.
 
+The complete `1.0` article archive is preserved on Zenodo under the
+version-specific DOI
+[`10.5281/zenodo.22150863`](https://doi.org/10.5281/zenodo.22150863). See the
+[citation guidance](docs/reference/citation.md) for the distinction between
+the archived `1.0` campaign and the current `1.0.1` maintenance release.
+
 ## Quick start
 
 Create and activate a virtual environment, then install the stable release
