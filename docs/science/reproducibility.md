@@ -127,18 +127,19 @@ manuscript's reported posterior-sensitivity result. The campaign has reportedly
 been run elsewhere, so the next action is evidence integration and independent review,
 not an automatic duplicate calculation.
 
-The local core archive is hash-valid, but it is not yet an immutable external
-deposit. The publication archive is intended to freeze the in-scope inputs,
-machine-readable results, figures, tables, environment, per-stage source
-revisions, and provenance metadata for the published release. Until that
-external archive and DOI exist, the local archive, Git revisions, and case
-manifests provide traceability but not a permanent deposit.
+The hash-valid core archive is now preserved as an immutable external deposit
+on Zenodo under version DOI
+[`10.5281/zenodo.22150863`](https://doi.org/10.5281/zenodo.22150863). It freezes
+the in-scope inputs, machine-readable results, figures, tables, environment,
+per-stage source revisions, and provenance metadata for release `1.0`. The
+local archive, Git revisions, and case manifests remain the working
+traceability layer.
 
 ## Final Zenodo bundle
 
 The complete campaign ends with the core archive
-`C:\pyages-runs\article-v1-gmd-archive`. After reserving the Zenodo DOI, build
-the uploadable reader bundle without rerunning simulations:
+`C:\pyages-runs\article-v1-gmd-archive`. The published reader bundle was built
+with its reserved version DOI, without rerunning simulations:
 
 ```powershell
 python -m scripts.release.build_zenodo_bundle `
@@ -147,12 +148,13 @@ python -m scripts.release.build_zenodo_bundle `
   --zip-output C:\pyages-runs\pyages-1.0-zenodo.zip `
   --tracerlpm-workbook C:\TracerLPM-Test\working\TracerLPM_V_1_0_FourTracers_v17.xlsm `
   --tracerlpm-xll C:\Users\dreuzy\AppData\Roaming\Microsoft\AddIns\TracerLPMfunctions_64_v_1.xll `
-  --doi 10.5281/zenodo.REPLACE_WITH_RESERVED_ID
+  --doi 10.5281/zenodo.22150863
 ```
 
 Add `--article-doi` when the GMD article or preprint DOI is known. For a local
-metadata review before DOI reservation, use `--draft`; the final command
-refuses a missing DOI. Validate the directory and ZIP together with:
+metadata review of a future archive before DOI reservation, use `--draft`;
+the final command refuses a missing DOI. Validate the directory and ZIP
+together with:
 
 ```powershell
 python -m scripts.release.build_zenodo_bundle `
@@ -160,7 +162,7 @@ python -m scripts.release.build_zenodo_bundle `
   --zip-output C:\pyages-runs\pyages-1.0-zenodo.zip
 ```
 
-The source tree carries the prepared `1.0` identity. It becomes the released
-version only when tag `1.0`, its commit, the validated archive, and the Zenodo
-record agree. The full identity and DOI rules are maintained in
+The source tree, tag `1.0`, its commit, the validated archive, and the Zenodo
+record form the released `1.0` identity. The full identity and DOI rules are
+maintained in
 {doc}`../dev/versioning-citation`.

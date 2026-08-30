@@ -102,8 +102,8 @@ the exact annotated tag `1.0` at `HEAD`, and a disabled Python user-site. Keep
 `PYTHONNOUSERSITE=1` set for direct commands; both Windows wrappers set it
 automatically. `--allow-untagged` is development only.
 
-After the campaign validates and a Zenodo DOI has been reserved, build the
-final uploadable bundle:
+The published `1.0` archive uses version DOI `10.5281/zenodo.22150863`. Its
+final uploadable bundle can be reproduced from the validated campaign with:
 
 ```powershell
 python -m scripts.release.build_zenodo_bundle `
@@ -112,7 +112,7 @@ python -m scripts.release.build_zenodo_bundle `
   --zip-output C:\pyages-runs\pyages-1.0-zenodo.zip `
   --tracerlpm-workbook C:\TracerLPM-Test\working\TracerLPM_V_1_0_FourTracers_v17.xlsm `
   --tracerlpm-xll C:\Users\dreuzy\AppData\Roaming\Microsoft\AddIns\TracerLPMfunctions_64_v_1.xll `
-  --doi 10.5281/zenodo.REPLACE_WITH_RESERVED_ID
+  --doi 10.5281/zenodo.22150863
 ```
 
 Use `--draft` only for a pre-DOI review bundle. The final CLI refuses to build
