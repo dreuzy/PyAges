@@ -96,17 +96,47 @@ The test scopes and GitHub jobs referenced below are defined in
     that tag. Download its `release-distributions-<tag>` artifact and verify its
     digest locally. The workflow validates one build on every supported Python
     version but cannot modify repository contents or publish packages.
-11. Publish that unchanged wheel and source archive to the staging package
-    index using a maintainer-controlled release process. After validation,
-    promote the exact same files to the final index and attach them to a GitHub
-    Release; do not rebuild between destinations.
+11. Attach the validated wheel and source archive to a GitHub Release. Dispatch
+    the **Publish package** workflow for that exact tag and select `testpypi`.
+    The workflow downloads those existing release assets, verifies their
+    metadata and GitHub-recorded SHA-256 digests, and publishes them unchanged.
+    After installation and smoke validation from TestPyPI, dispatch the same
+    workflow with `pypi` and approve its protected environment. Never rebuild
+    between destinations.
 12. For an archived scientific release, mint the version DOI from that exact
     tagged artifact. Only after the DOI resolves and its metadata has been
     checked, add it to `CITATION.cff`, validate the CFF, and update the article
     citation and reproducibility manifests. Never publish a placeholder DOI.
 
-The GitHub Actions workflows implement the standard checks and retain
-candidate artifacts temporarily. They have read-only repository permissions;
-publishing, release creation, tag creation, and deletion remain deliberate
-maintainer actions. Actions artifacts are not the permanent scientific
-archive.
+## Trusted Publishing setup
+
+PyPI and TestPyPI use separate accounts and publisher registries. Before the
+first publication, add a pending Trusted Publisher on each index with the
+following exact identity:
+
+| Field | PyPI | TestPyPI |
+|---|---|---|
+| PyPI project name | `pyages` | `pyages` |
+| GitHub owner | `dreuzy` | `dreuzy` |
+| GitHub repository | `PyAges` | `PyAges` |
+| Workflow filename | `publish-package.yml` | `publish-package.yml` |
+| GitHub environment | `pypi` | `testpypi` |
+
+Create the publishers at
+<https://pypi.org/manage/account/publishing/> and
+<https://test.pypi.org/manage/account/publishing/>. The GitHub environments
+must accept deployments from the protected default branch only. The `pypi`
+environment must require maintainer approval; `testpypi` may run without an
+approval gate. Do not create or store an API token for this workflow.
+
+Dispatch the workflow from `main` with the exact release tag, first to
+TestPyPI and then to PyPI. Verify the installed TestPyPI package and compare
+the hashes reported by both runs before approving PyPI. Package-index versions
+are immutable, so a failed or incorrect upload cannot be replaced under the
+same version.
+
+The validation workflows retain read-only repository permissions. Only the
+two isolated package publishing jobs can request short-lived OpenID Connect
+identity tokens, and neither receives repository write permission. Release
+creation, tag creation, and deletion remain deliberate maintainer actions.
+Actions artifacts are not the permanent scientific archive.

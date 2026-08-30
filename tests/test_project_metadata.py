@@ -40,6 +40,26 @@ def test_release_identity_is_aligned():
     ]
 
 
+def test_package_publish_workflow_uses_isolated_trusted_publishing_jobs():
+    workflow = (ROOT / ".github" / "workflows" / "publish-package.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "workflow_dispatch:" in workflow
+    assert "permissions:\n  contents: read" in workflow
+    assert workflow.count("id-token: write") == 2
+    assert "environment:\n      name: testpypi" in workflow
+    assert "environment:\n      name: pypi" in workflow
+    assert (
+        workflow.count(
+            "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33"
+        )
+        == 2
+    )
+    assert "python -m build" not in workflow
+    assert 'gh release download "$RELEASE_TAG"' in workflow
+
+
 def test_data_core_separates_runtime_resources_from_sources():
     data_core = ROOT / "data_core"
     source_workbooks = sorted((data_core / "sources" / "tracer").glob("*.xlsx"))
