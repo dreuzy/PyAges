@@ -131,9 +131,10 @@ multichain:
 production chains are run. The default ensemble start policy,
 `bounds_stratified`, randomly disperses those starts with a Latin hypercube
 over the physical parameter bounds. `prior_sample` instead draws independently
-from an enabled prior. `explicit` accepts exactly one complete mapping per
-chain. The deterministic `model_default` and `prior_map` policies exist for
-compatibility but do not provide dispersed starts.
+from each enabled prior marginal conditioned on its physical parameter interval.
+`explicit` accepts exactly one complete mapping per chain. The deterministic
+`model_default` and `prior_map` policies exist for compatibility but do not
+provide dispersed starts.
 
 `master_seed` makes the entire ensemble replayable. PyAges derives distinct
 streams for every chain and for initialization, pilot, and production. Set it

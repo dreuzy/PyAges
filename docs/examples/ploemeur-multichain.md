@@ -9,7 +9,11 @@ and record the exact Git commit.
 This maintained profile derives a multi-chain inference from the historical
 single-date Ploemeur example. Its scope is deliberately narrow: three F09
 observations from 2010, the shifted-exponential (`exp_shifted`) LPM, the
-declared observation errors, and no informative parameter prior.
+registered fallback uncertainty policy, and no informative parameter prior.
+All three source uncertainty fields are zero placeholders. Before calibration,
+the workflow replaces each one with 1% of the mean tracer-history response
+evaluated at the sampling date. This is not 1% of the observed concentration
+and does not validate a laboratory uncertainty model.
 
 ## Run the profile
 
@@ -44,6 +48,7 @@ the run as qualification evidence.
 | Proposal multiplier | `2.38 / sqrt(2)` through `auto` |
 | Master seed | 20260831 |
 | Required gates | R-hat `< 1.01`; bulk and tail ESS `>= 300` |
+| Additional test acceptance range | `0.20` to `0.50` per production chain |
 
 This corresponds to 10,000 pilot and 25,000 production transitions, executed
 sequentially by the current runner.
@@ -63,6 +68,9 @@ The extensive test requires:
 - independent forward recomputation of representative retained rows;
 - agreement of the fitted latent concentrations with the observations under
   the registered in-sample residual limits.
+
+The acceptance interval is a profile-specific regression bound, not a general
+PyAges convergence criterion.
 
 The fitted concentration distribution is **not a posterior predictive
 distribution**: PyAges evaluates the latent model response for retained
@@ -89,6 +97,8 @@ cover F11, the complete monitoring record, an independent validation sample,
 alternative LPM families, tracer-history uncertainty, or structural
 identifiability. Convergence and a coherent in-sample latent fit do not prove
 that the shifted-exponential LPM is unique or hydrogeologically adequate.
+The separate inverse-Gaussian profile uses a different uncertainty scale, so
+the two profiles are not a controlled comparison of LPM families.
 
 See {doc}`../user-guide/multichain-mh` for operational interpretation,
 {doc}`../science/inference` for diagnostics, and

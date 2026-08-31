@@ -58,6 +58,16 @@ The contributor runtime facade exports the staged-result lifecycle
 `write_failure_manifest()`, and `promote_result_run()`. Its returned `ResultRun`
 is an opaque handle created by the facade, not a caller-constructed data model.
 
+Interrupted-stage maintenance is intentionally separate from that contributor
+facade. Operators should normally use `pyages stages inspect` and
+`pyages stages quarantine`. Administrative Python integrations can import
+`StagedRunInspection`, `inspect_staged_result_run()`,
+`inventory_staged_result_runs()`, and `quarantine_staged_result_run()` directly
+from `pyages.workflows.runtime.manifest`. Quarantine requires the complete run
+UUID and preserves the tree; this API exposes no automatic purge operation.
+`StagedRunInspection.promotable_now` is explicitly diagnostic, and no shorter
+`promotable` compatibility alias is defined.
+
 Contributor code that compares independently prepared calibration targets
 imports the signature records and
 `build_calibration_target_signature()` from

@@ -1,0 +1,53 @@
+# Reproducible multi-chain qualification profile for the Ploemeur F09
+# multi-date record.  This is intentionally slower than ploemeur_temporal.yaml:
+# it qualifies one exp_shifted calibration over the complete observation span.
+
+dataset:
+  file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
+  error_rel: 0.20
+  missing_error_rel: 0.01
+
+lpm_models:
+  list: ["exp_shifted"]
+  directory: data_core/data_lpm
+
+workflow:
+  mode: span
+
+calibration:
+  explo_res: 20
+  mh_nsteps: 5000
+  burn_in: 0.20
+  nskip: 1
+  lpm_number: 0
+  seed_enabled: false  # Ignored by the enabled ensemble.
+  multichain:
+    enabled: true
+    chains: 4
+    master_seed: 20260831
+    initialization:
+      strategy: bounds_stratified
+      max_attempts: 100
+    pilot:
+      enabled: true
+      nstep: 2000
+      burn_in: 0.50
+      covariance_mode: pooled_within_chain
+      relative_ridge: 1.0e-6
+      proposal_multiplier: auto
+      save_samples: false
+    diagnostics:
+      max_rhat: 1.01
+      min_bulk_ess: 300
+      min_tail_ess: 300
+      require_convergence: true
+
+figures:
+  temporal: false
+  distributions: false
+  concentrations_2d: false
+
+results:
+  study_name: ploemeur_temporal_multichain
+  use_default: true
+  directory: ""

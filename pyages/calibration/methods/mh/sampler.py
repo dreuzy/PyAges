@@ -1,6 +1,7 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# Purpose: Run one MH chain and retain its sampled states and metadata.
 
 """Metropolis--Hastings calibration for lumped-parameter models.
 

@@ -69,14 +69,47 @@ early-morning capacity and can also be dispatched before a release or after a
 scientific change. See {doc}`testing` for the test taxonomy and
 {doc}`../science/validation` for the qualification strategy.
 
-The job uses `if: always()` to upload the complete result trees named
-`synthetic_multichain_scientific` and `ploemeur_f09_multichain_scientific` from
-that explicit pytest base directory. The artifact is named
-`multichain-scientific-evidence-<run-id>` and retained for 30 days, including
-when a scientific assertion fails after writing partial evidence. A missing
-result tree produces an upload warning rather than masking the pytest outcome.
-This retention supports diagnosis and review; it is temporary CI storage, not
-a durable publication archive.
+After pytest succeeds, the job builds one wheel and one sdist, then runs:
+
+```bash
+python -m scripts.qualification.build_ci_multichain_archive \
+  --basetemp .artifacts/extensive-pytest \
+  --dist-dir dist \
+  --output .artifacts/multichain-qualification-draft.zip
+```
+
+The wrapper does not accept a best-effort subset. It discovers exactly the four
+expected qualified terminal manifests below that pytest base directory:
+
+- synthetic shifted-exponential recovery;
+- natural Ploemeur F09 shifted-exponential qualification;
+- natural Ploemeur F09 prior-active `ig_shifted` qualification;
+- Ploemeur temporal shifted-exponential qualification.
+
+For each result, the wrapper finds the YAML actually written and executed by
+the extensive test, matches its SHA-256 to the configuration digest in the
+terminal manifest, and rejects missing, duplicate, invalid, or additional
+qualified results. It then supplies the four canonical extensive tests and
+their four `docs/examples/` qualification reports, plus the freshly built wheel
+and sdist, to the generic archive builder. Its default `draft` mode is used by
+the scheduled workflow. The resulting ZIP is byte-inventoried, contains nested
+result-manifest validation and
+`CHECKSUMS.sha256`, and has an adjacent ZIP SHA-256 sidecar. Draft mode is
+intentional for the scheduled untagged branch run. The same strict four-case
+wrapper accepts `--mode publishable --expected-tag <version>` after all four
+qualifications have been rerun from that exact clean tagged HEAD; it also
+requires an output path outside the repository. See
+{doc}`releasing` for that promotion boundary.
+
+The job uses `if: always()` to upload all four executed YAML files, all four raw
+result trees, the draft ZIP, and its sidecar as
+`multichain-scientific-evidence-<run-id>` for 30 days. If pytest fails, raw or
+partial trees remain available but the distribution and
+archive steps do not run. If strict discovery or archive validation fails, the
+job fails and still uploads the raw trees; an absent ZIP therefore cannot be
+mistaken for complete qualification evidence. Missing upload paths produce a
+warning rather than masking the original failure. This is temporary CI storage,
+not a durable publication archive.
 
 ## Release candidate validation
 

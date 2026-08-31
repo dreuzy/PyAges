@@ -102,7 +102,7 @@ PyAges also reports the Monte Carlo standard error of the mean,
 $\mathrm{MCSE}=s/\sqrt{\mathrm{ESS}}$. It measures simulation error in the
 estimated mean, not posterior spread or observation uncertainty. The generic
 workflow requires a finite MCSE but has no configurable relative-MCSE gate. The
-two maintained scientific example tests add the case-specific requirement
+four maintained scientific example tests add the case-specific requirement
 `MCSE / posterior_sd <= 0.10`.
 
 A derived LPM quantity that is constant across all retained production draws

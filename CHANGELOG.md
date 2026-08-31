@@ -15,16 +15,30 @@ Before 1.0, incompatible public changes are identified explicitly below.
   rank-normalized split-R-hat, bulk/tail ESS, MCSE, convergence-gated pooling,
   and per-chain diagnostic/provenance outputs. Existing one-chain workflows
   remain the default.
-- Added extensive scientific qualifications derived from the historical
-  mono-chain single-date examples: known-truth parameter and fitted-response
-  recovery for the synthetic shifted-exponential case, and converged,
-  support-aware in-sample latent-fit checks for the natural Ploemeur F09 case.
-- Added directly runnable, versioned multi-chain profiles for the synthetic and
-  Ploemeur qualifications, plus a backward-compatible single-date `results`
-  namespace so profiles using the same dataset can write to isolated studies.
+- Added four fixed-protocol scientific qualification profiles: synthetic
+  shifted-exponential recovery, natural Ploemeur F09 shifted-exponential
+  calibration, prior-active three-parameter `ig_shifted` calibration, and
+  temporal `span` calibration over 58 observations and 20 dates. Each profile
+  has maintained YAML, an executable extensive test, and an interpretation
+  page with an explicit scientific boundary.
+- Added directly runnable, versioned multi-chain profiles with isolated result
+  namespaces, plus a backward-compatible single-date `results` namespace.
+- Added read-only `pyages stages inspect` diagnostics for journals, terminal
+  seals, artifacts, and publication CAS state, together with explicit,
+  exact-UUID `pyages stages quarantine`. Quarantine revalidates under the
+  hierarchy lock, preserves the stage by sibling rename, and never purges it.
+- Added deterministic, self-verifying qualification archives with explicit
+  `draft` and `publishable` modes. The extensive CI assembles a four-profile
+  draft and checksum sidecar; durable publication still requires a clean,
+  annotated version tag and an external deposit.
 
 ### Changed
 
+- Staged-result verification now fails closed on symbolic links, Windows
+  junctions, special files, unreadable subtrees, corrupted journals, and
+  redirected public paths. The user-global hierarchy lock is stored as a
+  private regular file opened without following links, and the inspection API
+  exposes the single point-in-time name `promotable_now` without an alias.
 - Centralized multi-chain execution, serialization, qualification, and failure
   handling across single-date and temporal workflows.
 - Stratified initialization now spans effective marginal prior mass when a
@@ -64,6 +78,15 @@ Before 1.0, incompatible public changes are identified explicitly below.
   such as the promoted result path.
 - Added a syntax-checked direct-Python ensemble example and a progressive CI
   docstring quality gate for the qualified calibration and workflow-runtime
+  surface.
+- Expanded installed-wheel smoke coverage outside the source checkout to run
+  one-chain and two-chain workflows, inspect interrupted stages, and verify
+  installed-distribution provenance and multi-chain result artifacts.
+- Retained sequential chain execution after a bit-for-bit thread prototype
+  outside runtime fields produced only small, unstable gains: `1.05x` on the
+  smoke workload with two regressions in seven trials, and `1.09x` at five
+  times the load with one approximately 20% regression. The measured benefit
+  does not justify the added executor, shared LPM registry, log, and provenance
   surface.
 
 ## 1.0.1 - 2026-08-29

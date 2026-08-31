@@ -13,7 +13,10 @@ surface defined in {doc}`../reference/public-api`.
 Multi-chain MH is deliberately composition-based rather than a
 `CalibrationMethod` subclass. For a complete direct-Python example using its
 canonical contributor facade, fresh problem factory, `MHRunRecord`, and guarded
-pooling, see {ref}`multichain-mh-python-contributor-interface`.
+pooling, see {ref}`multichain-mh-python-contributor-interface`. The resulting
+object topology, per-chain sample tables, diagnostic matrix axes, and pooling
+boundary are illustrated in
+{ref}`the in-memory ensemble map <multichain-mh-in-memory-record>`.
 
 ## Calibration method contract
 

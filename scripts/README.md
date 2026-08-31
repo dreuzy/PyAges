@@ -67,7 +67,7 @@ commands and active configuration use the grouped module paths below.
 
 | Family | Maintained modules | Purpose |
 | --- | --- | --- |
-| Diagnostics and qualification | `scripts.qualification` | Fast environment checks, calibration comparison, and MH proposal qualification |
+| Diagnostics and qualification | `scripts.qualification` | Fast environment checks, calibration comparison, MH proposal qualification, and generic qualification archives |
 | Article campaigns, post-processing, and audit | `scripts.article` | Complete or focused campaigns; figures, tables, and audit reports |
 | Publication archives | `scripts.release` | Build and validate publication-facing artifacts |
 | Repository maintenance | `scripts.maintenance` | Check metadata, licensing, and qualified-surface docstrings; clean artifacts; and refresh test documentation |
@@ -75,6 +75,29 @@ commands and active configuration use the grouped module paths below.
 
 Invoke a module as `python -m scripts.<family>.<module> --help` when it exposes a CLI.
 The complete article campaign below is the canonical high-level entry point.
+
+### Multi-chain qualification archive
+
+`python -m scripts.qualification.build_multichain_archive` builds and verifies
+a generic, reproducible qualification ZIP from one or more qualified result
+trees. It is deliberately separate from `scripts.release` and the historical
+article/tag-1.0 archive. The builder requires the protocol YAML, executable
+tests, reports, and exactly one wheel plus one sdist; it also captures the Git
+source and runtime environment.
+
+`python -m scripts.qualification.build_ci_multichain_archive` is the canonical
+four-profile wrapper used by extensive CI and releases. Draft is its default;
+`--mode publishable --expected-tag <version>` preserves the same exactly-four
+discovery contract, binds every result to that clean tagged HEAD, and requires
+an output path outside the source repository.
+
+Use `build --mode draft` for review evidence from an untagged or dirty checkout.
+The draft manifest and README expose those blockers and are never labelled
+publishable. Use `build --mode publishable --expected-tag <version>` only from a
+clean commit carrying that exact annotated version tag. `verify ARCHIVE.zip`
+checks the ZIP sidecar, `CHECKSUMS.sha256`, complete member inventory, nested
+result-manifest hashes, and qualified multi-chain status. See
+`docs/dev/releasing.md` for the full commands and archive contract.
 
 ### Complete article reproduction
 

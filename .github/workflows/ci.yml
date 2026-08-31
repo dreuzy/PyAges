@@ -299,6 +299,39 @@ jobs:
           PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" check
           PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" run "$GITHUB_WORKSPACE/examples/templates/quickstart_single.yaml"
           test -f "$GITHUB_WORKSPACE/.smoke-results/test_cases/ploemeur_F09_2010.txt/result_manifest.json"
+          PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" run "$GITHUB_WORKSPACE/examples/templates/smoke_multichain.yaml"
+          smoke_mh="$GITHUB_WORKSPACE/.smoke-results/smoke_multichain/ploemeur_F09_2010.txt/Metropolis_Hastings"
+          test -f "$smoke_mh/chains/chain_001/lpm_dist_calibrated.txt"
+          test -f "$smoke_mh/chains/chain_002/lpm_dist_calibrated.txt"
+          test -f "$smoke_mh/proposal_covariance.tsv"
+          test -f "$smoke_mh/mcmc_diagnostics.tsv"
+          test -f "$GITHUB_WORKSPACE/.smoke-results/smoke_multichain/ploemeur_F09_2010.txt/result_manifest.json"
+          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" stages inspect "$GITHUB_WORKSPACE/.smoke-results"
+      - name: Verify installed-wheel multi-chain provenance
+        run: |
+          .venv-smoke/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path(
+              ".smoke-results/smoke_multichain/ploemeur_F09_2010.txt"
+          )
+          manifest = json.loads(
+              (root / "result_manifest.json").read_text(encoding="utf-8")
+          )
+          assert manifest["status"] == "complete"
+          assert manifest["workflow"] == "single_date"
+          assert manifest["package"]["source"] == "installed_distribution"
+          assert manifest["repository"]["git_head"] is None
+          required = {
+              "Metropolis_Hastings/chains/chain_001/lpm_dist_calibrated.txt",
+              "Metropolis_Hastings/chains/chain_002/lpm_dist_calibrated.txt",
+              "Metropolis_Hastings/lpm_dist_calibrated.txt",
+              "Metropolis_Hastings/mcmc_diagnostics.tsv",
+              "Metropolis_Hastings/proposal_covariance.tsv",
+          }
+          assert required <= manifest["artifacts_sha256"].keys()
+          PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: distributions

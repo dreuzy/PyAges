@@ -119,6 +119,10 @@ def test_configuration_reference_states_exact_temporal_constraints() -> None:
     assert "Relative error in `(0, 1)`" in document
     assert "iteration > burn_in * mh_nsteps" in document
     assert "unknown section or field" in document
+    assert "exact bounded quantile" in document
+    assert "Neither strategy performs rejection sampling" in document
+    assert "currently always enables the parametric priors" in document
+    assert "does not expose" in document
 
 
 def test_natural_notebooks_use_only_canonical_public_apis() -> None:
@@ -211,6 +215,32 @@ def test_multichain_contributor_example_uses_the_canonical_dataclass_api() -> No
     )
 
 
+def test_multichain_failure_recovery_drill_preserves_the_evidence_contract() -> None:
+    document = (ROOT / "docs/user-guide/multichain-mh.md").read_text(encoding="utf-8")
+    section = document.split("(multichain-mh-failure-recovery-drill)=", 1)[1].split(
+        "## Inspect chains and traces", 1
+    )[0]
+    python_blocks = [
+        fragment.split("```", 1)[0].strip()
+        for fragment in section.split("```python")[1:]
+    ]
+
+    assert len(python_blocks) == 3
+    for index, block in enumerate(python_blocks, start=1):
+        compile(block, f"multichain-mh:failure-recovery:{index}", "exec")
+
+    assert "lpm_recovery_single_date_multichain.yaml" in python_blocks[0]
+    assert "1.0000000000000002" in python_blocks[0]
+    assert 'reviewed_gate["require_convergence"] is True' in python_blocks[0]
+    assert 'manifest["status"] == "failed"' in python_blocks[1]
+    assert 'manifest["failure"]["type"] == "MHConvergenceError"' in python_blocks[1]
+    assert "copytree(evidence, archive)" in python_blocks[1]
+    assert 'manifest["status"] == "complete"' in python_blocks[2]
+    assert 'assert "failure" not in manifest' in python_blocks[2]
+    assert "require_convergence: false" in section
+    assert "would not repair the failed qualification" in section
+
+
 def test_calibration_guide_covers_operational_and_scientific_gates() -> None:
     document = (ROOT / "docs/user-guide/calibration.md").read_text(encoding="utf-8")
     user_index = (ROOT / "docs/user-guide/index.md").read_text(encoding="utf-8")
@@ -220,3 +250,20 @@ def test_calibration_guide_covers_operational_and_scientific_gates() -> None:
     assert "result_manifest.json" in document
     assert "split-$\\hat R$" in document
     assert "Only `CalibrationProblem`" in document
+
+
+def test_generic_multichain_archive_is_documented_outside_article_tooling() -> None:
+    release = (ROOT / "docs/dev/releasing.md").read_text(encoding="utf-8")
+    scripts = (ROOT / "scripts/README.md").read_text(encoding="utf-8")
+
+    for document in (release, scripts):
+        assert "scripts.qualification.build_multichain_archive" in document
+        assert "scripts.qualification.build_ci_multichain_archive" in document
+        assert "--mode draft" in document
+        assert "--mode publishable" in document
+        assert "--expected-tag" in document
+        assert "CHECKSUMS.sha256" in document
+    assert "independently of the historical article/tag-1.0" in release
+    assert "output path must be outside the source repository" in release
+    assert "not an origin signature" in release
+    assert "exactly one wheel plus one sdist" in scripts

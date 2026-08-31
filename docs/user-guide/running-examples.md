@@ -7,9 +7,9 @@ PyAges includes several example workflows demonstrating different use cases. Thi
 | Example | Description | Script |
 |---------|-------------|--------|
 | Synthetic recovery | Known-truth single-date teaching and multi-chain qualification | `run_lpm_recovery_single_date.py` / `pyages run` |
-| Ploemeur | Single-date calibration | `pyages run` |
+| Ploemeur | Single-date teaching plus qualified multi-chain `exp_shifted` and prior-active `ig_shifted` profiles | `pyages run` |
 | Holten | Example-local preparation, benchmark, and calibration reuse | `run_holten.py` |
-| Ploemeur Temporal | Multi-date time series analysis | `pyages run --transient` |
+| Ploemeur Temporal | Multi-date analysis and qualified full-span multi-chain profile | `pyages run --transient` |
 
 For a minimal, fast run, use the templates under `examples/templates/`.
 
@@ -137,6 +137,16 @@ observations used in the likelihood; it does not generate posterior predictive
 observation-noise draws or reveal true field parameters. The complete protocol
 is in {doc}`../examples/ploemeur-multichain`.
 
+A second maintained profile exercises the three-parameter shifted inverse
+Gaussian model and its canonical parametric prior:
+
+```bash
+pyages run examples/natural/ploemeur/exemple_ploemeur_ig_shifted_prior_multichain.yaml
+```
+
+Its convergence, prior provenance, support contact, and interpretation limits
+are recorded in {doc}`../examples/ploemeur-ig-shifted-prior-multichain`.
+
 ---
 
 ## Example 2: Holten
@@ -183,6 +193,16 @@ changes, subject to the assumptions and diagnostics of each fit.
 ```bash
 python -m examples.natural.ploemeur_temporal.run_ploemeur_temporal
 ```
+
+For the maintained convergence-gated calibration over all 58 observations and
+20 dates, run:
+
+```bash
+pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal_multichain.yaml
+```
+
+This extensive profile is documented in
+{doc}`../examples/ploemeur-temporal-multichain`.
 
 ### Configuration File
 

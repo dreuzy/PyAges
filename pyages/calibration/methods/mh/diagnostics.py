@@ -1,13 +1,16 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# Purpose: Compute split R-hat, ESS, and MCSE from unpooled MCMC chains.
 
 """Dependency-light convergence diagnostics for multi-chain MCMC draws.
 
 The implementations in this module follow the rank-normalized split-R-hat and
-effective-sample-size recommendations of Vehtari et al. (2021).  Every public
-function accepts draws arranged as ``(n_chains, n_draws)``.  Keeping that
-contract explicit prevents accidentally treating pooled draws as independent.
+effective-sample-size recommendations of Vehtari et al. (2021).
+
+Every public function accepts draws arranged as ``(n_chains, n_draws)``.
+Keeping that contract explicit prevents accidentally treating pooled draws as
+independent.
 """
 
 from __future__ import annotations
@@ -45,8 +48,9 @@ def rank_normalize(values: np.ndarray) -> np.ndarray:
     """Transform pooled ranks to normal scores while preserving chain shape.
 
     Average ranks are used for ties and Blom's offset keeps the probabilities
-    strictly inside ``(0, 1)``.  Consequently, finite inputs always produce
-    finite normal scores.
+    strictly inside ``(0, 1)``.
+
+    Consequently, finite inputs always produce finite normal scores.
     """
     draws = _validate_chains(values)
     return _rank_normalize(draws)
@@ -74,12 +78,14 @@ def _basic_rhat(split: np.ndarray) -> float:
 def split_rhat(values: np.ndarray) -> float:
     """Return rank-normalized folded split-R-hat.
 
-    Each chain is split exactly once.  R-hat is then calculated both for the
-    rank-normalized draws (location mixing) and for rank-normalized absolute
-    deviations from their pooled median (scale mixing); the larger value is
-    returned.  A completely constant ensemble returns infinity rather than a
-    misleading value of one, because identical stuck chains are not evidence
-    of convergence.
+    Each chain is split exactly once.
+
+    R-hat is then calculated both for the rank-normalized draws (location
+    mixing) and for rank-normalized absolute deviations from their pooled
+    median (scale mixing). The larger value is returned.
+
+    A completely constant ensemble returns infinity rather than a misleading
+    value of one. Identical stuck chains are not evidence of convergence.
     """
     draws = _validate_chains(values)
     if not np.any(draws != draws.flat[0]):
@@ -87,6 +93,7 @@ def split_rhat(values: np.ndarray) -> float:
 
     split = split_chains(draws)
     rank_rhat = _basic_rhat(_rank_normalize(split))
+
     # Fold the already split draws. For odd original lengths this deliberately
     # excludes the discarded middle draw from both the median and the ranks.
     folded = np.abs(split - np.median(split))
@@ -116,8 +123,10 @@ def _ess_from_split(split: np.ndarray) -> float:
 
     This follows Stan's initial-positive and initial-monotone sequence,
     including the antithetic-chain lower bound on the integrated
-    autocorrelation time. Consequently, ESS may legitimately exceed the raw
-    draw count, up to ``N * log10(N)``.
+    autocorrelation time.
+
+    Consequently, ESS may legitimately exceed the raw draw count, up to
+    ``N * log10(N)``.
     """
     if not np.any(split != split.flat[0]):
         # A transformed intermediate can be constant even when the original
@@ -151,8 +160,8 @@ def _ess_from_split(split: np.ndarray) -> float:
     odd_correlation = 1.0 - (within - float(np.mean(autocovariances[:, 1]))) / variance
     correlations[1] = odd_correlation
 
-    # Geyer's initial positive sequence retains rho_0 and rho_1 first, then
-    # accepts the pairs (rho_2, rho_3), (rho_4, rho_5), ... while their sum is
+    # Build Geyer's initial positive sequence. It retains rho_0 and rho_1 first,
+    # then accepts (rho_2, rho_3), (rho_4, rho_5), ... while each pair sum is
     # non-negative. A final positive even term is retained on its own.
     lag = 1
     while lag < draw_count - 3 and even_correlation + odd_correlation > 0.0:
@@ -171,8 +180,8 @@ def _ess_from_split(split: np.ndarray) -> float:
     if even_correlation > 0.0:
         correlations[maximum_lag + 1] = even_correlation
 
-    # Geyer's initial monotone sequence replaces a rising adjacent-pair sum
-    # by the previous pair's average, without changing that previous pair.
+    # Enforce Geyer's initial monotone sequence. A rising adjacent-pair sum is
+    # replaced by the previous pair's average; the previous pair is unchanged.
     lag = 1
     while lag <= maximum_lag - 2:
         previous_pair = correlations[lag - 1] + correlations[lag]
@@ -197,8 +206,10 @@ def ess(values: np.ndarray) -> float:
     """Estimate effective sample size with Geyer's monotone sequence.
 
     The chains are split once before estimating their joint autocorrelation.
+
     Antithetic chains may yield an estimate above the retained split-draw count;
     the Stan lower bound on autocorrelation time caps it at ``N * log10(N)``.
+
     A completely constant ensemble returns zero to prevent a stuck sampler from
     appearing well sampled.
     """
@@ -220,10 +231,11 @@ def bulk_ess(values: np.ndarray) -> float:
 def tail_ess(values: np.ndarray, probability: float = 0.05) -> float:
     """Return the smaller lower- and upper-tail quantile ESS.
 
-    ``probability`` defines lower and upper empirical quantiles. Their CDF
-    indicators, ``x <= q_probability`` and ``x <= q_(1-probability)``, measure
-    quantile stability; the complement of the latter is the upper-tail event
-    and has the same autocorrelation ESS.
+    ``probability`` defines lower and upper empirical quantiles.
+
+    Their CDF indicators, ``x <= q_probability`` and
+    ``x <= q_(1-probability)``, measure quantile stability. The complement of
+    the latter is the upper-tail event and has the same autocorrelation ESS.
     """
     draws = _validate_chains(values)
     if not math.isfinite(probability) or probability <= 0.0 or probability >= 0.5:

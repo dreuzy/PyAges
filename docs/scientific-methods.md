@@ -282,7 +282,7 @@ quantity, and qualification conventions are defined in
 | IG physical moments and shift | ``pyages/lpm/models/inverse_gaussian*.py`` | this page; {doc}`user-guide/adding-lpm` | ``tests/lpm/test_inverse_gaussian_analytics.py``; {doc}`scientific-migration-ig-decay` |
 | normalized-residual objective | ``pyages/calibration/problem.py`` and ``pyages/calibration/objective.py`` | this page | ``tests/calibration/test_calibration_problem.py`` |
 | MH target, priors, proposals, and retention | ``pyages/calibration/methods/mh/sampler.py``, ``prior.py``, ``proposals.py``, and ``config.py`` | {doc}`user-guide/configuration`; this page | ``tests/calibration/test_calibration_scientific_contracts.py`` and ``test_mh_proposals.py``; {doc}`reports/mh_proposal_qualification` |
-| multi-chain initialization, pilot covariance, diagnostics, and pooling gate | ``pyages/calibration/methods/mh/initialization.py``, ``pilot.py``, ``diagnostics.py``, ``ensemble.py``, and ``pyages/data_io/mh_results.py`` | {doc}`user-guide/multichain-mh`; this page | ``tests/calibration/test_mh_*.py`` and the two extensive example tests; {doc}`reports/multichain-mh-qualification-2026-08-31` |
+| multi-chain initialization, pilot covariance, diagnostics, and pooling gate | ``pyages/calibration/methods/mh/initialization.py``, ``pilot.py``, ``diagnostics.py``, ``ensemble.py``, and ``pyages/data_io/mh_results.py`` | {doc}`user-guide/multichain-mh`; this page | ``tests/calibration/test_mh_*.py`` and the four extensive example tests; {doc}`reports/multichain-mh-qualification-2026-08-31` |
 
 For every published result, archive the PyAges release or commit, configuration,
 input checksums, random seeds, dependency versions, numerical settings, and raw

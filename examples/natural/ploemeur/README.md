@@ -54,6 +54,32 @@ true `mu` or `shift`, and this case does not establish LPM uniqueness,
 out-of-sample skill, or hydrogeological validity. See
 [`docs/examples/ploemeur-multichain.md`](../../../docs/examples/ploemeur-multichain.md).
 
+## Prior-active three-parameter profile
+
+A second maintained profile exercises a different LPM dimension and the
+canonical parametric-prior path:
+
+```bash
+pyages run examples/natural/ploemeur/exemple_ploemeur_ig_shifted_prior_multichain.yaml
+```
+
+It fits `ig_shifted` parameters `mu`, `sigma`, and `shift` with five chains,
+5,000 pilot transitions and 15,000 production transitions per chain. The
+source rows have zero uncertainty placeholders, so this profile sets each
+uncertainty to 20% of the mean tracer-history response evaluated at the sampling
+date, following the maintained inverse-Gaussian Ploemeur study assumption. This
+is not 20% of the observed concentration.
+The active uniform priors are loaded from
+`data_core/data_lpm/ig_shifted/params.yaml`; no example-local prior is hidden
+in the workflow. Chain starts are sampled from the priors conditioned on the
+physical LPM bounds through exact bounded marginal quantiles.
+
+The fixed-seed protocol converges, but `sigma` retains appreciable posterior
+mass near its 30-year upper support. That is a scientific limitation of this
+single-date, three-tracer inference, not a convergence failure and not evidence
+that `sigma` is identified. See
+[`docs/examples/ploemeur-ig-shifted-prior-multichain.md`](../../../docs/examples/ploemeur-ig-shifted-prior-multichain.md).
+
 Key summary figures:
 
 - `01_data_model_space.png`

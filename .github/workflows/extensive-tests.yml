@@ -33,13 +33,29 @@ jobs:
       - run: >-
           python -m pytest -q --run-extensive
           --basetemp .artifacts/extensive-pytest
+      - name: Build wheel and source distribution for qualification evidence
+        run: python -m build
+      - name: Build draft multi-chain qualification archive
+        run: >-
+          python -m scripts.qualification.build_ci_multichain_archive
+          --basetemp .artifacts/extensive-pytest
+          --dist-dir dist
+          --output .artifacts/multichain-qualification-draft.zip
       - name: Preserve multi-chain scientific evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: multichain-scientific-evidence-${{ github.run_id }}
           path: |
+            .artifacts/extensive-pytest/test_synthetic_example_multich*/synthetic_multichain_scientific.yaml
+            .artifacts/extensive-pytest/test_ploemeur_f09_multichain_s*/ploemeur_f09_multichain_scientific.yaml
+            .artifacts/extensive-pytest/test_ploemeur_ig_shifted_prior*/ploemeur_ig_shifted_prior_multichain.yaml
+            .artifacts/extensive-pytest/test_ploemeur_temporal_multich*/ploemeur_temporal_multichain_scientific.yaml
             .artifacts/extensive-pytest/**/synthetic_multichain_scientific/**
             .artifacts/extensive-pytest/**/ploemeur_f09_multichain_scientific/**
+            .artifacts/extensive-pytest/**/ploemeur_ig_shifted_prior_multichain/**
+            .artifacts/extensive-pytest/**/ploemeur_temporal_multichain_scientific/**
+            .artifacts/multichain-qualification-draft.zip
+            .artifacts/multichain-qualification-draft.zip.sha256
           if-no-files-found: warn
           retention-days: 30

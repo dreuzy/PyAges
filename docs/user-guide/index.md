@@ -14,7 +14,10 @@ Use this guide by task:
 - {doc}`calibration` explains method choice, retention, diagnostics, and
   reproducibility.
 - {doc}`multichain-mh` gives the end-to-end multi-chain MH procedure, including
-  qualification, failure handling, and trace inspection.
+  qualification, failure handling, and trace inspection; its
+  {ref}`in-memory ensemble map <multichain-mh-in-memory-record>` shows where
+  pilot chains, production chains, diagnostic matrices, and pooled samples
+  live.
 - {doc}`cli-flags` lists command-line overrides.
 - {doc}`running-examples` describes the maintained examples.
 - {doc}`adding-tracer` and {doc}`adding-lpm` cover scientific extensions.

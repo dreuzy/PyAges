@@ -8,6 +8,8 @@ import errno
 import hashlib
 import json
 import os
+import stat
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -18,7 +20,10 @@ from pyages.workflows.runtime.manifest import (
     ResultRun,
     begin_result_run,
     begin_staged_result_run,
+    inspect_staged_result_run,
+    inventory_staged_result_runs,
     promote_result_run,
+    quarantine_staged_result_run,
     write_failure_manifest,
     write_result_manifest,
 )
@@ -628,6 +633,611 @@ def test_windows_lock_retries_transient_contention(monkeypatch) -> None:
 
     assert FakeMsvcrt.attempts == 3
     assert sleeps == [0.05, 0.05]
+
+
+def test_promotion_lock_is_a_private_regular_file(tmp_path, monkeypatch) -> None:
+    from pyages.workflows.runtime import manifest as manifest_module
+
+    lock_directory = tmp_path / "private-locks"
+    lock_directory.mkdir(mode=0o700)
+    lock_path = lock_directory / "promotion.lock"
+    monkeypatch.setattr(manifest_module, "_promotion_lock_path", lambda: lock_path)
+
+    with manifest_module._promotion_lock(
+        tmp_path / "results",
+        "00000000-0000-0000-0000-000000000000",
+    ):
+        assert lock_path.is_file()
+        assert not lock_path.is_symlink()
+
+    metadata = os.lstat(lock_path)
+    assert stat.S_ISREG(metadata.st_mode)
+    assert metadata.st_nlink == 1
+    if os.name != "nt":
+        assert stat.S_IMODE(metadata.st_mode) & 0o077 == 0
+
+
+def test_promotion_lock_refuses_a_junction_without_rewriting_it(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from pyages.workflows.runtime import manifest as manifest_module
+
+    lock_directory = tmp_path / "private-locks"
+    lock_directory.mkdir(mode=0o700)
+    lock_path = lock_directory / "promotion.lock"
+    lock_path.write_bytes(b"do-not-rewrite")
+    monkeypatch.setattr(manifest_module, "_promotion_lock_path", lambda: lock_path)
+    monkeypatch.setattr(
+        Path,
+        "is_junction",
+        lambda path: path == lock_path,
+        raising=False,
+    )
+
+    with pytest.raises(RuntimeError, match="symbolic link or junction"):
+        with manifest_module._promotion_lock(
+            tmp_path / "results",
+            "00000000-0000-0000-0000-000000000000",
+        ):
+            pass
+
+    assert lock_path.read_bytes() == b"do-not-rewrite"
+
+
+def test_promotion_lock_refuses_a_symlink_without_rewriting_its_target(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from pyages.workflows.runtime import manifest as manifest_module
+
+    lock_directory = tmp_path / "private-locks"
+    lock_directory.mkdir(mode=0o700)
+    victim = tmp_path / "victim.txt"
+    victim.write_bytes(b"preserve-me")
+    lock_path = lock_directory / "promotion.lock"
+    try:
+        lock_path.symlink_to(victim)
+    except OSError as error:
+        pytest.skip(f"File symlinks are unavailable: {error}")
+    monkeypatch.setattr(manifest_module, "_promotion_lock_path", lambda: lock_path)
+
+    with pytest.raises(RuntimeError, match="symbolic link or junction"):
+        with manifest_module._promotion_lock(
+            tmp_path / "results",
+            "00000000-0000-0000-0000-000000000000",
+        ):
+            pass
+
+    assert victim.read_bytes() == b"preserve-me"
+
+
+def test_staged_run_inspection_reports_unsealed_and_sealed_evidence(tmp_path) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    run = begin_staged_result_run(tmp_path / "results")
+
+    unsealed = inspect_staged_result_run(run.working_directory)
+
+    assert unsealed.journal_status == "valid"
+    assert unsealed.run_id == run.run_id
+    assert unsealed.manifest_status == "absent"
+    assert unsealed.artifacts_status == "not_checked"
+    assert unsealed.publication_status == "current"
+    assert not unsealed.promotable_now
+    assert "not sealed" in unsealed.issues[0]
+
+    artifact = run.working_directory / "samples.tsv"
+    artifact.write_text("sample\n", encoding="utf-8")
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+
+    sealed = inspect_staged_result_run(run.working_directory)
+
+    assert sealed.manifest_status == "sealed"
+    assert sealed.artifacts_status == "match"
+    assert sealed.publication_status == "current"
+    assert sealed.promotable_now
+    assert sealed.issues == ()
+
+
+def test_staged_run_inspection_diagnoses_artifact_and_cas_changes(tmp_path) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    result_directory = tmp_path / "results"
+    run = begin_staged_result_run(result_directory)
+    artifact = run.working_directory / "samples.tsv"
+    artifact.write_text("original\n", encoding="utf-8")
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    artifact.write_text("changed\n", encoding="utf-8")
+    result_directory.mkdir()
+    (result_directory / "other.txt").write_text("concurrent\n", encoding="utf-8")
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.manifest_status == "sealed"
+    assert inspection.artifacts_status == "mismatch"
+    assert inspection.publication_status == "changed"
+    assert not inspection.promotable_now
+    assert any("artifacts differ" in issue for issue in inspection.issues)
+    assert any("changed after staging" in issue for issue in inspection.issues)
+
+
+def test_staged_run_inspection_diagnoses_a_changed_manifest_seal(tmp_path) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    run = begin_staged_result_run(tmp_path / "results")
+    manifest = write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    manifest.write_text("{}\n", encoding="utf-8")
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.manifest_status == "invalid"
+    assert inspection.artifacts_status == "not_checked"
+    assert not inspection.promotable_now
+    assert any("changed after its journal seal" in issue for issue in inspection.issues)
+
+
+def test_staged_run_inspection_diagnoses_a_structurally_invalid_journal(
+    tmp_path,
+) -> None:
+    run = begin_staged_result_run(tmp_path / "results")
+    journal = run.working_directory / ".pyages-run-state.json"
+    payload = json.loads(journal.read_text(encoding="utf-8"))
+    payload["baseline"] = []
+    journal.write_text(json.dumps(payload), encoding="utf-8")
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.journal_status == "invalid"
+    assert not inspection.promotable_now
+    assert "baseline must be an object" in inspection.issues[0]
+
+
+def test_staged_run_inspection_rejects_a_junction_run_journal(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    run = begin_staged_result_run(tmp_path / "results")
+    journal = run.working_directory / ".pyages-run-state.json"
+    monkeypatch.setattr(
+        Path,
+        "is_junction",
+        lambda path: path == journal,
+        raising=False,
+    )
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.journal_status == "invalid"
+    assert not inspection.promotable_now
+    assert "symbolic link or junction" in inspection.issues[0]
+
+
+def test_staged_run_inspection_rejects_a_junction_terminal_manifest(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    run = begin_staged_result_run(tmp_path / "results")
+    manifest = write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    monkeypatch.setattr(
+        Path,
+        "is_junction",
+        lambda path: path == manifest,
+        raising=False,
+    )
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.manifest_status == "invalid"
+    assert inspection.artifacts_status == "not_checked"
+    assert not inspection.promotable_now
+    assert any("symbolic link or junction" in issue for issue in inspection.issues)
+
+
+def test_staged_run_inspection_rejects_a_junction_artifact(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    run = begin_staged_result_run(tmp_path / "results")
+    artifact = run.working_directory / "samples.tsv"
+    artifact.write_text("sample\n", encoding="utf-8")
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    monkeypatch.setattr(
+        Path,
+        "is_junction",
+        lambda path: path == artifact,
+        raising=False,
+    )
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.manifest_status == "sealed"
+    assert inspection.artifacts_status == "not_checked"
+    assert not inspection.promotable_now
+    assert any("symbolic link or junction" in issue for issue in inspection.issues)
+
+
+def test_staged_run_inspection_rejects_an_artifact_symlink_outside_the_stage(
+    tmp_path,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    run = begin_staged_result_run(tmp_path / "results")
+    artifact = run.working_directory / "samples.tsv"
+    artifact.write_text("sample\n", encoding="utf-8")
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    external = tmp_path / "external.tsv"
+    external.write_text("sample\n", encoding="utf-8")
+    artifact.unlink()
+    try:
+        artifact.symlink_to(external)
+    except OSError as error:
+        pytest.skip(f"File symlinks are unavailable: {error}")
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.manifest_status == "sealed"
+    assert inspection.artifacts_status == "not_checked"
+    assert not inspection.promotable_now
+    assert any("symbolic link or junction" in issue for issue in inspection.issues)
+
+
+def test_staged_run_inspection_fails_closed_on_a_tree_walk_error(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from pyages.workflows.runtime import manifest as manifest_module
+
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    run = begin_staged_result_run(tmp_path / "results")
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    real_walk = manifest_module.os.walk
+
+    def fail_stage_walk(directory, *args, **kwargs):
+        if Path(directory) == run.working_directory:
+            kwargs["onerror"](PermissionError("injected unreadable subtree"))
+        return real_walk(directory, *args, **kwargs)
+
+    monkeypatch.setattr(manifest_module.os, "walk", fail_stage_walk)
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.artifacts_status == "not_checked"
+    assert not inspection.promotable_now
+    assert any("unreadable subtree" in issue for issue in inspection.issues)
+
+
+def test_staged_run_inspection_and_quarantine_reject_a_public_junction(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    result_directory = tmp_path / "results"
+    run = begin_staged_result_run(result_directory)
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    monkeypatch.setattr(
+        Path,
+        "is_junction",
+        lambda path: path == result_directory,
+        raising=False,
+    )
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.publication_status == "not_checked"
+    assert not inspection.promotable_now
+    assert any("public result path" in issue.lower() for issue in inspection.issues)
+    with pytest.raises(RuntimeError, match="Public result path.*junction"):
+        quarantine_staged_result_run(run.working_directory, run_id=run.run_id)
+    assert run.working_directory.is_dir()
+
+
+def test_staged_run_journal_preserves_and_rejects_a_public_symlink_path(
+    tmp_path,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    result_directory = tmp_path / "results"
+    result_directory.mkdir()
+    redirected = tmp_path / "redirected"
+    redirected.mkdir()
+    run = begin_staged_result_run(result_directory)
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    result_directory.rmdir()
+    try:
+        result_directory.symlink_to(redirected, target_is_directory=True)
+    except OSError as error:
+        result_directory.mkdir()
+        pytest.skip(f"Directory symlinks are unavailable: {error}")
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.result_directory == result_directory
+    assert inspection.publication_status == "not_checked"
+    assert not inspection.promotable_now
+    assert any("symbolic link or junction" in issue for issue in inspection.issues)
+    with pytest.raises(RuntimeError, match="Public result path.*junction"):
+        quarantine_staged_result_run(run.working_directory, run_id=run.run_id)
+    assert run.working_directory.is_dir()
+
+
+def test_staged_run_inspection_and_quarantine_reject_a_public_file(
+    tmp_path,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    result_directory = tmp_path / "results"
+    result_directory.mkdir()
+    run = begin_staged_result_run(result_directory)
+    result_directory.rmdir()
+    result_directory.write_text("not a result directory\n", encoding="utf-8")
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.publication_status == "not_checked"
+    assert not inspection.promotable_now
+    assert any("not a real directory" in issue for issue in inspection.issues)
+    with pytest.raises(RuntimeError, match="not a real directory"):
+        quarantine_staged_result_run(run.working_directory, run_id=run.run_id)
+    assert run.working_directory.is_dir()
+
+
+def test_inspection_diagnoses_a_broken_junction_before_missing_path(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    candidate = tmp_path / ".pyages-deadbeef-000"
+    monkeypatch.setattr(
+        Path,
+        "is_junction",
+        lambda path: path == candidate,
+        raising=False,
+    )
+
+    inspection = inspect_staged_result_run(candidate)
+
+    assert inspection.journal_status == "invalid"
+    assert "symbolic link or junction" in inspection.issues[0]
+
+
+def test_staged_run_inspection_does_not_scan_an_unsafe_journal_target(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from pyages.workflows.runtime import manifest as manifest_module
+
+    run = begin_staged_result_run(tmp_path / "results")
+    journal = run.working_directory / ".pyages-run-state.json"
+    payload = json.loads(journal.read_text(encoding="utf-8"))
+    payload["result_directory"] = str(tmp_path.anchor)
+    journal.write_text(json.dumps(payload), encoding="utf-8")
+
+    def fail_if_scanned(_directory):
+        raise AssertionError("unsafe public target must not be scanned")
+
+    monkeypatch.setattr(manifest_module, "_publication_token", fail_if_scanned)
+    monkeypatch.setattr(
+        manifest_module, "_assert_no_nested_staged_runs", fail_if_scanned
+    )
+
+    inspection = inspect_staged_result_run(run.working_directory)
+
+    assert inspection.journal_status == "valid"
+    assert inspection.publication_status == "not_checked"
+    assert not inspection.promotable_now
+    assert any("filesystem root" in issue for issue in inspection.issues)
+
+
+def test_staged_run_inventory_keeps_invalid_and_missing_journals_visible(
+    tmp_path,
+) -> None:
+    valid = begin_staged_result_run(tmp_path / "nested" / "results")
+    malformed = tmp_path / ".pyages-deadbeef-000"
+    malformed.mkdir()
+    (malformed / ".pyages-run-state.json").write_text("{", encoding="utf-8")
+    missing = tmp_path / ".pyages-cafebabe-fee"
+    missing.mkdir()
+    quarantined = tmp_path / ".pyages-quarantine-000000000000"
+    quarantined.mkdir()
+    (quarantined / ".pyages-01234567-89a").mkdir()
+
+    inspections = inventory_staged_result_runs(tmp_path)
+
+    assert [item.stage_directory for item in inspections] == sorted(
+        [malformed, missing, valid.working_directory],
+        key=lambda path: str(path).casefold(),
+    )
+    by_path = {item.stage_directory: item for item in inspections}
+    assert by_path[malformed].journal_status == "invalid"
+    assert by_path[missing].journal_status == "missing"
+    assert by_path[valid.working_directory].journal_status == "valid"
+
+
+def test_staged_run_inventory_reports_but_does_not_follow_a_stage_link(
+    tmp_path,
+) -> None:
+    actual = tmp_path / "actual"
+    actual.mkdir()
+    link = tmp_path / ".pyages-deadbeef-000"
+    try:
+        link.symlink_to(actual, target_is_directory=True)
+    except OSError as error:
+        pytest.skip(f"Directory symlinks are unavailable: {error}")
+
+    inspections = inventory_staged_result_runs(tmp_path)
+
+    assert len(inspections) == 1
+    assert inspections[0].stage_directory == link
+    assert inspections[0].journal_status == "invalid"
+    assert "symbolic link or junction" in inspections[0].issues[0]
+
+
+def test_staged_run_inventory_reports_a_stage_shaped_file(tmp_path) -> None:
+    candidate = tmp_path / ".pyages-deadbeef-000"
+    candidate.write_text("not a directory\n", encoding="utf-8")
+
+    inspections = inventory_staged_result_runs(tmp_path)
+
+    assert len(inspections) == 1
+    assert inspections[0].stage_directory == candidate
+    assert inspections[0].journal_status == "invalid"
+    assert "not a directory" in inspections[0].issues[0]
+
+
+def test_begin_staged_run_rejects_a_junction_inside_the_public_tree(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    result_directory = tmp_path / "results"
+    nested = result_directory / "redirected"
+    nested.mkdir(parents=True)
+    monkeypatch.setattr(
+        Path,
+        "is_junction",
+        lambda path: path == nested,
+        raising=False,
+    )
+
+    with pytest.raises(RuntimeError, match="contains a symbolic link or junction"):
+        begin_staged_result_run(result_directory)
+
+    assert not any(tmp_path.glob(".pyages-????????-???"))
+
+
+def test_quarantine_requires_exact_run_id_and_preserves_the_complete_tree(
+    tmp_path,
+) -> None:
+    run = begin_staged_result_run(tmp_path / "results")
+    artifact = run.working_directory / "partial.tsv"
+    artifact.write_text("partial\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="Run identity mismatch"):
+        quarantine_staged_result_run(
+            run.working_directory,
+            run_id="00000000-0000-0000-0000-000000000000",
+        )
+
+    quarantine = quarantine_staged_result_run(
+        run.working_directory,
+        run_id=run.run_id,
+    )
+
+    assert quarantine == tmp_path / f".pyages-quarantine-{run.run_id[:12]}"
+    assert not run.working_directory.exists()
+    assert (quarantine / "partial.tsv").read_text(encoding="utf-8") == "partial\n"
+    assert (quarantine / ".pyages-run-state.json").is_file()
+    assert inventory_staged_result_runs(tmp_path) == ()
+
+
+def test_quarantine_refuses_a_junction_stage_path(tmp_path, monkeypatch) -> None:
+    run = begin_staged_result_run(tmp_path / "results")
+    monkeypatch.setattr(
+        Path,
+        "is_junction",
+        lambda path: path == run.working_directory,
+        raising=False,
+    )
+
+    with pytest.raises(RuntimeError, match="Staging path.*junction"):
+        quarantine_staged_result_run(run.working_directory, run_id=run.run_id)
+
+    assert run.working_directory.is_dir()
+
+
+def test_quarantine_refuses_an_existing_destination(tmp_path) -> None:
+    run = begin_staged_result_run(tmp_path / "results")
+    quarantine = tmp_path / f".pyages-quarantine-{run.run_id[:12]}"
+    quarantine.mkdir()
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        quarantine_staged_result_run(run.working_directory, run_id=run.run_id)
+
+    assert run.working_directory.is_dir()
+
+
+def test_quarantine_revalidates_the_target_after_acquiring_the_lock(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from pyages.workflows.runtime import manifest as manifest_module
+
+    run = begin_staged_result_run(tmp_path / "results")
+    journal = run.working_directory / ".pyages-run-state.json"
+
+    @contextmanager
+    def mutate_target_while_locking(_result_directory, _run_id):
+        payload = json.loads(journal.read_text(encoding="utf-8"))
+        payload["result_directory"] = str(tmp_path / "different-results")
+        journal.write_text(json.dumps(payload), encoding="utf-8")
+        yield
+
+    monkeypatch.setattr(
+        manifest_module,
+        "_promotion_lock",
+        mutate_target_while_locking,
+    )
+
+    with pytest.raises(RuntimeError, match="target changed"):
+        quarantine_staged_result_run(run.working_directory, run_id=run.run_id)
+
+    assert run.working_directory.is_dir()
 
 
 def test_staged_run_rejects_a_mismatched_run_identity(tmp_path) -> None:

@@ -6,6 +6,19 @@ Quick run:
 python -m examples.natural.ploemeur_temporal.run_ploemeur_temporal
 ```
 
+Maintained multi-chain qualification of the complete span:
+
+```bash
+pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal_multichain.yaml
+```
+
+This slower development-branch profile runs four dispersed chains, learns one
+fixed proposal covariance from separate pilot chains, and requires R-hat and
+bulk/tail ESS gates before pooling. Its executable scientific test is
+`tests/examples/test_ploemeur_temporal_multichain_scientific.py`; the protocol
+and interpretation limits are documented in
+`docs/examples/ploemeur-temporal-multichain.md`.
+
 What it does:
 - loads the multi-date `F09` concentration record,
 - runs Metropolis-Hastings in one of two temporal modes:

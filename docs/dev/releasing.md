@@ -109,6 +109,76 @@ The test scopes and GitHub jobs referenced below are defined in
     checked, add it to `CITATION.cff`, validate the CFF, and update the article
     citation and reproducibility manifests. Never publish a placeholder DOI.
 
+## Archive a multi-chain qualification
+
+`scripts.qualification.build_ci_multichain_archive` packages the four canonical
+multi-chain qualifications independently of the historical article/tag-1.0
+archive machinery. It rejects a missing, duplicate, invalid, or additional
+qualified case. The lower-level `build_multichain_archive` command remains
+available for explicitly non-canonical review bundles. Every supplied result
+tree must have a complete
+`result_manifest.json` whose artifact inventory matches byte for byte. Each MH
+directory must record `qualification_status=qualified`, qualified pooling, at
+least two retained chain tables, and multi-chain provenance. A supplied YAML
+must match every configuration digest recorded by the result manifests.
+
+After running the extensive suite with an explicit `--basetemp` and building
+the wheel and sdist, build a review archive. Draft is the wrapper default:
+
+```bash
+python -m scripts.qualification.build_ci_multichain_archive \
+  --basetemp .artifacts/extensive-pytest \
+  --dist-dir dist \
+  --mode draft \
+  --output /path/to/pyages-multichain-qualification-draft.zip
+```
+
+A draft is always marked **not publishable** in its README and manifest. It
+records the Git commit, tags, dirty status, tracked binary diff, and untracked
+file inventory. The embedded Git archive contains committed `HEAD`; untracked
+source is listed but cannot be reconstructed unless it was also supplied as an
+explicit YAML, test, report, or environment file.
+
+After the release commit is clean and carries the annotated tag exactly equal
+to the PyAges version, rerun the four extensive qualifications from that tag,
+rebuild the distributions, then build the publishable archive with:
+
+```bash
+python -m scripts.qualification.build_ci_multichain_archive \
+  --basetemp .artifacts/extensive-pytest \
+  --dist-dir dist \
+  --mode publishable \
+  --expected-tag <version> \
+  --output /path/to/pyages-<version>-multichain-qualification.zip
+```
+
+The publishable output path must be outside the source repository. Publishable
+mode checks the Git state both before assembly and immediately before sealing.
+It refuses a dirty worktree, missing or lightweight tag, a tag different from
+the runtime version, any result not produced from that exact clean HEAD,
+mismatched result versions, or wheel/sdist metadata for another build. The
+archive contains the four qualified result trees,
+protocol YAML and executable tests, reports, exact wheel and sdist, a Git source
+archive, runtime metadata, normalized `pip freeze`, a complete file inventory,
+and `CHECKSUMS.sha256`. ZIP member order, timestamps, permissions, JSON ordering,
+and compression are fixed so identical inputs on the same qualified environment
+produce identical bytes. The adjacent `.zip.sha256` sidecar checks the complete
+container's integrity; it is not an origin signature.
+
+Verify both the sidecar and every nested evidence layer before transfer or
+deposit:
+
+```bash
+python -m scripts.qualification.build_multichain_archive verify \
+  /path/to/pyages-<version>-multichain-qualification.zip
+```
+
+Verification rejects unsafe POSIX or Windows paths, symlinks, missing or
+additional members, altered hashes, non-qualified result metadata, and result
+artifacts that no longer match their original terminal manifests. Keep the ZIP
+and its sidecar together. This generic qualification archive does not replace the
+article reproduction archive or its DOI-specific bundle.
+
 ## Trusted Publishing setup
 
 PyPI and TestPyPI use separate accounts and publisher registries. Before the

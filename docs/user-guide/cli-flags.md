@@ -15,7 +15,7 @@ usage installed in the current environment, run `pyages --help` or
 | Status | Meaning |
 |---:|---|
 | `0` | Help/version display or successful command |
-| `1` | Installation check failure, invalid validated arguments, import failure, or workflow failure |
+| `1` | Installation check failure, invalid validated arguments, workflow failure, or stage-operation refusal |
 | `2` | Click parsing error, such as a missing argument or invalid `--base` choice |
 
 `pyages run` prints a concise error and exits with status 1 when configuration,
@@ -107,6 +107,45 @@ When overrides are used, the result manifest fingerprints the temporary
 effective YAML before it is removed and the `command` field records the CLI
 flags. Preserve the original configuration plus the command line with any
 archived result.
+
+## `pyages stages inspect <root>`
+
+Recursively inventories workflow staging candidates without changing the
+filesystem. The diagnosis covers the run journal, terminal-manifest seal,
+artifact hashes, and publication compare-and-swap token. It cannot determine
+whether a workflow process is still writing to an unsealed stage.
+The human and JSON representations use the same point-in-time field name,
+`promotable_now`; there is no legacy `promotable` alias.
+
+| Flag | Type | Description |
+| --- | --- | --- |
+| `--json` | flag | Emit the complete inventory as a machine-readable JSON array. |
+
+Example:
+
+```console
+pyages stages inspect ~/results/PyAges
+```
+
+## `pyages stages quarantine <stage-directory>`
+
+Atomically renames one valid managed stage to a sibling quarantine directory;
+it never deletes or rewrites its contents. Stop the owning workflow first.
+
+| Flag | Type | Description |
+| --- | --- | --- |
+| `--run-id <uuid>` | required option | Acknowledge the complete UUID printed by `stages inspect`. |
+| `--yes` | flag | Confirm the quarantine operation without an interactive prompt. |
+
+Example:
+
+```console
+pyages stages quarantine /results/.pyages-a1b2c3d4-e5f \
+  --run-id a1b2c3d4-e5f6-47a8-9123-456789abcdef --yes
+```
+
+There is no automatic purge command. See {doc}`../reference/outputs` for the
+operational safety and retention contract.
 
 ## `pyages new lpm <name>`
 

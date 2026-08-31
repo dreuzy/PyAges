@@ -95,9 +95,11 @@ def _model_required(model) -> dict[str, bool]:
     "relative_path",
     [
         "examples/templates/quickstart_single.yaml",
+        "examples/templates/smoke_multichain.yaml",
         "examples/natural/albuquerque/exemple_albuquerque.yaml",
         "examples/natural/albuquerque/exemple_albuquerque_shapefree.yaml",
         "examples/natural/ploemeur/exemple_ploemeur.yaml",
+        "examples/natural/ploemeur/exemple_ploemeur_ig_shifted_prior_multichain.yaml",
         "examples/natural/ploemeur/exemple_ploemeur_multichain.yaml",
         "examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date.yaml",
         "examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date_multichain.yaml",
@@ -115,6 +117,7 @@ def test_shipped_single_date_configs_are_strictly_valid(relative_path):
     [
         "examples/templates/quickstart_temporal.yaml",
         "examples/natural/ploemeur_temporal/ploemeur_temporal.yaml",
+        "examples/natural/ploemeur_temporal/ploemeur_temporal_multichain.yaml",
     ],
 )
 def test_shipped_temporal_configs_are_strictly_valid(relative_path):
@@ -495,6 +498,11 @@ def test_multichain_example_profiles_isolate_existing_datasets() -> None:
             ROOT / "examples/natural/ploemeur/exemple_ploemeur.yaml",
             ROOT / "examples/natural/ploemeur/exemple_ploemeur_multichain.yaml",
         ),
+        (
+            ROOT / "examples/natural/ploemeur/exemple_ploemeur.yaml",
+            ROOT / "examples/natural/ploemeur/"
+            "exemple_ploemeur_ig_shifted_prior_multichain.yaml",
+        ),
     ]
     multichain_studies = set()
     for single_path, multichain_path in profile_pairs:
@@ -511,7 +519,7 @@ def test_multichain_example_profiles_isolate_existing_datasets() -> None:
         assert multichain.results.study_name != single.results.study_name
         multichain_studies.add(multichain.results.study_name)
 
-    assert len(multichain_studies) == 2
+    assert len(multichain_studies) == 3
 
 
 def test_all_documented_yaml_blocks_are_parseable():

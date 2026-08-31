@@ -119,59 +119,12 @@ def test_objective_only_run_uses_resolved_errors_without_calibration(
     assert (observations["error"] > 0.0).all()
 
 
-def test_existing_ploemeur_example_runs_end_to_end_as_multichain(
+def test_multichain_smoke_runs_end_to_end_from_its_versioned_config(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    """Upgrade the historical mono-chain example without mocking MH internals."""
-    source = ROOT / "examples" / "natural" / "ploemeur" / "exemple_ploemeur.yaml"
-    payload = yaml.safe_load(source.read_text(encoding="utf-8"))
-    assert "multichain" not in payload["calibration_metropolis_hastings"]
-    payload["dataset"]["data_dir"] = str(
-        ROOT / "examples" / "natural" / "ploemeur" / "data"
-    )
-    payload["dataset"]["verbose"] = False
-    payload["lpm"]["data_directory"] = str(ROOT / "data_core" / "data_lpm")
-    payload["run"] = {
-        "reachable_concentrations": False,
-        "objective_function": False,
-        "calibration_metropolis_hastings": True,
-        "calibration_simplex": False,
-    }
-    payload["calibration_metropolis_hastings"].update(
-        {
-            "nstep": 100,
-            "burn_in": 0.1,
-            "nskip": 10,
-            "monitor": False,
-            "display_traj": False,
-            "multichain": {
-                "enabled": True,
-                "chains": 2,
-                "master_seed": 20260831,
-                "initialization": {"strategy": "bounds_stratified"},
-                "pilot": {
-                    "enabled": True,
-                    "nstep": 40,
-                    "burn_in": 0.25,
-                    "covariance_mode": "pooled_within_chain",
-                    "relative_ridge": 1.0e-6,
-                    "proposal_multiplier": "auto",
-                    "save_samples": True,
-                },
-                "diagnostics": {
-                    "max_rhat": 1.01,
-                    "min_bulk_ess": 300,
-                    "min_tail_ess": 300,
-                    # This is a fast software integration test, not a claim of
-                    # scientific convergence from eight retained draws.
-                    "require_convergence": False,
-                },
-            },
-        }
-    )
-    config = tmp_path / "ploemeur_multichain.yaml"
-    config.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    """Exercise the installed workflow through the versioned wheel-smoke YAML."""
+    config = ROOT / "examples" / "templates" / "smoke_multichain.yaml"
     output = tmp_path / "ploemeur_multichain"
     monkeypatch.setattr(
         single_context,
@@ -196,10 +149,10 @@ def test_existing_ploemeur_example_runs_end_to_end_as_multichain(
         )
         for chain_id in (1, 2)
     ]
-    assert [len(frame) for frame in chain_frames] == [8, 8]
+    assert [len(frame) for frame in chain_frames] == [10, 10]
     assert all({"mu", "shift"}.issubset(frame.columns) for frame in chain_frames)
     pooled = read_distribution(mh_directory / "lpm_dist_calibrated.txt")
-    assert len(pooled) == 16
+    assert len(pooled) == 20
 
     covariance = pd.read_table(
         mh_directory / "proposal_covariance.tsv",
@@ -220,7 +173,7 @@ def test_existing_ploemeur_example_runs_end_to_end_as_multichain(
     provenance = _read_key_values(mh_directory / "ensemble_provenance.txt")
     assert parameters["execution_mode"] == "multi_chain"
     assert parameters["pilot_covariance_mode"] == "pooled_within_chain"
-    assert parameters["retained_sample_count_per_chain"] == "8"
+    assert parameters["retained_sample_count_per_chain"] == "10"
     assert run_results["qualification_status"] == "not_qualified"
     assert run_results["pooling_written"] == "True"
     assert provenance["master_seed"] == "20260831"

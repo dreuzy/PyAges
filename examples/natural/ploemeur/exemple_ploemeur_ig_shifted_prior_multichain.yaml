@@ -1,0 +1,63 @@
+# Reproducible prior-active, three-parameter qualification profile for Ploemeur
+# F09 (2010). The field data do not provide a known parameter truth. In
+# particular, convergence does not remove posterior contact with the
+# sigma <= 30 year support used by the canonical parametric prior.
+dataset:
+  name: ploemeur_F09_2010.txt
+  label: Ploemeur F09 2010 ig_shifted prior-active multi-chain qualification
+  year: 2010
+  data_dir: examples/natural/ploemeur/data
+  verbose: true
+  # The source rows contain zero uncertainty placeholders. Twenty percent
+  # matches the maintained inverse-Gaussian Ploemeur study assumption.
+  missing_error_rel: 0.20
+
+lpm:
+  model_name: ig_shifted
+  data_directory: data_core/data_lpm
+
+results:
+  study_name: ploemeur_f09_ig_shifted_prior_multichain
+
+run:
+  reachable_concentrations: false
+  objective_function: false
+  calibration_metropolis_hastings: true
+  calibration_simplex: false
+
+calibration_metropolis_hastings:
+  nstep: 15000
+  burn_in: 0.2
+  nskip: 1
+  seed: 12345  # Ignored by the enabled ensemble; master_seed controls all streams.
+  prior_option: true
+  likelihood: true
+  monitor: false
+  display_traj: false
+  multichain:
+    enabled: true
+    chains: 5
+    master_seed: 20260831
+    initialization:
+      # Exercise the active parametric-prior sampler directly. Each marginal
+      # is conditioned on its intersection with the physical LPM bounds; this
+      # is exact bounded-quantile sampling, not rejection sampling.
+      strategy: prior_sample
+      # Retained as an explicit schema control. The current prior_sample path
+      # does not consume it; retries apply only to bounds_stratified candidates.
+      max_attempts: 100
+    pilot:
+      enabled: true
+      nstep: 5000
+      # The dispersed starts need time to reach the posterior geometry before
+      # their within-chain variation is used to estimate the covariance.
+      burn_in: 0.75
+      covariance_mode: pooled_within_chain
+      relative_ridge: 1.0e-6
+      proposal_multiplier: auto
+      save_samples: false
+    diagnostics:
+      max_rhat: 1.01
+      min_bulk_ess: 300
+      min_tail_ess: 300
+      require_convergence: true

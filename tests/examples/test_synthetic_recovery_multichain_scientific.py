@@ -95,6 +95,10 @@ def test_synthetic_example_multichain_recovers_known_parameters(
     diagnosed = diagnostics.loc[["mu", "shift", "mean"]]
     assert diagnosed["qualified"].all()
     assert (diagnosed["rhat"] < 1.01).all()
+    # The documented failure/recovery drill tightens only this gate. Keep the
+    # fixed-seed profile demonstrably above that deliberately impractical limit
+    # without paying for a second extensive run.
+    assert diagnosed["rhat"].max() > 1.0000000000000002
     assert (diagnosed["bulk_ess"] >= 300.0).all()
     assert (diagnosed["tail_ess"] >= 300.0).all()
     assert (diagnosed["mcse_mean"] <= 0.10 * diagnosed["posterior_sd"]).all()
@@ -107,7 +111,15 @@ def test_synthetic_example_multichain_recovers_known_parameters(
     )
     assert covariance.index.tolist() == ["mu", "shift"]
     assert covariance.columns.tolist() == ["mu", "shift"]
-    assert np.all(np.linalg.eigvalsh(covariance.to_numpy(dtype=float)) > 0.0)
+    covariance_values = covariance.to_numpy(dtype=float)
+    assert np.isfinite(covariance_values).all()
+    np.testing.assert_allclose(
+        covariance_values,
+        covariance_values.T,
+        rtol=0.0,
+        atol=1.0e-14,
+    )
+    assert np.all(np.linalg.eigvalsh(covariance_values) > 0.0)
 
     chain_frames = [
         read_distribution(

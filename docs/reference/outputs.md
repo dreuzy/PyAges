@@ -36,6 +36,59 @@ one run. Other exceptions leave the staging journal at `status: started` for
 inspection, while the deterministic result directory continues to identify
 the last successfully published terminal run, if one exists.
 
+Journal and terminal-manifest control files must be real regular files. The
+artifact, publication-token, and nested-stage traversals fail closed on any
+symbolic link, Windows junction, special file, unreadable directory, or entry
+that changes type while it is inspected. Such a tree is never diagnosed as
+promotable and cannot be published as self-contained evidence. The hierarchy
+lock is likewise a no-follow regular file in a private directory owned by the
+current operating-system user; it serializes every PyAges result hierarchy
+operation performed by that user.
+
+## Interrupted-stage operations
+
+PyAges never removes an interrupted stage automatically. Inventory a result
+root or any common ancestor with:
+
+```console
+pyages stages inspect <root>
+pyages stages inspect <root> --json
+```
+
+Inspection is recursive and performs no explicit filesystem write. It does not
+open the promotion lock. Each candidate reports:
+
+- journal validity and the complete `run_id`;
+- whether `result_manifest.json` is absent, unsealed, sealed, or invalid;
+- whether the current artifacts match a valid sealed manifest;
+- whether the public result tree still matches the journal's compare-and-swap
+  token;
+- a point-in-time `promotable_now` diagnosis and explicit issues.
+
+`promotable_now` is diagnostic only. Normal workflow promotion repeats all
+checks under the hierarchy lock. An unsealed stage may still belong to a live
+workflow: age, an available lock, and `status: started` do not prove that its
+owner has stopped.
+
+After stopping or otherwise excluding the owning workflow, preserve an
+unwanted stage outside automatic discovery with:
+
+```console
+pyages stages quarantine <stage-directory> --run-id <complete-uuid> --yes
+```
+
+The UUID acknowledgement prevents selection of a similarly named stage. The
+command validates the managed journal and sibling relationship both before and
+under the same user-global hierarchy lock used by promotion, then atomically renames
+the complete tree to `.pyages-quarantine-<run-prefix>` beside it. It does not
+delete or rewrite evidence. It refuses an invalid journal, link or junction,
+UUID mismatch, or occupied quarantine destination. Inspect corrupted candidates
+manually; PyAges deliberately provides no forced deletion or automatic purge.
+
+Quarantine is an administrative preservation action, not an automatic resume
+or recovery operation. Retain, archive, or manually remove the quarantined tree
+according to local retention policy after its evidence has been reviewed.
+
 Input loading and validation occur before staging is allocated. When a
 required convergence gate rejects a completed calculation, the raised Python
 exception includes a note naming the public directory to which the failed

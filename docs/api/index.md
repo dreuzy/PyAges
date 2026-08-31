@@ -57,6 +57,7 @@ promise is {doc}`../reference/public-api`.
    pyages.workflows.single_date
    pyages.workflows.temporal
    pyages.workflows.runtime
+   pyages.workflows.runtime.manifest
    pyages.reporting
    pyages.reporting.chronicles
    pyages.reporting.plots

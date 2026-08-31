@@ -12,7 +12,7 @@ guides.
 
 The development branch also provides an **Unreleased**
 {doc}`multi-chain MH qualification workflow <user-guide/multichain-mh>` with
-maintained synthetic and Ploemeur profiles.
+maintained synthetic, single-date, prior-active, and temporal profiles.
 
 ## Quality and validation
 

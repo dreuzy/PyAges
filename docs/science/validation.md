@@ -28,8 +28,8 @@ commands and selection rules are maintained in {doc}`../dev/testing`.
 | Analytical invariants | `tests/lpm/`, `tests/tracer/`, and analytical modules in `tests/convolution/` | Standard suite on Python 3.12--3.14 | {doc}`lpm-reference` and {doc}`forward-model` | Covers declared models and sampled parameter regimes, not every possible extension |
 | Independent forward calculations | `tests/convolution/test_convolution_scientific.py`, `tests/ploemeur/test_ploemeur_convolution_reference.py`, and TracerLPM reference tests | Standard suite plus `TracerLPM validation` | Independent quadrature and prepared reference fixtures | Agreement depends on documented grids and tolerances; shared inputs are not fully independent evidence |
 | Cross-software inverse cases | `validation/tracerlpm/benchmark/tests/`, with the adapter compilation checked separately | `TracerLPM validation` and `.NET build` | Benchmark fixtures and mapped synthetic cases | GitHub CI does not execute Excel, the XLL, or native Solver on a qualified Windows host |
-| Posterior diagnostics | Calibration proposal, prior, support, and scientific-contract modules plus the extensive synthetic and Ploemeur multi-chain qualifications | Standard suite; selected extensive tests and reproduction campaigns | {doc}`inference`, {doc}`../user-guide/multichain-mh`, and {doc}`reproducibility` | Convergence diagnostics do not prove uniqueness, tracer consistency, or model adequacy |
-| Field benchmarks | Golden and workflow modules in `tests/examples/` and `tests/ploemeur/`, including `test_ploemeur_multichain_scientific.py` | Standard and scheduled extensive suites | {doc}`case-studies`, {doc}`../examples/ploemeur-multichain`, versioned case inputs, manifests, and accepted fixtures | Results qualify the documented cases only and do not generalize automatically to another aquifer |
+| Posterior diagnostics | Calibration proposal, prior, support, and scientific-contract modules plus the extensive synthetic, single-date, prior-active, and temporal multi-chain qualifications | Standard suite; selected extensive tests and reproduction campaigns | {doc}`inference`, {doc}`../user-guide/multichain-mh`, and {doc}`reproducibility` | Convergence diagnostics do not prove uniqueness, tracer consistency, or model adequacy |
+| Field benchmarks | Golden and workflow modules in `tests/examples/` and `tests/ploemeur/`, including the three Ploemeur multi-chain qualifications | Standard and scheduled extensive suites | {doc}`case-studies`, {doc}`../examples/ploemeur-multichain`, {doc}`../examples/ploemeur-ig-shifted-prior-multichain`, {doc}`../examples/ploemeur-temporal-multichain`, versioned case inputs, manifests, and accepted fixtures | Results qualify the documented cases only and do not generalize automatically to another aquifer |
 
 Software delivery checks add a separate layer: CLI, configuration, package,
 Conda, documentation, and workflow tests verify that the qualified scientific
@@ -75,8 +75,8 @@ acceptance and state diversity for posterior interpretation. The fixture is
 therefore qualified as a deterministic software-regression baseline only; it
 is not an independently converged scientific posterior reference.
 
-Two separate opt-in tests now add scientific evidence for the current
-single-date examples. They qualify the **Unreleased** development-branch
+Four separate opt-in tests now add scientific evidence for the current
+multi-chain examples. They qualify the **Unreleased** development-branch
 implementation, not the `pyages==1.0.1` package from PyPI:
 
 - `test_synthetic_recovery_multichain_scientific.py` runs four dispersed
@@ -87,20 +87,35 @@ implementation, not the `pyages==1.0.1` package from PyPI:
   historical F09 2010 three-observation example, requires the same convergence
   gates, checks support and joint-row integrity, independently recomputes
   representative forward predictions, and evaluates in-sample standardized
-  residuals of fitted latent concentrations.
+  residuals of fitted latent concentrations;
+- `test_ploemeur_ig_shifted_prior_multichain_scientific.py` exercises the
+  active parametric prior, three-parameter shifted inverse Gaussian geometry,
+  and records contact with the upper `sigma` support rather than
+  interpreting convergence as identifiability;
+- `test_ploemeur_temporal_multichain_scientific.py` runs the canonical temporal
+  workflow over 58 observations and 20 dates, checking convergence, prior and
+  proposal provenance, joint-row integrity, independent forward evaluations,
+  and in-sample residual limits.
 
 The synthetic result qualifies this one fixed noisy realization; it is not a
 frequentist coverage experiment over repeated noise draws. Ploemeur has no
-known field parameter truth, so its test establishes reproducible convergence
+known field parameter truth, so its tests establish reproducible convergence
 and internal coherence of fitted latent predictions in-sample, not uniqueness
-of the LPM or independent hydrogeological validation. Neither test draws new
-observation noise, so its concentration intervals are not posterior predictive
-distributions. Exact protocols, descriptive diagnostics, commands, and costs
-are recorded in
+of an LPM or independent hydrogeological validation. None of these tests draws
+new observation noise, so their concentration intervals are not posterior
+predictive distributions. Exact protocols, descriptive diagnostics, commands,
+and costs are recorded in
 {doc}`../reports/multichain-mh-qualification-2026-08-31`.
 
+The single-date shifted-exponential and inverse-Gaussian profiles replace zero
+uncertainty placeholders with 1% and 20% of the tracer-history mean,
+respectively. The temporal profile instead uses 20% of the absolute observed
+concentration. These policies are case assumptions rather than validated
+laboratory errors, and the two single-date profiles are not a controlled
+cross-LPM comparison.
+
 The scheduled and manually dispatched extensive CI job places pytest temporary
-outputs under `.artifacts/extensive-pytest` and uploads both multi-chain result
+outputs under `.artifacts/extensive-pytest` and uploads all multi-chain result
 trees even if the job fails. GitHub retains the raw chain, diagnostic, proposal,
 and provenance files for 30 days. This makes a run reviewable, but the expiry
 means that a publication must still deposit a durable, checksum-addressed copy

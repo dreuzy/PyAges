@@ -1,6 +1,7 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# Purpose: Validate ensemble controls and derive independent random streams.
 
 """Validated configuration and random streams for MH chain ensembles."""
 
@@ -56,12 +57,16 @@ def _frozen_explicit_start(start: Mapping[str, float]) -> FrozenMapping[float]:
 class MHInitializationConfig:
     """Controls for constructing independent, bounded chain starts.
 
-    ``prior_sample`` draws each start independently from the configured prior.
+    ``prior_sample`` draws each start independently from the configured prior
+    conditioned on the physical LPM bounds.
     ``bounds_stratified`` uses a Latin hypercube over the physical LPM bounds,
     or over effective marginal prior mass when a prior is active.
+
     ``explicit`` consumes ``explicit_starts`` in chain order, while
     ``model_default`` and ``prior_map`` preserve deterministic compatibility
-    modes. Explicit mappings are copied and made read-only at construction.
+    modes.
+
+    Explicit mappings are copied and made read-only at construction.
     """
 
     strategy: str = "bounds_stratified"
@@ -99,11 +104,15 @@ class MHPilotConfig:
     """Controls for pilot chains used to learn a fixed proposal covariance.
 
     ``nstep`` and fractional ``burn_in`` define pilot transitions retained with
-    no thinning. ``pooled_within_chain`` centers each chain separately before
-    estimating the shared native-coordinate covariance; ``relative_ridge``
-    regularizes it against singularity. A ``None`` proposal multiplier selects
-    ``2.38 / sqrt(dimension)``. Pilot draws never enter the posterior and are
-    persisted only when ``save_samples`` is true.
+    no thinning.
+
+    ``pooled_within_chain`` centers each chain separately before estimating the
+    shared native-coordinate covariance. ``relative_ridge`` regularizes that
+    covariance against singularity. A ``None`` proposal multiplier selects
+    ``2.38 / sqrt(dimension)``.
+
+    Pilot draws never enter the posterior. They are persisted only when
+    ``save_samples`` is true.
     """
 
     enabled: bool = True
@@ -155,9 +164,11 @@ class MHDiagnosticsConfig:
 
     A quantity qualifies only when split rank-normalized R-hat is strictly less
     than ``max_rhat``, bulk and tail ESS are at least their respective minima,
-    and its mean MCSE is finite. ``require_convergence`` controls whether an
-    unqualified ensemble may be pooled for explicitly exploratory output; it
-    does not weaken calculation or recording of the diagnostics themselves.
+    and its mean MCSE is finite.
+
+    ``require_convergence`` controls whether an unqualified ensemble may be
+    pooled for explicitly exploratory output. It does not weaken calculation
+    or recording of the diagnostics themselves.
     """
 
     max_rhat: float = 1.01
@@ -187,7 +198,9 @@ class MHEnsembleConfig:
 
     Set ``master_seed=None`` to realize a cryptographically generated seed on
     this immutable object. The default is the deterministic seed ``12345``.
-    Consequently every realized run can record and replay the random streams.
+
+    In both cases, the realized seed is stored so that every run can record and
+    replay its random streams.
     """
 
     chains: int = 4
@@ -291,14 +304,17 @@ def build_seed_plan(config: MHEnsembleConfig) -> MHSeedPlan:
         raise TypeError("config must be an MHEnsembleConfig")
     if config.master_seed is None:  # defensive; ``__post_init__`` realizes it
         raise AssertionError("validated ensemble config has no master seed")
+
     root = np.random.SeedSequence(config.master_seed)
     initialization_root, pilot_root, production_root = root.spawn(3)
+
     plan = MHSeedPlan(
         master_seed=config.master_seed,
         initialization_seeds=_child_seeds(initialization_root, config.chains),
         pilot_seeds=_child_seeds(pilot_root, config.chains),
         production_seeds=_child_seeds(production_root, config.chains),
     )
+
     all_seeds = plan.initialization_seeds + plan.pilot_seeds + plan.production_seeds
     if len(set(all_seeds)) != len(all_seeds):  # practically impossible
         raise RuntimeError("SeedSequence generated duplicate chain streams")

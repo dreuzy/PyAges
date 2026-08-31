@@ -120,3 +120,18 @@ def test_workflow_runtime_facade_exports_only_canonical_lifecycle_services() -> 
     assert not hasattr(workflow_runtime, "RESULT_SCHEMA_VERSION")
     assert not hasattr(workflow_runtime, "begin_result_run")
     assert not hasattr(workflow_runtime, "_promotion_lock")
+
+
+def test_manifest_exports_stage_operations_outside_the_contributor_facade() -> None:
+    operational_names = {
+        "StagedRunInspection",
+        "inspect_staged_result_run",
+        "inventory_staged_result_runs",
+        "quarantine_staged_result_run",
+    }
+
+    assert operational_names <= set(runtime_manifest.__all__)
+    assert all(hasattr(runtime_manifest, name) for name in operational_names)
+    assert all(not hasattr(workflow_runtime, name) for name in operational_names)
+    assert "promotable_now" in runtime_manifest.StagedRunInspection.__annotations__
+    assert "promotable" not in runtime_manifest.StagedRunInspection.__annotations__

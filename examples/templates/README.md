@@ -8,6 +8,11 @@ Single-date (fast):
 pyages run examples/templates/quickstart_single.yaml
 ```
 
+Multi-chain installation smoke (fast, exploratory rather than qualifying):
+```
+pyages run examples/templates/smoke_multichain.yaml
+```
+
 Multi-date / temporal (fast):
 ```
 pyages run --transient examples/templates/quickstart_temporal.yaml

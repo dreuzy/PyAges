@@ -1,11 +1,13 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# Purpose: Orchestrate MH initialization, pilot, production, and diagnostics.
 
 """Orchestration of independent Metropolis--Hastings chain ensembles.
 
 Pilot chains and production chains deliberately use distinct random streams
 and distinct :class:`~pyages.calibration.problem.CalibrationProblem` objects.
+
 The pilot is adaptation *between* Markov chains: it learns one covariance,
 which is then frozen for every production transition.
 """
@@ -77,11 +79,15 @@ class MultiChainMetropolisHastings:
     ``problem_factory(stage, chain_id)`` passed to :meth:`run` must return a
     freshly prepared problem. Reusing a problem is rejected because objective
     evaluation mutates the LPM state and would couple otherwise independent
-    chains. ``monitor`` and ``display_traj`` are rejected because those
-    one-chain trajectory facilities do not identify the chain that produced
-    their transient output. Complete chain tables are returned for external
-    trace plots. ``display_text`` remains available and logs one summary per
-    sampler (including pilot samplers when enabled).
+    chains.
+
+    ``monitor`` and ``display_traj`` are rejected because those one-chain
+    trajectory facilities do not identify the chain that produced their
+    transient output. Complete chain tables are returned for external trace
+    plots.
+
+    ``display_text`` remains available and logs one summary per sampler,
+    including pilot samplers when enabled.
 
     """
 
@@ -529,8 +535,10 @@ class MultiChainMetropolisHastings:
         ----------
         problem_factory : callable
             ``problem_factory(stage, chain_id)`` must create and prepare a new
-            :class:`CalibrationProblem` for each invocation. ``stage`` is one
-            of ``"initialization"``, ``"pilot"``, or ``"production"``.
+            :class:`CalibrationProblem` for each invocation.
+
+            ``stage`` is one of ``"initialization"``, ``"pilot"``, or
+            ``"production"``.
 
         Returns
         -------

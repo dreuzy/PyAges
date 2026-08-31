@@ -13,6 +13,7 @@ Usage:
     pyages new lpm my_model
     pyages new tracer my_tracer
     pyages check
+    pyages stages inspect RESULTS_ROOT
 """
 
 import click
@@ -22,6 +23,7 @@ from pyages.cli.commands.check import check
 from pyages.cli.commands.list_cmd import list_group
 from pyages.cli.commands.new import new_group
 from pyages.cli.commands.run import run
+from pyages.cli.commands.stages import stages_group
 
 
 @click.group()
@@ -47,6 +49,7 @@ cli.add_command(run)
 cli.add_command(list_group)
 cli.add_command(new_group)
 cli.add_command(check)
+cli.add_command(stages_group)
 
 
 def main():

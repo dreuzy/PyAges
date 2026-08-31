@@ -225,7 +225,7 @@ multichain:
 |-------|------|---------|-------------|
 | `strategy` | string | `bounds_stratified` | Dispersed Latin-hypercube draws over physical bounds, or effective marginal prior mass when a prior is active |
 | `explicit_starts` | array of mappings or null | null | Exactly one complete parameter mapping per chain; accepted only with `strategy: explicit` |
-| `max_attempts` | integer | 100 | Maximum stochastic batches tried to obtain starts inside the physical bounds and active-prior support; at least 1 |
+| `max_attempts` | integer | 100 | Maximum within-stratum retries for unresolved `bounds_stratified` candidates that fail the active-prior support check; currently unused by the other strategies; at least 1 |
 
 The other initialization strategies are `prior_sample`, which independently
 draws each chain from the enabled and loaded prior; `explicit`, which uses the
@@ -234,15 +234,19 @@ starts every chain from the LPM defaults; and `prior_map`, which deliberately
 starts every chain at a bounded prior mode. The two deterministic strategies
 are compatibility tools, not dispersed convergence checks. `prior_sample` and
 `prior_map` require `prior_option: true` and a prior covering every parameter.
-Stochastic candidates are checked against the physical bounds and, when the
-prior is active, its support. `max_attempts` limits this initialization search;
-it does not use the observations or select starts by likelihood.
-For `bounds_stratified`, a joint random permutation assigns one unused
-marginal stratum to each unresolved chain, while that chain's own initialization
-stream supplies its within-stratum jitter. If the prior rejects a candidate,
-only unresolved chains are reshuffled among the still-unused strata. A
+Every returned candidate is checked against the physical bounds and, when the
+prior is active, its support. `prior_sample` uses each prior marginal conditioned
+on the physical interval through an exact bounded quantile; `prior_map` uses a
+bounded marginal mode. Neither strategy performs rejection sampling or consumes
+`max_attempts`.
+
+For `bounds_stratified`, one random permutation assigns a fixed marginal
+stratum to each chain, while that chain's own initialization stream supplies
+its within-stratum jitter. If a candidate fails the active-prior support check,
+only unresolved chains redraw jitter inside their already assigned strata. A
 successful result therefore remains a Latin hypercube; otherwise initialization
-fails explicitly after `max_attempts`.
+fails explicitly after `max_attempts`. Initialization never uses observations
+or selects starts by likelihood.
 
 `pilot` has these controls:
 
@@ -390,6 +394,13 @@ For an ensemble, place the mapping from
 {ref}`optional-multi-chain-mh-configuration` under `calibration`. Its
 `master_seed` replaces the one-chain `seed_enabled`/`seed` controls and its
 `chains` value sets the number of independent production chains.
+
+The temporal workflow currently always enables the parametric priors declared
+in each selected LPM's `params.yaml` (`prior_option=True`,
+`prior_type="parametric"`). Unlike the single-date workflow, it does not expose
+`prior_option` or `prior_type` in this YAML section. Physical LPM bounds remain
+active and restrict the resulting target. Changing this behavior therefore
+requires a workflow/API change, not an undocumented configuration key.
 
 ### Figures Section
 
