@@ -20,11 +20,49 @@ natural case such as Ploemeur.
 python examples/synthetic/lpm_recovery_single_date/run_lpm_recovery_single_date.py
 ```
 
+This command reuses the reviewed observations and ground-truth files already
+stored under `data/`. Add `--regenerate` only when intentionally regenerating
+those versioned scientific inputs, then review their Git diff.
+
+The default configuration is a 5,000-transition single-chain teaching run. It
+is useful for inspecting the workflow but is not a convergence qualification.
+
+## Multi-chain scientific qualification
+
+The development branch also contains a canonical multi-chain profile:
+
+```bash
+pyages run examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date_multichain.yaml
+```
+
+This **Unreleased** profile is not part of `pyages==1.0.1`. It runs four
+dispersed chains, a 1,500-transition pilot per chain, and 4,000 production
+transitions per chain without thinning. It requires R-hat below `1.01` and
+bulk/tail ESS of at least `300` before pooling. The current runner executes its
+22,000 total MH transitions sequentially.
+
+The executable qualification checks convergence, recovery of `mu=28`,
+`shift=4`, their joint geometry and sum, and the four fitted latent tracer
+responses. Run it directly with:
+
+```bash
+python -m pytest -q --run-extensive tests/examples/test_synthetic_recovery_multichain_scientific.py
+```
+
+The fixed-seed run has maximum R-hat `1.003066`, minimum bulk ESS `1540.59`,
+and minimum tail ESS `1647.96`. These are descriptive results; the test
+enforces recovery and diagnostic thresholds rather than exact equality to
+those numbers. See
+[`docs/examples/synthetic-recovery.md`](../../../docs/examples/synthetic-recovery.md)
+and the
+[`multi-chain guide`](../../../docs/user-guide/multichain-mh.md).
+
 ## What the workflow produces
 
 The workflow:
 
-- regenerates the synthetic dataset from the YAML generation settings;
+- reuses the versioned synthetic dataset by default, or regenerates it only
+  when `--regenerate` is passed;
 - writes the noisy observations to `data/synthetic_exp_shifted_2010.txt`;
 - runs the single-date calibration with `Metropolis_Hastings`;
 - rebuilds the summary figures so the true synthetic solution is shown against
@@ -57,6 +95,9 @@ The workflow:
   Defines the calibration workflow:
   reachable-space sampling, objective-function sampling, and
   `Metropolis_Hastings` settings such as the number of MCMC steps.
+- `lpm_recovery_single_date_multichain.yaml`
+  Defines the slower convergence and known-truth recovery profile, including
+  dispersed starts, pilot covariance, production chains, and diagnostic gates.
 
 ### Python helpers
 

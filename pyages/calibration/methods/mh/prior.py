@@ -17,7 +17,10 @@ are not represented by this module.
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 import math
+from pathlib import Path
 from typing import Any, Sequence
 
 import numpy as np
@@ -191,6 +194,7 @@ class Prior:
         self.prior_file = prior_file
         self.distributions: dict[str, str] = {}
         self.parameters: dict[str, Any] = {}
+        self.source_sha256: dict[str, str] = {}
 
     def _param_init_parametric(
         self,
@@ -281,6 +285,7 @@ class Prior:
 
         self.distributions = {}
         self.parameters = {}
+        self.source_sha256 = {}
         schema = lpm_params.load_parameter_schema(
             lpm.name,
             lpm.lpm_data_directory,
@@ -306,11 +311,19 @@ class Prior:
     def _load_empirical_priors(self, lpm: Any) -> None:
         """Load and extend one empirical density grid per LPM parameter."""
         self.parameters = {}
+        self.source_sha256 = {}
         for parameter in lpm.get_param_names():
+            source = Path(f"{self.prior_file}_{parameter}.txt")
+            source_bytes = source.read_bytes()
             histogram = read_histogram(
                 f"{self.prior_file}.txt",
                 parameter,
             ).to_numpy()
+            if source.read_bytes() != source_bytes:
+                raise RuntimeError(
+                    f"Empirical prior source changed while loading {parameter!r}"
+                )
+            self.source_sha256[parameter] = hashlib.sha256(source_bytes).hexdigest()
             # Scaling decay by the parameter range gives different physical
             # units the same relative boundary behavior.
             parameter_range = abs(lpm.get_p_min(parameter) - lpm.get_p_max(parameter))
@@ -336,6 +349,32 @@ class Prior:
             self._load_parametric_priors(lpm)
         elif self.typ == "empirical":
             self._load_empirical_priors(lpm)
+
+    def resolved_metadata(self, lpm: Any) -> dict[str, str | int]:
+        """Return scalar metadata for the prior definitions currently loaded."""
+        metadata: dict[str, str | int] = {}
+        if not self.option:
+            return metadata
+        for parameter in lpm.get_param_names():
+            if self.typ == "parametric":
+                metadata[f"prior_distribution_{parameter}"] = self.distributions[
+                    parameter
+                ]
+                metadata[f"prior_parameters_{parameter}"] = json.dumps(
+                    self.parameters[parameter],
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            else:
+                metadata[f"prior_distribution_{parameter}"] = "empirical"
+                if parameter in self.source_sha256:
+                    metadata[f"prior_sha256_{parameter}"] = self.source_sha256[
+                        parameter
+                    ]
+                    metadata[f"prior_grid_points_{parameter}"] = len(
+                        self.parameters[parameter]
+                    )
+        return metadata
 
     def _evaluate_parametric(self, lpm: Any, params: list[float]) -> float:
         """Multiply independent parametric densities in probability space."""

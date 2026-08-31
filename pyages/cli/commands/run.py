@@ -227,7 +227,8 @@ def _run_single_date(config: Path, inline: bool, verbose: bool):
 
         click.echo("Running single-date workflow...")
         click.echo(f"Config: {config}")
-        run_single_date(str(config), force_inline=inline)
+        output_directory = run_single_date(str(config), force_inline=inline)
+        click.echo(f"Results written to: {output_directory}")
 
     except ImportError as e:
         click.echo(click.style(f"Import error: {e}", fg="red"))
@@ -249,7 +250,8 @@ def _run_transient(config: Path, verbose: bool):
 
         click.echo("Running transient (multi-date) workflow...")
         click.echo(f"Config: {config}")
-        run_temporal(config)
+        output_directory = run_temporal(config)
+        click.echo(f"Results written to: {output_directory}")
 
     except ImportError as e:
         click.echo(click.style(f"Import error: {e}", fg="red"))

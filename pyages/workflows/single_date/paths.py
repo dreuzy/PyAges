@@ -15,11 +15,24 @@ from pyages.config.paths import (
 )
 
 
-def dataset_results_directory(dataset_name: str) -> Path:
-    """Create the result directory for one validated dataset filename."""
-    component = validate_path_component(dataset_name, label="dataset name")
-    base = result_subdirectory(ROOT_DIRECTORY_RESULTS, "test_cases")
-    return result_subdirectory(base, component)
+def dataset_results_directory(
+    dataset_name: str,
+    *,
+    use_default: bool = True,
+    directory: str | Path | None = None,
+    study_name: str = "test_cases",
+) -> Path:
+    """Create the configured result directory for one validated dataset."""
+    dataset_component = validate_path_component(dataset_name, label="dataset name")
+    study_component = validate_path_component(study_name, label="results.study_name")
+    if use_default:
+        results_root = ROOT_DIRECTORY_RESULTS
+    else:
+        if directory is None or not str(directory).strip():
+            raise ValueError("results.directory must be set when use_default is false.")
+        results_root = Path(directory)
+    base = result_subdirectory(results_root, study_component)
+    return result_subdirectory(base, dataset_component)
 
 
 __all__ = ["dataset_results_directory"]

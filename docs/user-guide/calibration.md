@@ -63,6 +63,9 @@ run:
 
 calibration_metropolis_hastings:
   nstep: 5000
+  burn_in: 0.2
+  nskip: 10
+  seed: 12345
   prior_option: false
   likelihood: true
   monitor: false
@@ -84,9 +87,76 @@ Cartesian product: the example runs 90 optimizations. Every uncertainty draw
 uses all configured starts. A failed or inconsistent optimizer result stops
 the workflow instead of being serialized as a calibrated model.
 
-The single-date launcher fixes the MH burn-in fraction, thinning interval, and
-random seed to the library defaults. Use the temporal workflow or the
-contributor-level Python interface when those controls must be explicit.
+The single-date launcher exposes the production length, burn-in fraction,
+thinning interval, and one-chain seed. With no `multichain` mapping, it keeps
+the historical one-chain behavior. The temporal workflow exposes the same
+retention controls as `mh_nsteps`, `burn_in`, and `nskip`.
+
+## Configure independent chains and proposal tuning
+
+```{note}
+This multi-chain workflow is **Unreleased** and is not included in the
+`pyages==1.0.1` package from PyPI. Use a development-branch source installation
+and record its exact commit until the next release.
+```
+
+Multiple chains are opt-in through the presence of a `multichain` mapping. Its
+`enabled` field defaults to `true`; `enabled: false` explicitly disables a
+retained block. Add the following mapping below
+`calibration_metropolis_hastings` for a single-date run, or below `calibration`
+for a temporal run:
+
+```yaml
+multichain:
+  enabled: true
+  chains: 4
+  master_seed: 12345
+  initialization:
+    strategy: bounds_stratified
+  pilot:
+    enabled: true
+    nstep: 2000
+    burn_in: 0.5
+    covariance_mode: pooled_within_chain
+    relative_ridge: 1.0e-6
+    proposal_multiplier: auto
+  diagnostics:
+    max_rhat: 1.01
+    min_bulk_ess: 300
+    min_tail_ess: 300
+    require_convergence: true
+```
+
+`chains` is the additional parameter that controls how many independent
+production chains are run. The default ensemble start policy,
+`bounds_stratified`, randomly disperses those starts with a Latin hypercube
+over the physical parameter bounds. `prior_sample` instead draws independently
+from an enabled prior. `explicit` accepts exactly one complete mapping per
+chain. The deterministic `model_default` and `prior_map` policies exist for
+compatibility but do not provide dispersed starts.
+
+`master_seed` makes the entire ensemble replayable. PyAges derives distinct
+streams for every chain and for initialization, pilot, and production. Set it
+to `null` to generate a fresh root seed; the realized value is recorded so the
+run can still be replayed. The ordinary `seed` fields apply only to one-chain
+execution.
+
+The pilot phase estimates one proposal covariance from all pilot chains after
+centering each chain separately. It therefore measures within-chain movement,
+does not borrow a covariance from the first chain, and does not confuse
+between-chain separation with proposal scale. A small diagonal ridge makes
+the estimate positive definite. The covariance and multiplier are then fixed
+for every production chain; `auto` uses the conventional
+$2.38/\sqrt{d}$ standard-deviation multiplier for $d$ parameters. Pilot draws
+are tuning data and are never pooled into the posterior.
+
+This proposal covariance is separate from the prior. An independent prior is
+still evaluated only when `prior_option` is enabled; no production chain is
+used to define either the prior or its covariance. The complete field and
+strategy reference is in
+{ref}`optional-multi-chain-mh-configuration`.
+The complete execution, qualification, failure, cost, and trace-inspection
+procedure is in {doc}`multichain-mh`.
 
 ## Understand MH retention
 
@@ -125,8 +195,9 @@ appropriate for a particular aquifer.
 The core MH interface supports componentwise, diagonal, correlated,
 sum/difference, and inverse-Gaussian transformed proposals. Scale and
 covariance fields are mutually exclusive and are validated against the chosen
-proposal. A pilot-derived covariance must be fixed before each production
-chain; pilot draws are not production posterior draws.
+proposal. In the workflow-level ensemble, all pilot chains contribute to one
+common covariance, which is fixed before production starts; pilot draws are
+not production posterior draws.
 
 ## Read and qualify the result
 

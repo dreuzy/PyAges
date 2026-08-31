@@ -29,8 +29,9 @@ from __future__ import annotations
 
 import abc
 import copy
+from collections.abc import Mapping
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 import numpy.typing as npt
@@ -186,6 +187,16 @@ class LpmBase(abc.ABC):
     def lpm_data_directory(self) -> Path:
         """Return the root directory containing LPM parameter folders."""
         return self._directory_lpm
+
+    def fixed_scientific_state(self) -> Mapping[str, Any]:
+        """Return model state affecting science but absent from sampled ``p``.
+
+        Most LPMs have no such state. Models with fixed constructor values or
+        resolved non-parametric geometry override this small provenance hook.
+        Returned mappings must contain only scalar values and nested sequences
+        or mappings suitable for canonical scientific serialization.
+        """
+        return {}
 
     def load_initial_parameters(self) -> None:
         """Replace current parameters with initial values from ``params.yaml``."""

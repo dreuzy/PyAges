@@ -9,17 +9,19 @@ enabled in the YAML configuration.
 
 Every successful public workflow writes `result_manifest.json` last. Treat a
 result directory as complete only when this file exists and contains
-`"status": "complete"`. When a new run starts writing to a prepared result
-directory, it first removes the preceding success manifest; a failed rerun is
-therefore visibly incomplete.
+`"status": "complete"`. A required multi-chain convergence gate writes
+`"status": "failed"` after preserving and hashing its chain and diagnostic
+evidence. Other execution errors can leave the manifest absent. When a new run
+starts writing to a prepared result directory, it first removes the preceding
+terminal manifest, so a failed rerun cannot retain a stale completion marker.
 
 Manifest schema 2 contains:
 
 | Field | Meaning |
 | --- | --- |
 | `schema_version` | Version of the result/provenance contract; currently `2`. |
-| `status` | `complete`; incomplete workflows do not write a success manifest. |
-| `created_at_utc` | UTC completion timestamp in ISO 8601 form. |
+| `status` | `complete`, or `failed` for rejection by a required multi-chain convergence gate. |
+| `created_at_utc` | UTC terminal-manifest timestamp in ISO 8601 form. |
 | `pyages_version` | Installed PyAges version. |
 | `workflow` | `single_date` or `temporal`. |
 | `command` | Process argument vector recorded by Python. |
@@ -29,6 +31,7 @@ Manifest schema 2 contains:
 | `repository` | Git commit, dirty state, diff digest, tracked-workspace digest, and tracked file count. |
 | `artifacts_sha256` | Relative filename-to-SHA-256 map for every artifact written before the manifest. |
 | `details` | Workflow-specific dataset, LPM, mode, calibration, or case-directory information. |
+| `failure` | Optional exception type and message for a failed convergence gate. |
 
 For both public workflows, `details.observation_error_policy` records the
 configured missing-error fraction and the ordered transformations that
@@ -37,6 +40,8 @@ transformation gives its method, fraction, affected row indices, and row count.
 
 The manifest fingerprints a run; it does not by itself prove numerical or
 scientific correctness. Use the validation layers in {doc}`../science/validation`.
+A failure manifest makes a rejected calculation auditable; it never authorizes
+use of unqualified chains as a pooled posterior.
 
 For a source checkout, the repository section fingerprints the complete
 tracked workspace. In an installed wheel without Git metadata or a Git
@@ -86,6 +91,11 @@ Each enabled calibration method has its own directory, normally
 | `distributions_stats.txt` | Summary statistics for the selected age distributions. |
 | `concentrations_all_models.txt` | Optional modeled tracer chronicles for selected posterior draws. |
 | `concentration_times.png` | Optional modeled concentration chronicle from workflows or plotting paths that explicitly enable it; the smoke template does not emit it. |
+
+The **Unreleased** multi-chain workflow adds separate chain directories,
+diagnostics, pilot covariance, and seed provenance, and gates the pooled root
+tables. Its normative layout, statuses, and failure behavior are documented in
+{doc}`outputs`; they are not present in the `pyages==1.0.1` package from PyPI.
 
 ## Temporal layout
 

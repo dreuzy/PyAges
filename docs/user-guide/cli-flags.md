@@ -22,8 +22,10 @@ usage installed in the current environment, run `pyages --help` or
 input loading, scientific preparation, calibration, or output generation
 fails. Add `--verbose` to include the Python traceback for workflow failures.
 A failed workflow can leave intermediate files in its deterministic output
-directory, but it does not write a completed `result_manifest.json`. See
-{doc}`../reference/outputs` for the completion contract.
+directory, but it does not write a completed `result_manifest.json`. Rejection
+by a required multi-chain convergence gate instead writes an auditable manifest
+with `status: failed`. See {doc}`../reference/outputs` for the completion
+contract.
 
 ## `pyages check`
 

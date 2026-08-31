@@ -187,6 +187,14 @@ class ShapeFreeNOldBinLpm(LpmBase):
         """Return the finite bin edges used for the current shape specification."""
         return self._shape.effective_edges()
 
+    def fixed_scientific_state(self) -> dict[str, Any]:
+        """Expose the resolved bin geometry used by distribution calculations."""
+        return {
+            "mode": self._shape.mode,
+            "edges": self._shape.edges.tolist(),
+            "support_end_max": self._shape.support_end_max,
+        }
+
     def bin_widths(self) -> np.ndarray:
         """Return the effective bin widths."""
         return np.diff(self.bin_edges())

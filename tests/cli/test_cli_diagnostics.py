@@ -235,6 +235,31 @@ def test_cli_workflow_wrappers_translate_runtime_errors(
     assert "Error running transient workflow: temporal failure" in output
 
 
+def test_cli_run_reports_returned_result_paths(tmp_path, monkeypatch) -> None:
+    config = _config(tmp_path)
+    single_output = tmp_path / "single-results"
+    temporal_output = tmp_path / "temporal-results"
+    monkeypatch.setattr(
+        single_date_workflow,
+        "run_single_date",
+        lambda *_args, **_kwargs: single_output,
+    )
+    monkeypatch.setattr(
+        temporal_workflow,
+        "run_temporal",
+        lambda *_args, **_kwargs: temporal_output,
+    )
+
+    runner = CliRunner()
+    single = runner.invoke(run_cmd.run, [str(config)])
+    temporal = runner.invoke(run_cmd.run, ["--transient", str(config)])
+
+    assert single.exit_code == 0
+    assert f"Results written to: {single_output}" in single.output
+    assert temporal.exit_code == 0
+    assert f"Results written to: {temporal_output}" in temporal.output
+
+
 def test_apply_overrides_returns_original_path_when_nothing_changes(tmp_path) -> None:
     config = _config(tmp_path)
 

@@ -45,7 +45,7 @@ def write_frame(frame: pd.DataFrame, target: str | Path, *, index: bool) -> None
             mode="w",
             encoding="utf-8",
             newline="",
-            prefix=f".{path.name}.",
+            prefix=".pyages-",
             suffix=".tmp",
             dir=path.parent,
             delete=False,

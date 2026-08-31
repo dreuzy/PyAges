@@ -9,6 +9,7 @@ and exploratory example notes are listed separately in {doc}`../archive/index`.
 
 ../user-guide/running-examples
 synthetic-recovery
+ploemeur-multichain
 albuquerque
 holten/README
 ```

@@ -14,8 +14,9 @@ and errors are reported early and clearly.
 from __future__ import annotations
 
 import builtins
+import math
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import (
     BaseModel,
@@ -30,10 +31,31 @@ from pyages.config.paths import validate_path_component
 TEMPORAL_VALID_MODES = {"span", "successive"}
 
 
+def _strict_retained_count(nstep: int, burn_in: float, nskip: int) -> int:
+    """Return rows retained by the MH strict burn-in/thinning convention."""
+    first = (math.floor((burn_in * nstep) / nskip) + 1) * nskip
+    if first >= nstep:
+        return 0
+    return 1 + (nstep - 1 - first) // nskip
+
+
+def _maximum_split_ess(chains: int, retained_count: int) -> float:
+    """Return Stan's antithetic ESS ceiling after every chain is split."""
+    split_draws = chains * 2 * (retained_count // 2)
+    return split_draws * math.log10(split_draws)
+
+
 def _resolve_path(value: Path, info):
     root_dir = info.context.get("root_dir") if info.context else None
     if root_dir and not value.is_absolute():
         return Path(root_dir) / value
+    return value
+
+
+def _reject_boolean_number(value: object, info):
+    """Reject YAML booleans before Pydantic can coerce them to zero or one."""
+    if isinstance(value, bool):
+        raise ValueError(f"{info.field_name} must be numeric, not boolean")
     return value
 
 
@@ -227,16 +249,214 @@ class LauncherObjectiveCfg(_BaseCfg):
     nmodels: int = Field(default=10000, ge=1)
 
 
+class MHInitializationCfg(_BaseCfg):
+    """Initial-state policy shared by multichain MH workflows."""
+
+    strategy: Literal[
+        "prior_sample",
+        "bounds_stratified",
+        "explicit",
+        "model_default",
+        "prior_map",
+    ] = "bounds_stratified"
+    explicit_starts: list[dict[str, float]] | None = None
+    max_attempts: int = Field(default=100, ge=1)
+
+    _strict_max_attempts = field_validator("max_attempts", mode="before")(
+        _reject_boolean_number
+    )
+
+    @field_validator("explicit_starts", mode="before")
+    @classmethod
+    def _reject_boolean_explicit_values(cls, value: object) -> object:
+        if value is None:
+            return value
+        if not isinstance(value, list):
+            return value
+        for chain_index, state in enumerate(value, start=1):
+            if not isinstance(state, dict):
+                continue
+            boolean_names = [
+                name for name, item in state.items() if isinstance(item, bool)
+            ]
+            if boolean_names:
+                raise ValueError(
+                    "initialization.explicit_starts contains boolean parameter "
+                    f"values in chain {chain_index}: {boolean_names}"
+                )
+        return value
+
+    @model_validator(mode="after")
+    def _validate_explicit_starts(self) -> Self:
+        if self.strategy == "explicit" and not self.explicit_starts:
+            raise ValueError(
+                "initialization.explicit_starts is required for the explicit strategy"
+            )
+        if self.strategy != "explicit" and self.explicit_starts is not None:
+            raise ValueError(
+                "initialization.explicit_starts is accepted only for the explicit "
+                "strategy"
+            )
+        return self
+
+
+class MHPilotCfg(_BaseCfg):
+    """Pilot controls used to derive one fixed production proposal."""
+
+    enabled: bool = True
+    nstep: int = Field(default=2000, ge=4)
+    burn_in: float = Field(default=0.5, ge=0.0, lt=1.0)
+    covariance_mode: Literal["pooled_within_chain"] = "pooled_within_chain"
+    relative_ridge: float = Field(default=1.0e-6, ge=0.0, allow_inf_nan=False)
+    proposal_multiplier: float | Literal["auto"] = "auto"
+    save_samples: bool = False
+
+    _strict_numeric_controls = field_validator(
+        "nstep",
+        "burn_in",
+        "relative_ridge",
+        mode="before",
+    )(_reject_boolean_number)
+
+    @field_validator("proposal_multiplier", mode="before")
+    @classmethod
+    def _validate_proposal_multiplier(
+        cls, value: float | Literal["auto"]
+    ) -> float | Literal["auto"]:
+        if value == "auto":
+            return value
+        if isinstance(value, bool):
+            raise ValueError("pilot.proposal_multiplier must not be boolean")
+        if not math.isfinite(value) or value <= 0.0:
+            raise ValueError("pilot.proposal_multiplier must be positive or 'auto'")
+        return value
+
+    @model_validator(mode="after")
+    def _require_covariance_draws(self) -> Self:
+        if self.enabled and _strict_retained_count(self.nstep, self.burn_in, 1) < 2:
+            raise ValueError(
+                "pilot nstep and burn_in must retain at least two covariance draws"
+            )
+        return self
+
+
+class MHDiagnosticsCfg(_BaseCfg):
+    """Qualification gates applied to retained production chains."""
+
+    max_rhat: float = Field(default=1.01, gt=1.0, allow_inf_nan=False)
+    min_bulk_ess: float = Field(default=300.0, gt=0.0, allow_inf_nan=False)
+    min_tail_ess: float = Field(default=300.0, gt=0.0, allow_inf_nan=False)
+    require_convergence: bool = True
+
+    _strict_numeric_thresholds = field_validator(
+        "max_rhat",
+        "min_bulk_ess",
+        "min_tail_ess",
+        mode="before",
+    )(_reject_boolean_number)
+
+
+class MHMultichainCfg(_BaseCfg):
+    """Multi-chain controls whose enclosing block activates MH execution."""
+
+    enabled: bool = True
+    chains: int = Field(default=4, ge=2)
+    master_seed: int | None = Field(default=12345, ge=0)
+    initialization: MHInitializationCfg = Field(default_factory=MHInitializationCfg)
+    pilot: MHPilotCfg = Field(default_factory=MHPilotCfg)
+    diagnostics: MHDiagnosticsCfg = Field(default_factory=MHDiagnosticsCfg)
+
+    _strict_chains = field_validator("chains", mode="before")(_reject_boolean_number)
+
+    @field_validator("master_seed", mode="before")
+    @classmethod
+    def _reject_boolean_master_seed(cls, value: object) -> object:
+        if isinstance(value, bool):
+            raise ValueError("master_seed must be a non-negative integer or null")
+        return value
+
+    @model_validator(mode="after")
+    def _require_one_explicit_start_per_chain(self) -> Self:
+        starts = self.initialization.explicit_starts
+        if starts is not None and len(starts) != self.chains:
+            raise ValueError(
+                "initialization.explicit_starts must contain one state per chain"
+            )
+        return self
+
+
 class LauncherMetropolisCfg(_BaseCfg):
     """Metropolis-Hastings configuration (single-date launcher)."""
 
-    # The launcher fixes burn_in=0.2 and nskip=10. Eleven transitions are the
-    # smallest configuration that retains a state under the strict rule.
+    # Eleven transitions are the smallest default-schedule configuration that
+    # retains a state under the strict burn-in rule.
     nstep: int = Field(default=5000, ge=11)
+    burn_in: float = Field(default=0.2, ge=0.0, lt=1.0)
+    nskip: int = Field(default=10, ge=1)
+    seed: int = Field(default=12345, ge=0)
     prior_option: bool = False
     likelihood: bool = True
     monitor: bool = False
     display_traj: bool = False
+    multichain: MHMultichainCfg | None = None
+
+    _strict_numeric_controls = field_validator(
+        "nstep",
+        "burn_in",
+        "nskip",
+        "seed",
+        mode="before",
+    )(_reject_boolean_number)
+
+    @model_validator(mode="after")
+    def _require_multichain_diagnostic_draws(self) -> Self:
+        if (
+            self.multichain is not None
+            and self.multichain.enabled
+            and (self.monitor or self.display_traj)
+        ):
+            raise ValueError(
+                "monitor and display_traj are one-chain options; use the saved "
+                "per-chain tables for multi-chain trace diagnostics"
+            )
+        if (
+            self.multichain is not None
+            and self.multichain.enabled
+            and self.multichain.initialization.strategy in {"prior_sample", "prior_map"}
+            and not self.prior_option
+        ):
+            raise ValueError(
+                "prior_sample and prior_map initialization require prior_option=true"
+            )
+        retained_count = _strict_retained_count(self.nstep, self.burn_in, self.nskip)
+        if retained_count == 0:
+            raise ValueError(
+                "nstep, burn_in, and nskip must retain at least one MH draw"
+            )
+        if (
+            self.multichain is not None
+            and self.multichain.enabled
+            and retained_count < 8
+        ):
+            raise ValueError(
+                "enabled multichain MH must retain at least eight draws per chain"
+            )
+        if (
+            self.multichain is not None
+            and self.multichain.enabled
+            and self.multichain.diagnostics.require_convergence
+        ):
+            maximum_ess = _maximum_split_ess(self.multichain.chains, retained_count)
+            if (
+                self.multichain.diagnostics.min_bulk_ess > maximum_ess
+                or self.multichain.diagnostics.min_tail_ess > maximum_ess
+            ):
+                raise ValueError(
+                    "multichain ESS thresholds exceed the maximum split-draw "
+                    f"ESS of {maximum_ess:.6g}; increase nstep, reduce thinning, "
+                    "or disable required convergence for an exploratory run"
+                )
+        return self
 
 
 class LauncherSimplexCfg(_BaseCfg):
@@ -244,6 +464,34 @@ class LauncherSimplexCfg(_BaseCfg):
 
     init_multiples_n: int = Field(default=3, ge=1)
     fuq_n: int = Field(default=30, ge=1)
+
+
+class LauncherResultsCfg(_BaseCfg):
+    """Results location for the single-date launcher workflow."""
+
+    use_default: bool = True
+    directory: Path | None = None
+    study_name: str = Field(
+        default="test_cases", min_length=1, pattern=r"^[A-Za-z0-9_.-]+$"
+    )
+
+    @field_validator("directory", mode="before")
+    @classmethod
+    def _resolve_results_directory(cls, value: object, info):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return _resolve_path(Path(value), info)
+
+    @field_validator("study_name")
+    @classmethod
+    def _validate_study_name(cls, value: str) -> str:
+        return validate_path_component(value, label="results.study_name")
+
+    @model_validator(mode="after")
+    def _require_directory_when_not_default(self) -> Self:
+        if not self.use_default and self.directory is None:
+            raise ValueError("results.directory must be set when use_default is false.")
+        return self
 
 
 class LauncherConfig(_BaseCfg):
@@ -263,6 +511,7 @@ class LauncherConfig(_BaseCfg):
         default_factory=LauncherMetropolisCfg
     )
     calibration_simplex: LauncherSimplexCfg = Field(default_factory=LauncherSimplexCfg)
+    results: LauncherResultsCfg = Field(default_factory=LauncherResultsCfg)
 
 
 class LauncherParams(_BaseCfg):
@@ -286,12 +535,19 @@ class LauncherParams(_BaseCfg):
     reachable_concentration_nmodels: int
     objective_function_nmodels: int
     mh_nstep: int
+    mh_burn_in: float
+    mh_nskip: int
+    mh_seed: int
     mh_prior_option: bool
     mh_likelihood: bool
     mh_monitor: bool
     mh_display_traj: bool
+    mh_multichain: MHMultichainCfg | None
     simplex_init_multiples_n: int
     simplex_fuq_n: int
+    results_use_default: bool
+    results_directory: Path | None
+    results_study_name: str
 
 
 # ---------------------------------------------------------------------------
@@ -317,11 +573,49 @@ class TemporalCalibrationCfg(_BaseCfg):
     explo_res: int = Field(default=20, ge=1)
     seed_enabled: bool = False
     seed: int | None = Field(default=None, ge=0)
+    multichain: MHMultichainCfg | None = None
+
+    _strict_numeric_controls = field_validator(
+        "mh_nsteps",
+        "burn_in",
+        "nskip",
+        "lpm_number",
+        "explo_res",
+        "seed",
+        mode="before",
+    )(_reject_boolean_number)
 
     @model_validator(mode="after")
     def _require_enabled_seed(self) -> Self:
-        if self.seed_enabled and self.seed is None:
+        multichain_enabled = self.multichain is not None and self.multichain.enabled
+        if self.seed_enabled and self.seed is None and not multichain_enabled:
             raise ValueError("calibration.seed is required when seed_enabled is true")
+        retained_count = _strict_retained_count(
+            self.mh_nsteps, self.burn_in, self.nskip
+        )
+        if retained_count == 0:
+            raise ValueError(
+                "mh_nsteps, burn_in, and nskip must retain at least one MH draw"
+            )
+        if multichain_enabled and retained_count < 8:
+            raise ValueError(
+                "enabled multichain MH must retain at least eight draws per chain"
+            )
+        if (
+            multichain_enabled
+            and self.multichain is not None
+            and self.multichain.diagnostics.require_convergence
+        ):
+            maximum_ess = _maximum_split_ess(self.multichain.chains, retained_count)
+            if (
+                self.multichain.diagnostics.min_bulk_ess > maximum_ess
+                or self.multichain.diagnostics.min_tail_ess > maximum_ess
+            ):
+                raise ValueError(
+                    "multichain ESS thresholds exceed the maximum split-draw "
+                    f"ESS of {maximum_ess:.6g}; increase mh_nsteps, reduce thinning, "
+                    "or disable required convergence for an exploratory run"
+                )
         return self
 
 
@@ -410,8 +704,13 @@ __all__ = [
     "CliRunParams",
     "CliCheckParams",
     "SystemCheckConfig",
+    "MHInitializationCfg",
+    "MHPilotCfg",
+    "MHDiagnosticsCfg",
+    "MHMultichainCfg",
     "LauncherConfig",
     "LauncherParams",
+    "LauncherResultsCfg",
     "TemporalParams",
     "TEMPORAL_VALID_MODES",
 ]

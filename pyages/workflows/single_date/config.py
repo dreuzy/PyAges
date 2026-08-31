@@ -36,12 +36,19 @@ def load_params_payload(root_dir: Path, data: dict) -> LauncherParams:
         reachable_concentration_nmodels=cfg.reachable_concentrations.nmodels,
         objective_function_nmodels=cfg.objective_function.nmodels,
         mh_nstep=cfg.calibration_metropolis_hastings.nstep,
+        mh_burn_in=cfg.calibration_metropolis_hastings.burn_in,
+        mh_nskip=cfg.calibration_metropolis_hastings.nskip,
+        mh_seed=cfg.calibration_metropolis_hastings.seed,
         mh_prior_option=cfg.calibration_metropolis_hastings.prior_option,
         mh_likelihood=cfg.calibration_metropolis_hastings.likelihood,
         mh_monitor=cfg.calibration_metropolis_hastings.monitor,
         mh_display_traj=cfg.calibration_metropolis_hastings.display_traj,
+        mh_multichain=cfg.calibration_metropolis_hastings.multichain,
         simplex_init_multiples_n=cfg.calibration_simplex.init_multiples_n,
         simplex_fuq_n=cfg.calibration_simplex.fuq_n,
+        results_use_default=cfg.results.use_default,
+        results_directory=cfg.results.directory,
+        results_study_name=cfg.results.study_name,
     )
 
 

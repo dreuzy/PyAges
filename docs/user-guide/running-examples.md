@@ -6,6 +6,7 @@ PyAges includes several example workflows demonstrating different use cases. Thi
 
 | Example | Description | Script |
 |---------|-------------|--------|
+| Synthetic recovery | Known-truth single-date teaching and multi-chain qualification | `run_lpm_recovery_single_date.py` / `pyages run` |
 | Ploemeur | Single-date calibration | `pyages run` |
 | Holten | Example-local preparation, benchmark, and calibration reuse | `run_holten.py` |
 | Ploemeur Temporal | Multi-date time series analysis | `pyages run --transient` |
@@ -42,7 +43,7 @@ dataset:
   missing_error_rel: 0.01
 
 lpm:
-  model_name: dirac_double          # LPM model to use
+  model_name: exp_shifted           # LPM model used by the maintained example
   data_directory: data_core/data_lpm
 
 run:
@@ -119,6 +120,22 @@ print(histograms["mu"].head())
 The histogram argument is the family base name. For example, requesting `mu`
 from `lpm_histo_calibrated.txt` reads
 `lpm_histo_calibrated_mu.txt`.
+
+### Qualify the Ploemeur inference with multiple chains
+
+The historical YAML above remains a mono-chain teaching example. The separate
+**Unreleased** source profile runs the F09 2010 MH inference with five chains,
+a multi-chain pilot, no diagnostic thinning, and convergence-gated pooling:
+
+```bash
+pyages run examples/natural/ploemeur/exemple_ploemeur_multichain.yaml
+```
+
+It costs 10,000 pilot plus 25,000 production transitions in the current
+sequential runner. It checks fitted latent concentrations at the same three
+observations used in the likelihood; it does not generate posterior predictive
+observation-noise draws or reveal true field parameters. The complete protocol
+is in {doc}`../examples/ploemeur-multichain`.
 
 ---
 
@@ -365,7 +382,7 @@ those tracer names.
 
 ### Adjust MCMC Settings
 
-For more accurate results (slower):
+For a longer exploratory one-chain result (slower):
 
 ```yaml
 calibration_metropolis_hastings:
@@ -374,8 +391,10 @@ calibration_metropolis_hastings:
 ```
 
 Treat this as a candidate run, not as a convergence certificate. For
-publication, use independent chains and report split-$\hat R$, ESS, and Monte
-Carlo uncertainty as described in {doc}`../science/inference`.
+qualification, use the complete multi-chain block and report folded
+rank-normalized split-$\hat R$, bulk/tail ESS, Monte Carlo uncertainty, starts,
+seeds, proposal covariance, and per-chain acceptance as described in
+{doc}`multichain-mh`.
 
 For quick testing (faster):
 

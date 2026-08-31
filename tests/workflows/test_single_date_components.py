@@ -13,6 +13,7 @@ import pandas as pd
 import pytest
 
 import pyages.reporting.plots as workflow_plots
+from pyages.config.models import MHMultichainCfg
 from pyages.workflows.single_date import calibration as single_calibration
 from pyages.workflows.single_date import context as single_context
 from pyages.workflows.single_date import reporting as single_reporting
@@ -35,6 +36,15 @@ def _context(tmp_path, **overrides):
         "run_calibration_metropolis_hastings": False,
         "run_objective_function": False,
         "objective_function_nmodels": 10,
+        "mh_nstep": 5000,
+        "mh_burn_in": 0.2,
+        "mh_nskip": 10,
+        "mh_seed": 12345,
+        "mh_prior_option": False,
+        "mh_likelihood": True,
+        "mh_monitor": False,
+        "mh_display_traj": False,
+        "mh_multichain": None,
     }
     parameters.update(overrides)
     return SimpleNamespace(
@@ -54,6 +64,109 @@ def _context(tmp_path, **overrides):
             show=Mock(), close=Mock(), close_all=Mock(), finish=Mock()
         ),
     )
+
+
+@pytest.mark.parametrize(
+    "multichain",
+    [None, MHMultichainCfg(enabled=False)],
+    ids=["absent", "disabled"],
+)
+def test_single_date_mh_keeps_legacy_runner_without_enabled_multichain(
+    tmp_path, monkeypatch, multichain
+) -> None:
+    context = _context(tmp_path, mh_multichain=multichain)
+    problem = object()
+    samples = object()
+    method = SimpleNamespace(
+        method="Metropolis_Hastings",
+        run=Mock(return_value=samples),
+        write_calibrated_lpm=Mock(),
+    )
+    problem_builder = Mock(return_value=problem)
+    method_class = Mock(return_value=method)
+    ensemble_runner = Mock(side_effect=AssertionError("multichain must stay disabled"))
+    monkeypatch.setattr(single_calibration, "_calibration_problem", problem_builder)
+    monkeypatch.setattr(single_calibration, "MetropolisHastings", method_class)
+    monkeypatch.setattr(
+        single_calibration,
+        "run_mh_ensemble",
+        ensemble_runner,
+    )
+
+    result = single_calibration._run_metropolis_hastings(context)
+
+    assert result == ("Metropolis_Hastings", samples)
+    method.run.assert_called_once_with(problem)
+    method.write_calibrated_lpm.assert_called_once_with(samples)
+    ensemble_runner.assert_not_called()
+
+
+def test_single_date_enabled_multichain_delegates_with_a_fresh_problem_builder(
+    tmp_path, monkeypatch
+) -> None:
+    multichain = MHMultichainCfg(
+        enabled=True,
+        chains=2,
+        diagnostics={"require_convergence": False},
+    )
+    context = _context(tmp_path, mh_multichain=multichain)
+    created_problems: list[SimpleNamespace] = []
+
+    def build_problem(_context, directory):
+        problem = SimpleNamespace(directory=directory)
+        created_problems.append(problem)
+        return problem
+
+    pooled = object()
+
+    def run(_chain_config, _multichain, output_directory, problem_builder):
+        problem_builder(output_directory / "initialization")
+        problem_builder(output_directory / "chains" / "chain_001")
+        return pooled
+
+    ensemble_runner = Mock(side_effect=run)
+    monkeypatch.setattr(single_calibration, "_calibration_problem", build_problem)
+    monkeypatch.setattr(
+        single_calibration,
+        "run_mh_ensemble",
+        ensemble_runner,
+    )
+
+    result = single_calibration._run_metropolis_hastings(context)
+
+    assert result == ("Metropolis_Hastings", pooled)
+    assert len({id(problem) for problem in created_problems}) == 2
+    output = context.output_directory / "Metropolis_Hastings"
+    assert [problem.directory for problem in created_problems] == [
+        output / "initialization",
+        output / "chains" / "chain_001",
+    ]
+    ensemble_runner.assert_called_once()
+    assert ensemble_runner.call_args.args[1] is multichain
+    assert ensemble_runner.call_args.args[2] == output
+
+
+def test_single_date_propagates_multichain_qualification_failure(
+    tmp_path, monkeypatch
+) -> None:
+    context = _context(
+        tmp_path,
+        mh_multichain=MHMultichainCfg(enabled=True, chains=2),
+    )
+    from pyages.calibration.methods.mh import MHConvergenceError
+
+    failure = MHConvergenceError("mu did not converge; artifacts preserved")
+    ensemble_runner = Mock(side_effect=failure)
+    monkeypatch.setattr(
+        single_calibration,
+        "run_mh_ensemble",
+        ensemble_runner,
+    )
+
+    with pytest.raises(MHConvergenceError, match=r"mu.*preserved"):
+        single_calibration._run_metropolis_hastings(context)
+
+    ensemble_runner.assert_called_once()
 
 
 def test_run_calibrations_respects_independent_enable_flags(
@@ -255,19 +368,57 @@ def test_run_single_date_closes_figures_and_keeps_manifest_absent_on_failure(
     manifest.assert_not_called()
 
 
+def test_run_single_date_manifests_a_multichain_convergence_failure(
+    tmp_path, monkeypatch
+) -> None:
+    from pyages.calibration.methods.mh import MHConvergenceError
+
+    context = _context(tmp_path, run_calibration_metropolis_hastings=True)
+    context.output_directory.mkdir()
+    error = MHConvergenceError("mu did not converge; artifacts preserved")
+    success_manifest = Mock()
+    failure_manifest = Mock()
+    monkeypatch.setattr(
+        single_date, "prepare_context", lambda *_args, **_kwargs: context
+    )
+    monkeypatch.setattr(single_date, "reachable_concentrations", lambda _ctx: None)
+    monkeypatch.setattr(single_date, "run_calibrations", Mock(side_effect=error))
+    monkeypatch.setattr(single_date, "write_result_manifest", success_manifest)
+    monkeypatch.setattr(single_date, "write_failure_manifest", failure_manifest)
+
+    with pytest.raises(MHConvergenceError, match=r"mu.*preserved"):
+        single_date.run_single_date(context.config_path)
+
+    success_manifest.assert_not_called()
+    assert failure_manifest.call_args.kwargs["error"] is error
+    assert failure_manifest.call_args.kwargs["details"]["calibrations"] == []
+    assert failure_manifest.call_args.kwargs["details"]["calibrations_attempted"] == [
+        "Metropolis_Hastings"
+    ]
+    context.plots.close_all.assert_called_once_with()
+    context.plots.finish.assert_not_called()
+
+
 def test_prepare_context_invalidates_manifest_before_loading_observations(
     tmp_path, monkeypatch
 ) -> None:
     output = tmp_path / "results"
     session = SimpleNamespace(close_all=Mock())
-    params = SimpleNamespace(dataset_name="case.txt", verbose=False)
+    params = SimpleNamespace(
+        dataset_name="case.txt",
+        verbose=False,
+        results_use_default=False,
+        results_directory=tmp_path / "custom-results",
+        results_study_name="audit",
+    )
     begin = Mock()
+    results_directory = Mock(return_value=output)
     monkeypatch.setattr(single_context, "configuration_root", lambda _path: tmp_path)
     monkeypatch.setattr(single_context, "load_params", lambda *_args: params)
     monkeypatch.setattr(
         single_context,
         "dataset_results_directory",
-        lambda _name: output,
+        results_directory,
     )
     monkeypatch.setattr(single_context, "begin_result_run", begin)
     monkeypatch.setattr(single_context.PlotSession, "start", lambda **_kwargs: session)
@@ -281,4 +432,10 @@ def test_prepare_context_invalidates_manifest_before_loading_observations(
         single_context.prepare_context(tmp_path / "config.yaml", force_inline=False)
 
     begin.assert_called_once_with(output)
+    results_directory.assert_called_once_with(
+        "case.txt",
+        use_default=False,
+        directory=tmp_path / "custom-results",
+        study_name="audit",
+    )
     session.close_all.assert_called_once_with()

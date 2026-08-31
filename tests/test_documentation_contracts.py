@@ -106,7 +106,8 @@ def test_workflow_output_reference_covers_stable_artifacts_and_manifest() -> Non
     assert all(name in document for name in required_artifacts)
     assert "schema 2" in document
     assert "artifacts_sha256" in document
-    assert "written only after success" in document
+    assert "`complete` after success" in document
+    assert "`failed` after rejection" in document
 
 
 def test_configuration_reference_states_exact_temporal_constraints() -> None:

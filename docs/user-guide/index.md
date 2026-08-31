@@ -13,6 +13,8 @@ Use this guide by task:
   diagnostics, batches, and numerical controls.
 - {doc}`calibration` explains method choice, retention, diagnostics, and
   reproducibility.
+- {doc}`multichain-mh` gives the end-to-end multi-chain MH procedure, including
+  qualification, failure handling, and trace inspection.
 - {doc}`cli-flags` lists command-line overrides.
 - {doc}`running-examples` describes the maintained examples.
 - {doc}`adding-tracer` and {doc}`adding-lpm` cover scientific extensions.
@@ -39,6 +41,7 @@ configuration
 concentrations
 convolution
 calibration
+multichain-mh
 cli-flags
 adding-lpm
 adding-tracer

@@ -20,6 +20,25 @@ calibration:
   lpm_number: 10
   seed_enabled: true
   seed: 12345
+  # Multi-chain MH is opt-in. Uncomment this block for an ensemble; leaving it
+  # absent preserves the one-chain quickstart. For meaningful ESS headroom,
+  # raise mh_nsteps (for example to 5000) before a qualification run.
+  # multichain:
+  #   enabled: true
+  #   chains: 4
+  #   master_seed: 12345
+  #   initialization:
+  #     strategy: bounds_stratified
+  #   pilot:
+  #     enabled: true
+  #     nstep: 2000
+  #     covariance_mode: pooled_within_chain
+  #     proposal_multiplier: auto
+  #   diagnostics:
+  #     max_rhat: 1.01
+  #     min_bulk_ess: 300
+  #     min_tail_ess: 300
+  #     require_convergence: true
 
 figures:
   temporal: false

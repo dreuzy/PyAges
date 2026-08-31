@@ -8,7 +8,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pyages.workflows.runtime.manifest import write_result_manifest
+from pyages.calibration.methods.mh import MHConvergenceError
+from pyages.workflows.runtime.manifest import (
+    write_failure_manifest,
+    write_result_manifest,
+)
 from pyages.workflows.single_date.calibration import (
     reachable_concentrations,
     run_calibrations,
@@ -19,6 +23,20 @@ from pyages.workflows.single_date.reporting import (
     run_objective_analysis,
     write_concentration_outputs,
 )
+
+
+def _manifest_details(context, calibrations: list[str]) -> dict[str, object]:
+    """Return the shared single-date terminal-state metadata."""
+    return {
+        "dataset": context.params.dataset_name,
+        "dataset_year": context.params.dataset_year,
+        "lpm": context.params.lpm_model_name,
+        "calibrations": calibrations,
+        "observation_error_policy": {
+            "missing_error_rel": context.params.missing_error_rel,
+            "transformations": context.observations.error_provenance,
+        },
+    }
 
 
 def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path:
@@ -43,17 +61,24 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
             workflow="single_date",
             config_path=context.config_path,
             input_paths=scientific_input_paths(context),
-            details={
-                "dataset": context.params.dataset_name,
-                "dataset_year": context.params.dataset_year,
-                "lpm": context.params.lpm_model_name,
-                "calibrations": sorted(calibrated),
-                "observation_error_policy": {
-                    "missing_error_rel": context.params.missing_error_rel,
-                    "transformations": context.observations.error_provenance,
-                },
-            },
+            details=_manifest_details(context, sorted(calibrated)),
         )
+    except MHConvergenceError as error:
+        details = _manifest_details(context, [])
+        details["calibrations_attempted"] = ["Metropolis_Hastings"]
+        try:
+            write_failure_manifest(
+                context.output_directory,
+                workflow="single_date",
+                config_path=context.config_path,
+                input_paths=scientific_input_paths(context),
+                details=details,
+                error=error,
+            )
+        except Exception as manifest_error:
+            error.add_note(f"Could not write failure manifest: {manifest_error}")
+        context.plots.close_all()
+        raise
     except BaseException:
         context.plots.close_all()
         raise

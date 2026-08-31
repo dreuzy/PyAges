@@ -12,11 +12,11 @@ workflow modifies Git references.
 | Workflow | Triggers | Purpose |
 |---|---|---|
 | [CI](https://github.com/dreuzy/PyAges/actions/workflows/ci.yml) | Pull requests targeting `main`, pushes to `main`, `v*` tags, and manual dispatch | Fast required checks for every supported Python version, packaging, documentation, and validation infrastructure |
-| [Extensive tests](https://github.com/dreuzy/PyAges/actions/workflows/extensive-tests.yml) | Manual dispatch and daily at `01:17 UTC` | Opt-in scientific calculations that are too slow for every pull request |
+| [Extensive tests](https://github.com/dreuzy/PyAges/actions/workflows/extensive-tests.yml) | Manual dispatch and every Monday at `01:17 UTC` | Opt-in scientific calculations that are too slow for every pull request |
 | [Release candidate](https://github.com/dreuzy/PyAges/actions/workflows/release-candidate.yml) | Manual dispatch for an existing release tag (`1.0` for this release) | Build one candidate, validate its metadata, and smoke-test the same wheel on all supported Python versions |
 | [Publish package](https://github.com/dreuzy/PyAges/actions/workflows/publish-package.yml) | Manual dispatch for an existing GitHub Release tag and a selected package index | Verify the existing release assets and their SHA-256 digests, then publish the unchanged files through the protected `testpypi` or `pypi` environment |
 
-The daily extensive run starts at 02:17 in metropolitan France during winter
+The weekly extensive run starts at 02:17 in metropolitan France during winter
 time and 03:17 during summer time. GitHub may send failure notifications at
 those hours. A notification identifies the workflow run, branch, commit, and
 failed job; always inspect a later run on the same branch before assuming that
@@ -60,7 +60,7 @@ The extensive workflow installs the qualified development environment and
 runs:
 
 ```bash
-python -m pytest -q --run-extensive
+python -m pytest -q --run-extensive --basetemp .artifacts/extensive-pytest
 ```
 
 The marker is opt-in. The same tests are collected by the standard suite but
@@ -68,6 +68,15 @@ skipped unless `--run-extensive` is present. The workflow is scheduled for
 early-morning capacity and can also be dispatched before a release or after a
 scientific change. See {doc}`testing` for the test taxonomy and
 {doc}`../science/validation` for the qualification strategy.
+
+The job uses `if: always()` to upload the complete result trees named
+`synthetic_multichain_scientific` and `ploemeur_f09_multichain_scientific` from
+that explicit pytest base directory. The artifact is named
+`multichain-scientific-evidence-<run-id>` and retained for 30 days, including
+when a scientific assertion fails after writing partial evidence. A missing
+result tree produces an upload warning rather than masking the pytest outcome.
+This retention supports diagnosis and review; it is temporary CI storage, not
+a durable publication archive.
 
 ## Release candidate validation
 

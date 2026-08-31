@@ -13,6 +13,9 @@ normalization.
 
 from __future__ import annotations
 
+import hashlib
+import json
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -25,6 +28,66 @@ from pyages._plotting import create_figure, finalize_figure
 from pyages.config.runtime import DisplayOptions
 from pyages.tracer.config import load_tracer_config
 from pyages.tracer.errors import TracerConfigError, TracerDataError
+
+TRACER_SCIENTIFIC_SIGNATURE_VERSION = 1
+
+
+def _finite_float_hex(value: object, *, context: str) -> str:
+    """Return one finite effective tracer value without decimal rounding."""
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError) as exc:
+        raise TracerDataError(f"{context} must be numeric") from exc
+    if not np.isfinite(numeric):
+        raise TracerDataError(f"{context} must be finite")
+    return numeric.hex()
+
+
+def _scientific_array_digest(values: np.ndarray) -> tuple[int, str]:
+    """Hash a finite vector in canonical little-endian float64 form."""
+    array = np.asarray(values, dtype=float)
+    if array.ndim != 1 or not np.all(np.isfinite(array)):
+        raise TracerDataError("effective recharge chronicles must be finite vectors")
+    canonical = np.ascontiguousarray(array, dtype="<f8")
+    digest = hashlib.sha256()
+    digest.update(str(canonical.size).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(canonical.tobytes(order="C"))
+    return canonical.size, digest.hexdigest()
+
+
+@dataclass(frozen=True)
+class TracerScientificSignature:
+    """Versioned identity of the effective tracer response loaded in memory.
+
+    Source paths, comments, and formatting are excluded. Chronicle digests cover
+    the two numeric vectors supplied to interpolation; scalar configuration
+    covers the constant-recharge, decay, and production branches.
+    """
+
+    version: int
+    name: str
+    unit: str
+    recharge_mode: str
+    recharge_constant_hex: str | None
+    production_rate_hex: str | None
+    decay_rate_hex: str | None
+    datemin_hex: str
+    datemax_hex: str
+    chronicle_size: int
+    chronicle_dates_sha256: str | None
+    chronicle_values_sha256: str | None
+
+    @property
+    def sha256(self) -> str:
+        """Return a canonical digest of all effective tracer inputs."""
+        serialized = json.dumps(
+            asdict(self),
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        return hashlib.sha256(serialized).hexdigest()
 
 
 class Tracer:
@@ -149,6 +212,83 @@ class Tracer:
     def name(self) -> str:
         """Tracer name (e.g., 'cfc11', 'kr85', '3H')."""
         return self.__name
+
+    def scientific_signature(self) -> TracerScientificSignature:
+        """Return immutable provenance for the effective response calculation.
+
+        The signature is derived from normalized values already loaded by this
+        instance, never from source paths or a later reread of input files.
+        """
+        chronicle_size = 0
+        chronicle_dates_sha256 = None
+        chronicle_values_sha256 = None
+        if self.__has_chronicle:
+            if self.__recharge_chronicle_file is None:
+                raise TracerDataError("chronicle tracer has no loaded recharge data")
+            chronicle = self.__recharge_chronicle_file
+            if chronicle.shape[1] < 2:
+                raise TracerDataError(
+                    "recharge chronicle must contain date and concentration columns"
+                )
+            date_size, chronicle_dates_sha256 = _scientific_array_digest(
+                chronicle.iloc[:, 0].to_numpy(dtype=float)
+            )
+            value_size, chronicle_values_sha256 = _scientific_array_digest(
+                chronicle.iloc[:, 1].to_numpy(dtype=float)
+            )
+            if date_size != value_size:
+                raise TracerDataError(
+                    "recharge chronicle date and concentration sizes differ"
+                )
+            chronicle_size = date_size
+            recharge_mode = "chronicle"
+            recharge_constant = None
+        elif self.__has_constant_recharge:
+            recharge_mode = "constant"
+            recharge_constant = _finite_float_hex(
+                self.__recharge_constant,
+                context=f"constant recharge for tracer {self.__name}",
+            )
+        else:
+            recharge_mode = "none"
+            recharge_constant = None
+
+        production_rate = (
+            _finite_float_hex(
+                self.__geoproduction_rate,
+                context=f"production rate for tracer {self.__name}",
+            )
+            if self.__geoproduction_enabled
+            else None
+        )
+        decay_rate = (
+            _finite_float_hex(
+                self.__decay_rate,
+                context=f"decay rate for tracer {self.__name}",
+            )
+            if self.__decay_enabled
+            else None
+        )
+        return TracerScientificSignature(
+            version=TRACER_SCIENTIFIC_SIGNATURE_VERSION,
+            name=self.__name,
+            unit=self.__unit,
+            recharge_mode=recharge_mode,
+            recharge_constant_hex=recharge_constant,
+            production_rate_hex=production_rate,
+            decay_rate_hex=decay_rate,
+            datemin_hex=_finite_float_hex(
+                self.datemin,
+                context=f"minimum date for tracer {self.__name}",
+            ),
+            datemax_hex=_finite_float_hex(
+                self.datemax,
+                context=f"maximum date for tracer {self.__name}",
+            ),
+            chronicle_size=chronicle_size,
+            chronicle_dates_sha256=chronicle_dates_sha256,
+            chronicle_values_sha256=chronicle_values_sha256,
+        )
 
     def __check_date_range(self, date: float | npt.NDArray[np.float64]) -> bool:
         """
@@ -338,3 +478,10 @@ class Tracer:
             display_options.figure_path(self.__name + "_chronicle"),
             close=display_options.figure_close,
         )
+
+
+__all__ = [
+    "TRACER_SCIENTIFIC_SIGNATURE_VERSION",
+    "Tracer",
+    "TracerScientificSignature",
+]

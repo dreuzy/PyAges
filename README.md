@@ -92,6 +92,37 @@ pyages run examples/templates/quickstart_single.yaml
 pyages run --transient examples/templates/quickstart_temporal.yaml
 ```
 
+## Unreleased multi-chain MH qualification
+
+The development branch includes opt-in multi-chain Metropolis--Hastings with
+dispersed starts, a separate pilot that learns one fixed proposal covariance,
+independent production streams, rank-normalized convergence diagnostics, and
+qualification-gated pooling. This feature is **not** present in the
+`pyages==1.0.1` package on PyPI; use an editable source installation and record
+its exact Git commit until the next release.
+
+Two canonical source-checkout profiles are available:
+
+```bash
+pyages run examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date_multichain.yaml
+pyages run examples/natural/ploemeur/exemple_ploemeur_multichain.yaml
+```
+
+The first checks recovery of known synthetic parameters. The second qualifies
+convergence and fitted latent concentrations for the F09 2010 observations; it
+does not provide known field parameter truth. Run both executable scientific
+qualifications with:
+
+```bash
+python run_tests.py extensive
+```
+
+See the
+[multi-chain guide](docs/user-guide/multichain-mh.md),
+[configuration reference](docs/user-guide/configuration.md),
+[output contract](docs/reference/outputs.md), and
+[qualification record](docs/reports/multichain-mh-qualification-2026-08-31.md).
+
 ## Installation and execution
 
 Recommended stable package:

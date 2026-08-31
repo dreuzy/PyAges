@@ -12,11 +12,18 @@ from pathlib import Path
 import pandas as pd
 
 from pyages.calibration.exploration.systematic import SystematicSampling
-from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh import (
+    MetropolisHastings,
+    MHConfig,
+)
 from pyages.calibration.methods.simplex import FORWARD_UNCERTAINTY, Simplex
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.paths import result_subdirectory
+from pyages.data_io.mh_results import (
+    clear_mh_ensemble_artifacts,
+)
 from pyages.lpm.samples import LpmSampleTable
+from pyages.workflows.runtime.mh import run_mh_ensemble
 from pyages.workflows.single_date.context import SingleDateContext
 
 
@@ -76,23 +83,36 @@ def _run_simplex(context: SingleDateContext) -> tuple[str, LpmSampleTable]:
 def _run_metropolis_hastings(
     context: SingleDateContext,
 ) -> tuple[str, LpmSampleTable]:
-    method = MetropolisHastings(
-        config=MHConfig(
-            nstep=context.params.mh_nstep,
-            prior_option=context.params.mh_prior_option,
-            likelihood=context.params.mh_likelihood,
-            monitor=context.params.mh_monitor,
-            display_traj=context.params.mh_display_traj,
-            componentwise_source="model",
-        )
+    chain_config = MHConfig(
+        nstep=context.params.mh_nstep,
+        burn_in=context.params.mh_burn_in,
+        nskip=context.params.mh_nskip,
+        prior_option=context.params.mh_prior_option,
+        likelihood=context.params.mh_likelihood,
+        monitor=context.params.mh_monitor,
+        display_traj=context.params.mh_display_traj,
+        componentwise_source="model",
+        seed=context.params.mh_seed,
     )
-    problem = _calibration_problem(
-        context,
-        result_subdirectory(context.output_directory, method.method),
+    output_directory = result_subdirectory(
+        context.output_directory, "Metropolis_Hastings"
     )
-    results = method.run(problem)
-    method.write_calibrated_lpm(results)
-    return method.method, results
+    multichain_cfg = context.params.mh_multichain
+    if multichain_cfg is None or not multichain_cfg.enabled:
+        clear_mh_ensemble_artifacts(output_directory)
+        method = MetropolisHastings(config=chain_config)
+        problem = _calibration_problem(context, output_directory)
+        results = method.run(problem)
+        method.write_calibrated_lpm(results)
+        return method.method, results
+
+    pooled = run_mh_ensemble(
+        chain_config,
+        multichain_cfg,
+        output_directory,
+        lambda directory: _calibration_problem(context, directory),
+    )
+    return "Metropolis_Hastings", pooled
 
 
 def run_calibrations(context: SingleDateContext) -> dict[str, LpmSampleTable]:

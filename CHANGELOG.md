@@ -5,6 +5,41 @@ All notable changes to PyAges are recorded in this file.
 The project follows semantic versioning for its public API from version 1.0.
 Before 1.0, incompatible public changes are identified explicitly below.
 
+## Unreleased
+
+### Added
+
+- Added opt-in multi-chain Metropolis--Hastings workflows with reproducible
+  dispersed initialization, a separate pilot stage that learns one fixed
+  pooled within-chain proposal covariance, independent production streams,
+  rank-normalized split-R-hat, bulk/tail ESS, MCSE, convergence-gated pooling,
+  and per-chain diagnostic/provenance outputs. Existing one-chain workflows
+  remain the default.
+- Added extensive scientific qualifications derived from the historical
+  mono-chain single-date examples: known-truth parameter and fitted-response
+  recovery for the synthetic shifted-exponential case, and converged,
+  support-aware in-sample latent-fit checks for the natural Ploemeur F09 case.
+- Added directly runnable, versioned multi-chain profiles for the synthetic and
+  Ploemeur qualifications, plus a backward-compatible single-date `results`
+  namespace so profiles using the same dataset can write to isolated studies.
+
+### Changed
+
+- Centralized multi-chain execution, serialization, qualification, and failure
+  handling across single-date and temporal workflows.
+- Stratified initialization now spans effective marginal prior mass when a
+  prior is enabled (including truncated normal, bounded uniform, and empirical
+  priors), instead of retrying physically stratified points outside its support.
+- Multi-chain runs now verify a versioned scientific-target signature across
+  every pilot and production problem and carry the realized phase seed plan in
+  their result provenance before any chain pooling.
+- Required convergence-gate failures now write an auditable failed workflow
+  manifest that fingerprints the preserved chains, diagnostics, inputs,
+  environment, and source state without marking the result complete.
+- Atomic result writers now use short temporary names, preserving atomic
+  replacement while avoiding avoidable Windows path-length failures in deeply
+  nested calibration directories.
+
 ## 1.0.1 - 2026-08-29
 
 ### Changed

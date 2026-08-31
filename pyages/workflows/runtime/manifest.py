@@ -15,7 +15,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Literal, Mapping
 
 from pyages import __version__
 
@@ -141,7 +141,7 @@ def _artifacts(directory: Path) -> dict[str, str]:
 
 
 def begin_result_run(directory: str | Path) -> Path:
-    """Invalidate any previous success marker for a reused result directory."""
+    """Invalidate any previous terminal manifest for a reused result directory."""
     output_directory = Path(directory).resolve()
     output_directory.mkdir(parents=True, exist_ok=True)
     manifest = output_directory / "result_manifest.json"
@@ -149,15 +149,17 @@ def begin_result_run(directory: str | Path) -> Path:
     return output_directory
 
 
-def write_result_manifest(
+def _manifest_payload(
     directory: str | Path,
     *,
+    status: Literal["complete", "failed"],
     workflow: str,
     config_path: str | Path,
     input_paths: Iterable[str | Path] = (),
     details: Mapping[str, Any] | None = None,
-) -> Path:
-    """Write complete provenance after a public workflow succeeds."""
+    failure: Mapping[str, str] | None = None,
+) -> tuple[Path, dict[str, Any]]:
+    """Build the common provenance payload for one terminal run state."""
     output_directory = Path(directory).resolve()
     output_directory.mkdir(parents=True, exist_ok=True)
     config = Path(config_path).resolve()
@@ -166,7 +168,7 @@ def write_result_manifest(
     repository = Path(__file__).resolve().parents[3]
     payload: dict[str, Any] = {
         "schema_version": RESULT_SCHEMA_VERSION,
-        "status": "complete",
+        "status": status,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "pyages_version": __version__,
         "workflow": workflow,
@@ -182,6 +184,13 @@ def write_result_manifest(
     }
     if details:
         payload["details"] = dict(details)
+    if failure:
+        payload["failure"] = dict(failure)
+    return output_directory, payload
+
+
+def _write_manifest(output_directory: Path, payload: Mapping[str, Any]) -> Path:
+    """Atomically replace the terminal manifest for a workflow run."""
     target = output_directory / "result_manifest.json"
     temporary_path: Path | None = None
     try:
@@ -189,7 +198,7 @@ def write_result_manifest(
             mode="w",
             encoding="utf-8",
             dir=output_directory,
-            prefix=".result_manifest.",
+            prefix=".pyages-",
             suffix=".tmp",
             delete=False,
         ) as stream:
@@ -204,4 +213,51 @@ def write_result_manifest(
     return target
 
 
-__all__ = ["RESULT_SCHEMA_VERSION", "begin_result_run", "write_result_manifest"]
+def write_result_manifest(
+    directory: str | Path,
+    *,
+    workflow: str,
+    config_path: str | Path,
+    input_paths: Iterable[str | Path] = (),
+    details: Mapping[str, Any] | None = None,
+) -> Path:
+    """Write complete provenance after a public workflow succeeds."""
+    output_directory, payload = _manifest_payload(
+        directory,
+        status="complete",
+        workflow=workflow,
+        config_path=config_path,
+        input_paths=input_paths,
+        details=details,
+    )
+    return _write_manifest(output_directory, payload)
+
+
+def write_failure_manifest(
+    directory: str | Path,
+    *,
+    workflow: str,
+    config_path: str | Path,
+    error: BaseException,
+    input_paths: Iterable[str | Path] = (),
+    details: Mapping[str, Any] | None = None,
+) -> Path:
+    """Write provenance for a completed calculation rejected by its gate."""
+    output_directory, payload = _manifest_payload(
+        directory,
+        status="failed",
+        workflow=workflow,
+        config_path=config_path,
+        input_paths=input_paths,
+        details=details,
+        failure={"type": type(error).__name__, "message": str(error)},
+    )
+    return _write_manifest(output_directory, payload)
+
+
+__all__ = [
+    "RESULT_SCHEMA_VERSION",
+    "begin_result_run",
+    "write_failure_manifest",
+    "write_result_manifest",
+]

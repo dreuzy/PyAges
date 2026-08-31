@@ -216,6 +216,50 @@ $\hat R$, effective sample size, and Monte Carlo uncertainty. Proposal
 qualification evidence is in {doc}`reports/mh_proposal_qualification` and the
 operational checklist is in {doc}`user-guide/calibration`.
 
+### Multi-chain pilot covariance and random streams
+
+Let $\theta_{ct}$ be retained pilot draw $t$ from chain $c$, let $n_c$ be that
+chain's retained count, and let $\bar\theta_c$ be its own mean. The common
+production proposal starts from the pooled within-chain covariance
+
+```{math}
+\widehat\Sigma_w =
+\frac{\sum_c\sum_{t=1}^{n_c}
+(\theta_{ct}-\bar\theta_c)(\theta_{ct}-\bar\theta_c)^\mathsf{T}}
+{\sum_c(n_c-1)}.
+```
+
+The separate centering is normative: between-chain differences in pilot
+location are not proposal variance. For dimension $d$, define
+
+```{math}
+\bar v=\max\left(\frac{\mathrm{tr}(\widehat\Sigma_w)}{d},10^{-12}\right),
+\qquad
+\widehat\Sigma=\widehat\Sigma_w+r\bar v I,
+```
+
+where $r$ is `relative_ridge`. If needed, the implementation adds the smallest
+machine-scale correction that makes $\widehat\Sigma$ positive definite even
+when $r=0$. With automatic scaling and a Cholesky factor
+$LL^\mathsf{T}=\widehat\Sigma$, each fixed production proposal is
+
+```{math}
+\theta'=\theta+\frac{2.38}{\sqrt d}Lz,
+\qquad z\sim\mathcal N(0,I).
+```
+
+Pilot samples do not enter the posterior. The covariance is frozen before
+production and is unrelated to the prior covariance. One `master_seed` feeds
+three child `SeedSequence` branches for initialization, pilot, and production,
+then one child per chain. All realized seeds and starts are serialized. A null
+master seed is generated once and must be recovered from provenance to replay
+the run.
+
+The exact folded rank-normalized split-R-hat, bulk/tail ESS, MCSE, constant
+quantity, and qualification conventions are defined in
+{doc}`science/inference`. The maintained executable evidence is summarized in
+{doc}`reports/multichain-mh-qualification-2026-08-31`.
+
 ## Traceability matrix
 
 | Scientific claim | Code contract | User/manual entry | Qualification evidence |
@@ -224,8 +268,9 @@ operational checklist is in {doc}`user-guide/calibration`.
 | adaptive tracer-grid semantics | ``pyages/convolution/tracer_grid.py`` and ``settings.py`` | this page | ``tests/convolution/test_convolution_settings.py`` |
 | independent forward acceptance | ``validation/tracerlpm/benchmark/scripts/compare_pyages.py`` | this page | ``validation/tracerlpm/benchmark/tests/test_compare_pyages.py``; {doc}`reports/forward_qualification_2026-08-27` |
 | IG physical moments and shift | ``pyages/lpm/models/inverse_gaussian*.py`` | this page; {doc}`user-guide/adding-lpm` | ``tests/lpm/test_inverse_gaussian_analytics.py``; {doc}`scientific-migration-ig-decay` |
-| normalized-residual objective | ``pyages/calibration/problem.py`` and ``utils/objective_functions.py`` | this page | ``tests/calibration/test_calibration_problem.py`` |
-| MH target, priors, proposals, and retention | ``pyages/calibration/methods/metropolis_hastings.py``, ``methods/prior.py``, and ``mh_proposals.py`` | {doc}`user-guide/configuration`; this page | ``tests/calibration/test_mh_proposals.py``; {doc}`reports/mh_proposal_qualification` |
+| normalized-residual objective | ``pyages/calibration/problem.py`` and ``pyages/calibration/objective.py`` | this page | ``tests/calibration/test_calibration_problem.py`` |
+| MH target, priors, proposals, and retention | ``pyages/calibration/methods/mh/sampler.py``, ``prior.py``, ``proposals.py``, and ``config.py`` | {doc}`user-guide/configuration`; this page | ``tests/calibration/test_calibration_scientific_contracts.py`` and ``test_mh_proposals.py``; {doc}`reports/mh_proposal_qualification` |
+| multi-chain initialization, pilot covariance, diagnostics, and pooling gate | ``pyages/calibration/methods/mh/initialization.py``, ``pilot.py``, ``diagnostics.py``, ``ensemble.py``, and ``pyages/data_io/mh_results.py`` | {doc}`user-guide/multichain-mh`; this page | ``tests/calibration/test_mh_*.py`` and the two extensive example tests; {doc}`reports/multichain-mh-qualification-2026-08-31` |
 
 For every published result, archive the PyAges release or commit, configuration,
 input checksums, random seeds, dependency versions, numerical settings, and raw

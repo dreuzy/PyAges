@@ -159,7 +159,8 @@ delete an earlier result directory.
 
 - cover minimal successful execution and every mode with tests;
 - verify path resolution inside and outside a source checkout;
-- verify the manifest is absent on failure and complete on success;
+- verify the manifest is complete on success, failed for a documented
+  scientific gate rejection, and absent for other pre-terminal failures;
 - verify every documented artifact name and table schema;
 - keep plotting optional and non-interactive for automated runs;
 - record random seeds and numerical settings that affect results;

@@ -67,3 +67,22 @@ adopted model.
 The comparison measures the information supplied by different temporal
 sampling extents under one stationary LPM. It does not infer a time-varying age
 distribution and does not compare alternative LPM families for the site.
+
+### Current F09 2010 executable qualification
+
+The maintained multi-chain example is a separate, narrower qualification. It
+uses only the three F09 observations from 2010, `exp_shifted`, the declared
+observation errors, and no informative parameter prior. Five chains pass the
+registered folded rank-normalized R-hat and bulk/tail ESS gates; representative
+retained rows are also recomputed through the forward operator.
+
+Its concentration checks concern fitted latent predictions at the same
+observations used in the likelihood. PyAges does not draw new observation
+noise, so this is an in-sample latent-fit check, not posterior predictive or
+out-of-sample validation. The field data do not provide known true `mu` or
+`shift` values.
+
+The exact command, protocol, observed diagnostics, cost, and limitations are
+in {doc}`../examples/ploemeur-multichain`. This current test must not be
+conflated with the manuscript's F09/F11 full-record versus window comparison
+described above.

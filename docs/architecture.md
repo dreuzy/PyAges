@@ -9,9 +9,11 @@ YAML + observations
         |
         v
 Concentrations -> CalibrationProblem -> CalibrationMethod -> LpmSampleTable
-                         |
-                         v
-              Tracer + LPM -> Convolution
+       |                 |
+       |                 v
+       |      Tracer + LPM -> Convolution
+       |
+       `-> Problem factory -> MH ensemble -> diagnostics -> gated pooling
 ```
 
 ## Core responsibilities
@@ -23,7 +25,8 @@ Concentrations -> CalibrationProblem -> CalibrationMethod -> LpmSampleTable
 | `LpmBase` subclasses | Transit-time distributions and parameters | Tracer histories |
 | `Convolution` | The forward concentration calculation | Optimization |
 | `CalibrationProblem` | Observations, model, convolution, objective | Search algorithm state |
-| `CalibrationMethod` | Simplex or MH execution | Input loading and reporting |
+| `CalibrationMethod` | Simplex or one-chain MH execution | Input loading and reporting |
+| `MultiChainMetropolisHastings` | Pilot and production orchestration, diagnostics, qualification status | Workflow paths and serialization |
 | `LpmSampleTable` | Calibrated sample rows | Plotting and file-format logic |
 
 Composition is deliberate. A calibration method receives a prepared problem;
@@ -32,16 +35,21 @@ receives a tracer and evaluates an LPM; it is not a tracer subclass.
 
 ## Execution flow
 
-A single-date or temporal workflow performs the same sequence:
+A single-date or temporal workflow performs the same common sequence:
 
 1. Load and validate YAML with the models in `pyages.config`.
 2. Resolve paths relative to the configuration file.
 3. Load observations with `Concentrations.from_file()`.
 4. Prepare a `CalibrationProblem` containing the LPM, tracer convolutions, and
-   objective function.
-5. Run a calibration method such as Simplex or Metropolis-Hastings.
-6. Store samples in `LpmSampleTable.frame`.
-7. Write standard result tables and optional figures.
+   objective function, or define a factory that prepares a fresh problem for
+   every multi-chain stage and chain.
+5. Run Simplex, one-chain Metropolis--Hastings, or the MH ensemble.
+6. For an ensemble, run dispersed initialization and optional pilots, freeze a
+   common proposal covariance, run production chains, and diagnose them before
+   any pooling.
+7. Store each chain in its own `LpmSampleTable.frame`; create a pooled table
+   only when the configured qualification policy permits it.
+8. Write standard result tables, audit artifacts, and optional figures.
 
 The workflow modules own orchestration only. Their immutable context objects
 make resolved paths and runtime options explicit. Cross-domain exports and plot
@@ -136,11 +144,21 @@ flowchart TB
   CFG --> CTX[WorkflowContext]
   OBS --> PROBLEM[CalibrationProblem]
   CTX --> PROBLEM
+  OBS --> FACTORY[Fresh-problem factory]
+  CTX --> FACTORY
   TR[Tracer] --> CONV[Convolution]
   LPM[LPM] --> CONV
   CONV --> PROBLEM
-  PROBLEM --> METHOD[CalibrationMethod]
+  PROBLEM --> METHOD[Simplex or one-chain MH]
   METHOD --> SAMPLES[LpmSampleTable.frame]
+  FACTORY --> INIT[Dispersed starts]
+  INIT --> PILOT[Pilot chains]
+  PILOT --> COV[Fixed common covariance]
+  COV --> CHAINS[Production chains]
+  CHAINS --> DIAG[Diagnostics]
+  DIAG --> GATE{Qualification policy}
+  GATE -->|qualified or explicit exploratory mode| SAMPLES
+  GATE -->|required gate fails| AUDIT[Separate chains + audit artifacts]
   SAMPLES --> STATS[Analysis]
   SAMPLES --> FILES[TSV + manifest]
   SAMPLES --> FIGS[Optional figures]
@@ -152,6 +170,12 @@ by single-date and temporal workflows. Site code
 prepares configuration and observations but does not replace the scientific
 components shown here.
 
+The ensemble receives a problem factory rather than one shared problem because
+objective evaluation mutates the LPM state. Reusing that mutable object would
+couple chains that are intended to have separate algorithmic state. Pilot and
+production random streams are also separate, while the proposal covariance
+learned from all pilots is deliberately common and fixed during production.
+
 ## Workflow source layout
 
 The canonical module paths follow responsibilities rather than historical file
@@ -162,7 +186,7 @@ pyages/
   workflows/
     single_date/   calibration, config, context, paths, reporting glue, runner
     temporal/      calibration, cases, context, runner
-    runtime/       result manifest and Matplotlib session
+    runtime/       result manifest, Matplotlib session, and MH workflow adapter
   reporting/
     chronicles.py
     plots/         figures split by output product

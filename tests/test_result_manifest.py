@@ -12,6 +12,7 @@ from pyages import __version__
 from pyages.workflows.runtime.manifest import (
     RESULT_SCHEMA_VERSION,
     begin_result_run,
+    write_failure_manifest,
     write_result_manifest,
 )
 
@@ -72,6 +73,48 @@ def test_result_manifest_top_level_fields_are_documented(tmp_path) -> None:
 
     for field in payload:
         assert f"`{field}`" in documentation
+
+
+def test_failure_manifest_preserves_rejected_run_provenance(tmp_path) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    source = tmp_path / "observations.tsv"
+    source.write_text("element\tconcentration\ncfc11\t1\n", encoding="utf-8")
+    artifact = tmp_path / "chains" / "chain_001" / "samples.tsv"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("mu\n10\n", encoding="utf-8")
+    error = RuntimeError("R-hat exceeded its configured threshold")
+
+    target = write_failure_manifest(
+        tmp_path,
+        workflow="single_date",
+        config_path=config,
+        input_paths=[source],
+        details={"lpm": "exp"},
+        error=error,
+    )
+
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == RESULT_SCHEMA_VERSION
+    assert payload["status"] == "failed"
+    assert payload["failure"] == {
+        "type": "RuntimeError",
+        "message": "R-hat exceeded its configured threshold",
+    }
+    assert (
+        payload["configuration"]["sha256"]
+        == hashlib.sha256(config.read_bytes()).hexdigest()
+    )
+    assert (
+        payload["inputs"][0]["sha256"]
+        == hashlib.sha256(source.read_bytes()).hexdigest()
+    )
+    assert "chains/chain_001/samples.tsv" in payload["artifacts_sha256"]
+    documentation = (ROOT / "docs" / "reference" / "results.md").read_text(
+        encoding="utf-8"
+    )
+    assert "`failure`" in documentation
+    assert "`failed`" in documentation
 
 
 def test_begin_result_run_invalidates_only_the_previous_success_marker(

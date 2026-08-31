@@ -15,13 +15,16 @@ Temporal configurations can instead select an explicit root with
 
 ## Completion contract
 
-Both public workflows write `result_manifest.json` **last**, after every
-requested table and figure has been produced. A directory without a manifest
-whose `status` is `complete` is not a completed workflow result, even if it
-contains apparently usable intermediate files.
+Both public workflows write `result_manifest.json` **last** after success. A
+required multi-chain convergence gate that rejects an otherwise completed
+calculation writes the same file with `status: failed` after preserving the
+chain and diagnostic evidence. Other execution failures can leave no
+manifest. A directory without a manifest whose `status` is `complete` is not a
+completed workflow result, even if it contains apparently usable intermediate
+files.
 
 Once a workflow has prepared its target result directory, it removes any
-previous success manifest before writing new artifacts. A failed rerun can
+previous terminal manifest before writing new artifacts. A failed rerun can
 therefore not leave an earlier `"status": "complete"` marker behind. Workflows
 still reuse deterministic directories and retain other files from earlier
 runs. For qualification or publication evidence, start from an empty result
@@ -64,7 +67,7 @@ The complete layout is conditional on the `run` flags:
 |-- 01_data_model_space.png                   # reachable + calibration
 |-- 02_parameter_summary.png                  # at least one calibration
 |-- 03_objective_summary.png                  # objective map enabled
-`-- result_manifest.json                      # successful workflow only
+`-- result_manifest.json                      # success or rejected convergence gate
 ```
 
 `concentrations.txt` is always written. It is the normalized long-form
@@ -116,7 +119,7 @@ used, so distinct floating-point dates cannot be merged by fixed rounding.
 |           |-- concentrations_all_models.txt
 |           |-- distributions.txt
 |           `-- distributions_stats.txt
-`-- result_manifest.json                       # successful workflow only
+`-- result_manifest.json                       # success or rejected convergence gate
 ```
 
 The root `concentrations.txt` contains the exact effective errors used by all
@@ -125,6 +128,100 @@ case below it. `figures.concentrations_2d` has an effect only when
 `figures.distributions` is also true. The `Metropolis_Hastings` presentation
 subdirectory is produced only when `figures.temporal` is true; it is distinct
 from the LPM directory that holds the calibration tables.
+
+## Multi-chain MH artifacts
+
+```{note}
+These artifacts belong to the **Unreleased** multi-chain feature on the
+development branch and are not produced by `pyages==1.0.1` from PyPI.
+```
+
+When a present `multichain` block is enabled (the default for that block), the
+MH calibration directory keeps every production chain separate before any
+pooling. For a single-date run this is
+the existing `Metropolis_Hastings/` directory; for a temporal run it is the
+LPM directory shown above.
+
+```text
+<mh_calibration_directory>/
+|-- parameters_calibration.txt
+|-- results_calibration.txt
+|-- ensemble_provenance.txt
+|-- mcmc_diagnostics.tsv
+|-- proposal_covariance.tsv                    # pilot enabled
+|-- chains/
+|   |-- chain_001/
+|   |   |-- chain_metadata.txt
+|   |   `-- lpm_dist_calibrated.txt
+|   `-- chain_<N>/...
+|-- pilot/                                     # pilot enabled
+|   |-- pilot_metadata.txt
+|   `-- chain_<N>_samples.tsv                  # save_samples: true only
+|-- lpm_dist_calibrated.txt                    # pooled only after the gate
+|-- lpm_histo_calibrated_<parameter>.txt       # pooled only after the gate
+`-- lpm_stats_calibrated.txt                   # pooled only after the gate
+```
+
+The individual chain tables are written even when convergence qualification
+fails or a diagnostic cannot be calculated. With
+`diagnostics.require_convergence: true`, a failed or unavailable gate prevents
+the pooled root tables and stops the workflow, so no successful result manifest
+is written. Instead, the workflow writes a failure manifest with hashes of the
+preserved evidence and the `MHConvergenceError` message. With
+`require_convergence: false`, the root tables are exploratory pooled output and
+`results_calibration.txt` records their qualification status and any diagnostic
+error message; the workflow manifest is then complete.
+
+`qualification_status` has exactly these meanings:
+
+| Value | Meaning and pooling consequence |
+|---|---|
+| `qualified` | All applicable diagnostic rows pass; qualified root pooling is allowed. |
+| `not_qualified` | Diagnostics exist but at least one applicable row fails; pooling is blocked unless `require_convergence: false` explicitly selects exploratory output. |
+| `diagnostics_unavailable` | No complete diagnostic table could be calculated; the reason is stored in `diagnostics_message`, and qualified pooling is impossible. |
+
+The generic gate covers a strict R-hat limit, minimum bulk/tail ESS, and a
+finite MCSE. It does not impose an acceptance interval, relative-MCSE limit,
+residual criterion, parameter-recovery criterion, or model-adequacy decision.
+Those checks must be registered by a case-specific scientific protocol.
+
+`ensemble_provenance.txt` is a key/value table containing the realized master
+seed plus the distinct initialization, pilot, and production seed for every
+chain. Each `chain_metadata.txt` records its production seed, initial parameter
+values, retained-row count, acceptance fraction, and runtime.
+
+`proposal_covariance.tsv` is a square labeled matrix in squared parameter
+units. It is the regularized, pooled within-chain covariance learned from all
+pilots; the multiplier recorded in `parameters_calibration.txt` scales its
+standard deviations for production. `pilot_metadata.txt` records initial and
+final pilot states, acceptance fractions, retained counts, per-chain runtimes,
+and that realized multiplier. `results_calibration.txt` distinguishes summed
+pilot and production runtimes and also reports their total.
+Optional pilot sample tables contain parameters only and never contribute rows
+to the posterior files.
+
+`mcmc_diagnostics.tsv` contains one row for every monitored model parameter or
+derived LPM quantity:
+
+| Column | Meaning |
+|---|---|
+| `parameter` | Parameter or derived-quantity name |
+| `rhat` | Larger of rank-normalized and folded rank-normalized split-$\hat R$ across production chains |
+| `bulk_ess` | Bulk effective sample size across production chains |
+| `tail_ess` | Smaller effective sample size for the empirical 5% and 95% quantile indicators |
+| `mcse_mean` | Monte Carlo standard error of the posterior mean |
+| `posterior_sd` | Standard deviation over retained production draws |
+| `included_in_qualification` | Whether this row contributes to the ensemble gate; false for a structurally constant derived quantity |
+| `qualified` | Whether this row passes every configured gate |
+
+Native sampled parameters always contribute to qualification. Non-constant
+derived LPM quantities also contribute, while a structurally constant derived
+quantity is reported for completeness but cannot supply a meaningful R-hat or
+ESS and therefore does not make qualification impossible.
+
+A reproducible pandas/Matplotlib trace-reading example is in
+{doc}`../user-guide/multichain-mh`. Trace plots use the separate chain tables,
+never the pooled root table.
 
 ## Calibration table schemas
 
@@ -147,6 +244,13 @@ seconds. Metropolis-Hastings also writes `success_rate`, the fraction of
 accepted transitions. Simplex/FUQ writes aggregate optimizer run, iteration,
 evaluation, and convergence fields.
 
+For a multi-chain run this file additionally records
+`qualification_status`, `diagnostics_message`, `chain_count`, retained counts,
+whether pooling was written, mean/minimum/maximum acceptance, summed pilot and
+production runtimes, and failed diagnostic counts. Interpret
+`time_perform` as the sum of recorded pilot and production sampler runtimes,
+not proof of wall-clock parallelism.
+
 ### `lpm_dist_calibrated.txt`
 
 One row per retained joint sample. Columns appear in this order:
@@ -160,6 +264,11 @@ One row per retained joint sample. Columns appear in this order:
 
 Rows are joint samples: parameter and concentration values from different rows
 must never be recombined.
+
+Modeled concentration columns are fitted latent responses for each retained
+parameter row. They contain no newly simulated observation error and are not
+posterior predictive draws. When compared with observations used by the same
+likelihood, the comparison is in-sample.
 
 ### `lpm_histo_calibrated_<parameter>.txt`
 
@@ -196,8 +305,8 @@ masses exactly.
 | Field | Type | Meaning |
 |---|---|---|
 | `schema_version` | integer | Result-layout schema; currently `2` |
-| `status` | string | `complete`; the manifest is written only after success |
-| `created_at_utc` | string | ISO 8601 creation time with UTC offset |
+| `status` | string | `complete` after success, or `failed` after rejection by a required multi-chain convergence gate |
+| `created_at_utc` | string | ISO 8601 terminal-manifest creation time with UTC offset |
 | `pyages_version` | string | Installed PyAges version |
 | `workflow` | string | `single_date` or `temporal` |
 | `command` | array of strings | Process argument vector used for the run |
@@ -207,11 +316,17 @@ masses exactly.
 | `repository` | object | Git revision, dirty state, status, diff digest, and tracked-workspace digest when available |
 | `artifacts_sha256` | object | Relative artifact path to SHA-256 digest; excludes the manifest itself |
 | `details` | object | Workflow-specific selection metadata |
+| `failure` | object, optional | Exception `type` and `message`; present only when `status` is `failed` |
 
 For `single_date`, `details` records the dataset, configured dataset year, LPM,
-and completed calibration methods. For `temporal`, it records the dataset,
-mode, LPM list, and case
-directories.
+and completed calibration methods. A failed gate also records the attempted MH
+calibration. For `temporal`, it records the dataset, mode, LPM list, and case
+directories entered before the terminal state.
+
+A failure manifest is evidence that the configured qualification gate rejected
+the preserved chains; it is not a successful result marker. Configuration,
+input, environment, repository, and artifact hashes follow the same contract
+for both terminal statuses.
 
 The manifest fingerprints the selected direct dependencies, but it is not a
 complete package lock. Recreate a qualified environment from the versioned

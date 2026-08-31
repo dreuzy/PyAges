@@ -31,6 +31,9 @@ promise is {doc}`../reference/public-api`.
    pyages.concentrations.series
    pyages.concentrations.temporal
    pyages.calibration.methods.mh
+   pyages.calibration.methods.mh.ensemble
+   pyages.calibration.methods.mh.ensemble_config
+   pyages.calibration.methods.mh.diagnostics
    pyages.calibration.methods.mh.prior
    pyages.calibration.methods.mh.proposals
    pyages.calibration.methods.mh.trajectory
@@ -45,6 +48,7 @@ promise is {doc}`../reference/public-api`.
    pyages.data_io.lpm_params
    pyages.data_io.lpm_results
    pyages.data_io.lpm_distribution
+   pyages.data_io.mh_results
    pyages.data_io.concentrations
    pyages.cli.main
    pyages.workflows

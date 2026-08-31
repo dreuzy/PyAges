@@ -62,11 +62,13 @@ code must use the canonical imports above.
 - Public workflow directories contain `result_manifest.json`. Its
   `schema_version` field identifies the result layout; incompatible layout
   changes increment that value and are recorded in `CHANGELOG.md`.
-  Schema 2 is written only after a successful workflow and fingerprints the
-  configuration, scientific inputs, generated artifacts, runtime platform and
-  selected direct-dependency versions, Git diff, and complete tracked
-  workspace. Reproduce a qualified environment from the versioned constraint
-  or environment files; the result manifest is not a complete package lock.
+  Schema 2 is written after a successful workflow or a required multi-chain
+  convergence rejection and fingerprints the configuration, scientific inputs,
+  generated artifacts, runtime platform and selected direct-dependency
+  versions, Git diff, and complete tracked workspace. Only `status: complete`
+  marks success; `status: failed` preserves rejected-run evidence. Reproduce a
+  qualified environment from the versioned constraint or environment files;
+  the result manifest is not a complete package lock.
 - Before version 1.0, incompatible changes may occur in a minor release. From
   version 1.0 onward, incompatible public changes require a major release.
 

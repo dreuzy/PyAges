@@ -13,9 +13,10 @@ inverse-Gaussian proposals require a Hastings correction.
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import math
+from collections.abc import Mapping
+from copy import deepcopy
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -101,6 +102,10 @@ class MetropolisHastings(CalibrationMethod):
         self.trajectory: MHTrajectory | None = None
         self.time_perform = 0
         self._proposal: Proposal | None = None
+        self._resolved_proposal_metadata: dict[str, Any] = {}
+        self._resolved_prior_metadata: dict[str, Any] = {}
+        self._expected_proposal_metadata: dict[str, Any] | None = None
+        self._expected_prior_metadata: dict[str, Any] | None = None
 
     def _draw_proposal(self, p0: list[float], rng: np.random.Generator) -> list[float]:
         """Draw one unbounded proposal from the configured random walk."""
@@ -156,6 +161,57 @@ class MetropolisHastings(CalibrationMethod):
             )
             return
         raise ValueError(f"Unknown proposal_kind: {kind!r}")
+
+    def _capture_resolved_metadata(self) -> None:
+        """Snapshot prepared proposal and prior inputs before transitions.
+
+        Some settings are resolved from mutable files only after an LPM has
+        been bound.  Capturing their effective values here makes later output
+        independent of any file changes during or after the chain.
+        """
+        proposal_metadata: dict[str, Any] = {}
+        if isinstance(self._proposal, ComponentwiseRandomWalk):
+            self._proposal.add_metadata(proposal_metadata)
+        prior_metadata = self.prior.resolved_metadata(self.lpm)
+
+        self._resolved_proposal_metadata = deepcopy(proposal_metadata)
+        self._resolved_prior_metadata = deepcopy(prior_metadata)
+        if (
+            self._expected_proposal_metadata is not None
+            and self._resolved_proposal_metadata != self._expected_proposal_metadata
+        ):
+            raise ValueError(
+                "resolved proposal metadata changed since the reference snapshot"
+            )
+        if (
+            self._expected_prior_metadata is not None
+            and self._resolved_prior_metadata != self._expected_prior_metadata
+        ):
+            raise ValueError("resolved prior metadata changed since initialization")
+
+    def expect_resolved_metadata(
+        self,
+        *,
+        proposal: Mapping[str, Any] | None = None,
+        prior: Mapping[str, Any] | None = None,
+    ) -> None:
+        """Set optional snapshots that preparation must reproduce exactly."""
+        if self._proposal is not None:
+            raise RuntimeError("expected metadata must be set before sampler.run()")
+        self._expected_proposal_metadata = (
+            None if proposal is None else deepcopy(dict(proposal))
+        )
+        self._expected_prior_metadata = None if prior is None else deepcopy(dict(prior))
+
+    @property
+    def resolved_proposal_metadata(self) -> dict[str, Any]:
+        """Return a detached snapshot of the proposal used by this chain."""
+        return deepcopy(self._resolved_proposal_metadata)
+
+    @property
+    def resolved_prior_metadata(self) -> dict[str, Any]:
+        """Return a detached snapshot of the prior used by this chain."""
+        return deepcopy(self._resolved_prior_metadata)
 
     def _log_posterior_eval(
         self,
@@ -284,6 +340,8 @@ class MetropolisHastings(CalibrationMethod):
         stay outside the hot transition loop.  Observation arrays are captured
         once so their order cannot drift during sampling.
         """
+        self._resolved_proposal_metadata = {}
+        self._resolved_prior_metadata = {}
         # Prior-only validation requires retained trajectory values.
         monitor = self.config.monitor or (
             self.config.likelihood is False and self.prior.option is True
@@ -299,6 +357,7 @@ class MetropolisHastings(CalibrationMethod):
         )
         # Priors depend on the bound model's parameter names and bounds.
         self.prior.load(self.lpm)
+        self._capture_resolved_metadata()
         array_results, array_col_names = self._prepare_storage()
         return (
             rng,
@@ -467,27 +526,14 @@ class MetropolisHastings(CalibrationMethod):
         data["prior_file"] = self.config.prior_file
         data["likelihood_option"] = self.config.likelihood
         data["monitor"] = self.config.monitor
-        if isinstance(self._proposal, ComponentwiseRandomWalk):
-            self._proposal.add_metadata(data)
+        data.update(self._resolved_proposal_metadata)
         data["seed"] = self.config.seed
         data["initialization_source"] = self._initialization_source
         data["proposal_kind"] = self.config.proposal_kind
         data["proposal_multiplier"] = self.config.proposal_multiplier
         data["proposal_scales"] = self.config.proposal_scales
         data["proposal_covariance"] = self.config.proposal_covariance
-        for param, distribution in self.prior.distributions.items():
-            data[f"prior_distribution_{param}"] = distribution
-            if self.config.prior_type == "parametric":
-                data[f"prior_parameters_{param}"] = self.prior.parameters[param]
-            elif self.config.prior_file:
-                source = Path(f"{self.config.prior_file}_{param}.txt")
-                if source.is_file():
-                    data[f"prior_sha256_{param}"] = hashlib.sha256(
-                        source.read_bytes()
-                    ).hexdigest()
-                    data[f"prior_grid_points_{param}"] = len(
-                        self.prior.parameters[param]
-                    )
+        data.update(self._resolved_prior_metadata)
         for param, value in self._initial_params_used.items():
             data[f"initial_{param}"] = value
         return data

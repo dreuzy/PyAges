@@ -62,6 +62,10 @@ class DiracDouble1SetLpm(LpmBase):
         """Return the times of the two Dirac spikes."""
         return [self.p["mufree"], self.__muset]
 
+    def fixed_scientific_state(self) -> dict[str, float]:
+        """Expose the fixed spike age omitted from sampled parameters."""
+        return {"muset": self.__muset}
+
     def set_interp(self):
         """Build the finite-width PDF approximation used for visualization."""
         # Common visualization width of the exact point masses.
