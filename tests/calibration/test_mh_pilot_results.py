@@ -14,6 +14,9 @@ from dataclasses import asdict, replace
 import numpy as np
 import pytest
 
+from pyages.calibration.methods.mh._diagnostic_contract import (
+    build_diagnostic_quantities,
+)
 from pyages.calibration.methods.mh.config import MHConfig
 from pyages.calibration.methods.mh.ensemble_config import (
     MHDiagnosticsConfig,
@@ -59,6 +62,51 @@ def _diagnostic(*, qualified: bool = True) -> MHParameterDiagnostics:
         posterior_sd=2.0,
         qualified=qualified,
     )
+
+
+def test_diagnostic_quantity_contract_fixes_order_and_exact_inclusion_rule() -> None:
+    first = _sample_table(10.0)
+    second = _sample_table(10.0)
+    for table in (first, second):
+        table.frame.loc[:, "std"] = 3.0
+    first.frame.loc[:, "mean"] = 11.0
+    second.frame.loc[:, "mean"] = 22.0
+
+    quantities = build_diagnostic_quantities((first, second))
+
+    expected_names = ("mu", *first.lpm_template.moments_name())
+    assert tuple(quantity.name for quantity in quantities) == expected_names
+    inclusion = {
+        quantity.name: quantity.included_in_qualification for quantity in quantities
+    }
+    assert inclusion == {name: name in {"mu", "mean"} for name in expected_names}
+    assert quantities[0].values.shape == (2, 1)
+
+
+def test_diagnostic_quantity_contract_rejects_non_table_inputs_clearly() -> None:
+    with pytest.raises(TypeError, match="sequence of LpmSampleTable"):
+        build_diagnostic_quantities(None)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="only LpmSampleTable"):
+        build_diagnostic_quantities((object(),))  # type: ignore[arg-type]
+
+
+def test_diagnostic_quantity_contract_rejects_non_numeric_columns_clearly() -> None:
+    first = _sample_table(10.0)
+    second = _sample_table(20.0)
+    second.frame["mean"] = ["not-numeric"]
+
+    with pytest.raises(ValueError, match="'mean' in chain 2 must be numeric"):
+        build_diagnostic_quantities((first, second))
+
+
+def test_diagnostic_quantity_contract_rejects_zero_retained_draws_clearly() -> None:
+    first = _sample_table(10.0)
+    second = _sample_table(20.0)
+    for table in (first, second):
+        table.frame.drop(index=table.frame.index, inplace=True)
+
+    with pytest.raises(ValueError, match="at least one draw per chain"):
+        build_diagnostic_quantities((first, second))
 
 
 def _record_configs(chain_count: int = 2) -> tuple[MHConfig, MHEnsembleConfig]:

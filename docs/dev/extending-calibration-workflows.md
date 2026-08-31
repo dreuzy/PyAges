@@ -10,6 +10,11 @@ This page documents the current contributor contract. Presence in the selected
 API reference does not make these objects part of the public compatibility
 surface defined in {doc}`../reference/public-api`.
 
+Multi-chain MH is deliberately composition-based rather than a
+`CalibrationMethod` subclass. For a complete direct-Python example using its
+canonical contributor facade, fresh problem factory, `MHRunRecord`, and guarded
+pooling, see {ref}`multichain-mh-python-contributor-interface`.
+
 ## Calibration method contract
 
 Subclass {py:class}`pyages.calibration.methods.base.CalibrationMethod` and:
@@ -126,16 +131,21 @@ inherit from them. Follow the sequence below:
 3. load observations through `Concentrations.from_file()` or
    `Concentrations.from_dataframe()`;
 4. create an isolated run with
-   {py:func}`pyages.workflows.runtime.manifest.begin_staged_result_run`, then
+   {py:func}`pyages.workflows.runtime.begin_staged_result_run`, then
    place its identity and resolved working/output paths in an explicit,
    preferably immutable context;
 5. construct and prepare `CalibrationProblem`;
 6. call `method.run(problem)` and write standard calibration outputs;
 7. write workflow-specific tables and optional figures;
-8. write {py:func}`pyages.workflows.runtime.manifest.write_result_manifest`
+8. write {py:func}`pyages.workflows.runtime.write_result_manifest`
    **last**, passing the run identity;
-9. call {py:func}`pyages.workflows.runtime.manifest.promote_result_run` and
+9. call {py:func}`pyages.workflows.runtime.promote_result_run` and
    return the public result path.
+
+The returned `ResultRun` is an opaque lifecycle handle: inspect its identity and
+resolved directories as needed, but do not construct or alter it. Pass that same
+handle to `promote_result_run()` so the stored compare-and-swap identity remains
+bound to the staged tree.
 
 The manifest must index the YAML configuration and every external scientific
 input. Its `details` mapping should record the choices needed to understand the

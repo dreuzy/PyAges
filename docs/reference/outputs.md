@@ -224,13 +224,14 @@ derived LPM quantity:
 | `tail_ess` | Smaller effective sample size for the empirical 5% and 95% quantile indicators |
 | `mcse_mean` | Monte Carlo standard error of the posterior mean |
 | `posterior_sd` | Standard deviation over retained production draws |
-| `included_in_qualification` | Whether this row contributes to the ensemble gate; false for a structurally constant derived quantity |
+| `included_in_qualification` | Whether this row contributes to the ensemble gate; false for a derived quantity that is constant across all retained production draws |
 | `qualified` | Whether this row passes every configured gate |
 
 Native sampled parameters always contribute to qualification. Non-constant
-derived LPM quantities also contribute, while a structurally constant derived
-quantity is reported for completeness but cannot supply a meaningful R-hat or
-ESS and therefore does not make qualification impossible.
+derived LPM quantities also contribute, while a derived quantity that is
+constant across all retained production draws is reported for completeness but
+cannot supply a meaningful R-hat or ESS and therefore does not make
+qualification impossible.
 
 A reproducible pandas/Matplotlib trace-reading example is in
 {doc}`../user-guide/multichain-mh`. Trace plots use the separate chain tables,

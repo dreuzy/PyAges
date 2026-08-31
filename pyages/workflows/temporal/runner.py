@@ -13,7 +13,7 @@ from pyages.concentrations import Concentrations
 from pyages.config.models import TemporalCalibrationCfg, TemporalFiguresCfg
 from pyages.config.paths import result_subdirectory
 from pyages.reporting.plots import plot_observations_overview
-from pyages.workflows.runtime.manifest import (
+from pyages.workflows.runtime import (
     promote_result_run,
     write_failure_manifest,
     write_result_manifest,
@@ -80,20 +80,6 @@ def _manifest_details(context, case_directories: list[Path]) -> dict[str, object
     }
 
 
-def _run_id(context) -> str | None:
-    """Return the isolated-run identity when the real context provides one."""
-    result_run = getattr(context, "result_run", None)
-    return getattr(result_run, "run_id", None)
-
-
-def _promote_if_staged(context) -> Path:
-    """Publish a real workflow context while keeping lightweight test doubles."""
-    result_run = getattr(context, "result_run", None)
-    if result_run is None:
-        return context.output_directory
-    return promote_result_run(result_run)
-
-
 def run_temporal(params_path: str | Path) -> Path:
     """Execute a validated temporal Metropolis-Hastings workflow."""
     context = prepare_context(params_path)
@@ -123,9 +109,9 @@ def run_temporal(params_path: str | Path) -> Path:
                 input_paths=scientific_input_paths(context),
                 details=_manifest_details(context, written_case_directories),
                 error=error,
-                run_id=_run_id(context),
+                run_id=context.result_run.run_id,
             )
-            failure_directory = _promote_if_staged(context)
+            failure_directory = promote_result_run(context.result_run)
             error.add_note(f"Preserved result evidence: {failure_directory}")
         except Exception as manifest_error:
             error.add_note(f"Could not write failure manifest: {manifest_error}")
@@ -136,9 +122,9 @@ def run_temporal(params_path: str | Path) -> Path:
         config_path=context.config_path,
         input_paths=scientific_input_paths(context),
         details=_manifest_details(context, written_case_directories),
-        run_id=_run_id(context),
+        run_id=context.result_run.run_id,
     )
-    result_directory = _promote_if_staged(context)
+    result_directory = promote_result_run(context.result_run)
 
     if len(written_case_directories) == 1:
         relative_case = written_case_directories[0].relative_to(

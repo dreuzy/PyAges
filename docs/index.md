@@ -10,6 +10,10 @@ contracts. {doc}`Scientific reports <reports/index>` and
 are separated from task-oriented instructions because they are not user
 guides.
 
+The development branch also provides an **Unreleased**
+{doc}`multi-chain MH qualification workflow <user-guide/multichain-mh>` with
+maintained synthetic and Ploemeur profiles.
+
 ## Quality and validation
 
 - {doc}`Scientific validation <science/validation>` explains the qualification

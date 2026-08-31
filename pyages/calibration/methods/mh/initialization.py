@@ -331,6 +331,7 @@ def build_initial_states(
     tuple[dict[str, float], ...]
         Fresh dictionaries in canonical parameter order. Neither ``lpm`` nor
         ``prior`` is modified.
+
     """
     if not isinstance(config, MHInitializationConfig):
         raise TypeError("config must be an MHInitializationConfig")

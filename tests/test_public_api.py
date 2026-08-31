@@ -12,6 +12,7 @@ from click.testing import CliRunner
 
 import pyages
 import pyages.qualification as qualification
+import pyages.workflows.runtime as workflow_runtime
 from pyages.calibration.methods import mh
 from pyages.calibration.methods.mh import config as mh_config
 from pyages.calibration.methods.mh import ensemble as mh_ensemble
@@ -20,6 +21,7 @@ from pyages.calibration.methods.mh import errors as mh_errors
 from pyages.calibration.methods.mh import results as mh_results
 from pyages.calibration.methods.mh import sampler as mh_sampler
 from pyages.cli.main import cli
+from pyages.workflows.runtime import manifest as runtime_manifest
 from pyages.workflows.runtime import mh as runtime_mh
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -100,3 +102,21 @@ def test_mh_facade_exports_only_canonical_objects() -> None:
     assert not hasattr(mh_ensemble, "ProblemFactory")
     assert not hasattr(runtime_mh, "build_mh_ensemble_config")
     assert not hasattr(runtime_mh, "mh_stage_directory")
+
+
+def test_workflow_runtime_facade_exports_only_canonical_lifecycle_services() -> None:
+    expected = {
+        "ResultRun": runtime_manifest.ResultRun,
+        "begin_staged_result_run": runtime_manifest.begin_staged_result_run,
+        "promote_result_run": runtime_manifest.promote_result_run,
+        "write_failure_manifest": runtime_manifest.write_failure_manifest,
+        "write_result_manifest": runtime_manifest.write_result_manifest,
+    }
+
+    assert workflow_runtime.__all__ == list(expected)
+    assert all(
+        getattr(workflow_runtime, name) is value for name, value in expected.items()
+    )
+    assert not hasattr(workflow_runtime, "RESULT_SCHEMA_VERSION")
+    assert not hasattr(workflow_runtime, "begin_result_run")
+    assert not hasattr(workflow_runtime, "_promotion_lock")

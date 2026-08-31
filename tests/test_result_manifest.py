@@ -4,6 +4,7 @@
 
 """Contracts for versioned public workflow result metadata."""
 
+import errno
 import hashlib
 import json
 import os
@@ -14,6 +15,7 @@ import pytest
 from pyages import __version__
 from pyages.workflows.runtime.manifest import (
     RESULT_SCHEMA_VERSION,
+    ResultRun,
     begin_result_run,
     begin_staged_result_run,
     promote_result_run,
@@ -164,11 +166,19 @@ def test_staged_run_promotes_only_the_current_run_artifacts(tmp_path) -> None:
     assert stale.is_file()
     assert (result_directory / "result_manifest.json").is_file()
 
-    write_result_manifest(
+    manifest_path = write_result_manifest(
         run.working_directory,
         workflow="single_date",
         config_path=config,
         run_id=run.run_id,
+    )
+    sealed_state = json.loads(
+        (run.working_directory / ".pyages-run-state.json").read_text(encoding="utf-8")
+    )
+    assert sealed_state["schema_version"] == 3
+    assert (
+        sealed_state["terminal_manifest_sha256"]
+        == hashlib.sha256(manifest_path.read_bytes()).hexdigest()
     )
     promoted = promote_result_run(run)
 
@@ -188,6 +198,104 @@ def test_staged_run_promotes_only_the_current_run_artifacts(tmp_path) -> None:
             (promoted / "chains" / "samples.tsv").read_bytes()
         ).hexdigest()
     }
+
+
+def test_result_run_is_an_opaque_non_constructible_handle(tmp_path) -> None:
+    run = begin_staged_result_run(tmp_path / "results")
+
+    with pytest.raises(TypeError):
+        ResultRun()  # type: ignore[call-arg]
+
+    assert not hasattr(run, "expected_publication_token")
+    assert "publication_token" not in repr(run)
+
+
+def test_promote_result_run_rejects_a_non_handle() -> None:
+    with pytest.raises(TypeError, match="requires a ResultRun handle"):
+        promote_result_run(object())  # type: ignore[arg-type]
+
+
+def test_begin_staged_result_run_rejects_a_symbolic_link_target(tmp_path) -> None:
+    actual = tmp_path / "actual"
+    actual.mkdir()
+    link = tmp_path / "results"
+    try:
+        link.symlink_to(actual, target_is_directory=True)
+    except OSError as error:
+        pytest.skip(f"Directory symlinks are unavailable: {error}")
+
+    with pytest.raises(ValueError, match="symbolic link or junction"):
+        begin_staged_result_run(link)
+
+    assert actual.is_dir()
+
+
+def test_begin_staged_result_run_rejects_a_mocked_junction(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "results"
+    monkeypatch.setattr(
+        Path,
+        "is_junction",
+        lambda path: path == target,
+        raising=False,
+    )
+
+    with pytest.raises(ValueError, match="symbolic link or junction"):
+        begin_staged_result_run(target)
+
+
+def test_promotion_rejects_a_working_directory_replaced_by_a_symlink(
+    tmp_path,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    run = begin_staged_result_run(tmp_path / "results")
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    actual_working = tmp_path / "actual-working"
+    run.working_directory.replace(actual_working)
+    try:
+        run.working_directory.symlink_to(actual_working, target_is_directory=True)
+    except OSError as error:
+        actual_working.replace(run.working_directory)
+        pytest.skip(f"Directory symlinks are unavailable: {error}")
+
+    with pytest.raises(RuntimeError, match="Staged working path.*symbolic link"):
+        promote_result_run(run)
+
+    assert actual_working.is_dir()
+
+
+def test_promotion_revalidates_a_public_target_junction(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    run = begin_staged_result_run(tmp_path / "results")
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    monkeypatch.setattr(
+        Path,
+        "is_junction",
+        lambda path: path == run.result_directory,
+        raising=False,
+    )
+
+    with pytest.raises(RuntimeError, match="Public result path.*junction"):
+        promote_result_run(run)
+
+    assert run.working_directory.is_dir()
 
 
 def test_staged_run_rejects_artifacts_changed_after_terminal_manifest(
@@ -211,6 +319,59 @@ def test_staged_run_rejects_artifacts_changed_after_terminal_manifest(
         promote_result_run(run)
     assert run.working_directory.is_dir()
     assert not run.result_directory.exists()
+
+
+def test_staged_run_rejects_a_terminal_manifest_changed_after_sealing(
+    tmp_path,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    run = begin_staged_result_run(tmp_path / "results")
+    manifest_path = write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    payload["configuration"]["sha256"] = "0" * 64
+    manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="changed after it was sealed"):
+        promote_result_run(run)
+
+
+def test_nested_control_filenames_remain_manifested_artifacts(tmp_path) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    run = begin_staged_result_run(tmp_path / "results")
+    nested = run.working_directory / "case"
+    nested.mkdir()
+    nested_manifest = nested / "result_manifest.json"
+    nested_state = nested / ".pyages-run-state.json"
+    nested_manifest.write_text("nested manifest\n", encoding="utf-8")
+    nested_state.write_text("ordinary artifact\n", encoding="utf-8")
+
+    manifest_path = write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    artifacts = json.loads(manifest_path.read_text(encoding="utf-8"))[
+        "artifacts_sha256"
+    ]
+
+    assert artifacts == {
+        "case/.pyages-run-state.json": hashlib.sha256(
+            nested_state.read_bytes()
+        ).hexdigest(),
+        "case/result_manifest.json": hashlib.sha256(
+            nested_manifest.read_bytes()
+        ).hexdigest(),
+    }
+    promoted = promote_result_run(run)
+    assert (promoted / "case" / ".pyages-run-state.json").is_file()
 
 
 def test_staged_run_uses_compare_and_swap_for_concurrent_promotions(tmp_path) -> None:
@@ -301,6 +462,26 @@ def test_nested_publication_invalidates_an_older_ancestor_run(tmp_path) -> None:
     ) == "nested\n"
 
 
+def test_promotion_rejects_an_active_child_in_the_incoming_tree(tmp_path) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    parent = begin_staged_result_run(tmp_path / "results")
+    child = begin_staged_result_run(parent.working_directory / "nested")
+    write_result_manifest(
+        parent.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=parent.run_id,
+    )
+
+    with pytest.raises(RuntimeError, match="active nested staged run"):
+        promote_result_run(parent)
+
+    assert parent.working_directory.is_dir()
+    assert child.working_directory.is_dir()
+    assert not parent.result_directory.exists()
+
+
 def test_promotion_restores_the_previous_tree_when_the_commit_rename_fails(
     tmp_path, monkeypatch
 ) -> None:
@@ -336,6 +517,117 @@ def test_promotion_restores_the_previous_tree_when_the_commit_rename_fails(
     assert previous_manifest.is_file()
     assert run.working_directory.is_dir()
     assert not list(tmp_path.glob(".pyages-prev-*"))
+
+
+def test_promotion_restores_after_the_previous_tree_move_reports_failure(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    result_directory = tmp_path / "results"
+    result_directory.mkdir()
+    previous = result_directory / "previous.tsv"
+    previous.write_text("previous\n", encoding="utf-8")
+    run = begin_staged_result_run(result_directory)
+    (run.working_directory / "samples.tsv").write_text("new\n", encoding="utf-8")
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    backup = tmp_path / f".pyages-prev-{run.run_id[:12]}"
+    real_replace = Path.replace
+
+    def fail_after_move(source, target):
+        replaced = real_replace(source, target)
+        if source == result_directory and target == backup:
+            raise OSError("injected post-move failure")
+        return replaced
+
+    monkeypatch.setattr(Path, "replace", fail_after_move)
+
+    with pytest.raises(OSError, match="injected post-move failure"):
+        promote_result_run(run)
+
+    assert previous.read_text(encoding="utf-8") == "previous\n"
+    assert run.working_directory.is_dir()
+    assert not backup.exists()
+
+
+def test_promotion_reports_recovery_paths_when_restoration_fails(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    result_directory = tmp_path / "results"
+    result_directory.mkdir()
+    (result_directory / "previous.tsv").write_text("previous\n", encoding="utf-8")
+    run = begin_staged_result_run(result_directory)
+    (run.working_directory / "samples.tsv").write_text("new\n", encoding="utf-8")
+    write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    backup = tmp_path / f".pyages-prev-{run.run_id[:12]}"
+    real_replace = Path.replace
+
+    def fail_commit_and_restore(source, target):
+        if source == run.working_directory:
+            raise OSError("injected commit failure")
+        if source == backup:
+            raise OSError("injected restoration failure")
+        return real_replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", fail_commit_and_restore)
+
+    with pytest.raises(RuntimeError, match="rollback could not restore") as caught:
+        promote_result_run(run)
+
+    message = str(caught.value)
+    assert f"public={result_directory}" in message
+    assert f"staging={run.working_directory}" in message
+    assert f"backup={backup}" in message
+    assert not result_directory.exists()
+    assert run.working_directory.is_dir()
+    assert backup.is_dir()
+
+
+def test_windows_lock_retries_transient_contention(monkeypatch) -> None:
+    from pyages.workflows.runtime import manifest as manifest_module
+
+    class LockStream:
+        @staticmethod
+        def seek(_offset):
+            return None
+
+        @staticmethod
+        def fileno():
+            return 42
+
+    class FakeMsvcrt:
+        LK_NBLCK = 1
+        attempts = 0
+
+        @classmethod
+        def locking(cls, _file_descriptor, mode, _length):
+            assert mode == cls.LK_NBLCK
+            cls.attempts += 1
+            if cls.attempts < 3:
+                raise OSError(errno.EACCES, "lock contention")
+
+    sleeps = []
+    monkeypatch.setattr(manifest_module, "msvcrt", FakeMsvcrt, raising=False)
+    monkeypatch.setattr(manifest_module.time, "sleep", sleeps.append)
+
+    manifest_module._acquire_windows_promotion_lock(LockStream())
+
+    assert FakeMsvcrt.attempts == 3
+    assert sleeps == [0.05, 0.05]
 
 
 def test_staged_run_rejects_a_mismatched_run_identity(tmp_path) -> None:

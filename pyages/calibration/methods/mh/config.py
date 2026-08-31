@@ -95,6 +95,7 @@ class MHConfig:
     size. Publication analyses must report independent-chain diagnostics in
     addition to these settings; see ``docs/scientific-methods.md`` and
     ``docs/reports/mh_proposal_qualification.md``.
+
     """
 
     nstep: int = 10000

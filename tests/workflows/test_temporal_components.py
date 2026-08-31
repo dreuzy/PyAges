@@ -19,6 +19,7 @@ from pyages.config.models import (
     TemporalFiguresCfg,
     TemporalResultsCfg,
 )
+from pyages.workflows.runtime import begin_staged_result_run
 from pyages.workflows.temporal import calibration as temporal_calibration
 from pyages.workflows.temporal import cases as temporal_cases
 from pyages.workflows.temporal import context as temporal_context
@@ -253,8 +254,8 @@ def test_load_concentrations_resolves_errors_after_optional_override(
 def test_run_temporal_writes_effective_observations_and_manifest(
     tmp_path, monkeypatch
 ) -> None:
-    output = tmp_path / "results"
-    output.mkdir()
+    result_run = begin_staged_result_run(tmp_path / "results")
+    output = result_run.working_directory
     observations = SimpleNamespace(
         frame=pd.DataFrame(
             {
@@ -275,6 +276,7 @@ def test_run_temporal_writes_effective_observations_and_manifest(
         models=["exp"],
         lpm_directory=tmp_path / "lpm",
         observations=observations,
+        result_run=result_run,
         output_directory=output,
         params=SimpleNamespace(
             dataset=SimpleNamespace(error_rel=None, missing_error_rel=0.01),
@@ -283,6 +285,7 @@ def test_run_temporal_writes_effective_observations_and_manifest(
         ),
     )
     manifest = Mock()
+    promote = Mock(return_value=result_run.result_directory)
     case_directory = output / "span_full"
     monkeypatch.setattr(temporal, "prepare_context", lambda _path: context)
     monkeypatch.setattr(
@@ -291,10 +294,11 @@ def test_run_temporal_writes_effective_observations_and_manifest(
         lambda *_args, **_kwargs: [case_directory],
     )
     monkeypatch.setattr(temporal, "write_result_manifest", manifest)
+    monkeypatch.setattr(temporal, "promote_result_run", promote)
 
     result = temporal.run_temporal(context.config_path)
 
-    assert result == case_directory
+    assert result == result_run.result_directory / "span_full"
     written = pd.read_table(output / "concentrations.txt")
     pd.testing.assert_frame_equal(written, observations.frame)
     assert manifest.call_args.kwargs["input_paths"][0] == context.dataset_path
@@ -303,6 +307,8 @@ def test_run_temporal_writes_effective_observations_and_manifest(
         "missing_error_rel": 0.01,
         "transformations": [],
     }
+    assert manifest.call_args.kwargs["run_id"] == result_run.run_id
+    promote.assert_called_once_with(result_run)
 
 
 def test_run_temporal_manifests_a_multichain_convergence_failure(
@@ -310,8 +316,8 @@ def test_run_temporal_manifests_a_multichain_convergence_failure(
 ) -> None:
     from pyages.calibration.methods.mh import MHConvergenceError
 
-    output = tmp_path / "results"
-    output.mkdir()
+    result_run = begin_staged_result_run(tmp_path / "results")
+    output = result_run.working_directory
     observations = SimpleNamespace(
         frame=pd.DataFrame(
             {
@@ -332,6 +338,7 @@ def test_run_temporal_manifests_a_multichain_convergence_failure(
         models=["exp"],
         lpm_directory=tmp_path / "lpm",
         observations=observations,
+        result_run=result_run,
         output_directory=output,
         params=SimpleNamespace(
             dataset=SimpleNamespace(error_rel=None, missing_error_rel=0.01),
@@ -341,6 +348,7 @@ def test_run_temporal_manifests_a_multichain_convergence_failure(
     )
     error = MHConvergenceError("mean did not converge; artifacts preserved")
     failure_manifest = Mock()
+    promote = Mock(return_value=result_run.result_directory)
 
     def fail_after_start(*_args, written_case_directories, **_kwargs):
         written_case_directories.append(output / "span_full")
@@ -351,6 +359,7 @@ def test_run_temporal_manifests_a_multichain_convergence_failure(
     monkeypatch.setattr(temporal, "write_failure_manifest", failure_manifest)
     success_manifest = Mock()
     monkeypatch.setattr(temporal, "write_result_manifest", success_manifest)
+    monkeypatch.setattr(temporal, "promote_result_run", promote)
 
     with pytest.raises(MHConvergenceError, match=r"mean.*preserved"):
         temporal.run_temporal(context.config_path)
@@ -360,7 +369,11 @@ def test_run_temporal_manifests_a_multichain_convergence_failure(
     assert failure_manifest.call_args.kwargs["details"]["case_directories"] == [
         "span_full"
     ]
-    assert error.__notes__ == [f"Preserved result evidence: {output}"]
+    assert error.__notes__ == [
+        f"Preserved result evidence: {result_run.result_directory}"
+    ]
+    assert failure_manifest.call_args.kwargs["run_id"] == result_run.run_id
+    promote.assert_called_once_with(result_run)
 
 
 def test_prepare_temporal_context_does_not_stage_before_missing_dataset_failure(

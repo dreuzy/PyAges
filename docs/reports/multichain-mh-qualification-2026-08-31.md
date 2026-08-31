@@ -1,7 +1,8 @@
 # Multi-chain MH qualification record — 2026-08-31
 
-**Status:** executable development-branch qualification; Unreleased in PyPI
-`1.0.1`.
+**Status:** executable development-branch qualification on the final integrated
+test inventory; Unreleased in PyPI `1.0.1`. Strict documentation, package, and
+installed-wheel checks passed on the consolidated tree.
 
 ## Decision
 
@@ -38,12 +39,16 @@ python -m pytest -q --run-extensive tests/examples/test_ploemeur_multichain_scie
 `python run_tests.py extensive` runs these cases with the complete core suite.
 
 The final qualified Windows/Python 3.12 verification used the final inventory
-of 1,354 standard cases, seven extensive cases, 1,361 core cases including
-extensive, and 1,426 cases across all documented pytest scopes. The standard
-profile passed 1,354 cases and skipped the seven opt-in extensive cases in
-455.41 seconds. The extensive profile passed all seven cases and deselected the
-1,354 standard cases in 928.54 seconds. Together the two profiles exercised all
-1,361 core cases in 1,383.95 seconds.
+of 1,374 standard-selected cases, seven extensive cases, 1,381 core cases
+including extensive, and 1,446 cases across all documented pytest scopes. The
+standard profile passed 1,372 cases and skipped nine cases in 629.02 seconds:
+the seven opt-in extensive cases plus two real-directory-symlink tests on the
+unprivileged Windows host. The extensive profile passed all seven cases and
+deselected the 1,374 standard cases in 948.35 seconds. Combined elapsed time was
+1,577.37 seconds. A final focused hardening selection passed 179 cases and
+skipped the same two real-symlink cases in 106.59 seconds; within it, the
+manifest subset passed 30 with two skips and the MH/documentation subset passed
+43.
 
 A dedicated short pytest base directory was used because the legacy
 site-specific Ploemeur golden has a deeply nested result layout on Windows;
@@ -54,21 +59,37 @@ this changes no configuration, seed, calculation, or scientific artifact.
 The final campaign exercises the hardened implementation rather than only the
 original numerical prototype:
 
-- diagnostics must form the exact ordered schema of sampled parameters and
-  declared derived moments, use finite stored values from every chain, follow
-  the canonical constant-derived inclusion policy, and reproduce the
-  qualification decision from frozen thresholds;
+- live diagnostics and immutable-record validation share one canonical ordered
+  quantity/inclusion contract; diagnostics must cover the sampled parameters
+  and declared derived moments, use finite stored values from every chain,
+  follow the constant-derived policy, and reproduce the qualification decision
+  from frozen thresholds;
 - proposal covariance, pilot arrays, states, configurations, and metadata use
   immutable backing, while pilot and production records carry integrity
   fingerprints revalidated before pooling or serialization;
-- result manifests index only current-run artifacts, and terminal staging
-  promotion revalidates those artifacts under a process-independent lock;
-- concurrent publication uses a complete-tree compare-and-swap token, refuses
-  to replace a tree containing an active nested stage, and restores the
-  preceding public tree if the final commit rename fails;
+- result manifests index only current-run artifacts; internal run-journal schema
+  3 seals the terminal-manifest digest before promotion, without changing the
+  public result-manifest schema;
+- concurrent publication uses a complete-tree compare-and-swap token under one
+  process-independent global lock, rejects result or working paths redirected
+  through symlinks or junctions, and refuses active child stages in both the
+  public and incoming trees while treating nested control-file homonyms as
+  ordinary artifacts unless they contain a valid active journal;
+- promotion revalidates the sealed manifest and every indexed artifact, and its
+  rollback covers both namespace changes if the final commit rename fails;
 - convergence rejection uses the dedicated `MHConvergenceError`, preserves
   chain and diagnostic evidence in a promoted failure manifest, and remains
-  distinct from unavailable diagnostics and unrelated programming errors.
+  distinct from unavailable diagnostics and unrelated programming errors; the
+  non-verbose CLI prints the preserved-evidence location exactly once.
+
+The contributor surface also has one canonical workflow-runtime facade. Its
+`ResultRun` is an opaque non-constructible lifecycle handle rather than a second
+configuration source. The direct-Python multi-chain example uses the canonical
+MH facade, creates a fresh prepared problem for every request, guards pooling on
+qualification, and exposes failed diagnostics. It was exercised manually;
+standard CI checks its syntax and control flow with compilation and AST
+assertions. A progressive NumPy-docstring gate covers the qualified calibration
+and workflow-runtime surface.
 
 The architecture remains composition-based. The ensemble composes fresh
 problems, single-chain samplers, frozen configuration, diagnostics, and one
@@ -119,6 +140,23 @@ Neither result establishes LPM uniqueness, robustness to every prior or bound,
 out-of-sample prediction, tracer-history correctness, or transferability to
 another aquifer.
 
+## Residual engineering conditions
+
+- Two tests that require creation of real directory symlinks are skipped on the
+  qualified Windows host without link-creation privilege. Junction-specific and
+  mocked link/junction tests cover the rejection logic, but privileged Windows
+  execution would strengthen the platform evidence.
+- The docstring gate is deliberately progressive over the qualified
+  calibration/workflow-runtime surface, not the entire legacy repository.
+- The direct-Python example is too long for the standard CI profile. It was
+  executed manually; CI compiles and parses its guarded structure rather than
+  rerunning the ensemble.
+- The global hierarchy lock serializes staged-run creation and promotion. This
+  is an intentional safety tradeoff and not a parallel-publication claim.
+- The scientific limits above are unchanged by these engineering hardenings:
+  convergence gates and manifest integrity do not establish identifiability,
+  model adequacy, out-of-sample prediction, or transferability.
+
 ## Evidence preservation
 
 The weekly or manually dispatched extensive CI job fixes pytest's temporary
@@ -137,7 +175,6 @@ artifact SHA-256 values. Neither a successful CI log nor its 30-day artifact is
 a permanent scientific archive.
 
 Operational instructions are in {doc}`../user-guide/multichain-mh`; exact file
-schemas are in {doc}`../reference/outputs`. The strict documentation build is
-recorded as passed in the companion refactoring audit. That audit also records
-successful sdist/wheel builds, metadata checks, and installed-wheel API and CLI
-smoke verification on the candidate.
+schemas are in {doc}`../reference/outputs`. Strict Sphinx, sdist/wheel metadata,
+and installed-wheel API/CLI smoke verification passed on the consolidated
+candidate and are recorded in the companion refactoring audit.

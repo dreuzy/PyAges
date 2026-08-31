@@ -376,6 +376,7 @@ def write_mh_ensemble_result(
     LpmSampleTable or None
         A newly pooled sample table when root posterior outputs were written;
         otherwise ``None``.  Individual chain tables are never mutated.
+
     """
     _validate_record(record)
     ensemble_config = record.ensemble_config

@@ -240,6 +240,8 @@ def _run_single_date(config: Path, inline: bool, verbose: bool):
             import traceback
 
             traceback.print_exc()
+        else:
+            _echo_exception_notes(e)
         sys.exit(1)
 
 
@@ -264,4 +266,16 @@ def _run_transient(config: Path, verbose: bool):
             import traceback
 
             traceback.print_exc()
+        else:
+            _echo_exception_notes(e)
         sys.exit(1)
+
+
+def _echo_exception_notes(error: BaseException) -> None:
+    """Print distinct exception notes hidden by ``str(error)``."""
+    seen: set[str] = set()
+    for note in getattr(error, "__notes__", ()):
+        text = str(note)
+        if text and text not in seen:
+            click.echo(click.style(f"  {text}", fg="red"))
+            seen.add(text)

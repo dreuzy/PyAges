@@ -117,6 +117,7 @@ def test_repository_scripts_are_grouped_by_responsibility():
         "maintenance": {
             "check_licensing.py",
             "check_project_metadata.py",
+            "check_qualified_docstrings.py",
             "clean_release_artifacts.py",
             "generate_test_inventory.py",
         },

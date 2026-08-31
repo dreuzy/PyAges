@@ -70,10 +70,11 @@ parameter states but does not draw new observation noise. The check is
 therefore described as an in-sample check of fitted latent predictions.
 
 For the fixed seed in the qualified environment, the observed maximum R-hat
-was `1.001381`, the minimum bulk/tail ESS was `2485.89`, chain acceptance
-fractions ranged from `0.3480` to `0.3738`, and the normalized RMS residual of
-the median fitted latent prediction was `1.0687`. The executable test enforces
-scientific thresholds rather than exact equality to those descriptive values.
+was `1.001381`, the minimum bulk ESS was `2485.89`, the minimum tail ESS was
+`2950.23`, chain acceptance fractions ranged from `0.3480` to `0.3738`, and the
+normalized RMS residual of the median fitted latent prediction was `1.0687`.
+The executable test enforces scientific thresholds rather than exact equality
+to those descriptive values.
 
 Run it with:
 

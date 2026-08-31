@@ -53,6 +53,11 @@ modules and the internal `pyages.workflows.plots` and
 `pyages.workflows.synthetic_recovery` paths are removed before 1.0; contributor
 code must use the canonical imports above.
 
+The contributor runtime facade exports the staged-result lifecycle
+`begin_staged_result_run()`, `write_result_manifest()`,
+`write_failure_manifest()`, and `promote_result_run()`. Its returned `ResultRun`
+is an opaque handle created by the facade, not a caller-constructed data model.
+
 Contributor code that compares independently prepared calibration targets
 imports the signature records and
 `build_calibration_target_signature()` from

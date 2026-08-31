@@ -109,6 +109,107 @@ Thinning discards information and cannot improve mixing. Increase production
 length when ESS is insufficient. Do not weaken a gate merely to obtain a
 pooled file.
 
+(multichain-mh-python-contributor-interface)=
+## Embed the ensemble in contributor code
+
+```{important}
+The YAML workflow and `pyages run` are the supported user interfaces. The
+objects below are selected contributor interfaces: they are documented for
+extensions, but their presence in the generated API does not add them to the
+public compatibility surface defined in {doc}`../reference/public-api`.
+```
+
+The following source-checkout example constructs synthetic observations, uses
+only the canonical MH facade for ensemble objects, creates a fresh prepared
+`CalibrationProblem` for every requested stage and chain, and pools only after
+the configured qualification gate passes:
+
+```python
+from pyages.calibration.methods.mh import (
+    MHConfig,
+    MHDiagnosticsConfig,
+    MHEnsembleConfig,
+    MHInitializationConfig,
+    MHPilotConfig,
+    MHRunRecord,
+    MultiChainMetropolisHastings,
+)
+from pyages.calibration.problem import CalibrationProblem
+from pyages.convolution import ConvolutionTracers
+from pyages.lpm.factory import build_lpm
+
+# Build a small one-parameter synthetic target and its observation table.
+target = build_lpm("exp")
+tracers = ConvolutionTracers(names=["cfc11"], date=2010.0)
+observations = tracers.convolve(target, return_type="concentrations")
+observations.set_relative_errors(0.20)
+
+chain_config = MHConfig(
+    nstep=4000,
+    burn_in=0.25,
+    nskip=1,
+    prior_option=False,
+    likelihood=True,
+    monitor=False,
+    display_traj=False,
+    componentwise_source="model",
+)
+ensemble_config = MHEnsembleConfig(
+    chains=4,
+    master_seed=20260831,
+    initialization=MHInitializationConfig(strategy="bounds_stratified"),
+    pilot=MHPilotConfig(
+        enabled=True,
+        nstep=1500,
+        burn_in=0.5,
+        covariance_mode="pooled_within_chain",
+        relative_ridge=1.0e-6,
+        proposal_multiplier=None,  # None selects 2.38 / sqrt(dimension).
+    ),
+    diagnostics=MHDiagnosticsConfig(
+        max_rhat=1.01,
+        min_bulk_ess=300,
+        min_tail_ess=300,
+        require_convergence=True,
+    ),
+)
+
+
+def problem_factory(_stage: str, _chain_id: int) -> CalibrationProblem:
+    # Never cache or reuse this object: evaluation mutates its LPM state.
+    return CalibrationProblem(
+        observations,
+        "exp",
+        explore_objective=False,
+        explore_reachable=False,
+    ).prepare()
+
+
+ensemble = MultiChainMetropolisHastings(chain_config, ensemble_config)
+record: MHRunRecord = ensemble.run(problem_factory)
+if record.qualification_status == "qualified":
+    pooled = record.pooled_samples()
+    print(record.qualification_status, len(pooled.frame))
+else:
+    print("Ensemble status:", record.qualification_status)
+    if record.diagnostics:
+        for diagnostic in record.diagnostics:
+            print(
+                diagnostic.parameter,
+                diagnostic.rhat,
+                diagnostic.bulk_ess,
+                diagnostic.tail_ess,
+                diagnostic.qualified,
+            )
+    else:
+        print("Diagnostics unavailable:", record.diagnostics_message)
+```
+
+This direct engine returns an in-memory record; it does not reproduce workflow
+staging, manifests, or the documented result-file layout. Use the YAML workflow
+when those operational guarantees are required. Contributor workflow wiring is
+discussed in {doc}`../dev/extending-calibration-workflows`.
+
 ## Interpret qualification and failure
 
 The workflow records one of three statuses:

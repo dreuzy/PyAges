@@ -70,7 +70,7 @@ commands and active configuration use the grouped module paths below.
 | Diagnostics and qualification | `scripts.qualification` | Fast environment checks, calibration comparison, and MH proposal qualification |
 | Article campaigns, post-processing, and audit | `scripts.article` | Complete or focused campaigns; figures, tables, and audit reports |
 | Publication archives | `scripts.release` | Build and validate publication-facing artifacts |
-| Repository maintenance | `scripts.maintenance` | Check metadata and licensing, clean artifacts, and refresh test documentation |
+| Repository maintenance | `scripts.maintenance` | Check metadata, licensing, and qualified-surface docstrings; clean artifacts; and refresh test documentation |
 | Shared helpers | `scripts.common` | Reusable provenance, reporting, plotting, and launcher helpers; not primary CLIs |
 
 Invoke a module as `python -m scripts.<family>.<module> --help` when it exposes a CLI.

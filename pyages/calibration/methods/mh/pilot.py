@@ -64,6 +64,7 @@ def pooled_within_chain_covariance(
     -----
     Each chain is centered separately before its scatter matrix is accumulated.
     Consequently, differences between chain means do not enter the estimate.
+
     """
     if not math.isfinite(relative_ridge) or relative_ridge < 0.0:
         raise ValueError("relative_ridge must be finite and non-negative")

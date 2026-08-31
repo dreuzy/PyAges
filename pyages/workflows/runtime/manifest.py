@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import importlib.metadata
 import json
@@ -15,10 +16,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 import warnings
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, BinaryIO, Iterable, Iterator, Literal, Mapping
@@ -31,32 +33,74 @@ else:
 from pyages import __version__
 
 RESULT_SCHEMA_VERSION = 2
+_RUN_STATE_SCHEMA_VERSION = 3
 _DEPENDENCIES = ("numpy", "scipy", "pandas", "matplotlib", "PyYAML", "pydantic")
 _RUN_STATE_FILENAME = ".pyages-run-state.json"
 _TERMINAL_MANIFEST_FILENAME = "result_manifest.json"
 _PROMOTION_LOCK_FILENAME = ".pyages-promotion-v1.lock"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class ResultRun:
-    """One isolated workflow run awaiting terminal promotion."""
+    """Opaque handle for a staged run created by :func:`begin_staged_result_run`.
+
+    Callers may use the run identity and resolved directories, but should not
+    construct this class themselves. Pass the unchanged handle to
+    :func:`promote_result_run` after writing its terminal manifest.
+    """
 
     run_id: str
     started_at_utc: str
     result_directory: Path
     working_directory: Path
-    expected_publication_token: str
+    _expected_publication_token: str = field(repr=False)
+
+    def __init__(self) -> None:
+        """Reject direct construction; use :func:`begin_staged_result_run`."""
+        raise TypeError("ResultRun handles are created by begin_staged_result_run().")
 
 
 @dataclass(frozen=True)
 class _RunState:
+    """Validated journal state for implicit, in-place, or isolated staged writes.
+
+    ``implicit`` exists only while writing a compatibility manifest without a
+    journal. ``in_place`` tracks contributor workflows that reuse one tree;
+    ``staged`` binds an isolated working tree to its public destination and CAS
+    token, then seals its terminal manifest digest before promotion. The journal
+    schema is independent from ``RESULT_SCHEMA_VERSION``.
+    """
+
     run_id: str
     started_at_utc: str
     mode: Literal["implicit", "in_place", "staged"]
     result_directory: Path
     baseline: Mapping[str, str]
     expected_publication_token: str | None
+    terminal_manifest_sha256: str | None
     managed: bool
+
+
+def _new_result_run(
+    *,
+    run_id: str,
+    started_at_utc: str,
+    result_directory: Path,
+    working_directory: Path,
+    expected_publication_token: str,
+) -> ResultRun:
+    """Construct the opaque staged-run handle inside this module only."""
+    run = object.__new__(ResultRun)
+    object.__setattr__(run, "run_id", run_id)
+    object.__setattr__(run, "started_at_utc", started_at_utc)
+    object.__setattr__(run, "result_directory", result_directory)
+    object.__setattr__(run, "working_directory", working_directory)
+    object.__setattr__(
+        run,
+        "_expected_publication_token",
+        expected_publication_token,
+    )
+    return run
 
 
 def _utc_now() -> str:
@@ -69,6 +113,14 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _is_link_or_junction(path: Path) -> bool:
+    """Return whether the final path component redirects to another location."""
+    if path.is_symlink():
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(is_junction is not None and is_junction())
 
 
 def _sha256_text(value: str | None) -> str | None:
@@ -269,11 +321,14 @@ def _indexed_files(
 
 
 def _artifact_files(directory: Path) -> list[Path]:
+    control_paths = {
+        directory / _TERMINAL_MANIFEST_FILENAME,
+        directory / _RUN_STATE_FILENAME,
+    }
     return [
         path
         for path in sorted(directory.rglob("*"))
-        if path.is_file()
-        and path.name not in {_TERMINAL_MANIFEST_FILENAME, _RUN_STATE_FILENAME}
+        if path.is_file() and path not in control_paths
     ]
 
 
@@ -349,9 +404,10 @@ def _state_payload(
     result_directory: Path,
     baseline: Mapping[str, str],
     expected_publication_token: str | None = None,
+    terminal_manifest_sha256: str | None = None,
 ) -> dict[str, Any]:
     return {
-        "schema_version": 2,
+        "schema_version": _RUN_STATE_SCHEMA_VERSION,
         "status": "started",
         "run_id": run_id,
         "started_at_utc": started_at_utc,
@@ -359,6 +415,7 @@ def _state_payload(
         "result_directory": str(result_directory),
         "baseline": dict(baseline),
         "expected_publication_token": expected_publication_token,
+        "terminal_manifest_sha256": terminal_manifest_sha256,
     }
 
 
@@ -372,7 +429,7 @@ def _read_run_state(directory: Path) -> _RunState | None:
         mode = payload["mode"]
         if payload["status"] != "started" or mode not in {"in_place", "staged"}:
             raise ValueError("unsupported state")
-        if payload.get("schema_version") != 2:
+        if payload.get("schema_version") != _RUN_STATE_SCHEMA_VERSION:
             raise ValueError("unsupported state schema")
         baseline = {
             str(path): str(digest)
@@ -383,6 +440,16 @@ def _read_run_state(directory: Path) -> _RunState | None:
         expected_publication_token = payload.get("expected_publication_token")
         if expected_publication_token is not None:
             expected_publication_token = str(expected_publication_token)
+        terminal_manifest_sha256 = payload.get("terminal_manifest_sha256")
+        if terminal_manifest_sha256 is not None:
+            if not isinstance(terminal_manifest_sha256, str) or (
+                len(terminal_manifest_sha256) != 64
+                or any(
+                    character not in "0123456789abcdef"
+                    for character in terminal_manifest_sha256
+                )
+            ):
+                raise ValueError("invalid terminal manifest digest")
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise RuntimeError(f"Invalid PyAges run state: {state_path}") from error
     return _RunState(
@@ -392,16 +459,17 @@ def _read_run_state(directory: Path) -> _RunState | None:
         result_directory=result_directory,
         baseline=baseline,
         expected_publication_token=expected_publication_token,
+        terminal_manifest_sha256=terminal_manifest_sha256,
         managed=True,
     )
 
 
 def begin_result_run(directory: str | Path) -> Path:
-    """Begin a compatible in-place run and invalidate its terminal marker.
+    """Begin a legacy in-place run and invalidate its terminal marker.
 
     Public workflows use :func:`begin_staged_result_run` so their artifacts can
-    be promoted as one isolated result tree. This function remains available to
-    contributor workflows that already write directly into their result root.
+    be promoted as one isolated result tree. This internal compatibility helper
+    exists only for legacy callers that still write directly into a result root.
     """
     output_directory = Path(directory).resolve()
     output_directory.mkdir(parents=True, exist_ok=True)
@@ -424,8 +492,36 @@ def begin_result_run(directory: str | Path) -> Path:
 
 
 def begin_staged_result_run(directory: str | Path) -> ResultRun:
-    """Create an isolated work tree for a public workflow execution."""
-    result_directory = Path(directory).resolve()
+    """Begin an isolated, compare-and-swap protected workflow run.
+
+    The returned handle owns an internal sibling working directory. The current
+    public result tree is left untouched, and its complete-tree identity is
+    captured under the global hierarchy lock. Write artifacts only below
+    ``working_directory``, write a terminal manifest with this handle's
+    ``run_id``, then pass the same handle to :func:`promote_result_run`.
+
+    A non-terminal exception deliberately leaves the staging directory and its
+    ``started`` journal available for inspection. The handle is opaque and must
+    not be constructed or altered by callers.
+
+    Raises
+    ------
+    ValueError
+        If the destination resolves to a filesystem root or its final component
+        is a symbolic link or junction.
+    NotADirectoryError
+        If an existing destination is not a directory.
+    OSError
+        If the hierarchy lock or isolated working tree cannot be created.
+    RuntimeError
+        If the process-wide hierarchy lock cannot be acquired.
+    """
+    requested_result_directory = Path(directory)
+    if _is_link_or_junction(requested_result_directory):
+        raise ValueError(
+            "A symbolic link or junction cannot be used as a result directory."
+        )
+    result_directory = requested_result_directory.resolve()
     if result_directory == result_directory.parent:
         raise ValueError("A filesystem root cannot be used as a result directory.")
     run_id = str(uuid.uuid4())
@@ -464,7 +560,7 @@ def begin_staged_result_run(directory: str | Path) -> ResultRun:
             except OSError:
                 pass
             raise
-    return ResultRun(
+    return _new_result_run(
         run_id=run_id,
         started_at_utc=started_at_utc,
         result_directory=result_directory,
@@ -487,6 +583,7 @@ def _resolved_run_state(directory: Path, expected_run_id: str | None) -> _RunSta
             result_directory=directory,
             baseline={},
             expected_publication_token=None,
+            terminal_manifest_sha256=None,
             managed=False,
         )
     if expected_run_id is not None and state.run_id != expected_run_id:
@@ -564,7 +661,21 @@ def _write_manifest(
         output_directory / _TERMINAL_MANIFEST_FILENAME,
         payload,
     )
-    if state.mode == "in_place":
+    if state.mode == "staged":
+        _assert_active_run(output_directory, state)
+        _write_json_atomic(
+            output_directory / _RUN_STATE_FILENAME,
+            _state_payload(
+                run_id=state.run_id,
+                started_at_utc=state.started_at_utc,
+                mode="staged",
+                result_directory=state.result_directory,
+                baseline=state.baseline,
+                expected_publication_token=state.expected_publication_token,
+                terminal_manifest_sha256=_sha256(target),
+            ),
+        )
+    elif state.mode == "in_place":
         _assert_active_run(output_directory, state)
         (output_directory / _RUN_STATE_FILENAME).unlink(missing_ok=True)
     return target
@@ -579,7 +690,41 @@ def write_result_manifest(
     details: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> Path:
-    """Write complete provenance after a public workflow succeeds."""
+    """Write complete provenance after a workflow succeeds.
+
+    For an isolated run, pass ``run.working_directory`` as ``directory`` and
+    ``run.run_id`` as ``run_id``. The resulting terminal manifest must be
+    written before the unchanged handle is passed to
+    :func:`promote_result_run`.
+
+    Parameters
+    ----------
+    directory : str or pathlib.Path
+        Directory containing the artifacts produced by this run.
+    workflow : str
+        Stable workflow identifier recorded in the manifest.
+    config_path : str or pathlib.Path
+        Existing configuration file whose content is fingerprinted.
+    input_paths : iterable of str or pathlib.Path, default=()
+        Existing input files or directories to inventory and fingerprint.
+    details : mapping, optional
+        Workflow-specific, JSON-serializable provenance fields.
+    run_id : str, optional
+        Identity of the staged or managed in-place run. For a staged run this
+        must be exactly ``run.run_id``.
+
+    Returns
+    -------
+    pathlib.Path
+        Path of the atomically written ``result_manifest.json`` file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the configuration or an input path does not exist.
+    RuntimeError
+        If ``run_id`` does not identify the active run in ``directory``.
+    """
     output_directory, payload, state = _manifest_payload(
         directory,
         status="complete",
@@ -602,7 +747,42 @@ def write_failure_manifest(
     details: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> Path:
-    """Write provenance for a completed calculation rejected by its gate."""
+    """Write provenance for a completed calculation rejected by its gate.
+
+    This is a terminal scientific rejection, not a generic exception logger.
+    For an isolated run, pass ``run.working_directory`` as ``directory`` and
+    ``run.run_id`` as ``run_id`` before promoting the unchanged handle.
+
+    Parameters
+    ----------
+    directory : str or pathlib.Path
+        Directory containing the evidence preserved for the rejected run.
+    workflow : str
+        Stable workflow identifier recorded in the manifest.
+    config_path : str or pathlib.Path
+        Existing configuration file whose content is fingerprinted.
+    error : BaseException
+        Scientific gate error whose type and message are recorded.
+    input_paths : iterable of str or pathlib.Path, default=()
+        Existing input files or directories to inventory and fingerprint.
+    details : mapping, optional
+        Workflow-specific, JSON-serializable provenance fields.
+    run_id : str, optional
+        Identity of the staged or managed in-place run. For a staged run this
+        must be exactly ``run.run_id``.
+
+    Returns
+    -------
+    pathlib.Path
+        Path of the atomically written ``result_manifest.json`` file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the configuration or an input path does not exist.
+    RuntimeError
+        If ``run_id`` does not identify the active run in ``directory``.
+    """
     output_directory, payload, state = _manifest_payload(
         directory,
         status="failed",
@@ -616,13 +796,24 @@ def write_failure_manifest(
     return _write_manifest(output_directory, payload, state)
 
 
+def _resolved_promotion_path(path: Path, *, label: str) -> Path:
+    """Resolve one promotion path after rejecting final-component redirects."""
+    if _is_link_or_junction(path):
+        raise RuntimeError(f"{label} path is a symbolic link or junction: {path}")
+    return path.resolve()
+
+
 def _validated_staged_directories(run: ResultRun) -> tuple[Path, Path]:
     """Validate a staged run and return its working and public directories."""
-    working_directory = run.working_directory.resolve()
-    result_directory = run.result_directory.resolve()
-    if result_directory.is_symlink() or (
-        result_directory.exists() and not result_directory.is_dir()
-    ):
+    working_directory = _resolved_promotion_path(
+        run.working_directory,
+        label="Staged working",
+    )
+    result_directory = _resolved_promotion_path(
+        run.result_directory,
+        label="Public result",
+    )
+    if result_directory.exists() and not result_directory.is_dir():
         raise RuntimeError(
             f"Public result target is not a real directory: {result_directory}"
         )
@@ -639,12 +830,18 @@ def _validated_staged_directories(run: ResultRun) -> tuple[Path, Path]:
         or state.mode != "staged"
         or state.run_id != run.run_id
         or state.result_directory != result_directory
-        or state.expected_publication_token != run.expected_publication_token
+        or state.expected_publication_token != run._expected_publication_token
     ):
         raise RuntimeError(f"Cannot promote an invalid staged run: {working_directory}")
     manifest_path = working_directory / _TERMINAL_MANIFEST_FILENAME
     if not manifest_path.is_file():
         raise RuntimeError(f"Cannot promote a non-terminal run: {working_directory}")
+    if state.terminal_manifest_sha256 is None or (
+        _sha256(manifest_path) != state.terminal_manifest_sha256
+    ):
+        raise RuntimeError(
+            f"Terminal manifest changed after it was sealed for run {run.run_id}."
+        )
     try:
         terminal_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
@@ -667,11 +864,27 @@ def _promotion_lock_path() -> Path:
     return Path(tempfile.gettempdir()) / _PROMOTION_LOCK_FILENAME
 
 
+def _acquire_windows_promotion_lock(stream: BinaryIO) -> None:
+    """Retry Windows lock contention until the one-byte lock is acquired."""
+    while True:
+        stream.seek(0)
+        try:
+            msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError as error:
+            if error.errno not in {errno.EACCES, errno.EAGAIN} and getattr(
+                error, "winerror", None
+            ) not in {33, 36}:
+                raise
+            time.sleep(0.05)
+        else:
+            return
+
+
 def _acquire_promotion_lock(stream: BinaryIO) -> None:
     """Acquire the platform's blocking one-byte advisory file lock."""
     stream.seek(0)
     if os.name == "nt":
-        msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
+        _acquire_windows_promotion_lock(stream)
     else:
         fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
 
@@ -695,7 +908,7 @@ def _promotion_lock(result_directory: Path, run_id: str) -> Iterator[None]:
     except OSError as exc:
         stream.close()
         raise RuntimeError(
-            f"Another promotion is active for {result_directory}: {lock_path}"
+            f"Could not acquire the promotion lock for {result_directory}: {lock_path}"
         ) from exc
     try:
         stream.seek(0)
@@ -728,55 +941,163 @@ def _remove_promoted_state(result_directory: Path, run_id: str) -> None:
         )
 
 
-def _assert_no_nested_staged_runs(result_directory: Path) -> None:
-    """Refuse to replace a tree that contains another run's active staging area."""
-    if not result_directory.is_dir():
+def _assert_no_nested_staged_runs(
+    tree_directory: Path,
+    *,
+    allowed_root_run_id: str | None = None,
+) -> None:
+    """Refuse a tree containing an active staged run other than its root."""
+    if not tree_directory.is_dir():
         return
-    for state_path in result_directory.rglob(_RUN_STATE_FILENAME):
+    root_directory = tree_directory.resolve()
+    for state_path in tree_directory.rglob(_RUN_STATE_FILENAME):
         state_directory = state_path.parent.resolve()
-        state = _read_run_state(state_directory)
+        try:
+            state = _read_run_state(state_directory)
+        except RuntimeError:
+            # Nested homonyms are ordinary manifested artifacts unless they
+            # contain a valid active-run journal.
+            continue
+        if (
+            state_directory == root_directory
+            and state is not None
+            and state.run_id == allowed_root_run_id
+        ):
+            continue
         if (
             state is not None
             and state.mode == "staged"
             and state_directory != state.result_directory
         ):
             raise RuntimeError(
-                "Public result contains an active nested staged run; refusing to "
-                f"replace {result_directory}: {state_directory}."
+                "Result tree contains an active nested staged run; refusing to "
+                f"replace {tree_directory}: {state_directory}."
             )
 
 
+def _rollback_failed_promotion(
+    *,
+    working_directory: Path,
+    result_directory: Path,
+    backup: Path,
+    had_previous: bool,
+    promotion_error: BaseException,
+) -> None:
+    """Restore the pre-promotion namespace after either rename reports failure."""
+    try:
+        if backup.exists():
+            if result_directory.exists():
+                if working_directory.exists():
+                    raise RuntimeError(
+                        "Both the staging and public paths exist after a failed "
+                        "promotion."
+                    )
+                result_directory.replace(working_directory)
+            if result_directory.exists():
+                raise RuntimeError(
+                    "The public result path is occupied during rollback."
+                )
+            backup.replace(result_directory)
+        elif had_previous:
+            if not result_directory.exists():
+                raise RuntimeError(
+                    "The previous publication is missing from both its public "
+                    "and backup paths."
+                )
+        elif result_directory.exists():
+            if working_directory.exists():
+                raise RuntimeError(
+                    "Both the staging and public paths exist after a failed promotion."
+                )
+            result_directory.replace(working_directory)
+    except BaseException as rollback_error:
+        raise RuntimeError(
+            "Promotion failed and rollback could not restore the previous "
+            f"namespace. public={result_directory}; staging={working_directory}; "
+            f"backup={backup}; original_error={promotion_error!r}; "
+            f"rollback_error={rollback_error!r}"
+        ) from rollback_error
+
+
 def promote_result_run(run: ResultRun) -> Path:
-    """Promote one terminal staged tree without mixing it with older artifacts."""
-    result_directory = run.result_directory.resolve()
+    """Publish a terminal staged tree over its exact predecessor.
+
+    Promotion holds the global hierarchy lock, validates the opaque handle and
+    terminal manifest, rehashes every staged artifact, rejects a changed public
+    tree or active nested staging area, and then performs same-filesystem
+    renames. The successful working-tree-to-result rename is the commit point.
+    If either rename reports failure, restoration is attempted before the
+    original error is propagated. A failed restoration raises an explicit
+    error containing the public, staging, and backup recovery paths. Journal
+    and backup cleanup after commit are best effort and cannot turn a
+    publication back into a failed run.
+
+    Returns
+    -------
+    Path
+        The resolved public result directory.
+
+    Raises
+    ------
+    TypeError
+        If ``run`` is not a handle returned by :func:`begin_staged_result_run`.
+    RuntimeError
+        If a path redirects through a link or junction; run identity, manifest,
+        artifacts, nesting, or the CAS token no longer matches the state
+        captured by :func:`begin_staged_result_run`; or rollback cannot restore
+        the pre-promotion namespace.
+    OSError
+        If the lock file cannot be opened or a required filesystem rename fails.
+    """
+    if not isinstance(run, ResultRun):
+        raise TypeError(
+            "promote_result_run() requires a ResultRun handle returned by "
+            "begin_staged_result_run()."
+        )
+    _resolved_promotion_path(run.working_directory, label="Staged working")
+    result_directory = _resolved_promotion_path(
+        run.result_directory,
+        label="Public result",
+    )
     with _promotion_lock(result_directory, run.run_id):
         working_directory, result_directory = _validated_staged_directories(run)
         current_token = _publication_token(result_directory)
-        if current_token != run.expected_publication_token:
+        if current_token != run._expected_publication_token:
             raise RuntimeError(
                 "Public result changed after this run started; refusing to replace "
                 f"{result_directory}."
             )
         _assert_no_nested_staged_runs(result_directory)
+        _assert_no_nested_staged_runs(
+            working_directory,
+            allowed_root_run_id=run.run_id,
+        )
         # Recheck after acquiring the lock so no late artifact can be published
         # under the already-written terminal manifest.
         _validated_staged_directories(run)
         backup = result_directory.parent / f".pyages-prev-{run.run_id[:12]}"
         if backup.exists():
             raise FileExistsError(f"Promotion backup already exists: {backup}")
-        moved_previous = False
-        if result_directory.exists():
-            result_directory.replace(backup)
-            moved_previous = True
+        # Both namespace changes share one rollback boundary. If a platform
+        # reports an error after completing a rename, filesystem state decides
+        # which inverse renames are required.
+        had_previous = result_directory.exists()
         try:
+            if had_previous:
+                result_directory.replace(backup)
             working_directory.replace(result_directory)
-        except BaseException:
-            if moved_previous and not result_directory.exists():
-                backup.replace(result_directory)
+        except BaseException as promotion_error:
+            _rollback_failed_promotion(
+                working_directory=working_directory,
+                result_directory=result_directory,
+                backup=backup,
+                had_previous=had_previous,
+                promotion_error=promotion_error,
+            )
             raise
 
         _remove_promoted_state(result_directory, run.run_id)
-        if moved_previous:
+        if had_previous:
             try:
                 shutil.rmtree(backup)
             except OSError as error:
@@ -792,7 +1113,6 @@ def promote_result_run(run: ResultRun) -> Path:
 __all__ = [
     "RESULT_SCHEMA_VERSION",
     "ResultRun",
-    "begin_result_run",
     "begin_staged_result_run",
     "promote_result_run",
     "write_failure_manifest",

@@ -51,7 +51,12 @@ class FrozenMapping(Mapping[str, _Value]):
 
 
 def immutable_float_array(values: object) -> np.ndarray:
-    """Return a float array whose immutable backing cannot be re-enabled."""
+    """Return a float array whose immutable backing cannot be re-enabled.
+
+    Round-tripping through ``bytes`` makes the buffer itself immutable. This is
+    stronger than clearing NumPy's ``writeable`` flag on caller-owned memory,
+    because that flag can otherwise be set back to true by a downstream view.
+    """
     copied = np.ascontiguousarray(np.asarray(values, dtype=float))
     return np.frombuffer(copied.tobytes(order="C"), dtype=copied.dtype).reshape(
         copied.shape

@@ -17,6 +17,9 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
+from pyages.calibration.methods.mh._diagnostic_contract import (
+    build_diagnostic_quantities,
+)
 from pyages.calibration.methods.mh._immutable import (
     FrozenMapping,
     immutable_float_array,
@@ -439,9 +442,10 @@ def _validate_diagnostic_metric_domains(
 class MHParameterDiagnostics:
     """Convergence metrics for one sampled or derived posterior quantity.
 
-    ``included_in_qualification`` is false only for structurally constant
-    derived quantities whose R-hat and ESS are undefined. Native sampled
-    parameters always remain part of the convergence gate.
+    ``included_in_qualification`` is false only for derived quantities that are
+    constant across all retained production draws and whose R-hat and ESS are
+    therefore undefined. Native sampled parameters always remain part of the
+    convergence gate.
     """
 
     parameter: str
@@ -709,42 +713,28 @@ def _validate_diagnostics_against_config(
     chains: tuple[MHChainResult, ...],
     diagnostics: tuple[MHParameterDiagnostics, ...],
 ) -> None:
-    """Bind the complete diagnostic set to sampled and derived quantities."""
+    """Bind recorded diagnostics to the canonical scientific quantity contract."""
     if not diagnostics:
         return
     names = [diagnostic.parameter for diagnostic in diagnostics]
     if len(set(names)) != len(names):
         raise ValueError("diagnostic parameter names must be unique")
-    first = chains[0].samples
-    parameter_names = tuple(first.get_param_names())
-    expected_names = tuple(
-        dict.fromkeys(parameter_names + tuple(first.lpm_template.moments_name()))
-    )
+    quantities = build_diagnostic_quantities(tuple(chain.samples for chain in chains))
+    expected_names = tuple(quantity.name for quantity in quantities)
     if tuple(names) != expected_names:
         raise ValueError(
             "diagnostics must follow exactly the sampled parameters and expected "
             f"moments {list(expected_names)}"
         )
     thresholds = ensemble_config.diagnostics
-    for diagnostic in diagnostics:
-        if any(diagnostic.parameter not in chain.samples.frame for chain in chains):
-            raise ValueError(
-                f"production samples are missing diagnostic {diagnostic.parameter!r}"
-            )
-        values = np.vstack(
-            [
-                chain.samples.frame[diagnostic.parameter].to_numpy(dtype=float)
-                for chain in chains
-            ]
-        )
+    for diagnostic, quantity in zip(diagnostics, quantities, strict=True):
+        values = quantity.values
         if not np.all(np.isfinite(values)):
             raise ValueError(
                 f"recorded diagnostic {diagnostic.parameter!r} requires finite "
                 "production values"
             )
-        expected_inclusion = diagnostic.parameter in parameter_names or bool(
-            np.any(values != values.flat[0])
-        )
+        expected_inclusion = quantity.included_in_qualification
         if diagnostic.included_in_qualification != expected_inclusion:
             role = "included" if expected_inclusion else "excluded"
             raise ValueError(
@@ -887,6 +877,14 @@ class MHRunRecord:
         -------
         LpmSampleTable
             Independent pooled table. Individual chain tables remain unchanged.
+
+        Raises
+        ------
+        ValueError
+            If ``require_qualified`` is not a boolean.
+        MHConvergenceError
+            If qualification is required and this run is not ``"qualified"``.
+
         """
         if not isinstance(require_qualified, bool):
             raise ValueError("require_qualified must be a boolean")

@@ -376,6 +376,7 @@ def build_calibration_target_signature(
         resolution.
     tracers
         Ordered, prepared tracer convolutions used by the objective.
+
     """
     return CalibrationTargetSignature(
         version=CALIBRATION_TARGET_SIGNATURE_VERSION,

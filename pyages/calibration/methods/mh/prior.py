@@ -218,6 +218,7 @@ class Prior:
     :meth:`bounded_quantile`, :meth:`bounded_mode`, and :meth:`contains` form
     the marginal interface used by multi-chain initialization. The historical
     :meth:`param_init` method remains the one-chain compatibility path.
+
     """
 
     def __init__(
@@ -374,6 +375,9 @@ class Prior:
             if abs(slope) <= np.finfo(float).eps:
                 offset = remaining / left_density if left_density > 0.0 else 0.0
             else:
+                # Within a cell, integrating rho(x)=rho_0+s*x gives
+                # remaining=rho_0*x+s*x^2/2. The displayed root is the one
+                # continuous with remaining/rho_0 as the slope tends to zero.
                 discriminant = max(0.0, left_density**2 + 2.0 * slope * remaining)
                 offset = (-left_density + math.sqrt(discriminant)) / slope
             return float(np.clip(values[cell] + offset, values[cell], values[cell + 1]))

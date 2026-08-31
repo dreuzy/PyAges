@@ -27,6 +27,7 @@ The test scopes and GitHub jobs referenced below are defined in
    ```bash
    python -m ruff check .
    python -m ruff format --check .
+   python -m scripts.maintenance.check_qualified_docstrings
    python -m pytest -q
    python -m pytest -q validation/tracerlpm/benchmark/tests
    python -m pytest -q --cov=pyages --cov-branch --cov-report=term-missing --cov-fail-under=75
@@ -85,7 +86,7 @@ The test scopes and GitHub jobs referenced below are defined in
    ```
 
    Confirm that the smoke result contains `result_manifest.json` with schema
-   version 1.
+   version 2.
 
 9. Create an annotated tag equal to the package version on the exact reviewed
    commit. For the historical `1.0` tag, verify its local and remote commit

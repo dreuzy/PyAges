@@ -96,7 +96,15 @@ class MHInitializationConfig:
 
 @dataclass(frozen=True)
 class MHPilotConfig:
-    """Controls for pilot chains used to learn a fixed proposal covariance."""
+    """Controls for pilot chains used to learn a fixed proposal covariance.
+
+    ``nstep`` and fractional ``burn_in`` define pilot transitions retained with
+    no thinning. ``pooled_within_chain`` centers each chain separately before
+    estimating the shared native-coordinate covariance; ``relative_ridge``
+    regularizes it against singularity. A ``None`` proposal multiplier selects
+    ``2.38 / sqrt(dimension)``. Pilot draws never enter the posterior and are
+    persisted only when ``save_samples`` is true.
+    """
 
     enabled: bool = True
     nstep: int = 2_000
@@ -143,7 +151,14 @@ class MHPilotConfig:
 
 @dataclass(frozen=True)
 class MHDiagnosticsConfig:
-    """Qualification thresholds applied to production-chain diagnostics."""
+    """Qualification thresholds applied to production-chain diagnostics.
+
+    A quantity qualifies only when split rank-normalized R-hat is strictly less
+    than ``max_rhat``, bulk and tail ESS are at least their respective minima,
+    and its mean MCSE is finite. ``require_convergence`` controls whether an
+    unqualified ensemble may be pooled for explicitly exploratory output; it
+    does not weaken calculation or recording of the diagnostics themselves.
+    """
 
     max_rhat: float = 1.01
     min_bulk_ess: float = 300.0

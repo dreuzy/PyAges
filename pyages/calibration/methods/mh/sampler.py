@@ -78,6 +78,7 @@ class MetropolisHastings(CalibrationMethod):
     convergence; publication runs require multiple-chain diagnostics. See
     ``docs/scientific-methods.md`` and
     ``docs/reports/mh_proposal_qualification.md``.
+
     """
 
     def __init__(self, config: MHConfig) -> None:
@@ -292,6 +293,7 @@ class MetropolisHastings(CalibrationMethod):
         tuple
             Updated params, log-posterior, objective function, concentrations,
             and a success flag.
+
         """
         # Draw in the selected coordinates, then evaluate the physical target.
         params_n = self._draw_proposal(params, rng)
@@ -439,8 +441,8 @@ class MetropolisHastings(CalibrationMethod):
         The returned object contains no automatic R-hat, effective sample size,
         or Monte Carlo standard error. Those diagnostics remain required before
         posterior summaries are used scientifically.
-        """
 
+        """
         start = perf_counter()
 
         # Preparation: perform all validation, loading, and allocation once.

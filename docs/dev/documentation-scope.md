@@ -126,4 +126,5 @@ Run the documentation contract tests as well:
 
 ```console
 python -m pytest tests/test_public_docstrings.py tests/test_documentation_contracts.py
+python -m scripts.maintenance.check_qualified_docstrings
 ```

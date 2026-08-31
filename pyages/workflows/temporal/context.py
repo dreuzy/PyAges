@@ -27,7 +27,7 @@ from pyages.config.paths import (
     result_subdirectory,
     validate_path_component,
 )
-from pyages.workflows.runtime.manifest import ResultRun, begin_staged_result_run
+from pyages.workflows.runtime import ResultRun, begin_staged_result_run
 
 DEFAULT_LPMS = ["exp_shifted", "ig", "ig_shifted"]
 

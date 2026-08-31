@@ -14,13 +14,14 @@ import pytest
 
 import pyages.reporting.plots as workflow_plots
 from pyages.config.models import MHMultichainCfg
+from pyages.workflows.runtime import begin_staged_result_run
 from pyages.workflows.single_date import calibration as single_calibration
 from pyages.workflows.single_date import context as single_context
 from pyages.workflows.single_date import reporting as single_reporting
 from pyages.workflows.single_date import runner as single_date
 
 
-def _context(tmp_path, **overrides):
+def _context(tmp_path, *, staged=False, **overrides):
     parameters = {
         "dataset_label": None,
         "dataset_name": "audit_case.txt",
@@ -47,10 +48,15 @@ def _context(tmp_path, **overrides):
         "mh_multichain": None,
     }
     parameters.update(overrides)
-    return SimpleNamespace(
+    output_directory = tmp_path / "results"
+    result_run = None
+    if staged:
+        result_run = begin_staged_result_run(output_directory)
+        output_directory = result_run.working_directory
+    context = SimpleNamespace(
         config_path=tmp_path / "config.yaml",
         params=SimpleNamespace(**parameters),
-        output_directory=tmp_path / "results",
+        output_directory=output_directory,
         observations=SimpleNamespace(
             observation_tracer_names=lambda: ["cfc11"],
             error_provenance=[],
@@ -59,11 +65,14 @@ def _context(tmp_path, **overrides):
             ),
         ),
         live_display=SimpleNamespace(),
-        saved_display=SimpleNamespace(directory=tmp_path / "results"),
+        saved_display=SimpleNamespace(directory=output_directory),
         plots=SimpleNamespace(
             show=Mock(), close=Mock(), close_all=Mock(), finish=Mock()
         ),
     )
+    if result_run is not None:
+        context.result_run = result_run
+    return context
 
 
 @pytest.mark.parametrize(
@@ -296,14 +305,14 @@ def test_concentration_output_builds_model_and_exports_result_directory(
 
 
 def test_run_single_date_orchestrates_steps_and_manifest(tmp_path, monkeypatch) -> None:
-    context = _context(tmp_path)
-    context.output_directory.mkdir()
+    context = _context(tmp_path, staged=True)
     calibrated = {"Simplex": object(), "Metropolis_Hastings": object()}
     reachable = pd.DataFrame({"cfc11": [1.0]})
     render = Mock()
     objective = Mock()
     concentration_outputs = Mock()
     manifest = Mock()
+    promote = Mock(return_value=context.result_run.result_directory)
     monkeypatch.setattr(
         single_date, "prepare_context", lambda *_args, **_kwargs: context
     )
@@ -315,10 +324,11 @@ def test_run_single_date_orchestrates_steps_and_manifest(tmp_path, monkeypatch) 
         single_date, "write_concentration_outputs", concentration_outputs
     )
     monkeypatch.setattr(single_date, "write_result_manifest", manifest)
+    monkeypatch.setattr(single_date, "promote_result_run", promote)
 
     result = single_date.run_single_date(context.config_path, force_inline=True)
 
-    assert result == context.output_directory
+    assert result == context.result_run.result_directory
     render.assert_called_once_with(context, reachable, calibrated)
     objective.assert_called_once_with(context, calibrated)
     concentration_outputs.assert_called_once_with(context)
@@ -333,6 +343,8 @@ def test_run_single_date_orchestrates_steps_and_manifest(tmp_path, monkeypatch) 
         "Metropolis_Hastings",
         "Simplex",
     ]
+    assert manifest.call_args.kwargs["run_id"] == context.result_run.run_id
+    promote.assert_called_once_with(context.result_run)
 
 
 def test_run_single_date_requires_a_configuration_path() -> None:
@@ -347,8 +359,7 @@ def test_run_single_date_requires_a_configuration_path() -> None:
 def test_run_single_date_closes_figures_and_keeps_manifest_absent_on_failure(
     tmp_path, monkeypatch
 ) -> None:
-    context = _context(tmp_path)
-    context.output_directory.mkdir()
+    context = _context(tmp_path, staged=True)
     manifest = Mock()
     monkeypatch.setattr(
         single_date, "prepare_context", lambda *_args, **_kwargs: context
@@ -373,11 +384,15 @@ def test_run_single_date_manifests_a_multichain_convergence_failure(
 ) -> None:
     from pyages.calibration.methods.mh import MHConvergenceError
 
-    context = _context(tmp_path, run_calibration_metropolis_hastings=True)
-    context.output_directory.mkdir()
+    context = _context(
+        tmp_path,
+        staged=True,
+        run_calibration_metropolis_hastings=True,
+    )
     error = MHConvergenceError("mu did not converge; artifacts preserved")
     success_manifest = Mock()
     failure_manifest = Mock()
+    promote = Mock(return_value=context.result_run.result_directory)
     monkeypatch.setattr(
         single_date, "prepare_context", lambda *_args, **_kwargs: context
     )
@@ -385,6 +400,7 @@ def test_run_single_date_manifests_a_multichain_convergence_failure(
     monkeypatch.setattr(single_date, "run_calibrations", Mock(side_effect=error))
     monkeypatch.setattr(single_date, "write_result_manifest", success_manifest)
     monkeypatch.setattr(single_date, "write_failure_manifest", failure_manifest)
+    monkeypatch.setattr(single_date, "promote_result_run", promote)
 
     with pytest.raises(MHConvergenceError, match=r"mu.*preserved"):
         single_date.run_single_date(context.config_path)
@@ -395,7 +411,11 @@ def test_run_single_date_manifests_a_multichain_convergence_failure(
     assert failure_manifest.call_args.kwargs["details"]["calibrations_attempted"] == [
         "Metropolis_Hastings"
     ]
-    assert error.__notes__ == [f"Preserved result evidence: {context.output_directory}"]
+    assert error.__notes__ == [
+        f"Preserved result evidence: {context.result_run.result_directory}"
+    ]
+    assert failure_manifest.call_args.kwargs["run_id"] == context.result_run.run_id
+    promote.assert_called_once_with(context.result_run)
     context.plots.close_all.assert_called_once_with()
     context.plots.finish.assert_not_called()
 
@@ -450,18 +470,20 @@ def test_failure_manifest_keeps_a_completed_simplex_before_mh_rejection(
 
     context = _context(
         tmp_path,
+        staged=True,
         run_calibration_simplex=True,
         run_calibration_metropolis_hastings=True,
     )
-    context.output_directory.mkdir()
     error = MHConvergenceError("MH convergence gate rejected the chains")
     failure_manifest = Mock()
+    promote = Mock(return_value=context.result_run.result_directory)
     monkeypatch.setattr(
         single_date, "prepare_context", lambda *_args, **_kwargs: context
     )
     monkeypatch.setattr(single_date, "reachable_concentrations", lambda _ctx: None)
     monkeypatch.setattr(single_date, "run_calibrations", Mock(side_effect=error))
     monkeypatch.setattr(single_date, "write_failure_manifest", failure_manifest)
+    monkeypatch.setattr(single_date, "promote_result_run", promote)
 
     with pytest.raises(MHConvergenceError):
         single_date.run_single_date(context.config_path)
@@ -470,3 +492,5 @@ def test_failure_manifest_keeps_a_completed_simplex_before_mh_rejection(
     assert failure_manifest.call_args.kwargs["details"]["calibrations_attempted"] == [
         "Metropolis_Hastings"
     ]
+    assert failure_manifest.call_args.kwargs["run_id"] == context.result_run.run_id
+    promote.assert_called_once_with(context.result_run)

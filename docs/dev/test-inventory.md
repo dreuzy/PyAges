@@ -11,19 +11,19 @@ the complete core node-ID list.
 
 | Scope | Collected cases | Modules |
 |---|---|---|
-| Standard selection | 1354 | 110 |
+| Standard selection | 1374 | 110 |
 | Extensive opt-in | 7 | 4 |
-| Core including extensive | 1361 | 110 |
+| Core including extensive | 1381 | 110 |
 | TracerLPM validation | 65 | 9 |
-| All documented pytest scopes | 1426 | 119 |
+| All documented pytest scopes | 1446 | 119 |
 
 ## Cases by area
 
 | Area | Location | Primary type | Contract | CI scope | Modules | Cases |
 |---|---|---|---|---|---|---|
-| Repository-wide contracts | `tests/(root)/` | Contract / integration | Public API, metadata, manifests, paths, and repository documentation | Standard CI | 10 | 85 |
-| Calibration and inference | `tests/calibration/` | Unit / scientific | Objectives, priors, proposals, parameter grids, and calibration APIs | Standard CI; selected extensive cases | 22 | 301 |
-| Command-line interface | `tests/cli/` | Contract / integration | Installed command behavior, validation, discovery, and user-facing errors | Standard CI and package smoke test | 3 | 34 |
+| Repository-wide contracts | `tests/(root)/` | Contract / integration | Public API, metadata, manifests, paths, and repository documentation | Standard CI | 10 | 99 |
+| Calibration and inference | `tests/calibration/` | Unit / scientific | Objectives, priors, proposals, parameter grids, and calibration APIs | Standard CI; selected extensive cases | 22 | 305 |
+| Command-line interface | `tests/cli/` | Contract / integration | Installed command behavior, validation, discovery, and user-facing errors | Standard CI and package smoke test | 3 | 36 |
 | Concentration handling | `tests/concentrations/` | Unit / data contract | Chronicle loading and concentration-series behavior | Standard CI | 3 | 54 |
 | Configuration | `tests/config/` | Unit / contract | Validated models, runtime options, and portable path resolution | Standard CI | 3 | 77 |
 | Convolution | `tests/convolution/` | Analytical / scientific | Concentration convolution, numerical identities, settings, and tracer coupling | Standard CI | 5 | 238 |
@@ -52,7 +52,7 @@ the complete core node-ID list.
 | `tests/calibration/test_mh_diagnostics.py` | Unit / scientific | Metropolis-Hastings diagnostics within calibration and inference. | 59 | 0 |
 | `tests/calibration/test_mh_ensemble.py` | Unit / scientific | Metropolis-Hastings ensemble within calibration and inference. | 21 | 0 |
 | `tests/calibration/test_mh_ensemble_initialization.py` | Unit / scientific | Metropolis-Hastings ensemble initialization within calibration and inference. | 45 | 0 |
-| `tests/calibration/test_mh_pilot_results.py` | Unit / scientific | Metropolis-Hastings pilot results within calibration and inference. | 28 | 0 |
+| `tests/calibration/test_mh_pilot_results.py` | Unit / scientific | Metropolis-Hastings pilot results within calibration and inference. | 32 | 0 |
 | `tests/calibration/test_mh_proposals.py` | Unit / scientific | Metropolis-Hastings proposals within calibration and inference. | 8 | 0 |
 | `tests/calibration/test_mh_sampling_schedule.py` | Unit / scientific | Metropolis-Hastings sampling schedule within calibration and inference. | 14 | 0 |
 | `tests/calibration/test_parameter_grid.py` | Unit / scientific | Parameter grid within calibration and inference. | 6 | 0 |
@@ -63,7 +63,7 @@ the complete core node-ID list.
 | `tests/calibration/test_simplex_variants.py` | Unit / scientific | Simplex variants within calibration and inference. | 11 | 0 |
 | `tests/calibration/test_target_signature.py` | Unit / scientific | Target signature within calibration and inference. | 3 | 0 |
 | `tests/cli/test_cli.py` | Contract / integration | CLI within command-line interface. | 10 | 0 |
-| `tests/cli/test_cli_diagnostics.py` | Contract / integration | CLI diagnostics within command-line interface. | 15 | 0 |
+| `tests/cli/test_cli_diagnostics.py` | Contract / integration | CLI diagnostics within command-line interface. | 17 | 0 |
 | `tests/cli/test_cli_documentation.py` | Contract / integration | CLI documentation within command-line interface. | 9 | 0 |
 | `tests/concentrations/test_concentration_chronicles_smoke.py` | Unit / data contract | Concentration chronicles smoke within concentration handling. | 1 | 0 |
 | `tests/concentrations/test_concentration_contracts.py` | Unit / data contract | Concentration contracts within concentration handling. | 41 | 0 |
@@ -128,13 +128,13 @@ the complete core node-ID list.
 | `tests/scripts/release/test_zenodo_bundle.py` | Integration / reproducibility | Zenodo bundle within scientific orchestration. | 4 | 0 |
 | `tests/test_article_reproducibility_layer.py` | Contract / integration | Article reproducibility layer within repository-wide contracts. | 6 | 0 |
 | `tests/test_clean_release_artifacts.py` | Contract / integration | Clean release artifacts within repository-wide contracts. | 3 | 0 |
-| `tests/test_documentation_contracts.py` | Contract / integration | Documentation contracts within repository-wide contracts. | 10 | 0 |
+| `tests/test_documentation_contracts.py` | Contract / integration | Documentation contracts within repository-wide contracts. | 11 | 0 |
 | `tests/test_plotting_helpers.py` | Contract / integration | Plotting helpers within repository-wide contracts. | 12 | 0 |
 | `tests/test_project_metadata.py` | Contract / integration | Project metadata within repository-wide contracts. | 8 | 0 |
-| `tests/test_public_api.py` | Contract / integration | Public API within repository-wide contracts. | 6 | 0 |
+| `tests/test_public_api.py` | Contract / integration | Public API within repository-wide contracts. | 7 | 0 |
 | `tests/test_public_docstrings.py` | Contract / integration | Public docstrings within repository-wide contracts. | 1 | 0 |
 | `tests/test_qualification.py` | Contract / integration | Qualification within repository-wide contracts. | 9 | 0 |
-| `tests/test_result_manifest.py` | Contract / integration | Result manifest within repository-wide contracts. | 20 | 0 |
+| `tests/test_result_manifest.py` | Contract / integration | Result manifest within repository-wide contracts. | 32 | 0 |
 | `tests/test_workflow_paths.py` | Contract / integration | Workflow paths within repository-wide contracts. | 10 | 0 |
 | `tests/tracer/test_decay_contract.py` | Scientific unit / contract | Decay contract within environmental tracers. | 7 | 0 |
 | `tests/tracer/test_distributed_tracer_contracts.py` | Scientific unit / contract | Distributed tracer contracts within environmental tracers. | 9 | 0 |

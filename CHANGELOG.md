@@ -53,6 +53,18 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Normalized unreleased multi-chain metadata to `burn_in`, `pilot_burn_in`, and
   `acceptance_rate`; stable root `success_rate` and `time_perform` fields remain
   available for existing result consumers.
+- Centralized the ordered diagnostic-quantity and qualification-inclusion
+  contract behind one internal implementation shared by live computation and
+  immutable run-record validation, while shortening the ensemble orchestrator.
+- Added a canonical workflow-runtime contributor facade with an opaque staged
+  run handle. Staged promotion now seals the terminal manifest, rejects
+  link/junction targets and active child stages in either tree, inventories
+  nested control-name artifacts, and reports explicit recovery paths if
+  rollback fails. Non-verbose CLI failures display preserved-evidence notes
+  such as the promoted result path.
+- Added a syntax-checked direct-Python ensemble example and a progressive CI
+  docstring quality gate for the qualified calibration and workflow-runtime
+  surface.
 
 ## 1.0.1 - 2026-08-29
 

@@ -20,6 +20,9 @@ from weakref import WeakSet
 
 import numpy as np
 
+from pyages.calibration.methods.mh._diagnostic_contract import (
+    build_diagnostic_quantities,
+)
 from pyages.calibration.methods.mh.config import MHConfig
 from pyages.calibration.methods.mh.diagnostics import (
     bulk_ess,
@@ -79,6 +82,7 @@ class MultiChainMetropolisHastings:
     their transient output. Complete chain tables are returned for external
     trace plots. ``display_text`` remains available and logs one summary per
     sampler (including pilot samplers when enabled).
+
     """
 
     def __init__(
@@ -218,28 +222,7 @@ class MultiChainMetropolisHastings:
         expected_prior_metadata: dict[str, Any],
     ) -> tuple[MHPilotResult, dict[str, Any], dict[str, Any]]:
         """Learn one fixed native-coordinate covariance from pilot chains."""
-        pilot_control = self.ensemble_config.pilot
-        pilot_configs = tuple(
-            replace(
-                self.chain_config,
-                nstep=pilot_control.nstep,
-                burn_in=pilot_control.burn_in,
-                nskip=1,
-                seed=seed,
-                initial_params=dict(start),
-                monitor=False,
-                display_traj=False,
-                proposal_kind="componentwise",
-                proposal_scales=None,
-                proposal_covariance=None,
-                proposal_multiplier=1.0,
-            )
-            for start, seed in zip(starts, seeds, strict=True)
-        )
-        if any(config.retained_sample_count() < 2 for config in pilot_configs):
-            raise ValueError(
-                "pilot nstep and burn_in must retain at least two draws per chain"
-            )
+        pilot_configs = self._pilot_configs(starts, seeds)
 
         matrices: list[np.ndarray] = []
         final_states: list[dict[str, float]] = []
@@ -265,24 +248,12 @@ class MultiChainMetropolisHastings:
             proposal_snapshots.append(sampler.resolved_proposal_metadata)
             prior_snapshots.append(sampler.resolved_prior_metadata)
 
-        covariance = pooled_within_chain_covariance(
-            matrices,
-            relative_ridge=pilot_control.relative_ridge,
-        )
-        multiplier = (
-            automatic_proposal_multiplier(matrices[0].shape[1])
-            if pilot_control.proposal_multiplier is None
-            else pilot_control.proposal_multiplier
-        )
-        result = MHPilotResult(
-            final_states=tuple(final_states),
-            covariance=covariance,
-            proposal_multiplier=multiplier,
-            acceptance_rates=tuple(acceptance_rates),
-            retained_counts=tuple(len(matrix) for matrix in matrices),
-            samples=tuple(matrices) if pilot_control.save_samples else None,
-            initial_states=starts,
-            runtime_seconds=tuple(runtimes),
+        result = self._pilot_result(
+            matrices=matrices,
+            final_states=final_states,
+            acceptance_rates=acceptance_rates,
+            runtimes=runtimes,
+            starts=starts,
         )
         return (
             result,
@@ -296,6 +267,67 @@ class MultiChainMetropolisHastings:
                 stage="pilot",
                 category="prior",
             ),
+        )
+
+    def _pilot_configs(
+        self,
+        starts: tuple[dict[str, float], ...],
+        seeds: tuple[int, ...],
+    ) -> tuple[MHConfig, ...]:
+        """Build componentwise pilot configs on their independent streams."""
+        pilot_control = self.ensemble_config.pilot
+        configs = tuple(
+            replace(
+                self.chain_config,
+                nstep=pilot_control.nstep,
+                burn_in=pilot_control.burn_in,
+                nskip=1,
+                seed=seed,
+                initial_params=dict(start),
+                monitor=False,
+                display_traj=False,
+                proposal_kind="componentwise",
+                proposal_scales=None,
+                proposal_covariance=None,
+                proposal_multiplier=1.0,
+            )
+            for start, seed in zip(starts, seeds, strict=True)
+        )
+        if any(config.retained_sample_count() < 2 for config in configs):
+            raise ValueError(
+                "pilot nstep and burn_in must retain at least two draws per chain"
+            )
+        return configs
+
+    def _pilot_result(
+        self,
+        *,
+        matrices: list[np.ndarray],
+        final_states: list[dict[str, float]],
+        acceptance_rates: list[float],
+        runtimes: list[float],
+        starts: tuple[dict[str, float], ...],
+    ) -> MHPilotResult:
+        """Freeze learned pilot adaptation and its complete provenance."""
+        pilot_control = self.ensemble_config.pilot
+        covariance = pooled_within_chain_covariance(
+            matrices,
+            relative_ridge=pilot_control.relative_ridge,
+        )
+        multiplier = (
+            automatic_proposal_multiplier(matrices[0].shape[1])
+            if pilot_control.proposal_multiplier is None
+            else pilot_control.proposal_multiplier
+        )
+        return MHPilotResult(
+            final_states=tuple(final_states),
+            covariance=covariance,
+            proposal_multiplier=multiplier,
+            acceptance_rates=tuple(acceptance_rates),
+            retained_counts=tuple(len(matrix) for matrix in matrices),
+            samples=tuple(matrices) if pilot_control.save_samples else None,
+            initial_states=starts,
+            runtime_seconds=tuple(runtimes),
         )
 
     def _production_config(
@@ -383,13 +415,10 @@ class MultiChainMetropolisHastings:
         self, chains: tuple[MHChainResult, ...]
     ) -> tuple[MHParameterDiagnostics, ...]:
         """Calculate diagnostics before any production-chain pooling."""
-        first = chains[0].samples
-        parameter_names = first.get_param_names()
-        names = list(dict.fromkeys(parameter_names + first.lpm_template.moments_name()))
-        draw_counts = {len(chain.samples.frame) for chain in chains}
-        if len(draw_counts) != 1:
-            raise ValueError("production chains must retain the same number of draws")
-        draw_count = next(iter(draw_counts))
+        quantities = build_diagnostic_quantities(
+            tuple(chain.samples for chain in chains)
+        )
+        draw_count = quantities[0].values.shape[1]
         if draw_count < 8:
             raise ValueError(
                 "production chains must retain at least eight draws for split "
@@ -398,19 +427,13 @@ class MultiChainMetropolisHastings:
 
         thresholds = self.ensemble_config.diagnostics
         diagnostics: list[MHParameterDiagnostics] = []
-        for name in names:
-            if any(name not in chain.samples.frame for chain in chains):
-                raise ValueError(f"production samples are missing diagnostic {name!r}")
-            values = np.vstack(
-                [chain.samples.frame[name].to_numpy(dtype=float) for chain in chains]
-            )
+        for quantity in quantities:
+            name = quantity.name
+            values = quantity.values
             if not np.all(np.isfinite(values)):
                 raise MHDiagnosticsUnavailableError(
                     f"diagnostic {name!r} contains non-finite production values"
                 )
-            is_constant_derived = name not in parameter_names and not np.any(
-                values != values.flat[0]
-            )
             try:
                 rhat = split_rhat(values)
                 bulk = bulk_ess(values)
@@ -435,10 +458,69 @@ class MultiChainMetropolisHastings:
                     mcse_mean=monte_carlo_error,
                     posterior_sd=posterior_sd,
                     thresholds=thresholds,
-                    included_in_qualification=not is_constant_derived,
+                    included_in_qualification=quantity.included_in_qualification,
                 )
             )
         return tuple(diagnostics)
+
+    def _stage_problems(
+        self,
+        problem_factory: _ProblemFactory,
+        stage: str,
+        seen_problems: WeakSet[CalibrationProblem],
+        target_signature: CalibrationTargetSignature,
+    ) -> tuple[CalibrationProblem, ...]:
+        """Create all scientifically identical problems for one chain phase."""
+        return tuple(
+            self._fresh_problem(
+                problem_factory,
+                stage,
+                chain_id,
+                seen_problems,
+                target_signature,
+            )
+            for chain_id in range(1, self.ensemble_config.chains + 1)
+        )
+
+    @staticmethod
+    def _resolved_metadata(
+        pilot: MHPilotResult | None,
+        pilot_proposal: dict[str, Any],
+        production_proposal: dict[str, Any],
+        production_prior: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Combine phase metadata under the persisted naming convention."""
+        metadata: dict[str, Any] = {}
+        if pilot is None:
+            metadata.update(production_proposal)
+        else:
+            metadata.update(
+                {f"pilot_{name}": value for name, value in pilot_proposal.items()}
+            )
+        metadata.update(production_prior)
+        return metadata
+
+    def _diagnostic_outcome(
+        self,
+        chains: tuple[MHChainResult, ...],
+    ) -> tuple[
+        tuple[MHParameterDiagnostics, ...],
+        str,
+        str | None,
+    ]:
+        """Return complete diagnostics, qualification status, and failure detail."""
+        try:
+            diagnostics = self._diagnose(chains)
+        except MHDiagnosticsUnavailableError as exc:
+            return (), DIAGNOSTICS_UNAVAILABLE, str(exc)
+        status = (
+            QUALIFIED
+            if all(
+                item.qualified for item in diagnostics if item.included_in_qualification
+            )
+            else NOT_QUALIFIED
+        )
+        return diagnostics, status, None
 
     def run(self, problem_factory: _ProblemFactory) -> MHRunRecord:
         """Run initialization, optional pilot, production, and diagnostics.
@@ -455,6 +537,7 @@ class MultiChainMetropolisHastings:
         MHRunRecord
             Immutable configuration, separate production chains, optional pilot
             provenance, convergence metrics, and qualification status.
+
         """
         if not callable(problem_factory):
             raise TypeError("problem_factory must be callable")
@@ -470,34 +553,27 @@ class MultiChainMetropolisHastings:
             seen_problems,
         )
         pilot_problems = (
-            tuple(
-                self._fresh_problem(
-                    problem_factory,
-                    "pilot",
-                    chain_id,
-                    seen_problems,
-                    target_signature,
-                )
-                for chain_id in range(1, self.ensemble_config.chains + 1)
+            self._stage_problems(
+                problem_factory,
+                "pilot",
+                seen_problems,
+                target_signature,
             )
             if self.ensemble_config.pilot.enabled
             else ()
         )
-        production_problems = tuple(
-            self._fresh_problem(
-                problem_factory,
-                "production",
-                chain_id,
-                seen_problems,
-                target_signature,
-            )
-            for chain_id in range(1, self.ensemble_config.chains + 1)
+        production_problems = self._stage_problems(
+            problem_factory,
+            "production",
+            seen_problems,
+            target_signature,
         )
+
         pilot = None
         pilot_proposal_metadata: dict[str, Any] = {}
         pilot_prior_metadata: dict[str, Any] = {}
         production_starts = starts
-        if self.ensemble_config.pilot.enabled:
+        if pilot_problems:
             (
                 pilot,
                 pilot_proposal_metadata,
@@ -509,6 +585,7 @@ class MultiChainMetropolisHastings:
                 initialization_prior_metadata,
             )
             production_starts = pilot.final_states
+
         (
             chains,
             production_proposal_metadata,
@@ -524,34 +601,13 @@ class MultiChainMetropolisHastings:
             raise ValueError(
                 "resolved prior metadata changed between pilot and production"
             )
-        resolved_metadata: dict[str, Any] = {}
-        if pilot is None:
-            resolved_metadata.update(production_proposal_metadata)
-        else:
-            resolved_metadata.update(
-                {
-                    f"pilot_{name}": value
-                    for name, value in pilot_proposal_metadata.items()
-                }
-            )
-        resolved_metadata.update(production_prior_metadata)
-        diagnostics_message = None
-        try:
-            diagnostics = self._diagnose(chains)
-        except MHDiagnosticsUnavailableError as exc:
-            diagnostics = ()
-            diagnostics_message = str(exc)
-            status = DIAGNOSTICS_UNAVAILABLE
-        else:
-            status = (
-                QUALIFIED
-                if all(
-                    item.qualified
-                    for item in diagnostics
-                    if item.included_in_qualification
-                )
-                else NOT_QUALIFIED
-            )
+        diagnostics, status, diagnostics_message = self._diagnostic_outcome(chains)
+        resolved_metadata = self._resolved_metadata(
+            pilot,
+            pilot_proposal_metadata,
+            production_proposal_metadata,
+            production_prior_metadata,
+        )
         return MHRunRecord(
             chain_config=self.chain_config,
             ensemble_config=self.ensemble_config,

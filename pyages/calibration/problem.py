@@ -231,6 +231,7 @@ class CalibrationProblem:
         Persisted result tables retain the schema field ``obj_function`` for
         :math:`\sqrt{\chi^2/n}`. Systematic maps use the explicit field
         ``half_log_chi_square`` for :math:`0.5\log(\chi^2)`.
+
         """
         self.ensure_prepared()
         errors = np.asarray(observed_errors, dtype=float)

@@ -105,10 +105,10 @@ workflow requires a finite MCSE but has no configurable relative-MCSE gate. The
 two maintained scientific example tests add the case-specific requirement
 `MCSE / posterior_sd <= 0.10`.
 
-A structurally constant derived LPM quantity is reported but excluded from the
-ensemble gate because R-hat and ESS are not meaningful for it. A constant
-native sampled parameter remains a failed diagnostic: identical stuck chains
-are not evidence of convergence.
+A derived LPM quantity that is constant across all retained production draws
+is reported but excluded from the ensemble gate because R-hat and ESS are not
+meaningful for it. A constant native sampled parameter remains a failed
+diagnostic: identical stuck chains are not evidence of convergence.
 
 These are qualification gates used by the manuscript workflows, not proof
 that the LPM is scientifically adequate. Trace plots, boundary behavior,

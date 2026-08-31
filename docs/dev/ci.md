@@ -11,7 +11,7 @@ workflow modifies Git references.
 
 | Workflow | Triggers | Purpose |
 |---|---|---|
-| [CI](https://github.com/dreuzy/PyAges/actions/workflows/ci.yml) | Pull requests targeting `main`, pushes to `main`, `v*` tags, and manual dispatch | Fast required checks for every supported Python version, packaging, documentation, and validation infrastructure |
+| [CI](https://github.com/dreuzy/PyAges/actions/workflows/ci.yml) | Pull requests targeting `main`, pushes to `main`, version tags matching `*.*`, and manual dispatch | Fast required checks for every supported Python version, packaging, documentation, and validation infrastructure |
 | [Extensive tests](https://github.com/dreuzy/PyAges/actions/workflows/extensive-tests.yml) | Manual dispatch and every Monday at `01:17 UTC` | Opt-in scientific calculations that are too slow for every pull request |
 | [Release candidate](https://github.com/dreuzy/PyAges/actions/workflows/release-candidate.yml) | Manual dispatch for an existing release tag (`1.0` for this release) | Build one candidate, validate its metadata, and smoke-test the same wheel on all supported Python versions |
 | [Publish package](https://github.com/dreuzy/PyAges/actions/workflows/publish-package.yml) | Manual dispatch for an existing GitHub Release tag and a selected package index | Verify the existing release assets and their SHA-256 digests, then publish the unchanged files through the protected `testpypi` or `pypi` environment |
@@ -29,11 +29,11 @@ gate:
 
 | Job | Main checks | Result or artifact |
 |---|---|---|
-| `Ruff` | `ruff check`, `ruff format --check`, generated test-inventory check | Lint, formatting, and test documentation must be current |
+| `Ruff` | `ruff check`, `ruff format --check`, scoped qualified-surface docstring check, generated test-inventory check | Lint, formatting, API prose, and test documentation must be current |
 | `Dependency audit` | Qualified install, `pip check`, `pip-audit` | Dependency consistency and known-vulnerability check |
 | `Conda environment` | Create `install/environment.yml`, install PyAges without dependency replacement, exercise CLI discovery | Conda environment and packaged entry points are usable |
 | `Tests (Python …)` | Standard pytest suite on Python 3.12, 3.13, and 3.14 | Supported-version compatibility |
-| `Coverage` | Standard suite with branch measurement | XML artifact retained for 14 days; total coverage must be at least 60% |
+| `Coverage` | Standard suite with branch measurement | XML artifact retained for 14 days; total coverage must be at least 75% |
 | `TracerLPM validation` | Dedicated benchmark tests under `validation/tracerlpm/benchmark/tests` | Mapping, reference-data, and comparison infrastructure remains valid |
 | `.NET build` | Build the TracerLPM runner with .NET 8 | The adapter compiles on the GitHub Linux runner with Windows targeting enabled |
 | `Documentation` | Strict Sphinx HTML build and external-link check | HTML artifact retained for 14 days; warnings and unignored broken links fail the job |
@@ -115,6 +115,7 @@ standard Python checks is:
 ```bash
 python -m ruff check .
 python -m ruff format --check .
+python -m scripts.maintenance.check_qualified_docstrings
 python run_tests.py standard
 python run_tests.py coverage
 python run_tests.py validation

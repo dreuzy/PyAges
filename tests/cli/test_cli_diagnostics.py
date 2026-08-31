@@ -235,6 +235,43 @@ def test_cli_workflow_wrappers_translate_runtime_errors(
     assert "Error running transient workflow: temporal failure" in output
 
 
+@pytest.mark.parametrize(
+    ("mode_args", "workflow_module", "workflow_name", "error_heading"),
+    [
+        ([], single_date_workflow, "run_single_date", "Error running workflow"),
+        (
+            ["--transient"],
+            temporal_workflow,
+            "run_temporal",
+            "Error running transient workflow",
+        ),
+    ],
+)
+def test_cli_run_prints_preserved_evidence_note_once_without_verbose(
+    tmp_path,
+    monkeypatch,
+    mode_args,
+    workflow_module,
+    workflow_name,
+    error_heading,
+) -> None:
+    evidence = tmp_path / "preserved-results"
+    note = f"Preserved result evidence: {evidence}"
+
+    def fail(*_args, **_kwargs):
+        error = RuntimeError("convergence gate rejected the chains")
+        error.add_note(note)
+        raise error
+
+    monkeypatch.setattr(workflow_module, workflow_name, fail)
+
+    result = CliRunner().invoke(run_cmd.run, [str(_config(tmp_path)), *mode_args])
+
+    assert result.exit_code == 1
+    assert f"{error_heading}: convergence gate rejected the chains" in result.output
+    assert result.output.count(note) == 1
+
+
 def test_cli_run_reports_returned_result_paths(tmp_path, monkeypatch) -> None:
     config = _config(tmp_path)
     single_output = tmp_path / "single-results"

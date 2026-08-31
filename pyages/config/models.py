@@ -2,8 +2,7 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""
-Pydantic config models shared by launcher scripts.
+"""Pydantic config models shared by launcher scripts.
 
 Purpose
 -------
@@ -291,7 +290,13 @@ class MHInitializationCfg(_BaseCfg):
 
 
 class MHPilotCfg(_BaseCfg):
-    """Pilot controls used to derive one fixed production proposal."""
+    """Pilot controls used to derive one fixed production proposal.
+
+    Retained, unthinned pilot draws estimate a covariance after separate
+    within-chain centering. ``relative_ridge`` regularizes that covariance and
+    ``proposal_multiplier='auto'`` selects ``2.38 / sqrt(dimension)``. Pilot
+    draws are excluded from the posterior and saved only when requested.
+    """
 
     enabled: bool = True
     nstep: int = Field(default=2000, ge=4)
@@ -334,7 +339,13 @@ class MHPilotCfg(_BaseCfg):
 
 
 class MHDiagnosticsCfg(_BaseCfg):
-    """Qualification gates applied to retained production chains."""
+    """Qualification gates applied to retained production chains.
+
+    Qualification requires R-hat strictly below ``max_rhat``, both ESS values
+    at or above their minima, and a finite mean MCSE. Disabling
+    ``require_convergence`` permits explicit exploratory pooling but does not
+    skip diagnostic calculation or persistence.
+    """
 
     max_rhat: float = Field(default=1.01, gt=1.0, allow_inf_nan=False)
     min_bulk_ess: float = Field(default=300.0, gt=0.0, allow_inf_nan=False)

@@ -12,10 +12,7 @@ from typing import Any
 
 
 def configure_backend(force_inline: bool = False) -> bool:
-    """
-    Purpose
-    -------
-    Configure matplotlib backend depending on environment.
+    """Configure the Matplotlib backend for the current environment.
 
     Returns
     -------
@@ -57,20 +54,12 @@ def configure_backend(force_inline: bool = False) -> bool:
 
 
 def enable_interactive(plt):
-    """
-    Purpose
-    -------
-    Enable interactive mode for long-running scripts.
-    """
+    """Enable interactive mode for long-running scripts."""
     plt.ion()
 
 
 def show_figures(plt, is_interactive):
-    """
-    Purpose
-    -------
-    Flush figures in interactive mode.
-    """
+    """Flush figures in interactive mode."""
     if is_interactive:
         plt.show()
 

@@ -270,7 +270,7 @@ separate tuning phase.
 | `max_rhat` | number | 1.01 | Strict upper qualification limit for rank-normalized split-$\hat R$; greater than 1 |
 | `min_bulk_ess` | number | 300.0 | Minimum bulk effective sample size; strictly positive |
 | `min_tail_ess` | number | 300.0 | Minimum tail effective sample size; strictly positive |
-| `require_convergence` | boolean | true | Require every applicable sampled or derived quantity to meet the gates before treating pooled draws as a qualified posterior; structurally constant derived quantities are reported but excluded |
+| `require_convergence` | boolean | true | Require every applicable sampled or derived quantity to meet the gates before treating pooled draws as a qualified posterior; derived quantities that are constant across all retained production draws are reported but excluded |
 
 When convergence is required, configuration validation also checks the
 algorithmic ESS ceiling after splitting the retained chains. Following Stan,

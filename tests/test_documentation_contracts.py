@@ -4,6 +4,7 @@
 
 """Cross-check prose contracts that are not exercised by Sphinx."""
 
+import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -169,6 +170,45 @@ def test_contributor_extension_contract_is_navigable_and_compilable() -> None:
     assert "write_result_manifest" in document
     assert "**last**" in document
     compile(_first_python_block(document), "extending-calibration-workflows", "exec")
+
+
+def test_multichain_contributor_example_uses_the_canonical_dataclass_api() -> None:
+    document = (ROOT / "docs/user-guide/multichain-mh.md").read_text(encoding="utf-8")
+    section = document.split("(multichain-mh-python-contributor-interface)=", 1)[
+        1
+    ].split("## Interpret qualification and failure", 1)[0]
+    example = _first_python_block(section)
+
+    assert "from pyages.calibration.methods.mh import" in example
+    assert "proposal_multiplier=None" in example
+    assert 'proposal_multiplier="auto"' not in example
+    assert ").prepare()" in example
+    assert "record: MHRunRecord" in example
+    assert "record.pooled_samples()" in example
+    tree = ast.parse(example, filename="multichain-mh:contributor-interface")
+    guards = [node for node in tree.body if isinstance(node, ast.If)]
+    assert len(guards) == 1
+    guard = guards[0]
+    assert ast.unparse(guard.test) == "record.qualification_status == 'qualified'"
+    assert any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "pooled_samples"
+        for statement in guard.body
+        for node in ast.walk(statement)
+    )
+    assert not any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "pooled_samples"
+        for statement in guard.orelse
+        for node in ast.walk(statement)
+    )
+    assert any(
+        isinstance(node, ast.Attribute) and node.attr == "diagnostics"
+        for statement in guard.orelse
+        for node in ast.walk(statement)
+    )
 
 
 def test_calibration_guide_covers_operational_and_scientific_gates() -> None:

@@ -14,7 +14,7 @@ from pyages.concentrations import Concentrations
 from pyages.config.models import LauncherParams
 from pyages.config.paths import DIRECTORY_TRACER_DATA, configuration_root
 from pyages.config.runtime import DisplayOptions
-from pyages.workflows.runtime.manifest import ResultRun, begin_staged_result_run
+from pyages.workflows.runtime import ResultRun, begin_staged_result_run
 from pyages.workflows.runtime.plotting import PlotSession
 from pyages.workflows.single_date.config import load_params
 from pyages.workflows.single_date.paths import dataset_results_directory
