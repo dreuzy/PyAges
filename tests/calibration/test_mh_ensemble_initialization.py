@@ -6,8 +6,10 @@
 
 from __future__ import annotations
 
+import copy
 import math
-from dataclasses import FrozenInstanceError
+import pickle
+from dataclasses import FrozenInstanceError, asdict
 
 import numpy as np
 import pytest
@@ -19,6 +21,7 @@ from pyages.calibration.methods.mh.ensemble_config import (
     MHEnsembleConfig,
     MHInitializationConfig,
     MHPilotConfig,
+    MHSeedPlan,
     build_seed_plan,
 )
 from pyages.calibration.methods.mh.initialization import build_initial_states
@@ -40,6 +43,30 @@ class _TwoParameterModel:
 
     def get_p_max(self, name):
         return {"mu": 10.0, "width": 9.0}[name]
+
+
+class _MarginalPriorOnly:
+    """Structural prior double with no storage or distribution attributes."""
+
+    option = True
+
+    def __init__(self) -> None:
+        self.required: list[tuple[str, ...]] = []
+
+    def require_marginals(self, names) -> None:
+        self.required.append(tuple(names))
+
+    def bounded_quantile(self, name, minimum, maximum, probability):
+        del name
+        return minimum + probability * (maximum - minimum)
+
+    def bounded_mode(self, name, minimum, maximum):
+        del name
+        return 0.5 * (minimum + maximum)
+
+    def contains(self, name, value):
+        del name, value
+        return True
 
 
 def _parametric_prior() -> Prior:
@@ -84,6 +111,21 @@ def test_seed_plan_is_reproducible_distinct_and_phase_separated() -> None:
     assert first.initialization_seeds != first.production_seeds
 
 
+def test_seed_plan_detaches_mutable_phase_sequences() -> None:
+    initialization = [1, 2]
+    pilot = [3, 4]
+    production = [5, 6]
+    plan = MHSeedPlan(17, initialization, pilot, production)
+
+    initialization[0] = 99
+    pilot[0] = 99
+    production[0] = 99
+
+    assert plan.initialization_seeds == (1, 2)
+    assert plan.pilot_seeds == (3, 4)
+    assert plan.production_seeds == (5, 6)
+
+
 def test_configuration_objects_are_frozen() -> None:
     config = MHEnsembleConfig()
 
@@ -92,12 +134,40 @@ def test_configuration_objects_are_frozen() -> None:
         config.chains = 8
 
 
+def test_explicit_initialization_is_copy_and_pickle_safe() -> None:
+    config = MHInitializationConfig(
+        strategy="explicit",
+        explicit_starts=({"mu": 1.0}, {"mu": 2.0}),
+    )
+
+    assert copy.deepcopy(config) == config
+    assert asdict(config)["explicit_starts"] == ({"mu": 1.0}, {"mu": 2.0})
+    assert pickle.loads(pickle.dumps(config)) == config
+
+
+@pytest.mark.parametrize(
+    ("start", "message"),
+    [
+        ({"": 1.0}, "non-empty strings"),
+        ({1: 1.0}, "non-empty strings"),
+        ({"mu": True}, "finite numbers"),
+        ({"mu": math.nan}, "finite numbers"),
+        ({"mu": math.inf}, "finite numbers"),
+        ({}, "non-empty parameter mappings"),
+    ],
+)
+def test_explicit_initialization_rejects_invalid_states(start, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        MHInitializationConfig(strategy="explicit", explicit_starts=(start, start))
+
+
 @pytest.mark.parametrize(
     ("factory", "message"),
     [
         (lambda: MHInitializationConfig(strategy="random"), "strategy"),
         (lambda: MHInitializationConfig(max_attempts=0), "max_attempts"),
         (lambda: MHPilotConfig(burn_in=1.0), "burn_in"),
+        (lambda: MHPilotConfig(burn_in=False), "burn_in"),
         (lambda: MHPilotConfig(nstep=4, burn_in=0.5), "two covariance draws"),
         (lambda: MHPilotConfig(relative_ridge=-1.0), "relative_ridge"),
         (lambda: MHDiagnosticsConfig(max_rhat=0.99), "max_rhat"),
@@ -140,11 +210,10 @@ def test_explicit_starts_return_fresh_ordered_dictionaries() -> None:
     ("state", "message"),
     [
         ({"mu": 2.0}, "exactly"),
-        ({"mu": np.nan, "width": 3.0}, "finite"),
         ({"mu": 11.0, "width": 3.0}, "outside"),
     ],
 )
-def test_explicit_starts_must_be_complete_finite_and_bounded(state, message) -> None:
+def test_explicit_starts_must_be_complete_and_bounded(state, message) -> None:
     config = MHInitializationConfig(
         strategy="explicit", explicit_starts=(state, dict(state))
     )
@@ -178,6 +247,23 @@ def test_prior_sampling_is_reproducible_bounded_and_does_not_clip_normals() -> N
     assert all(0.0 < state["mu"] < 10.0 for state in first)
     assert all(2.0 <= state["width"] < 8.0 for state in first)
     assert lpm.p == {"mu": 4.0, "width": 3.0}
+
+
+def test_initialization_depends_only_on_the_marginal_prior_protocol() -> None:
+    prior = _MarginalPriorOnly()
+
+    states = build_initial_states(
+        _TwoParameterModel(),
+        prior,
+        MHInitializationConfig(strategy="prior_sample"),
+        2,
+        (11, 22),
+    )
+
+    assert len(states) == 2
+    assert all(0.0 < state["mu"] < 10.0 for state in states)
+    assert all(1.0 < state["width"] < 9.0 for state in states)
+    assert prior.required
 
 
 def test_prior_map_uses_bounded_mode_and_common_uniform_midpoint() -> None:

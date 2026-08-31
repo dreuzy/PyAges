@@ -14,7 +14,7 @@ from pyages.concentrations import Concentrations
 from pyages.config.models import LauncherParams
 from pyages.config.paths import DIRECTORY_TRACER_DATA, configuration_root
 from pyages.config.runtime import DisplayOptions
-from pyages.workflows.runtime.manifest import begin_result_run
+from pyages.workflows.runtime.manifest import ResultRun, begin_staged_result_run
 from pyages.workflows.runtime.plotting import PlotSession
 from pyages.workflows.single_date.config import load_params
 from pyages.workflows.single_date.paths import dataset_results_directory
@@ -27,6 +27,7 @@ class SingleDateContext:
     config_path: Path
     root: Path
     params: LauncherParams
+    result_run: ResultRun
     output_directory: Path
     live_display: DisplayOptions
     saved_display: DisplayOptions
@@ -75,7 +76,7 @@ def prepare_context(
     config_path = Path(params_path).resolve()
     root = configuration_root(config_path)
     params = load_params(root, config_path)
-    output_directory = Path(
+    result_directory = Path(
         dataset_results_directory(
             params.dataset_name,
             use_default=params.results_use_default,
@@ -83,19 +84,23 @@ def prepare_context(
             study_name=params.results_study_name,
         )
     )
-    begin_result_run(output_directory)
     live_display = _display_options(None, save=False, text=params.verbose)
-    saved_display = _display_options(output_directory, save=True)
     plots = PlotSession.start(force_inline=force_inline)
     try:
         observations = _load_observations(params, live_display)
+        # Do not allocate a staged result tree until every scientific input
+        # needed to start the workflow has been loaded successfully.
+        result_run = begin_staged_result_run(result_directory)
     except BaseException:
         plots.close_all()
         raise
+    output_directory = result_run.working_directory
+    saved_display = _display_options(output_directory, save=True)
     return SingleDateContext(
         config_path=config_path,
         root=root,
         params=params,
+        result_run=result_run,
         output_directory=output_directory,
         live_display=live_display,
         saved_display=saved_display,

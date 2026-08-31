@@ -13,7 +13,6 @@ write never exposes a partially serialized table or metadata file.
 from __future__ import annotations
 
 import json
-import math
 import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -21,14 +20,9 @@ from typing import Any
 
 import pandas as pd
 
-from pyages.calibration.methods.mh.config import MHConfig
-from pyages.calibration.methods.mh.ensemble_config import (
-    MHEnsembleConfig,
-    build_seed_plan,
-)
 from pyages.calibration.methods.mh.results import (
     QUALIFIED,
-    MHEnsembleResult,
+    MHRunRecord,
 )
 from pyages.calibration.outputs import write_key_values
 from pyages.data_io.lpm_distribution import (
@@ -65,27 +59,27 @@ def _json(value: object) -> str:
 
 
 def _chain_parameters_payload(
-    chain_config: MHConfig,
-    ensemble_config: MHEnsembleConfig,
-    result: MHEnsembleResult,
+    record: MHRunRecord,
 ) -> dict[str, Any]:
     """Build the root compatibility configuration and ensemble metadata."""
+    chain_config = record.chain_config
+    ensemble_config = record.ensemble_config
     initialization = ensemble_config.initialization
     pilot = ensemble_config.pilot
     diagnostics = ensemble_config.diagnostics
     proposal_kind = (
-        "correlated" if result.pilot is not None else chain_config.proposal_kind
+        "correlated" if record.pilot is not None else chain_config.proposal_kind
     )
     proposal_multiplier = (
-        result.pilot.proposal_multiplier
-        if result.pilot is not None
+        record.pilot.proposal_multiplier
+        if record.pilot is not None
         else chain_config.proposal_multiplier
     )
     payload = {
         "method": "Metropolis_Hastings",
         "execution_mode": "multi_chain",
         "nstep": chain_config.nstep,
-        "burn-in": chain_config.burn_in,
+        "burn_in": chain_config.burn_in,
         "nskip": chain_config.nskip,
         "retained_sample_count": (
             chain_config.retained_sample_count() * ensemble_config.chains
@@ -103,7 +97,7 @@ def _chain_parameters_payload(
         "proposal_scales": _json(chain_config.proposal_scales),
         "configured_proposal_covariance": _json(chain_config.proposal_covariance),
         "proposal_covariance_file": (
-            "proposal_covariance.tsv" if result.pilot is not None else ""
+            "proposal_covariance.tsv" if record.pilot is not None else ""
         ),
         "chain_count": ensemble_config.chains,
         "seed": ensemble_config.master_seed,
@@ -117,7 +111,7 @@ def _chain_parameters_payload(
         ),
         "pilot_enabled": pilot.enabled,
         "pilot_nstep": pilot.nstep,
-        "pilot_burn-in": pilot.burn_in,
+        "pilot_burn_in": pilot.burn_in,
         "pilot_covariance_mode": pilot.covariance_mode,
         "pilot_relative_ridge": pilot.relative_ridge,
         "pilot_requested_proposal_multiplier": (
@@ -129,91 +123,88 @@ def _chain_parameters_payload(
         "diagnostics_min_tail_ess": diagnostics.min_tail_ess,
         "diagnostics_require_convergence": diagnostics.require_convergence,
     }
-    payload.update(result.resolved_metadata)
+    payload.update(record.resolved_metadata)
     return payload
 
 
 def _provenance_payload(
-    result: MHEnsembleResult,
+    record: MHRunRecord,
 ) -> dict[str, Any]:
     """Record replayable phase seeds and the realized ensemble status."""
-    seed_plan = result.seed_plan
+    seed_plan = record.seed_plan
     payload: dict[str, Any] = {
         "format_version": 1,
         "method": "Metropolis_Hastings",
         "execution_mode": "multi_chain",
-        "qualification_status": result.qualification_status,
-        "diagnostics_message": result.diagnostics_message or "",
-        "chain_count": len(result.chains),
+        "qualification_status": record.qualification_status,
+        "diagnostics_message": record.diagnostics_message or "",
+        "chain_count": len(record.chains),
         "master_seed": seed_plan.master_seed,
-        "target_signature_version": result.target_signature_version,
-        "target_sha256": result.target_sha256,
+        "target_signature_version": record.target_signature_version,
+        "target_sha256": record.target_sha256,
     }
-    chains_by_id = sorted(result.chains, key=lambda chain: chain.chain_id)
+    chains_by_id = sorted(record.chains, key=lambda chain: chain.chain_id)
     for index, chain in enumerate(chains_by_id, start=1):
         payload[f"chain_id_{index:03d}"] = chain.chain_id
         payload[f"initialization_seed_{index:03d}"] = seed_plan.initialization_seeds[
             index - 1
         ]
         payload[f"pilot_seed_{index:03d}"] = (
-            seed_plan.pilot_seeds[index - 1] if result.pilot is not None else ""
+            seed_plan.pilot_seeds[index - 1] if record.pilot is not None else ""
         )
         payload[f"planned_pilot_seed_{index:03d}"] = seed_plan.pilot_seeds[index - 1]
         payload[f"production_seed_{index:03d}"] = chain.seed
-        payload[f"planned_production_seed_{index:03d}"] = seed_plan.production_seeds[
-            index - 1
-        ]
     return payload
 
 
 def _results_payload(
-    result: MHEnsembleResult,
+    record: MHRunRecord,
     pooled: LpmSampleTable | None,
 ) -> dict[str, Any]:
     """Build scalar run diagnostics for the root compatibility file."""
-    rates = [chain.acceptance_rate for chain in result.chains]
+    rates = [chain.acceptance_rate for chain in record.chains]
     failed = sum(
         diagnostic.included_in_qualification and not diagnostic.qualified
-        for diagnostic in result.diagnostics
+        for diagnostic in record.diagnostics
     )
     informational_failed = sum(
         not diagnostic.included_in_qualification and not diagnostic.qualified
-        for diagnostic in result.diagnostics
+        for diagnostic in record.diagnostics
     )
     mean_rate = sum(rates) / len(rates)
-    production_runtime = sum(chain.runtime_seconds for chain in result.chains)
+    production_runtime = sum(chain.runtime_seconds for chain in record.chains)
     pilot_runtime = (
-        sum(result.pilot.runtime_seconds)
-        if result.pilot is not None and result.pilot.runtime_seconds is not None
+        sum(record.pilot.runtime_seconds)
+        if record.pilot is not None and record.pilot.runtime_seconds is not None
         else 0.0
     )
     total_runtime = production_runtime + pilot_runtime
     return {
         "time_perform": total_runtime,
         "success_rate": mean_rate,
-        "qualification_status": result.qualification_status,
-        "diagnostics_message": result.diagnostics_message or "",
-        "chain_count": len(result.chains),
+        "qualification_status": record.qualification_status,
+        "diagnostics_message": record.diagnostics_message or "",
+        "chain_count": len(record.chains),
         "retained_samples_per_chain": _json(
-            [len(chain.samples.frame) for chain in result.chains]
+            [len(chain.samples.frame) for chain in record.chains]
         ),
         "pooled_sample_count": 0 if pooled is None else len(pooled.frame),
         "pooling_written": pooled is not None,
-        "mean_success_rate": mean_rate,
-        "minimum_success_rate": min(rates),
-        "maximum_success_rate": max(rates),
+        "mean_acceptance_rate": mean_rate,
+        "minimum_acceptance_rate": min(rates),
+        "maximum_acceptance_rate": max(rates),
         "production_runtime_sum_seconds": production_runtime,
         "pilot_runtime_sum_seconds": pilot_runtime,
         "total_runtime_seconds": total_runtime,
-        "diagnostic_count": len(result.diagnostics),
+        "diagnostic_count": len(record.diagnostics),
         "failed_diagnostic_count": failed,
         "informational_failed_diagnostic_count": informational_failed,
     }
 
 
-def _write_chains(result: MHEnsembleResult, output_directory: Path) -> None:
+def _write_chains(record: MHRunRecord, output_directory: Path) -> None:
     """Write independent production draws and scalar chain provenance."""
-    for chain in sorted(result.chains, key=lambda item: item.chain_id):
+    for chain in sorted(record.chains, key=lambda item: item.chain_id):
         chain_directory = output_directory / "chains" / f"chain_{chain.chain_id:03d}"
         write_distribution(
             chain.samples,
@@ -223,7 +214,7 @@ def _write_chains(result: MHEnsembleResult, output_directory: Path) -> None:
             "chain_id": chain.chain_id,
             "seed": chain.seed,
             "retained_sample_count": len(chain.samples.frame),
-            "success_rate": chain.acceptance_rate,
+            "acceptance_rate": chain.acceptance_rate,
             "runtime_seconds": chain.runtime_seconds,
         }
         metadata.update(
@@ -235,7 +226,7 @@ def _write_chains(result: MHEnsembleResult, output_directory: Path) -> None:
         )
 
 
-def _write_diagnostics(result: MHEnsembleResult, output_directory: Path) -> None:
+def _write_diagnostics(record: MHRunRecord, output_directory: Path) -> None:
     """Write one row per monitored parameter or derived quantity."""
     columns = [
         "parameter",
@@ -259,16 +250,16 @@ def _write_diagnostics(result: MHEnsembleResult, output_directory: Path) -> None
                 "included_in_qualification": (diagnostic.included_in_qualification),
                 "qualified": diagnostic.qualified,
             }
-            for diagnostic in result.diagnostics
+            for diagnostic in record.diagnostics
         ),
         columns=columns,
     )
     write_frame(frame, output_directory / "mcmc_diagnostics.tsv", index=False)
 
 
-def _write_pilot(result: MHEnsembleResult, output_directory: Path) -> None:
+def _write_pilot(record: MHRunRecord, output_directory: Path) -> None:
     """Write learned covariance and optional retained pilot matrices."""
-    pilot = result.pilot
+    pilot = record.pilot
     if pilot is None:
         return
     parameter_names = list(pilot.final_states[0])
@@ -297,7 +288,7 @@ def _write_pilot(result: MHEnsembleResult, output_directory: Path) -> None:
         ),
         start=1,
     ):
-        metadata[f"chain_{index:03d}_success_rate"] = rate
+        metadata[f"chain_{index:03d}_acceptance_rate"] = rate
         metadata[f"chain_{index:03d}_retained_sample_count"] = retained_count
         if pilot.runtime_seconds is not None:
             metadata[f"chain_{index:03d}_runtime_seconds"] = pilot.runtime_seconds[
@@ -324,79 +315,11 @@ def _write_pilot(result: MHEnsembleResult, output_directory: Path) -> None:
         )
 
 
-def _validate_production_provenance(
-    result: MHEnsembleResult,
-    chain_config: MHConfig,
-    ensemble_config: MHEnsembleConfig,
-) -> None:
-    """Validate production counts and replayable chain seeds."""
-    if len(result.chains) != ensemble_config.chains:
-        raise ValueError("result chain count does not match the ensemble configuration")
-    expected_draws = chain_config.retained_sample_count()
-    if any(len(chain.samples.frame) != expected_draws for chain in result.chains):
-        raise ValueError(
-            "production retained counts do not match the chain configuration"
-        )
-    expected_seed_plan = build_seed_plan(ensemble_config)
-    if result.seed_plan != expected_seed_plan:
-        raise ValueError("result seed_plan does not match the ensemble configuration")
-    planned_seeds = result.seed_plan.production_seeds
-    recorded_seeds = tuple(
-        chain.seed for chain in sorted(result.chains, key=lambda item: item.chain_id)
-    )
-    if recorded_seeds != planned_seeds:
-        raise ValueError("production chain seeds do not match the ensemble seed plan")
-
-
-def _validate_pilot_provenance(
-    result: MHEnsembleResult,
-    ensemble_config: MHEnsembleConfig,
-) -> None:
-    """Validate pilot presence, counts, and optional-sample policy."""
-    if ensemble_config.pilot.enabled != (result.pilot is not None):
-        raise ValueError(
-            "pilot result presence does not match the ensemble configuration"
-        )
-    if result.pilot is None:
-        return
-    if result.pilot.runtime_seconds is None:
-        raise ValueError("pilot runtimes are required for auditable serialization")
-    if result.pilot is not None and (
-        len(result.pilot.final_states) != ensemble_config.chains
-    ):
-        raise ValueError("pilot chain count does not match the ensemble configuration")
-    expected_pilot_draws = (
-        ensemble_config.pilot.nstep
-        - math.floor(ensemble_config.pilot.burn_in * ensemble_config.pilot.nstep)
-        - 1
-    )
-    if any(count != expected_pilot_draws for count in result.pilot.retained_counts):
-        raise ValueError(
-            "pilot retained counts do not match the ensemble configuration"
-        )
-    if ensemble_config.pilot.save_samples != (result.pilot.samples is not None):
-        raise ValueError(
-            "saved pilot samples do not match pilot.save_samples configuration"
-        )
-
-
-def _validate_arguments(
-    result: MHEnsembleResult,
-    chain_config: MHConfig,
-    ensemble_config: MHEnsembleConfig,
-    allow_unqualified_pooling: bool,
-) -> None:
-    """Reject inconsistent provenance before creating any output."""
-    if not isinstance(result, MHEnsembleResult):
-        raise TypeError("result must be an MHEnsembleResult")
-    if not isinstance(chain_config, MHConfig):
-        raise TypeError("chain_config must be an MHConfig")
-    if not isinstance(ensemble_config, MHEnsembleConfig):
-        raise TypeError("ensemble_config must be an MHEnsembleConfig")
-    if not isinstance(allow_unqualified_pooling, bool):
-        raise TypeError("allow_unqualified_pooling must be a boolean")
-    _validate_production_provenance(result, chain_config, ensemble_config)
-    _validate_pilot_provenance(result, ensemble_config)
+def _validate_record(record: MHRunRecord) -> None:
+    """Reject mutated or internally inconsistent provenance before output."""
+    if not isinstance(record, MHRunRecord):
+        raise TypeError("record must be an MHRunRecord")
+    record.validate_integrity()
 
 
 def clear_mh_ensemble_artifacts(output_directory: str | Path) -> None:
@@ -437,20 +360,16 @@ def _clear_previous_ensemble_artifacts(output_directory: Path) -> None:
 
 
 def write_mh_ensemble_result(
-    result: MHEnsembleResult,
+    record: MHRunRecord,
     output_directory: str | Path,
-    chain_config: MHConfig,
-    ensemble_config: MHEnsembleConfig,
-    *,
-    allow_unqualified_pooling: bool = False,
 ) -> LpmSampleTable | None:
     """Serialize a complete MH ensemble without premature chain pooling.
 
     Chain samples, their metadata, convergence diagnostics, seed provenance,
     and pilot information are written for every result status.  The standard
     root distribution, histograms, and statistics are produced only for a
-    qualified ensemble, unless exploratory pooling is explicitly enabled with
-    ``allow_unqualified_pooling=True``.
+    qualified ensemble. Exploratory pooling is enabled only by the immutable
+    run configuration's ``diagnostics.require_convergence=False`` policy.
 
     Returns
     -------
@@ -458,38 +377,35 @@ def write_mh_ensemble_result(
         A newly pooled sample table when root posterior outputs were written;
         otherwise ``None``.  Individual chain tables are never mutated.
     """
-    _validate_arguments(
-        result,
-        chain_config,
-        ensemble_config,
-        allow_unqualified_pooling,
-    )
+    _validate_record(record)
+    ensemble_config = record.ensemble_config
+    allow_unqualified_pooling = not ensemble_config.diagnostics.require_convergence
     destination = Path(output_directory)
     destination.mkdir(parents=True, exist_ok=True)
     _clear_previous_ensemble_artifacts(destination)
 
-    _write_chains(result, destination)
-    _write_diagnostics(result, destination)
-    _write_pilot(result, destination)
+    _write_chains(record, destination)
+    _write_diagnostics(record, destination)
+    _write_pilot(record, destination)
     _write_key_values_atomic(
         destination / "ensemble_provenance.txt",
-        _provenance_payload(result),
+        _provenance_payload(record),
     )
     _write_key_values_atomic(
         destination / "parameters_calibration.txt",
-        _chain_parameters_payload(chain_config, ensemble_config, result),
+        _chain_parameters_payload(record),
     )
 
     pooled: LpmSampleTable | None = None
-    if result.qualification_status == QUALIFIED or allow_unqualified_pooling:
-        pooled = result.pooled_samples(require_qualified=not allow_unqualified_pooling)
+    if record.qualification_status == QUALIFIED or allow_unqualified_pooling:
+        pooled = record.pooled_samples(require_qualified=not allow_unqualified_pooling)
         write_distribution(pooled, destination / "lpm_dist_calibrated.txt")
         write_histograms(pooled, destination / "lpm_histo_calibrated.txt")
         write_statistics(pooled, destination / "lpm_stats_calibrated.txt")
 
     _write_key_values_atomic(
         destination / "results_calibration.txt",
-        _results_payload(result, pooled),
+        _results_payload(record, pooled),
     )
     return pooled
 

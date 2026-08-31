@@ -18,6 +18,7 @@ from typing import Any, Protocol, Sequence
 
 import numpy as np
 
+from pyages.calibration.methods.mh._immutable import immutable_float_array
 from pyages.calibration.methods.mh.ig_coordinates import (
     physical_to_scipy_coordinates,
     scipy_to_physical_coordinates,
@@ -169,7 +170,7 @@ class GaussianRandomWalk:
 
     def __post_init__(self) -> None:
         """Validate and copy the fixed proposal covariance."""
-        covariance = np.asarray(self.covariance, dtype=float)
+        covariance = np.array(self.covariance, dtype=float, copy=True)
         if covariance.ndim != 2 or covariance.shape[0] != covariance.shape[1]:
             raise ValueError("proposal covariance must be a square matrix")
         if not np.all(np.isfinite(covariance)):
@@ -186,7 +187,15 @@ class GaussianRandomWalk:
             raise ValueError("sum/difference proposals require a 2x2 covariance")
         if self.coordinate_system == "scipy_ig" and covariance.shape != (3, 3):
             raise ValueError("SciPy IG proposals require a 3x3 covariance")
-        object.__setattr__(self, "covariance", covariance.copy())
+        object.__setattr__(self, "covariance", immutable_float_array(covariance))
+
+    def __deepcopy__(self, _memo: dict[int, object]) -> "GaussianRandomWalk":
+        """Return self because the proposal contains only immutable values."""
+        return self
+
+    def __reduce__(self) -> tuple[object, tuple[np.ndarray, str]]:
+        """Rebuild through validation so unpickled covariance stays immutable."""
+        return type(self), (self.covariance, self.coordinate_system)
 
     @classmethod
     def diagonal(

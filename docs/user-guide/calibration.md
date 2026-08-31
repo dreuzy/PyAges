@@ -180,7 +180,7 @@ retained; deleting those repeats biases the sample. Thinning reduces stored
 rows but does not improve the underlying chain or replace effective sample
 size (ESS).
 
-Parameter files record `nstep`, `burn-in`, `nskip`, and the derived
+Parameter files record `nstep`, `burn_in`, `nskip`, and the derived
 `retained_sample_count`. They also record the seed, initialization source,
 proposal definition, and resolved prior metadata.
 

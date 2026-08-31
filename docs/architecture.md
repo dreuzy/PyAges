@@ -25,8 +25,10 @@ Concentrations -> CalibrationProblem -> CalibrationMethod -> LpmSampleTable
 | `LpmBase` subclasses | Transit-time distributions and parameters | Tracer histories |
 | `Convolution` | The forward concentration calculation | Optimization |
 | `CalibrationProblem` | Observations, model, convolution, objective | Search algorithm state |
+| `CalibrationTargetSignature` | Versioned identity of a prepared scientific target | Problem preparation, search state, reporting paths |
 | `CalibrationMethod` | Simplex or one-chain MH execution | Input loading and reporting |
 | `MultiChainMetropolisHastings` | Pilot and production orchestration, diagnostics, qualification status | Workflow paths and serialization |
+| `MHRunRecord` | Immutable chain/ensemble configuration, samples, diagnostics, seeds, and target provenance for one run | Workflow paths and file writers |
 | `LpmSampleTable` | Calibrated sample rows | Plotting and file-format logic |
 
 Composition is deliberate. A calibration method receives a prepared problem;
@@ -43,13 +45,15 @@ A single-date or temporal workflow performs the same common sequence:
 4. Prepare a `CalibrationProblem` containing the LPM, tracer convolutions, and
    objective function, or define a factory that prepares a fresh problem for
    every multi-chain stage and chain.
-5. Run Simplex, one-chain Metropolis--Hastings, or the MH ensemble.
-6. For an ensemble, run dispersed initialization and optional pilots, freeze a
+5. Build the versioned `CalibrationTargetSignature`; a multi-chain run compares
+   every independently prepared problem against the same scientific target.
+6. Run Simplex, one-chain Metropolis--Hastings, or the MH ensemble.
+7. For an ensemble, run dispersed initialization and optional pilots, freeze a
    common proposal covariance, run production chains, and diagnose them before
    any pooling.
-7. Store each chain in its own `LpmSampleTable.frame`; create a pooled table
+8. Store each chain in its own `LpmSampleTable.frame`; create a pooled table
    only when the configured qualification policy permits it.
-8. Write standard result tables, audit artifacts, and optional figures.
+9. Write standard result tables, audit artifacts, and optional figures.
 
 The workflow modules own orchestration only. Their immutable context objects
 make resolved paths and runtime options explicit. Cross-domain exports and plot
@@ -69,7 +73,7 @@ any directory is created.
 | `pyages.tracer` | Typed tracer configuration and recharge histories |
 | `pyages.lpm` | Model registry, transit-time models, and sample analysis |
 | `pyages.convolution` | Forward scientific model |
-| `pyages.calibration` | Problems, methods, priors, parameter grids, and outputs |
+| `pyages.calibration` | Problems, target signatures, methods, priors, parameter grids, and outputs |
 | `pyages.workflows` | Public single-date and temporal orchestration, plus runtime services |
 | `pyages.reporting` | Reusable result tables and figures |
 | `pyages.qualification` | Scientific recovery and benchmark experiments, outside the user API |
@@ -122,6 +126,8 @@ flowchart TB
   TRACER --> CONV[convolution]
   LPM --> CONV
   CONV --> PROBLEM
+  PROBLEM --> SIGNATURE[CalibrationTargetSignature]
+  SIGNATURE --> METHODS
   PROBLEM --> METHODS[calibration methods]
   METHODS --> RESULT[LpmSampleTable]
   RESULT --> IO[data_io]

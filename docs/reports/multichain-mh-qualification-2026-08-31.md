@@ -37,11 +37,51 @@ python -m pytest -q --run-extensive tests/examples/test_ploemeur_multichain_scie
 
 `python run_tests.py extensive` runs these cases with the complete core suite.
 
-The final qualified Windows/Python 3.12 campaign collected and passed all
-`1,298` core cases, including the seven opt-in extensive cases, in `1,314.88`
-seconds. A dedicated short pytest base directory was used because the legacy
+The final qualified Windows/Python 3.12 verification used the final inventory
+of 1,354 standard cases, seven extensive cases, 1,361 core cases including
+extensive, and 1,426 cases across all documented pytest scopes. The standard
+profile passed 1,354 cases and skipped the seven opt-in extensive cases in
+455.41 seconds. The extensive profile passed all seven cases and deselected the
+1,354 standard cases in 928.54 seconds. Together the two profiles exercised all
+1,361 core cases in 1,383.95 seconds.
+
+A dedicated short pytest base directory was used because the legacy
 site-specific Ploemeur golden has a deeply nested result layout on Windows;
 this changes no configuration, seed, calculation, or scientific artifact.
+
+## Qualified implementation boundary
+
+The final campaign exercises the hardened implementation rather than only the
+original numerical prototype:
+
+- diagnostics must form the exact ordered schema of sampled parameters and
+  declared derived moments, use finite stored values from every chain, follow
+  the canonical constant-derived inclusion policy, and reproduce the
+  qualification decision from frozen thresholds;
+- proposal covariance, pilot arrays, states, configurations, and metadata use
+  immutable backing, while pilot and production records carry integrity
+  fingerprints revalidated before pooling or serialization;
+- result manifests index only current-run artifacts, and terminal staging
+  promotion revalidates those artifacts under a process-independent lock;
+- concurrent publication uses a complete-tree compare-and-swap token, refuses
+  to replace a tree containing an active nested stage, and restores the
+  preceding public tree if the final commit rename fails;
+- convergence rejection uses the dedicated `MHConvergenceError`, preserves
+  chain and diagnostic evidence in a promoted failure manifest, and remains
+  distinct from unavailable diagnostics and unrelated programming errors.
+
+The architecture remains composition-based. The ensemble composes fresh
+problems, single-chain samplers, frozen configuration, diagnostics, and one
+`MHRunRecord`; it does not inherit sampler or workflow behavior. Within the MH
+scope, only `MetropolisHastings(CalibrationMethod)` uses behavioral inheritance,
+which is the legitimate implementation of the common calibration-method
+contract.
+
+The unreleased compatibility aliases were removed rather than retained beside
+the canonical API: `MHEnsembleResult`, public `ProblemFactory`, public
+`build_mh_ensemble_config`, public `mh_stage_directory`, and problem-module
+target-signature aliases are absent. Private underscored implementation names
+do not constitute alternate supported entry points.
 
 ## Registered protocols and cost
 
@@ -58,7 +98,7 @@ and manually triggered extensive profile rather than every pull request.
 | Case | Convergence evidence | Case-specific evidence |
 |---|---|---|
 | Synthetic | Maximum R-hat `1.003066`; minimum bulk ESS `1540.59`; minimum tail ESS `1647.96` | `mu=28`, `shift=4`, and `mu+shift=32` recovered by the registered marginal and joint checks; four fitted latent tracer responses agree with the versioned truth/noisy observations under their error limits |
-| Ploemeur F09 | Maximum R-hat `1.001381`; minimum bulk/tail ESS `2485.89`; chain acceptance `0.3480`–`0.3738` | Positive-definite proposal, bounded joint rows, independent forward recomputation, and median fitted-latent NRMSE `1.0687` |
+| Ploemeur F09 | Maximum R-hat `1.001381`; minimum bulk ESS `2485.89`; minimum tail ESS `2950.23`; chain acceptance `0.3480`–`0.3738` | Positive-definite proposal, bounded joint rows, independent forward recomputation, and median fitted-latent NRMSE `1.0687` |
 
 These values describe the fixed-seed qualification run. The tests gate
 scientifically meaningful inequalities, not exact floating-point equality to
@@ -97,4 +137,7 @@ artifact SHA-256 values. Neither a successful CI log nor its 30-day artifact is
 a permanent scientific archive.
 
 Operational instructions are in {doc}`../user-guide/multichain-mh`; exact file
-schemas are in {doc}`../reference/outputs`.
+schemas are in {doc}`../reference/outputs`. The strict documentation build is
+recorded as passed in the companion refactoring audit. That audit also records
+successful sdist/wheel builds, metadata checks, and installed-wheel API and CLI
+smoke verification on the candidate.

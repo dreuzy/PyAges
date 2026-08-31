@@ -26,23 +26,13 @@ from pydantic import (
     model_validator,
 )
 
+from pyages.calibration.sampling_schedule import (
+    maximum_split_ess,
+    strict_retained_sample_count,
+)
 from pyages.config.paths import validate_path_component
 
 TEMPORAL_VALID_MODES = {"span", "successive"}
-
-
-def _strict_retained_count(nstep: int, burn_in: float, nskip: int) -> int:
-    """Return rows retained by the MH strict burn-in/thinning convention."""
-    first = (math.floor((burn_in * nstep) / nskip) + 1) * nskip
-    if first >= nstep:
-        return 0
-    return 1 + (nstep - 1 - first) // nskip
-
-
-def _maximum_split_ess(chains: int, retained_count: int) -> float:
-    """Return Stan's antithetic ESS ceiling after every chain is split."""
-    split_draws = chains * 2 * (retained_count // 2)
-    return split_draws * math.log10(split_draws)
 
 
 def _resolve_path(value: Path, info):
@@ -333,7 +323,10 @@ class MHPilotCfg(_BaseCfg):
 
     @model_validator(mode="after")
     def _require_covariance_draws(self) -> Self:
-        if self.enabled and _strict_retained_count(self.nstep, self.burn_in, 1) < 2:
+        if (
+            self.enabled
+            and strict_retained_sample_count(self.nstep, self.burn_in, 1) < 2
+        ):
             raise ValueError(
                 "pilot nstep and burn_in must retain at least two covariance draws"
             )
@@ -428,7 +421,9 @@ class LauncherMetropolisCfg(_BaseCfg):
             raise ValueError(
                 "prior_sample and prior_map initialization require prior_option=true"
             )
-        retained_count = _strict_retained_count(self.nstep, self.burn_in, self.nskip)
+        retained_count = strict_retained_sample_count(
+            self.nstep, self.burn_in, self.nskip
+        )
         if retained_count == 0:
             raise ValueError(
                 "nstep, burn_in, and nskip must retain at least one MH draw"
@@ -446,7 +441,7 @@ class LauncherMetropolisCfg(_BaseCfg):
             and self.multichain.enabled
             and self.multichain.diagnostics.require_convergence
         ):
-            maximum_ess = _maximum_split_ess(self.multichain.chains, retained_count)
+            maximum_ess = maximum_split_ess(self.multichain.chains, retained_count)
             if (
                 self.multichain.diagnostics.min_bulk_ess > maximum_ess
                 or self.multichain.diagnostics.min_tail_ess > maximum_ess
@@ -590,7 +585,7 @@ class TemporalCalibrationCfg(_BaseCfg):
         multichain_enabled = self.multichain is not None and self.multichain.enabled
         if self.seed_enabled and self.seed is None and not multichain_enabled:
             raise ValueError("calibration.seed is required when seed_enabled is true")
-        retained_count = _strict_retained_count(
+        retained_count = strict_retained_sample_count(
             self.mh_nsteps, self.burn_in, self.nskip
         )
         if retained_count == 0:
@@ -606,7 +601,7 @@ class TemporalCalibrationCfg(_BaseCfg):
             and self.multichain is not None
             and self.multichain.diagnostics.require_convergence
         ):
-            maximum_ess = _maximum_split_ess(self.multichain.chains, retained_count)
+            maximum_ess = maximum_split_ess(self.multichain.chains, retained_count)
             if (
                 self.multichain.diagnostics.min_bulk_ess > maximum_ess
                 or self.multichain.diagnostics.min_tail_ess > maximum_ess

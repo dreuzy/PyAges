@@ -27,7 +27,7 @@ from pyages.config.paths import (
     result_subdirectory,
     validate_path_component,
 )
-from pyages.workflows.runtime.manifest import begin_result_run
+from pyages.workflows.runtime.manifest import ResultRun, begin_staged_result_run
 
 DEFAULT_LPMS = ["exp_shifted", "ig", "ig_shifted"]
 
@@ -44,6 +44,7 @@ class TemporalContext:
     models: list[str]
     lpm_directory: Path
     observations: Concentrations
+    result_run: ResultRun
     output_directory: Path
 
 
@@ -116,15 +117,6 @@ def prepare_context(params_path: str | Path) -> TemporalContext:
     configuration_directory = configuration_root(config_path)
     params = _load_params_validated(config_path)
     dataset_path = resolve_from(configuration_directory, params.dataset.file)
-    results_root = _results_root(params.results, configuration_directory)
-    output_directory = result_subdirectory(
-        result_subdirectory(
-            result_subdirectory(results_root, params.results.study_name),
-            dataset_path.stem,
-        ),
-        params.workflow.mode,
-    )
-    begin_result_run(output_directory)
     if not dataset_path.is_file():
         raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
     models, lpm_directory = _resolve_lpms(
@@ -136,6 +128,18 @@ def prepare_context(params_path: str | Path) -> TemporalContext:
         params.dataset.error_rel,
         params.dataset.missing_error_rel,
     )
+    # Allocate the staging tree only after all scientific inputs required to
+    # start the workflow have passed validation and loading.
+    results_root = _results_root(params.results, configuration_directory)
+    result_directory = result_subdirectory(
+        result_subdirectory(
+            result_subdirectory(results_root, params.results.study_name),
+            dataset_path.stem,
+        ),
+        params.workflow.mode,
+    )
+    result_run = begin_staged_result_run(result_directory)
+    output_directory = result_run.working_directory
     return TemporalContext(
         config_path=config_path,
         configuration_directory=configuration_directory,
@@ -145,6 +149,7 @@ def prepare_context(params_path: str | Path) -> TemporalContext:
         models=models,
         lpm_directory=lpm_directory,
         observations=observations,
+        result_run=result_run,
         output_directory=output_directory,
     )
 

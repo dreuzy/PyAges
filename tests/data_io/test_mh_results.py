@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -26,9 +27,9 @@ from pyages.calibration.methods.mh.results import (
     NOT_QUALIFIED,
     QUALIFIED,
     MHChainResult,
-    MHEnsembleResult,
     MHParameterDiagnostics,
     MHPilotResult,
+    MHRunRecord,
 )
 from pyages.calibration.methods.mh.sampler import MetropolisHastings
 from pyages.calibration.problem import CalibrationProblem
@@ -43,7 +44,11 @@ from pyages.lpm import build_lpm
 from pyages.lpm.samples.table import LpmSampleTable
 
 
-def _configs(*, save_pilot_samples: bool = True) -> tuple[MHConfig, MHEnsembleConfig]:
+def _configs(
+    *,
+    save_pilot_samples: bool = True,
+    require_convergence: bool = True,
+) -> tuple[MHConfig, MHEnsembleConfig]:
     chain_config = MHConfig(
         nstep=20,
         burn_in=0.1,
@@ -66,6 +71,7 @@ def _configs(*, save_pilot_samples: bool = True) -> tuple[MHConfig, MHEnsembleCo
             max_rhat=1.05,
             min_bulk_ess=10,
             min_tail_ess=10,
+            require_convergence=require_convergence,
         ),
     )
     return chain_config, ensemble_config
@@ -82,15 +88,17 @@ def _samples(offset: float) -> LpmSampleTable:
             obj_function=value**2,
             concentrations=[value / 10.0],
         )
+    table.add_moments()
     return table
 
 
 def _result(
     status: str,
+    chain_config: MHConfig,
     ensemble_config: MHEnsembleConfig,
     *,
     save_pilot_samples: bool = True,
-) -> MHEnsembleResult:
+) -> MHRunRecord:
     first = _samples(0.0)
     second = _samples(10.0)
     parameter = first.get_param_names()[0]
@@ -100,7 +108,7 @@ def _result(
         MHChainResult(
             chain_id=1,
             seed=seeds[0],
-            initial_params={parameter: 1.0},
+            initial_params={parameter: 1.1},
             samples=first,
             acceptance_rate=0.4,
             runtime_seconds=1.25,
@@ -108,23 +116,39 @@ def _result(
         MHChainResult(
             chain_id=2,
             seed=seeds[1],
-            initial_params={parameter: 11.0},
+            initial_params={parameter: 10.9},
             samples=second,
             acceptance_rate=0.6,
             runtime_seconds=1.75,
         ),
     )
     qualified = status == QUALIFIED
-    diagnostics = (
-        MHParameterDiagnostics(
-            parameter=parameter,
-            rhat=1.005 if qualified else 1.2,
-            bulk_ess=500 if qualified else 5,
-            tail_ess=450 if qualified else 4,
-            mcse_mean=0.01,
-            posterior_sd=2.0,
-            qualified=qualified,
-        ),
+    diagnostic = MHParameterDiagnostics(
+        parameter=parameter,
+        rhat=1.005 if qualified else 1.2,
+        bulk_ess=500 if qualified else 5,
+        tail_ess=450 if qualified else 4,
+        mcse_mean=0.01,
+        posterior_sd=2.0,
+        qualified=qualified,
+    )
+    diagnostic_names = tuple(
+        dict.fromkeys(
+            tuple(first.get_param_names()) + tuple(first.lpm_template.moments_name())
+        )
+    )
+    diagnostics = tuple(
+        replace(
+            diagnostic,
+            parameter=name,
+            rhat=1.005,
+            bulk_ess=500,
+            tail_ess=450,
+            qualified=True,
+        )
+        if name != parameter
+        else replace(diagnostic, parameter=name)
+        for name in diagnostic_names
     )
     pilot_samples = (
         (
@@ -144,7 +168,9 @@ def _result(
         initial_states=({parameter: 1.0}, {parameter: 11.0}),
         runtime_seconds=(0.5, 0.75),
     )
-    return MHEnsembleResult(
+    return MHRunRecord(
+        chain_config=chain_config,
+        ensemble_config=ensemble_config,
         chains=chains,
         pilot=pilot,
         diagnostics=diagnostics,
@@ -196,14 +222,9 @@ def test_writer_preserves_chains_and_emits_full_qualified_artifact_set(
     tmp_path,
 ) -> None:
     chain_config, ensemble_config = _configs()
-    result = _result(QUALIFIED, ensemble_config)
+    result = _result(QUALIFIED, chain_config, ensemble_config)
 
-    pooled = write_mh_ensemble_result(
-        result,
-        tmp_path,
-        chain_config,
-        ensemble_config,
-    )
+    pooled = write_mh_ensemble_result(result, tmp_path)
 
     assert pooled is not None
     assert len(pooled.frame) == 16
@@ -250,6 +271,10 @@ def test_writer_preserves_chains_and_emits_full_qualified_artifact_set(
     assert (tmp_path / "lpm_stats_calibrated.txt").is_file()
     parameters = _read_key_values(tmp_path / "parameters_calibration.txt")
     assert parameters["execution_mode"] == "multi_chain"
+    assert parameters["burn_in"] == str(chain_config.burn_in)
+    assert "burn-in" not in parameters
+    assert parameters["pilot_burn_in"] == str(ensemble_config.pilot.burn_in)
+    assert "pilot_burn-in" not in parameters
     assert parameters["master_seed"] == str(ensemble_config.master_seed)
     assert parameters["seed"] == str(ensemble_config.master_seed)
     assert parameters["retained_sample_count"] == "16"
@@ -267,6 +292,7 @@ def test_writer_preserves_chains_and_emits_full_qualified_artifact_set(
     run_results = _read_key_values(tmp_path / "results_calibration.txt")
     assert run_results["qualification_status"] == QUALIFIED
     assert run_results["success_rate"] == "0.5"
+    assert run_results["mean_acceptance_rate"] == "0.5"
     assert run_results["time_perform"] == "4.25"
     assert run_results["production_runtime_sum_seconds"] == "3.0"
     assert run_results["pilot_runtime_sum_seconds"] == "1.25"
@@ -274,6 +300,12 @@ def test_writer_preserves_chains_and_emits_full_qualified_artifact_set(
     assert run_results["pooled_sample_count"] == "16"
     pilot_metadata = _read_key_values(tmp_path / "pilot" / "pilot_metadata.txt")
     assert pilot_metadata[f"chain_001_initial_{parameter}"] == "1.0"
+    assert pilot_metadata["chain_001_acceptance_rate"] == "0.45"
+    chain_metadata = _read_key_values(
+        tmp_path / "chains" / "chain_001" / "chain_metadata.txt"
+    )
+    assert chain_metadata["acceptance_rate"] == "0.4"
+    assert "success_rate" not in chain_metadata
 
 
 def test_writer_preserves_pre_run_file_provenance_after_sources_change(
@@ -356,12 +388,7 @@ def test_writer_preserves_pre_run_file_provenance_after_sources_change(
     assert changed_prior_sha256 != original_prior_sha256
 
     output_directory = tmp_path / "output"
-    write_mh_ensemble_result(
-        result,
-        output_directory,
-        chain_config,
-        ensemble_config,
-    )
+    write_mh_ensemble_result(result, output_directory)
 
     parameters = _read_key_values(output_directory / "parameters_calibration.txt")
     assert parameters["pilot_MH_delta_mu"] == "0.2"
@@ -455,16 +482,12 @@ def test_nonqualified_result_writes_audit_files_but_not_pooled_outputs(
     chain_config, ensemble_config = _configs(save_pilot_samples=False)
     result = _result(
         NOT_QUALIFIED,
+        chain_config,
         ensemble_config,
         save_pilot_samples=False,
     )
 
-    pooled = write_mh_ensemble_result(
-        result,
-        tmp_path,
-        chain_config,
-        ensemble_config,
-    )
+    pooled = write_mh_ensemble_result(result, tmp_path)
 
     assert pooled is None
     assert (tmp_path / "mcmc_diagnostics.tsv").is_file()
@@ -481,26 +504,22 @@ def test_nonqualified_result_writes_audit_files_but_not_pooled_outputs(
 
 def test_nonqualified_rerun_removes_stale_root_posterior_outputs(tmp_path) -> None:
     chain_config, ensemble_config = _configs(save_pilot_samples=False)
-    qualified = _result(QUALIFIED, ensemble_config, save_pilot_samples=False)
-    unqualified = _result(
-        NOT_QUALIFIED,
+    qualified = _result(
+        QUALIFIED,
+        chain_config,
         ensemble_config,
         save_pilot_samples=False,
     )
-    write_mh_ensemble_result(
-        qualified,
-        tmp_path,
+    unqualified = _result(
+        NOT_QUALIFIED,
         chain_config,
         ensemble_config,
+        save_pilot_samples=False,
     )
+    write_mh_ensemble_result(qualified, tmp_path)
     assert (tmp_path / "lpm_dist_calibrated.txt").is_file()
 
-    pooled = write_mh_ensemble_result(
-        unqualified,
-        tmp_path,
-        chain_config,
-        ensemble_config,
-    )
+    pooled = write_mh_ensemble_result(unqualified, tmp_path)
 
     assert pooled is None
     assert not (tmp_path / "lpm_dist_calibrated.txt").exists()
@@ -508,21 +527,19 @@ def test_nonqualified_rerun_removes_stale_root_posterior_outputs(tmp_path) -> No
     assert not list(tmp_path.glob("lpm_histo_calibrated*.txt"))
 
 
-def test_unqualified_pooling_requires_an_explicit_override(tmp_path) -> None:
-    chain_config, ensemble_config = _configs(save_pilot_samples=False)
+def test_unqualified_pooling_is_bound_to_the_recorded_policy(tmp_path) -> None:
+    chain_config, ensemble_config = _configs(
+        save_pilot_samples=False,
+        require_convergence=False,
+    )
     result = _result(
         NOT_QUALIFIED,
+        chain_config,
         ensemble_config,
         save_pilot_samples=False,
     )
 
-    pooled = write_mh_ensemble_result(
-        result,
-        tmp_path,
-        chain_config,
-        ensemble_config,
-        allow_unqualified_pooling=True,
-    )
+    pooled = write_mh_ensemble_result(result, tmp_path)
 
     assert pooled is not None
     assert len(pooled.frame) == 16
@@ -536,26 +553,18 @@ def test_unavailable_diagnostics_still_write_chain_audit_files(tmp_path) -> None
     chain_config, ensemble_config = _configs(save_pilot_samples=False)
     base = _result(
         NOT_QUALIFIED,
+        chain_config,
         ensemble_config,
         save_pilot_samples=False,
     )
-    result = MHEnsembleResult(
-        chains=base.chains,
-        pilot=base.pilot,
+    result = replace(
+        base,
         diagnostics=(),
         qualification_status=DIAGNOSTICS_UNAVAILABLE,
-        seed_plan=base.seed_plan,
-        target_signature_version=base.target_signature_version,
-        target_sha256=base.target_sha256,
         diagnostics_message="non-finite derived quantity",
     )
 
-    pooled = write_mh_ensemble_result(
-        result,
-        tmp_path,
-        chain_config,
-        ensemble_config,
-    )
+    pooled = write_mh_ensemble_result(result, tmp_path)
 
     assert pooled is None
     assert (tmp_path / "chains" / "chain_001" / "lpm_dist_calibrated.txt").is_file()
@@ -612,11 +621,9 @@ def test_one_chain_cleanup_removes_only_multichain_artifacts(tmp_path) -> None:
     assert standard.is_file()
 
 
-def test_writer_rejects_a_result_seed_plan_from_another_configuration(
-    tmp_path,
-) -> None:
+def test_run_record_rejects_a_seed_plan_from_another_configuration() -> None:
     chain_config, ensemble_config = _configs()
-    result = _result(QUALIFIED, ensemble_config)
+    result = _result(QUALIFIED, chain_config, ensemble_config)
     other_config = MHEnsembleConfig(
         chains=ensemble_config.chains,
         master_seed=ensemble_config.master_seed + 1,
@@ -626,19 +633,12 @@ def test_writer_rejects_a_result_seed_plan_from_another_configuration(
     )
 
     with pytest.raises(ValueError, match="seed_plan"):
-        write_mh_ensemble_result(
-            result,
-            tmp_path,
-            chain_config,
-            other_config,
-        )
-
-    assert not list(tmp_path.iterdir())
+        replace(result, ensemble_config=other_config)
 
 
-def test_writer_rejects_a_result_with_the_wrong_chain_count(tmp_path) -> None:
+def test_run_record_rejects_a_configuration_with_the_wrong_chain_count() -> None:
     chain_config, ensemble_config = _configs()
-    result = _result(QUALIFIED, ensemble_config)
+    result = _result(QUALIFIED, chain_config, ensemble_config)
     wrong_config = MHEnsembleConfig(
         chains=3,
         master_seed=ensemble_config.master_seed,
@@ -648,11 +648,45 @@ def test_writer_rejects_a_result_with_the_wrong_chain_count(tmp_path) -> None:
     )
 
     with pytest.raises(ValueError, match="chain count"):
-        write_mh_ensemble_result(
+        replace(result, ensemble_config=wrong_config)
+
+
+def test_writer_rejects_mutated_chain_samples_before_creating_artifacts(
+    tmp_path,
+) -> None:
+    chain_config, ensemble_config = _configs()
+    result = _result(QUALIFIED, chain_config, ensemble_config)
+    parameter = result.chains[0].samples.get_param_names()[0]
+    result.chains[0].samples.frame.loc[0, parameter] = 999.0
+
+    with pytest.raises(RuntimeError, match="changed after their diagnostic snapshot"):
+        write_mh_ensemble_result(result, tmp_path)
+
+    assert not tmp_path.exists() or not list(tmp_path.iterdir())
+
+
+def test_writer_rejects_mutated_pilot_before_creating_artifacts(tmp_path) -> None:
+    chain_config, ensemble_config = _configs()
+    result = _result(QUALIFIED, chain_config, ensemble_config)
+    assert result.pilot is not None
+    object.__setattr__(result.pilot, "covariance", np.array([[np.nan]]))
+
+    with pytest.raises(RuntimeError, match="pilot result changed"):
+        write_mh_ensemble_result(result, tmp_path)
+
+    assert not tmp_path.exists() or not list(tmp_path.iterdir())
+
+
+def test_writer_accepts_only_the_configuration_bound_run_record(tmp_path) -> None:
+    chain_config, ensemble_config = _configs()
+    result = _result(QUALIFIED, chain_config, ensemble_config)
+
+    with pytest.raises(TypeError):
+        write_mh_ensemble_result(  # type: ignore[call-arg]
             result,
             tmp_path,
             chain_config,
-            wrong_config,
+            ensemble_config,
         )
 
-    assert not list(tmp_path.iterdir())
+    assert not tmp_path.exists() or not list(tmp_path.iterdir())

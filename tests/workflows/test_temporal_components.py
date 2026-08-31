@@ -360,9 +360,10 @@ def test_run_temporal_manifests_a_multichain_convergence_failure(
     assert failure_manifest.call_args.kwargs["details"]["case_directories"] == [
         "span_full"
     ]
+    assert error.__notes__ == [f"Preserved result evidence: {output}"]
 
 
-def test_prepare_temporal_context_invalidates_before_missing_dataset_failure(
+def test_prepare_temporal_context_does_not_stage_before_missing_dataset_failure(
     tmp_path, monkeypatch
 ) -> None:
     config_path = tmp_path / "config.yaml"
@@ -377,16 +378,17 @@ def test_prepare_temporal_context_invalidates_before_missing_dataset_failure(
         workflow=SimpleNamespace(mode="span"),
     )
     begin = Mock()
+    expected_output = results_root / "audit" / "missing" / "span"
     monkeypatch.setattr(temporal_context, "configuration_root", lambda _path: tmp_path)
     monkeypatch.setattr(
         temporal_context,
         "_load_params_validated",
         lambda _path: params,
     )
-    monkeypatch.setattr(temporal_context, "begin_result_run", begin)
+    begin.return_value = SimpleNamespace(working_directory=expected_output)
+    monkeypatch.setattr(temporal_context, "begin_staged_result_run", begin)
 
     with pytest.raises(FileNotFoundError, match="Dataset file not found"):
         temporal_context.prepare_context(config_path)
 
-    expected_output = results_root / "audit" / "missing" / "span"
-    begin.assert_called_once_with(expected_output)
+    begin.assert_not_called()

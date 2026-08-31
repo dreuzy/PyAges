@@ -26,6 +26,10 @@ from pyages.calibration.methods.mh.ensemble_config import (
     MHPilotConfig,
     build_seed_plan,
 )
+from pyages.calibration.methods.mh.errors import (
+    MHConvergenceError,
+    MHDiagnosticsUnavailableError,
+)
 from pyages.calibration.methods.mh.results import (
     DIAGNOSTICS_UNAVAILABLE,
     NOT_QUALIFIED,
@@ -639,7 +643,7 @@ def test_unavailable_diagnostics_preserve_completed_chain_results(
     )
 
     def fail_diagnostics(_chains):
-        raise ValueError("derived quantity is non-finite")
+        raise MHDiagnosticsUnavailableError("derived quantity is non-finite")
 
     monkeypatch.setattr(runner, "_diagnose", fail_diagnostics)
 
@@ -649,5 +653,43 @@ def test_unavailable_diagnostics_preserve_completed_chain_results(
     assert result.diagnostics == ()
     assert result.qualification_status == DIAGNOSTICS_UNAVAILABLE
     assert result.diagnostics_message == "derived quantity is non-finite"
-    with pytest.raises(RuntimeError, match="diagnostics_unavailable"):
+    with pytest.raises(MHConvergenceError, match="diagnostics_unavailable"):
         result.pooled_samples()
+
+
+def test_unexpected_diagnostic_value_error_is_not_reclassified(
+    exp_problem_factory,
+    monkeypatch,
+) -> None:
+    factory, _calls = exp_problem_factory
+    runner = MultiChainMetropolisHastings(
+        _chain_config(),
+        _ensemble_config(pilot=False),
+    )
+
+    def fail_diagnostics(_chains):
+        raise ValueError("diagnostic programming defect")
+
+    monkeypatch.setattr(runner, "_diagnose", fail_diagnostics)
+
+    with pytest.raises(ValueError, match="programming defect"):
+        runner.run(factory)
+
+
+def test_unexpected_mcse_value_error_is_not_masked(
+    exp_problem_factory,
+    monkeypatch,
+) -> None:
+    factory, _calls = exp_problem_factory
+    runner = MultiChainMetropolisHastings(
+        _chain_config(),
+        _ensemble_config(pilot=False),
+    )
+
+    def fail_mcse(*_args, **_kwargs):
+        raise ValueError("mcse programming defect")
+
+    monkeypatch.setattr(ensemble_module, "mcse_mean", fail_mcse)
+
+    with pytest.raises(ValueError, match="mcse programming defect"):
+        runner.run(factory)

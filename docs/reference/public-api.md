@@ -53,6 +53,21 @@ modules and the internal `pyages.workflows.plots` and
 `pyages.workflows.synthetic_recovery` paths are removed before 1.0; contributor
 code must use the canonical imports above.
 
+Contributor code that compares independently prepared calibration targets
+imports the signature records and
+`build_calibration_target_signature()` from
+`pyages.calibration.target_signature`. Signature records and their
+schema-version constant have this single canonical module; the problem module
+does not provide compatibility aliases.
+
+The contributor facade `pyages.calibration.methods.mh` exposes the immutable
+`MHRunRecord` produced by the ensemble engine. That record owns the exact chain
+and ensemble configurations consumed by serialization; writers do not accept a
+second configuration source. The experimental `MHEnsembleResult`,
+`ProblemFactory`, and workflow builder aliases were removed before release of
+the multi-chain feature. Internal callable protocols and path/configuration
+builders now use private names.
+
 ## Compatibility policy
 
 - A public Python symbol or configuration field is deprecated before removal.

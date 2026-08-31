@@ -39,6 +39,20 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Atomic result writers now use short temporary names, preserving atomic
   replacement while avoiding avoidable Windows path-length failures in deeply
   nested calibration directories.
+- Multi-chain execution now returns one immutable `MHRunRecord` that binds the
+  exact chain and ensemble configurations to samples, diagnostics, seeds, and
+  scientific-target identity. Serialization has one source of truth and
+  rejects post-diagnostic sample mutation.
+- Consolidated prior marginal operations and the strict retention/ESS schedule
+  behind canonical modules, and removed the unreleased `MHEnsembleResult`,
+  factory, workflow-helper, and target-signature compatibility aliases.
+- Public workflows now build results in run-ID staging trees and promote only a
+  terminal `complete` or convergence-rejected `failed` tree. Manifest schema 2
+  also distinguishes tracked-worktree provenance from installed-distribution
+  metadata.
+- Normalized unreleased multi-chain metadata to `burn_in`, `pilot_burn_in`, and
+  `acceptance_rate`; stable root `success_rate` and `time_perform` fields remain
+  available for existing result consumers.
 
 ## 1.0.1 - 2026-08-29
 

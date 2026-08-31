@@ -10,9 +10,11 @@ import math
 import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from types import MappingProxyType
 
 import numpy as np
+
+from pyages.calibration.methods.mh._immutable import FrozenMapping
+from pyages.calibration.sampling_schedule import strict_retained_sample_count
 
 INITIALIZATION_STRATEGIES = frozenset(
     {
@@ -28,6 +30,26 @@ INITIALIZATION_STRATEGIES = frozenset(
 def _is_positive_integer(value: object) -> bool:
     """Return whether ``value`` is an integer greater than zero."""
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def _frozen_explicit_start(start: Mapping[str, float]) -> FrozenMapping[float]:
+    """Validate and freeze one explicit finite parameter state."""
+    if not isinstance(start, Mapping) or not start:
+        raise ValueError("explicit starts must be non-empty parameter mappings")
+    copied: dict[str, float] = {}
+    for name, raw_value in start.items():
+        if not isinstance(name, str) or not name:
+            raise ValueError("explicit start names must be non-empty strings")
+        if isinstance(raw_value, (bool, np.bool_)):
+            raise ValueError("explicit start values must be finite numbers")
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("explicit start values must be finite numbers") from exc
+        if not math.isfinite(value):
+            raise ValueError("explicit start values must be finite numbers")
+        copied[name] = value
+    return FrozenMapping(copied)
 
 
 @dataclass(frozen=True)
@@ -57,13 +79,12 @@ class MHInitializationConfig:
             raise ValueError("max_attempts must be a positive integer")
         if self.explicit_starts is not None:
             try:
-                starts = tuple(
-                    MappingProxyType(dict(start)) for start in self.explicit_starts
-                )
-            except (TypeError, ValueError) as exc:
+                raw_starts = tuple(self.explicit_starts)
+            except TypeError as exc:
                 raise ValueError(
                     "explicit_starts must contain parameter mappings"
                 ) from exc
+            starts = tuple(_frozen_explicit_start(start) for start in raw_starts)
             object.__setattr__(self, "explicit_starts", starts)
         if self.strategy == "explicit" and self.explicit_starts is None:
             raise ValueError("explicit initialization requires explicit_starts")
@@ -91,9 +112,13 @@ class MHPilotConfig:
             raise ValueError("enabled must be a boolean")
         if not _is_positive_integer(self.nstep):
             raise ValueError("nstep must be a positive integer")
-        if not math.isfinite(self.burn_in) or not 0.0 <= self.burn_in < 1.0:
+        if (
+            isinstance(self.burn_in, (bool, np.bool_))
+            or not math.isfinite(self.burn_in)
+            or not 0.0 <= self.burn_in < 1.0
+        ):
             raise ValueError("burn_in must be finite and in [0, 1)")
-        retained_count = self.nstep - math.floor(self.burn_in * self.nstep) - 1
+        retained_count = strict_retained_sample_count(self.nstep, self.burn_in, 1)
         if self.enabled and retained_count < 2:
             raise ValueError(
                 "pilot nstep and burn_in must retain at least two covariance draws"
@@ -192,6 +217,40 @@ class MHSeedPlan:
     initialization_seeds: tuple[int, ...]
     pilot_seeds: tuple[int, ...]
     production_seeds: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        """Freeze and validate complete, non-overlapping phase streams."""
+        if (
+            isinstance(self.master_seed, bool)
+            or not isinstance(self.master_seed, int)
+            or self.master_seed < 0
+        ):
+            raise ValueError("master_seed must be a non-negative integer")
+        phase_seeds: list[tuple[int, ...]] = []
+        for name in (
+            "initialization_seeds",
+            "pilot_seeds",
+            "production_seeds",
+        ):
+            try:
+                values = tuple(getattr(self, name))
+            except TypeError as exc:
+                raise ValueError(f"{name} must be an iterable of seeds") from exc
+            if not values or any(
+                isinstance(seed, (bool, np.bool_))
+                or not isinstance(seed, (int, np.integer))
+                or int(seed) < 0
+                for seed in values
+            ):
+                raise ValueError(f"{name} must contain non-negative integer seeds")
+            normalized = tuple(int(seed) for seed in values)
+            object.__setattr__(self, name, normalized)
+            phase_seeds.append(normalized)
+        if len({len(values) for values in phase_seeds}) != 1:
+            raise ValueError("seed phases must contain the same number of chains")
+        flattened = tuple(seed for values in phase_seeds for seed in values)
+        if len(set(flattened)) != len(flattened):
+            raise ValueError("seed phases must contain distinct streams")
 
     @property
     def chain_count(self) -> int:

@@ -26,6 +26,7 @@ from typing import Any, Sequence
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
+from scipy.stats import truncnorm
 
 from pyages.data_io.lpm_distribution import read_histogram
 
@@ -162,6 +163,39 @@ def histogram_moments(histogram: np.ndarray) -> tuple[float, float]:
     return mean, variance
 
 
+def _open_unit_probability(probability: float) -> float:
+    """Return a finite probability strictly inside the unit interval."""
+    if isinstance(probability, (bool, np.bool_)):
+        raise ValueError("quantile probability must be finite and in [0, 1]")
+    try:
+        probability = float(probability)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("quantile probability must be finite and in [0, 1]") from exc
+    if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
+        raise ValueError("quantile probability must be finite and in [0, 1]")
+    return float(
+        np.clip(
+            probability,
+            np.nextafter(0.0, 1.0),
+            np.nextafter(1.0, 0.0),
+        )
+    )
+
+
+def _validated_bounds(minimum: float, maximum: float) -> tuple[float, float]:
+    """Return one finite, strictly increasing physical interval."""
+    try:
+        minimum = float(minimum)
+        maximum = float(maximum)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("marginal bounds must be finite numbers") from exc
+    if not math.isfinite(minimum) or not math.isfinite(maximum):
+        raise ValueError("marginal bounds must be finite numbers")
+    if maximum <= minimum:
+        raise ValueError("marginal bounds must be strictly increasing")
+    return minimum, maximum
+
+
 class Prior:
     """Prior distribution used by the Bayesian calibration.
 
@@ -178,6 +212,12 @@ class Prior:
         ``"parametric"`` or ``"empirical"``.
     prior_file : str
         Path prefix for empirical prior files.
+
+    Notes
+    -----
+    :meth:`bounded_quantile`, :meth:`bounded_mode`, and :meth:`contains` form
+    the marginal interface used by multi-chain initialization. The historical
+    :meth:`param_init` method remains the one-chain compatibility path.
     """
 
     def __init__(
@@ -195,6 +235,197 @@ class Prior:
         self.distributions: dict[str, str] = {}
         self.parameters: dict[str, Any] = {}
         self.source_sha256: dict[str, str] = {}
+
+    def require_marginals(self, names: Sequence[str]) -> None:
+        """Require an enabled, loaded marginal for every parameter in ``names``.
+
+        This is the stable boundary used by ensemble initialization.  Callers
+        do not need to inspect how parametric and empirical priors are stored.
+        """
+        if not self.option:
+            raise ValueError("prior initialization requires an enabled prior")
+        if self.typ == "parametric":
+            missing = [
+                name
+                for name in names
+                if name not in self.distributions or name not in self.parameters
+            ]
+        elif self.typ == "empirical":
+            missing = [name for name in names if name not in self.parameters]
+        else:  # defensive; the constructor validates ``typ``
+            raise ValueError("prior must be parametric or empirical")
+        if missing:
+            raise ValueError(f"prior must be loaded for parameters {missing}")
+
+    def _parametric_marginal(self, name: str) -> tuple[str, float, float]:
+        """Return one validated parametric marginal definition."""
+        self.require_marginals((name,))
+        distribution = self.distributions[name]
+        try:
+            first, second = (float(item) for item in self.parameters[name])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Parametric prior is invalid for {name}") from exc
+        if distribution == "normal":
+            if not math.isfinite(first) or not math.isfinite(second) or second <= 0.0:
+                raise ValueError(f"Normal prior parameters are invalid for {name}")
+        elif distribution == "uniform":
+            if not math.isfinite(first) or not math.isfinite(second) or second <= first:
+                raise ValueError(f"Uniform prior bounds are invalid for {name}")
+        else:
+            raise ValueError(f"Unsupported prior distribution: {distribution}")
+        return distribution, first, second
+
+    def _empirical_marginal(self, name: str) -> tuple[np.ndarray, np.ndarray]:
+        """Return one validated empirical density grid."""
+        self.require_marginals((name,))
+        try:
+            histogram = np.asarray(self.parameters[name], dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Empirical prior is invalid for {name}") from exc
+        if histogram.ndim != 2 or histogram.shape[1] != 2 or histogram.shape[0] < 2:
+            raise ValueError(f"Empirical prior is invalid for {name}")
+        values, density = histogram.T
+        if (
+            not np.all(np.isfinite(values))
+            or not np.all(np.isfinite(density))
+            or np.any(np.diff(values) <= 0.0)
+            or np.any(density < 0.0)
+        ):
+            raise ValueError(f"Empirical prior is invalid for {name}")
+        return values, density
+
+    def _bounded_empirical_marginal(
+        self,
+        name: str,
+        minimum: float,
+        maximum: float,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Clip an empirical grid precisely to finite physical bounds."""
+        values, density = self._empirical_marginal(name)
+        support_minimum = max(minimum, float(values[0]))
+        support_maximum = min(maximum, float(values[-1]))
+        if support_maximum <= support_minimum:
+            raise ValueError(f"Empirical prior has no positive support for {name}")
+        interior = (values > support_minimum) & (values < support_maximum)
+        clipped_values = np.concatenate(
+            ([support_minimum], values[interior], [support_maximum])
+        )
+        clipped_density = np.interp(clipped_values, values, density)
+        return clipped_values, clipped_density
+
+    def bounded_quantile(
+        self,
+        name: str,
+        minimum: float,
+        maximum: float,
+        probability: float,
+    ) -> float:
+        """Invert one marginal conditional on finite physical bounds.
+
+        Parametric normal marginals use the exact truncated-normal inverse CDF;
+        uniform marginals use their intersection with the physical interval.
+        Empirical marginals integrate and invert the piecewise-linear density,
+        including partial cells introduced by the physical bounds.
+        """
+        minimum, maximum = _validated_bounds(minimum, maximum)
+        probability = _open_unit_probability(probability)
+        if self.typ == "parametric":
+            distribution, first, second = self._parametric_marginal(name)
+            if distribution == "normal":
+                value = float(
+                    truncnorm.ppf(
+                        probability,
+                        (minimum - first) / second,
+                        (maximum - first) / second,
+                        loc=first,
+                        scale=second,
+                    )
+                )
+                if not math.isfinite(value):
+                    raise ValueError(
+                        f"Normal prior has no numerically usable mass for {name}"
+                    )
+                return float(np.clip(value, minimum, maximum))
+
+            effective_minimum = max(minimum, first)
+            effective_maximum = min(maximum, second)
+            if effective_maximum <= effective_minimum:
+                raise ValueError(f"Uniform prior has no positive support for {name}")
+            return effective_minimum + probability * (
+                effective_maximum - effective_minimum
+            )
+
+        if self.typ == "empirical":
+            values, density = self._bounded_empirical_marginal(name, minimum, maximum)
+            widths = np.diff(values)
+            increments = 0.5 * (density[:-1] + density[1:]) * widths
+            total = float(np.sum(increments))
+            if not math.isfinite(total) or total <= 0.0:
+                raise ValueError(f"Empirical prior has no positive mass for {name}")
+            target = probability * total
+            cumulative = np.concatenate(([0.0], np.cumsum(increments)))
+            cell = min(
+                int(np.searchsorted(cumulative, target, side="right") - 1),
+                len(widths) - 1,
+            )
+            remaining = target - cumulative[cell]
+            left_density = density[cell]
+            slope = (density[cell + 1] - left_density) / widths[cell]
+            if abs(slope) <= np.finfo(float).eps:
+                offset = remaining / left_density if left_density > 0.0 else 0.0
+            else:
+                discriminant = max(0.0, left_density**2 + 2.0 * slope * remaining)
+                offset = (-left_density + math.sqrt(discriminant)) / slope
+            return float(np.clip(values[cell] + offset, values[cell], values[cell + 1]))
+
+        raise ValueError("prior must be parametric or empirical")
+
+    def bounded_mode(self, name: str, minimum: float, maximum: float) -> float:
+        """Return a deterministic marginal mode restricted to physical bounds.
+
+        Uniform marginals deliberately use the midpoint of their effective
+        support so every chain receives the same historical compatibility
+        state for ``prior_map`` initialization.
+        """
+        minimum, maximum = _validated_bounds(minimum, maximum)
+        if self.typ == "parametric":
+            distribution, first, second = self._parametric_marginal(name)
+            if distribution == "normal":
+                return float(np.clip(first, minimum, maximum))
+            effective_minimum = max(minimum, first)
+            effective_maximum = min(maximum, second)
+            if effective_maximum <= effective_minimum:
+                raise ValueError(f"Uniform prior has no positive support for {name}")
+            return 0.5 * (effective_minimum + effective_maximum)
+
+        if self.typ == "empirical":
+            values, density = self._bounded_empirical_marginal(name, minimum, maximum)
+            if not np.any(density > 0.0):
+                raise ValueError(f"Empirical prior has no positive mass for {name}")
+            return float(values[np.argmax(density)])
+
+        raise ValueError("prior must be parametric or empirical")
+
+    def contains(self, name: str, value: float) -> bool:
+        """Return whether ``value`` has finite positive marginal density."""
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return False
+        if not math.isfinite(value):
+            return False
+        if self.typ == "parametric":
+            distribution, first, second = self._parametric_marginal(name)
+            if distribution == "normal":
+                return True
+            return first <= value <= second
+        if self.typ == "empirical":
+            values, density = self._empirical_marginal(name)
+            if value < values[0] or value > values[-1]:
+                return False
+            marginal_density = float(np.interp(value, values, density))
+            return math.isfinite(marginal_density) and marginal_density > 0.0
+        raise ValueError("prior must be parametric or empirical")
 
     def _param_init_parametric(
         self,

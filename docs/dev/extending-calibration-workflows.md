@@ -125,26 +125,31 @@ inherit from them. Follow the sequence below:
 2. resolve paths relative to the configuration using the shared loading rules;
 3. load observations through `Concentrations.from_file()` or
    `Concentrations.from_dataframe()`;
-4. create an explicit, preferably immutable context containing resolved inputs
-   and output paths;
+4. create an isolated run with
+   {py:func}`pyages.workflows.runtime.manifest.begin_staged_result_run`, then
+   place its identity and resolved working/output paths in an explicit,
+   preferably immutable context;
 5. construct and prepare `CalibrationProblem`;
 6. call `method.run(problem)` and write standard calibration outputs;
 7. write workflow-specific tables and optional figures;
 8. write {py:func}`pyages.workflows.runtime.manifest.write_result_manifest`
-   **last**;
-9. return the result path.
+   **last**, passing the run identity;
+9. call {py:func}`pyages.workflows.runtime.manifest.promote_result_run` and
+   return the public result path.
 
 The manifest must index the YAML configuration and every external scientific
 input. Its `details` mapping should record the choices needed to understand the
 directory tree, such as dataset, mode, LPMs, and case directories. Never write
 a `complete` manifest from a `finally` block or after catching and suppressing
-an incomplete calculation.
+an incomplete calculation. Do not bypass staging for a supported public
+workflow: direct in-place writers cannot provide the same whole-tree isolation.
 
 Use `pyages.config.paths.result_subdirectory()` for fixed child names, but
 validate any user-derived directory component with
 `pyages.config.paths.validate_path_component()` before passing it. A public
-workflow must have a deterministic, documented layout and must not silently
-delete an earlier result directory.
+workflow must have a deterministic, documented layout. Terminal promotion
+replaces the preceding tree deliberately; document that lifecycle and require
+callers to archive an earlier result when it must be retained.
 
 ### Exposure levels
 

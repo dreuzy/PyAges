@@ -151,3 +151,26 @@ def test_mh_retained_sample_count_matches_the_documented_rule() -> None:
 
     assert retained == [6, 9, 12, 15]
     assert config.retained_sample_count() == len(retained)
+
+
+def test_mh_config_detaches_and_freezes_mutable_scientific_payloads() -> None:
+    initial = {"mu": 10.0, "shift": 5.0}
+    covariance = np.array([[4.0, 0.5], [0.5, 2.0]])
+    config = MHConfig(
+        initial_params=initial,
+        proposal_kind="correlated",
+        proposal_covariance=covariance,
+    )
+
+    initial["mu"] = 99.0
+    covariance[0, 0] = 99.0
+
+    assert config.initial_params == {"mu": 10.0, "shift": 5.0}
+    assert config.proposal_covariance == ((4.0, 0.5), (0.5, 2.0))
+    with pytest.raises(TypeError):
+        config.initial_params["mu"] = 20.0
+
+    scales = np.array([2.0, 5.0])
+    diagonal = MHConfig(proposal_kind="diagonal", proposal_scales=scales)
+    scales[0] = 99.0
+    assert diagonal.proposal_scales == (2.0, 5.0)

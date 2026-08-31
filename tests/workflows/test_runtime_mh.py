@@ -27,7 +27,7 @@ from pyages.workflows.runtime import mh as runtime_mh
 def test_mh_stage_directory_has_stable_audit_paths(
     tmp_path, stage, chain_id, suffix
 ) -> None:
-    assert runtime_mh.mh_stage_directory(tmp_path, stage, chain_id) == (
+    assert runtime_mh._mh_stage_directory(tmp_path, stage, chain_id) == (
         tmp_path / suffix
     )
 
@@ -45,7 +45,7 @@ def test_mh_stage_directory_rejects_invalid_engine_requests(
     tmp_path, stage, chain_id, message
 ) -> None:
     with pytest.raises(ValueError, match=message):
-        runtime_mh.mh_stage_directory(tmp_path, stage, chain_id)
+        runtime_mh._mh_stage_directory(tmp_path, stage, chain_id)
 
 
 def test_build_mh_ensemble_config_translates_all_nested_scientific_controls() -> None:
@@ -75,7 +75,7 @@ def test_build_mh_ensemble_config_translates_all_nested_scientific_controls() ->
         },
     )
 
-    translated = runtime_mh.build_mh_ensemble_config(config)
+    translated = runtime_mh._build_mh_ensemble_config(config)
 
     assert translated.chains == 3
     assert translated.master_seed == 987
@@ -146,8 +146,7 @@ def test_run_mh_ensemble_builds_fresh_stage_problems_and_pools_exploratory_run(
         tmp_path / "chains" / "chain_001",
         tmp_path / "chains" / "chain_002",
     ]
-    assert writer.call_args.args[:2] == (ensemble_result, tmp_path)
-    assert writer.call_args.kwargs["allow_unqualified_pooling"] is True
+    writer.assert_called_once_with(ensemble_result, tmp_path)
 
 
 def test_run_mh_ensemble_raises_only_after_failed_run_is_serialized(
@@ -173,7 +172,7 @@ def test_run_mh_ensemble_raises_only_after_failed_run_is_serialized(
     monkeypatch.setattr(runtime_mh, "write_mh_ensemble_result", writer)
     config = MHMultichainCfg(enabled=True, chains=2)
 
-    with pytest.raises(MHConvergenceError, match=r"mu.*preserved"):
+    with pytest.raises(MHConvergenceError, match=r"mu.*preserved") as caught:
         runtime_mh.run_mh_ensemble(
             MHConfig(nstep=100, burn_in=0.2, nskip=1),
             config,
@@ -181,9 +180,12 @@ def test_run_mh_ensemble_raises_only_after_failed_run_is_serialized(
             Mock(),
         )
 
+    assert str(tmp_path) not in str(caught.value)
+
     writer.assert_called_once()
     assert writer.call_args.args[0] is ensemble_result
-    assert writer.call_args.kwargs["allow_unqualified_pooling"] is False
+    assert writer.call_args.args[1] == tmp_path
+    assert not writer.call_args.kwargs
 
 
 def test_run_mh_ensemble_rejects_disabled_configuration(tmp_path) -> None:

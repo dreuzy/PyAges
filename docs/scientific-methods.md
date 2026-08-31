@@ -204,6 +204,18 @@ coordinates but not in physical $(M,S,t_0)$ coordinates. Since
 $|\partial(shape,scale)/\partial(M,S)|=2/S$, its Hastings correction is
 $\log(S_{proposed}/S_{current})$.
 
+Multi-chain prior initialization is defined through bounded marginal
+operations owned by `Prior`. Normal quantiles use the exact truncated-normal
+law on the physical LPM interval. Uniform quantiles use the intersection of
+the prior and physical supports. Empirical quantiles invert trapezoidal mass
+of the clipped piecewise-linear density. Marginal modes and positive-support
+tests use the same definitions. The historical one-chain `Prior.param_init`
+path remains unchanged for compatibility: it selects the configured
+parametric center (or direct draw when called explicitly) and then clips it to
+the physical bounds. Consequently a partially overlapping uniform prior can
+have a different compatibility start from the conditioned multi-chain
+`prior_map`; neither rule changes the posterior target.
+
 ``nstep`` counts accepted and rejected transitions. With zero-based iteration
 ``i``, PyAges retains the current state when
 ``i > burn_in * nstep`` and ``i % nskip == 0``. Rejected proposals therefore

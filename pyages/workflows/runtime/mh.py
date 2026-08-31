@@ -15,26 +15,24 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from pyages.calibration.methods.mh import (
-    MHConfig,
-    MHConvergenceError,
-    MultiChainMetropolisHastings,
-)
+from pyages.calibration.methods.mh.config import MHConfig
+from pyages.calibration.methods.mh.ensemble import MultiChainMetropolisHastings
 from pyages.calibration.methods.mh.ensemble_config import (
     MHDiagnosticsConfig,
     MHEnsembleConfig,
     MHInitializationConfig,
     MHPilotConfig,
 )
+from pyages.calibration.methods.mh.errors import MHConvergenceError
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.models import MHMultichainCfg
 from pyages.data_io.mh_results import write_mh_ensemble_result
 from pyages.lpm.samples import LpmSampleTable
 
-ProblemBuilder = Callable[[Path], CalibrationProblem]
+_ProblemBuilder = Callable[[Path], CalibrationProblem]
 
 
-def build_mh_ensemble_config(config: MHMultichainCfg) -> MHEnsembleConfig:
+def _build_mh_ensemble_config(config: MHMultichainCfg) -> MHEnsembleConfig:
     """Return immutable scientific controls from a validated YAML section."""
     explicit_starts = config.initialization.explicit_starts
     initialization = MHInitializationConfig(
@@ -73,7 +71,7 @@ def build_mh_ensemble_config(config: MHMultichainCfg) -> MHEnsembleConfig:
     )
 
 
-def mh_stage_directory(
+def _mh_stage_directory(
     output_directory: str | Path,
     stage: str,
     chain_id: int,
@@ -97,7 +95,7 @@ def run_mh_ensemble(
     chain_config: MHConfig,
     multichain_config: MHMultichainCfg,
     output_directory: str | Path,
-    problem_builder: ProblemBuilder,
+    problem_builder: _ProblemBuilder,
 ) -> LpmSampleTable:
     """Execute, persist, qualify, and finally pool one multi-chain run.
 
@@ -111,39 +109,30 @@ def run_mh_ensemble(
         raise TypeError("problem_builder must be callable")
 
     root = Path(output_directory)
-    ensemble_config = build_mh_ensemble_config(multichain_config)
+    ensemble_config = _build_mh_ensemble_config(multichain_config)
     ensemble = MultiChainMetropolisHastings(chain_config, ensemble_config)
 
     def problem_factory(stage: str, chain_id: int) -> CalibrationProblem:
-        return problem_builder(mh_stage_directory(root, stage, chain_id))
+        return problem_builder(_mh_stage_directory(root, stage, chain_id))
 
-    result = ensemble.run(problem_factory)
+    record = ensemble.run(problem_factory)
     pooled = write_mh_ensemble_result(
-        result,
+        record,
         root,
-        chain_config,
-        ensemble_config,
-        allow_unqualified_pooling=(not ensemble_config.diagnostics.require_convergence),
     )
     if pooled is not None:
         return pooled
 
     failed = ", ".join(
         diagnostic.parameter
-        for diagnostic in result.diagnostics
+        for diagnostic in record.diagnostics
         if diagnostic.included_in_qualification and not diagnostic.qualified
     )
-    detail = failed or result.diagnostics_message or "diagnostics unavailable"
+    detail = failed or record.diagnostics_message or "diagnostics unavailable"
     raise MHConvergenceError(
         "Multi-chain MH did not satisfy the configured convergence gates "
-        f"for: {detail}. Chain samples and diagnostics were preserved in "
-        f"{root}."
+        f"for: {detail}. Chain samples and diagnostics were preserved."
     )
 
 
-__all__ = [
-    "ProblemBuilder",
-    "build_mh_ensemble_config",
-    "mh_stage_directory",
-    "run_mh_ensemble",
-]
+__all__ = ["run_mh_ensemble"]

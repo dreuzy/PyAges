@@ -7,7 +7,61 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+
+from pyages.calibration.methods.mh._immutable import FrozenMapping
+from pyages.calibration.sampling_schedule import strict_retained_sample_count
+
+
+def _frozen_initial_params(
+    initial_params: Mapping[str, float] | None,
+) -> Mapping[str, float] | None:
+    """Return a detached read-only parameter mapping."""
+    if initial_params is None:
+        return None
+    if not isinstance(initial_params, Mapping):
+        raise TypeError("initial_params must be a parameter mapping or None")
+    copied: dict[str, float] = {}
+    for name, raw_value in initial_params.items():
+        if not isinstance(name, str) or not name:
+            raise ValueError("initial_params names must be non-empty strings")
+        if isinstance(raw_value, bool):
+            raise ValueError("initial_params values must be finite numbers")
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("initial_params values must be finite numbers") from exc
+        if not math.isfinite(value):
+            raise ValueError("initial_params values must be finite numbers")
+        copied[name] = value
+    return FrozenMapping(copied)
+
+
+def _numeric_tuple(values: Iterable[float], name: str) -> tuple[float, ...]:
+    """Detach one finite numeric vector from caller-owned storage."""
+    if isinstance(values, (str, bytes)):
+        raise TypeError(f"{name} must be a sequence or None")
+    try:
+        copied = tuple(float(value) for value in values)
+    except (TypeError, ValueError) as exc:
+        raise TypeError(f"{name} must be a sequence or None") from exc
+    if not all(math.isfinite(value) for value in copied):
+        raise ValueError(f"{name} must contain only finite numbers")
+    return copied
+
+
+def _numeric_matrix(
+    values: Iterable[Iterable[float]],
+) -> tuple[tuple[float, ...], ...]:
+    """Detach one finite numeric matrix from caller-owned storage."""
+    if isinstance(values, (str, bytes)):
+        raise TypeError("proposal_covariance must be a matrix or None")
+    try:
+        copied = tuple(_numeric_tuple(row, "proposal_covariance") for row in values)
+    except TypeError as exc:
+        raise TypeError("proposal_covariance must be a matrix or None") from exc
+    return copied
 
 
 @dataclass(frozen=True)
@@ -54,7 +108,7 @@ class MHConfig:
     display_text: bool = False
     prior_file: str = ""
     seed: int = 12345
-    initial_params: dict[str, float] | None = None
+    initial_params: Mapping[str, float] | None = None
     proposal_kind: str = "componentwise"
     componentwise_source: str = "bounds"
     componentwise_fraction: float = 0.1
@@ -64,8 +118,29 @@ class MHConfig:
 
     def __post_init__(self) -> None:
         """Reject invalid controls before allocating scientific objects."""
+        self._freeze_payloads()
         self._validate_chain_controls()
         self._validate_proposal_controls()
+
+    def _freeze_payloads(self) -> None:
+        """Detach and freeze caller-owned mappings and proposal sequences."""
+        object.__setattr__(
+            self,
+            "initial_params",
+            _frozen_initial_params(self.initial_params),
+        )
+        if self.proposal_scales is not None:
+            object.__setattr__(
+                self,
+                "proposal_scales",
+                _numeric_tuple(self.proposal_scales, "proposal_scales"),
+            )
+        if self.proposal_covariance is not None:
+            object.__setattr__(
+                self,
+                "proposal_covariance",
+                _numeric_matrix(self.proposal_covariance),
+            )
 
     def _validate_chain_controls(self) -> None:
         if (
@@ -158,11 +233,7 @@ class MHConfig:
 
     def retained_sample_count(self) -> int:
         """Return the retained row count in constant time."""
-        threshold = self.burn_in * self.nstep
-        first = (math.floor(threshold / self.nskip) + 1) * self.nskip
-        if first >= self.nstep:
-            return 0
-        return 1 + (self.nstep - 1 - first) // self.nskip
+        return strict_retained_sample_count(self.nstep, self.burn_in, self.nskip)
 
 
 __all__ = ["MHConfig"]

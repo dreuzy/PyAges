@@ -6,16 +6,30 @@
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
-from types import MappingProxyType
+from hashlib import sha256
 from typing import Any, Literal
 
 import numpy as np
+import pandas as pd
 
-from pyages.calibration.methods.mh.ensemble_config import MHSeedPlan
+from pyages.calibration.methods.mh._immutable import (
+    FrozenMapping,
+    immutable_float_array,
+)
+from pyages.calibration.methods.mh.config import MHConfig
+from pyages.calibration.methods.mh.ensemble_config import (
+    MHDiagnosticsConfig,
+    MHEnsembleConfig,
+    MHSeedPlan,
+    build_seed_plan,
+)
+from pyages.calibration.methods.mh.errors import MHConvergenceError
+from pyages.calibration.sampling_schedule import strict_retained_sample_count
 from pyages.lpm.samples.table import LpmSampleTable
 
 QUALIFIED = "qualified"
@@ -34,11 +48,13 @@ def _readonly_metadata(metadata: Mapping[str, Any]) -> Mapping[str, Any]:
         raise ValueError("resolved metadata names must be non-empty strings")
     if any(not isinstance(value, (str, int, float, bool)) for value in copied.values()):
         raise ValueError("resolved metadata values must be scalar")
-    return MappingProxyType(copied)
+    return FrozenMapping(copied)
 
 
-def _copied_finite_state(state: dict[str, float]) -> dict[str, float]:
-    """Return one validated independent parameter-state mapping."""
+def _copied_finite_state(state: Mapping[str, float]) -> Mapping[str, float]:
+    """Return one validated detached read-only parameter-state mapping."""
+    if not isinstance(state, Mapping):
+        raise TypeError("parameter states must be mappings")
     if not state:
         raise ValueError("parameter states must not be empty")
     copied = {name: float(value) for name, value in state.items()}
@@ -46,12 +62,12 @@ def _copied_finite_state(state: dict[str, float]) -> dict[str, float]:
         raise ValueError("parameter names must be non-empty strings")
     if not all(math.isfinite(value) for value in copied.values()):
         raise ValueError("parameter states must contain only finite values")
-    return copied
+    return FrozenMapping(copied)
 
 
 def _validated_pilot_states(
-    states: tuple[dict[str, float], ...],
-) -> tuple[tuple[dict[str, float], ...], tuple[str, ...]]:
+    states: tuple[Mapping[str, float], ...],
+) -> tuple[tuple[Mapping[str, float], ...], tuple[str, ...]]:
     """Return copied pilot states and their shared ordered parameter names."""
     copied = tuple(_copied_finite_state(state) for state in states)
     if not copied:
@@ -75,8 +91,7 @@ def _readonly_pilot_covariance(
         raise ValueError("pilot covariance must be symmetric")
     if np.any(np.linalg.eigvalsh(copied) <= 0.0):
         raise ValueError("pilot covariance must be positive definite")
-    copied.setflags(write=False)
-    return copied
+    return immutable_float_array(copied)
 
 
 def _validated_acceptance_rates(
@@ -144,9 +159,89 @@ def _readonly_pilot_samples(
             )
         if not np.all(np.isfinite(values)):
             raise ValueError("saved pilot samples must be finite")
-        values.setflags(write=False)
-        copied.append(values)
+        copied.append(immutable_float_array(values))
     return tuple(copied)
+
+
+def _pilot_result_sha256(pilot: "MHPilotResult") -> str:
+    """Fingerprint every pilot field used for production provenance."""
+    payload = {
+        "final_states": pilot.final_states,
+        "proposal_multiplier": pilot.proposal_multiplier,
+        "acceptance_rates": pilot.acceptance_rates,
+        "retained_counts": pilot.retained_counts,
+        "initial_states": pilot.initial_states,
+        "runtime_seconds": pilot.runtime_seconds,
+    }
+    digest = sha256(
+        json.dumps(
+            _snapshot_json_value(payload),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
+    arrays = (pilot.covariance,) + (() if pilot.samples is None else pilot.samples)
+    for values in arrays:
+        canonical = np.ascontiguousarray(values, dtype="<f8")
+        digest.update(repr(canonical.shape).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(canonical.tobytes(order="C"))
+    return digest.hexdigest()
+
+
+def _snapshot_json_value(value: Any) -> Any:
+    """Return a deterministic JSON-compatible value for integrity snapshots."""
+    if isinstance(value, Mapping):
+        return {
+            str(name): _snapshot_json_value(item)
+            for name, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+        }
+    if isinstance(value, np.ndarray):
+        return _snapshot_json_value(value.tolist())
+    if isinstance(value, (tuple, list)):
+        return [_snapshot_json_value(item) for item in value]
+    if isinstance(value, (np.integer, np.floating)):
+        return value.item()
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return repr(value)
+
+
+def _sample_table_sha256(samples: LpmSampleTable) -> str:
+    """Fingerprint one chain table and the model schema used to interpret it."""
+    samples.validate()
+    frame = samples.frame
+    template = samples.lpm_template
+    parameter_names = tuple(samples.get_param_names())
+    model_payload = {
+        "class": f"{type(template).__module__}.{type(template).__qualname__}",
+        "parameters": [
+            {
+                "name": name,
+                "minimum": float(template.get_p_min(name)),
+                "maximum": float(template.get_p_max(name)),
+            }
+            for name in parameter_names
+        ],
+        "parameter_units": template.parameter_units,
+        "concentrations": samples.get_concentration_names(),
+        "moments": template.moments_name(),
+        "fixed_scientific_state": template.fixed_scientific_state(),
+        "columns": [str(column) for column in frame.columns],
+        "dtypes": [str(dtype) for dtype in frame.dtypes],
+    }
+    digest = sha256(
+        json.dumps(
+            _snapshot_json_value(model_payload),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
+    hashed_rows = pd.util.hash_pandas_object(frame, index=True, categorize=False)
+    digest.update(hashed_rows.to_numpy(dtype=np.uint64, copy=False).tobytes())
+    return digest.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -159,14 +254,15 @@ class MHPilotResult:
     arrays are copied and marked read-only.
     """
 
-    final_states: tuple[dict[str, float], ...]
+    final_states: tuple[Mapping[str, float], ...]
     covariance: np.ndarray
     proposal_multiplier: float
     acceptance_rates: tuple[float, ...]
     retained_counts: tuple[int, ...]
     samples: tuple[np.ndarray, ...] | None = None
-    initial_states: tuple[dict[str, float], ...] | None = None
+    initial_states: tuple[Mapping[str, float], ...] | None = None
     runtime_seconds: tuple[float, ...] | None = None
+    _snapshot_sha256: str = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Validate dimensions and detach mutable numerical inputs."""
@@ -206,18 +302,51 @@ class MHPilotResult:
         object.__setattr__(self, "samples", saved_samples)
         object.__setattr__(self, "initial_states", initial_states)
         object.__setattr__(self, "runtime_seconds", runtimes)
+        object.__setattr__(self, "_snapshot_sha256", _pilot_result_sha256(self))
+
+    def validate_snapshot(self) -> None:
+        """Reject pilot provenance changed after result construction."""
+        if _pilot_result_sha256(self) != self._snapshot_sha256:
+            raise RuntimeError("pilot result changed after its provenance snapshot")
+
+    def __deepcopy__(self, _memo: dict[int, object]) -> MHPilotResult:
+        """Return self because every reachable pilot value is immutable."""
+        return self
+
+    def __reduce__(self) -> tuple[Any, tuple[object, ...]]:
+        """Rebuild through validation so unpickled arrays stay immutable."""
+        return (
+            type(self),
+            (
+                self.final_states,
+                self.covariance,
+                self.proposal_multiplier,
+                self.acceptance_rates,
+                self.retained_counts,
+                self.samples,
+                self.initial_states,
+                self.runtime_seconds,
+            ),
+        )
 
 
 @dataclass(frozen=True)
 class MHChainResult:
-    """Samples and provenance produced by one independent production chain."""
+    """Samples and provenance produced by one independent production chain.
+
+    The incoming sample table is detached with a deep copy. A structural and
+    row-level digest is retained so later mutation through the intentionally
+    mutable :class:`LpmSampleTable` API is detected before diagnostics, pooling,
+    or serialization can use stale provenance.
+    """
 
     chain_id: int
     seed: int
-    initial_params: dict[str, float]
+    initial_params: Mapping[str, float]
     samples: LpmSampleTable
     acceptance_rate: float
     runtime_seconds: float
+    _samples_sha256: str = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Validate scalar provenance while preserving the individual table."""
@@ -231,7 +360,8 @@ class MHChainResult:
             raise ValueError("seed must be an integer")
         if not isinstance(self.samples, LpmSampleTable):
             raise TypeError("samples must be an LpmSampleTable")
-        self.samples.validate()
+        copied_samples = deepcopy(self.samples)
+        copied_samples.validate()
         if (
             not math.isfinite(self.acceptance_rate)
             or not 0.0 <= self.acceptance_rate <= 1.0
@@ -242,8 +372,67 @@ class MHChainResult:
         object.__setattr__(
             self, "initial_params", _copied_finite_state(self.initial_params)
         )
+        object.__setattr__(self, "samples", copied_samples)
         object.__setattr__(self, "acceptance_rate", float(self.acceptance_rate))
         object.__setattr__(self, "runtime_seconds", float(self.runtime_seconds))
+        object.__setattr__(
+            self, "_samples_sha256", _sample_table_sha256(copied_samples)
+        )
+
+    def validate_snapshot(self) -> None:
+        """Reject sample or model mutations made after chain construction."""
+        if _sample_table_sha256(self.samples) != self._samples_sha256:
+            raise RuntimeError(
+                f"production chain {self.chain_id} samples changed after their "
+                "diagnostic snapshot"
+            )
+
+
+_DIAGNOSTIC_METRIC_NAMES = (
+    "rhat",
+    "bulk_ess",
+    "tail_ess",
+    "mcse_mean",
+    "posterior_sd",
+)
+
+
+def _normalized_diagnostic_metrics(
+    diagnostic: "MHParameterDiagnostics",
+) -> dict[str, float]:
+    """Convert diagnostic scalars without accepting booleans."""
+    normalized: dict[str, float] = {}
+    for name in _DIAGNOSTIC_METRIC_NAMES:
+        raw_value = getattr(diagnostic, name)
+        if isinstance(raw_value, (bool, np.bool_)):
+            raise ValueError(f"{name} must be numeric, not boolean")
+        try:
+            normalized[name] = float(raw_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{name} must be numeric") from exc
+    return normalized
+
+
+def _validate_diagnostic_metric_domains(
+    metrics: Mapping[str, float],
+    *,
+    qualified: bool,
+) -> None:
+    """Reject NaN, negative, and internally impossible metrics."""
+    if math.isnan(metrics["rhat"]) or metrics["rhat"] <= 0.0:
+        raise ValueError("rhat must be positive or positive infinity")
+    for name in ("bulk_ess", "tail_ess"):
+        value = metrics[name]
+        if not math.isfinite(value) or value < 0.0:
+            raise ValueError(f"{name} must be finite and non-negative")
+    if math.isnan(metrics["mcse_mean"]) or metrics["mcse_mean"] < 0.0:
+        raise ValueError("mcse_mean must be non-negative or positive infinity")
+    if not math.isfinite(metrics["posterior_sd"]) or metrics["posterior_sd"] < 0.0:
+        raise ValueError("posterior_sd must be finite and non-negative")
+    if qualified and (
+        not math.isfinite(metrics["rhat"]) or not math.isfinite(metrics["mcse_mean"])
+    ):
+        raise ValueError("qualified diagnostics require finite R-hat and MCSE")
 
 
 @dataclass(frozen=True)
@@ -265,15 +454,69 @@ class MHParameterDiagnostics:
     included_in_qualification: bool = True
 
     def __post_init__(self) -> None:
-        """Normalize numeric scalar types without hiding unavailable metrics."""
+        """Normalize metrics and reject impossible diagnostic records."""
         if not isinstance(self.parameter, str) or not self.parameter:
             raise ValueError("parameter must be a non-empty string")
         if not isinstance(self.qualified, bool):
             raise ValueError("qualified must be a boolean")
         if not isinstance(self.included_in_qualification, bool):
             raise ValueError("included_in_qualification must be a boolean")
-        for name in ("rhat", "bulk_ess", "tail_ess", "mcse_mean", "posterior_sd"):
-            object.__setattr__(self, name, float(getattr(self, name)))
+        normalized = _normalized_diagnostic_metrics(self)
+        _validate_diagnostic_metric_domains(normalized, qualified=self.qualified)
+        for name, value in normalized.items():
+            object.__setattr__(self, name, value)
+
+    @classmethod
+    def from_metrics(
+        cls,
+        *,
+        parameter: str,
+        rhat: float,
+        bulk_ess: float,
+        tail_ess: float,
+        mcse_mean: float,
+        posterior_sd: float,
+        thresholds: MHDiagnosticsConfig,
+        included_in_qualification: bool = True,
+    ) -> "MHParameterDiagnostics":
+        """Build one record whose qualification is derived from its metrics."""
+        qualified = _metrics_are_qualified(
+            rhat=rhat,
+            bulk_ess=bulk_ess,
+            tail_ess=tail_ess,
+            mcse_mean=mcse_mean,
+            thresholds=thresholds,
+        )
+        return cls(
+            parameter=parameter,
+            rhat=rhat,
+            bulk_ess=bulk_ess,
+            tail_ess=tail_ess,
+            mcse_mean=mcse_mean,
+            posterior_sd=posterior_sd,
+            qualified=qualified,
+            included_in_qualification=included_in_qualification,
+        )
+
+
+def _metrics_are_qualified(
+    *,
+    rhat: float,
+    bulk_ess: float,
+    tail_ess: float,
+    mcse_mean: float,
+    thresholds: MHDiagnosticsConfig,
+) -> bool:
+    """Return the single canonical multi-chain qualification decision."""
+    if not isinstance(thresholds, MHDiagnosticsConfig):
+        raise TypeError("thresholds must be an MHDiagnosticsConfig")
+    return bool(
+        math.isfinite(rhat)
+        and rhat < thresholds.max_rhat
+        and bulk_ess >= thresholds.min_bulk_ess
+        and tail_ess >= thresholds.min_tail_ess
+        and math.isfinite(mcse_mean)
+    )
 
 
 def _validate_ensemble_chains(chains: tuple[MHChainResult, ...]) -> None:
@@ -282,12 +525,22 @@ def _validate_ensemble_chains(chains: tuple[MHChainResult, ...]) -> None:
         raise ValueError("chains must contain at least one production chain")
     if any(not isinstance(chain, MHChainResult) for chain in chains):
         raise TypeError("chains must contain only MHChainResult objects")
+    for chain in chains:
+        chain.validate_snapshot()
     chain_ids = tuple(chain.chain_id for chain in chains)
     expected_ids = tuple(range(1, len(chains) + 1))
     if chain_ids != expected_ids:
         raise ValueError(
             "production chain identifiers must be ordered exactly from 1 to N"
         )
+    reference_parameters = chains[0].samples.get_param_names()
+    reference_concentrations = chains[0].samples.get_concentration_names()
+    if any(
+        chain.samples.get_param_names() != reference_parameters
+        or chain.samples.get_concentration_names() != reference_concentrations
+        for chain in chains[1:]
+    ):
+        raise ValueError("production chains must use the same sample-table schema")
 
 
 def _validate_seed_plan(
@@ -375,9 +628,170 @@ def _validate_diagnostic_status(
         raise ValueError("not_qualified ensembles require a failed gating diagnostic")
 
 
+def _validate_record_config_types_and_counts(
+    chain_config: MHConfig,
+    ensemble_config: MHEnsembleConfig,
+    chains: tuple[MHChainResult, ...],
+    seed_plan: MHSeedPlan,
+) -> None:
+    """Bind chain counts, retained draws, and random streams to configuration."""
+    if not isinstance(chain_config, MHConfig):
+        raise TypeError("chain_config must be an MHConfig")
+    if not isinstance(ensemble_config, MHEnsembleConfig):
+        raise TypeError("ensemble_config must be an MHEnsembleConfig")
+    if len(chains) != ensemble_config.chains:
+        raise ValueError("production chain count does not match ensemble_config")
+    expected_draws = chain_config.retained_sample_count()
+    if any(len(chain.samples.frame) != expected_draws for chain in chains):
+        raise ValueError("production retained counts do not match chain_config")
+    if seed_plan != build_seed_plan(ensemble_config):
+        raise ValueError("seed_plan does not match ensemble_config")
+
+
+def _initialization_states_from_pilot_contract(
+    ensemble_config: MHEnsembleConfig,
+    chains: tuple[MHChainResult, ...],
+    pilot: MHPilotResult | None,
+) -> tuple[Mapping[str, float], ...]:
+    """Validate pilot provenance and return the pre-pilot chain starts."""
+    if ensemble_config.pilot.enabled != (pilot is not None):
+        raise ValueError("pilot presence does not match ensemble_config")
+    if pilot is None:
+        return tuple(chain.initial_params for chain in chains)
+    if not isinstance(pilot, MHPilotResult):
+        raise TypeError("pilot must be an MHPilotResult or None")
+    if len(pilot.final_states) != ensemble_config.chains:
+        raise ValueError("pilot chain count does not match ensemble_config")
+    if pilot.initial_states is None:
+        raise ValueError("complete run records require pilot initial_states")
+    if pilot.runtime_seconds is None:
+        raise ValueError("complete run records require pilot runtimes")
+    expected_draws = strict_retained_sample_count(
+        ensemble_config.pilot.nstep,
+        ensemble_config.pilot.burn_in,
+        1,
+    )
+    if any(count != expected_draws for count in pilot.retained_counts):
+        raise ValueError("pilot retained counts do not match ensemble_config")
+    if ensemble_config.pilot.save_samples != (pilot.samples is not None):
+        raise ValueError("saved pilot samples do not match ensemble_config")
+    if any(
+        dict(chain.initial_params) != dict(final_state)
+        for chain, final_state in zip(chains, pilot.final_states, strict=True)
+    ):
+        raise ValueError("production starts must match pilot final states")
+    return pilot.initial_states
+
+
+def _validate_explicit_initialization(
+    ensemble_config: MHEnsembleConfig,
+    initialization_states: tuple[Mapping[str, float], ...],
+) -> None:
+    """Bind recorded starts to explicit user configuration when selected."""
+    explicit_starts = ensemble_config.initialization.explicit_starts
+    if explicit_starts is None:
+        return
+    if len(explicit_starts) != ensemble_config.chains:
+        raise ValueError("explicit_starts must contain one state per chain")
+    if any(
+        dict(actual) != dict(expected)
+        for actual, expected in zip(
+            initialization_states,
+            explicit_starts,
+            strict=True,
+        )
+    ):
+        raise ValueError("recorded initial states do not match explicit_starts")
+
+
+def _validate_diagnostics_against_config(
+    ensemble_config: MHEnsembleConfig,
+    chains: tuple[MHChainResult, ...],
+    diagnostics: tuple[MHParameterDiagnostics, ...],
+) -> None:
+    """Bind the complete diagnostic set to sampled and derived quantities."""
+    if not diagnostics:
+        return
+    names = [diagnostic.parameter for diagnostic in diagnostics]
+    if len(set(names)) != len(names):
+        raise ValueError("diagnostic parameter names must be unique")
+    first = chains[0].samples
+    parameter_names = tuple(first.get_param_names())
+    expected_names = tuple(
+        dict.fromkeys(parameter_names + tuple(first.lpm_template.moments_name()))
+    )
+    if tuple(names) != expected_names:
+        raise ValueError(
+            "diagnostics must follow exactly the sampled parameters and expected "
+            f"moments {list(expected_names)}"
+        )
+    thresholds = ensemble_config.diagnostics
+    for diagnostic in diagnostics:
+        if any(diagnostic.parameter not in chain.samples.frame for chain in chains):
+            raise ValueError(
+                f"production samples are missing diagnostic {diagnostic.parameter!r}"
+            )
+        values = np.vstack(
+            [
+                chain.samples.frame[diagnostic.parameter].to_numpy(dtype=float)
+                for chain in chains
+            ]
+        )
+        if not np.all(np.isfinite(values)):
+            raise ValueError(
+                f"recorded diagnostic {diagnostic.parameter!r} requires finite "
+                "production values"
+            )
+        expected_inclusion = diagnostic.parameter in parameter_names or bool(
+            np.any(values != values.flat[0])
+        )
+        if diagnostic.included_in_qualification != expected_inclusion:
+            role = "included" if expected_inclusion else "excluded"
+            raise ValueError(
+                f"diagnostic {diagnostic.parameter!r} must be {role} in qualification"
+            )
+        expected = _metrics_are_qualified(
+            rhat=diagnostic.rhat,
+            bulk_ess=diagnostic.bulk_ess,
+            tail_ess=diagnostic.tail_ess,
+            mcse_mean=diagnostic.mcse_mean,
+            thresholds=thresholds,
+        )
+        if diagnostic.qualified != expected:
+            raise ValueError(
+                f"diagnostic qualification for {diagnostic.parameter!r} does not "
+                "match ensemble_config thresholds"
+            )
+
+
+def _validate_record_configuration(
+    *,
+    chain_config: MHConfig,
+    ensemble_config: MHEnsembleConfig,
+    chains: tuple[MHChainResult, ...],
+    pilot: MHPilotResult | None,
+    diagnostics: tuple[MHParameterDiagnostics, ...],
+    seed_plan: MHSeedPlan,
+) -> None:
+    """Bind every recorded result invariant to the configuration that produced it."""
+    _validate_record_config_types_and_counts(
+        chain_config,
+        ensemble_config,
+        chains,
+        seed_plan,
+    )
+    initialization_states = _initialization_states_from_pilot_contract(
+        ensemble_config,
+        chains,
+        pilot,
+    )
+    _validate_explicit_initialization(ensemble_config, initialization_states)
+    _validate_diagnostics_against_config(ensemble_config, chains, diagnostics)
+
+
 @dataclass(frozen=True)
-class MHEnsembleResult:
-    """Separate chains, diagnostics, status, and file-backed input snapshots.
+class MHRunRecord:
+    """Immutable configuration and results for one complete MH ensemble run.
 
     ``resolved_metadata`` contains detached proposal/prior values captured by
     the samplers immediately after preparation and before their transition
@@ -385,6 +799,8 @@ class MHEnsembleResult:
     changes from altering the provenance eventually serialized for the run.
     """
 
+    chain_config: MHConfig
+    ensemble_config: MHEnsembleConfig
     chains: tuple[MHChainResult, ...]
     pilot: MHPilotResult | None
     diagnostics: tuple[MHParameterDiagnostics, ...]
@@ -396,9 +812,13 @@ class MHEnsembleResult:
     resolved_metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Validate ensemble identity and detach caller-owned sequences."""
+        """Validate the complete run contract and detach caller-owned sequences."""
         chains = tuple(self.chains)
         diagnostics = tuple(self.diagnostics)
+        if self.pilot is not None and not isinstance(self.pilot, MHPilotResult):
+            raise TypeError("pilot must be an MHPilotResult or None")
+        if self.pilot is not None:
+            self.pilot.validate_snapshot()
         _validate_ensemble_chains(chains)
         _validate_seed_plan(self.seed_plan, chains)
         _validate_target_signature(
@@ -424,6 +844,34 @@ class MHEnsembleResult:
             "resolved_metadata",
             _readonly_metadata(self.resolved_metadata),
         )
+        _validate_record_configuration(
+            chain_config=self.chain_config,
+            ensemble_config=self.ensemble_config,
+            chains=chains,
+            pilot=self.pilot,
+            diagnostics=diagnostics,
+            seed_plan=self.seed_plan,
+        )
+
+    def validate_integrity(self) -> None:
+        """Revalidate mutable table snapshots before consuming this record."""
+        _validate_ensemble_chains(self.chains)
+        if self.pilot is not None:
+            self.pilot.validate_snapshot()
+        _validate_seed_plan(self.seed_plan, self.chains)
+        _validate_record_configuration(
+            chain_config=self.chain_config,
+            ensemble_config=self.ensemble_config,
+            chains=self.chains,
+            pilot=self.pilot,
+            diagnostics=self.diagnostics,
+            seed_plan=self.seed_plan,
+        )
+        _validate_diagnostic_status(
+            self.diagnostics,
+            self.qualification_status,
+            self.diagnostics_message,
+        )
 
     def pooled_samples(self, require_qualified: bool = True) -> LpmSampleTable:
         """Return a new table pooling chains only after qualification control.
@@ -442,8 +890,9 @@ class MHEnsembleResult:
         """
         if not isinstance(require_qualified, bool):
             raise ValueError("require_qualified must be a boolean")
+        self.validate_integrity()
         if require_qualified and self.qualification_status != QUALIFIED:
-            raise RuntimeError(
+            raise MHConvergenceError(
                 "MCMC samples cannot be pooled as qualified: ensemble status is "
                 f"{self.qualification_status!r}"
             )
@@ -461,9 +910,9 @@ class MHEnsembleResult:
 __all__ = [
     "DIAGNOSTICS_UNAVAILABLE",
     "MHChainResult",
-    "MHEnsembleResult",
     "MHParameterDiagnostics",
     "MHPilotResult",
+    "MHRunRecord",
     "NOT_QUALIFIED",
     "QUALIFICATION_STATUSES",
     "QUALIFIED",

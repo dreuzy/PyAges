@@ -170,7 +170,7 @@ def test_ploemeur_f09_multichain_scientific_qualification(
         for directory in chain_directories
     ]
     acceptance_rates = np.asarray(
-        [float(metadata["success_rate"]) for metadata in chain_metadata]
+        [float(metadata["acceptance_rate"]) for metadata in chain_metadata]
     )
     assert np.all((acceptance_rates >= 0.20) & (acceptance_rates <= 0.50))
     assert len({metadata["seed"] for metadata in chain_metadata}) == CHAIN_COUNT

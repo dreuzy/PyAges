@@ -72,6 +72,7 @@ env/
 Thumbs.db
 
 # Project specific outputs
+.artifacts/
 figures_out/
 results/
 tmp_path/

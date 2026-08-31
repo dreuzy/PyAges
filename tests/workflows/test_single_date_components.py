@@ -395,11 +395,12 @@ def test_run_single_date_manifests_a_multichain_convergence_failure(
     assert failure_manifest.call_args.kwargs["details"]["calibrations_attempted"] == [
         "Metropolis_Hastings"
     ]
+    assert error.__notes__ == [f"Preserved result evidence: {context.output_directory}"]
     context.plots.close_all.assert_called_once_with()
     context.plots.finish.assert_not_called()
 
 
-def test_prepare_context_invalidates_manifest_before_loading_observations(
+def test_prepare_context_does_not_stage_when_observations_cannot_be_loaded(
     tmp_path, monkeypatch
 ) -> None:
     output = tmp_path / "results"
@@ -420,7 +421,8 @@ def test_prepare_context_invalidates_manifest_before_loading_observations(
         "dataset_results_directory",
         results_directory,
     )
-    monkeypatch.setattr(single_context, "begin_result_run", begin)
+    begin.return_value = SimpleNamespace(working_directory=output)
+    monkeypatch.setattr(single_context, "begin_staged_result_run", begin)
     monkeypatch.setattr(single_context.PlotSession, "start", lambda **_kwargs: session)
     monkeypatch.setattr(
         single_context,
@@ -431,7 +433,7 @@ def test_prepare_context_invalidates_manifest_before_loading_observations(
     with pytest.raises(FileNotFoundError, match="missing observations"):
         single_context.prepare_context(tmp_path / "config.yaml", force_inline=False)
 
-    begin.assert_called_once_with(output)
+    begin.assert_not_called()
     results_directory.assert_called_once_with(
         "case.txt",
         use_default=False,
@@ -439,3 +441,32 @@ def test_prepare_context_invalidates_manifest_before_loading_observations(
         study_name="audit",
     )
     session.close_all.assert_called_once_with()
+
+
+def test_failure_manifest_keeps_a_completed_simplex_before_mh_rejection(
+    tmp_path, monkeypatch
+) -> None:
+    from pyages.calibration.methods.mh import MHConvergenceError
+
+    context = _context(
+        tmp_path,
+        run_calibration_simplex=True,
+        run_calibration_metropolis_hastings=True,
+    )
+    context.output_directory.mkdir()
+    error = MHConvergenceError("MH convergence gate rejected the chains")
+    failure_manifest = Mock()
+    monkeypatch.setattr(
+        single_date, "prepare_context", lambda *_args, **_kwargs: context
+    )
+    monkeypatch.setattr(single_date, "reachable_concentrations", lambda _ctx: None)
+    monkeypatch.setattr(single_date, "run_calibrations", Mock(side_effect=error))
+    monkeypatch.setattr(single_date, "write_failure_manifest", failure_manifest)
+
+    with pytest.raises(MHConvergenceError):
+        single_date.run_single_date(context.config_path)
+
+    assert failure_manifest.call_args.kwargs["details"]["calibrations"] == ["Simplex"]
+    assert failure_manifest.call_args.kwargs["details"]["calibrations_attempted"] == [
+        "Metropolis_Hastings"
+    ]

@@ -23,6 +23,7 @@ import numpy as np
 from pyages.calibration.methods.mh.config import MHConfig
 from pyages.calibration.methods.mh.diagnostics import (
     bulk_ess,
+    ess,
     mcse_mean,
     split_rhat,
     tail_ess,
@@ -31,6 +32,7 @@ from pyages.calibration.methods.mh.ensemble_config import (
     MHEnsembleConfig,
     build_seed_plan,
 )
+from pyages.calibration.methods.mh.errors import MHDiagnosticsUnavailableError
 from pyages.calibration.methods.mh.initialization import build_initial_states
 from pyages.calibration.methods.mh.pilot import (
     automatic_proposal_multiplier,
@@ -42,18 +44,16 @@ from pyages.calibration.methods.mh.results import (
     NOT_QUALIFIED,
     QUALIFIED,
     MHChainResult,
-    MHEnsembleResult,
     MHParameterDiagnostics,
     MHPilotResult,
+    MHRunRecord,
 )
 from pyages.calibration.methods.mh.sampler import MetropolisHastings
-from pyages.calibration.problem import CalibrationProblem, CalibrationTargetSignature
+from pyages.calibration.problem import CalibrationProblem
+from pyages.calibration.sampling_schedule import maximum_split_ess
+from pyages.calibration.target_signature import CalibrationTargetSignature
 
-ProblemFactory = Callable[[str, int], CalibrationProblem]
-
-
-class MHConvergenceError(RuntimeError):
-    """Raised when qualified posterior output is requested before convergence."""
+_ProblemFactory = Callable[[str, int], CalibrationProblem]
 
 
 class MultiChainMetropolisHastings:
@@ -111,8 +111,7 @@ class MultiChainMetropolisHastings:
                 "each production chain must retain at least eight draws for "
                 "multi-chain diagnostics"
             )
-        split_draws = ensemble_config.chains * 2 * (retained_count // 2)
-        maximum_ess = split_draws * math.log10(split_draws)
+        maximum_ess = maximum_split_ess(ensemble_config.chains, retained_count)
         diagnostics = ensemble_config.diagnostics
         if diagnostics.require_convergence and (
             diagnostics.min_bulk_ess > maximum_ess
@@ -128,7 +127,7 @@ class MultiChainMetropolisHastings:
 
     @staticmethod
     def _fresh_problem(
-        problem_factory: ProblemFactory,
+        problem_factory: _ProblemFactory,
         stage: str,
         chain_id: int,
         seen_problems: WeakSet[CalibrationProblem],
@@ -174,7 +173,7 @@ class MultiChainMetropolisHastings:
 
     def _initial_states(
         self,
-        problem_factory: ProblemFactory,
+        problem_factory: _ProblemFactory,
         initialization_seeds: tuple[int, ...],
         seen_problems: WeakSet[CalibrationProblem],
     ) -> tuple[
@@ -405,39 +404,43 @@ class MultiChainMetropolisHastings:
             values = np.vstack(
                 [chain.samples.frame[name].to_numpy(dtype=float) for chain in chains]
             )
+            if not np.all(np.isfinite(values)):
+                raise MHDiagnosticsUnavailableError(
+                    f"diagnostic {name!r} contains non-finite production values"
+                )
             is_constant_derived = name not in parameter_names and not np.any(
                 values != values.flat[0]
             )
-            rhat = split_rhat(values)
-            bulk = bulk_ess(values)
-            tail = tail_ess(values)
             try:
-                monte_carlo_error = mcse_mean(values)
-            except ValueError:
-                monte_carlo_error = math.inf
-            posterior_sd = float(np.std(values, ddof=1))
-            qualified = bool(
-                math.isfinite(rhat)
-                and rhat < thresholds.max_rhat
-                and bulk >= thresholds.min_bulk_ess
-                and tail >= thresholds.min_tail_ess
-                and math.isfinite(monte_carlo_error)
+                rhat = split_rhat(values)
+                bulk = bulk_ess(values)
+                tail = tail_ess(values)
+            except FloatingPointError as exc:
+                raise MHDiagnosticsUnavailableError(
+                    f"diagnostic {name!r} could not be evaluated"
+                ) from exc
+            raw_ess = ess(values)
+            monte_carlo_error = (
+                mcse_mean(values, effective_sample_size=raw_ess)
+                if math.isfinite(raw_ess) and raw_ess > 0.0
+                else math.inf
             )
+            posterior_sd = float(np.std(values, ddof=1))
             diagnostics.append(
-                MHParameterDiagnostics(
+                MHParameterDiagnostics.from_metrics(
                     parameter=name,
                     rhat=rhat,
                     bulk_ess=bulk,
                     tail_ess=tail,
                     mcse_mean=monte_carlo_error,
                     posterior_sd=posterior_sd,
-                    qualified=qualified,
+                    thresholds=thresholds,
                     included_in_qualification=not is_constant_derived,
                 )
             )
         return tuple(diagnostics)
 
-    def run(self, problem_factory: ProblemFactory) -> MHEnsembleResult:
+    def run(self, problem_factory: _ProblemFactory) -> MHRunRecord:
         """Run initialization, optional pilot, production, and diagnostics.
 
         Parameters
@@ -449,9 +452,9 @@ class MultiChainMetropolisHastings:
 
         Returns
         -------
-        MHEnsembleResult
-            Separate production chains, optional pilot provenance, convergence
-            metrics, and the resulting qualification status.
+        MHRunRecord
+            Immutable configuration, separate production chains, optional pilot
+            provenance, convergence metrics, and qualification status.
         """
         if not callable(problem_factory):
             raise TypeError("problem_factory must be callable")
@@ -535,7 +538,7 @@ class MultiChainMetropolisHastings:
         diagnostics_message = None
         try:
             diagnostics = self._diagnose(chains)
-        except (FloatingPointError, ValueError) as exc:
+        except MHDiagnosticsUnavailableError as exc:
             diagnostics = ()
             diagnostics_message = str(exc)
             status = DIAGNOSTICS_UNAVAILABLE
@@ -549,7 +552,9 @@ class MultiChainMetropolisHastings:
                 )
                 else NOT_QUALIFIED
             )
-        return MHEnsembleResult(
+        return MHRunRecord(
+            chain_config=self.chain_config,
+            ensemble_config=self.ensemble_config,
             chains=chains,
             pilot=pilot,
             diagnostics=diagnostics,
@@ -563,7 +568,5 @@ class MultiChainMetropolisHastings:
 
 
 __all__ = [
-    "MHConvergenceError",
     "MultiChainMetropolisHastings",
-    "ProblemFactory",
 ]

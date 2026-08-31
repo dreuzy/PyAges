@@ -11,6 +11,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.stats import truncnorm
 
 from pyages.calibration.methods.mh.prior import (
     Prior,
@@ -92,6 +93,52 @@ def test_parametric_sample_initialization_is_seeded_and_bounded() -> None:
     assert first.p == second.p
     assert 0.0 <= first.p["mu"] <= 10.0
     assert 1.0 <= first.p["width"] <= 9.0
+
+
+def test_single_chain_param_init_preserves_the_historical_seeded_law() -> None:
+    """The marginal ensemble API must not change one-chain initialization."""
+    prior = Prior(typ="parametric")
+    prior.distributions = {"mu": "normal", "width": "uniform"}
+    prior.parameters = {"mu": [5.0, 2.0], "width": [2.0, 8.0]}
+    expected_rng = np.random.default_rng(123)
+    expected = {
+        "mu": float(np.clip(expected_rng.normal(5.0, 2.0), 0.0, 10.0)),
+        "width": float(np.clip(expected_rng.uniform(2.0, 8.0), 1.0, 9.0)),
+    }
+    model = _TwoParameterModel()
+
+    prior.param_init(model, strategy="sample", rng=np.random.default_rng(123))
+
+    assert model.p == pytest.approx(expected)
+
+
+def test_parametric_bounded_marginal_api_conditions_on_physical_bounds() -> None:
+    prior = Prior(typ="parametric")
+    prior.distributions = {"mu": "normal", "width": "uniform"}
+    prior.parameters = {"mu": [12.0, 2.0], "width": [2.0, 8.0]}
+
+    normal_median = prior.bounded_quantile("mu", 0.0, 10.0, 0.5)
+
+    assert normal_median == pytest.approx(
+        truncnorm.ppf(0.5, -6.0, -1.0, loc=12.0, scale=2.0)
+    )
+    assert prior.bounded_mode("mu", 0.0, 10.0) == 10.0
+    assert prior.bounded_quantile("width", 1.0, 9.0, 0.25) == 3.5
+    assert prior.bounded_mode("width", 1.0, 9.0) == 5.0
+    assert prior.contains("mu", -1.0)
+    assert prior.contains("width", 2.0)
+    assert not prior.contains("width", 1.0)
+
+
+def test_empirical_bounded_marginal_api_inverts_piecewise_linear_mass() -> None:
+    prior = Prior(typ="empirical")
+    prior.parameters = {"mu": np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]])}
+
+    assert prior.bounded_quantile("mu", 0.0, 2.0, 0.5) == pytest.approx(1.0)
+    assert prior.bounded_mode("mu", 0.0, 2.0) == 1.0
+    assert prior.contains("mu", 1.0)
+    assert not prior.contains("mu", 0.0)
+    assert not prior.contains("mu", 3.0)
 
 
 def test_empirical_initialization_handles_map_sample_and_zero_mass() -> None:

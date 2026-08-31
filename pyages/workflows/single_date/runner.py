@@ -10,6 +10,7 @@ from pathlib import Path
 
 from pyages.calibration.methods.mh import MHConvergenceError
 from pyages.workflows.runtime.manifest import (
+    promote_result_run,
     write_failure_manifest,
     write_result_manifest,
 )
@@ -39,6 +40,20 @@ def _manifest_details(context, calibrations: list[str]) -> dict[str, object]:
     }
 
 
+def _run_id(context) -> str | None:
+    """Return the isolated-run identity when the real context provides one."""
+    result_run = getattr(context, "result_run", None)
+    return getattr(result_run, "run_id", None)
+
+
+def _promote_if_staged(context) -> Path:
+    """Publish a real workflow context while keeping lightweight test doubles."""
+    result_run = getattr(context, "result_run", None)
+    if result_run is None:
+        return context.output_directory
+    return promote_result_run(result_run)
+
+
 def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path:
     """Run every enabled step from a single-date YAML configuration."""
     if params_path is None:
@@ -62,9 +77,14 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
             config_path=context.config_path,
             input_paths=scientific_input_paths(context),
             details=_manifest_details(context, sorted(calibrated)),
+            run_id=_run_id(context),
         )
+        result_directory = _promote_if_staged(context)
     except MHConvergenceError as error:
-        details = _manifest_details(context, [])
+        # ``run_calibrations`` executes Simplex first. Reaching its MH-specific
+        # exception therefore proves that an enabled Simplex run completed.
+        completed = ["Simplex"] if context.params.run_calibration_simplex else []
+        details = _manifest_details(context, completed)
         details["calibrations_attempted"] = ["Metropolis_Hastings"]
         try:
             write_failure_manifest(
@@ -74,7 +94,10 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
                 input_paths=scientific_input_paths(context),
                 details=details,
                 error=error,
+                run_id=_run_id(context),
             )
+            failure_directory = _promote_if_staged(context)
+            error.add_note(f"Preserved result evidence: {failure_directory}")
         except Exception as manifest_error:
             error.add_note(f"Could not write failure manifest: {manifest_error}")
         context.plots.close_all()
@@ -82,7 +105,7 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
     except BaseException:
         context.plots.close_all()
         raise
-    return context.output_directory
+    return result_directory
 
 
 __all__ = ["run_single_date"]

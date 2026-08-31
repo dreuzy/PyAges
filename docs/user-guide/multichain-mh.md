@@ -29,10 +29,12 @@ convergence and the internal coherence of fitted latent concentrations only.
 See {doc}`../examples/synthetic-recovery` and
 {doc}`../examples/ploemeur-multichain` for their exact protocols.
 
-Both profiles use deterministic result-directory names. A new run invalidates
-the preceding success manifest but can leave unrelated files already present
-in that directory. Select a separate `PYAGES_RESULTS_DIR`, or archive and clean
-the old result directory, before producing qualification evidence.
+Both profiles use deterministic result-directory names. A new run writes into
+an isolated, run-ID-derived staging tree while the preceding published result
+remains intact. Terminal promotion verifies the staged artifacts and replaces
+the exact preceding publication, so the manifest hashes only artifacts from
+that run and a stale concurrent run cannot overwrite it. Archive the preceding
+result first when it must be retained as qualification evidence.
 
 ## Understand the stages
 
@@ -56,6 +58,15 @@ An enabled ensemble follows this sequence:
 Pilot draws tune the random walk; they are never posterior draws. The proposal
 covariance is not a prior covariance and is not learned from the first
 production chain.
+
+Prior-based ensemble starts use the prior's bounded marginal interface. A
+normal marginal is conditioned on the physical LPM interval before its
+quantile is inverted; a uniform marginal uses the overlap between its own
+support and that interval; and an empirical marginal integrates its
+piecewise-linear density after clipping it precisely at the physical bounds.
+The initializer therefore does not reinterpret prior storage or distribution
+metadata. This keeps `prior_sample`, `prior_map`, and `bounds_stratified` on
+one tested scientific definition.
 
 ## Choose the controls deliberately
 

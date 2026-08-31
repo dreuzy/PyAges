@@ -86,6 +86,20 @@ def test_correlated_proposal_has_requested_covariance_and_is_symmetric():
     assert proposal.log_hastings_ratio(current, proposed) == 0.0
 
 
+def test_correlated_proposal_owns_a_read_only_covariance_snapshot() -> None:
+    covariance = np.array([[4.0, -1.5], [-1.5, 2.0]])
+    proposal = GaussianRandomWalk(covariance)
+
+    covariance[0, 0] = 99.0
+
+    assert proposal.covariance[0, 0] == 4.0
+    assert not proposal.covariance.flags.writeable
+    with pytest.raises(ValueError, match="read-only"):
+        proposal.covariance[0, 0] = 3.0
+    with pytest.raises(ValueError, match="cannot set WRITEABLE flag"):
+        proposal.covariance.setflags(write=True)
+
+
 def test_proposal_is_reproducible_for_a_fixed_seed():
     proposal = GaussianRandomWalk.diagonal((2.0, 5.0), "sum_difference")
     first = np.random.default_rng(9012)

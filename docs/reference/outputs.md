@@ -23,13 +23,23 @@ manifest. A directory without a manifest whose `status` is `complete` is not a
 completed workflow result, even if it contains apparently usable intermediate
 files.
 
-Once a workflow has prepared its target result directory, it removes any
-previous terminal manifest before writing new artifacts. A failed rerun can
-therefore not leave an earlier `"status": "complete"` marker behind. Workflows
-still reuse deterministic directories and retain other files from earlier
-runs. For qualification or publication evidence, start from an empty result
-directory or archive the preceding run first. A new success manifest hashes
-every file present below the result directory, including retained files.
+Once a workflow has resolved its target result directory, it creates a hidden
+sibling staging directory derived from a fresh `run_id`. A preceding published
+tree, including its terminal manifest, remains intact while the new run is in
+progress. New artifacts are written only into staging; its state journal
+contains the complete UUID and the identity of the publication it may replace.
+On success, or on rejection by a required scientific gate, the terminal tree is
+verified again and promoted over that exact preceding publication by
+same-filesystem renaming. A compare-and-swap check rejects a stale concurrent
+promotion. Consequently a terminal directory contains artifacts from exactly
+one run. Other exceptions leave the staging journal at `status: started` for
+inspection, while the deterministic result directory continues to identify
+the last successfully published terminal run, if one exists.
+
+Input loading and validation occur before staging is allocated. When a
+required convergence gate rejects a completed calculation, the raised Python
+exception includes a note naming the public directory to which the failed
+evidence tree was promoted.
 
 ## Single-date layout
 
@@ -188,7 +198,10 @@ Those checks must be registered by a case-specific scientific protocol.
 `ensemble_provenance.txt` is a key/value table containing the realized master
 seed plus the distinct initialization, pilot, and production seed for every
 chain. Each `chain_metadata.txt` records its production seed, initial parameter
-values, retained-row count, acceptance fraction, and runtime.
+values, retained-row count, `acceptance_rate`, and runtime. The multi-chain
+parameter table uses `burn_in` and `pilot_burn_in`; the former experimental
+`burn-in`, `pilot_burn-in`, and per-chain `success_rate` spellings are not
+written.
 
 `proposal_covariance.tsv` is a square labeled matrix in squared parameter
 units. It is the regularized, pooled within-chain covariance learned from all
@@ -246,8 +259,12 @@ evaluation, and convergence fields.
 
 For a multi-chain run this file additionally records
 `qualification_status`, `diagnostics_message`, `chain_count`, retained counts,
-whether pooling was written, mean/minimum/maximum acceptance, summed pilot and
-production runtimes, and failed diagnostic counts. Interpret
+whether pooling was written, `mean_acceptance_rate`,
+`minimum_acceptance_rate`, `maximum_acceptance_rate`, summed pilot and
+production runtimes, and failed diagnostic counts. The historical root
+`success_rate` remains the mean transition acceptance fraction because it is a
+stable result-file field; no additional multi-chain success-rate aliases are
+created. Interpret
 `time_perform` as the sum of recorded pilot and production sampler runtimes,
 not proof of wall-clock parallelism.
 
@@ -306,6 +323,8 @@ masses exactly.
 |---|---|---|
 | `schema_version` | integer | Result-layout schema; currently `2` |
 | `status` | string | `complete` after success, or `failed` after rejection by a required multi-chain convergence gate |
+| `run_id` | string | UUID identifying this run from staging through terminal promotion |
+| `started_at_utc` | string | ISO 8601 staging-start time with UTC offset |
 | `created_at_utc` | string | ISO 8601 terminal-manifest creation time with UTC offset |
 | `pyages_version` | string | Installed PyAges version |
 | `workflow` | string | `single_date` or `temporal` |
@@ -313,15 +332,17 @@ masses exactly.
 | `configuration` | object | Portable configuration path and SHA-256 digest |
 | `inputs` | array of objects | Portable observation, selected LPM-resource, and tracer-resource paths with SHA-256 digests |
 | `environment` | object | Python implementation, version, platform, and selected dependency versions |
-| `repository` | object | Git revision, dirty state, status, diff digest, and tracked-workspace digest when available |
-| `artifacts_sha256` | object | Relative artifact path to SHA-256 digest; excludes the manifest itself |
+| `package` | object | Distribution name/version, metadata digest, source kind, and `direct_url.json`/`RECORD` evidence when available |
+| `repository` | object | Git evidence only when the imported PyAges file is tracked by that worktree; otherwise neutral fields |
+| `artifacts_sha256` | object | Relative artifact path to SHA-256 digest for this run only; excludes its journal and manifest |
 | `details` | object | Workflow-specific selection metadata |
 | `failure` | object, optional | Exception `type` and `message`; present only when `status` is `failed` |
 
 For `single_date`, `details` records the dataset, configured dataset year, LPM,
-and completed calibration methods. A failed gate also records the attempted MH
-calibration. For `temporal`, it records the dataset, mode, LPM list, and case
-directories entered before the terminal state.
+and completed calibration methods. If Simplex completes before an MH gate
+rejects the chains, it remains listed as completed; the failed gate separately
+records MH in `calibrations_attempted`. For `temporal`, details record the
+dataset, mode, LPM list, and case directories entered before the terminal state.
 
 A failure manifest is evidence that the configured qualification gate rejected
 the preserved chains; it is not a successful result marker. Configuration,
@@ -331,7 +352,9 @@ for both terminal statuses.
 The manifest fingerprints the selected direct dependencies, but it is not a
 complete package lock. Recreate a qualified environment from the versioned
 constraint or environment file, then use the hashes to verify the exact inputs
-and artifacts. Repository fields can be null when Git metadata is unavailable.
+and artifacts. Repository fields are neutral when Git cannot establish that
+the executed package source belongs to the discovered worktree; in that case,
+use the `package` evidence and preserve the original wheel as well.
 
 Incompatible changes to these documented table or manifest contracts require
 the compatibility treatment described in {doc}`public-api`.
