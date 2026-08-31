@@ -319,7 +319,11 @@ def test_extensive_workflow_builds_archive_before_always_upload() -> None:
     upload_position = workflow.index("Preserve multi-chain scientific evidence")
 
     assert pytest_position < wrapper_position < upload_position
-    assert "--basetemp .artifacts/extensive-pytest" in workflow
+    assert "RUNNER_TEMP" in workflow
+    assert "GITHUB_RUN_ID" in workflow
+    assert "runner.temp" in workflow
+    assert '--basetemp "$RUNNER_TEMP/pyages-extensive-$GITHUB_RUN_ID"' in workflow
+    assert ".artifacts/extensive-pytest" not in workflow
     assert "--dist-dir dist" in workflow
     assert ".artifacts/multichain-qualification-draft.zip" in workflow
     assert ".artifacts/multichain-qualification-draft.zip.sha256" in workflow

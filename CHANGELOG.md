@@ -82,6 +82,9 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Expanded installed-wheel smoke coverage outside the source checkout to run
   one-chain and two-chain workflows, inspect interrupted stages, and verify
   installed-distribution provenance and multi-chain result artifacts.
+- Moved the extensive pytest base directory to the runner's external temporary
+  root so qualification artifacts cannot alter checkout-root or provenance
+  semantics, and made CI link checking retry transient remote timeouts once.
 - Retained sequential chain execution after a bit-for-bit thread prototype
   outside runtime fields produced only small, unstable gains: `1.05x` on the
   smoke workload with two regressions in seven trials, and `1.09x` at five

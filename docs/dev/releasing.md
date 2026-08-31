@@ -127,7 +127,7 @@ the wheel and sdist, build a review archive. Draft is the wrapper default:
 
 ```bash
 python -m scripts.qualification.build_ci_multichain_archive \
-  --basetemp .artifacts/extensive-pytest \
+  --basetemp /path/to/external-pytest-basetemp \
   --dist-dir dist \
   --mode draft \
   --output /path/to/pyages-multichain-qualification-draft.zip
@@ -145,7 +145,7 @@ rebuild the distributions, then build the publishable archive with:
 
 ```bash
 python -m scripts.qualification.build_ci_multichain_archive \
-  --basetemp .artifacts/extensive-pytest \
+  --basetemp /path/to/external-pytest-basetemp \
   --dist-dir dist \
   --mode publishable \
   --expected-tag <version> \

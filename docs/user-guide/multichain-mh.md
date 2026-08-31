@@ -385,9 +385,7 @@ tables in `record.chains`:
 ```python
 pooled = record.pooled_samples()
 
-assert len(pooled.frame) == sum(
-    len(chain.samples.frame) for chain in record.chains
-)
+assert len(pooled.frame) == sum(len(chain.samples.frame) for chain in record.chains)
 ```
 
 The pooled table appends chain 1, then chain 2, and so on, but it does not add a
@@ -513,9 +511,7 @@ evidence = Path(
     "synthetic_multichain_recovery_drill/"
     "synthetic_exp_shifted_2010.txt"
 )
-manifest = json.loads(
-    (evidence / "result_manifest.json").read_text(encoding="utf-8")
-)
+manifest = json.loads((evidence / "result_manifest.json").read_text(encoding="utf-8"))
 assert manifest["status"] == "failed"
 assert manifest["failure"]["type"] == "MHConvergenceError"
 
@@ -557,9 +553,7 @@ evidence = Path(
     "synthetic_multichain_recovery_drill/"
     "synthetic_exp_shifted_2010.txt"
 )
-manifest = json.loads(
-    (evidence / "result_manifest.json").read_text(encoding="utf-8")
-)
+manifest = json.loads((evidence / "result_manifest.json").read_text(encoding="utf-8"))
 assert manifest["status"] == "complete"
 assert "failure" not in manifest
 assert (evidence / "Metropolis_Hastings/lpm_dist_calibrated.txt").is_file()

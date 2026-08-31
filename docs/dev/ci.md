@@ -60,8 +60,14 @@ The extensive workflow installs the qualified development environment and
 runs:
 
 ```bash
-python -m pytest -q --run-extensive --basetemp .artifacts/extensive-pytest
+python -m pytest -q --run-extensive \
+  --basetemp "$RUNNER_TEMP/pyages-extensive-$GITHUB_RUN_ID"
 ```
+
+The CI base directory is deliberately under the runner's external temporary
+root, not below the checkout. This both gives pytest an existing parent and
+prevents temporary test trees from changing repository-root and provenance
+semantics.
 
 The marker is opt-in. The same tests are collected by the standard suite but
 skipped unless `--run-extensive` is present. The workflow is scheduled for
@@ -73,7 +79,7 @@ After pytest succeeds, the job builds one wheel and one sdist, then runs:
 
 ```bash
 python -m scripts.qualification.build_ci_multichain_archive \
-  --basetemp .artifacts/extensive-pytest \
+  --basetemp "$RUNNER_TEMP/pyages-extensive-$GITHUB_RUN_ID" \
   --dist-dir dist \
   --output .artifacts/multichain-qualification-draft.zip
 ```
@@ -156,6 +162,11 @@ python -m scripts.maintenance.generate_test_inventory --check
 python -m sphinx -W --keep-going -b html docs docs/_build/html
 python -m sphinx -W --keep-going -b linkcheck docs docs/_build/linkcheck
 ```
+
+The CI documentation job retries the same cached linkcheck once when the first
+invocation fails. This absorbs a transient remote timeout while preserving a
+failure for a persistent broken link. Publisher endpoints known to reject
+automated clients remain narrowly listed in `docs/conf.py`.
 
 Conda, wheel isolation, and .NET exercise different environments and must not
 be inferred solely from a successful editable-install test run.
