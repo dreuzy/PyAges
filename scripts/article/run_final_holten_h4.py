@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import platform
@@ -54,6 +53,7 @@ from scripts.article.run_final_shifted_exponential import (
 )
 from scripts.common.mcmc_diagnostics import mcse_mean
 from scripts.common.provenance import repository_provenance
+from scripts.common.provenance import sha256_file as _sha256
 from scripts.common.publication_plotting import (
     PUBLICATION_RC,
     mm_to_in,
@@ -622,14 +622,6 @@ def _figure3(comparison: pd.DataFrame, output: Path) -> None:
         alternative, _ = _draw_figure3(comparison, layout=(2, 2))
         save_pdf_png(alternative, output, "figure3_holten_alt_2x2")
         plt.close(alternative)
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _manifest(output: Path, lengths: dict[str, int]) -> None:

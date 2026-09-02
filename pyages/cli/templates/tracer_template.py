@@ -1,11 +1,17 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file generates configuration and recharge-data templates for a new tracer.
 
-"""
-Tracer template generator.
+"""Create documented starter files for adding an environmental tracer.
 
-Generates boilerplate configuration files for new tracers.
+The generated YAML shows where to declare units, valid dates, recharge history,
+production, and radioactive decay. A companion tabular file demonstrates the
+dated concentration columns accepted by the tracer loader.
+
+These files are intentionally examples rather than fabricated scientific data:
+developers must replace the placeholder metadata and chronicle values before the
+tracer is suitable for convolution or calibration.
 """
 
 from __future__ import annotations

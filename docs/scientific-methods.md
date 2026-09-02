@@ -165,7 +165,8 @@ objective is
 
 This assumes independent, unbiased Gaussian errors with known standard
 deviations. PyAges does not currently represent an observation-error covariance
-matrix. Parameter bounds and priors are separate from $\chi^2$.
+matrix. Mathematical domains, calibration ranges, and priors are separate from
+$\chi^2$.
 
 Three objective quantities must not be interchanged:
 
@@ -180,14 +181,15 @@ normalization by uncertainty; it is not an RMSE in concentration units.
 
 ## Metropolis-Hastings target and sampling
 
-Within LPM parameter bounds, the enabled target is
+Within the configured LPM calibration range, the enabled target is
 
 ```{math}
 \log\pi(\theta)=-\frac12\chi^2(\theta)+\log p(\theta)+c.
 ```
 
-Disabled likelihood or prior terms are omitted. Out-of-bounds states and
-parameters outside the configured prior support have log density $-\infty$.
+Disabled likelihood or prior terms are omitted. States outside the calibration
+range or configured prior support have log density $-\infty$. The calibration
+range is validated as a subset of the LPM formula's mathematical domain.
 Prior densities are evaluated directly in log space after an exact zero check;
 no positive probability floor is substituted for zero support. Given proposal
 density $q$, acceptance uses
@@ -206,13 +208,13 @@ $\log(S_{proposed}/S_{current})$.
 
 Multi-chain prior initialization is defined through bounded marginal
 operations owned by `Prior`. Normal quantiles use the exact truncated-normal
-law on the physical LPM interval. Uniform quantiles use the intersection of
-the prior and physical supports. Empirical quantiles invert trapezoidal mass
+law on the calibration interval. Uniform quantiles use the intersection of
+the prior support and calibration range. Empirical quantiles invert trapezoidal mass
 of the clipped piecewise-linear density. Marginal modes and positive-support
 tests use the same definitions. The historical one-chain `Prior.param_init`
 path remains unchanged for compatibility: it selects the configured
 parametric center (or direct draw when called explicitly) and then clips it to
-the physical bounds. Consequently a partially overlapping uniform prior can
+the calibration range. Consequently a partially overlapping uniform prior can
 have a different compatibility start from the conditioned multi-chain
 `prior_map`; neither rule changes the posterior target.
 

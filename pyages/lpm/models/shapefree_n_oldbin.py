@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines a flexible water-age model from configured age intervals.
+# It reads the bin edges and old-water support from YAML, converts unconstrained
+# calibration values into normalized bin fractions, and returns piecewise-uniform
+# probabilities and moments that continuous convolution can integrate exactly.
 
 """
 Piecewise-uniform shape-free LPM with a configurable old bin.
@@ -64,6 +68,12 @@ class ShapeFreeSpec:
 
 
 def _as_float_array(values: list[Any], *, field_name: str) -> np.ndarray:
+    """Convert a YAML sequence to a one-dimensional floating-point array.
+
+    Configuration errors are reported with the model and field names so users
+    can identify the invalid value without tracing a later NumPy exception.
+    """
+
     try:
         array = np.asarray(values, dtype=float)
     except (TypeError, ValueError) as exc:
@@ -74,6 +84,8 @@ def _as_float_array(values: list[Any], *, field_name: str) -> np.ndarray:
 
 
 def _load_model_spec(directory_lpm: str | Path | None) -> tuple[Path, dict[str, Any]]:
+    """Resolve the LPM data directory and load this model's YAML definition."""
+
     resolved_dir = (
         Path(directory_lpm) if directory_lpm is not None else DIRECTORY_LPM_DATA
     )
@@ -81,6 +93,13 @@ def _load_model_spec(directory_lpm: str | Path | None) -> tuple[Path, dict[str, 
 
 
 def _load_shape_spec(spec: dict[str, Any]) -> ShapeFreeSpec:
+    """Parse and validate the age-bin geometry from a model definition.
+
+    In bounded mode all bin limits come from ``edges``.  In support-open mode,
+    the last configured edge begins the old-water bin and
+    ``support_end_max`` supplies its finite computational endpoint.
+    """
+
     shapefree_cfg = spec.get("shapefree")
     if not isinstance(shapefree_cfg, dict):
         raise ValueError(f"{MODEL_NAME}: params.yaml is missing a 'shapefree' section")
@@ -102,6 +121,8 @@ def _load_shape_spec(spec: dict[str, Any]) -> ShapeFreeSpec:
 
 
 def _validated_edges(config: dict[str, Any]) -> np.ndarray:
+    """Return finite, strictly increasing bin edges that start at age zero."""
+
     edges = _as_float_array(list(config.get("edges", [])), field_name="shapefree.edges")
     if edges.size < 2:
         raise ValueError(
@@ -118,6 +139,8 @@ def _validated_edges(config: dict[str, Any]) -> np.ndarray:
 
 
 def _validated_support_end(config: dict[str, Any], old_bin_start: float) -> float:
+    """Return the finite endpoint used to close a support-open old-water bin."""
+
     support_end_max = config.get("support_end_max")
     if support_end_max is None:
         raise ValueError(
@@ -142,6 +165,13 @@ def _validated_support_end(config: dict[str, Any], old_bin_start: float) -> floa
 def _parameter_defaults(
     spec: dict[str, Any], n_fraction_bins: int
 ) -> tuple[dict[str, float], dict[str, str]]:
+    """Read latent stick-breaking parameters and their units from YAML.
+
+    A distribution with ``n`` physical bins needs ``n - 1`` latent values.  The
+    last fraction is the mass left after allocating the preceding bins, so it
+    has no independent parameter.
+    """
+
     parameter_defs = spec.get("parameters")
     if not isinstance(parameter_defs, list) or not parameter_defs:
         raise ValueError(
@@ -170,7 +200,13 @@ def _parameter_defaults(
 
 @register_lpm(MODEL_NAME)
 class ShapeFreeNOldBinLpm(LpmBase):
-    """Shape-free piecewise-uniform distribution with configurable old-bin support."""
+    """Piecewise-uniform age distribution with freely calibrated bin masses.
+
+    YAML configuration fixes the age intervals, while unconstrained latent
+    parameters determine how total probability is divided among them.  The
+    final interval represents old water and is either explicitly bounded or
+    closed at a configured finite support for numerical integration.
+    """
 
     def __init__(self, directory_lpm=None):
         """Load the shape-free bin specification and initialize latent parameters."""
@@ -200,13 +236,21 @@ class ShapeFreeNOldBinLpm(LpmBase):
         return np.diff(self.bin_edges())
 
     def fractions(self) -> np.ndarray:
-        """Return physical bin fractions reconstructed from latent parameters."""
+        """Return normalized bin masses reconstructed by stick breaking.
+
+        The logistic transform maps every latent value to a fraction of the
+        mass still available.  The final bin receives the remainder, which
+        guarantees non-negative masses that sum to one without constrained
+        calibration parameters.
+        """
         latent = np.asarray(self.get_parameters_to_array(), dtype=float)
         if latent.size == 0:
             return np.array([1.0], dtype=float)
 
         fractions = np.zeros(latent.size + 1, dtype=float)
         remaining = 1.0
+        # Allocate each young-to-old bin from the mass not already assigned;
+        # the unallocated remainder belongs to the final old-water bin.
         for idx, value in enumerate(expit(latent)):
             fractions[idx] = remaining * float(value)
             remaining -= fractions[idx]
@@ -220,6 +264,13 @@ class ShapeFreeNOldBinLpm(LpmBase):
         return fractions / total
 
     def _pdf_array(self, t_arr: np.ndarray, edges: np.ndarray) -> np.ndarray:
+        """Evaluate the piecewise-constant density on an array of ages.
+
+        Bins are left-closed and right-open, except for the last bin, which also
+        includes the finite support endpoint.  This assigns every edge to one
+        bin and preserves a density value at the maximum modeled age.
+        """
+
         result = np.zeros_like(t_arr, dtype=float)
         widths = np.diff(edges)
         fractions = self.fractions()
@@ -243,6 +294,8 @@ class ShapeFreeNOldBinLpm(LpmBase):
         return float(result) if np.isscalar(t) else result
 
     def _cdf_scalar(self, value: float, edges: np.ndarray) -> float:
+        """Evaluate cumulative mass at one age using exact within-bin interpolation."""
+
         if value <= edges[0]:
             return 0.0
         if value >= edges[-1]:
@@ -276,7 +329,12 @@ class ShapeFreeNOldBinLpm(LpmBase):
         self,
         t: npt.ArrayLike,
     ) -> tuple[npt.ArrayLike, npt.ArrayLike]:
-        """Return exact cumulative mass and moment of the piecewise-uniform law."""
+        """Return cumulative mass and its partial first moment at each age.
+
+        For every bin, the integral is evaluated analytically up to the queried
+        age.  The result supports continuous convolution without approximating
+        the piecewise-uniform law on a separate numerical age grid.
+        """
         values = np.asarray(t, dtype=float)
         cdf = np.asarray(self.cdf(values), dtype=float)
         first_moment = np.zeros_like(values, dtype=float)
@@ -301,6 +359,8 @@ class ShapeFreeNOldBinLpm(LpmBase):
         return cdf, first_moment
 
     def _cdf_inv_scalar(self, probability: float, edges: np.ndarray) -> float:
+        """Invert one probability by locating its bin and interpolating within it."""
+
         p = probability
         if p <= 0.0:
             return float(edges[0])
@@ -315,6 +375,8 @@ class ShapeFreeNOldBinLpm(LpmBase):
             if width <= 0.0:
                 cumulative_before = cumulative_after
                 continue
+            # The small tolerance keeps probabilities on a cumulative boundary
+            # in the preceding non-empty bin despite floating-point roundoff.
             if fraction > 0.0 and p <= cumulative_after + 1e-15:
                 local = np.clip((p - cumulative_before) / fraction, 0.0, 1.0)
                 return float(edges[idx] + local * width)

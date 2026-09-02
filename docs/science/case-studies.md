@@ -94,7 +94,7 @@ Two additional development-branch profiles broaden software and scientific
 coverage without changing the interpretation of the historical benchmark:
 
 - the F09 2010 `ig_shifted` profile uses the canonical three-parameter uniform
-  prior conditioned on the physical bounds for initialization. It replaces
+  prior conditioned on the calibration ranges for initialization. It replaces
   zero uncertainty placeholders with 20% of the mean tracer-history response.
   Its chains converge, but posterior `sigma` remains close to the 30-year upper
   support. This is retained as an explicit upper-support warning rather than

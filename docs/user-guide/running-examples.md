@@ -2,6 +2,13 @@
 
 PyAges includes several example workflows demonstrating different use cases. This guide walks through each example and explains what they do.
 
+The Python package and its shared scientific data can be installed from a
+wheel, but the runnable material below lives in the source repository. Clone
+or download the repository before using paths under `examples/`, `sites/`, or
+`scripts/`. Those directories are deliberately not copied into the installed
+package, so that site data and publication tooling are not mistaken for the
+stable Python API.
+
 ## Available Examples
 
 | Example | Description | Script |

@@ -1,9 +1,15 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Validate ensemble controls and derive independent random streams.
+# This file checks settings shared by an MH run with several chains.
 
-"""Validated configuration and random streams for MH chain ensembles."""
+"""Define configuration objects shared by a multi-chain MH run.
+
+These objects describe how many chains to run, how to choose their starting
+states, whether to run a pilot stage, and which diagnostic limits must pass.
+The module also turns one master seed into separate reproducible seeds for
+initialization, pilot chains, and production chains.
+"""
 
 from __future__ import annotations
 
@@ -58,8 +64,8 @@ class MHInitializationConfig:
     """Controls for constructing independent, bounded chain starts.
 
     ``prior_sample`` draws each start independently from the configured prior
-    conditioned on the physical LPM bounds.
-    ``bounds_stratified`` uses a Latin hypercube over the physical LPM bounds,
+    conditioned on the LPM calibration ranges.
+    ``bounds_stratified`` uses a Latin hypercube over the calibration ranges,
     or over effective marginal prior mass when a prior is active.
 
     ``explicit`` consumes ``explicit_starts`` in chain order, while

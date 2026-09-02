@@ -1,9 +1,14 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Expose the public Metropolis--Hastings calibration API.
+# This file lists the MH classes and functions available to other packages.
 
-"""Metropolis--Hastings calibration components."""
+"""Provide the public entry points for Metropolis--Hastings calibration.
+
+Importing from this package gives callers the supported chain and ensemble
+configuration classes, samplers, result objects, and diagnostic errors without
+requiring knowledge of the files in which they are implemented.
+"""
 
 from pyages.calibration.methods.mh.config import MHConfig
 from pyages.calibration.methods.mh.ensemble import MultiChainMetropolisHastings

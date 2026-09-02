@@ -30,14 +30,15 @@ def test_load_params_smoke(model_name):
 
 
 @pytest.mark.parametrize("model_name", _models())
-def test_bounds_init_steps_priors(model_name):
+def test_calibration_ranges_init_steps_priors(model_name):
     schema = lpm_params.load_parameter_schema(model_name, _data_dir())
-    bounds = lpm_params.get_bounds(schema)
+    calibration_ranges = lpm_params.get_calibration_ranges(schema)
     init = lpm_params.get_init(schema)
     steps = lpm_params.get_steps(schema)
     priors = lpm_params.get_priors(schema)
 
-    assert bounds
+    assert calibration_ranges
+    assert lpm_params.get_bounds(schema) == calibration_ranges
     assert init
     assert steps
     assert priors
@@ -74,6 +75,68 @@ def test_load_parameter_schema_is_typed_and_immutable(tmp_path) -> None:
     assert schema.parameters[0].init == 10.0
     with pytest.raises(TypeError):
         schema.parameters[0].prior["type"] = "normal"
+
+
+def test_explicit_domain_is_distinct_from_the_calibration_range() -> None:
+    schema = lpm_params.parse_parameter_schema(
+        {
+            "model": "custom",
+            "parameters": [
+                {
+                    "name": "mu",
+                    "domain": {
+                        "min": 0.0,
+                        "min_inclusive": False,
+                        "max": None,
+                    },
+                    "calibration_range": [0.1, 100.0],
+                    "init": 10.0,
+                }
+            ],
+        }
+    )
+
+    parameter = schema.parameters[0]
+    assert parameter.domain.minimum == 0.0
+    assert not parameter.domain.minimum_inclusive
+    assert parameter.domain.maximum is None
+    assert parameter.calibration_range == (0.1, 100.0)
+    assert parameter.bounds == parameter.calibration_range
+
+
+def test_legacy_bounds_remain_a_domain_and_range_fallback() -> None:
+    schema = lpm_params.parse_parameter_schema(
+        {
+            "model": "custom",
+            "parameters": [{"name": "mu", "bounds": [0.1, 100.0], "init": 10.0}],
+        }
+    )
+
+    parameter = schema.parameters[0]
+    assert parameter.domain.contains(0.1)
+    assert parameter.domain.contains(100.0)
+    assert not parameter.domain.contains(100.1)
+
+
+def test_calibration_range_must_be_inside_the_formula_domain() -> None:
+    with pytest.raises(lpm_params.LPMParamsError, match="mathematical domain"):
+        lpm_params.parse_parameter_schema(
+            {
+                "model": "custom",
+                "parameters": [
+                    {
+                        "name": "mu",
+                        "domain": {
+                            "min": 0.0,
+                            "min_inclusive": False,
+                            "max": None,
+                        },
+                        "calibration_range": [0.0, 100.0],
+                        "init": 10.0,
+                    }
+                ],
+            }
+        )
 
 
 def test_load_params_returns_a_defensive_copy(tmp_path) -> None:

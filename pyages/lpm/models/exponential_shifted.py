@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines an exponential water-age model with a minimum transit time.
+# A shift excludes younger water and a scale controls the decreasing older tail;
+# the model returns probabilities, age statistics, and exact cumulative moments
+# consumed by continuous tracer convolution.
 
 """
 LPM Shifted Exponential distribution model.

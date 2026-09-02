@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file writes pilot, production-chain, diagnostic, and provenance artifacts
+# while keeping chains separate until convergence permits an explicit pool.
+# Each table or metadata file is replaced atomically, and a failed qualification
+# still retains the individual chains needed to diagnose the run.
 
 """Auditable serialization of multi-chain Metropolis--Hastings results.
 

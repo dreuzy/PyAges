@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file reads a single-date YAML mapping relative to its configuration root
+# and validates it with the launcher schema. It returns resolved dataset, model,
+# result-path, and calibration settings, with clear errors for invalid input.
 
 """Configuration adapter for the single-date workflow."""
 

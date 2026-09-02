@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines the labels that tell convolution how an LPM stores water age.
+# Every model selects continuous mass, one or two exact ages, or a mixed form;
+# the forward engine uses that label to choose numerical integration or direct
+# tracer evaluation instead of treating point masses as ordinary densities.
 
 """Declare how an LPM must be convolved with a tracer chronicle.
 

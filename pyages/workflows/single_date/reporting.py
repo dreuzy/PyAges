@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file produces reports and numerical exports for a single-date run.
 
-"""Workflow-specific reports produced after single-date calculations."""
+"""Turn single-date reachability and calibration results into staged outputs.
+
+The reporting steps combine observations, reachable concentrations, and
+posterior samples into model-space and parameter figures. When requested, they
+also evaluate an objective grid that shows how fit quality varies across the
+configured parameter domain.
+
+Calibrated sample tables and their predicted tracer histories are exported
+beside the figures for each method. This module consumes completed calculations;
+it does not decide run status or publish the result directory.
+"""
 
 from __future__ import annotations
 

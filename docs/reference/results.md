@@ -99,7 +99,7 @@ Each enabled calibration method has its own directory, normally
 
 | File | Contents |
 | --- | --- |
-| `parameters_calibration.txt` | Effective sampler or optimizer settings, seeds, bounds/proposal metadata, and tolerances where applicable. |
+| `parameters_calibration.txt` | Effective sampler or optimizer settings, seeds, calibration-range/proposal metadata, and tolerances where applicable. |
 | `results_calibration.txt` | Wall time and method-specific termination or acceptance information. |
 | `lpm_dist_calibrated.txt` | Retained parameter, objective, and modeled-concentration rows. Repeated MCMC states after rejection are meaningful and must be preserved. |
 | `lpm_stats_calibrated.txt` | Pandas descriptive statistics for numeric sample columns. These are not convergence diagnostics. |

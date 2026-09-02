@@ -92,3 +92,18 @@ def test_dataset_results_directory_isolates_studies_for_the_same_dataset(
     assert first == tmp_path / "profile_a" / "observations.txt"
     assert second == tmp_path / "profile_b" / "observations.txt"
     assert first != second
+
+
+def test_dataset_results_directory_can_leave_the_public_leaf_absent(
+    tmp_path: Path,
+) -> None:
+    output = dataset_results_directory(
+        "observations.txt",
+        use_default=False,
+        directory=tmp_path,
+        study_name="staged",
+        create=False,
+    )
+
+    assert output == tmp_path / "staged" / "observations.txt"
+    assert not output.exists()

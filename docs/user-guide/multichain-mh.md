@@ -44,7 +44,7 @@ result first when it must be retained as qualification evidence.
 An enabled ensemble follows this sequence:
 
 1. `bounds_stratified` draws one dispersed Latin-hypercube start per chain
-   inside the physical LPM bounds, or within the effective marginal prior mass
+   inside the LPM calibration ranges, or within the effective marginal prior mass
    when an informative prior is enabled.
 2. A distinct pilot random stream advances each start and retains tuning draws.
 3. PyAges centers each pilot chain separately and estimates one pooled
@@ -63,10 +63,10 @@ covariance is not a prior covariance and is not learned from the first
 production chain.
 
 Prior-based ensemble starts use the prior's bounded marginal interface. A
-normal marginal is conditioned on the physical LPM interval before its
+normal marginal is conditioned on the calibration interval before its
 quantile is inverted; a uniform marginal uses the overlap between its own
 support and that interval; and an empirical marginal integrates its
-piecewise-linear density after clipping it precisely at the physical bounds.
+piecewise-linear density after clipping it precisely at the calibration range.
 The initializer therefore does not reinterpret prior storage or distribution
 metadata. This keeps `prior_sample`, `prior_map`, and `bounds_stratified` on
 one tested scientific definition.
@@ -244,7 +244,7 @@ record
 ```
 
 The prototype requested as `problem_factory("initialization", 0)` is not an
-extra chain. It supplies the common parameter names, bounds, prior, and target
+extra chain. It supplies the common parameter names, calibration ranges, prior, and target
 signature used to construct the dispersed starts. Pilot and production then
 receive fresh mutable problems numbered from 1 through `ensemble_config.chains`.
 Those problems and their temporary samplers are not stored on `record`.
@@ -601,7 +601,7 @@ print(diagnostics.to_string(index=False))
 ```
 
 Inspect all traces for stationarity, slow excursions, different chain modes,
-and persistent contact with parameter bounds. Numerical gates complement this
+and persistent contact with calibration-range endpoints. Numerical gates complement this
 inspection; they do not replace it.
 
 ## Budget the calculation

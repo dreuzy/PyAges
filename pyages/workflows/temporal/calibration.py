@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file calibrates one LPM for one case of a temporal workflow.
 
-"""One-model calibration operations used by the temporal workflow."""
+"""Build and run the MH calibration requested for one temporal model and case.
+
+Validated workflow settings are translated into the single- or multi-chain MH
+configuration used by the calibration package. The selected LPM is fitted to all
+dated tracer observations in the current case, and its sample tables are written
+beneath that case's staged result directory.
+
+When enabled, the same result is passed to temporal-fit, parameter-distribution,
+and concentration-diagnostic plotting functions. Run-level status, iteration
+over cases, provenance, and publication remain the responsibility of the runner.
+"""
 
 from __future__ import annotations
 
@@ -80,7 +91,21 @@ def run_model_calibration(
     calibration_cfg: TemporalCalibrationCfg,
     figures_cfg: TemporalFiguresCfg,
 ) -> None:
-    """Run and report one Metropolis-Hastings calibration."""
+    """Calibrate one LPM against one temporal observation case and write outputs.
+
+    ``calibration_cfg`` is converted into the chain configuration shared by both
+    execution modes. A disabled or absent ensemble configuration runs one
+    ``MetropolisHastings`` sampler after clearing stale multi-chain artifacts;
+    an enabled ensemble delegates isolated chain execution, diagnostics, and
+    qualified pooling to ``run_mh_ensemble``.
+
+    The calibrated sample table is then used for the figures enabled by
+    ``figures_cfg``. ``lpm_number`` controls how many realizations enter temporal
+    summaries; a non-positive value derives a bounded count from the requested
+    MH length. All output is written below ``output_directory``. The function
+    returns nothing and propagates configuration, calibration, convergence, or
+    rendering failures to the workflow runner.
+    """
     display = _prepare_display(output_directory, figures_cfg)
     lpm_number = int(calibration_cfg.lpm_number)
     if lpm_number <= 0:
@@ -88,6 +113,8 @@ def run_model_calibration(
 
     mh_config = build_mh_config(calibration_cfg)
     multichain_cfg = calibration_cfg.multichain
+    # The execution branches produce the same sample-table contract, allowing
+    # all optional report generation below to remain mode-independent.
     if multichain_cfg is None or not multichain_cfg.enabled:
         clear_mh_ensemble_artifacts(output_directory)
         problem = CalibrationProblem(

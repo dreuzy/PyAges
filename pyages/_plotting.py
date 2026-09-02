@@ -1,8 +1,18 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file provides low-level Matplotlib helpers shared across PyAges.
 
-"""Private plotting primitives shared by PyAges subpackages."""
+"""Create, combine, and finalize the basic figures used by higher-level modules.
+
+The helpers centralize common figure labels and sizing, construction of the
+white-to-color map used for objective surfaces, and the save-or-show boundary.
+They also provide a histogram-plus-scatter diagnostic that filters non-finite
+pairs before plotting and can add independent reference coordinates.
+
+This private module knows only about numeric arrays, axes, and output paths. It
+does not interpret calibration objects or perform scientific calculations.
+"""
 
 from __future__ import annotations
 
@@ -123,7 +133,18 @@ def plot_histogram_scatter(
     title: str | None = None,
     filename: str | Path | None = None,
 ) -> tuple[Figure, Axes]:
-    """Plot finite histogram, scatter, and reference pairs on one axis."""
+    """Combine an optional density cloud, sample points, and reference point.
+
+    Each layer is supplied as an X/Y pair. Providing only one coordinate raises
+    ``ValueError``; paired non-finite coordinates are removed before rendering.
+    ``histogram_*`` values form a two-dimensional histogram with a color bar,
+    ``scatter_*`` values remain individual red crosses, and a finite
+    ``reference_*`` pair is drawn as a larger point.
+
+    Labels are added to the legend only for layers that are both present and
+    named. A new figure and axis are always created and returned. When
+    ``filename`` is supplied, normal figure finalization also saves the image.
+    """
     histogram = _finite_pairs(histogram_x, histogram_y, layer="histogram")
     scatter = _finite_pairs(scatter_x, scatter_y, layer="scatter")
     if (reference_x is None) != (reference_y is None):

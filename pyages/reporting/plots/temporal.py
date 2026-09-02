@@ -1,8 +1,21 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file compares calibrated tracer histories with dated observations.
 
-"""Temporal posterior fit figures."""
+"""Plot temporal predictions and their posterior uncertainty by tracer.
+
+Calibrated parameter samples are converted back into LPM realizations and
+convolved over a common date interval. Their predicted histories are summarized
+as medians and uncertainty bands, then placed behind the measured concentrations
+and available error bars in one panel per tracer.
+
+The summary view shows nested 50% and 90% intervals for one calibration result.
+The comparison view overlays the median and 90% interval from several posterior
+sources and can emphasize selected observation dates. This module assembles and
+saves figures; validation and quantile calculation remain in the concentration
+and convolution layers.
+"""
 
 from __future__ import annotations
 
@@ -66,7 +79,13 @@ def _posterior_predictions(
     end_year: float,
     lpm_number: int,
 ) -> dict[str, dict[str, TemporalPredictionSummary]]:
-    """Convolve a compact LPM selection for every posterior source."""
+    """Convert posterior tables into summarized tracer histories.
+
+    Each table is attached to a fresh LPM template, reduced to a representative
+    set of calibrated models, and convolved over the requested date interval.
+    The returned quantiles can then be plotted without retaining every modeled
+    trajectory in the figure-building code.
+    """
     predictions = {}
     for label, frame in posterior_frames.items():
         if frame.empty:
@@ -88,7 +107,7 @@ def _posterior_predictions(
 
 
 def _comparison_legend(highlighted: bool, highlight_label: str) -> list:
-    """Build semantic legend handles for temporal comparison panels."""
+    """Build observation legend entries shared by all temporal panels."""
     handles = [
         Line2D(
             [],
@@ -120,7 +139,11 @@ def _comparison_legend(highlighted: bool, highlight_label: str) -> list:
 
 
 def _plot_prediction_intervals(axs, tracer_names, predictions, legend_handles) -> None:
-    """Overlay posterior intervals and medians on all tracer panels."""
+    """Overlay each source's 90% interval and median on every tracer panel.
+
+    A source keeps the same band and line colors across tracers so comparisons
+    remain meaningful when the reader moves between panels.
+    """
     for source_index, source in enumerate(predictions.values()):
         style = OVERLAY_STYLES[min(source_index, len(OVERLAY_STYLES) - 1)]
         legend_handles.extend(
@@ -166,7 +189,12 @@ def _plot_observed_temporal_panel(
     highlight_dates: np.ndarray,
     highlight_tolerance: float,
 ) -> bool:
-    """Plot observations and return whether any highlighted date was found."""
+    """Plot one tracer's observations and optionally emphasize selected dates.
+
+    Dates are matched with an absolute tolerance because measurements and user
+    selections may have small floating-point differences.  The return value
+    tells the caller whether the highlight deserves an entry in the legend.
+    """
     unit = (
         observed["unit"].iloc[0] if "unit" in observed and not observed.empty else None
     )
@@ -238,8 +266,12 @@ def plot_temporal_fit_comparison(
     highlight_label: str = "Single-date observation",
     highlight_tolerance: float = 0.02,
 ):
-    """
-    Overlay temporal fit summaries from multiple posterior distributions.
+    """Compare tracer histories predicted by several posterior distributions.
+
+    One panel is created per observed tracer.  For each named posterior source,
+    a representative set of calibrated LPMs is convolved through time and
+    summarized by its median and 90% interval.  Dated measurements are drawn on
+    top, with optional dates highlighted consistently across all panels.
     """
     apply_example_style()
     tracer_names = observations.unique_tracer_names()
@@ -251,6 +283,8 @@ def plot_temporal_fit_comparison(
     highlight_array = np.asarray(highlight_dates or [], dtype=float)
     highlighted_any = False
 
+    # All sources use the same tracer definitions and time window, so their
+    # uncertainty bands remain directly comparable.
     end_year = float(observations.frame["date"].max())
     tracers = ConvolutionTracers(
         names=observations.unique_tracer_names(),
@@ -270,6 +304,8 @@ def plot_temporal_fit_comparison(
     legend_handles = _comparison_legend(bool(highlight_array.size), highlight_label)
     _plot_prediction_intervals(axs, tracer_names, predictions, legend_handles)
 
+    # Observations are plotted last so they remain visible above uncertainty
+    # bands, including when several posterior sources overlap.
     for ax, tracer_name in zip(axs.flatten(), tracer_names, strict=False):
         observed = observations.frame[
             observations.frame["element"] == tracer_name
@@ -316,8 +352,12 @@ def plot_temporal_fit_summary(
     title: str | None = None,
     start_year: float = 1960,
 ):
-    """
-    Plot median model response and uncertainty bands against observations.
+    """Summarize one calibrated result as modeled tracer histories.
+
+    A representative set of calibrated LPMs is propagated over time for every
+    observed tracer.  Each panel shows the median prediction, central 50% and
+    90% intervals, and dated observations with their available measurement
+    errors.  The nested bands separate typical variation from wider uncertainty.
     """
     apply_example_style()
     end_year = float(observations.frame["date"].max())
@@ -333,6 +373,8 @@ def plot_temporal_fit_summary(
     if not lpm_list:
         raise ValueError("No calibrated LPMs available to build temporal fit figure.")
 
+    # Summarize trajectories before plotting so the panels depend on a small,
+    # explicit set of quantiles instead of individual model curves.
     summaries = summarize_temporal_predictions(
         tracers,
         lpm_list,
@@ -362,6 +404,8 @@ def plot_temporal_fit_summary(
 
         summary = summaries[tracer_name]
 
+        # Draw the wider band first so the central interval and median remain
+        # visible as progressively more precise summaries.
         band90 = ax.fill_between(
             summary.dates,
             summary.q10,

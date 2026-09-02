@@ -55,6 +55,21 @@ def test_readmes_describe_configurable_temporal_result_layout() -> None:
         assert "<results_root>/ploemeur_temporal" not in document
 
 
+def test_site_studies_are_discoverable_without_becoming_packaged_api() -> None:
+    """Keep the online index, local guides, and wheel boundary aligned."""
+    index = (ROOT / "docs/index.md").read_text(encoding="utf-8")
+    running = (ROOT / "docs/user-guide/running-examples.md").read_text(encoding="utf-8")
+    studies = (ROOT / "docs/studies/index.md").read_text(encoding="utf-8")
+    ploemeur = (ROOT / "docs/studies/ploemeur.md").read_text(encoding="utf-8")
+    local = (ROOT / "sites/ploemeur/README.md").read_text(encoding="utf-8")
+
+    assert "studies/index" in index
+    assert "not copied into the installed" in running
+    assert "not installed in the PyAges" in studies
+    assert "sites/ploemeur/studies/HYP-26-0172/README.md" in ploemeur
+    assert "not installed with the `pyages` wheel" in local
+
+
 def test_reproduction_docs_distinguish_historical_and_fresh_evidence() -> None:
     guide = (ROOT / "docs/science/reproducibility.md").read_text(encoding="utf-8")
     report = (

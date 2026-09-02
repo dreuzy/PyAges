@@ -36,7 +36,7 @@ The prior is not declared ad hoc in the example. With `prior_option: true`, MH
 loads the canonical uniform distributions from
 `data_core/data_lpm/ig_shifted/params.yaml`:
 
-| Parameter | Physical bounds (years) | Parametric prior (years) | Effective sampled support (years) |
+| Parameter | Calibration range (years) | Parametric prior (years) | Effective sampled support (years) |
 |---|---:|---:|---:|
 | `mu` | 0.1 to 100 | 0 to 100 | 0.1 to 100 |
 | `sigma` | 0.1 to 30 | 0 to 30 | 0.1 to 30 |
@@ -44,9 +44,9 @@ loads the canonical uniform distributions from
 
 The serialized calibration metadata records each prior family and its
 parameters. The `prior_sample` initialization draws each marginal independently
-from the corresponding prior conditioned on its intersection with the physical
-LPM interval, using its bounded quantile. It does not draw and reject values
-outside the bounds, and `max_attempts` is not consumed by this strategy. For the
+from the corresponding prior conditioned on its intersection with the
+calibration range, using its bounded quantile. It does not draw and reject
+values outside that range, and `max_attempts` is not consumed by this strategy. For the
 fixed seed, the five starts are distinct and widely dispersed in all three
 coordinates.
 

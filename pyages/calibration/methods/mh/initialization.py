@@ -1,9 +1,18 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Build reproducible, dispersed starting states for MH ensembles.
+# This file chooses a valid, reproducible starting point for each MH chain.
 
-"""Pure construction of reproducible initial states for MH chain ensembles."""
+"""Choose the initial parameter values for every chain in an MH ensemble.
+
+The caller can provide explicit values, reuse the model defaults, start at the
+mode of the prior, draw independently from the prior, or spread chains across
+the allowed parameter ranges. Every state is checked against the calibration range
+and, when enabled, the prior support.
+
+Each chain uses its own random seed. The functions return new mappings and do
+not modify the model while the starting states are being constructed.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +26,7 @@ from pyages.calibration.methods.mh.ensemble_config import MHInitializationConfig
 
 
 class _LpmInitializationView(Protocol):
-    """Canonical read-only LPM interface required for initialization."""
+    """Model information needed to build starts without changing the model."""
 
     def get_param_names(self) -> Sequence[str]:
         """Return parameter names in canonical calibration order."""
@@ -27,17 +36,13 @@ class _LpmInitializationView(Protocol):
         """Return current values in canonical calibration order."""
         ...
 
-    def get_p_min(self, name: str) -> float:
-        """Return the physical lower bound for ``name``."""
-        ...
-
-    def get_p_max(self, name: str) -> float:
-        """Return the physical upper bound for ``name``."""
+    def get_calibration_range(self, name: str) -> tuple[float, float]:
+        """Return the operational calibration range for ``name``."""
         ...
 
 
 class _MarginalPrior(Protocol):
-    """Prior operations consumed by initialization without storage coupling."""
+    """Prior operations needed to choose and validate starting values."""
 
     option: bool
 
@@ -52,11 +57,11 @@ class _MarginalPrior(Protocol):
         maximum: float,
         probability: float,
     ) -> float:
-        """Invert a marginal after restriction to physical bounds."""
+        """Return the value at one probability within the bounded prior."""
         ...
 
     def bounded_mode(self, name: str, minimum: float, maximum: float) -> float:
-        """Return a marginal mode restricted to physical bounds."""
+        """Return a marginal mode restricted to the calibration range."""
         ...
 
     def contains(self, name: str, value: float) -> bool:
@@ -79,20 +84,21 @@ def _parameter_names(lpm: _LpmInitializationView) -> tuple[str, ...]:
     return names
 
 
-def _parameter_bounds(
+def _parameter_calibration_ranges(
     lpm: _LpmInitializationView,
     names: Sequence[str],
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return validated physical bounds in canonical order."""
+    """Return validated calibration limits in canonical order."""
     try:
-        lower = np.asarray([lpm.get_p_min(name) for name in names], dtype=float)
-        upper = np.asarray([lpm.get_p_max(name) for name in names], dtype=float)
+        ranges = [lpm.get_calibration_range(name) for name in names]
+        lower = np.asarray([interval[0] for interval in ranges], dtype=float)
+        upper = np.asarray([interval[1] for interval in ranges], dtype=float)
     except (AttributeError, TypeError, ValueError, KeyError) as exc:
-        raise ValueError("lpm parameter bounds must be numeric") from exc
+        raise ValueError("lpm calibration ranges must be numeric") from exc
     if not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)):
-        raise ValueError("lpm parameter bounds must be finite")
+        raise ValueError("lpm calibration ranges must be finite")
     if np.any(upper <= lower):
-        raise ValueError("lpm parameter bounds must be strictly increasing")
+        raise ValueError("lpm calibration ranges must be strictly increasing")
     return lower, upper
 
 
@@ -125,7 +131,7 @@ def _validate_state(
     lower: np.ndarray,
     upper: np.ndarray,
 ) -> dict[str, float]:
-    """Copy one state after checking names, finiteness, and LPM bounds."""
+    """Copy one state after checking names, finiteness, and calibration ranges."""
     provided = tuple(state)
     missing = [name for name in names if name not in state]
     extra = [name for name in provided if name not in names]
@@ -150,11 +156,13 @@ def _validate_state(
         values.append(value)
     array = np.asarray(values)
     if np.any(array < lower) or np.any(array > upper):
-        bounds = {
+        ranges = {
             name: [float(minimum), float(maximum)]
             for name, minimum, maximum in zip(names, lower, upper, strict=True)
         }
-        raise ValueError(f"initial state is outside the LPM bounds {bounds}")
+        raise ValueError(
+            f"initial state is outside the LPM calibration ranges {ranges}"
+        )
     return dict(zip(names, values, strict=True))
 
 
@@ -251,12 +259,17 @@ def _bounds_stratified_states(
     normalized_seeds: tuple[int, ...],
     chain_count: int,
 ) -> list[dict[str, float]]:
-    """Draw a Latin hypercube over physical or active-prior marginal mass.
+    """Spread starting states across the allowed range of every parameter.
 
-    With no active prior, probability is mapped uniformly to the physical LPM
-    bounds. With an active factorized prior, each stratum instead contains the
-    same effective marginal prior mass after truncation to those bounds. This
-    avoids impossible outer physical strata when a prior has narrower support.
+    For each parameter, its allowed range is divided into ``chain_count`` parts
+    of equal probability. Every chain receives a different part, then draws one
+    value inside it. Assignments are shuffled independently for each parameter,
+    which is the Latin-hypercube construction.
+
+    Without a prior, equal probability means equal width within the operational
+    calibration range. With a prior, each part contains equal prior probability
+    after restriction to that range. This avoids choosing starts in a region
+    that the prior declares impossible.
     """
     if prior is not None and prior.option is True:
         _require_prior(prior, names)
@@ -311,12 +324,13 @@ def build_initial_states(
     chain_count: int,
     seeds: Sequence[int],
 ) -> tuple[dict[str, float], ...]:
-    """Build reproducible initial parameter mappings from disjoint RNG streams.
+    """Build one reproducible and independently randomized start per chain.
 
     Parameters
     ----------
     lpm
-        Model exposing canonical names, current values, and physical bounds.
+        Model that provides parameter names, current values, and operational
+        calibration ranges. The model is read but not changed.
     prior
         Loaded :class:`~pyages.calibration.methods.mh.prior.Prior`, required
         only by ``prior_sample`` and ``prior_map``.
@@ -325,13 +339,14 @@ def build_initial_states(
     chain_count
         Number of states to construct; must be at least two.
     seeds
-        One distinct non-negative initialization seed per chain.
+        One distinct non-negative seed per chain. Separate seeds ensure that a
+        random draw for one chain cannot change another chain's start.
 
     Returns
     -------
     tuple[dict[str, float], ...]
-        Fresh dictionaries in canonical parameter order. Neither ``lpm`` nor
-        ``prior`` is modified.
+        A new parameter dictionary for each chain, ordered like the model.
+        Neither ``lpm`` nor ``prior`` is modified.
 
     """
     if not isinstance(config, MHInitializationConfig):
@@ -344,7 +359,7 @@ def build_initial_states(
         raise ValueError("chain_count must be an integer greater than or equal to two")
     normalized_seeds = _validated_seeds(seeds, chain_count)
     names = _parameter_names(lpm)
-    lower, upper = _parameter_bounds(lpm, names)
+    lower, upper = _parameter_calibration_ranges(lpm, names)
 
     if config.strategy == "explicit":
         starts = config.explicit_starts

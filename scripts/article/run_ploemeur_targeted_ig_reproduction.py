@@ -18,7 +18,6 @@ reintroduced.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import os
@@ -63,7 +62,7 @@ from scripts.common.mcmc_diagnostics import (
     split_rhat as _split_rhat,
 )
 from scripts.common.reporting import markdown_table
-from scripts.common.provenance import repository_provenance
+from scripts.common.provenance import repository_provenance, sha256_file as _sha256
 from sites.ploemeur.benchmarks.scipy_ig_prior import (
     BENCHMARK_NAME,
     logpdf as article_prior_logpdf,
@@ -888,14 +887,6 @@ Le statut de reproduction de l’article doit être décidé en comparant ces no
     (OUTPUT / "PLOEMEUR_IG_STABILIZED.md").write_text(
         report, encoding="utf-8", newline="\n"
     )
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _path_label(path: Path, base: Path) -> str:

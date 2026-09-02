@@ -1,9 +1,14 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Provide immutable containers for MH configurations and results.
+# This file protects MH configuration and result values from later changes.
 
-"""Internal immutable value containers shared by MH records and configs."""
+"""Create mappings and numeric arrays that cannot be modified after storage.
+
+MH configurations and results are used as reproducibility records. This module
+copies caller-owned values into immutable containers so that later changes to
+the original mapping or array cannot silently alter a recorded run.
+"""
 
 from __future__ import annotations
 

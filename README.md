@@ -57,11 +57,7 @@ The distribution, Python import, and command all use the single identifier
 `pyages`. The wheel contains the reusable library, its CLI,
 and core model data. Repository examples and site studies remain in the Git
 source tree. The `1.0.1` release is available from
-[PyPI](https://pypi.org/project/pyages/1.0.1/):
-
-```
-python -m pip install "pyages==1.0.1"
-```
+[PyPI](https://pypi.org/project/pyages/1.0.1/).
 
 Use `python -m pip install pyages` when deliberately selecting the newest
 published compatible release. Prerelease artifacts, if any, require an
@@ -71,7 +67,7 @@ explicit prerelease request:
 python -m pip install --pre pyages
 ```
 
-Run the full test suite:
+Run the standard test suite:
 
 ```
 python run_tests.py standard
@@ -125,13 +121,8 @@ See the
 
 ## Installation and execution
 
-Recommended stable package:
-
-```
-python -m pip install "pyages==1.0.1"
-```
-
-This makes `import pyages` work from any directory and enables the CLI:
+The installation in the quick start makes `import pyages` work from any
+directory and enables the CLI:
 
 ```
 pyages check
@@ -196,7 +187,7 @@ setx PYAGES_RESULTS_DIR "D:\results\PyAges"
   - `pyages/config/`: validated configuration models, paths, and runtime helpers
   - `pyages/_plotting.py`: private plotting primitives shared across modules
 - `data_core/`: shared model data for LPMs and tracers (not observations)
-  - `data_core/data_lpm/`: LPM parameter files (`params.yaml`, bounds, etc.)
+  - `data_core/data_lpm/`: LPM parameter files (`params.yaml`, domains, calibration ranges, priors, etc.)
   - `data_core/data_tracer/`: tracer chronologies and recharge series
   - `data_core/sources/`: provenance sources excluded from runtime packages
 - `sites/`: site-specific workflows, data, and scripts (e.g., `ploemeur/`)

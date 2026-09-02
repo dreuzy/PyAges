@@ -1,13 +1,16 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file minimizes a prepared calibration objective with the Nelder--Mead
+# search. It can use one start, several starts, or repeated observation draws,
+# and returns each converged parameter set as one joint sample-table row.
 
 """Nelder--Mead calibration and forward uncertainty propagation.
 
 All modes minimize the same chi-square supplied by
 :class:`~pyages.calibration.problem.CalibrationProblem`.  ``Simplex`` performs
 one optimization, ``Simplex_multi_start`` repeats it from reproducible points
-inside the LPM bounds, and ``forward_uncertainty_quantification`` repeats the
+inside the LPM calibration ranges, and ``forward_uncertainty_quantification`` repeats the
 calibration for observation draws.  Each converged optimum is stored as one
 joint row in :class:`~pyages.lpm.samples.table.LpmSampleTable`.
 """
@@ -106,7 +109,7 @@ class Simplex(CalibrationMethod):
         )
         initial = self.lpm.param_init() if parameters is None else parameters
         observed, errors = self.observation_arrays(calibration_observations)
-        bounds = list(zip(*self.lpm.get_param_interval(), strict=True))
+        bounds = list(self.lpm.get_calibration_ranges().values())
         # Nelder--Mead sees only the parameter vector; the objective delegates
         # all scientific calculations to the already prepared problem.
         optimization = minimize(
@@ -130,9 +133,9 @@ class Simplex(CalibrationMethod):
         # Treat SciPy's termination flag as necessary but not sufficient:
         # independently enforce finite parameters and the model's support.
         optimum = np.asarray(optimization.x, dtype=float)
-        if not np.all(np.isfinite(optimum)) or not self.lpm.param_within_bounds_array(
-            optimum
-        ):
+        if not np.all(
+            np.isfinite(optimum)
+        ) or not self.lpm.param_within_calibration_range_array(optimum):
             raise RuntimeError(
                 f"Nelder-Mead returned invalid parameters: {optimum.tolist()}"
             )
@@ -178,7 +181,7 @@ class Simplex(CalibrationMethod):
         results = LpmSampleTable(self.lpm, c_names=self.observations.observation_keys())
         rng = np.random.default_rng(self.initialization_seed)
         for _ in range(self.initialization_count):
-            # Starts are uniform within native LPM bounds and share one seeded
+            # Starts are uniform within LPM calibration ranges and share one seeded
             # stream, making their order and values reproducible.
             self.lpm.random_uniform(rng=rng)
             results.append(self._run_single(self.lpm.get_parameters_to_array()))

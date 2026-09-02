@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file orchestrates temporal calibration from configuration to publication.
 
-"""Orchestration entry point for temporal calibration workflows."""
+"""Execute every case and model requested by a temporal workflow configuration.
+
+The runner prepares shared inputs, partitions observations into their configured
+time cases, and calibrates each requested LPM. Optional observation overviews and
+per-model diagnostic figures are written inside the private result stage as the
+cases complete.
+
+A terminal manifest records success or an accepted convergence failure before
+the stage is atomically published. The return value points to the published root,
+or directly to its sole case directory when the workflow produced only one case.
+"""
 
 from __future__ import annotations
 
@@ -81,7 +92,20 @@ def _manifest_details(context, case_directories: list[Path]) -> dict[str, object
 
 
 def run_temporal(params_path: str | Path) -> Path:
-    """Execute a validated temporal Metropolis-Hastings workflow."""
+    """Execute, seal, and publish all cases in a temporal MH workflow.
+
+    Shared configuration and observations are prepared once, then partitioned
+    into the requested temporal cases. Every configured LPM is calibrated inside
+    its case directory, with optional figures written into the same private
+    result stage. The list of completed case directories becomes part of terminal
+    provenance.
+
+    On convergence failure, a sealed failure result containing work completed so
+    far is published when possible and the original exception is re-raised with
+    its location attached. On success, the whole stage is sealed and atomically
+    promoted. The function returns the published root for multiple cases, or the
+    published case directory itself when exactly one case was produced.
+    """
     context = prepare_context(params_path)
     context.observations.frame.to_csv(
         context.output_directory / "concentrations.txt",
@@ -89,6 +113,8 @@ def run_temporal(params_path: str | Path) -> Path:
         index=False,
     )
     written_case_directories: list[Path] = []
+    # Track completed cases incrementally so a convergence-failure manifest can
+    # distinguish preserved results from cases that were never reached.
     try:
         written_case_directories = _run_temporal_cases(
             context.observations,
@@ -116,6 +142,8 @@ def run_temporal(params_path: str | Path) -> Path:
         except Exception as manifest_error:
             error.add_note(f"Could not write failure manifest: {manifest_error}")
         raise
+    # Publication occurs only after the root manifest commits every case written
+    # by the loop; staged paths are translated to their public equivalents below.
     write_result_manifest(
         context.output_directory,
         workflow="temporal",

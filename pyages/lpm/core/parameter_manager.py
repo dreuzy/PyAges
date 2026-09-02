@@ -1,13 +1,17 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file loads and validates the YAML parameter definition for one LPM.
+# Given the model name and canonical parameter order, it provides initial values,
+# calibration ranges and mathematical domains and checks named mappings and
+# vectors without silently reordering their values.
 
-"""Manage the bounds and initial values of one LPM.
+"""Manage mathematical domains, calibration ranges, and initial LPM values.
 
 ``ParameterManager`` connects the parameter order declared by
 :class:`~pyages.lpm.core.lpm_base.LpmBase` with the validated schema loaded from
 ``<directory_lpm>/<model_name>/params.yaml``.  Names must match exactly;
-bounds and initial values are finite floats, and bounds are inclusive.
+calibration limits and initial values are finite floats, and ranges are inclusive.
 
 Mapping checks require the complete parameter set.  Vector checks additionally
 require constructor order, which remains canonical even when YAML order differs.
@@ -25,7 +29,7 @@ from pyages.data_io import lpm_params
 
 
 class ParameterManager:
-    """Manage validated bounds and initial values for one LPM definition.
+    """Manage validated calibration ranges and initial values for one LPM.
 
     The instance keeps the constructor-declared parameter order and uses it
     for every list-shaped result.  Its validated schema is an immutable
@@ -44,10 +48,10 @@ class ParameterManager:
 
     Attributes
     ----------
-    _p_min : dict[str, float]
-        Validated lower bounds keyed by parameter name.
-    _p_max : dict[str, float]
-        Validated upper bounds keyed by parameter name.
+    _calibration_min : dict[str, float]
+        Validated lower calibration limits keyed by parameter name.
+    _calibration_max : dict[str, float]
+        Validated upper calibration limits keyed by parameter name.
 
     Raises
     ------
@@ -62,7 +66,7 @@ class ParameterManager:
         self, model_name: str, directory_lpm: str | Path, parameter_names: list[str]
     ) -> None:
         """
-        Initialize parameter manager and load bounds.
+        Initialize the parameter manager and load calibration ranges.
 
         Parameters
         ----------
@@ -82,16 +86,17 @@ class ParameterManager:
             raise ValueError("parameter_names must contain non-empty strings")
         if len(set(self._parameter_names)) != len(self._parameter_names):
             raise ValueError("parameter_names must not contain duplicates")
-        self._p_min: dict[str, float] = {}
-        self._p_max: dict[str, float] = {}
+        self._calibration_min: dict[str, float] = {}
+        self._calibration_max: dict[str, float] = {}
+        self._domains: dict[str, lpm_params.LPMParameterDomain] = {}
         self._schema: lpm_params.LPMParameterSchema
-        self._load_bounds()
+        self._load_parameter_metadata()
 
     def _params_file_path(self) -> Path:
         """Return the canonical YAML parameter file for this model."""
         return self._directory_lpm / self._model_name / "params.yaml"
 
-    def _load_bounds(self) -> None:
+    def _load_parameter_metadata(self) -> None:
         """Load shared parameter metadata and bind it to constructor names.
 
         Raises
@@ -104,7 +109,8 @@ class ParameterManager:
         """
         if not self._params_file_path().exists():
             raise FileNotFoundError(
-                f"Missing params.yaml for {self._model_name} (required for bounds)."
+                f"Missing params.yaml for {self._model_name} "
+                "(required for calibration ranges)."
             )
         schema = lpm_params.load_parameter_schema(
             self._model_name,
@@ -120,11 +126,16 @@ class ParameterManager:
                 f"(missing={missing}, extra={extra})"
             )
         self._schema = schema
-        self._p_min = {
-            parameter.name: parameter.bounds[0] for parameter in schema.parameters
+        self._calibration_min = {
+            parameter.name: parameter.calibration_range[0]
+            for parameter in schema.parameters
         }
-        self._p_max = {
-            parameter.name: parameter.bounds[1] for parameter in schema.parameters
+        self._calibration_max = {
+            parameter.name: parameter.calibration_range[1]
+            for parameter in schema.parameters
+        }
+        self._domains = {
+            parameter.name: parameter.domain for parameter in schema.parameters
         }
 
     def load_initial_values(self, target_params: dict[str, float]) -> None:
@@ -147,9 +158,8 @@ class ParameterManager:
         }
         target_params.update(initial_values)
 
-    def param_within_bounds(self, params: dict[str, float]) -> bool:
-        """
-        Test whether parameters are within defined bounds.
+    def param_within_calibration_range(self, params: dict[str, float]) -> bool:
+        """Test whether parameters are within their calibration ranges.
 
         Parameters
         ----------
@@ -159,7 +169,7 @@ class ParameterManager:
         Returns
         -------
         bool
-            True if all parameters are within bounds
+            True if every parameter is within its calibration range.
         """
         if set(params) != set(self._parameter_names):
             return False
@@ -170,15 +180,34 @@ class ParameterManager:
                 return False
             if not math.isfinite(value):
                 return False
-            if value < self._p_min[pname] or value > self._p_max[pname]:
+            if (
+                value < self._calibration_min[pname]
+                or value > self._calibration_max[pname]
+            ):
                 return False
         return True
 
-    def param_within_bounds_array(
+    def param_within_bounds(self, params: dict[str, float]) -> bool:
+        """Return the legacy alias for :meth:`param_within_calibration_range`."""
+        return self.param_within_calibration_range(params)
+
+    def param_within_domain(self, params: dict[str, float]) -> bool:
+        """Return whether a complete mapping belongs to the mathematical domain."""
+        if set(params) != set(self._parameter_names):
+            return False
+        for name in self._parameter_names:
+            try:
+                value = float(params[name])
+            except (TypeError, ValueError):
+                return False
+            if not self._domains[name].contains(value):
+                return False
+        return True
+
+    def param_within_calibration_range_array(
         self, params: list[float], param_order: list[str]
     ) -> bool:
-        """
-        Test whether array parameters are within bounds.
+        """Test whether an ordered vector is within its calibration ranges.
 
         Parameters
         ----------
@@ -190,7 +219,7 @@ class ParameterManager:
         Returns
         -------
         bool
-            True if all parameters are within bounds
+            True if every parameter is within its calibration range.
         """
         if param_order != self._parameter_names:
             return False
@@ -207,13 +236,42 @@ class ParameterManager:
                 return False
             if not math.isfinite(numeric_value):
                 return False
-            if numeric_value < self._p_min[pname] or numeric_value > self._p_max[pname]:
+            if (
+                numeric_value < self._calibration_min[pname]
+                or numeric_value > self._calibration_max[pname]
+            ):
                 return False
         return True
 
-    def get_param_range(self, param_name: str) -> float:
-        """
-        Return the range (max - min) for a parameter.
+    def param_within_bounds_array(
+        self, params: list[float], param_order: list[str]
+    ) -> bool:
+        """Return the legacy alias for the calibration-range vector check."""
+        return self.param_within_calibration_range_array(params, param_order)
+
+    def param_within_domain_array(
+        self, params: list[float], param_order: list[str]
+    ) -> bool:
+        """Return whether an ordered vector belongs to the mathematical domain."""
+        if param_order != self._parameter_names:
+            return False
+        try:
+            values = list(params)
+        except TypeError:
+            return False
+        if len(values) != len(param_order):
+            return False
+        for value, name in zip(values, param_order, strict=True):
+            try:
+                numeric_value = float(value)
+            except (TypeError, ValueError):
+                return False
+            if not self._domains[name].contains(numeric_value):
+                return False
+        return True
+
+    def get_calibration_range_width(self, param_name: str) -> float:
+        """Return the width of one parameter's calibration range.
 
         Parameters
         ----------
@@ -225,25 +283,44 @@ class ParameterManager:
         float
             Range of parameter values
         """
-        return self._p_max[param_name] - self._p_min[param_name]
+        lower, upper = self.get_calibration_range(param_name)
+        return upper - lower
+
+    def get_param_range(self, param_name: str) -> float:
+        """Return the legacy alias for :meth:`get_calibration_range_width`."""
+        return self.get_calibration_range_width(param_name)
+
+    def get_calibration_range(self, key: str) -> tuple[float, float]:
+        """Return one parameter's inclusive operational calibration range."""
+        return self._calibration_min[key], self._calibration_max[key]
+
+    def get_calibration_ranges(self) -> dict[str, tuple[float, float]]:
+        """Return calibration ranges in canonical parameter order."""
+        return {
+            name: self.get_calibration_range(name) for name in self._parameter_names
+        }
 
     def get_param_interval(self) -> tuple[list[float], list[float]]:
-        """
-        Return (pmin_list, pmax_list) for all parameters.
+        """Return the legacy pair of lower and upper calibration-limit lists.
 
         Returns
         -------
         tuple[list[float], list[float]]
-            (pmin, pmax) - lower and upper bounds
+            Lower and upper calibration limits in canonical parameter order.
         """
-        pmin = [self._p_min[name] for name in self._parameter_names]
-        pmax = [self._p_max[name] for name in self._parameter_names]
+        ranges = tuple(self.get_calibration_ranges().values())
+        pmin = [interval[0] for interval in ranges]
+        pmax = [interval[1] for interval in ranges]
         return pmin, pmax
 
+    def get_domain(self, key: str) -> lpm_params.LPMParameterDomain:
+        """Return one parameter's mathematical validity domain."""
+        return self._domains[key]
+
     def get_p_max(self, key: str) -> float:
-        """Return upper bound for parameter."""
-        return self._p_max[key]
+        """Return the legacy upper calibration limit for one parameter."""
+        return self.get_calibration_range(key)[1]
 
     def get_p_min(self, key: str) -> float:
-        """Return lower bound for parameter."""
-        return self._p_min[key]
+        """Return the legacy lower calibration limit for one parameter."""
+        return self.get_calibration_range(key)[0]

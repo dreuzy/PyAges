@@ -29,9 +29,11 @@ def markdown_table(
             return ""
         if float_format is not None and isinstance(value, (float, np.floating)):
             return format(float(value), float_format)
-        return str(value).replace("|", "\\|")
+        return str(value).replace("|", "\\|").replace("\n", " ")
 
-    columns = list(map(str, display.columns))
+    columns = [
+        str(column).replace("|", "\\|").replace("\n", " ") for column in display.columns
+    ]
     header = "| " + " | ".join(columns) + " |"
     separator = "| " + " | ".join("---" for _ in columns) + " |"
     rows = [

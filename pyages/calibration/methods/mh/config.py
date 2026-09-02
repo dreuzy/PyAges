@@ -1,15 +1,23 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Validate controls for one MH chain and its proposal schedule.
+# This file checks and stores every setting used to run one MH chain.
 
-"""Validated immutable configuration for Metropolis--Hastings calibration."""
+"""Define the complete configuration for one Metropolis--Hastings chain.
+
+The configuration covers the number of transitions, burn-in and thinning,
+random seed, prior and likelihood choices, starting parameters, proposal type,
+and optional monitoring. Values are validated and copied when the object is
+created so that an invalid or later-mutated setting cannot reach the sampler.
+"""
 
 from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+
+import numpy as np
 
 from pyages.calibration.methods.mh._immutable import FrozenMapping
 from pyages.calibration.sampling_schedule import strict_retained_sample_count
@@ -44,7 +52,13 @@ def _numeric_tuple(values: Iterable[float], name: str) -> tuple[float, ...]:
     if isinstance(values, (str, bytes)):
         raise TypeError(f"{name} must be a sequence or None")
     try:
-        copied = tuple(float(value) for value in values)
+        raw_values = tuple(values)
+    except (TypeError, ValueError) as exc:
+        raise TypeError(f"{name} must be a sequence or None") from exc
+    if any(isinstance(value, bool) for value in raw_values):
+        raise TypeError(f"{name} must not contain boolean values")
+    try:
+        copied = tuple(float(value) for value in raw_values)
     except (TypeError, ValueError) as exc:
         raise TypeError(f"{name} must be a sequence or None") from exc
     if not all(math.isfinite(value) for value in copied):
@@ -65,6 +79,30 @@ def _numeric_matrix(
     return copied
 
 
+def _validate_exact_booleans(instance: object, names: tuple[str, ...]) -> None:
+    """Require exact booleans for flags instead of accepting integers."""
+    for name in names:
+        if type(getattr(instance, name)) is not bool:
+            raise TypeError(f"{name} must be a boolean")
+
+
+def _validated_covariance(
+    covariance_values: tuple[tuple[float, ...], ...],
+) -> None:
+    """Validate the shape and linear-algebra contract of a covariance."""
+    covariance = np.asarray(covariance_values, dtype=float)
+    if (
+        covariance.ndim != 2
+        or covariance.shape[0] == 0
+        or covariance.shape[0] != covariance.shape[1]
+    ):
+        raise ValueError("proposal_covariance must be a non-empty square matrix")
+    if not np.allclose(covariance, covariance.T, rtol=1e-12, atol=1e-12):
+        raise ValueError("proposal_covariance must be symmetric")
+    if np.any(np.linalg.eigvalsh(covariance) <= 0.0):
+        raise ValueError("proposal_covariance must be positive definite")
+
+
 @dataclass(frozen=True)
 class MHConfig:
     """Reproducibility controls for one Metropolis--Hastings chain.
@@ -78,7 +116,7 @@ class MHConfig:
     With ``likelihood=True``, the target contains
     ``exp(-chi_square / 2)`` under independent Gaussian errors. With
     ``prior_option=True``, the configured prior density is multiplied into the
-    target. Parameter bounds have zero target density.
+    target. Values outside calibration ranges have zero target density.
 
     ``proposal_kind`` selects the coordinate system and covariance convention:
     ``componentwise`` draws one scalar normal increment per native parameter,
@@ -145,13 +183,33 @@ class MHConfig:
             )
 
     def _validate_chain_controls(self) -> None:
+        _validate_exact_booleans(
+            self,
+            (
+                "prior_option",
+                "likelihood",
+                "monitor",
+                "display_traj",
+                "display_text",
+            ),
+        )
+        self._validate_schedule()
+        self._validate_prior_controls()
+
+    def _validate_schedule(self) -> None:
+        """Validate chain length, burn-in, thinning, and seed."""
         if (
             isinstance(self.nstep, bool)
             or not isinstance(self.nstep, int)
             or self.nstep <= 0
         ):
             raise ValueError("nstep must be a positive integer")
-        if not math.isfinite(self.burn_in) or not 0.0 <= self.burn_in < 1.0:
+        if (
+            isinstance(self.burn_in, bool)
+            or not isinstance(self.burn_in, (int, float))
+            or not math.isfinite(self.burn_in)
+            or not 0.0 <= self.burn_in < 1.0
+        ):
             raise ValueError("burn_in must be finite and in [0, 1)")
         if (
             isinstance(self.nskip, bool)
@@ -159,14 +217,27 @@ class MHConfig:
             or self.nskip <= 0
         ):
             raise ValueError("nskip must be a positive integer")
-        if isinstance(self.seed, bool) or not isinstance(self.seed, int):
-            raise ValueError("seed must be an integer")
-        if self.prior_type not in {"parametric", "empirical"}:
-            raise ValueError("prior_type must be 'parametric' or 'empirical'")
+        if (
+            isinstance(self.seed, bool)
+            or not isinstance(self.seed, int)
+            or self.seed < 0
+        ):
+            raise ValueError("seed must be a non-negative integer")
         if self.retained_sample_count() == 0:
             raise ValueError(
                 "nstep, burn_in, and nskip retain no samples under the strict "
                 "burn-in rule"
+            )
+
+    def _validate_prior_controls(self) -> None:
+        """Validate the selected prior source and its required file."""
+        if self.prior_type not in {"parametric", "empirical"}:
+            raise ValueError("prior_type must be 'parametric' or 'empirical'")
+        if not isinstance(self.prior_file, str):
+            raise TypeError("prior_file must be a string")
+        if self.prior_option and self.prior_type == "empirical" and not self.prior_file:
+            raise ValueError(
+                "prior_file must be non-empty when an empirical prior is enabled"
             )
 
     def _validate_proposal_controls(self) -> None:
@@ -187,7 +258,9 @@ class MHConfig:
         if self.componentwise_source not in {"bounds", "model"}:
             raise ValueError("componentwise_source must be 'bounds' or 'model'")
         if (
-            not math.isfinite(self.componentwise_fraction)
+            isinstance(self.componentwise_fraction, bool)
+            or not isinstance(self.componentwise_fraction, (int, float))
+            or not math.isfinite(self.componentwise_fraction)
             or self.componentwise_fraction <= 0.0
         ):
             raise ValueError("componentwise_fraction must be finite and positive")
@@ -200,30 +273,41 @@ class MHConfig:
 
     def _validate_proposal_payload(self) -> None:
         """Validate settings accepted by the selected proposal kind."""
+        if self.proposal_scales is not None and (
+            not self.proposal_scales
+            or any(scale <= 0.0 for scale in self.proposal_scales)
+        ):
+            raise ValueError("proposal_scales must contain positive values")
+        if self.proposal_covariance is not None:
+            _validated_covariance(self.proposal_covariance)
+        self._validate_payload_for_kind()
+
+    def _validate_payload_for_kind(self) -> None:
+        """Reject proposal payloads that do not belong to the selected kind."""
         if self.proposal_kind == "componentwise":
-            if (
+            has_explicit_payload = (
                 self.proposal_scales is not None
                 or self.proposal_covariance is not None
                 or self.proposal_multiplier != 1.0
-            ):
+            )
+            if has_explicit_payload:
                 raise ValueError(
                     "componentwise proposals do not accept explicit scales, "
                     "covariance, or multiplier"
                 )
-        elif self.proposal_kind in {"diagonal", "sum_difference"}:
+            return
+        if self.proposal_kind in {"diagonal", "sum_difference"}:
             if self.proposal_scales is None:
                 raise ValueError(f"{self.proposal_kind} requires proposal_scales")
             if self.proposal_covariance is not None:
                 raise ValueError(
                     f"{self.proposal_kind} does not accept proposal_covariance"
                 )
-        else:
-            if self.proposal_covariance is None:
-                raise ValueError(f"{self.proposal_kind} requires proposal_covariance")
-            if self.proposal_scales is not None:
-                raise ValueError(
-                    f"{self.proposal_kind} does not accept proposal_scales"
-                )
+            return
+        if self.proposal_covariance is None:
+            raise ValueError(f"{self.proposal_kind} requires proposal_covariance")
+        if self.proposal_scales is not None:
+            raise ValueError(f"{self.proposal_kind} does not accept proposal_scales")
 
     def should_retain(self, iteration: int) -> bool:
         """Return whether one zero-based transition is retained."""

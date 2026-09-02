@@ -27,7 +27,7 @@ the implementation.
 | Extension contracts | The complete interface and registration procedure for adding an LPM, tracer, calibration method, or workflow | `docs/user-guide` and selected contributor API pages |
 | Package architecture | One responsibility and dependency description per major domain | `docs/architecture.md` |
 | Maintainer procedures | Releasing, versioning, citation, qualification, and documentation maintenance | `docs/dev` |
-| Reproducible study or validation directory | Purpose, inputs, exact entry point, outputs, and evidence status | A local `README.md` in the runnable directory |
+| Reproducible study or validation directory | Purpose, inputs, exact entry point, outputs, and evidence status | A local `README.md` in the runnable directory, reached from a short online index when users must discover it |
 | Implementation detail | Invariants, non-obvious algorithmic choices, and reasons for a workaround | Module or object docstrings and focused source comments |
 | Executable contract | Behaviors and numerical invariants that must not regress | Tests and golden references |
 
@@ -45,13 +45,13 @@ requiring a page for every subpackage.
 | `pyages.config` | Every supported YAML field, type, default, constraint, path rule, and validation error that users can act on |
 | `pyages.concentrations` | Input table schema, units, missing-data rules, temporal reshaping, and supported constructors |
 | `pyages.tracer` | Recharge, decay, production, date conventions, configuration contract, and supported tracer interface |
-| `pyages.lpm` | Each selectable model's equation, parameters, bounds and scientific limitations; factory, sample-table, and extension contracts |
+| `pyages.lpm` | Each selectable model's equation, parameter domains, calibration ranges, and scientific limitations; factory, sample-table, and extension contracts |
 | `pyages.convolution` | Forward equation, discretization and boundary conventions, settings that affect results, and supported entry points |
 | `pyages.calibration` | Objective and prior conventions, algorithm controls, diagnostics, result semantics, and selected extension interfaces |
 | `pyages.workflows` | End-to-end procedures, inputs, outputs, manifests, failure behavior, and reproducibility controls; not every orchestration helper |
 | `pyages.data_io` | Stable file layouts and schemas; Python helpers only when contributors need them |
 | `pyages.cli` | Every installed command, option, default, exit behavior, and practical example; not individual command modules |
-| Site-specific code | Execution and study details stay in the relevant local README |
+| Site-specific code | Execution and study details stay in the relevant local README; the online studies index explains the boundary and points to that canonical material |
 
 Subdirectories such as `core`, `utils`, `models`, `plots`, `templates`, and
 `commands` do not automatically receive separate pages. Their contents appear

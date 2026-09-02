@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines an inverse-Gaussian water-age model from a mean and standard
+# deviation expressed in years. It converts those physical inputs to SciPy's
+# parameters and returns probabilities, robust quantiles, age statistics, and
+# exact cumulative moments for continuous tracer convolution.
 
 """
 LPM Inverse Gaussian distribution model.

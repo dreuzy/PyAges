@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file applies one water-age model to an ordered collection of tracers.
+# It pairs every tracer with its sampling date and returns concentrations for
+# one date or a date range without losing the caller's names, units, or order.
 
 """Coordinate convolution for an ordered collection of groundwater tracers.
 

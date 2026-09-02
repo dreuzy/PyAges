@@ -1,15 +1,18 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Orchestrate MH initialization, pilot, production, and diagnostics.
+# This file runs several independent MH chains and checks their convergence.
 
-"""Orchestration of independent Metropolis--Hastings chain ensembles.
+"""Run and qualify an ensemble of independent Metropolis--Hastings chains.
 
-Pilot chains and production chains deliberately use distinct random streams
-and distinct :class:`~pyages.calibration.problem.CalibrationProblem` objects.
+The run first chooses a separate starting state for each chain. If pilot chains
+are enabled, it runs them to estimate one proposal covariance. It then freezes
+that covariance, runs the production chains, and calculates convergence
+diagnostics before any samples may be combined.
 
-The pilot is adaptation *between* Markov chains: it learns one covariance,
-which is then frozen for every production transition.
+Every pilot and production chain receives its own random seed and its own
+:class:`~pyages.calibration.problem.CalibrationProblem`. This prevents random
+draws or mutable model state from leaking from one chain into another.
 """
 
 from __future__ import annotations

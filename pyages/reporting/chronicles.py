@@ -1,8 +1,20 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file exports tracer histories predicted by calibrated LPM samples.
 
-"""Build calibrated concentration chronicle figures and result tables."""
+"""Evaluate calibrated models through time and export their tracer chronicles.
+
+For each available calibration result, a reproducible subset of LPM realizations
+is convolved over a common calendar interval. Their histories can be plotted
+against dated observations and are also combined into tables that retain each
+model realization separately.
+
+Probability-density samples and LPM statistics are written beside the chronicle
+outputs in the method's result directory. Numerical tables remain available when
+figure generation is disabled, keeping scientific export independent of the
+workflow's display policy.
+"""
 
 from __future__ import annotations
 

@@ -1,19 +1,24 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Define failures raised when MH diagnostics block qualified output.
+# This file names the diagnostic failures reported by multi-chain MH runs.
 
-"""Exceptions raised by multi-chain Metropolis--Hastings workflows."""
+"""Define the errors used when an MH ensemble cannot produce qualified output.
+
+One error means that calculated diagnostics did not meet the configured
+thresholds. The other means that the diagnostics could not be calculated from
+the available draws.
+"""
 
 from __future__ import annotations
 
 
 class MHConvergenceError(RuntimeError):
-    """Raised when qualified posterior output is requested before convergence."""
+    """The chains failed a diagnostic threshold required for posterior output."""
 
 
 class MHDiagnosticsUnavailableError(RuntimeError):
-    """Raised when valid draws cannot yield numerical convergence diagnostics."""
+    """The retained draws could not produce finite convergence diagnostics."""
 
 
 __all__ = ["MHConvergenceError", "MHDiagnosticsUnavailableError"]

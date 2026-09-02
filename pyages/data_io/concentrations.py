@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file writes validated observations and modeled concentration histories to
+# consistently formatted TSV files that can be inspected outside PyAges.
+# It preserves the prepared column order and creates parent directories, but does
+# not recalculate concentrations or alter the caller's dataframes.
 
 """Serialize prepared concentration tables with consistent TSV formatting.
 

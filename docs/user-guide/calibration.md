@@ -34,8 +34,8 @@ Before a production run, confirm that:
 1. the tracer histories cover the recharge dates relevant to the LPM tails;
 2. concentration values, errors, and tracer histories use the same physical
    scale;
-3. LPM bounds are scientifically defensible and not merely broad numerical
-   defaults;
+3. LPM calibration ranges are scientifically defensible search choices, while
+   mathematical domains encode formula validity;
 4. observation errors describe known standard deviations under the independent
    Gaussian likelihood assumed by PyAges.
 
@@ -130,8 +130,9 @@ multichain:
 `chains` is the additional parameter that controls how many independent
 production chains are run. The default ensemble start policy,
 `bounds_stratified`, randomly disperses those starts with a Latin hypercube
-over the physical parameter bounds. `prior_sample` instead draws independently
-from each enabled prior marginal conditioned on its physical parameter interval.
+over the finite parameter calibration ranges. `prior_sample` instead draws
+independently from each enabled prior marginal conditioned on its calibration
+range.
 `explicit` accepts exactly one complete mapping per chain. The deterministic
 `model_default` and `prior_map` policies exist for compatibility but do not
 provide dispersed starts.
@@ -187,9 +188,10 @@ proposal definition, and resolved prior metadata.
 
 ## Priors and proposals
 
-Parameter bounds always define the target support. When `prior_option` is
-enabled, PyAges additionally evaluates either the parametric prior declared by
-the LPM parameter schema or an explicitly supplied empirical prior family.
+Calibration ranges always restrict the target support and are themselves
+contained in mathematical formula domains. When `prior_option` is enabled,
+PyAges additionally evaluates either the parametric prior declared by the LPM
+parameter schema or an explicitly supplied empirical prior family.
 Configured defaults and initial values are not evidence that the prior is
 appropriate for a particular aquifer.
 

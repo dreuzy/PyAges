@@ -15,7 +15,6 @@ random walk scaled by 2.38/sqrt(2).  This driver refuses Ploemeur paths.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import platform
@@ -47,6 +46,7 @@ from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
 from scripts.common.mcmc_diagnostics import mcse_mean
 from scripts.common.provenance import repository_provenance
+from scripts.common.provenance import sha256_file as _sha256
 from scripts.common.publication_plotting import (
     PUBLICATION_RC,
     mm_to_in,
@@ -650,14 +650,6 @@ def _figure2(output: Path, lengths: dict[int, int]) -> None:
     )
     _render_figure2(surface, posterior, output)
     posterior.to_csv(output / "figure2_final_chain_samples.csv", index=False)
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _manifest(output: Path, lengths: dict[int, int]) -> None:

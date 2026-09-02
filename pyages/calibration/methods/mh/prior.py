@@ -1,18 +1,22 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Load, normalize, sample, and evaluate MH parameter priors.
+# This file defines parameter distributions used before observations are fitted.
 
-"""Independent parameter priors used by Metropolis--Hastings calibration.
+"""Load and evaluate the parameter priors used by MH calibration.
 
-Parametric priors are read from the selected LPM's validated ``params.yaml``.
-Empirical priors are reconstructed from one histogram per parameter, extended
-to the physical LPM bounds, and normalized. The :class:`Prior` object exposes
-both density and log-density evaluation; the sampler uses log densities to
-preserve exact zero support and avoid floating-point underflow.
+The prior describes which parameter values are plausible before the observed
+concentrations are fitted. Parametric priors are read from the selected model's
+validated ``params.yaml``. Empirical priors are built from one histogram per
+parameter, extended to the model's calibration range, and normalized.
 
-Priors factorize over native LPM parameters. Correlated or hierarchical priors
-are not represented by this module.
+The :class:`Prior` class can initialize parameters, test whether a value is
+allowed, and calculate either a density or a log-density. The sampler uses the
+log-density to avoid numerical underflow and to keep impossible values at
+exactly zero probability.
+
+This module treats parameters as independent. It does not implement correlated
+or hierarchical priors.
 """
 
 from __future__ import annotations
@@ -26,175 +30,24 @@ from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
-from scipy.interpolate import interp1d
 from scipy.stats import truncnorm
 
+from pyages.calibration.methods.mh._prior_empirical import (
+    EMPIRICAL_GRID_POINTS,
+    EMPIRICAL_RELATIVE_TAIL_DECAY,
+    build_empirical_prior_grid,
+    histogram_moments,
+)
+from pyages.calibration.methods.mh._prior_parametric import (
+    bounded_parametric_moments,
+    effective_parametric_support,
+    normal_pdf,
+)
+from pyages.calibration.methods.mh._prior_support import (
+    open_unit_probability,
+    validated_bounds,
+)
 from pyages.data_io.lpm_distribution import read_histogram
-
-EMPIRICAL_GRID_POINTS = 101
-EMPIRICAL_RELATIVE_TAIL_DECAY = 500.0
-
-
-def _validated_empirical_inputs(
-    x_data: Sequence[float],
-    y_data: Sequence[float],
-) -> tuple[np.ndarray, np.ndarray]:
-    """Return validated one-dimensional empirical support and density."""
-    values = np.asarray(x_data, dtype=float)
-    density = np.asarray(y_data, dtype=float)
-    if values.ndim != 1 or density.ndim != 1 or values.shape != density.shape:
-        raise ValueError(
-            "x_data and y_data must be one-dimensional arrays of equal size"
-        )
-    if values.size < 2:
-        raise ValueError("An empirical prior requires at least two grid points")
-    if not np.all(np.isfinite(values)) or not np.all(np.isfinite(density)):
-        raise ValueError("Empirical prior values and densities must be finite")
-    if np.any(np.diff(values) <= 0.0):
-        raise ValueError("Empirical prior values must be strictly increasing")
-    if np.any(density < 0.0):
-        raise ValueError("Empirical prior densities must be non-negative")
-    return values, density
-
-
-def _validate_empirical_grid_controls(
-    xmin: float,
-    xmax: float,
-    n_points: int,
-    decay_left: float,
-    decay_right: float,
-) -> None:
-    """Validate interpolation bounds, resolution, and tail decay."""
-    if not math.isfinite(xmin) or not math.isfinite(xmax) or xmax <= xmin:
-        raise ValueError("Empirical prior bounds must be finite and increasing")
-    if isinstance(n_points, bool) or not isinstance(n_points, int) or n_points < 2:
-        raise ValueError("n_points must be an integer greater than one")
-    if (
-        not math.isfinite(decay_left)
-        or not math.isfinite(decay_right)
-        or decay_left < 0.0
-        or decay_right < 0.0
-    ):
-        raise ValueError("Empirical prior decay rates must be finite and non-negative")
-
-
-def build_empirical_prior_grid(
-    x_data: Sequence[float],
-    y_data: Sequence[float],
-    xmin: float = 0.0,
-    xmax: float = 70.0,
-    n_points: int = 2000,
-    decay_left: float = 10.0,
-    decay_right: float = 10.0,
-    normalize: bool = True,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Interpolate histogram points and extend them with exponential tails.
-
-    The samples define a piecewise-linear density on their original support.
-    Exponential tails connect the edge densities to the requested LPM bounds.
-    When ``normalize`` is true, trapezoidal mass over the returned grid is one.
-    This construction applies to empirical parameter priors, not LPM transit
-    time distributions.
-    """
-    x_data, y_data = _validated_empirical_inputs(x_data, y_data)
-    _validate_empirical_grid_controls(
-        xmin,
-        xmax,
-        n_points,
-        decay_left,
-        decay_right,
-    )
-    # Values between supplied histogram centers follow a linear density model.
-    interpolate = interp1d(
-        x_data,
-        y_data,
-        kind="linear",
-        bounds_error=False,
-        fill_value=0,
-    )
-
-    x_cont = np.linspace(xmin, xmax, n_points)
-    y_cont = interpolate(x_cont)
-    # Tails avoid a discontinuous jump at the empirical grid edge while the
-    # configured physical bounds still provide finite support.
-    left_mask = x_cont < x_data.min()
-    right_mask = x_cont > x_data.max()
-    if y_data[0] > 0:
-        y_cont[left_mask] = y_data[0] * np.exp(
-            -decay_left * (x_data[0] - x_cont[left_mask])
-        )
-    if y_data[-1] > 0:
-        y_cont[right_mask] = y_data[-1] * np.exp(
-            -decay_right * (x_cont[right_mask] - x_data[-1])
-        )
-
-    if normalize:
-        # Tail mass belongs to the prior and is included in normalization.
-        area = np.trapezoid(y_cont, x_cont)
-        if not math.isfinite(area) or area <= 0.0:
-            raise ValueError("Empirical prior must have positive finite mass")
-        y_cont /= area
-    return x_cont, y_cont
-
-
-def normal_pdf(x: float, x0: float, sigma: float) -> float:
-    r"""Evaluate :math:`\mathcal{N}(x\mid x_0,\sigma^2)` at one point."""
-    if not math.isfinite(sigma) or sigma <= 0.0:
-        raise ValueError("Normal prior std must be finite and positive")
-    numerator = math.exp(-((x - x0) ** 2) / (2.0 * sigma**2))
-    denominator = math.sqrt(2 * math.pi * sigma**2)
-    return numerator / denominator
-
-
-def histogram_moments(histogram: np.ndarray) -> tuple[float, float]:
-    """Integrate the mean and variance of a two-column density grid.
-
-    Column zero contains parameter values and column one contains density. The
-    density need not already be normalized; its finite positive mass is divided
-    out before moments are returned.
-    """
-    density = histogram[:, 1]
-    values = histogram[:, 0]
-    total = float(np.trapezoid(density, values))
-    if not math.isfinite(total) or total <= 0.0:
-        raise ValueError("Histogram density must have positive finite mass")
-    mean = float(np.trapezoid(values * density, values) / total)
-    second = float(np.trapezoid(values**2 * density, values) / total)
-    variance = max(0.0, second - mean**2)
-    return mean, variance
-
-
-def _open_unit_probability(probability: float) -> float:
-    """Return a finite probability strictly inside the unit interval."""
-    if isinstance(probability, (bool, np.bool_)):
-        raise ValueError("quantile probability must be finite and in [0, 1]")
-    try:
-        probability = float(probability)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("quantile probability must be finite and in [0, 1]") from exc
-    if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
-        raise ValueError("quantile probability must be finite and in [0, 1]")
-    return float(
-        np.clip(
-            probability,
-            np.nextafter(0.0, 1.0),
-            np.nextafter(1.0, 0.0),
-        )
-    )
-
-
-def _validated_bounds(minimum: float, maximum: float) -> tuple[float, float]:
-    """Return one finite, strictly increasing physical interval."""
-    try:
-        minimum = float(minimum)
-        maximum = float(maximum)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("marginal bounds must be finite numbers") from exc
-    if not math.isfinite(minimum) or not math.isfinite(maximum):
-        raise ValueError("marginal bounds must be finite numbers")
-    if maximum <= minimum:
-        raise ValueError("marginal bounds must be strictly increasing")
-    return minimum, maximum
 
 
 class Prior:
@@ -202,8 +55,8 @@ class Prior:
 
     The prior can be parametric or defined empirically by a histogram. In both
     cases, one independent density is associated with every native LPM
-    parameter. LPM bounds remain a separate hard support enforced by the
-    sampler before the prior is evaluated.
+    parameter. The LPM calibration range remains a separate operational
+    constraint enforced by the sampler before the prior is evaluated.
 
     Parameters
     ----------
@@ -229,8 +82,12 @@ class Prior:
         prior_file: str = "",
     ) -> None:
         """Initialize prior selection and empty per-parameter definitions."""
+        if type(option) is not bool:
+            raise TypeError("option must be a boolean")
         if typ not in {"parametric", "empirical"}:
             raise ValueError(f"Unsupported prior type: {typ}")
+        if not isinstance(prior_file, str):
+            raise TypeError("prior_file must be a string")
         self.option = option
         self.typ = typ
         self.prior_file = prior_file
@@ -302,7 +159,7 @@ class Prior:
         minimum: float,
         maximum: float,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Clip an empirical grid precisely to finite physical bounds."""
+        """Clip an empirical grid precisely to a finite calibration range."""
         values, density = self._empirical_marginal(name)
         support_minimum = max(minimum, float(values[0]))
         support_maximum = min(maximum, float(values[-1]))
@@ -322,15 +179,15 @@ class Prior:
         maximum: float,
         probability: float,
     ) -> float:
-        """Invert one marginal conditional on finite physical bounds.
+        """Invert one marginal conditional on a finite calibration range.
 
         Parametric normal marginals use the exact truncated-normal inverse CDF;
-        uniform marginals use their intersection with the physical interval.
+        uniform marginals use their intersection with the operational interval.
         Empirical marginals integrate and invert the piecewise-linear density,
-        including partial cells introduced by the physical bounds.
+        including partial cells introduced by the calibration limits.
         """
-        minimum, maximum = _validated_bounds(minimum, maximum)
-        probability = _open_unit_probability(probability)
+        minimum, maximum = validated_bounds(minimum, maximum)
+        probability = open_unit_probability(probability)
         if self.typ == "parametric":
             distribution, first, second = self._parametric_marginal(name)
             if distribution == "normal":
@@ -386,13 +243,13 @@ class Prior:
         raise ValueError("prior must be parametric or empirical")
 
     def bounded_mode(self, name: str, minimum: float, maximum: float) -> float:
-        """Return a deterministic marginal mode restricted to physical bounds.
+        """Return a deterministic mode restricted to the calibration range.
 
         Uniform marginals deliberately use the midpoint of their effective
         support so every chain receives the same historical compatibility
         state for ``prior_map`` initialization.
         """
-        minimum, maximum = _validated_bounds(minimum, maximum)
+        minimum, maximum = validated_bounds(minimum, maximum)
         if self.typ == "parametric":
             distribution, first, second = self._parametric_marginal(name)
             if distribution == "normal":
@@ -444,7 +301,7 @@ class Prior:
 
         ``map`` selects the normal mean or uniform midpoint; ``sample`` draws
         from the configured density. Clipping guarantees a valid LPM state
-        when a normal prior assigns mass outside the model bounds.
+        when a normal prior assigns mass outside the calibration range.
         """
         distribution = self.distributions[key]
         first, second = self.parameters[key]
@@ -507,11 +364,15 @@ class Prior:
             rng = np.random.default_rng()
         parameters = []
         for key in lpm.p:
-            bounds = lpm.get_p_min(key), lpm.get_p_max(key)
+            calibration_range = lpm.get_calibration_range(key)
             if self.typ == "parametric":
-                value = self._param_init_parametric(key, *bounds, rng, strategy)
+                value = self._param_init_parametric(
+                    key, *calibration_range, rng, strategy
+                )
             elif self.typ == "empirical":
-                value = self._param_init_empirical(key, *bounds, rng, strategy)
+                value = self._param_init_empirical(
+                    key, *calibration_range, rng, strategy
+                )
             parameters.append(value)
         lpm.set_param_from_array(parameters)
 
@@ -546,6 +407,8 @@ class Prior:
 
     def _load_empirical_priors(self, lpm: Any) -> None:
         """Load and extend one empirical density grid per LPM parameter."""
+        if not self.prior_file:
+            raise ValueError("prior_file must be non-empty for an empirical prior")
         self.parameters = {}
         self.source_sha256 = {}
         for parameter in lpm.get_param_names():
@@ -560,17 +423,20 @@ class Prior:
                     f"Empirical prior source changed while loading {parameter!r}"
                 )
             self.source_sha256[parameter] = hashlib.sha256(source_bytes).hexdigest()
-            # Scaling decay by the parameter range gives different physical
+            # Scaling decay by the calibration-range width gives different physical
             # units the same relative boundary behavior.
-            parameter_range = abs(lpm.get_p_min(parameter) - lpm.get_p_max(parameter))
+            minimum, maximum = lpm.get_calibration_range(parameter)
+            parameter_range = maximum - minimum
             if parameter_range <= 0.0:
-                raise ValueError(f"Empirical prior bounds collapse for {parameter}")
+                raise ValueError(
+                    f"Empirical prior calibration range collapses for {parameter}"
+                )
             decay = EMPIRICAL_RELATIVE_TAIL_DECAY / parameter_range
             x_values, probabilities = build_empirical_prior_grid(
                 histogram[:, 0],
                 histogram[:, 1],
-                xmin=lpm.get_p_min(parameter),
-                xmax=lpm.get_p_max(parameter),
+                xmin=minimum,
+                xmax=maximum,
                 n_points=EMPIRICAL_GRID_POINTS,
                 decay_left=decay,
                 decay_right=decay,
@@ -601,6 +467,18 @@ class Prior:
                     ensure_ascii=False,
                     sort_keys=True,
                 )
+                distribution, first, second = self._parametric_marginal(parameter)
+                minimum, maximum = lpm.get_calibration_range(parameter)
+                effective_support = effective_parametric_support(
+                    distribution,
+                    first,
+                    second,
+                    minimum,
+                    maximum,
+                )
+                metadata[f"prior_effective_support_{parameter}"] = json.dumps(
+                    effective_support
+                )
             else:
                 metadata[f"prior_distribution_{parameter}"] = "empirical"
                 if parameter in self.source_sha256:
@@ -610,6 +488,10 @@ class Prior:
                     metadata[f"prior_grid_points_{parameter}"] = len(
                         self.parameters[parameter]
                     )
+                histogram = self.parameters[parameter]
+                metadata[f"prior_effective_support_{parameter}"] = json.dumps(
+                    [float(histogram[0, 0]), float(histogram[-1, 0])]
+                )
         return metadata
 
     def _evaluate_parametric(self, lpm: Any, params: list[float]) -> float:
@@ -723,13 +605,16 @@ class Prior:
         if self.typ == "parametric":
             for key in lpm.p:
                 first, second = self.parameters[key]
-                if self.distributions[key] == "normal":
-                    theory[key] = [first, second**2]
-                elif self.distributions[key] == "uniform":
-                    theory[key] = [
-                        (first + second) / 2,
-                        ((second - first) / np.sqrt(12)) ** 2,
-                    ]
+                minimum, maximum = lpm.get_calibration_range(key)
+                theory[key] = list(
+                    bounded_parametric_moments(
+                        self.distributions[key],
+                        first,
+                        second,
+                        minimum,
+                        maximum,
+                    )
+                )
         elif self.typ == "empirical":
             for key in lpm.p:
                 theory[key] = list(histogram_moments(self.parameters[key]))

@@ -2,7 +2,13 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""List or execute reproducible HYP-26-0172 experiments."""
+"""List or execute reproducible HYP-26-0172 matrix experiments.
+
+The command validates enabled matrix rows, resolves an immutable per-run
+configuration, records source and input fingerprints, and launches the normal
+Ploemeur driver only when ``--execute`` is explicit. Dry-run selection is the
+default so maintainers can inspect a campaign without starting calibration.
+"""
 
 from __future__ import annotations
 
@@ -36,6 +42,7 @@ from .validate_study import validate_row
 def select_rows(
     rows: list[dict[str, str]], args: argparse.Namespace
 ) -> list[dict[str, str]]:
+    """Return enabled matrix rows matching an identifier and column selectors."""
     selected = [row for row in rows if row["enabled"].lower() == "true"]
     if args.experiment_id:
         selected = [
@@ -52,6 +59,7 @@ def select_rows(
 
 
 def git_value(*args: str) -> str:
+    """Return Git output, or ``unavailable`` when provenance cannot be queried."""
     result = subprocess.run(
         ["git", *args], cwd=REPO_ROOT, text=True, capture_output=True, check=False
     )
@@ -61,6 +69,12 @@ def git_value(*args: str) -> str:
 def prepare_run(
     row: dict[str, str], resume: bool, profile: str, mh_nsteps: int | None
 ) -> tuple[Path, list[str], dict]:
+    """Create an isolated run directory, resolved config, and prepared manifest.
+
+    No calibration is started. Existing non-empty output is rejected unless
+    ``resume`` is explicit, and an optional step override is recorded in the
+    resolved configuration and manifest.
+    """
     experiment_id = profiled_experiment_id(row["experiment_id"], profile)
     run_dir = profile_results_root(profile) / "runs" / experiment_id
     workflow_dir = run_dir / "workflow"
@@ -151,6 +165,7 @@ def prepare_run(
 def execute(
     row: dict[str, str], resume: bool, profile: str, mh_nsteps: int | None
 ) -> int:
+    """Prepare and execute one row while recording terminal manifest status."""
     run_dir, command, manifest = prepare_run(row, resume, profile, mh_nsteps)
     manifest["status"] = "running"
     manifest["started_at_utc"] = datetime.now(timezone.utc).isoformat()
@@ -164,6 +179,7 @@ def execute(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse matrix selection, profile, resume, and execution options."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--experiment-id")
     parser.add_argument("--select", action="append", default=[], metavar="COLUMN=VALUE")
@@ -188,6 +204,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Validate selected rows, print dry-run commands, or execute them."""
     args = parse_args()
     if args.profile == "smoke" and args.mh_nsteps is None:
         args.mh_nsteps = 100

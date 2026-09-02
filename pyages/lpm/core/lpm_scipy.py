@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file adapts SciPy probability distributions to the common LPM contract.
+# It converts a model's physical parameters into SciPy shape, location, and scale
+# inputs and returns PDFs, CDFs, quantiles, means, and standard deviations, while
+# exact partial moments needed by convolution remain model-specific.
 
 """Adapt continuous SciPy distributions to the PyAges LPM interface.
 
@@ -54,6 +58,8 @@ convolution formula. Numerical workarounds that apply to one SciPy family
 belong in that model family rather than in this generic core adapter.
 """
 
+import abc
+
 import numpy as np
 import numpy.typing as npt
 from scipy.stats import rv_continuous
@@ -74,6 +80,7 @@ class LpmScipy(LpmBase):
 
     scipy_dist: rv_continuous = None  # Override in subclass
 
+    @abc.abstractmethod
     def _scipy_params(self) -> tuple[tuple, float, float]:
         """
         Return scipy distribution parameters.
@@ -86,7 +93,7 @@ class LpmScipy(LpmBase):
             - loc: location parameter
             - scale: scale parameter
         """
-        raise NotImplementedError("Subclasses must implement _scipy_params()")
+        raise NotImplementedError
 
     def pdf(self, t: npt.ArrayLike) -> npt.ArrayLike:
         """Probability Density Function."""

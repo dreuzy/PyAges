@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import shutil
+from copy import deepcopy
 from unittest.mock import patch
 
 import numpy as np
@@ -180,6 +181,56 @@ def test_problem_rejects_non_positive_observation_errors(tmp_path):
             np.array([1.0]),
             np.array([0.0]),
         )
+
+
+def test_problem_preparation_is_atomic_when_tracer_preparation_fails(tmp_path):
+    problem = _prepared_problem(tmp_path)
+    observations = Concentrations.from_dataframe(problem.observations.frame)
+    failing = CalibrationProblem(
+        observations,
+        "exp",
+        explore_objective=False,
+        explore_reachable=False,
+    )
+
+    with patch.object(
+        ConvolutionTracers,
+        "prepare",
+        side_effect=RuntimeError("prepared grid failed"),
+    ):
+        with pytest.raises(RuntimeError, match="prepared grid failed"):
+            failing.prepare()
+
+    assert failing.is_prepared is False
+    assert failing.lpm is None
+    assert failing.tracers is None
+    with pytest.raises(RuntimeError, match="initialize"):
+        failing.ensure_prepared()
+
+
+def test_problem_rejects_observation_mutation_after_preparation(tmp_path):
+    problem = _prepared_problem(tmp_path)
+    problem.observations.frame.loc[0, "concentration"] += 1.0
+
+    with pytest.raises(RuntimeError, match="Observations changed"):
+        problem.ensure_prepared()
+
+
+def test_candidate_objective_does_not_mutate_committed_lpm(tmp_path):
+    problem = _prepared_problem(tmp_path)
+    committed = problem.lpm.get_parameters_to_array()
+    candidate = deepcopy(problem.lpm)
+    observed, errors = problem.prepared_observation_arrays()
+
+    problem.objective_function_for_lpm(
+        candidate,
+        [20.0],
+        observed,
+        errors,
+    )
+
+    assert problem.lpm.get_parameters_to_array() == committed
+    assert candidate.get_parameters_to_array() == [20.0]
 
 
 def test_problem_rejects_observation_model_unit_mismatch_before_calibration(

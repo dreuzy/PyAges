@@ -2,6 +2,33 @@ name: Extensive tests
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "pyages/calibration/**"
+      - "pyages/config/**"
+      - "pyages/data_io/lpm_params.py"
+      - "pyages/lpm/**"
+      - "pyages/workflows/**"
+      - "data_core/data_lpm/**"
+      - "examples/**/*.py"
+      - "examples/**/*.yaml"
+      - "examples/**/*.csv"
+      - "examples/**/*.json"
+      - "examples/**/*.txt"
+      - "examples/**/*.xlsx"
+      - "sites/ploemeur/**"
+      - "scripts/common/mcmc_diagnostics.py"
+      - "scripts/common/provenance.py"
+      - "scripts/common/reporting.py"
+      - "scripts/qualification/_archive_*.py"
+      - "scripts/qualification/build_multichain_archive.py"
+      - "scripts/qualification/build_ci_multichain_archive.py"
+      - "tests/calibration/**"
+      - "tests/data_io/**"
+      - "tests/examples/**"
+      - "tests/lpm/**"
+      - "tests/ploemeur/**"
+      - ".github/workflows/extensive-tests.yml"
   schedule:
     - cron: "17 1 * * 1"
 

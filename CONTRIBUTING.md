@@ -23,6 +23,7 @@ Run the checks relevant to the change before opening a pull request:
 ```bash
 python -m ruff check .
 python -m ruff format --check .
+python -m pyright
 python -m scripts.maintenance.check_qualified_docstrings
 python -m pytest -q
 python -m sphinx -W --keep-going -b html docs docs/_build/html

@@ -8,6 +8,7 @@ import json
 
 from click.testing import CliRunner
 
+import pyages.cli.commands.stages as stages_cmd
 from pyages.cli.main import cli
 from pyages.workflows.runtime.manifest import begin_staged_result_run
 
@@ -66,3 +67,33 @@ def test_stages_quarantine_requires_confirmation_and_exact_uuid(tmp_path) -> Non
     assert "Quarantined staging tree" in accepted.output
     assert not run.working_directory.exists()
     assert (tmp_path / f".pyages-quarantine-{run.run_id[:12]}").is_dir()
+
+
+def test_stages_inspect_human_output_and_empty_inventory(tmp_path) -> None:
+    runner = CliRunner()
+    empty = runner.invoke(cli, ["stages", "inspect", str(tmp_path)])
+
+    assert empty.exit_code == 0, empty.output
+    assert empty.output == "No managed staging candidates found.\n"
+
+    run = begin_staged_result_run(tmp_path / "results")
+    populated = runner.invoke(cli, ["stages", "inspect", str(tmp_path)])
+
+    assert populated.exit_code == 0, populated.output
+    assert str(run.working_directory) in populated.output
+    assert f"run_id: {run.run_id}" in populated.output
+    assert "manifest: absent" in populated.output
+    assert "promotable_now: no" in populated.output
+    assert "issue:" in populated.output
+
+
+def test_stages_inspect_translates_runtime_errors(tmp_path, monkeypatch) -> None:
+    def _fail_inventory(_root):
+        raise RuntimeError("inspection failed")
+
+    monkeypatch.setattr(stages_cmd, "inventory_staged_result_runs", _fail_inventory)
+
+    result = CliRunner().invoke(cli, ["stages", "inspect", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "Error: inspection failed" in result.output

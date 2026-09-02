@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file derives reusable analysis products from calibrated LPM samples.
 
-"""Pure analysis helpers for LPM sample tables."""
+"""Build model realizations and statistics without changing the sample table.
+
+Rows can be selected reproducibly and applied to independent copies of the LPM
+template, producing model realizations and sampled age distributions. Other
+helpers append age moments, calculate parameter histograms, or add statistics
+for a reference model.
+
+The source rows and reusable template are never mutated. This keeps exploratory
+analysis and reporting from changing the calibrated state that may be reused by
+later workflow steps.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +33,19 @@ def select_model_realizations(
     resolution: int,
     rng: np.random.Generator | None = None,
 ) -> tuple[list[Any], pd.DataFrame, pd.DataFrame]:
-    """Select reproducible model realizations and compute their PDFs/moments."""
+    """Create independent LPM realizations from randomly selected sample rows.
+
+    For each requested realization, the function deep-copies ``template`` and
+    loads one random row from ``frame``. It evaluates the resulting probability
+    density on a common 0--70 year grid and records the model's configured age
+    moments. Rows that cannot be loaded leave a NaN density column and do not
+    produce a model realization.
+
+    ``rng`` controls row selection; omitting it uses the fixed seed ``12345`` so
+    reports are reproducible. The return value contains the successfully loaded
+    model copies, the common-grid PDF table, and one statistics row per requested
+    selection. Neither the input frame nor the reusable template is mutated.
+    """
     if count < 0:
         raise ValueError("count must be non-negative")
     if resolution < 2:

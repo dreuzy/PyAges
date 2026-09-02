@@ -18,7 +18,6 @@ commit, environment, and requested release tag.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import subprocess
 import sys
@@ -26,6 +25,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+from scripts.common.provenance import sha256_file as _sha256
 
 ROOT = Path(__file__).resolve().parents[2]
 ARTICLE = ROOT / "article"
@@ -37,14 +38,6 @@ def _load_registry() -> dict[str, dict[str, Any]]:
     if not isinstance(payload, dict):
         raise ValueError(f"Invalid case registry: {REGISTRY}")
     return payload
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _repo_path(raw: str) -> Path:

@@ -1,15 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Run one MH chain and retain its sampled states and metadata.
+# This file runs one MH chain from its initial state to its retained samples.
 
-"""Metropolis--Hastings calibration for lumped-parameter models.
+"""Run one Metropolis--Hastings chain for a lumped-parameter model.
 
-The sampler keeps target evaluation, proposal construction, state transition,
-retention, and serialization as explicit stages.  This is important because
-the persisted ``obj_function`` diagnostic is not the posterior log density,
-rejected transitions must remain in a valid Markov-chain sample, and nonlinear
-inverse-Gaussian proposals require a Hastings correction.
+The sampler prepares the prior and proposal, evaluates the starting state,
+performs the configured number of accept-or-reject transitions, and stores the
+states selected by the burn-in and thinning schedule. A rejected proposal
+keeps the current state, so repeated rows are expected and must remain in the
+saved Markov chain.
+
+For each retained state, the result table stores model parameters, modeled
+concentrations, and ``obj_function``. That column is a normalized residual
+measure, not the posterior log-density used in the acceptance decision.
 """
 
 from __future__ import annotations
@@ -26,6 +30,12 @@ import numpy as np
 import pandas as pd
 
 from pyages.calibration.methods.base import CalibrationMethod
+from pyages.calibration.methods.mh._sampler_storage import (
+    prepare_retained_storage,
+    retained_row,
+)
+from pyages.calibration.methods.mh._sampler_target import MHTarget
+from pyages.calibration.methods.mh._sampler_transition import MHState, select_transition
 from pyages.calibration.methods.mh.config import MHConfig
 from pyages.calibration.methods.mh.prior import Prior
 from pyages.calibration.methods.mh.proposals import (
@@ -34,7 +44,6 @@ from pyages.calibration.methods.mh.proposals import (
     Proposal,
 )
 from pyages.calibration.methods.mh.trajectory import MHTrajectory
-from pyages.calibration.objective import normalized_residual_norm
 from pyages.calibration.outputs import write_key_values
 from pyages.lpm.samples.table import LpmSampleTable
 
@@ -46,7 +55,7 @@ __all__ = ["MetropolisHastings"]
 class MetropolisHastings(CalibrationMethod):
     r"""Sample an LPM posterior with a Metropolis-Hastings chain.
 
-    For parameters :math:`\theta` within the configured LPM bounds, the target
+    For parameters :math:`\theta` within the configured calibration ranges, the target
     log density is
 
     .. math::
@@ -65,7 +74,7 @@ class MetropolisHastings(CalibrationMethod):
 
     Native and sum/difference Gaussian random walks have zero Hastings term;
     the SciPy inverse-Gaussian coordinate proposal includes its Jacobian.
-    Out-of-bounds proposals and zero-support prior values have log target
+    Out-of-range proposals and zero-support prior values have log target
     ``-inf`` and are rejected.
 
     The immutable :class:`MHConfig` controls sampling, prior, proposal, random
@@ -104,6 +113,7 @@ class MetropolisHastings(CalibrationMethod):
         self.trajectory: MHTrajectory | None = None
         self.time_perform = 0
         self._proposal: Proposal | None = None
+        self._target: MHTarget | None = None
         self._resolved_proposal_metadata: dict[str, Any] = {}
         self._resolved_prior_metadata: dict[str, Any] = {}
         self._expected_proposal_metadata: dict[str, Any] | None = None
@@ -225,26 +235,12 @@ class MetropolisHastings(CalibrationMethod):
 
         The normalization constants of the independent Gaussian likelihood do
         not depend on LPM parameters and are omitted. Log space prevents
-        underflow. Parameter bounds and prior supports preserve exact zero
+        underflow. Calibration ranges and prior supports preserve exact zero
         density outside their configured domains.
         """
-        log_proba = 0
-        # Bounds are part of the target support, not a numerical penalty.
-        if self.lpm.param_within_bounds_array(params) is False:
-            return -math.inf, math.inf, []
-        if self.config.likelihood:
-            [chi_square, conc] = self.objective_function(
-                params, data_conc, data_error, conc=True
-            )
-            log_proba = log_proba - 0.5 * chi_square
-        else:
-            chi_square = 0
-            # Concentrations are not evaluated without a likelihood, but the
-            # result table keeps the same canonical observation schema.
-            conc = [math.nan] * len(data_conc)
-        if self.prior.option:
-            log_proba = log_proba + self.prior.log_evaluate(self.lpm, params)
-        return log_proba, chi_square, conc
+        if self._target is None:
+            raise RuntimeError("MH target must be prepared before evaluation")
+        return self._target.evaluate(params, data_conc, data_error)
 
     def _should_retain(self, iteration: int) -> bool:
         """Return whether one zero-based MCMC iteration must be stored."""
@@ -258,18 +254,11 @@ class MetropolisHastings(CalibrationMethod):
         modeled observations in canonical order, and the bounds flag expected
         by :class:`~pyages.lpm.samples.table.LpmSampleTable`.
         """
-        row_count = self.config.retained_sample_count()
-        # Likelihood-free runs leave concentration values missing while using
-        # the same canonical columns as likelihood-based calibrations.
-        concentration_names = self.observations.observation_keys()
-        column_names = (
-            self.lpm.get_param_names()
-            + ["obj_function"]
-            + concentration_names
-            + ["param_in_bounds"]
+        return prepare_retained_storage(
+            self.lpm,
+            self.observations.observation_keys(),
+            self.config.retained_sample_count(),
         )
-        column = len(column_names)
-        return np.zeros((row_count, column), dtype=float), column_names
 
     def _mcmc_step(
         self,
@@ -303,21 +292,25 @@ class MetropolisHastings(CalibrationMethod):
         )
         # Symmetric proposals contribute zero; nonlinear coordinate proposals
         # supply log q(current|proposed) - log q(proposed|current).
-        success = False
         if self._proposal is None:
             raise RuntimeError("Proposal must be prepared before a transition")
         log_hastings = self._proposal.log_hastings_ratio(params, params_n)
-        # Accept improvements without drawing a uniform variate.  This preserves
-        # the documented seeded scalar-draw sequence of the default protocol.
-        if log_pn + log_hastings >= log_p:
-            success = True
-        else:
-            uu = rng.random()
-            if np.log(uu) < log_pn - log_p + log_hastings:
-                success = True
+        selected, success = select_transition(
+            MHState(params, log_p, chi_square, conc),
+            MHState(params_n, log_pn, chi_square_n, conc_n),
+            log_hastings=log_hastings,
+            rng=rng,
+        )
         if success:
-            return params_n, log_pn, chi_square_n, conc_n, True
-        return params, log_p, chi_square, conc, False
+            # Commit only an accepted candidate to the public calibration LPM.
+            self.lpm.set_param_from_array(selected.params)
+        return (
+            selected.params,
+            selected.log_posterior,
+            selected.chi_square,
+            selected.concentrations,
+            success,
+        )
 
     def _finalize_trajectory(self, traj: MHTrajectory, n: int) -> None:
         """Resize and optionally display the retained trajectory."""
@@ -325,7 +318,9 @@ class MetropolisHastings(CalibrationMethod):
         if self.config.display_traj:
             traj.plot(self.display_options.directory)
         if self.config.display_text:
-            logger.info("MH retained trajectory summary:\n%s", traj.check().to_string())
+            logger.info(
+                "MH retained trajectory summary:\n%s", traj.summary().to_string()
+            )
 
     def _prepare_mcmc(
         self,
@@ -345,6 +340,7 @@ class MetropolisHastings(CalibrationMethod):
         """
         self._resolved_proposal_metadata = {}
         self._resolved_prior_metadata = {}
+        self._target = None
         # Prior-only validation requires retained trajectory values.
         monitor = self.config.monitor or (
             self.config.likelihood is False and self.prior.option is True
@@ -358,8 +354,13 @@ class MetropolisHastings(CalibrationMethod):
             if monitor
             else None
         )
-        # Priors depend on the bound model's parameter names and bounds.
+        # Priors depend on the bound model's names and calibration ranges.
         self.prior.load(self.lpm)
+        self._target = MHTarget(
+            self.problem,
+            self.prior,
+            likelihood=self.config.likelihood,
+        )
         self._capture_resolved_metadata()
         array_results, array_col_names = self._prepare_storage()
         return (
@@ -374,7 +375,18 @@ class MetropolisHastings(CalibrationMethod):
     def _initialize_state(
         self, data_conc: np.ndarray, data_error: np.ndarray
     ) -> tuple[list[float], float, float, list[float]]:
-        """Initialize parameters and evaluate the initial log-posterior."""
+        """Choose one valid chain start and evaluate its complete target state.
+
+        Initialization follows an explicit precedence. ``config.initial_params``
+        must provide every LPM parameter in model order and lie inside its
+        calibration range. Otherwise an enabled prior supplies its MAP; with
+        no prior initialization, the LPM's configured defaults are retained.
+
+        The chosen order and values are frozen for proposals, prior evaluation,
+        storage, and provenance. The initial modeled concentrations, chi-square,
+        and log posterior are evaluated together, and a zero or non-finite target
+        density is rejected before the first MH transition.
+        """
         if self.config.initial_params is not None:
             expected = list(self.lpm.p.keys())
             provided = list(self.config.initial_params.keys())
@@ -390,13 +402,11 @@ class MetropolisHastings(CalibrationMethod):
             params0 = [float(self.config.initial_params[name]) for name in expected]
             if not all(math.isfinite(value) for value in params0):
                 raise ValueError("initial_params values must be finite numbers.")
-            if not self.lpm.param_within_bounds_array(params0):
-                bounds = {
-                    name: [self.lpm.get_p_min(name), self.lpm.get_p_max(name)]
-                    for name in expected
-                }
+            if not self.lpm.param_within_calibration_range_array(params0):
+                ranges = self.lpm.get_calibration_ranges()
                 raise ValueError(
-                    f"initial_params are outside the LPM bounds {bounds}: "
+                    f"initial_params are outside the LPM calibration ranges "
+                    f"{ranges}: "
                     f"{dict(zip(expected, params0, strict=True))}"
                 )
             self.lpm.set_param_from_array(params0)
@@ -477,12 +487,7 @@ class MetropolisHastings(CalibrationMethod):
                 nsuccess += 1
             if self._should_retain(i):
                 # Persist the current state, including repeats after rejection.
-                array_results[line] = (
-                    params
-                    + [normalized_residual_norm(chi_square, len(conc))]
-                    + conc
-                    + [1.0]
-                )
+                array_results[line] = retained_row(params, chi_square, conc)
                 line += 1
                 if traj is not None:
                     traj.update(n, params, log_p, accepted=success)
@@ -491,7 +496,7 @@ class MetropolisHastings(CalibrationMethod):
         # Consolidate retained joint states without re-evaluating the chain.
         self._success_rate = nsuccess / self.config.nstep
         lpm_results = LpmSampleTable(
-            self.lpm, c_names=self.observations.observation_keys()
+            deepcopy(self.lpm), c_names=self.observations.observation_keys()
         )
         lpm_results.replace_frame(pd.DataFrame(array_results, columns=array_col_names))
 

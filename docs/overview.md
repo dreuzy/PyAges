@@ -10,7 +10,7 @@ four inputs:
 
 1. a table of tracer concentrations, uncertainties, units, and sampling dates;
 2. one or more tracer recharge histories;
-3. an LPM family and its parameter bounds;
+3. an LPM family, its mathematical parameter domains, and its calibration ranges;
 4. a YAML workflow configuration.
 
 PyAges writes tabular results, optional figures, and a versioned
@@ -28,13 +28,14 @@ environment, Git state, and hashes of generated artifacts.
 
 ## Project status
 
-PyAges `1.0` is stable. Its supported interfaces are documented in
-{doc}`reference/public-api` and compatibility is managed through
-{doc}`reference/changelog`. The immutable release source is the exact reviewed
-commit identified by tag `1.0`; calculations from an untagged checkout must
-also report their Git commit. Scientific conclusions remain conditional on the
-selected LPM, tracer histories, observation uncertainties, and validation
-scope described in {doc}`science/validation`.
+PyAges `1.0.1` is the current stable maintenance release. Its supported
+interfaces are documented in {doc}`reference/public-api` and compatibility is
+managed through {doc}`reference/changelog`. The article campaign and its
+immutable scientific archive retain the `1.0` identity and exact reviewed
+source tag; maintenance releases do not rewrite that archive. Calculations from
+an untagged checkout must also report their Git commit. Scientific conclusions
+remain conditional on the selected LPM, tracer histories, observation
+uncertainties, and validation scope described in {doc}`science/validation`.
 
 The source repository, issue tracker, contribution policy, and security policy
 are hosted on [GitHub](https://github.com/dreuzy/PyAges).

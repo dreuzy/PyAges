@@ -42,7 +42,9 @@ def test_params_yaml_schema(model_dir: Path):
 
     for param in params:
         assert "name" in param
-        assert "bounds" in param and len(param["bounds"]) == 2
+        assert "domain" in param
+        assert "calibration_range" in param
+        assert len(param["calibration_range"]) == 2
         assert "init" in param
         assert "step" in param
         prior = param.get("prior")

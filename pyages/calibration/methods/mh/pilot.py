@@ -1,14 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Estimate a fixed proposal covariance from independent pilot chains.
+# This file calculates the proposal covariance used by production MH chains.
 
-"""Pure numerical helpers for Metropolis--Hastings pilot chains.
+"""Calculate proposal settings from preliminary Metropolis--Hastings chains.
 
-Pilot draws are used only to learn a fixed proposal geometry for subsequent
-production chains.  In particular, pooling is based on within-chain centered
-draws so that differences between pilot-chain locations do not inflate the
-proposal covariance.
+Pilot chains are short preliminary runs. Their samples are used only to choose
+the size and correlation of parameter changes proposed during the later
+production chains. Pilot samples are never included in the posterior sample.
+
+Before combining the pilot chains, this module subtracts the mean of each chain
+from its own samples. A chain that happens to explore a different location
+therefore does not make the proposed production steps artificially large. The
+resulting covariance is regularized so that it can always be used as a
+multivariate Gaussian covariance matrix.
 """
 
 from __future__ import annotations
@@ -22,14 +27,20 @@ import numpy as np
 def _positive_definite_regularization(
     covariance: np.ndarray, relative_ridge: float
 ) -> np.ndarray:
-    """Return a symmetric positive-definite copy of one covariance matrix."""
+    """Return a covariance matrix that a Gaussian sampler can use safely.
+
+    The input is first made exactly symmetric. A small value is then added to
+    its diagonal. If that is not enough to make every variance direction
+    positive, the function adds the smallest extra numerical correction needed.
+    """
     dimension = covariance.shape[0]
     symmetric = (covariance + covariance.T) / 2.0
     typical_variance = max(float(np.trace(symmetric) / dimension), 1.0e-12)
     regularized = symmetric + (relative_ridge * typical_variance * np.eye(dimension))
 
-    # A zero user ridge is useful when testing a full-rank empirical covariance.
-    # Add only the numerical minimum needed when the empirical matrix is singular.
+    # A caller may request no regularization when the empirical covariance is
+    # already usable. If it is singular, add only the machine-level correction
+    # required to make Gaussian sampling possible.
     smallest_eigenvalue = float(np.linalg.eigvalsh(regularized)[0])
     if smallest_eigenvalue <= 0.0:
         numerical_ridge = max(
@@ -43,28 +54,30 @@ def _positive_definite_regularization(
 def pooled_within_chain_covariance(
     chains: Sequence[np.ndarray], *, relative_ridge: float = 1.0e-6
 ) -> np.ndarray:
-    """Estimate a regularized covariance from within-chain pilot variation.
+    """Estimate one proposal covariance from several pilot chains.
 
     Parameters
     ----------
     chains : sequence of numpy.ndarray
-        Pilot matrices shaped ``(draws, parameters)``. Every chain must contain
-        at least two finite draws and use the same parameter dimension. Chain
-        lengths may differ.
+        One matrix per pilot chain, with retained draws in rows and parameters
+        in columns: ``(draws, parameters)``. Every chain must contain at least
+        two finite draws and the same parameters. Chain lengths may differ.
     relative_ridge : float, default=1e-6
-        Non-negative diagonal ridge relative to the mean marginal variance.
-        A minimal numerical ridge is still added when zero would leave the
-        result singular.
+        Size of the small value added to the covariance diagonal, expressed
+        relative to the average parameter variance. This stabilizes directions
+        with little or no observed variation.
 
     Returns
     -------
     numpy.ndarray
-        Symmetric positive-definite pooled within-chain covariance.
+        A symmetric, positive-definite covariance matrix that can be passed to
+        a multivariate Gaussian proposal.
 
     Notes
     -----
-    Each chain is centered separately before its scatter matrix is accumulated.
-    Consequently, differences between chain means do not enter the estimate.
+    The mean of each chain is subtracted before the chains are combined. The
+    result describes how parameters vary together *inside* the chains. It does
+    not treat differences between chain locations as proposal step sizes.
 
     """
     if not math.isfinite(relative_ridge) or relative_ridge < 0.0:
@@ -101,7 +114,11 @@ def pooled_within_chain_covariance(
 
 
 def automatic_proposal_multiplier(dimension: int) -> float:
-    """Return the conventional Gaussian random-walk scale ``2.38 / sqrt(d)``."""
+    """Return the usual proposal-size multiplier for ``dimension`` parameters.
+
+    The value is ``2.38 / sqrt(dimension)``. It reduces joint proposal steps as
+    the number of parameters increases.
+    """
     if (
         isinstance(dimension, bool)
         or not isinstance(dimension, (int, np.integer))

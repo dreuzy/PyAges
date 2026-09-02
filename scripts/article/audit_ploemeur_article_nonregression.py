@@ -12,7 +12,6 @@ modify the manuscript, or mutate archived campaign outputs.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import subprocess
@@ -38,6 +37,8 @@ from pyages.lpm.models.inverse_gaussian import scipy_params_from_mean_std
 from pyages.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
 from pyages.tracer.simple_tracers import SyntheticTracer
 from pyages.tracer.tracer_root import Tracer
+from scripts.common.provenance import sha256_bytes, sha256_file
+from scripts.common.reporting import markdown_table as render_markdown_table
 
 
 ROOT = REPO_ROOT
@@ -56,14 +57,6 @@ FORWARD_CSV = AUDIT_OUTPUT / "ploemeur_old_new_forward_equivalence.csv"
 COMPARISON_CSV = AUDIT_OUTPUT / "ploemeur_article_current_comparison.csv"
 CAUSES_CSV = AUDIT_OUTPUT / "ploemeur_nonregression_root_causes.csv"
 REPORT_MD = AUDIT_OUTPUT / "PLOEMEUR_ARTICLE_NONREGRESSION_AUDIT.md"
-
-
-def sha256_bytes(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
-
-
-def sha256_file(path: Path) -> str:
-    return sha256_bytes(path.read_bytes())
 
 
 def git_bytes(revision: str, path: str) -> bytes:
@@ -676,18 +669,7 @@ def build_root_causes(
 
 
 def markdown_table(frame: pd.DataFrame, digits: int = 4) -> str:
-    formatted = frame.copy()
-    for column in formatted.select_dtypes(include=[np.number]).columns:
-        formatted[column] = formatted[column].map(lambda value: f"{value:.{digits}g}")
-    headers = [str(column).replace("|", "\\|") for column in formatted.columns]
-    rows = [
-        "| " + " | ".join(headers) + " |",
-        "| " + " | ".join("---" for _ in headers) + " |",
-    ]
-    for values in formatted.itertuples(index=False, name=None):
-        cells = [str(value).replace("|", "\\|").replace("\n", " ") for value in values]
-        rows.append("| " + " | ".join(cells) + " |")
-    return "\n".join(rows)
+    return render_markdown_table(frame, float_format=f".{digits}g")
 
 
 def build_report(

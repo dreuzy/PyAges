@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines a two-age model with one fixed age and one calibrated age.
+# The free age and mixing rate form the sampled parameter vector, while the fixed
+# age is retained as scientific state; convolution evaluates both point masses
+# directly and the finite PDF exists only for plotting.
 
 """
 LPM Double-Dirac (one fixed spike) distribution model.
@@ -69,9 +73,16 @@ class DiracDouble1SetLpm(LpmBase):
     def set_interp(self):
         """Build the finite-width PDF approximation used for visualization."""
         # Common visualization width of the exact point masses.
-        width = max(1, self.get_param_range("mufree") / 200, self.__muset / 200)
+        width = max(
+            1, self.get_calibration_range_width("mufree") / 200, self.__muset / 200
+        )
         # This grid is unrelated to the direct Dirac convolution algorithm.
-        td = 1.2 * (self.get_p_max("mufree") + self.__muset) * np.arange(0, 201) / 200
+        td = (
+            1.2
+            * (self.get_calibration_range("mufree")[1] + self.__muset)
+            * np.arange(0, 201)
+            / 200
+        )
         self.f = build_regularized_dirac_pdf(
             td,
             centers=[self.p["mufree"], self.__muset],

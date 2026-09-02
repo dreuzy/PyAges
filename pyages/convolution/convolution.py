@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file coordinates the forward model for one tracer, observation date, and
+# water-age distribution. It selects continuous, point-mass, or mixed arithmetic
+# and returns predicted concentrations, treating ages beyond the tracer history
+# as zero contribution instead of redistributing their probability.
 
 """Orchestrate one tracer/LPM convolution across all strategy types.
 

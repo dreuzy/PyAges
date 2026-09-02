@@ -72,7 +72,7 @@ is not 20% of the observed concentration.
 The active uniform priors are loaded from
 `data_core/data_lpm/ig_shifted/params.yaml`; no example-local prior is hidden
 in the workflow. Chain starts are sampled from the priors conditioned on the
-physical LPM bounds through exact bounded marginal quantiles.
+the LPM calibration ranges through exact bounded marginal quantiles.
 
 The fixed-seed protocol converges, but `sigma` retains appreciable posterior
 mass near its 30-year upper support. That is a scientific limitation of this

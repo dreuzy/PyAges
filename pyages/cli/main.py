@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file builds the top-level ``pyages`` command and registers every
+# supported subcommand before handing control to Click.
+# It is the console-script entry point: argument parsing occurs here, while the
+# actual validation, file creation, and scientific work remain in submodules.
 
 """
 PyAges CLI - Main entry point.

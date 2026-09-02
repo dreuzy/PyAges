@@ -40,7 +40,7 @@ calibration_metropolis_hastings:
     master_seed: 20260831
     initialization:
       # Exercise the active parametric-prior sampler directly. Each marginal
-      # is conditioned on its intersection with the physical LPM bounds; this
+      # is conditioned on its intersection with the LPM calibration ranges; this
       # is exact bounded-quantile sampling, not rejection sampling.
       strategy: prior_sample
       # Retained as an explicit schema control. The current prior_sample path

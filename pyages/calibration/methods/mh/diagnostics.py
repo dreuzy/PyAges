@@ -1,16 +1,18 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Compute split R-hat, ESS, and MCSE from unpooled MCMC chains.
+# This file measures whether separate MH chains have converged and mixed well.
 
-"""Dependency-light convergence diagnostics for multi-chain MCMC draws.
+"""Calculate convergence and sampling-quality measures for several MH chains.
 
-The implementations in this module follow the rank-normalized split-R-hat and
-effective-sample-size recommendations of Vehtari et al. (2021).
+The module calculates split R-hat, effective sample size (ESS), and the Monte
+Carlo standard error (MCSE). The formulas follow the rank-normalized methods
+recommended by Vehtari et al. (2021).
 
-Every public function accepts draws arranged as ``(n_chains, n_draws)``.
-Keeping that contract explicit prevents accidentally treating pooled draws as
-independent.
+Every public function receives a two-dimensional array with one row per chain
+and one column per retained draw: ``(n_chains, n_draws)``. Chain identity must
+be preserved because these diagnostics compare variation within a chain with
+variation between chains.
 """
 
 from __future__ import annotations

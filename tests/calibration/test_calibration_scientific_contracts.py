@@ -13,6 +13,7 @@ import pandas as pd
 import pytest
 
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh._sampler_target import MHTarget
 from pyages.calibration.methods.mh.trajectory import MHTrajectory
 from pyages.calibration.methods.simplex import SIMPLEX, Simplex
 from tests.calibration.test_calibration_mh_initial_params import _FakeLpm
@@ -47,9 +48,7 @@ def test_simplex_persists_the_reported_optimum_as_one_joint_sample(
     result = Simplex(SIMPLEX).run(problem)
     row = result.frame.iloc[0]
 
-    assert captured["bounds"] == list(
-        zip(*problem.lpm.get_param_interval(), strict=True)
-    )
+    assert captured["bounds"] == list(problem.lpm.get_calibration_ranges().values())
     assert row["mu"] == pytest.approx(optimum[0])
     assert row["obj_function"] == pytest.approx(0.0, abs=1e-12)
     assert row[problem.observations.observation_keys()[0]] == pytest.approx(
@@ -86,6 +85,11 @@ def test_explicit_initial_state_takes_precedence_over_prior_map(monkeypatch):
         ),
     )
     monkeypatch.setattr(mh.prior, "log_evaluate", lambda *_args: 0.0)
+    mh._target = MHTarget(  # noqa: SLF001
+        problem,
+        mh.prior,
+        likelihood=False,
+    )
 
     params, *_ = mh._initialize_state(  # noqa: SLF001
         np.array([]), np.array([])

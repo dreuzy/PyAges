@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines a water-age mixture with one exact age and one delayed
+# exponential range of ages. A mixing rate controls their probability shares;
+# the model exposes the full CDF and statistics while convolution evaluates the
+# point mass directly and integrates the continuous component separately.
 
 """
 LPM Mixed Shifted-Exponential distribution model.

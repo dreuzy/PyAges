@@ -12,8 +12,8 @@ workflow modifies Git references.
 | Workflow | Triggers | Purpose |
 |---|---|---|
 | [CI](https://github.com/dreuzy/PyAges/actions/workflows/ci.yml) | Pull requests targeting `main`, pushes to `main`, version tags matching `*.*`, and manual dispatch | Fast required checks for every supported Python version, packaging, documentation, and validation infrastructure |
-| [Extensive tests](https://github.com/dreuzy/PyAges/actions/workflows/extensive-tests.yml) | Manual dispatch and every Monday at `01:17 UTC` | Opt-in scientific calculations that are too slow for every pull request |
-| [Release candidate](https://github.com/dreuzy/PyAges/actions/workflows/release-candidate.yml) | Manual dispatch for an existing release tag (`1.0` for this release) | Build one candidate, validate its metadata, and smoke-test the same wheel on all supported Python versions |
+| [Extensive tests](https://github.com/dreuzy/PyAges/actions/workflows/extensive-tests.yml) | Manual dispatch, every Monday at `01:17 UTC`, and pull requests changing selected calibration, LPM, workflow, configuration, data, example, test, or workflow paths | Run the opt-in scientific qualifications when their target or executable evidence can change |
+| [Release candidate](https://github.com/dreuzy/PyAges/actions/workflows/release-candidate.yml) | Manual dispatch for an existing release tag matching the package version | Build one candidate, validate its metadata, smoke-test the same wheel on all supported Python versions, and require extensive scientific qualification of the tagged source |
 | [Publish package](https://github.com/dreuzy/PyAges/actions/workflows/publish-package.yml) | Manual dispatch for an existing GitHub Release tag and a selected package index | Verify the existing release assets and their SHA-256 digests, then publish the unchanged files through the protected `testpypi` or `pypi` environment |
 
 The weekly extensive run starts at 02:17 in metropolitan France during winter
@@ -29,7 +29,7 @@ gate:
 
 | Job | Main checks | Result or artifact |
 |---|---|---|
-| `Ruff` | `ruff check`, `ruff format --check`, scoped qualified-surface docstring check, generated test-inventory check | Lint, formatting, API prose, and test documentation must be current |
+| `Ruff` | `ruff check`, `ruff format --check`, progressive Pyright check, scoped qualified-surface docstring check, generated test-inventory check | Lint, formatting, selected core type contracts, API prose, and test documentation must be current |
 | `Dependency audit` | Qualified install, `pip check`, `pip-audit` | Dependency consistency and known-vulnerability check |
 | `Conda environment` | Create `install/environment.yml`, install PyAges without dependency replacement, exercise CLI discovery | Conda environment and packaged entry points are usable |
 | `Tests (Python …)` | Standard pytest suite on Python 3.12, 3.13, and 3.14 | Supported-version compatibility |
@@ -71,9 +71,17 @@ semantics.
 
 The marker is opt-in. The same tests are collected by the standard suite but
 skipped unless `--run-extensive` is present. The workflow is scheduled for
-early-morning capacity and can also be dispatched before a release or after a
-scientific change. See {doc}`testing` for the test taxonomy and
+early-morning capacity, can be dispatched explicitly, and runs on pull requests
+whose selected paths can change the scientific target or its qualification
+evidence. See {doc}`testing` for the test taxonomy and
 {doc}`../science/validation` for the qualification strategy.
+
+Those pull-request paths include Python, YAML, tabular inputs, and workbooks
+under ``examples/``; the complete ``sites/ploemeur/`` study tree; the shared
+MCMC, provenance, and reporting helpers; and the multichain archive facade and
+its private implementation modules. A change to an executable script, a study input, or
+the code that packages its evidence therefore cannot silently bypass this
+workflow.
 
 After pytest succeeds, the job builds one wheel and one sdist, then runs:
 
@@ -122,9 +130,12 @@ not a durable publication archive.
 The release candidate workflow accepts an existing protected tag. It checks
 release and dependency metadata, builds the distributions once, uploads them
 as a temporary artifact, and installs the same wheel on Python 3.12, 3.13, and
-3.14. It has `contents: read` permission only: tag creation, package
-publication, GitHub Release creation, and deletion remain maintainer actions.
-The complete procedure is in {doc}`releasing`.
+3.14. In parallel, Python 3.12 runs the complete opt-in extensive suite from
+that exact tagged source. The final gate requires the build, every wheel smoke
+test, and scientific qualification to succeed. The workflow has `contents:
+read` permission only: tag creation, package publication, GitHub Release
+creation, and deletion remain maintainer actions. The complete procedure is in
+{doc}`releasing`.
 
 ## Package publication
 
@@ -154,6 +165,7 @@ standard Python checks is:
 ```bash
 python -m ruff check .
 python -m ruff format --check .
+python -m pyright
 python -m scripts.maintenance.check_qualified_docstrings
 python run_tests.py standard
 python run_tests.py coverage
@@ -162,6 +174,13 @@ python -m scripts.maintenance.generate_test_inventory --check
 python -m sphinx -W --keep-going -b html docs docs/_build/html
 python -m sphinx -W --keep-going -b linkcheck docs docs/_build/linkcheck
 ```
+
+The docstring command intentionally covers more than the installed package.
+In addition to the qualified calibration and workflow API, it checks the
+shared provenance, MCMC, and reporting helpers, the multichain archive
+implementation, the extracted Holten/Ploemeur diagnostics, and the maintained HYP-26-0172
+run/product modules.  Historical one-off scripts remain under normal Ruff
+checks until their responsibilities are similarly isolated.
 
 The CI documentation job retries the same cached linkcheck once when the first
 invocation fails. This absorbs a transient remote timeout while preserving a

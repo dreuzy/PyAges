@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines the common lifecycle for every calibration algorithm. It
+# binds a prepared problem, delegates the numerical search, and sends the
+# resulting parameter samples through shared analysis and output functions.
 
 """Shared lifecycle and output boundary for calibration algorithms.
 
@@ -115,7 +118,9 @@ class CalibrationMethod(ABC):
         A supplied observation table is useful for uncertainty propagation;
         otherwise the observations bound through :meth:`run` are used.
         """
-        source = self.observations if observations is None else observations
+        if observations is None:
+            return self.problem.prepared_observation_arrays()
+        source = observations
         values = source.frame[CONCENTRATION_COLUMN].to_numpy(dtype=float)
         errors = source.frame[ERROR_COLUMN].to_numpy(dtype=float)
         return values, errors

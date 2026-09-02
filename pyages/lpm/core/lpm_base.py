@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines the common contract and validation shared by every LPM.
+# Concrete models receive named physical parameters and provide probabilities,
+# quantiles, and age statistics; calibration and convolution rely on this class
+# to keep parameter order, calibration ranges, and numerical inputs consistent.
 
 """Define common contracts and numerical helpers for LPM implementations.
 
@@ -11,7 +15,7 @@ Summary
 3. Subclasses provide vectorized PDF, CDF, mean, and standard-deviation methods.
 4. Continuous models also expose cumulative mass and partial first moments.
 5. Parameter dictionary order is the canonical calibration-vector order.
-6. ``ParameterManager`` supplies initial values, bounds, and parameter ranges.
+6. ``ParameterManager`` supplies initial values, domains, and calibration ranges.
 7. The base inverse CDF validates probabilities and brackets scalar quantiles.
 8. Plot sampling evaluates a PDF or CDF on a compact quantile-based age window.
 9. Data-frame loading validates a complete row before changing model parameters.
@@ -122,6 +126,10 @@ class LpmBase(abc.ABC):
             directory_lpm=self._directory_lpm,
             parameter_names=parameter_names,
         )
+        if not self._param_manager.param_within_domain(self.p):
+            raise ValueError(
+                f"LPM parameters are outside the mathematical domain for {name!r}"
+            )
 
     @abc.abstractmethod
     def pdf(self, t: npt.ArrayLike) -> npt.ArrayLike:
@@ -150,7 +158,7 @@ class LpmBase(abc.ABC):
         raise NotImplementedError
 
     def random_uniform(self, rng: np.random.Generator | None = None) -> None:
-        """Replace all parameters with independent uniform draws within bounds.
+        """Draw parameters independently within their calibration ranges.
 
         Parameters
         ----------
@@ -161,10 +169,10 @@ class LpmBase(abc.ABC):
         -----
         This method mutates :attr:`p`.
         """
-        pmin, pmax = self.get_param_interval()
+        ranges = tuple(self.get_calibration_ranges().values())
         if rng is None:
             rng = np.random.default_rng()
-        param = [pmin[i] + (pmax[i] - pmin[i]) * rng.random() for i in range(len(pmin))]
+        param = [lower + (upper - lower) * rng.random() for lower, upper in ranges]
         self.set_param_from_array(param)
 
     def param_init(self) -> list[float]:
@@ -202,8 +210,8 @@ class LpmBase(abc.ABC):
         """Replace current parameters with initial values from ``params.yaml``."""
         self._param_manager.load_initial_values(self.p)
 
-    def param_within_bounds(self, params: dict[str, float]) -> bool:
-        """Return whether a complete parameter mapping is finite and in bounds.
+    def param_within_calibration_range(self, params: dict[str, float]) -> bool:
+        """Return whether values lie in the configured calibration ranges.
 
         Parameters
         ----------
@@ -215,10 +223,18 @@ class LpmBase(abc.ABC):
         bool
             ``True`` only when names and values satisfy the complete contract.
         """
-        return self._param_manager.param_within_bounds(params)
+        return self._param_manager.param_within_calibration_range(params)
 
-    def param_within_bounds_array(self, params: npt.ArrayLike) -> bool:
-        """Return whether an ordered parameter vector is finite and in bounds.
+    def param_within_bounds(self, params: dict[str, float]) -> bool:
+        """Return the legacy alias for :meth:`param_within_calibration_range`."""
+        return self.param_within_calibration_range(params)
+
+    def param_within_domain(self, params: dict[str, float]) -> bool:
+        """Return whether values satisfy the model's mathematical domain."""
+        return self._param_manager.param_within_domain(params)
+
+    def param_within_calibration_range_array(self, params: npt.ArrayLike) -> bool:
+        """Return whether an ordered vector lies in the calibration ranges.
 
         Parameters
         ----------
@@ -228,7 +244,7 @@ class LpmBase(abc.ABC):
         Returns
         -------
         bool
-            ``True`` only for a correctly sized, finite vector in bounds.
+            ``True`` only for a correctly sized, finite vector in range.
         """
         try:
             values = np.asarray(params, dtype=float)
@@ -236,7 +252,23 @@ class LpmBase(abc.ABC):
             return False
         if values.shape != (len(self.p),) or not np.all(np.isfinite(values)):
             return False
-        return self._param_manager.param_within_bounds_array(
+        return self._param_manager.param_within_calibration_range_array(
+            values.tolist(), list(self.p)
+        )
+
+    def param_within_bounds_array(self, params: npt.ArrayLike) -> bool:
+        """Return the legacy alias for the calibration-range vector check."""
+        return self.param_within_calibration_range_array(params)
+
+    def param_within_domain_array(self, params: npt.ArrayLike) -> bool:
+        """Return whether an ordered vector satisfies the mathematical domain."""
+        try:
+            values = np.asarray(params, dtype=float)
+        except (TypeError, ValueError):
+            return False
+        if values.shape != (len(self.p),) or not np.all(np.isfinite(values)):
+            return False
+        return self._param_manager.param_within_domain_array(
             values.tolist(), list(self.p)
         )
 
@@ -408,8 +440,12 @@ class LpmBase(abc.ABC):
             )
         if not np.all(np.isfinite(values)):
             raise ValueError("LPM parameters must be finite")
-
-        self.p.update(zip(self.p, values.tolist(), strict=True))
+        candidate = dict(zip(self.p, values.tolist(), strict=True))
+        if not self._param_manager.param_within_domain(candidate):
+            raise ValueError(
+                f"LPM parameters are outside the mathematical domain for {self.name!r}"
+            )
+        self.p.update(candidate)
 
     def get_parameters_to_array(self) -> list[float]:
         """Return parameter values in canonical calibration order."""
@@ -419,8 +455,8 @@ class LpmBase(abc.ABC):
         """Return parameter names in canonical calibration order."""
         return list(self.p.keys())
 
-    def get_param_range(self, param_name: str) -> float:
-        """Return the configured range of one parameter.
+    def get_calibration_range_width(self, param_name: str) -> float:
+        """Return the width of one parameter's calibration range.
 
         Parameters
         ----------
@@ -432,25 +468,41 @@ class LpmBase(abc.ABC):
         float
             Upper bound minus lower bound.
         """
-        return self._param_manager.get_param_range(param_name)
+        return self._param_manager.get_calibration_range_width(param_name)
+
+    def get_param_range(self, param_name: str) -> float:
+        """Return the legacy alias for :meth:`get_calibration_range_width`."""
+        return self.get_calibration_range_width(param_name)
+
+    def get_calibration_range(self, key: str) -> tuple[float, float]:
+        """Return one parameter's inclusive operational calibration range."""
+        return self._param_manager.get_calibration_range(key)
+
+    def get_calibration_ranges(self) -> dict[str, tuple[float, float]]:
+        """Return calibration ranges in canonical parameter order."""
+        return self._param_manager.get_calibration_ranges()
 
     def get_param_interval(self) -> tuple[list[float], list[float]]:
-        """Return lower and upper bounds in canonical parameter order.
+        """Return the legacy lower and upper calibration-limit lists.
 
         Returns
         -------
         tuple[list[float], list[float]]
-            Lists of lower and upper bounds, respectively.
+            Lists of lower and upper calibration limits, respectively.
         """
         return self._param_manager.get_param_interval()
 
+    def get_parameter_domain(self, key: str):
+        """Return one parameter's mathematical validity domain."""
+        return self._param_manager.get_domain(key)
+
     def get_p_max(self, key: str) -> float:
-        """Return upper bound for parameter."""
-        return self._param_manager.get_p_max(key)
+        """Return the legacy upper calibration limit for one parameter."""
+        return self.get_calibration_range(key)[1]
 
     def get_p_min(self, key: str) -> float:
-        """Return lower bound for parameter."""
-        return self._param_manager.get_p_min(key)
+        """Return the legacy lower calibration limit for one parameter."""
+        return self.get_calibration_range(key)[0]
 
     def _plot_range(self) -> tuple[float, float]:
         """Return an approximate age window intended only for visualization."""

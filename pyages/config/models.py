@@ -1,13 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines the validated configuration schemas used by PyAges workflows.
 
-"""Pydantic config models shared by launcher scripts.
+"""Convert workflow YAML mappings into strict, typed Pydantic configuration.
 
-Purpose
--------
-Centralize YAML schema validation so both launchers stay consistent
-and errors are reported early and clearly.
+The models describe datasets, LPMs, tracers, calibration methods, diagnostic
+settings, figures, and result locations for both single-date and temporal runs.
+Nested sections are validated before workflow code accesses them, giving every
+launcher the same defaults and field types.
+
+Cross-field validators also reject combinations that are individually valid but
+cannot form a coherent run, such as incomplete multi-chain settings or mutually
+inconsistent method options. This module validates configuration structure; it
+does not load scientific datasets or execute a calibration.
 """
 
 from __future__ import annotations
@@ -18,7 +24,6 @@ from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import (
-    BaseModel,
     ConfigDict,
     Field,
     field_validator,
@@ -29,136 +34,19 @@ from pyages.calibration.sampling_schedule import (
     maximum_split_ess,
     strict_retained_sample_count,
 )
+from pyages.config._models_base import (
+    BaseConfigModel as _BaseCfg,
+)
+from pyages.config._models_base import (
+    reject_boolean_number as _reject_boolean_number,
+)
+from pyages.config._models_base import (
+    resolve_path as _resolve_path,
+)
+from pyages.config._models_cli import CliCheckParams, CliRunParams, SystemCheckConfig
 from pyages.config.paths import validate_path_component
 
 TEMPORAL_VALID_MODES = {"span", "successive"}
-
-
-def _resolve_path(value: Path, info):
-    root_dir = info.context.get("root_dir") if info.context else None
-    if root_dir and not value.is_absolute():
-        return Path(root_dir) / value
-    return value
-
-
-def _reject_boolean_number(value: object, info):
-    """Reject YAML booleans before Pydantic can coerce them to zero or one."""
-    if isinstance(value, bool):
-        raise ValueError(f"{info.field_name} must be numeric, not boolean")
-    return value
-
-
-class _BaseCfg(BaseModel):
-    """Strict base for all user-facing configuration models."""
-
-    model_config = ConfigDict(extra="forbid", protected_namespaces=())
-
-
-# ---------------------------------------------------------------------------
-# CLI config models
-# ---------------------------------------------------------------------------
-
-
-class CliRunParams(_BaseCfg):
-    """Validated CLI parameters for `pyages run`."""
-
-    config: Path
-    transient: bool = False
-    inline: bool = False
-    verbose: bool = False
-    lpm: str | None = None
-    mh_nsteps: int | None = None
-    data_name: str | None = None
-    data_dir: Path | None = None
-    data_file: Path | None = None
-
-    @field_validator("config")
-    @classmethod
-    def _config_exists(cls, value: Path) -> Path:
-        if not value.exists():
-            raise ValueError(f"Config file not found: {value}")
-        return value
-
-    @field_validator("lpm")
-    @classmethod
-    def _lpm_not_empty(cls, value: str | None) -> str | None:
-        if value is not None and not value.strip():
-            raise ValueError("lpm must be a non-empty string")
-        return value
-
-    @field_validator("mh_nsteps")
-    @classmethod
-    def _mh_nsteps_positive(cls, value: int | None) -> int | None:
-        if value is not None and value <= 0:
-            raise ValueError("mh_nsteps must be > 0")
-        return value
-
-    @field_validator("data_name")
-    @classmethod
-    def _data_name_not_empty(cls, value: str | None) -> str | None:
-        if value is not None and not value.strip():
-            raise ValueError("data_name must be a non-empty string")
-        return value
-
-
-class CliCheckParams(_BaseCfg):
-    """Validated CLI parameters for `pyages check`."""
-
-    verbose: bool = False
-
-
-# ---------------------------------------------------------------------------
-# run_system_check.py (manual integration script) config models
-# ---------------------------------------------------------------------------
-
-
-class SystemCheckConfig(_BaseCfg):
-    """Configuration for the integration test script."""
-
-    date: float = 2010
-    lpm_all: list[str] = Field(
-        default_factory=lambda: [
-            "dirac",
-            "dirac_double",
-            "dirac_double_1_set",
-            "exp_shifted",
-            "dirac",
-            "gamma",
-            "exp",
-            "uniform",
-            "ig",
-            "ig_shifted",
-            "mix_exp_shifted",
-        ]
-    )
-    lpm_calib: list[str] = Field(
-        default_factory=lambda: [
-            "dirac_double",
-            "exp_shifted",
-            "exp",
-            "gamma",
-            "ig",
-            "uniform",
-            "dirac_double",
-            "dirac",
-        ]
-    )
-    tracers_all: list[str] = Field(
-        default_factory=lambda: [
-            "Li",
-            "sf6",
-            "cfc11",
-            "cfc12",
-            "cfc113",
-            "kr85",
-            "3H",
-            "14C",
-            "39Ar",
-        ]
-    )
-    tracers_conv: list[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
-    tracers_calib: list[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
-    reachable_resolution: int = Field(default=1000, ge=1)
 
 
 # ---------------------------------------------------------------------------
@@ -414,6 +302,17 @@ class LauncherMetropolisCfg(_BaseCfg):
 
     @model_validator(mode="after")
     def _require_multichain_diagnostic_draws(self) -> Self:
+        """Validate schedule and option dependencies for launcher MH settings.
+
+        Multi-chain execution disables the interactive one-chain monitors and
+        prior-based initialization requires an enabled prior. The retained-draw
+        schedule must yield at least one sample generally and at least eight per
+        chain for split diagnostics. When convergence is mandatory, configured
+        ESS thresholds must also be attainable from the chain count and retained
+        length rather than guaranteeing failure before sampling begins.
+        """
+        # Reject option combinations whose meaning changes between one-chain and
+        # multi-chain execution before reasoning about retained sample counts.
         if (
             self.multichain is not None
             and self.multichain.enabled
@@ -432,6 +331,8 @@ class LauncherMetropolisCfg(_BaseCfg):
             raise ValueError(
                 "prior_sample and prior_map initialization require prior_option=true"
             )
+        # Diagnostics operate on retained draws, not raw transitions; thinning
+        # and the strict burn-in rule therefore enter every feasibility check.
         retained_count = strict_retained_sample_count(
             self.nstep, self.burn_in, self.nskip
         )
@@ -570,7 +471,7 @@ class TemporalDatasetCfg(_BaseCfg):
 
 
 class TemporalCalibrationCfg(_BaseCfg):
-    """Metropolis-Hastings configuration with bounds and defaults."""
+    """Metropolis-Hastings configuration with validated defaults."""
 
     mh_nsteps: int = Field(default=1000, gt=100)
     burn_in: float = Field(default=0.2, ge=0.0, lt=0.5)
@@ -593,9 +494,19 @@ class TemporalCalibrationCfg(_BaseCfg):
 
     @model_validator(mode="after")
     def _require_enabled_seed(self) -> Self:
+        """Validate temporal MH seed, retained draws, and diagnostic feasibility.
+
+        A deterministic seed is mandatory for an enabled single-chain seed mode;
+        multi-chain execution instead obtains its streams from the ensemble seed
+        plan. Every schedule must retain a draw, while multi-chain diagnostics
+        need at least eight per chain. Required ESS thresholds are rejected when
+        they exceed the maximum possible value for the configured split chains.
+        """
         multichain_enabled = self.multichain is not None and self.multichain.enabled
         if self.seed_enabled and self.seed is None and not multichain_enabled:
             raise ValueError("calibration.seed is required when seed_enabled is true")
+        # Use the actual post-burn-in, post-thinning length because raw nsteps
+        # overstates the information available to convergence diagnostics.
         retained_count = strict_retained_sample_count(
             self.mh_nsteps, self.burn_in, self.nskip
         )

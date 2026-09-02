@@ -1061,7 +1061,7 @@ def test_staged_run_inspection_does_not_scan_an_unsafe_journal_target(
     tmp_path,
     monkeypatch,
 ) -> None:
-    from pyages.workflows.runtime import manifest as manifest_module
+    from pyages.workflows.runtime import _manifest_inspection as inspection_module
 
     run = begin_staged_result_run(tmp_path / "results")
     journal = run.working_directory / ".pyages-run-state.json"
@@ -1072,9 +1072,9 @@ def test_staged_run_inspection_does_not_scan_an_unsafe_journal_target(
     def fail_if_scanned(_directory):
         raise AssertionError("unsafe public target must not be scanned")
 
-    monkeypatch.setattr(manifest_module, "_publication_token", fail_if_scanned)
+    monkeypatch.setattr(inspection_module, "_publication_token", fail_if_scanned)
     monkeypatch.setattr(
-        manifest_module, "_assert_no_nested_staged_runs", fail_if_scanned
+        inspection_module, "_assert_no_nested_staged_runs", fail_if_scanned
     )
 
     inspection = inspect_staged_result_run(run.working_directory)
@@ -1388,7 +1388,7 @@ def test_result_manifest_tolerates_an_unavailable_git_executable(
         raise FileNotFoundError("git executable not found")
 
     monkeypatch.setattr(
-        "pyages.workflows.runtime.manifest.subprocess.run",
+        "pyages.workflows.runtime._manifest_provenance.subprocess.run",
         missing_git,
     )
     target = write_result_manifest(
@@ -1406,7 +1406,7 @@ def test_result_manifest_tolerates_an_unavailable_git_executable(
 def test_untracked_installed_source_is_not_attributed_to_an_enclosing_worktree(
     tmp_path, monkeypatch
 ) -> None:
-    from pyages.workflows.runtime import manifest as manifest_module
+    from pyages.workflows.runtime import _manifest_provenance as provenance_module
 
     enclosing_repository = tmp_path / "checkout"
     installed_source = (
@@ -1427,9 +1427,9 @@ def test_untracked_installed_source_is_not_attributed_to_an_enclosing_worktree(
             return None
         raise AssertionError(f"Unexpected Git command: {args}")
 
-    monkeypatch.setattr(manifest_module, "_run_git", git_result)
+    monkeypatch.setattr(provenance_module, "_run_git", git_result)
 
-    assert manifest_module._source_repository(installed_source) is None
+    assert provenance_module._source_repository(installed_source) is None
 
 
 def test_manifest_records_distribution_provenance_without_a_source_worktree(
@@ -1466,7 +1466,7 @@ def test_manifest_records_distribution_provenance_without_a_source_worktree(
 
 
 def test_distribution_provenance_hashes_pep610_and_record_metadata(monkeypatch) -> None:
-    from pyages.workflows.runtime import manifest as manifest_module
+    from pyages.workflows.runtime import _manifest_provenance as provenance_module
 
     direct_url = '{"url": "file:///wheelhouse/pyages.whl"}'
     record = "pyages/__init__.py,sha256=abc,12\npyages-1.dist-info/RECORD,,\n"
@@ -1485,12 +1485,12 @@ def test_distribution_provenance_hashes_pep610_and_record_metadata(monkeypatch) 
             }.get(filename)
 
     monkeypatch.setattr(
-        manifest_module.importlib.metadata,
+        provenance_module.importlib.metadata,
         "distribution",
         lambda _name: Distribution(),
     )
 
-    provenance = manifest_module._distribution_provenance(from_worktree=False)
+    provenance = provenance_module._distribution_provenance(from_worktree=False)
 
     assert provenance["direct_url"] == {"url": "file:///wheelhouse/pyages.whl"}
     assert (

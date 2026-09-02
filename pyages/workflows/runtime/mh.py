@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file translates validated workflow settings into a multi-chain
+# Metropolis--Hastings run and creates a fresh calibration problem per stage.
+# It saves every chain and diagnostic, then returns pooled samples only when the
+# convergence gates pass; a rejected run raises after preserving its audit files.
 
 """Shared workflow services for multi-chain Metropolis--Hastings runs.
 

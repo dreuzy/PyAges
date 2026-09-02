@@ -46,8 +46,9 @@ A returned sample table must preserve these semantics:
 | derived moments | `mean`, `std`, and quantiles should be added with `add_moments()` before serialization |
 
 Use the prepared problem's `objective_function()` so the method cannot silently
-replace the forward model or observation-error convention. Parameter bounds
-and priors remain the method's responsibility.
+replace the forward model or observation-error convention. Calibration ranges
+and priors remain the method's responsibility; formula validity stays with the
+LPM domain contract.
 
 The smallest useful structural example is:
 
@@ -116,7 +117,7 @@ the method.
 - reject invalid settings before starting the expensive calculation;
 - record all settings, seeds, initialization sources, and proposal metadata;
 - make failure explicit when the algorithm does not converge or returns
-  non-finite/out-of-bounds parameters;
+  non-finite or out-of-calibration-range parameters;
 - test the returned joint-sample schema and objective convention;
 - test deterministic behavior for fixed seeds;
 - add numerical or golden qualification appropriate to the algorithm;

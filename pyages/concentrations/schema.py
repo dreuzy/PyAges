@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines shared concentration-table columns and builds stable keys
+# that distinguish repeated tracer observations at the same date.
+# Loaders, samplers, and output writers use these names together, preventing the
+# same observation from receiving different identifiers across package layers.
 
 """Canonical concentration-table columns and key formatting."""
 

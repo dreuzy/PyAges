@@ -9,7 +9,7 @@ shipped with the exact package artifact being redistributed.
 
 This audit records the direct dependency versions qualified in
 `install/constraints.txt` and the NuGet versions declared in project files on
-27 August 2026. The dependency declarations in `pyproject.toml`, .NET project
+2 September 2026. The dependency declarations in `pyproject.toml`, .NET project
 files, and the upstream package artifacts remain authoritative.
 
 | Dependency | Qualified version | Upstream licence metadata |
@@ -26,6 +26,7 @@ files, and the upstream package artifacts remain authoritative.
 | `pip-audit` | `2.10.1` | Apache-2.0 |
 | `pytest` | `9.1.1` | MIT |
 | `pytest-cov` | `7.1.0` | MIT |
+| `pyright` | `1.1.411` | MIT |
 | `ruff` | `0.16.4` | MIT |
 | `twine` | `7.0.0` | Apache-2.0 |
 | `sphinx` | `9.1.0` | BSD-2-Clause |

@@ -83,6 +83,20 @@ second configuration source. The experimental `MHEnsembleResult`,
 the multi-chain feature. Internal callable protocols and path/configuration
 builders now use private names.
 
+LPM parameter metadata uses three distinct canonical concepts: `domain` for
+mathematical formula validity, `calibration_range` for the finite operational
+search interval, and `prior` for probability mass. Contributor code should use
+`get_calibration_ranges()`, `get_calibration_range()`,
+`get_calibration_range_width()`,
+`param_within_calibration_range()`, and
+`param_within_calibration_range_array()`. The YAML field `bounds`, the
+`LPMParameterDefinition.bounds` property, `get_bounds()`, `get_param_range()`,
+`get_param_interval()`,
+`get_p_min()`, `get_p_max()`, and the two `param_within_bounds*()` methods remain
+non-deprecated compatibility aliases. They delegate to the calibration-range
+contract, and no removal version is currently planned. A legacy YAML parameter
+without `domain` additionally uses `bounds` as its mathematical-domain fallback.
+
 ## Compatibility policy
 
 - A public Python symbol or configuration field is deprecated before removal.

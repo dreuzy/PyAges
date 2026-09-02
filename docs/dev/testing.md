@@ -19,6 +19,13 @@ list.
 | Test collection | `python run_tests.py collect` | Inspecting the exact standard-suite node IDs without executing them |
 | Golden update | `python run_tests.py standard update` | Only after independently justifying an intentional numerical-contract change |
 
+Static typing is introduced progressively rather than asserted for the whole
+historical repository. `python -m pyright` checks the small set of core
+contracts and stable repository helpers listed in `pyproject.toml`; add a
+module only after its annotations and dependencies pass without suppressing
+real errors. The shared provenance helper is included because archive and
+article scripts now depend on its typed text-versus-binary Git contract.
+
 The direct pytest equivalents used by GitHub Actions are:
 
 ```bash

@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file converts a prepared model, ordered observations, and tracer grids
+# into immutable records and a stable hash. Multi-chain calibration compares
+# that identity before combining chains, preventing different targets from mixing.
 
 """Versioned identity of a prepared scientific calibration target.
 
@@ -169,7 +172,19 @@ class CalibrationTargetSignature:
 
 
 def _canonical_scientific_value(value: object, *, context: str) -> object:
-    """Normalize parsed scientific data without YAML formatting artifacts."""
+    """Convert parsed scientific data to an unambiguous hash representation.
+
+    Mappings are sorted by string key, sequences retain order, and every scalar
+    is tagged by type so values such as ``True``, ``1``, and ``"1"`` cannot
+    collide after JSON serialization. Numeric values use a finite hexadecimal
+    floating-point representation, making their byte-level meaning independent
+    of YAML spelling or ordinary decimal formatting.
+
+    ``context`` is extended while descending nested values and appears in errors
+    for non-string mapping keys, non-finite numbers, or unsupported types. The
+    returned lists are JSON-compatible and deterministic; they are an internal
+    hashing form rather than a user-facing reconstruction of the source YAML.
+    """
     if isinstance(value, Mapping):
         if any(not isinstance(key, str) for key in value):
             raise ValueError(f"{context} mapping keys must be strings")
@@ -223,7 +238,9 @@ def _lpm_target_signature(lpm: LpmBase) -> LpmTargetSignature:
     """Capture ordered model metadata loaded by one prepared LPM."""
     names = tuple(lpm.get_param_names())
     units = lpm.parameter_units
-    lower, upper = lpm.get_param_interval()
+    calibration_ranges = tuple(lpm.get_calibration_ranges().values())
+    lower = tuple(interval[0] for interval in calibration_ranges)
+    upper = tuple(interval[1] for interval in calibration_ranges)
     initial = lpm.param_init()
     if not (
         len(names) == len(lower) == len(upper) == len(initial)

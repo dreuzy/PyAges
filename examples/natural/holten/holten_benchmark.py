@@ -3,8 +3,13 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""
-Pre-model figures and benchmark helpers for Holten.
+"""Compare the executable Holten example with its published reference.
+
+This module prepares contextual figures before calibration, reconstructs the
+reference tracer curves used by the local four-bin model, and aligns generated
+well results with the values transcribed from the article. It also exports the
+tables and figures that make differences between the two calculations visible;
+it does not run the calibration itself.
 """
 
 from __future__ import annotations
@@ -64,6 +69,7 @@ REFERENCE_MODEL_COLUMNS = [
 
 
 def load_reference_results(context=None) -> pd.DataFrame:
+    """Load the tabulated article results configured for the Holten case."""
     ctx = context or build_context()
     return pd.read_csv(ctx.paths.reference_results_path, sep="\t")
 
@@ -71,6 +77,7 @@ def load_reference_results(context=None) -> pd.DataFrame:
 def build_article_reference_figures(
     context=None, output_dir: Path | None = None
 ) -> dict[str, Path]:
+    """Extract labeled reference figures from the locally configured article PDF."""
     from PIL import Image
 
     ctx = context or build_context()
@@ -137,6 +144,7 @@ def build_reference_curve(
     history: pd.DataFrame,
     observed: pd.DataFrame,
 ) -> pd.DataFrame:
+    """Build the tracer response curve used to compare data and age end-members."""
     display = history.copy()
     reference_year = float(observed["date"].median())
     yaml_path = tracer_yaml_path(prepared.context, tracer_name)
@@ -400,6 +408,7 @@ def _build_helium_diagnostic_figures(
 def build_pre_model_figures(
     prepared: PreparedHoltenCase, output_dir: Path
 ) -> list[Path]:
+    """Create input-history and observation figures before any model is fitted."""
     output_dir.mkdir(parents=True, exist_ok=True)
     generated: list[Path] = []
     pre_model_cfg = (
@@ -608,6 +617,7 @@ def compare_with_reference_results(
     results_by_well: dict[str, Path] | None = None,
     local_4bin_summary: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
+    """Align PyAges results and optional local four-bin fits with paper values."""
     reference = _reference_subset(
         load_reference_results(prepared.context), prepared.context.selected_wells
     )
@@ -667,6 +677,7 @@ def build_reference_comparison_figures(
     comparison: pd.DataFrame,
     output_dir: Path,
 ) -> dict[str, Path]:
+    """Plot quantitative differences between generated and published results."""
     output_dir.mkdir(parents=True, exist_ok=True)
     generated: dict[str, Path] = {}
 
@@ -745,6 +756,7 @@ def build_reference_comparison_figures(
 def write_benchmark_summary(
     comparison: pd.DataFrame, output_dir: Path
 ) -> tuple[Path, Path]:
+    """Write machine-readable and concise human-readable comparison summaries."""
     output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = output_dir / "comparison_by_well.csv"
     txt_path = output_dir / "benchmark_summary.txt"

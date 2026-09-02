@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file loads tracer metadata and recharge histories, validates and
+# interpolates concentrations, and exposes the response used by convolution.
+# It combines recharge concentration with optional decay and production, while
+# a scientific signature records the effective values used by a reproducible run.
 
 """Core tracer data model and I/O utilities.
 

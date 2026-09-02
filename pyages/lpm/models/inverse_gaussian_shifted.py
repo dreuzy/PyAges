@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file adds a minimum transit time to the inverse-Gaussian water-age model.
+# A mean, standard deviation, and shift in years are converted to SciPy inputs;
+# the resulting probabilities, robust quantiles, and cumulative moments feed
+# model diagnostics and continuous tracer convolution.
 
 """
 LPM Shifted Inverse Gaussian distribution model.

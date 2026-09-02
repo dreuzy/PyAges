@@ -1,9 +1,16 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Define and assemble canonical quantities diagnosed across MH chains.
+# This file selects the values that must be checked across all MH chains.
 
-"""Canonical internal quantity contract for multi-chain MH diagnostics."""
+"""Prepare the parameter arrays used by multi-chain diagnostics.
+
+Each production chain stores its own sample table. This module selects the
+same parameters and derived model quantities from every table, preserves their
+documented order, and stacks each quantity into a ``(chains, draws)`` array.
+The diagnostic calculations and result validation therefore inspect exactly
+the same values.
+"""
 
 from __future__ import annotations
 

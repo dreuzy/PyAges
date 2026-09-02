@@ -57,16 +57,22 @@ promise is {doc}`../reference/public-api`.
    pyages.workflows.single_date
    pyages.workflows.temporal
    pyages.workflows.runtime
-   pyages.workflows.runtime.manifest
    pyages.reporting
    pyages.reporting.chronicles
    pyages.reporting.plots
    pyages.qualification
 ```
 
-```{toctree}
-:hidden:
-:glob:
+## Administrative staged-result API
 
-generated/*
+The canonical contributor lifecycle is documented through
+`pyages.workflows.runtime` above. The following lower-level operations are for
+explicit inspection and quarantine tools; lifecycle names re-exported by the
+facade are intentionally not indexed a second time.
+
+```{eval-rst}
+.. automodule:: pyages.workflows.runtime.manifest
+   :members: RESULT_SCHEMA_VERSION, StagedRunInspection, inspect_staged_result_run, inventory_staged_result_runs, quarantine_staged_result_run
+   :exclude-members: ResultRun, begin_staged_result_run, promote_result_run, write_failure_manifest, write_result_manifest
+   :no-undoc-members:
 ```

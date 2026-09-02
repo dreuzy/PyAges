@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file writes one LPM's name, parameter values, and units either to a
+# caller-owned text stream or to a newly created result file.
+# Path targets receive any missing parent directories; open streams remain owned
+# by the caller and are deliberately left open after serialization.
 
 """Serialization helpers for lumped-parameter models."""
 

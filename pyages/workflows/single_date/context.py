@@ -1,8 +1,20 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file prepares validated inputs and staging for a single-date workflow.
 
-"""Configuration and scientific inputs for single-date workflows."""
+"""Build the shared runtime context used by every single-date workflow step.
+
+Preparation loads the YAML settings and observation table, resolves missing
+measurement errors according to policy, configures plotting, and locates model
+and tracer resources. A private result stage is created only after these inputs
+have passed validation.
+
+The context carries the resolved configuration, observations, paths, display
+session, and run handle so later steps do not reload them independently. A
+companion function lists every scientific input that terminal provenance must
+hash.
+"""
 
 from __future__ import annotations
 
@@ -82,6 +94,7 @@ def prepare_context(
             use_default=params.results_use_default,
             directory=params.results_directory,
             study_name=params.results_study_name,
+            create=False,
         )
     )
     live_display = _display_options(None, save=False, text=params.verbose)

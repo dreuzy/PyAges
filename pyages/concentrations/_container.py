@@ -1,13 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file turns tabular tracer measurements into validated observations.
 
-"""
-Concentration data container and helpers.
+"""Store and validate the concentration observations used by calibration.
 
-Provides a lightweight wrapper around a pandas DataFrame to load, validate,
-sample, and export tracer concentration data used by calibration workflows.
+``Concentrations`` wraps a pandas table containing tracer names, sampling dates,
+concentrations, units, and optional measurement errors. Construction copies the
+input and checks its schema, numeric values, tracer identifiers, and unit
+consistency before placing rows in a stable order.
 
+The container also supports tracer and date selection, controlled observation
+sampling, error estimation policies, and export. When errors are derived rather
+than supplied, the policy is retained as metadata so later results can explain
+which uncertainties entered the calibration objective.
 """
 
 from __future__ import annotations
@@ -182,7 +188,23 @@ class Concentrations:
             self.frame[name] = default_value
 
     def validate(self) -> None:
-        """Validate values and normalize the table to the canonical schema."""
+        """Validate and replace ``frame`` with its canonical observation table.
+
+        The input must contain one non-empty row and exactly one occurrence of
+        every required observation column. Concentration, error, and date values
+        are converted to finite numbers; errors must be non-negative, tracer
+        names must be present and non-blank, and units are normalized through
+        the shared observation-unit contract.
+
+        Validation mutates this container deliberately: extra columns are
+        discarded, canonical columns are ordered consistently, cleaned values
+        replace their inputs, and the row index is reset. Row order itself is
+        preserved. Any invalid condition raises before the normalized frame is
+        assigned, leaving the previous ``frame`` object in place.
+        """
+
+        # Establish the table schema before attempting value conversions. This
+        # avoids ambiguous selection when pandas permits duplicate column names.
         duplicate_columns = self.frame.columns[self.frame.columns.duplicated()].tolist()
         if duplicate_columns:
             raise ValueError(
@@ -197,6 +219,8 @@ class Concentrations:
         if self.frame.empty:
             raise ValueError("Concentrations must contain at least one observation")
 
+        # Work on a detached canonical subset so partial conversions never leak
+        # into the container when a later column fails validation.
         normalized = self.frame.loc[:, list(REFERENCE_COLUMNS)].copy()
         for column in (CONCENTRATION_COLUMN, ERROR_COLUMN, DATE_COLUMN):
             try:
@@ -220,6 +244,8 @@ class Concentrations:
         if normalized[ELEMENT_COLUMN].eq("").any():
             raise ValueError("Concentration elements must not be empty")
 
+        # Unit validation is performed after tracer names are normalized because
+        # its contract groups unit labels by those names.
         normalized_units, _ = normalize_observation_units(
             normalized[ELEMENT_COLUMN],
             normalized[UNIT_COLUMN],

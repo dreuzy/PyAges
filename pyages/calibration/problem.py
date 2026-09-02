@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file validates observations and prepares their tracer histories and LPM
+# once for all fitting algorithms. It then provides the shared objective,
+# systematic exploration, and target identity used throughout calibration.
 
 """Scientific state and objective shared by calibration methods.
 
@@ -107,6 +110,8 @@ class CalibrationProblem:
         self.lpm: LpmBase | None = None
         self.tracers: ConvolutionTracers | None = None
         self._sampling: SystematicSampling | None = None
+        self._prepared = False
+        self._prepared_observations_frame = None
 
     def prepare(self) -> CalibrationProblem:
         """Initialize and return this problem for fluent construction."""
@@ -116,7 +121,7 @@ class CalibrationProblem:
     @property
     def is_prepared(self) -> bool:
         """Whether the scientific model and tracer convolutions are ready."""
-        return self.lpm is not None and self.tracers is not None
+        return self._prepared
 
     @property
     def sampling(self) -> SystematicSampling:
@@ -149,17 +154,30 @@ class CalibrationProblem:
         convolutions are prepared only after the observation boundary is
         valid.  Reinitialization replaces any cached systematic exploration.
         """
-        # Model parameters and bounds come from the selected LPM definition.
-        self.lpm = build_lpm(self.lpm_type, self.lpm_directory)
+        # Publish no partial state if any preparation step fails.
+        self._prepared = False
+        self.lpm = None
+        self.tracers = None
+        self._prepared_observations_frame = None
+        self._sampling = None
+
+        # Model parameters and calibration ranges come from the selected LPM.
+        lpm = build_lpm(self.lpm_type, self.lpm_directory)
         # Preserve observation row order and resolve zero uncertainty
         # placeholders once, never inside an optimizer or MCMC transition.
-        self.tracers = resolve_observation_errors(
+        tracers = resolve_observation_errors(
             self.observations,
             tracer_data_directory=self.tracer_data_directory,
             missing_error_relative_fraction=self.missing_error_relative_fraction,
         )
-        self.tracers.prepare(self.lpm)
-        self._sampling = None
+        tracers.prepare(lpm)
+
+        # Commit the fully prepared scientific state atomically. The dataframe
+        # snapshot detects later row, value, unit, or uncertainty mutations.
+        self.lpm = lpm
+        self.tracers = tracers
+        self._prepared_observations_frame = self.observations.frame.copy(deep=True)
+        self._prepared = True
 
     def ensure_prepared(self) -> None:
         """Raise a clear error when the problem has not been initialized."""
@@ -167,6 +185,23 @@ class CalibrationProblem:
             raise RuntimeError(
                 "CalibrationProblem.initialize() must be called before calibration."
             )
+        assert self._prepared_observations_frame is not None
+        if not self.observations.frame.equals(self._prepared_observations_frame):
+            raise RuntimeError(
+                "Observations changed after CalibrationProblem.initialize(); "
+                "prepare a new problem from the modified observations."
+            )
+
+    def prepared_observation_arrays(self) -> tuple[np.ndarray, np.ndarray]:
+        """Return detached values and errors from the prepared observation snapshot."""
+        self.ensure_prepared()
+        assert self._prepared_observations_frame is not None
+        return (
+            self._prepared_observations_frame["concentration"].to_numpy(
+                dtype=float, copy=True
+            ),
+            self._prepared_observations_frame["error"].to_numpy(dtype=float, copy=True),
+        )
 
     def target_signature(self) -> target_signatures.CalibrationTargetSignature:
         """Return the immutable scientific identity of this prepared problem.
@@ -205,7 +240,7 @@ class CalibrationProblem:
            \chi^2(\theta)=\sum_i
            \left[\frac{m_i(\theta)-y_i}{\sigma_i}\right]^2.
 
-        Errors are assumed independent and Gaussian. Parameter bounds and
+        Errors are assumed independent and Gaussian. Calibration ranges and
         priors are handled by calibration methods, not here. The modeled values
         are always produced by the physical forward model; optimizer-specific
         penalties are not hidden in concentrations.
@@ -234,16 +269,37 @@ class CalibrationProblem:
 
         """
         self.ensure_prepared()
+        assert self.lpm is not None
+        return self.objective_function_for_lpm(
+            self.lpm,
+            parameters,
+            observed_values,
+            observed_errors,
+            return_concentrations=return_concentrations,
+        )
+
+    def objective_function_for_lpm(
+        self,
+        lpm: LpmBase,
+        parameters,
+        observed_values,
+        observed_errors,
+        *,
+        return_concentrations: bool = False,
+    ):
+        """Evaluate one parameter vector on an explicitly supplied working LPM.
+
+        The supplied model is the only mutable object changed by this method.
+        Samplers use a private candidate LPM so a proposal cannot alter the
+        problem's committed model before the transition is accepted.
+        """
+        self.ensure_prepared()
         errors = np.asarray(observed_errors, dtype=float)
         if np.any(errors <= 0.0) or not np.all(np.isfinite(errors)):
             raise ValueError("Calibration errors must be finite and strictly positive.")
-        assert self.lpm is not None
         assert self.tracers is not None
-        # Objective evaluation is intentionally stateful at this low-level
-        # boundary: the prepared LPM is updated, then every ordered tracer uses
-        # that same parameter vector for its forward calculation.
-        self.lpm.set_param_from_array(parameters)
-        modeled = self.tracers.convolve(self.lpm)
+        lpm.set_param_from_array(parameters)
+        modeled = self.tracers.convolve(lpm)
         objective = float(
             np.sum(squared_normalized_residuals(observed_values, modeled, errors))
         )

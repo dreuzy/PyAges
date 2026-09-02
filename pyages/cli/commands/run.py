@@ -1,9 +1,18 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file implements the command that launches a configured PyAges workflow.
 
-"""
-PyAges run command - Execute simulations from YAML config.
+"""Execute a single-date or temporal workflow with ``pyages run``.
+
+The command reads the supplied YAML file, validates command-line overrides, and
+applies those overrides to a temporary configuration so the user's original
+file is never rewritten. The resulting mapping determines which installed
+workflow entry point receives the run.
+
+Configuration and validation errors are formatted for command-line users before
+scientific execution begins. On completion, the workflow's terminal status is
+translated into a stable process exit code for shells and automation scripts.
 """
 
 from __future__ import annotations

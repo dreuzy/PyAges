@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file checks a complete calibration workflow with synthetic observations
+# generated from known model parameters. It recalibrates each case and writes
+# the recovered parameters and errors so scientific regressions can be detected.
 
 """Synthetic recovery qualification for end-to-end calibration checks.
 

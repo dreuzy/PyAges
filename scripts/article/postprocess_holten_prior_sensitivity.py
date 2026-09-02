@@ -36,6 +36,7 @@ from scripts.common.publication_plotting import (  # noqa: E402
     mm_to_in,
     save_pdf_png,
 )
+from scripts.common.reporting import markdown_table  # noqa: E402
 
 DEFAULT_BASELINE = ROOT / "results" / "final_article_simulations" / "holten_h4_final"
 DEFAULT_DIRICHLET = ROOT / "results" / "robustness" / "holten_prior_dirichlet1"
@@ -364,13 +365,7 @@ def _table_c2(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def _markdown_table(frame: pd.DataFrame) -> str:
-    headings = "| " + " | ".join(frame.columns) + " |"
-    rule = "| " + " | ".join("---" for _ in frame.columns) + " |"
-    rows = [
-        "| " + " | ".join(str(value) for value in row) + " |"
-        for row in frame.itertuples(index=False, name=None)
-    ]
-    return "\n".join([headings, rule, *rows]) + "\n"
+    return markdown_table(frame) + "\n"
 
 
 def _summary(

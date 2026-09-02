@@ -223,7 +223,7 @@ multichain:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `strategy` | string | `bounds_stratified` | Dispersed Latin-hypercube draws over physical bounds, or effective marginal prior mass when a prior is active |
+| `strategy` | string | `bounds_stratified` | Dispersed Latin-hypercube draws over calibration ranges, or effective marginal prior mass when a prior is active |
 | `explicit_starts` | array of mappings or null | null | Exactly one complete parameter mapping per chain; accepted only with `strategy: explicit` |
 | `max_attempts` | integer | 100 | Maximum within-stratum retries for unresolved `bounds_stratified` candidates that fail the active-prior support check; currently unused by the other strategies; at least 1 |
 
@@ -234,9 +234,9 @@ starts every chain from the LPM defaults; and `prior_map`, which deliberately
 starts every chain at a bounded prior mode. The two deterministic strategies
 are compatibility tools, not dispersed convergence checks. `prior_sample` and
 `prior_map` require `prior_option: true` and a prior covering every parameter.
-Every returned candidate is checked against the physical bounds and, when the
+Every returned candidate is checked against the calibration ranges and, when the
 prior is active, its support. `prior_sample` uses each prior marginal conditioned
-on the physical interval through an exact bounded quantile; `prior_map` uses a
+on the operational interval through an exact bounded quantile; `prior_map` uses a
 bounded marginal mode. Neither strategy performs rejection sampling or consumes
 `max_attempts`.
 
@@ -398,7 +398,7 @@ For an ensemble, place the mapping from
 The temporal workflow currently always enables the parametric priors declared
 in each selected LPM's `params.yaml` (`prior_option=True`,
 `prior_type="parametric"`). Unlike the single-date workflow, it does not expose
-`prior_option` or `prior_type` in this YAML section. Physical LPM bounds remain
+`prior_option` or `prior_type` in this YAML section. LPM calibration ranges remain
 active and restrict the resulting target. Changing this behavior therefore
 requires a workflow/API change, not an undocumented configuration key.
 
@@ -454,7 +454,11 @@ parameters:
     label: mean_age                 # Human-readable label
     unit: year                      # Physical unit
     description: "Mean of the distribution."
-    bounds: [0.1, 70.0]            # Valid range [min, max]
+    domain:                         # Formula validity, independent of inference
+      min: 0.0
+      min_inclusive: false
+      max: null
+    calibration_range: [0.1, 70.0] # Finite operational search range
     init: 10.0                      # Initial value for simplex
     step: 1.5                       # MH proposal step size
     prior:
@@ -467,7 +471,8 @@ parameters:
     label: std_age
     unit: year
     description: "Standard deviation parameter."
-    bounds: [0.1, 70.0]
+    domain: {min: 0.0, min_inclusive: false, max: null}
+    calibration_range: [0.1, 70.0]
     init: 2.0
     step: 1.0
     prior:
@@ -487,7 +492,8 @@ notes: "Optional notes about the model."
 | `label` | string | No | Display label |
 | `unit` | string | No | Physical unit |
 | `description` | string | No | Parameter description |
-| `bounds` | array | Yes | `[min, max]` valid range |
+| `domain` | object | Yes for new files | Mathematical formula domain; `min` or `max` may be `null`, and endpoints are inclusive unless the corresponding `*_inclusive` flag is false |
+| `calibration_range` | array | Yes for new files | Finite inclusive `[min, max]` used by optimizers and samplers |
 | `init` | number | Yes | Initial value for optimization |
 | `step` | number | Conditional | Proposal step used with `componentwise_source="model"` |
 | `prior` | object | No | Prior distribution specification |
@@ -495,13 +501,15 @@ notes: "Optional notes about the model."
 At LPM construction time, PyAges validates the runtime fields used by the
 model: the YAML `model` identifier must match the requested LPM; parameter
 names must be non-empty, unique, and exactly match the model constructor;
-every `bounds` pair must contain finite numbers in ascending order; and each
-finite `init` value must lie inside its inclusive bounds. The constructor's
+every `calibration_range` pair must contain finite numbers in ascending order
+and lie inside `domain`; and each finite `init` value must lie inside its
+inclusive calibration range. The constructor's
 parameter order remains the canonical order for calibration vectors even when
 the entries appear in another order in YAML.
 
-The shared YAML loader validates `version`, `name`, `bounds`, `init`, and any
-supplied `step` or `prior`, then caches an immutable schema. Cache reuse is
+The shared YAML loader validates `version`, `name`, `domain`,
+`calibration_range`, `init`, and any supplied `step` or `prior`, then caches an
+immutable schema. Cache reuse is
 based on the exact file content, so replacing a file while preserving its size
 and timestamp cannot return stale parameters. `ParameterManager` binds that
 schema to the constructor's parameter set and order. Descriptive fields remain
@@ -509,7 +517,7 @@ available in the defensive copy returned by the document loader; proposal
 steps and priors are exposed through the immutable runtime schema.
 
 `step` may be omitted when Metropolis-Hastings derives componentwise proposal
-scales from parameter bounds (the default). It is required for every parameter
+scales from parameter calibration ranges (the default). It is required for every parameter
 when `MHConfig(componentwise_source="model")` is selected. When present, it
 must be finite and strictly positive.
 
@@ -529,9 +537,21 @@ mean and a finite, strictly-positive standard deviation. Unknown prior types
 and incomplete prior mappings are rejected while loading `params.yaml`. When
 parametric priors are enabled, every model parameter must define one.
 
-Parameter bounds remain active independently of the prior and define the
-admissible calibration domain. Scientific analyses should report both the
-bounds and the prior actually used.
+These fields answer three different questions:
+
+1. `domain`: can the LPM formula be evaluated? For example, an exponential
+   scale must be strictly positive, but it has no universal finite maximum.
+2. `calibration_range`: what finite interval is this run allowed to search?
+   It is a numerical and study-design choice inside the mathematical domain.
+3. `prior`: how is probability weighted before seeing the observations?
+
+The effective MH support is the intersection of the calibration range and the
+prior support. A normal prior is therefore conditioned on the calibration
+range; a uniform prior may narrow it further. Scientific analyses should
+report all three choices. For compatibility, version-1 files may still use
+`bounds` instead of `calibration_range`; when `domain` is absent, that legacy
+range is also used as the mathematical domain. New files should use the
+explicit fields.
 
 ---
 

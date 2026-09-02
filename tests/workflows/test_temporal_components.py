@@ -405,3 +405,58 @@ def test_prepare_temporal_context_does_not_stage_before_missing_dataset_failure(
         temporal_context.prepare_context(config_path)
 
     begin.assert_not_called()
+
+
+def test_prepare_temporal_context_does_not_precreate_public_leaf(
+    tmp_path, monkeypatch
+) -> None:
+    config_path = tmp_path / "config.yaml"
+    dataset_path = tmp_path / "observations.tsv"
+    dataset_path.write_text("unused\n", encoding="utf-8")
+    results_root = tmp_path / "results"
+    params = SimpleNamespace(
+        dataset=SimpleNamespace(
+            file=dataset_path.name,
+            error_rel=None,
+            missing_error_rel=0.01,
+        ),
+        results=TemporalResultsCfg(
+            use_default=False,
+            directory=str(results_root),
+            study_name="audit",
+        ),
+        workflow=SimpleNamespace(mode="span"),
+        lpm_models=SimpleNamespace(),
+    )
+    expected_public = results_root / "audit" / dataset_path.stem / "span"
+    handle = SimpleNamespace(working_directory=tmp_path / "stage")
+
+    def begin(directory):
+        assert directory == expected_public
+        assert not directory.exists()
+        return handle
+
+    monkeypatch.setattr(temporal_context, "configuration_root", lambda _path: tmp_path)
+    monkeypatch.setattr(
+        temporal_context,
+        "_load_params_validated",
+        lambda _path: params,
+    )
+    monkeypatch.setattr(
+        temporal_context,
+        "_resolve_lpms",
+        lambda *_args: (["exp"], tmp_path / "lpms"),
+    )
+    monkeypatch.setattr(
+        temporal_context,
+        "_load_concentrations",
+        lambda *_args: object(),
+    )
+    monkeypatch.setattr(temporal_context, "begin_staged_result_run", begin)
+
+    context = temporal_context.prepare_context(config_path)
+
+    assert context.result_run is handle
+    assert context.output_directory == handle.working_directory
+    assert expected_public.parent.is_dir()
+    assert not expected_public.exists()

@@ -141,6 +141,27 @@ flowchart TB
 Arrows represent runtime dependencies or data flow. `examples` and `sites`
 consume the installable core; the core does not import them.
 
+This diagram is intentionally conceptual: an arrow can represent either an
+import or an object passed at runtime. It is not an exhaustive Python import
+graph. The following dependency rules are the ones contributors should enforce:
+
+- `config` validates user intent but does not execute scientific workflows;
+- `data_io` owns file formats and immutable serialization schemas, not domain
+  calculations;
+- scientific packages (`tracer`, `lpm`, `convolution`, and `calibration`) do
+  not import workflow or reporting code;
+- `workflows` may compose every lower layer, while `reporting` consumes result
+  records without controlling execution;
+- a new reverse dependency between two top-level packages requires an explicit
+  architecture review rather than a convenience import.
+
+Two bounded edges are currently accepted. Configuration models validate the
+names of registered LPMs and calibration schedules, without running them.
+Domain records may use focused readers or writers from `data_io`; conversely,
+`data_io` may serialize those records, but must not acquire scientific
+behavior. These edges avoid duplicate validation while keeping execution in
+the domain and workflow layers.
+
 ## Runtime diagram
 
 ```{mermaid}

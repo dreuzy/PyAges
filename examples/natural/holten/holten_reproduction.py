@@ -5,9 +5,11 @@
 
 """Reproduce the Holten four-bin benchmark with tritiogenic helium.
 
-This module deliberately stays local to the Holten example.  It adds the
-fourth observable used by Visser et al. (2013), tritiogenic 3He, without
-changing the generic PyAges calibration stack or the Ploemeur example.
+The script prepares coupled tritium/helium responses, selects the documented
+forward convention, fits and samples three- and four-observable scenarios,
+then writes comparison tables, figures, and a provenance manifest. It stays
+local to the Holten example because the audited helium datum and old
+end-members are properties of this study, not generic PyAges behavior.
 """
 
 from __future__ import annotations
@@ -44,6 +46,8 @@ from examples.natural.holten.holten_four_bin import (
 )
 from examples.natural.holten.holten_prepare import prepare_holten_inputs
 from pyages.tracer.simple_tracers import SyntheticTracer
+from scripts.common.provenance import git_output
+from scripts.common.provenance import sha256_file as _sha256
 
 TRACERS_3 = ("3H", "kr85", "39Ar")
 TRACERS_4 = ("3H", "3He_trit", "kr85", "39Ar")
@@ -69,6 +73,8 @@ class ForwardConvention:
 
 @dataclass(frozen=True)
 class SamplingConfig:
+    """Control the local MH chains used for the Holten comparison."""
+
     nstep: int = 10_000
     burn_in: float = 0.2
     proposal_scale: float = 0.18
@@ -287,6 +293,7 @@ def _objective(
 
 
 def optimize_well(obs: pd.DataFrame, endmembers: pd.DataFrame) -> dict[str, Any]:
+    """Find one well's maximum-likelihood four-bin fractions."""
     tracers = obs["element"].astype(str).tolist()
     values = obs["concentration"].to_numpy(dtype=float)
     errors = obs["error"].to_numpy(dtype=float)
@@ -331,6 +338,7 @@ def fit_scenario(
     include_helium: bool,
     scenario: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Fit every selected well and return fractions and concentration residuals."""
     summaries: list[dict[str, Any]] = []
     concentration_rows: list[dict[str, Any]] = []
     for well_id in prepared.context.selected_wells:
@@ -443,6 +451,7 @@ def _split_rhat(values: np.ndarray) -> float:
 
 
 def summarize_samples(samples: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Summarize marginal fractions and chain convergence by scenario and well."""
     summaries: list[dict[str, Any]] = []
     diagnostics: list[dict[str, Any]] = []
     for (scenario, well_id), group in samples.groupby(
@@ -485,6 +494,7 @@ def compare_fractions(
     optimizer: pd.DataFrame,
     posterior: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Compare optimizer and posterior fractions with the Visser reference."""
     rows: list[dict[str, Any]] = []
     for scenario in optimizer["scenario"].unique():
         opt = optimizer.loc[optimizer["scenario"] == scenario].set_index("well_id")
@@ -743,6 +753,7 @@ def plot_figure10b_reproduction(
 
 
 def plot_modeled_observed(concentrations: pd.DataFrame, output_path: Path) -> None:
+    """Plot measured and modeled concentrations for the corrected scenario."""
     data = concentrations.loc[concentrations["scenario"] == "corrected_4_observables"]
     fig, axes = plt.subplots(2, 2, figsize=(11.5, 8.0))
     for ax, tracer in zip(axes.ravel(), TRACERS_4, strict=False):
@@ -844,21 +855,6 @@ def plot_new_figure3(comparison: pd.DataFrame, output_path: Path) -> None:
     plt.close(fig)
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def _git(root: Path, *args: str) -> str:
-    result = subprocess.run(
-        ["git", *args], cwd=root, check=True, capture_output=True, text=True
-    )
-    return result.stdout.strip()
-
-
 def write_manifest(
     prepared: PreparedHoltenCase,
     output_dir: Path,
@@ -866,6 +862,7 @@ def write_manifest(
     config: SamplingConfig,
     generated: list[Path],
 ) -> Path:
+    """Record inputs, software, Git state, conventions, and generated outputs."""
     root = Path(__file__).resolve().parents[3]
     diff = subprocess.run(
         ["git", "diff", "--binary", "HEAD"], cwd=root, check=True, capture_output=True
@@ -885,8 +882,8 @@ def write_manifest(
     manifest = {
         "description": "Holten reproduction with corrected tritiogenic 3He parent-daughter response",
         "git": {
-            "commit": _git(root, "rev-parse", "HEAD"),
-            "status_porcelain": _git(root, "status", "--short"),
+            "commit": git_output(root, "rev-parse", "HEAD").strip(),
+            "status_porcelain": git_output(root, "status", "--short").strip(),
             "tracked_diff_sha256": hashlib.sha256(diff).hexdigest(),
         },
         "versions": {
@@ -921,6 +918,7 @@ def write_manifest(
 
 
 def run_reproduction(output_dir: Path, sampling: SamplingConfig) -> dict[str, Path]:
+    """Execute the complete Holten reproduction and return its artifact paths."""
     prepared = prepare_holten_inputs()
     output_dir.mkdir(parents=True, exist_ok=True)
     paper = load_paper_4bin_fractions(prepared)
@@ -998,6 +996,7 @@ def run_reproduction(output_dir: Path, sampling: SamplingConfig) -> dict[str, Pa
 
 
 def main() -> None:
+    """Parse command-line settings and run the Holten reproduction."""
     root = Path(__file__).resolve().parents[3]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

@@ -2,7 +2,14 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Build the canonical four-case multi-chain qualification archive."""
+"""Build the canonical four-case multi-chain qualification archive.
+
+The generic archive builder accepts arbitrary qualified result trees. This
+adapter is stricter: it discovers exactly the registered synthetic,
+single-date, prior-active, and temporal results produced by one extensive
+pytest run, matches each result to its executed YAML digest, and then delegates
+the deterministic archive assembly. It never changes scientific outputs.
+"""
 
 from __future__ import annotations
 

@@ -459,6 +459,7 @@ def test_prepare_context_does_not_stage_when_observations_cannot_be_loaded(
         use_default=False,
         directory=tmp_path / "custom-results",
         study_name="audit",
+        create=False,
     )
     session.close_all.assert_called_once_with()
 

@@ -1,8 +1,20 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file centralizes conventions shared by scientific report figures.
 
-"""Shared styles and data helpers for scientific result figures."""
+"""Provide consistent colors, labels, data adapters, and figure finalization.
+
+Reporting functions use these helpers to extract pandas frames from supported
+result objects, identify best samples, choose stable method colors, and format
+tracer names with their units. Objective plots also share interpolation and
+reference-location routines so their visual layers have the same meaning.
+
+The save helper writes a figure only when a filename is supplied and otherwise
+returns the live Matplotlib object to the caller. Keeping these conventions here
+prevents individual reports from silently assigning different semantics to the
+same marker or color.
+"""
 
 from __future__ import annotations
 
@@ -165,8 +177,23 @@ def _nearest_reference_objective_row(
     reference_params: dict[str, float] | None,
     param_names: list[str],
 ):
+    """Return the objective-grid row nearest to available reference parameters.
+
+    Distance is the unscaled squared Euclidean distance in the parameter columns
+    shared by ``param_names``, ``reference_params``, and ``objective_frame``.
+    Rows with non-numeric coordinates are excluded. If no reference coordinate
+    or no valid row remains, ``None`` is returned; equal distances retain the
+    first grid row selected by NumPy.
+
+    The returned objective value is an approximation at the existing grid point,
+    not an interpolation at the exact reference parameters. Parameters with very
+    different numerical scales can therefore dominate this visual marker.
+    """
+
     if not reference_params:
         return None
+    # Partial references are useful for plotting, but the distance must use the
+    # same ordered subset for the grid matrix and reference vector.
     available = [
         name
         for name in param_names

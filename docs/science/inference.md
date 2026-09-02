@@ -12,16 +12,21 @@ The exact $\chi^2$ equation, log target, objective transformations, and legacy
 output labels are defined in {doc}`../scientific-methods`. That page is
 normative whenever an output uses the generic word “objective.”
 
-## Priors and bounds
+## Domains, calibration ranges, and priors
 
-Bounds define the admissible parameter domain. A uniform prior contributes no
-relative preference inside that domain and zero probability outside it.
-Informative priors may encode independent hydrogeological knowledge, but their
-effect must be distinguished from information supplied by the tracers.
+PyAges treats three restrictions separately. The mathematical domain states
+where an LPM formula is defined. The finite calibration range states where an
+optimizer or sampler is allowed to search for a particular analysis. The prior
+weights values before the observations are used. A uniform prior contributes
+no relative preference on its support; a normal prior remains informative.
+The effective posterior support is the intersection of the calibration range
+and prior support, and the calibration range must itself lie inside the
+mathematical domain.
 
 Default parameter files are starting configurations, not universal priors.
-Report the actual bounds, prior family, parameters, and coordinate
-transformation used by a scientific analysis.
+Report the mathematical domain, actual calibration range, prior family,
+parameters, effective support, and coordinate transformation used by a
+scientific analysis.
 
 ## Metropolis--Hastings workflow
 

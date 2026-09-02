@@ -1,14 +1,20 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# Purpose: Implement fixed MH random walks and their Hastings corrections.
+# This file defines how an MH chain proposes its next parameter values.
 
-"""Fixed random-walk proposals for Metropolis--Hastings calibration.
+"""Create candidate parameter values for each Metropolis--Hastings step.
 
-Native-space proposals are symmetric. The sum/difference proposal uses a
-linear coordinate change whose constant Jacobian cancels. A proposal in
-SciPy's inverse-Gaussian ``(shape, scale, shift)`` coordinates has a
-state-dependent Jacobian and therefore supplies its exact Hastings correction.
+The sampler can change each parameter separately or draw all changes together
+from a multivariate Gaussian distribution. The Gaussian covariance is fixed
+before a production chain starts; this module does not adapt it while sampling.
+
+Most proposal modes are symmetric: proposing B from A has the same density as
+proposing A from B, so their Hastings correction is zero. The inverse-Gaussian
+mode draws in SciPy's ``(shape, scale, shift)`` parameter system and converts
+back to physical ``(mean, standard deviation, shift)`` values. That nonlinear
+conversion is not symmetric in physical coordinates, so this module also
+calculates the correction required by the acceptance probability.
 """
 
 from __future__ import annotations
@@ -27,22 +33,23 @@ from pyages.calibration.methods.mh.ig_coordinates import (
 
 
 class Proposal(Protocol):
-    """Common interface used by every Metropolis--Hastings proposal."""
+    """Operations that every proposal mechanism must provide to the sampler."""
 
     def draw(self, current: Sequence[float], rng: np.random.Generator) -> np.ndarray:
-        """Draw one proposal in native LPM parameter order."""
+        """Return candidate parameters in the model's parameter order."""
 
     def log_hastings_ratio(
         self, current: Sequence[float], proposed: Sequence[float]
     ) -> float:
-        """Return ``log q(current|proposed) - log q(proposed|current)``."""
+        """Return the correction for unequal forward and reverse probabilities."""
 
 
 class ComponentwiseRandomWalk:
-    """Independent scalar Gaussian steps in native LPM coordinates.
+    """Propose a separate Gaussian change for every model parameter.
 
-    Scalar calls to ``standard_normal`` deliberately preserve the historical
-    seeded protocol independently of NumPy's multivariate implementation.
+    Each parameter has its own fixed step size. The class draws the random
+    changes one at a time to preserve the historical results produced by a
+    given seed, independently of NumPy's multivariate Gaussian implementation.
     """
 
     def __init__(self, source: str, fraction: float) -> None:
@@ -56,7 +63,10 @@ class ComponentwiseRandomWalk:
         """Resolve ordered finite positive steps for a concrete LPM."""
         self.names = tuple(lpm.p)
         if self.source == "bounds":
-            values = [self.fraction * lpm.get_param_range(name) for name in self.names]
+            values = [
+                self.fraction * lpm.get_calibration_range_width(name)
+                for name in self.names
+            ]
         else:
             from pyages.data_io import lpm_params
 
@@ -139,7 +149,11 @@ def sum_difference_log_abs_det_jacobian() -> float:
 def regularize_empirical_covariance(
     samples: np.ndarray, relative_ridge: float = 1.0e-6
 ) -> np.ndarray:
-    """Estimate a covariance and add a small scale-aware diagonal ridge."""
+    """Estimate covariance and stabilize parameter directions with low variance.
+
+    The added diagonal value is scaled to the average variance, so the same
+    ``relative_ridge`` remains meaningful when parameter units change.
+    """
     values = np.asarray(samples, dtype=float)
     if values.ndim != 2 or values.shape[0] < 2:
         raise ValueError("samples must contain at least two multivariate draws")
@@ -152,18 +166,25 @@ def regularize_empirical_covariance(
 
 @dataclass(frozen=True)
 class GaussianRandomWalk:
-    r"""Fixed Gaussian random walk in a declared coordinate system.
+    r"""Propose all parameter changes together with one fixed Gaussian model.
 
-    ``covariance`` is expressed in squared units of ``coordinate_system`` and
-    is held constant throughout the chain; no adaptation occurs. Native and
-    linear sum/difference proposals are symmetric in physical parameters. For
-    ``scipy_ig``, the Gaussian is symmetric in SciPy
-    ``(shape, scale, shift)`` coordinates, but transformation to physical
-    ``(M, S, shift)`` coordinates makes the proposal asymmetric.
+    ``covariance`` controls both the size of each parameter change and how the
+    changes are correlated. It is expressed in the selected coordinate system
+    and does not change while the chain runs.
 
-    Since ``|d(shape, scale)/d(M, S)| = 2/S``, the SciPy-IG Hastings term is
-    ``log(S_proposed / S_current)``. Physical LPM bounds are checked by the
-    target after drawing; this class does not truncate or reflect proposals.
+    In ``native`` mode, the Gaussian is applied directly to the model
+    parameters. In ``sum_difference`` mode, two parameters are temporarily
+    replaced by their sum and difference. Both modes have equal forward and
+    reverse proposal probabilities.
+
+    In ``scipy_ig`` mode, the Gaussian is applied to SciPy's inverse-Gaussian
+    ``(shape, scale, shift)`` values and the result is converted back to
+    physical ``(M, S, shift)`` values. This nonlinear conversion makes the
+    forward and reverse probabilities unequal.
+
+    The required correction is ``log(S_proposed / S_current)`` because
+    ``|d(shape, scale)/d(M, S)| = 2/S``. This class may propose values outside
+    the configured calibration ranges; the target evaluation rejects them later.
     """
 
     covariance: np.ndarray
@@ -209,7 +230,7 @@ class GaussianRandomWalk:
         return cls(np.diag(values**2), coordinate_system=coordinate_system)
 
     def draw(self, current: Sequence[float], rng: np.random.Generator) -> np.ndarray:
-        """Draw one unbounded proposal in the declared coordinate system."""
+        """Draw a candidate without clipping it to calibration ranges."""
         state = np.asarray(current, dtype=float)
         if state.shape != (self.covariance.shape[0],):
             raise ValueError("current state and proposal covariance dimensions differ")
@@ -230,11 +251,11 @@ class GaussianRandomWalk:
     def log_hastings_ratio(
         self, current: Sequence[float], proposed: Sequence[float]
     ) -> float:
-        r"""Return ``log q(current|proposed) - log q(proposed|current)``.
+        r"""Return the correction for forward and reverse proposal probabilities.
 
-        The value is zero for native and sum/difference coordinates. For
-        ``scipy_ig`` it is ``log(S_proposed / S_current)`` from the nonlinear
-        inverse-Gaussian coordinate Jacobian.
+        Native and sum/difference proposals are symmetric, so their correction
+        is zero. The nonlinear ``scipy_ig`` conversion requires
+        ``log(S_proposed / S_current)``.
         """
         if self.coordinate_system == "scipy_ig":
             current_values = np.asarray(current, dtype=float)
@@ -247,7 +268,8 @@ class GaussianRandomWalk:
                 or not np.all(np.isfinite(proposed_values))
             ):
                 return 0.0
-            # |d(shape,scale)/d(M,S)|=2/S.
+            # Changing from (M, S) to (shape, scale) multiplies density by 2/S.
+            # The constants cancel between directions, leaving S_new / S_old.
             return math.log(proposed_values[1] / current_values[1])
         return 0.0
 

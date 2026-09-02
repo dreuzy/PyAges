@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file converts observations into per-tracer time series and merges modeled
+# series only when dates and column names remain unambiguous.
+# The long representation preserves repeated measurements; conversion to a wide
+# table rejects duplicate dates because that format has no replicate identifier.
 
 """Represent, normalize, and merge tracer concentration series.
 

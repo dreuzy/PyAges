@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file provides operator commands for interrupted workflow staging trees.
 
-"""Inspect and explicitly quarantine interrupted workflow staging trees."""
+"""Expose staging inspection and quarantine through the PyAges command line.
+
+Inspection inventories managed staging directories and reports journal validity,
+terminal-manifest sealing, artifact integrity, publication state, and whether a
+run is currently promotable. Output can be formatted for people or automation,
+and the inspection path does not modify the candidate tree.
+
+Quarantine requires the complete run identifier and explicit confirmation. It
+atomically renames the selected stage to a managed quarantine sibling; it never
+publishes or deletes the interrupted artifacts.
+"""
 
 from __future__ import annotations
 

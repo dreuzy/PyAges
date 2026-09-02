@@ -14,6 +14,7 @@ import pytest
 from scipy.stats import multivariate_normal
 
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh._sampler_target import MHTarget
 from pyages.calibration.methods.mh.ig_coordinates import (
     physical_to_scipy_coordinates,
     scipy_to_physical_coordinates,
@@ -32,8 +33,11 @@ from pyages.calibration.methods.mh.proposals import (
 class _BoundedTarget:
     p = {"mu": 10.0, "shift": 10.0}
 
+    def set_param_from_array(self, values):
+        self.p = dict(zip(self.p, values, strict=True))
+
     @staticmethod
-    def param_within_bounds_array(values):
+    def param_within_calibration_range_array(values):
         return 0.1 <= values[0] <= 70.0 and 0.0 <= values[1] <= 70.0
 
 
@@ -141,16 +145,24 @@ def test_target_and_bounds_do_not_depend_on_proposal_choice():
     )
     for sampler in (componentwise, transformed):
 
-        def objective_function(params, *_args, return_concentrations=False, **_kwargs):
+        def objective_function_for_lpm(
+            lpm, params, *_args, return_concentrations=False, **_kwargs
+        ):
+            lpm.set_param_from_array(params)
             result = float(params[0] ** 2 + 0.5 * params[1] ** 2)
             return (result, [1.0]) if return_concentrations else result
 
         problem = SimpleNamespace(
             lpm=_BoundedTarget(),
-            objective_function=objective_function,
+            objective_function_for_lpm=objective_function_for_lpm,
             ensure_prepared=lambda: None,
         )
         sampler._bind_problem(problem)
+        sampler._target = MHTarget(  # noqa: SLF001
+            problem,
+            sampler.prior,
+            likelihood=True,
+        )
     args = ([10.0, 30.0], np.array([1.0]), np.array([1.0]))
     componentwise_target = componentwise._log_posterior_eval(*args)  # noqa: SLF001
     transformed_target = transformed._log_posterior_eval(*args)  # noqa: SLF001
@@ -170,4 +182,4 @@ def test_target_and_bounds_do_not_depend_on_proposal_choice():
             np.array([1.0]),
             rng,
         )
-        assert _BoundedTarget.param_within_bounds_array(state)
+        assert _BoundedTarget.param_within_calibration_range_array(state)

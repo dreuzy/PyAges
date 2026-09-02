@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file prepares validated inputs and staging for a temporal workflow.
 
-"""Configuration and scientific inputs for temporal workflows."""
+"""Build the shared context for a temporal workflow from its YAML configuration.
+
+Preparation resolves observation and data directories, validates the requested
+LPM names, loads dated concentrations, and fills missing measurement errors by
+the configured policy. Plotting is configured and a private result stage is
+created only after the scientific inputs are usable.
+
+The resulting context is reused across temporal cases and model calibrations.
+It also identifies every dataset, model definition, and tracer resource whose
+contents must be included in terminal provenance.
+"""
 
 from __future__ import annotations
 
@@ -131,13 +142,13 @@ def prepare_context(params_path: str | Path) -> TemporalContext:
     # Allocate the staging tree only after all scientific inputs required to
     # start the workflow have passed validation and loading.
     results_root = _results_root(params.results, configuration_directory)
-    result_directory = result_subdirectory(
-        result_subdirectory(
-            result_subdirectory(results_root, params.results.study_name),
-            dataset_path.stem,
-        ),
-        params.workflow.mode,
+    result_parent = result_subdirectory(
+        result_subdirectory(results_root, params.results.study_name),
+        dataset_path.stem,
     )
+    # Keep the public leaf absent until atomic promotion. Creating an empty leaf
+    # here makes its disappearance observable as a false concurrent mutation.
+    result_directory = result_parent / params.workflow.mode
     result_run = begin_staged_result_run(result_directory)
     output_directory = result_run.working_directory
     return TemporalContext(

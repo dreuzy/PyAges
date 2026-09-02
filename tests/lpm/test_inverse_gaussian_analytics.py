@@ -157,9 +157,5 @@ def test_inverse_gaussian_matches_article_density():
     "mean_age,std_age", [(0.0, 1.0), (-1.0, 1.0), (1.0, 0.0), (1.0, -1.0)]
 )
 def test_inverse_gaussian_rejects_non_positive_moments(mean_age, std_age):
-    model = InverseGaussianLpm(
-        mu=mean_age, sigma=std_age, directory_lpm=_data_directory()
-    )
-
-    with pytest.raises(ValueError):
-        model.mean()
+    with pytest.raises(ValueError, match="outside the mathematical domain"):
+        InverseGaussianLpm(mu=mean_age, sigma=std_age, directory_lpm=_data_directory())

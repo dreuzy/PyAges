@@ -333,3 +333,19 @@ def test_extensive_workflow_builds_archive_before_always_upload() -> None:
     assert "test_ploemeur_f09_multichain_s*" in workflow
     assert "test_ploemeur_ig_shifted_prior*" in workflow
     assert "test_ploemeur_temporal_multich*" in workflow
+    for scientific_path in (
+        "examples/**/*.py",
+        "examples/**/*.yaml",
+        "examples/**/*.csv",
+        "examples/**/*.json",
+        "examples/**/*.txt",
+        "examples/**/*.xlsx",
+        "sites/ploemeur/**",
+        "scripts/common/mcmc_diagnostics.py",
+        "scripts/common/provenance.py",
+        "scripts/common/reporting.py",
+        "scripts/qualification/_archive_*.py",
+        "scripts/qualification/build_multichain_archive.py",
+        "scripts/qualification/build_ci_multichain_archive.py",
+    ):
+        assert f'- "{scientific_path}"' in workflow

@@ -59,8 +59,8 @@ The extensive test requires:
 
 - five distinct dispersed starts and production seeds;
 - a positive-definite two-parameter proposal covariance;
-- finite samples inside the physical bounds, without visible accumulation at
-  those bounds;
+- finite samples inside the calibration ranges, without visible accumulation at
+  their limits;
 - convergence of every applicable parameter or derived quantity;
 - MCSE of the mean no larger than 10% of posterior standard deviation;
 - exact row-wise preservation of `mu`, `shift`, derived `p50`, objective, and

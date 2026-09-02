@@ -9,6 +9,9 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ### Added
 
+- Added a progressive Pyright gate for selected stable internal contracts and
+  direct tests for prior-bound validation, LPM parameter-manager failures, and
+  stage-inspection CLI errors.
 - Added opt-in multi-chain Metropolis--Hastings workflows with reproducible
   dispersed initialization, a separate pilot stage that learns one fixed
   pooled within-chain proposal covariance, independent production streams,
@@ -34,6 +37,24 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ### Changed
 
+- Split LPM parameter-schema validation, MH result consistency checks, and
+  workflow-manifest provenance/artifact/inspection logic into focused private
+  modules while preserving their existing public facades.
+- Clarified package dependency rules, simplified duplicated installation and
+  API-navigation documentation, and corrected remaining mojibake in the
+  non-Ploemeur article runner.
+- Shortened test-owned output paths for the extensive temporal Ploemeur case so
+  the documented extensive test command also runs with legacy Windows paths.
+- Single-date and temporal workflows now leave a new public result leaf absent
+  until atomic promotion, avoiding a false concurrent-mutation failure if an
+  empty leaf is removed during a long run.
+- Separated each LPM parameter's mathematical `domain`, operational
+  `calibration_range`, and probabilistic `prior` throughout runtime code,
+  shipped parameter metadata, examples, and documentation. Internal consumers
+  now use the calibration-range API as the source of truth; the historical YAML
+  `bounds` field and Python bounds-named accessors remain non-deprecated
+  compatibility aliases with no planned removal. `LpmScipy` is now explicitly
+  abstract, preventing accidental construction without a SciPy parameter map.
 - Staged-result verification now fails closed on symbolic links, Windows
   junctions, special files, unreadable subtrees, corrupted journals, and
   redirected public paths. The user-global hierarchy lock is stored as a

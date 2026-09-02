@@ -42,8 +42,8 @@ manifest records the effective transformation and all affected row indices.
 
 The normal priors are loaded from the canonical
 `data_core/data_lpm/exp_shifted/params.yaml`, not redefined by this example.
-They factorize over `mu` and `shift`; the sampler also enforces the physical LPM
-bounds, so the effective posterior target is restricted to those bounds. This
+They factorize over `mu` and `shift`; the sampler also enforces their calibration
+ranges, so the effective posterior target is restricted to those ranges. This
 is one declared prior model, not a prior-sensitivity analysis. The temporal
 workflow currently enables registered parametric priors unconditionally; unlike
 the single-date workflow, its YAML schema has no `prior_option` or `prior_type`
@@ -55,7 +55,7 @@ toggle.
 |---|---:|
 | Observations | 58 over 20 dates |
 | LPM | shifted exponential (`exp_shifted`) |
-| Parametric priors | `mu ~ Normal(25, 5)`; `shift ~ Normal(10, 2)` within physical bounds |
+| Parametric priors | `mu ~ Normal(25, 5)`; `shift ~ Normal(10, 2)` conditioned on the calibration ranges |
 | Production chains | 4 |
 | Production transitions per chain | 5,000 |
 | Production burn-in | 0.20 |

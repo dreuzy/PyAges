@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file orchestrates an installed single-date workflow from start to publication.
 
-"""Orchestration entry point for the installed single-date workflow."""
+"""Execute the complete single-date workflow described by one YAML file.
+
+The runner prepares validated inputs, samples reachable model space, executes
+the requested calibrations, renders reports, and exports predicted concentration
+histories in dependency order. Individual steps operate inside the private stage
+created by the workflow context.
+
+At the terminal boundary, the runner records either successful provenance or an
+MH convergence failure, then atomically publishes the sealed stage. Unexpected
+exceptions retain failure evidence and are propagated to the caller.
+"""
 
 from __future__ import annotations
 
@@ -41,7 +52,21 @@ def _manifest_details(context, calibrations: list[str]) -> dict[str, object]:
 
 
 def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path:
-    """Run every enabled step from a single-date YAML configuration."""
+    """Execute, seal, and publish every enabled single-date workflow step.
+
+    The configuration and observations are validated before a private result
+    stage is created. Inside that stage the runner saves prepared observations,
+    samples reachable concentrations, executes enabled calibrations, renders
+    reports, and exports modeled tracer histories. A successful terminal manifest
+    is written and sealed before atomic promotion to the public result path.
+
+    ``force_inline`` requests the notebook plotting backend during context
+    preparation. The returned path is the published result directory. If MH
+    convergence fails, available evidence receives a failure manifest and is
+    published when possible; the original ``MHConvergenceError`` is then raised
+    with the evidence location attached as a note. Other exceptions close open
+    figures and propagate without publishing an unsealed stage.
+    """
     if params_path is None:
         raise ValueError("params_path is required for the launcher")
     context = prepare_context(params_path, force_inline=force_inline)
@@ -57,6 +82,8 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
         run_objective_analysis(context, calibrated)
         write_concentration_outputs(context)
         context.plots.finish()
+        # Seal provenance only after every enabled scientific and reporting step
+        # has completed; promotion accepts no later artifact mutation.
         write_result_manifest(
             context.output_directory,
             workflow="single_date",
@@ -72,6 +99,8 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
         completed = ["Simplex"] if context.params.run_calibration_simplex else []
         details = _manifest_details(context, completed)
         details["calibrations_attempted"] = ["Metropolis_Hastings"]
+        # A convergence failure is a terminal scientific result rather than an
+        # infrastructure crash, so preserve its completed evidence when possible.
         try:
             write_failure_manifest(
                 context.output_directory,

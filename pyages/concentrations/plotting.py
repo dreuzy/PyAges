@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file draws observed and modeled concentration histories on axes supplied
+# by the caller; the surrounding workflow owns figure creation and saving.
+# It expects already normalized series and posterior summaries, keeping data
+# validation and scientific calculations outside the rendering layer.
 
 """Render concentration chronicles on caller-owned Matplotlib axes.
 

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 import difflib
-import hashlib
 import json
 import math
 import os
@@ -62,6 +61,7 @@ from scripts.common.mcmc_diagnostics import (
     split_rhat as _split_rhat,
 )
 from scripts.common.provenance import repository_provenance
+from scripts.common.provenance import sha256_file as _sha256
 from scripts.common.publication_plotting import (
     PUBLICATION_RC,
     mm_to_in,
@@ -137,14 +137,6 @@ EXPECTED_2024 = {
     "F09": {"cfc11": 227.778, "cfc12": 494.701, "cfc113": 63.033},
     "F11": {"cfc11": 25.588, "cfc12": 234.034, "cfc113": 18.378},
 }
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _path_label(path: Path, base: Path = ROOT) -> str:

@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file exposes the supported result-lifecycle operations shared by workflows.
+# Callers receive an isolated staging handle, write a success or failure manifest,
+# and promote the verified directory; lower-level locking details remain private.
 
 """Canonical contributor-facing execution services for workflows.
 

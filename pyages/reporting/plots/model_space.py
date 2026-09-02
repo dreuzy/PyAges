@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file locates single-date observations and calibrations in model space.
 
-"""Single-date observation and reachable-model figures."""
+"""Compare observed tracer values with reachable and calibrated concentrations.
+
+Systematic parameter sampling first defines the concentration combinations that
+the LPM can reach within its calibration ranges. The figure projects that
+reachable space into tracer pairs, then overlays the measured concentration,
+posterior samples from each calibration method, and each method's best solution.
+
+An optional independently calculated reference can be added as a separate point.
+For four or more tracers, only a compact subset of pairs is displayed so the
+figure remains a readable overview rather than a complete pair matrix.
+"""
 
 from __future__ import annotations
 
@@ -109,8 +120,19 @@ def plot_single_date_model_space(
     filename: str | Path | None = None,
     title: str = "Observed concentrations, reachable space and calibrated models",
 ):
-    """
-    Plot pairwise concentration panels for the single-date example.
+    """Locate observations and calibrated results in reachable concentration space.
+
+    Each panel projects two observed tracer/date quantities against each other.
+    The systematic ``reachable_frame`` forms the prior model-space cloud;
+    posterior samples from each calibration method are overlaid with a star at
+    their lowest-objective row. The measured concentrations and an optional
+    independently computed reference model use separate markers.
+
+    Models with four or more observed quantities are limited to four pairwise
+    panels, and posterior clouds larger than 450 rows are reproducibly thinned
+    for display only. The input results and selection of best rows are unchanged.
+    At least two quantities are required. The figure is optionally saved and is
+    returned to the caller.
     """
     apply_example_style()
     observed = concentration_sampled.frame.reset_index(drop=True)
@@ -123,6 +145,8 @@ def plot_single_date_model_space(
     pairs = list(combinations(range(len(concentration_columns)), 2))
     if not pairs:
         raise ValueError("At least two tracers are required to plot model space.")
+    # A full pair matrix grows quadratically and quickly obscures the comparison;
+    # four deterministic pairs provide the intended overview for larger cases.
     if len(concentration_columns) >= 4:
         pairs = pairs[:4]
 

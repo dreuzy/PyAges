@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file turns chain length, burn-in, thinning, and chain count into exact
+# retained-sample and maximum split-ESS values. Configuration validation uses
+# these pure calculations to reject convergence requests the run cannot meet.
 
 """Pure sample-count calculations shared by MCMC configuration layers.
 

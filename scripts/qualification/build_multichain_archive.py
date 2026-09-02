@@ -2,82 +2,93 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Build and verify self-contained multi-chain qualification archives."""
+"""Build and verify self-contained multi-chain qualification archives.
+
+This module is the stable command-line and orchestration façade. It validates
+all supplied evidence before copying it, assembles a deterministic ZIP, records
+the source and runtime environment, and independently verifies the completed
+container. Detailed filesystem, result-evidence, and extracted-payload checks
+live in private sibling modules so each security boundary can be read and
+tested separately.
+"""
 
 from __future__ import annotations
 
 import argparse
-import csv
-import hashlib
 import json
 import os
 import platform
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
 import zipfile
-from email.parser import Parser
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 from typing import Any, Iterable, Literal
 
 from pyages import __version__
+from scripts.common.provenance import git_output
+from scripts.common.provenance import sha256_bytes as _sha256_bytes
+from scripts.qualification._archive_contract import (
+    ARCHIVE_CHECKSUMS,
+    ARCHIVE_MANIFEST,
+    ARCHIVE_README,
+    ARCHIVE_SCHEMA_VERSION,
+    ZIP_TIMESTAMP,
+    sha256,
+)
+from scripts.qualification._archive_contract import (
+    is_link_or_junction as _is_link_or_junction,
+)
+from scripts.qualification._archive_contract import (
+    regular_files as _regular_files,
+)
+from scripts.qualification._archive_contract import (
+    safe_portable_path as _safe_portable_path,
+)
+from scripts.qualification._archive_evidence import (
+    distribution_identity as _distribution_identity,
+)
+from scripts.qualification._archive_evidence import (
+    validate_publishable_result_provenance as _validate_publishable_result_provenance,
+)
+from scripts.qualification._archive_evidence import (
+    validate_result_tree as _validate_result_tree,
+)
+from scripts.qualification._archive_verification import (
+    contained_path as _contained_path,  # noqa: F401 - tested compatibility alias
+)
+from scripts.qualification._archive_verification import (
+    safe_member_names as _safe_member_names,
+)
+from scripts.qualification._archive_verification import (
+    validate_extracted_semantics as _validate_extracted_semantics_impl,
+)
+from scripts.qualification._archive_verification import (
+    validate_publication_record as _validate_publication_record,
+)
+from scripts.qualification._archive_verification import (
+    validated_archive_entries as _validated_archive_entries,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
-ARCHIVE_MANIFEST = "QUALIFICATION_ARCHIVE.json"
-ARCHIVE_CHECKSUMS = "CHECKSUMS.sha256"
-ARCHIVE_README = "README.md"
-ARCHIVE_SCHEMA_VERSION = 1
-ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
 
-def _safe_portable_path(value: object, *, context: str) -> PurePosixPath:
-    """Return one canonical relative POSIX path that is safe on every OS."""
-    if not isinstance(value, str) or not value or "\\" in value:
-        raise RuntimeError(f"Unsafe qualification archive {context}: {value}")
-    relative = PurePosixPath(value)
-    if (
-        relative.is_absolute()
-        or not relative.parts
-        or ".." in relative.parts
-        or value != relative.as_posix()
-        or any(PureWindowsPath(part).drive for part in relative.parts)
-    ):
-        raise RuntimeError(f"Unsafe qualification archive {context}: {value}")
-    return relative
-
-
-def sha256(path: Path) -> str:
-    """Return the hexadecimal SHA-256 digest of one file."""
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def _sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+def _validate_extracted_semantics(root: Path, manifest: dict[str, Any]) -> None:
+    """Validate extracted evidence through the façade's replaceable validator."""
+    _validate_extracted_semantics_impl(
+        root,
+        manifest,
+        result_validator=_validate_result_tree,
+    )
 
 
 def _git_text(*args: str) -> str:
-    return subprocess.run(
-        ["git", *args],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
+    return git_output(ROOT, *args).strip()
 
 
 def _git_bytes(*args: str) -> bytes:
-    return subprocess.run(
-        ["git", *args],
-        cwd=ROOT,
-        capture_output=True,
-        check=True,
-    ).stdout
+    return git_output(ROOT, *args, binary=True)
 
 
 def _write_git_archive(destination: Path, head: str) -> None:
@@ -86,262 +97,6 @@ def _write_git_archive(destination: Path, head: str) -> None:
         cwd=ROOT,
         check=True,
     )
-
-
-def _is_link_or_junction(path: Path) -> bool:
-    is_junction = getattr(os.path, "isjunction", lambda _path: False)
-    return path.is_symlink() or bool(is_junction(path))
-
-
-def _regular_files(root: Path) -> list[Path]:
-    if _is_link_or_junction(root):
-        raise ValueError(f"Input tree is a symbolic link or junction: {root}")
-    files: list[Path] = []
-    for current, directories, filenames in os.walk(root, followlinks=False):
-        current_path = Path(current)
-        for name in directories:
-            candidate = current_path / name
-            if _is_link_or_junction(candidate):
-                raise ValueError(
-                    f"Input tree contains a symbolic link or junction: {candidate}"
-                )
-        for name in filenames:
-            candidate = current_path / name
-            if _is_link_or_junction(candidate):
-                raise ValueError(f"Input tree contains a symbolic link: {candidate}")
-            if not candidate.is_file():
-                raise ValueError(f"Input tree contains a non-regular file: {candidate}")
-            files.append(candidate)
-    return sorted(files, key=lambda path: path.relative_to(root).as_posix())
-
-
-def _read_key_values(path: Path) -> dict[str, str]:
-    try:
-        return dict(
-            line.split("\t", maxsplit=1)
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line
-        )
-    except ValueError as error:
-        raise RuntimeError(f"Invalid key/value qualification file: {path}") from error
-
-
-def _validate_diagnostics(path: Path) -> None:
-    with path.open(encoding="utf-8", newline="") as stream:
-        reader = csv.DictReader(stream, delimiter="\t")
-        required = {"included_in_qualification", "qualified"}
-        if reader.fieldnames is None or not required <= set(reader.fieldnames):
-            raise RuntimeError(f"Diagnostic table lacks qualification columns: {path}")
-        included = [row for row in reader if row["included_in_qualification"] == "True"]
-    if not included:
-        raise RuntimeError(f"Diagnostic table has no qualified quantities: {path}")
-    if any(row["qualified"] != "True" for row in included):
-        raise RuntimeError(f"Diagnostic table contains a failed gate: {path}")
-
-
-def _validate_result_tree(  # noqa: C901 - validates all nested evidence layers
-    root: Path,
-) -> dict[str, Any]:
-    root = root.resolve()
-    if not root.is_dir():
-        raise NotADirectoryError(root)
-    manifest_path = root / "result_manifest.json"
-    if not manifest_path.is_file():
-        raise FileNotFoundError(manifest_path)
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        raise RuntimeError(f"Invalid result manifest JSON: {manifest_path}") from error
-    if not isinstance(manifest, dict) or manifest.get("status") != "complete":
-        raise RuntimeError(f"Result tree is not terminal and complete: {root}")
-    if manifest.get("schema_version") != 2:
-        raise RuntimeError(f"Unsupported result manifest schema in {root}")
-    if manifest.get("workflow") not in {"single_date", "temporal"}:
-        raise RuntimeError(f"Unknown result workflow in {root}")
-    artifacts = manifest.get("artifacts_sha256")
-    if not isinstance(artifacts, dict) or not all(
-        isinstance(name, str) and isinstance(digest, str)
-        for name, digest in artifacts.items()
-    ):
-        raise RuntimeError(f"Result manifest has no valid artifact inventory: {root}")
-    state_path = root / ".pyages-run-state.json"
-    if state_path.exists():
-        raise RuntimeError(
-            f"Result tree still contains a staging journal: {state_path}"
-        )
-    actual = {
-        path.relative_to(root).as_posix(): sha256(path)
-        for path in _regular_files(root)
-        if path != manifest_path
-    }
-    if actual != artifacts:
-        missing = sorted(set(artifacts) - set(actual))
-        unexpected = sorted(set(actual) - set(artifacts))
-        changed = sorted(
-            name
-            for name in set(actual) & set(artifacts)
-            if actual[name] != artifacts[name]
-        )
-        raise RuntimeError(
-            "Result artifacts do not match result_manifest.json: "
-            f"missing={missing}, unexpected={unexpected}, changed={changed}"
-        )
-
-    diagnostic_paths = sorted(root.rglob("mcmc_diagnostics.tsv"))
-    if not diagnostic_paths:
-        raise RuntimeError(f"Result tree contains no multi-chain diagnostics: {root}")
-    qualified_directories: list[str] = []
-    for diagnostics in diagnostic_paths:
-        method_directory = diagnostics.parent
-        results_path = method_directory / "results_calibration.txt"
-        provenance_path = method_directory / "ensemble_provenance.txt"
-        if not results_path.is_file() or not provenance_path.is_file():
-            raise RuntimeError(
-                f"Incomplete multi-chain qualification artifacts beside {diagnostics}"
-            )
-        results = _read_key_values(results_path)
-        provenance = _read_key_values(provenance_path)
-        if results.get("qualification_status") != "qualified":
-            raise RuntimeError(f"Multi-chain result is not qualified: {results_path}")
-        if results.get("pooling_written") != "True":
-            raise RuntimeError(f"Qualified pooling is absent: {results_path}")
-        if provenance.get("execution_mode") != "multi_chain":
-            raise RuntimeError(
-                f"Result is not a multi-chain execution: {provenance_path}"
-            )
-        if provenance.get("qualification_status") != "qualified":
-            raise RuntimeError(f"Provenance is not qualified: {provenance_path}")
-        _validate_diagnostics(diagnostics)
-        chain_tables = list(
-            (method_directory / "chains").glob("chain_*/lpm_dist_calibrated.txt")
-        )
-        if len(chain_tables) < 2:
-            raise RuntimeError(f"Fewer than two retained chains beside {diagnostics}")
-        qualified_directories.append(method_directory.relative_to(root).as_posix())
-
-    configuration = manifest.get("configuration")
-    package = manifest.get("package")
-    repository = manifest.get("repository")
-    if not isinstance(configuration, dict) or not isinstance(
-        configuration.get("sha256"), str
-    ):
-        raise RuntimeError(f"Result manifest has no configuration digest: {root}")
-    if not isinstance(package, dict) or not isinstance(package.get("version"), str):
-        raise RuntimeError(f"Result manifest has no package version: {root}")
-    if str(package.get("name", "")).lower().replace("_", "-") != "pyages":
-        raise RuntimeError(f"Result manifest does not identify PyAges: {root}")
-    if manifest.get("pyages_version") != package["version"]:
-        raise RuntimeError(f"Result manifest has inconsistent PyAges versions: {root}")
-    if not isinstance(repository, dict):
-        raise RuntimeError(f"Result manifest has no repository provenance: {root}")
-    repository_head = repository.get("git_head")
-    repository_dirty = repository.get("dirty")
-    if repository_head is not None and (
-        not isinstance(repository_head, str) or not repository_head
-    ):
-        raise RuntimeError(f"Result manifest has invalid repository HEAD: {root}")
-    if repository_dirty is not None and not isinstance(repository_dirty, bool):
-        raise RuntimeError(f"Result manifest has invalid repository status: {root}")
-    return {
-        "workflow": manifest.get("workflow"),
-        "run_id": manifest.get("run_id"),
-        "configuration_sha256": configuration["sha256"],
-        "package_version": package["version"],
-        "repository_git_head": repository_head,
-        "repository_dirty": repository_dirty,
-        "qualified_directories": qualified_directories,
-        "artifact_count": len(artifacts),
-        "manifest_sha256": sha256(manifest_path),
-    }
-
-
-def _metadata_identity(text: str, source: Path) -> tuple[str, str]:
-    metadata = Parser().parsestr(text)
-    name = metadata.get("Name")
-    version = metadata.get("Version")
-    if not name or not version:
-        raise RuntimeError(f"Distribution metadata lacks Name or Version: {source}")
-    return name, version
-
-
-def _distribution_identity(  # noqa: C901 - validates wheel and both sdist containers
-    path: Path,
-) -> tuple[str, str, Literal["wheel", "sdist"]]:
-    if path.suffix == ".whl":
-        with zipfile.ZipFile(path) as archive:
-            corrupt = archive.testzip()
-            if corrupt is not None:
-                raise RuntimeError(
-                    f"Wheel contains a corrupt member {corrupt!r}: {path}"
-                )
-            candidates = sorted(
-                name
-                for name in archive.namelist()
-                if name.endswith(".dist-info/METADATA")
-            )
-            if len(candidates) != 1:
-                raise RuntimeError(f"Wheel must contain exactly one METADATA: {path}")
-            name, version = _metadata_identity(
-                archive.read(candidates[0]).decode("utf-8"), path
-            )
-        return name, version, "wheel"
-    if path.name.endswith((".tar.gz", ".tar.bz2", ".tar.xz")):
-        with tarfile.open(path, "r:*") as archive:
-            for member in archive.getmembers():
-                if not member.isfile():
-                    continue
-                stream = archive.extractfile(member)
-                if stream is None:  # pragma: no cover - guarded by member.isfile()
-                    raise RuntimeError(
-                        f"Cannot read sdist member {member.name}: {path}"
-                    )
-                for _block in iter(lambda source=stream: source.read(1024 * 1024), b""):
-                    pass
-            candidates = sorted(
-                (
-                    member
-                    for member in archive.getmembers()
-                    if member.isfile() and PurePosixPath(member.name).name == "PKG-INFO"
-                ),
-                key=lambda member: member.name,
-            )
-            if not candidates:
-                raise RuntimeError(f"Sdist contains no PKG-INFO: {path}")
-            identities: list[tuple[str, str]] = []
-            for candidate in candidates:
-                stream = archive.extractfile(candidate)
-                if stream is None:  # pragma: no cover - guarded by member.isfile()
-                    raise RuntimeError(f"Cannot read sdist metadata: {path}")
-                identities.append(
-                    _metadata_identity(stream.read().decode("utf-8"), path)
-                )
-            if len(set(identities)) != 1:
-                raise RuntimeError(f"Sdist has inconsistent PKG-INFO metadata: {path}")
-            name, version = identities[0]
-        return name, version, "sdist"
-    if path.suffix == ".zip":
-        with zipfile.ZipFile(path) as archive:
-            corrupt = archive.testzip()
-            if corrupt is not None:
-                raise RuntimeError(
-                    f"Sdist contains a corrupt member {corrupt!r}: {path}"
-                )
-            candidates = sorted(
-                name
-                for name in archive.namelist()
-                if PurePosixPath(name).name == "PKG-INFO"
-            )
-            if not candidates:
-                raise RuntimeError(f"Sdist contains no PKG-INFO: {path}")
-            identities = [
-                _metadata_identity(archive.read(candidate).decode("utf-8"), path)
-                for candidate in candidates
-            ]
-            if len(set(identities)) != 1:
-                raise RuntimeError(f"Sdist has inconsistent PKG-INFO metadata: {path}")
-            name, version = identities[0]
-        return name, version, "sdist"
-    raise ValueError(f"Unsupported distribution archive: {path}")
 
 
 def _publication_state(
@@ -390,28 +145,6 @@ def _is_within(path: Path, directory: Path) -> bool:
     except ValueError:
         return False
     return True
-
-
-def _validate_publishable_result_provenance(
-    summaries: Iterable[dict[str, Any]], publication: dict[str, Any]
-) -> None:
-    """Bind publishable results to the exact clean source revision being archived."""
-    if publication.get("mode") != "publishable":
-        return
-    expected_head = publication.get("git_head")
-    if not isinstance(expected_head, str) or not expected_head:
-        raise RuntimeError("Publishable archive has no valid Git HEAD")
-    for summary in summaries:
-        if summary.get("repository_git_head") != expected_head:
-            raise RuntimeError(
-                "Publishable result was not produced from the tagged Git commit: "
-                f"{summary.get('run_id')}"
-            )
-        if summary.get("repository_dirty") is not False:
-            raise RuntimeError(
-                "Publishable result was produced from a dirty or unknown worktree: "
-                f"{summary.get('run_id')}"
-            )
 
 
 def _recheck_publishable_state(
@@ -737,223 +470,6 @@ def build_archive(  # noqa: C901 - transactional assembly has explicit gates
     finally:
         shutil.rmtree(staging, ignore_errors=True)
     return output
-
-
-def _safe_member_names(archive: zipfile.ZipFile) -> list[str]:
-    names = archive.namelist()
-    if len(names) != len(set(names)):
-        raise RuntimeError("Qualification archive contains duplicate members")
-    for member in archive.infolist():
-        name = member.filename
-        _safe_portable_path(name, context="member")
-        file_type = (member.external_attr >> 16) & 0o170000
-        if file_type == 0o120000:
-            raise RuntimeError(f"Qualification archive member is a symlink: {name}")
-    return names
-
-
-def _validated_archive_entries(manifest: dict[str, Any]) -> list[dict[str, Any]]:
-    entries = manifest.get("files")
-    if not isinstance(entries, list) or not entries:
-        raise RuntimeError("Qualification archive inventory is invalid")
-    paths: list[str] = []
-    for item in entries:
-        if not isinstance(item, dict):
-            raise RuntimeError("Qualification archive inventory entry is invalid")
-        path = item.get("path")
-        size = item.get("bytes")
-        digest = item.get("sha256")
-        if (
-            not isinstance(path, str)
-            or not isinstance(size, int)
-            or isinstance(size, bool)
-            or size < 0
-            or not isinstance(digest, str)
-            or len(digest) != 64
-            or any(character not in "0123456789abcdef" for character in digest)
-        ):
-            raise RuntimeError("Qualification archive inventory entry is invalid")
-        _safe_portable_path(path, context="inventory path")
-        paths.append(path)
-    if len(paths) != len(set(paths)):
-        raise RuntimeError("Qualification archive inventory contains duplicates")
-    return entries
-
-
-def _validate_publication_record(manifest: dict[str, Any]) -> None:
-    publication = manifest.get("publication")
-    if not isinstance(publication, dict):
-        raise RuntimeError("Qualification archive publication record is invalid")
-    mode = publication.get("mode")
-    if mode == "draft":
-        if publication.get("publishable") is not False:
-            raise RuntimeError("Draft qualification archive is labelled publishable")
-        return
-    if mode != "publishable":
-        raise RuntimeError("Qualification archive mode is invalid")
-    if (
-        publication.get("publishable") is not True
-        or publication.get("publishable_criteria_met") is not True
-        or publication.get("blockers") != []
-        or publication.get("git_status") != []
-        or not isinstance(publication.get("git_head"), str)
-        or not publication.get("git_head")
-        or publication.get("expected_tag_annotated") is not True
-        or publication.get("expected_tag") != manifest.get("pyages_version")
-    ):
-        raise RuntimeError("Publishable qualification archive identity is inconsistent")
-
-
-def _contained_path(root: Path, value: object, prefix: str) -> Path:
-    relative = _safe_portable_path(value, context="semantic path")
-    if relative.parts[0] != prefix:
-        raise RuntimeError(f"Unsafe qualification archive semantic path: {value}")
-    resolved_root = root.resolve()
-    candidate = resolved_root.joinpath(*relative.parts).resolve()
-    try:
-        candidate.relative_to(resolved_root)
-    except ValueError as error:  # pragma: no cover - guarded cross-platform above
-        raise RuntimeError(
-            f"Unsafe qualification archive semantic path: {value}"
-        ) from error
-    return candidate
-
-
-def _validate_extracted_semantics(  # noqa: C901 - cross-links nested records
-    root: Path, manifest: dict[str, Any]
-) -> None:
-    archive_version = manifest.get("pyages_version")
-    if not isinstance(archive_version, str) or not archive_version:
-        raise RuntimeError("Qualification archive PyAges version is invalid")
-    results = manifest.get("results")
-    if not isinstance(results, list) or not results:
-        raise RuntimeError("Qualification archive contains no result records")
-    summaries: list[dict[str, Any]] = []
-    for result in results:
-        if not isinstance(result, dict) or not isinstance(result.get("path"), str):
-            raise RuntimeError("Qualification archive result record is invalid")
-        summary = _validate_result_tree(
-            _contained_path(root, result["path"], "results")
-        )
-        for key in (
-            "workflow",
-            "run_id",
-            "configuration_sha256",
-            "package_version",
-            "repository_git_head",
-            "repository_dirty",
-            "qualified_directories",
-            "artifact_count",
-            "manifest_sha256",
-        ):
-            if summary[key] != result.get(key):
-                raise RuntimeError(
-                    f"Archived result summary changed for {result['path']}: {key}"
-                )
-        summaries.append(summary)
-    if any(summary["package_version"] != archive_version for summary in summaries):
-        raise RuntimeError("Archived result versions do not match the archive")
-    publication = manifest.get("publication")
-    if not isinstance(publication, dict):  # pragma: no cover - checked before extract
-        raise RuntimeError("Qualification archive publication record is invalid")
-    _validate_publishable_result_provenance(summaries, publication)
-
-    protocol = manifest.get("protocol")
-    if not isinstance(protocol, dict):
-        raise RuntimeError("Qualification archive protocol record is invalid")
-    for group in ("yaml", "tests", "reports"):
-        records = protocol.get(group)
-        if not isinstance(records, list) or not records:
-            raise RuntimeError(f"Qualification archive has no supplied {group}")
-        for record in records:
-            if not isinstance(record, dict) or not isinstance(record.get("path"), str):
-                raise RuntimeError(f"Qualification archive {group} record is invalid")
-            supplied = _contained_path(root, record["path"], "protocol")
-            parts = PurePosixPath(record["path"]).parts
-            if len(parts) < 3 or parts[1] != group:
-                raise RuntimeError(f"Qualification archive {group} path is invalid")
-            if not supplied.is_file() or sha256(supplied) != record.get("sha256"):
-                raise RuntimeError(f"Qualification archive {group} hash is invalid")
-    yaml_digests = {record.get("sha256") for record in protocol["yaml"]}
-    if any(
-        summary["configuration_sha256"] not in yaml_digests for summary in summaries
-    ):
-        raise RuntimeError("Archived result configuration has no supplied YAML")
-
-    environment = manifest.get("environment")
-    if (
-        not isinstance(environment, list)
-        or not environment
-        or not all(isinstance(value, str) for value in environment)
-        or len(environment) != len(set(environment))
-    ):
-        raise RuntimeError("Qualification archive environment record is invalid")
-    for value in environment:
-        if not _contained_path(root, value, "environment").is_file():
-            raise RuntimeError("Qualification archive environment file is missing")
-
-    source = manifest.get("source")
-    if not isinstance(source, dict) or not isinstance(
-        source.get("dirty_snapshot_complete"), bool
-    ):
-        raise RuntimeError("Qualification archive source record is invalid")
-    if (
-        publication.get("mode") == "publishable"
-        and source["dirty_snapshot_complete"] is not True
-    ):
-        raise RuntimeError("Publishable archive source snapshot is incomplete")
-    source_paths: dict[str, Path] = {}
-    for key in (
-        "git_archive",
-        "git_status",
-        "tracked_changes",
-        "untracked_inventory",
-    ):
-        source_path = _contained_path(root, source.get(key), "source")
-        if not source_path.is_file():
-            raise RuntimeError(f"Qualification archive source file is missing: {key}")
-        source_paths[key] = source_path
-    if publication.get("mode") == "publishable" and (
-        source_paths["git_status"].read_text(encoding="utf-8").strip()
-        or source_paths["tracked_changes"].read_bytes()
-        or source_paths["untracked_inventory"].read_text(encoding="utf-8").strip()
-    ):
-        raise RuntimeError("Publishable archive contains dirty source evidence")
-
-    records = manifest.get("distributions")
-    if not isinstance(records, list) or len(records) != 2:
-        raise RuntimeError("Qualification archive distribution records are invalid")
-    kinds: list[str] = []
-    for record in records:
-        filename = record.get("filename") if isinstance(record, dict) else None
-        try:
-            filename_path = _safe_portable_path(
-                filename, context="distribution filename"
-            )
-        except RuntimeError as error:
-            raise RuntimeError(
-                "Qualification archive distribution filename is invalid"
-            ) from error
-        if len(filename_path.parts) != 1:
-            raise RuntimeError("Qualification archive distribution filename is invalid")
-        distribution = _contained_path(
-            root, f"distributions/{filename}", "distributions"
-        )
-        name, version, kind = _distribution_identity(distribution)
-        kinds.append(kind)
-        if (
-            name.lower().replace("_", "-") != "pyages"
-            or name != record.get("name")
-            or version != record.get("version")
-            or version != archive_version
-            or kind != record.get("kind")
-            or sha256(distribution) != record.get("sha256")
-        ):
-            raise RuntimeError(
-                f"Archived distribution metadata changed: {distribution}"
-            )
-    if sorted(kinds) != ["sdist", "wheel"]:
-        raise RuntimeError("Qualification archive must contain one wheel and one sdist")
 
 
 def verify_archive(  # noqa: C901 - rechecks container and scientific evidence

@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file exposes validated configuration models, standard paths, and runtime
+# helpers through one public API. Symbols are imported only when requested, so
+# basic package imports do not eagerly load every workflow dependency.
 
 """Canonical, lazily loaded configuration API for PyAges."""
 

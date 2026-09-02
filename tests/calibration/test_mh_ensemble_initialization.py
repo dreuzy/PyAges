@@ -38,11 +38,8 @@ class _TwoParameterModel:
     def get_parameters_to_array(self):
         return list(self.p.values())
 
-    def get_p_min(self, name):
-        return {"mu": 0.0, "width": 1.0}[name]
-
-    def get_p_max(self, name):
-        return {"mu": 10.0, "width": 9.0}[name]
+    def get_calibration_range(self, name):
+        return {"mu": (0.0, 10.0), "width": (1.0, 9.0)}[name]
 
 
 class _MarginalPriorOnly:

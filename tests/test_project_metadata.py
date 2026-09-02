@@ -104,6 +104,9 @@ def test_repository_scripts_are_grouped_by_responsibility():
             "verify_forward.py",
         },
         "qualification": {
+            "_archive_contract.py",
+            "_archive_evidence.py",
+            "_archive_verification.py",
             "build_ci_multichain_archive.py",
             "build_multichain_archive.py",
             "qualify_mh_proposals.py",

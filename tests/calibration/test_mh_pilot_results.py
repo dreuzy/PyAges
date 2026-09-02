@@ -293,6 +293,8 @@ def test_pooled_samples_are_independent_and_guarded_by_qualification() -> None:
     pooled.frame.loc[0, parameter] = 999.0
     assert first.frame.loc[0, parameter] == 10.0
     assert second.frame.loc[0, parameter] == 20.0
+    pooled.lpm_template.set_param_from_array([42.0])
+    assert result.chains[0].samples.lpm_template.p[parameter] != 42.0
 
     exploratory = _ensemble_result(
         chains, (_diagnostic(qualified=False),), "not_qualified"
@@ -318,6 +320,37 @@ def test_ensemble_status_and_chain_identifiers_are_validated() -> None:
     with pytest.raises(ValueError, match="ordered exactly from 1 to N"):
         _ensemble_result(
             (chain, noncanonical),
+            (_diagnostic(qualified=False),),
+            "not_qualified",
+        )
+
+
+def test_chain_result_requires_initial_state_parameter_identity() -> None:
+    with pytest.raises(ValueError, match="exact ordered sample parameters"):
+        MHChainResult(
+            1,
+            101,
+            {"wrong": 10.0},
+            _sample_table(10.0),
+            0.25,
+            1.0,
+        )
+
+
+def test_ensemble_rejects_same_named_parameters_from_different_templates() -> None:
+    first = _sample_table(10.0)
+    second = _sample_table(20.0)
+    second.lpm_template._param_manager._calibration_max["mu"] = (  # noqa: SLF001
+        200.0
+    )
+    chains = (
+        MHChainResult(1, 101, {"mu": 10.0}, first, 0.25, 1.0),
+        MHChainResult(2, 102, {"mu": 20.0}, second, 0.25, 1.0),
+    )
+
+    with pytest.raises(ValueError, match="same scientific LPM template"):
+        _ensemble_result(
+            chains,
             (_diagnostic(qualified=False),),
             "not_qualified",
         )

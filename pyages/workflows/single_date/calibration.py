@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file runs reachability analysis and calibration for a single-date case.
 
-"""Reachability and calibration operations for the single-date workflow."""
+"""Apply enabled calibration methods to an already prepared single-date context.
+
+Reachability sampling evaluates the configured LPM across parameter space before
+fitting, showing which tracer combinations the model can produce. Calibration
+then builds one shared scientific problem and dispatches the enabled Simplex or
+Metropolis--Hastings implementations.
+
+Each method writes only beneath its staged result directory, while the returned
+mapping keeps its calibrated sample table available to later reporting steps.
+This module does not publish the stage or write the terminal run manifest.
+"""
 
 from __future__ import annotations
 

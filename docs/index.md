@@ -55,6 +55,7 @@ architecture
 :caption: Examples and Reference
 
 examples/index
+studies/index
 reference/index
 api/index
 ```

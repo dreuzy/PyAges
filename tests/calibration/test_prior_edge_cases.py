@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 
 import numpy as np
@@ -18,17 +19,15 @@ from pyages.calibration.methods.mh.prior import (
     build_empirical_prior_grid,
     histogram_moments,
 )
+from pyages.lpm import build_lpm
 
 
 class _TwoParameterModel:
     def __init__(self) -> None:
         self.p = {"mu": 0.0, "width": 0.0}
 
-    def get_p_min(self, name):
-        return {"mu": 0.0, "width": 1.0}[name]
-
-    def get_p_max(self, name):
-        return {"mu": 10.0, "width": 9.0}[name]
+    def get_calibration_range(self, name):
+        return {"mu": (0.0, 10.0), "width": (1.0, 9.0)}[name]
 
     def get_param_names(self):
         return list(self.p)
@@ -254,6 +253,27 @@ def test_prior_validation_reports_parametric_theory() -> None:
 
     result = prior.validate_chain_moments(path, model)
 
-    assert result["theory"]["mu"] == {"mean": 5.0, "var": 4.0}
+    assert result["theory"]["mu"] == pytest.approx(
+        {"mean": 5.0, "var": 3.6450254437415675}
+    )
     assert result["theory"]["width"]["mean"] == 5.0
     assert result["theory"]["width"]["var"] == pytest.approx(64.0 / 12.0)
+
+
+def test_packaged_ig_prior_reports_its_effective_calibration_support() -> None:
+    model = build_lpm("ig")
+    prior = Prior(typ="parametric")
+    prior.load(model)
+    path = pd.DataFrame({"mu": [1.0, 2.0], "sigma": [1.0, 2.0]})
+
+    result = prior.validate_chain_moments(path, model)
+    metadata = prior.resolved_metadata(model)
+
+    assert json.loads(metadata["prior_effective_support_mu"]) == [0.1, 70.0]
+    assert json.loads(metadata["prior_effective_support_sigma"]) == [0.1, 30.0]
+    assert result["theory"]["mu"] == pytest.approx(
+        {"mean": 35.05, "var": (70.0 - 0.1) ** 2 / 12.0}
+    )
+    assert result["theory"]["sigma"] == pytest.approx(
+        {"mean": 15.05, "var": (30.0 - 0.1) ** 2 / 12.0}
+    )
