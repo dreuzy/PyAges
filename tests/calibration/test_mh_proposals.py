@@ -28,6 +28,7 @@ from pyages.calibration.methods.mh.proposals import (
     sum_difference_log_abs_det_jacobian,
     sum_difference_to_native,
 )
+from pyages.calibration.methods.mh.sampler import _MHState
 
 
 class _BoundedTarget:
@@ -119,6 +120,15 @@ def test_regularized_empirical_covariance_is_positive_definite():
     assert np.all(np.linalg.eigvalsh(covariance) > 0.0)
 
 
+def test_zero_ridge_still_repairs_a_singular_empirical_covariance() -> None:
+    samples = np.column_stack((np.arange(20.0), 2.0 * np.arange(20.0)))
+
+    covariance = regularize_empirical_covariance(samples, relative_ridge=0.0)
+
+    assert np.allclose(covariance, covariance.T)
+    assert np.all(np.linalg.eigvalsh(covariance) > 0.0)
+
+
 def test_scipy_ig_proposal_roundtrip_and_hastings_jacobian():
     current = np.array([2400.0, 21000.0, 34.0])
     assert scipy_to_physical_coordinates(
@@ -170,16 +180,12 @@ def test_target_and_bounds_do_not_depend_on_proposal_choice():
 
     transformed._proposal = GaussianRandomWalk.diagonal((100.0, 100.0))
     rng = np.random.default_rng(772)
-    state = [10.0, 30.0]
-    log_p, objective, concentration = transformed_target
+    state = _MHState([10.0, 30.0], *transformed_target)
     for _ in range(500):
-        state, log_p, objective, concentration, _ = transformed._mcmc_step(  # noqa: SLF001
+        state, _ = transformed._mcmc_step(  # noqa: SLF001
             state,
-            log_p,
-            objective,
-            concentration,
             np.array([1.0]),
             np.array([1.0]),
             rng,
         )
-        assert _BoundedTarget.param_within_calibration_range_array(state)
+        assert _BoundedTarget.param_within_calibration_range_array(state.params)

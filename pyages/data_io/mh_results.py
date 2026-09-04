@@ -116,7 +116,7 @@ def _chain_parameters_payload(
         "pilot_enabled": pilot.enabled,
         "pilot_nstep": pilot.nstep,
         "pilot_burn_in": pilot.burn_in,
-        "pilot_covariance_mode": pilot.covariance_mode,
+        "pilot_covariance_mode": "pooled_within_chain",
         "pilot_relative_ridge": pilot.relative_ridge,
         "pilot_requested_proposal_multiplier": (
             "auto" if pilot.proposal_multiplier is None else pilot.proposal_multiplier

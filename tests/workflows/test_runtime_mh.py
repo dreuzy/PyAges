@@ -12,7 +12,7 @@ from unittest.mock import Mock
 import pytest
 
 from pyages.calibration.methods.mh import MHConfig, MHConvergenceError
-from pyages.config.models import MHMultichainCfg
+from pyages.config.models import LauncherMetropolisCfg, MHMultichainCfg
 from pyages.workflows.runtime import mh as runtime_mh
 
 
@@ -62,7 +62,6 @@ def test_build_mh_ensemble_config_translates_all_nested_scientific_controls() ->
             "enabled": True,
             "nstep": 123,
             "burn_in": 0.4,
-            "covariance_mode": "pooled_within_chain",
             "relative_ridge": 2.0e-6,
             "proposal_multiplier": 0.75,
             "save_samples": True,
@@ -196,3 +195,58 @@ def test_run_mh_ensemble_rejects_disabled_configuration(tmp_path) -> None:
             tmp_path,
             Mock(),
         )
+
+
+def test_build_mh_config_translates_single_date_controls() -> None:
+    translated = runtime_mh.build_mh_config(
+        LauncherMetropolisCfg(
+            nstep=321,
+            burn_in=0.3,
+            nskip=7,
+            seed=456,
+            prior_option=True,
+            likelihood=False,
+            monitor=True,
+            display_traj=True,
+        )
+    )
+
+    assert translated.nstep == 321
+    assert translated.burn_in == 0.3
+    assert translated.nskip == 7
+    assert translated.seed == 456
+    assert translated.prior_option is True
+    assert translated.likelihood is False
+    assert translated.monitor is True
+    assert translated.display_traj is True
+
+
+def test_run_mh_calibration_owns_the_single_chain_lifecycle(
+    tmp_path, monkeypatch
+) -> None:
+    prepared_problem = object()
+    samples = object()
+    problem_builder = Mock(return_value=prepared_problem)
+    method = SimpleNamespace(
+        run=Mock(return_value=samples),
+        write_calibrated_lpm=Mock(),
+    )
+    method_class = Mock(return_value=method)
+    clear = Mock()
+    monkeypatch.setattr(runtime_mh, "MetropolisHastings", method_class)
+    monkeypatch.setattr(runtime_mh, "clear_mh_ensemble_artifacts", clear)
+    chain_config = MHConfig(nstep=100)
+
+    result = runtime_mh.run_mh_calibration(
+        chain_config,
+        None,
+        tmp_path,
+        problem_builder,
+    )
+
+    assert result is samples
+    clear.assert_called_once_with(tmp_path)
+    method_class.assert_called_once_with(config=chain_config)
+    problem_builder.assert_called_once_with(tmp_path)
+    method.run.assert_called_once_with(prepared_problem)
+    method.write_calibrated_lpm.assert_called_once_with(samples)

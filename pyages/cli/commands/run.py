@@ -3,12 +3,11 @@
 # SPDX-License-Identifier: CECILL-2.1
 # This file implements the command that launches a configured PyAges workflow.
 
-"""Execute a single-date or temporal workflow with ``pyages run``.
+"""Execute the workflow declared by a ``pyages run`` configuration.
 
-The command reads the supplied YAML file, validates command-line overrides, and
-applies those overrides to a temporary configuration so the user's original
-file is never rewritten. The resulting mapping determines which installed
-workflow entry point receives the run.
+The command reads the supplied YAML file once, detects its workflow, validates
+command-line overrides, and applies those overrides to a temporary configuration
+so the user's original file is never rewritten.
 
 Configuration and validation errors are formatted for command-line users before
 scientific execution begins. On completion, the workflow's terminal status is
@@ -20,6 +19,7 @@ from __future__ import annotations
 import sys
 import tempfile
 from pathlib import Path
+from typing import Literal
 
 import click
 import yaml
@@ -28,13 +28,15 @@ from pydantic import ValidationError
 from pyages.config.loading import load_yaml_mapping
 from pyages.config.models import CliRunParams
 
+WorkflowKind = Literal["single_date", "temporal"]
+
 
 @click.command()
 @click.argument("config", type=click.Path(exists=True, path_type=Path))
 @click.option(
     "--transient",
     is_flag=True,
-    help="Run the canonical multi-date temporal workflow.",
+    help="Deprecated: force a temporal workflow for a legacy configuration.",
 )
 @click.option(
     "--inline",
@@ -44,7 +46,7 @@ from pyages.config.models import CliRunParams
 @click.option(
     "--lpm",
     default=None,
-    help="Override LPM model name (single-date) or list (transient).",
+    help="Override LPM model name (single-date) or list (temporal).",
 )
 @click.option(
     "--mh-nsteps",
@@ -67,7 +69,7 @@ from pyages.config.models import CliRunParams
     "--data-file",
     type=click.Path(path_type=Path),
     default=None,
-    help="Override dataset path (transient only).",
+    help="Override dataset path (temporal only).",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output.")
 def run(
@@ -88,7 +90,7 @@ def run(
     \b
     Examples:
         pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
-        pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+        pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
     """
     # Ensure config path is absolute
     config = config.resolve()
@@ -120,27 +122,35 @@ def run(
     data_dir = params.data_dir
     data_file = params.data_file
 
+    data = _load_yaml(config)
+    workflow = _detect_workflow(data, force_temporal=transient)
+    if transient:
+        _warn(
+            "--transient is deprecated; set workflow.kind: temporal in the YAML "
+            "configuration instead."
+        )
+
     if verbose:
         click.echo(f"Configuration file: {config}")
-        click.echo(f"Mode: {'transient' if transient else 'single-date'}")
+        click.echo(f"Workflow: {workflow}")
 
-    original_config = config
-    config = _apply_overrides(
-        config=config,
-        transient=transient,
+    changed = _apply_overrides(
+        data=data,
+        workflow=workflow,
         lpm=lpm,
         mh_nsteps=mh_nsteps,
         data_name=data_name,
         data_dir=data_dir,
         data_file=data_file,
-        verbose=verbose,
     )
+    original_config = config
+    if changed:
+        config = _write_temporary_config(config, data)
+        if verbose:
+            click.echo(f"Using overridden config: {config}")
 
     try:
-        if transient:
-            _run_transient(config, verbose)
-        else:
-            _run_single_date(config, inline, verbose)
+        _run_workflow(workflow, config, inline=inline, verbose=verbose)
     finally:
         if config != original_config:
             config.unlink(missing_ok=True)
@@ -150,41 +160,54 @@ def _load_yaml(path: Path) -> dict:
     return load_yaml_mapping(path)
 
 
+def _detect_workflow(data: dict, *, force_temporal: bool = False) -> WorkflowKind:
+    """Return the declared workflow, with a fallback for legacy YAML files."""
+    workflow = data.get("workflow", {})
+    declared = workflow.get("kind") if isinstance(workflow, dict) else None
+    if declared not in {None, "single_date", "temporal"}:
+        raise click.ClickException(
+            "workflow.kind must be either 'single_date' or 'temporal'"
+        )
+    if force_temporal:
+        if declared == "single_date":
+            raise click.ClickException(
+                "--transient conflicts with workflow.kind: single_date"
+            )
+        return "temporal"
+    if declared is not None:
+        return declared
+
+    dataset = data.get("dataset", {})
+    if "lpm_models" in data or (isinstance(dataset, dict) and "file" in dataset):
+        return "temporal"
+    return "single_date"
+
+
 def _apply_overrides(
-    config: Path,
-    transient: bool,
+    data: dict,
+    workflow: WorkflowKind,
     lpm: str | None,
     mh_nsteps: int | None,
     data_name: str | None,
     data_dir: Path | None,
     data_file: Path | None,
-    verbose: bool,
-) -> Path:
+) -> bool:
+    """Apply command-line overrides and report whether the mapping changed."""
     if not any([lpm, mh_nsteps, data_name, data_dir, data_file]):
-        return config
+        return False
 
-    data = _load_yaml(config)
-
-    if transient:
-        _apply_transient_overrides(data, lpm, mh_nsteps, data_file)
+    if workflow == "temporal":
+        _apply_temporal_overrides(data, lpm, mh_nsteps, data_file)
         if data_name or data_dir:
             _warn("Ignoring --data-name/--data-dir (single-date only).")
     else:
         _apply_single_date_overrides(data, lpm, mh_nsteps, data_name, data_dir)
         if data_file:
-            _warn("Ignoring --data-file (transient only).")
-
-    # Keep the temporary file beside the source configuration so all relative
-    # data paths retain the same resolution root after applying overrides.
-    tmp_path = _write_temporary_config(config, data)
-
-    if verbose:
-        click.echo(f"Using overridden config: {tmp_path}")
-
-    return tmp_path
+            _warn("Ignoring --data-file (temporal only).")
+    return True
 
 
-def _apply_transient_overrides(
+def _apply_temporal_overrides(
     data: dict, lpm: str | None, mh_nsteps: int | None, data_file: Path | None
 ) -> None:
     if data_file:
@@ -229,48 +252,29 @@ def _write_temporary_config(config: Path, data: dict) -> Path:
     return tmp_path
 
 
-def _run_single_date(config: Path, inline: bool, verbose: bool):
-    """Run the canonical single-date workflow."""
+def _run_workflow(
+    workflow: WorkflowKind, config: Path, *, inline: bool, verbose: bool
+) -> None:
+    """Run one validated workflow with shared reporting and error handling."""
     try:
-        from pyages.workflows.single_date import run_single_date
-
-        click.echo("Running single-date workflow...")
+        label = "single-date" if workflow == "single_date" else "temporal"
+        click.echo(f"Running {label} workflow...")
         click.echo(f"Config: {config}")
-        output_directory = run_single_date(str(config), force_inline=inline)
-        click.echo(f"Results written to: {output_directory}")
+        if workflow == "single_date":
+            from pyages.workflows.single_date import run_single_date
 
-    except ImportError as e:
-        click.echo(click.style(f"Import error: {e}", fg="red"))
-        click.echo("Make sure you have installed pyages: pip install -e .")
-        sys.exit(1)
-    except Exception as e:
-        click.echo(click.style(f"Error running workflow: {e}", fg="red"))
-        if verbose:
-            import traceback
-
-            traceback.print_exc()
+            output_directory = run_single_date(str(config), force_inline=inline)
         else:
-            _echo_exception_notes(e)
-        sys.exit(1)
+            from pyages.workflows.temporal import run_temporal
 
-
-def _run_transient(config: Path, verbose: bool):
-    """Run the canonical transient (multi-date) workflow."""
-    try:
-        from pyages.workflows.temporal import run_temporal
-
-        click.echo("Running transient (multi-date) workflow...")
-        click.echo(f"Config: {config}")
-        output_directory = run_temporal(config)
+            output_directory = run_temporal(config)
         click.echo(f"Results written to: {output_directory}")
-
     except ImportError as e:
         click.echo(click.style(f"Import error: {e}", fg="red"))
         click.echo("Make sure you have installed pyages: pip install -e .")
         sys.exit(1)
-
     except Exception as e:
-        click.echo(click.style(f"Error running transient workflow: {e}", fg="red"))
+        click.echo(click.style(f"Error running {workflow} workflow: {e}", fg="red"))
         if verbose:
             import traceback
 

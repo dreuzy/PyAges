@@ -78,6 +78,16 @@ These additions are not blockers for releasing the opt-in multi-chain feature
 with its current narrow qualification statement. They are blockers for calling
 the example set representative of general hydrogeological production use.
 
+The first step toward item 1 now exists as an explicitly exploratory
+Albuquerque SSW 2007 shape-free profile and extensive test. It broadens code
+coverage to an independent aquifer and a four-coordinate stick-breaking LPM,
+but it does not close the production-evidence gap: zero source uncertainties,
+a provisional 1% fallback, a 120-year upper support, three observations for
+four latent coordinates, and the absence of an archived independent reference
+remain documented blockers. The run also exposes a performance priority:
+shape-free convolution inside MH should precompute tracer/bin responses under
+an equivalence test before longer chains are made routine.
+
 ## Maturity matrix
 
 | Area | Current state | Evidence and remaining boundary |
@@ -86,7 +96,7 @@ the example set representative of general hydrogeological production use.
 | Configuration, retention, and initialization | Hardened | Frozen controls, canonical retained-count and maximum-ESS calculations, and bounded prior quantile/mode/support operations; prior selection and sensitivity remain scientific responsibilities |
 | Target identity and immutable records | Hardened | Versioned target signatures bind independently prepared problems; `MHRunRecord` binds configurations, seeds, samples, diagnostics, metadata, and integrity fingerprints |
 | Serialization and result schema | Release candidate | Qualified and rejected ensembles retain chain-level evidence with canonical metadata; incompatible filename or field changes require an explicit schema/migration decision |
-| Workflow publication | Hardened | Inputs are validated before isolated staging; schema-3 journals bind CAS state and the terminal-manifest digest; promotion rehashes artifacts, rejects redirection and nested active stages, and attempts explicit rollback around namespace changes |
+| Workflow publication | Hardened | Inputs are validated before isolated staging; schema-3 journals bind CAS state and the terminal-manifest digest; promotion rehashes artifacts, rejects redirection and every nested reserved stage candidate (including a missing/corrupt journal), and attempts explicit rollback around namespace changes |
 | Interrupted-stage operations | Operational | `pyages stages inspect` provides read-only human or JSON journal/seal/artifact/CAS diagnosis; `pyages stages quarantine` requires the complete run UUID and confirmation, revalidates under the hierarchy lock, and preserves the tree by sibling rename; there is deliberately no automatic purge |
 | Public and contributor API | Release candidate | Canonical MH and runtime facades are enumerated, `ResultRun` is opaque and non-constructible, administrative stage APIs remain outside the contributor facade, and removed aliases are asserted absent |
 | Qualification archive | Implemented, publication pending | The generic builder validates terminal manifests, qualified pooling, chain evidence, supplied YAML digests, wheel/sdist identity, source and environment evidence, complete checksums, safe ZIP paths, and deterministic ZIP metadata; CI builds a non-publishable draft, while durable publication requires a clean annotated version tag and external deposit |

@@ -45,6 +45,13 @@ lock is likewise a no-follow regular file in a private directory owned by the
 current operating-system user; it serializes every PyAges result hierarchy
 operation performed by that user.
 
+The same fail-closed rule applies to nested names reserved for stages
+(`.pyages-<12 characters>`). Any such entry below an incoming or replaced tree
+blocks promotion, even when its journal is missing or corrupt. PyAges cannot
+prove that an unreadable candidate is abandoned, so it preserves both the
+candidate and the previous publication for manual inspection instead of
+silently deleting either one.
+
 ## Interrupted-stage operations
 
 PyAges never removes an interrupted stage automatically. Inventory a result
@@ -84,6 +91,9 @@ the complete tree to `.pyages-quarantine-<run-prefix>` beside it. It does not
 delete or rewrite evidence. It refuses an invalid journal, link or junction,
 UUID mismatch, or occupied quarantine destination. Inspect corrupted candidates
 manually; PyAges deliberately provides no forced deletion or automatic purge.
+Because quarantine requires a valid journal, a reserved candidate with a
+missing or corrupt journal must first be investigated and preserved manually;
+it must never be renamed merely to make a parent promotion pass.
 
 Quarantine is an administrative preservation action, not an automatic resume
 or recovery operation. Retain, archive, or manually remove the quarantined tree
@@ -153,7 +163,7 @@ sample tables. See {doc}`../scientific-methods` for the normative equations.
 
 ## Temporal layout
 
-`pyages run --transient <config.yaml>` writes below:
+`pyages run <config.yaml>` with `workflow.kind: temporal` writes below:
 
 ```text
 <results_root>/<study_name>/<dataset_stem>/<mode>/

@@ -20,6 +20,7 @@ from pyages.config.models import (
     TemporalResultsCfg,
 )
 from pyages.workflows.runtime import begin_staged_result_run
+from pyages.workflows.runtime import mh as runtime_mh
 from pyages.workflows.temporal import calibration as temporal_calibration
 from pyages.workflows.temporal import cases as temporal_cases
 from pyages.workflows.temporal import context as temporal_context
@@ -31,32 +32,26 @@ from pyages.workflows.temporal import runner as temporal
     [None, MHMultichainCfg(enabled=False)],
     ids=["absent", "disabled"],
 )
-def test_temporal_mh_keeps_legacy_runner_without_enabled_multichain(
+def test_temporal_mh_delegates_shared_runner_without_enabled_multichain(
     tmp_path, monkeypatch, multichain
 ) -> None:
     prepared_problem = object()
     problem = SimpleNamespace(prepare=Mock(return_value=prepared_problem))
     problem_class = Mock(return_value=problem)
     samples = object()
-    method = SimpleNamespace(
-        method="Metropolis_Hastings",
-        run=Mock(return_value=samples),
-        write_calibrated_lpm=Mock(),
-    )
-    method_class = Mock(return_value=method)
-    ensemble_runner = Mock(side_effect=AssertionError("multichain must stay disabled"))
+    calibration_runner = Mock(return_value=samples)
     monkeypatch.setattr(temporal_calibration, "CalibrationProblem", problem_class)
-    monkeypatch.setattr(temporal_calibration, "MetropolisHastings", method_class)
     monkeypatch.setattr(
         temporal_calibration,
-        "run_mh_ensemble",
-        ensemble_runner,
+        "run_mh_calibration",
+        calibration_runner,
     )
+    output = tmp_path / "results"
 
     temporal_calibration.run_model_calibration(
         object(),
         "exp",
-        tmp_path / "results",
+        output,
         tmp_path / "lpm",
         TemporalCalibrationCfg(
             seed_enabled=True,
@@ -66,9 +61,10 @@ def test_temporal_mh_keeps_legacy_runner_without_enabled_multichain(
         TemporalFiguresCfg(),
     )
 
-    method.run.assert_called_once_with(prepared_problem)
-    method.write_calibrated_lpm.assert_called_once_with(samples)
-    ensemble_runner.assert_not_called()
+    calibration_runner.assert_called_once()
+    assert calibration_runner.call_args.args[1] is multichain
+    assert calibration_runner.call_args.args[2] == output
+    assert calibration_runner.call_args.args[3](output) is prepared_problem
 
 
 def test_temporal_enabled_multichain_delegates_with_fresh_stage_problems(
@@ -92,12 +88,12 @@ def test_temporal_enabled_multichain_delegates_with_fresh_stage_problems(
         assert len({id(problem) for problem in problems}) == 3
         return pooled
 
-    ensemble_runner = Mock(side_effect=run)
+    calibration_runner = Mock(side_effect=run)
     monkeypatch.setattr(temporal_calibration, "CalibrationProblem", build_problem)
     monkeypatch.setattr(
         temporal_calibration,
-        "run_mh_ensemble",
-        ensemble_runner,
+        "run_mh_calibration",
+        calibration_runner,
     )
     output = tmp_path / "results"
 
@@ -124,8 +120,8 @@ def test_temporal_enabled_multichain_delegates_with_fresh_stage_problems(
         output / "chains" / "chain_001",
     ]
     assert len({id(problem) for _directory, problem in created}) == 3
-    ensemble_runner.assert_called_once()
-    assert ensemble_runner.call_args.args[2] == output
+    calibration_runner.assert_called_once()
+    assert calibration_runner.call_args.args[2] == output
 
 
 def test_temporal_propagates_multichain_qualification_failure(
@@ -133,13 +129,13 @@ def test_temporal_propagates_multichain_qualification_failure(
 ) -> None:
     from pyages.calibration.methods.mh import MHConvergenceError
 
-    ensemble_runner = Mock(
+    calibration_runner = Mock(
         side_effect=MHConvergenceError("mean did not converge; artifacts preserved")
     )
     monkeypatch.setattr(
         temporal_calibration,
-        "run_mh_ensemble",
-        ensemble_runner,
+        "run_mh_calibration",
+        calibration_runner,
     )
 
     with pytest.raises(
@@ -160,18 +156,16 @@ def test_temporal_propagates_multichain_qualification_failure(
             TemporalFiguresCfg(),
         )
 
-    ensemble_runner.assert_called_once()
+    calibration_runner.assert_called_once()
 
 
 def test_temporal_mh_uses_an_explicit_fresh_seed_when_fixed_seed_is_disabled(
     monkeypatch,
 ) -> None:
     random_seed = Mock(return_value=987654321)
-    monkeypatch.setattr(temporal_calibration.secrets, "randbits", random_seed)
+    monkeypatch.setattr(runtime_mh.secrets, "randbits", random_seed)
 
-    config = temporal_calibration.build_mh_config(
-        TemporalCalibrationCfg(seed_enabled=False)
-    )
+    config = runtime_mh.build_mh_config(TemporalCalibrationCfg(seed_enabled=False))
 
     assert config.seed == 987654321
     random_seed.assert_called_once_with(63)
@@ -179,9 +173,9 @@ def test_temporal_mh_uses_an_explicit_fresh_seed_when_fixed_seed_is_disabled(
 
 def test_temporal_mh_preserves_an_enabled_fixed_seed(monkeypatch) -> None:
     random_seed = Mock(side_effect=AssertionError("fresh seed must not be requested"))
-    monkeypatch.setattr(temporal_calibration.secrets, "randbits", random_seed)
+    monkeypatch.setattr(runtime_mh.secrets, "randbits", random_seed)
 
-    config = temporal_calibration.build_mh_config(
+    config = runtime_mh.build_mh_config(
         TemporalCalibrationCfg(seed_enabled=True, seed=42)
     )
 
@@ -193,9 +187,9 @@ def test_temporal_multichain_does_not_consume_the_legacy_seed_stream(
     monkeypatch,
 ) -> None:
     random_seed = Mock(side_effect=AssertionError("legacy seed must not be drawn"))
-    monkeypatch.setattr(temporal_calibration.secrets, "randbits", random_seed)
+    monkeypatch.setattr(runtime_mh.secrets, "randbits", random_seed)
 
-    config = temporal_calibration.build_mh_config(
+    config = runtime_mh.build_mh_config(
         TemporalCalibrationCfg(multichain={"enabled": True})
     )
 

@@ -69,25 +69,26 @@ pyages list tracers --verbose
 
 ## `pyages run <config.yaml>`
 
-Runs a workflow from a YAML configuration file.
+Runs the workflow selected by `workflow.kind` in the YAML configuration.
+Legacy files without that field are detected from their dataset structure.
 
 | Flag | Type | Description |
 | --- | --- | --- |
-| `--transient` | flag | Run the canonical multi-date temporal workflow. |
-| `--inline` | flag | Force the inline matplotlib backend for the single-date workflow; accepted but unused with `--transient`. |
-| `--lpm <name>` | option | Override the single-date model; with `--transient`, replace the configured list with this one model. |
+| `--transient` | flag | Deprecated compatibility flag for legacy temporal files; prefer `workflow.kind: temporal`. |
+| `--inline` | flag | Force the inline matplotlib backend for the single-date workflow; accepted but unused for temporal workflows. |
+| `--lpm <name>` | option | Override the single-date model or replace a temporal model list with this one model. |
 | `--mh-nsteps <int>` | option | Override Metropolis-Hastings transitions; must be positive, and the temporal configuration additionally requires a value greater than 100. |
 | `--data-name <file>` | option | Override dataset filename (single-date only). |
 | `--data-dir <path>` | option | Override dataset directory (single-date only). |
-| `--data-file <path>` | option | Override dataset path (transient only). |
+| `--data-file <path>` | option | Override dataset path (temporal only). |
 | `-v`, `--verbose` | flag | Enable verbose output. |
 
 Examples:
 ```
 pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 pyages run --lpm exp_shifted --mh-nsteps 5000 --data-name mydata.txt --data-dir examples/my_site/data my_config.yaml
-pyages run --transient --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
+pyages run --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
 ```
 
 Overrides are applied to a temporary YAML file created beside the original

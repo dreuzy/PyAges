@@ -52,6 +52,36 @@ python -m pytest -q --run-extensive tests/examples/test_ploemeur_temporal_multic
 profile. The extensive tests write their effective YAML beside the result
 evidence; the terminal manifest records that executed configuration's SHA-256.
 
+### Exploratory Albuquerque characterization added on 2026-09-04
+
+Albuquerque SSW 2007 now has a separate maintained five-chain profile,
+`examples/natural/albuquerque/exemple_albuquerque_shapefree_multichain.yaml`,
+and executable test,
+`tests/examples/test_albuquerque_shapefree_multichain_scientific.py`. They
+check shape-free fraction normalization, MCMC/proposal mechanics, joint-row and
+forward-model consistency, fitted-response coherence, diagnostics, and result
+provenance.
+
+This case is deliberately excluded from the canonical four-profile archive.
+Its source uncertainty fields are zero and the profile provisionally imputes
+1% of the tracer-history mean. Its local old bin also stops at 120 years while
+the site description discusses much older water. Four latent coordinates are
+inferred from only three tracer observations. The bounded priors make the
+posterior proper but do not establish identifiability. Until uncertainties,
+tracer preprocessing, age support, and an independent reference calculation
+are reviewed by a domain expert, this is a complete computational
+characterization of an explicit hypothesis, not a qualified Albuquerque field
+interpretation. See {doc}`../examples/albuquerque`.
+
+The fixed-seed 2026-09-04 review run confirmed this negative qualification:
+maximum R-hat about `1.3604`, minimum bulk ESS about `11.64`, 10 failed
+diagnostic quantities out of 11, and a median carbon-14 residual about `65.77`
+times the provisional standard error despite sub-unit residuals for both young
+tracers. It wrote pooled evidence because `require_convergence: false` is
+explicit, but recorded `qualification_status: not_qualified`. The run took
+about 2,348 seconds on the development machine; runtime is descriptive, not a
+gate.
+
 ## Registered protocols and computational cost
 
 All four profiles use master seed `20260831`, `nskip: 1`, pooled within-chain

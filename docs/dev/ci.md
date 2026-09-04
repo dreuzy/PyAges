@@ -13,7 +13,7 @@ workflow modifies Git references.
 |---|---|---|
 | [CI](https://github.com/dreuzy/PyAges/actions/workflows/ci.yml) | Pull requests targeting `main`, pushes to `main`, version tags matching `*.*`, and manual dispatch | Fast required checks for every supported Python version, packaging, documentation, and validation infrastructure |
 | [Extensive tests](https://github.com/dreuzy/PyAges/actions/workflows/extensive-tests.yml) | Manual dispatch, every Monday at `01:17 UTC`, and pull requests changing selected calibration, LPM, workflow, configuration, data, example, test, or workflow paths | Run the opt-in scientific qualifications when their target or executable evidence can change |
-| [Release candidate](https://github.com/dreuzy/PyAges/actions/workflows/release-candidate.yml) | Manual dispatch for an existing release tag matching the package version | Build one candidate, validate its metadata, smoke-test the same wheel on all supported Python versions, and require extensive scientific qualification of the tagged source |
+| [Release candidate](https://github.com/dreuzy/PyAges/actions/workflows/release-candidate.yml) | Manual dispatch for an existing release tag matching the package version | Build one candidate, smoke-test the same wheel on all supported Python versions, run the extensive qualification, and archive its evidence from that exact tag |
 | [Publish package](https://github.com/dreuzy/PyAges/actions/workflows/publish-package.yml) | Manual dispatch for an existing GitHub Release tag and a selected package index | Verify the existing release assets and their SHA-256 digests, then publish the unchanged files through the protected `testpypi` or `pypi` environment |
 
 The weekly extensive run starts at 02:17 in metropolitan France during winter
@@ -76,12 +76,12 @@ whose selected paths can change the scientific target or its qualification
 evidence. See {doc}`testing` for the test taxonomy and
 {doc}`../science/validation` for the qualification strategy.
 
-Those pull-request paths include Python, YAML, tabular inputs, and workbooks
-under ``examples/``; the complete ``sites/ploemeur/`` study tree; the shared
-MCMC, provenance, and reporting helpers; and the multichain archive facade and
-its private implementation modules. A change to an executable script, a study input, or
-the code that packages its evidence therefore cannot silently bypass this
-workflow.
+Those pull-request paths include every file under ``pyages/``; Python, notebook,
+YAML, tabular inputs, and workbooks under ``examples/``; the complete
+``sites/ploemeur/`` study tree; the shared MCMC, provenance, and reporting
+helpers; and the multichain archive facade and its private implementation
+modules. A change to a scientific implementation, executable example, study
+input, or evidence packager therefore cannot silently bypass this workflow.
 
 After pytest succeeds, the job builds one wheel and one sdist, then runs:
 
@@ -131,11 +131,13 @@ The release candidate workflow accepts an existing protected tag. It checks
 release and dependency metadata, builds the distributions once, uploads them
 as a temporary artifact, and installs the same wheel on Python 3.12, 3.13, and
 3.14. In parallel, Python 3.12 runs the complete opt-in extensive suite from
-that exact tagged source. The final gate requires the build, every wheel smoke
-test, and scientific qualification to succeed. The workflow has `contents:
-read` permission only: tag creation, package publication, GitHub Release
-creation, and deletion remain maintainer actions. The complete procedure is in
-{doc}`releasing`.
+that exact tagged source. The scientific job then downloads those unchanged
+distributions and builds the publishable multi-chain qualification archive
+from the same checkout, tag, test outputs, wheel, and source archive. The final
+gate requires the build, every wheel smoke test, and this archived scientific
+qualification to succeed. The workflow has `contents: read` permission only:
+tag creation, package publication, GitHub Release creation, and deletion
+remain maintainer actions. The complete procedure is in {doc}`releasing`.
 
 ## Package publication
 

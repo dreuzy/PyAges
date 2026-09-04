@@ -1,3 +1,6 @@
+workflow:
+  kind: single_date
+
 dataset:
   name: SSW_2007.txt
   label: Albuquerque shape-free old-bin example

@@ -10,6 +10,7 @@ Exploratory design notes are retained in {doc}`../archive/index`.
 :maxdepth: 1
 
 documentation-scope
+code-tour
 extending-calibration-workflows
 contributing
 ci

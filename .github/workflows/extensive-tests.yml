@@ -4,16 +4,13 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "pyages/calibration/**"
-      - "pyages/config/**"
-      - "pyages/data_io/lpm_params.py"
-      - "pyages/lpm/**"
-      - "pyages/workflows/**"
+      - "pyages/**"
       - "data_core/data_lpm/**"
       - "examples/**/*.py"
       - "examples/**/*.yaml"
       - "examples/**/*.csv"
       - "examples/**/*.json"
+      - "examples/**/*.ipynb"
       - "examples/**/*.txt"
       - "examples/**/*.xlsx"
       - "sites/ploemeur/**"
@@ -56,7 +53,7 @@ jobs:
             pyproject.toml
             install/constraints.txt
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -c install/constraints.txt -e ".[dev]"
+      - run: python -m pip install -c install/constraints.txt -e ".[dev,examples]"
       - run: >-
           python -m pytest -q --run-extensive
           --basetemp "$RUNNER_TEMP/pyages-extensive-$GITHUB_RUN_ID"
@@ -74,14 +71,16 @@ jobs:
         with:
           name: multichain-scientific-evidence-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/test_synthetic_example_multich*/synthetic_multichain_scientific.yaml
-            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/test_ploemeur_f09_multichain_s*/ploemeur_f09_multichain_scientific.yaml
-            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/test_ploemeur_ig_shifted_prior*/ploemeur_ig_shifted_prior_multichain.yaml
-            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/test_ploemeur_temporal_multich*/ploemeur_temporal_multichain_scientific.yaml
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/synthetic_multichain_scientific.yaml
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_f09_multichain_scientific.yaml
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_ig_shifted_prior_multichain.yaml
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_temporal_multichain_scientific.yaml
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/albuquerque_shapefree_multichain_exploratory.yaml
             ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/synthetic_multichain_scientific/**
             ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_f09_multichain_scientific/**
             ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_ig_shifted_prior_multichain/**
             ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_temporal_multichain_scientific/**
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/albuquerque_shapefree_multichain_exploratory/**
             .artifacts/multichain-qualification-draft.zip
             .artifacts/multichain-qualification-draft.zip.sha256
           if-no-files-found: warn

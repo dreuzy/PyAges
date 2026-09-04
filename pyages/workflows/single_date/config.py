@@ -15,12 +15,22 @@ from pyages.config.loading import load_yaml_mapping
 from pyages.config.models import LauncherConfig, LauncherParams
 
 
-def load_params_payload(root_dir: Path, data: dict) -> LauncherParams:
-    """Validate one launcher-only mapping and resolve its relative paths."""
+def load_config_payload(root_dir: Path, data: dict) -> LauncherConfig:
+    """Validate a single-date mapping and preserve its nested YAML structure."""
     try:
-        cfg = LauncherConfig.model_validate(data, context={"root_dir": root_dir})
+        return LauncherConfig.model_validate(data, context={"root_dir": root_dir})
     except ValidationError as exc:
         raise ValueError(f"Invalid single-date workflow configuration:\n{exc}") from exc
+
+
+def load_config(root_dir: Path, params_path: Path) -> LauncherConfig:
+    """Load the canonical nested configuration used by the workflow."""
+    return load_config_payload(root_dir, load_yaml_mapping(params_path))
+
+
+def load_params_payload(root_dir: Path, data: dict) -> LauncherParams:
+    """Return the pre-1.1 flattened compatibility view of a configuration."""
+    cfg = load_config_payload(root_dir, data)
 
     return LauncherParams(
         dataset_name=cfg.dataset.name,
@@ -56,8 +66,13 @@ def load_params_payload(root_dir: Path, data: dict) -> LauncherParams:
 
 
 def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
-    """Load and validate a launcher-only YAML configuration."""
+    """Load the flattened compatibility view used by repository studies."""
     return load_params_payload(root_dir, load_yaml_mapping(params_path))
 
 
-__all__ = ["load_params", "load_params_payload"]
+__all__ = [
+    "load_config",
+    "load_config_payload",
+    "load_params",
+    "load_params_payload",
+]

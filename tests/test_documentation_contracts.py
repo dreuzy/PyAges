@@ -171,6 +171,7 @@ def test_natural_notebooks_use_only_canonical_public_apis() -> None:
         "objfunc=",
         "reachconc=",
         "display_concentration_times",
+        ".proposal_step",
     )
 
     for notebook_path in notebook_paths:
@@ -186,6 +187,8 @@ def test_contributor_extension_contract_is_navigable_and_compilable() -> None:
     dev_index = (ROOT / "docs/dev/index.md").read_text(encoding="utf-8")
 
     assert "extending-calibration-workflows" in dev_index
+    assert "code-tour" in dev_index
+    assert (ROOT / "docs/dev/code-tour.md").is_file()
     assert "write_result_manifest" in document
     assert "**last**" in document
     compile(_first_python_block(document), "extending-calibration-workflows", "exec")

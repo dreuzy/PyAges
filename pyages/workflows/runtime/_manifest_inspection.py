@@ -331,7 +331,7 @@ def _append_nested_stage_issues(
     """Add promotion-blocking nested-stage diagnostics."""
     try:
         _assert_no_nested_staged_runs(state.result_directory)
-        _assert_no_nested_staged_runs(stage, allowed_root_run_id=state.run_id)
+        _assert_no_nested_staged_runs(stage)
     except (OSError, RuntimeError) as error:
         issues.append(str(error))
 
@@ -523,38 +523,17 @@ def inventory_staged_result_runs(root: str | Path) -> tuple[StagedRunInspection,
 
 def _assert_no_nested_staged_runs(
     tree_directory: Path,
-    *,
-    allowed_root_run_id: str | None = None,
 ) -> None:
-    """Refuse a tree containing an active staged run other than its root."""
+    """Refuse a tree containing any reserved nested staging entry."""
     if not _path_entry_exists(tree_directory):
         return
     entries = _strict_tree_entries(tree_directory)
-    root_directory = tree_directory.resolve()
-    for state_path, kind in entries:
-        if kind != "file" or state_path.name != _RUN_STATE_FILENAME:
-            continue
-        state_directory = state_path.parent.resolve()
-        try:
-            state = _read_run_state(state_directory)
-        except RuntimeError:
-            # Nested homonyms are ordinary manifested artifacts unless they
-            # contain a valid active-run journal.
-            continue
-        if (
-            state_directory == root_directory
-            and state is not None
-            and state.run_id == allowed_root_run_id
-        ):
-            continue
-        if (
-            state is not None
-            and state.mode == "staged"
-            and state_directory != state.result_directory
-        ):
+    for candidate, _kind in entries:
+        if _is_staging_directory_name(candidate.name):
             raise RuntimeError(
-                "Result tree contains an active nested staged run; refusing to "
-                f"replace {tree_directory}: {state_directory}."
+                "Result tree contains an active nested staged run or invalid "
+                "staging candidate; refusing to replace "
+                f"{tree_directory}: {candidate}."
             )
 
 

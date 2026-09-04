@@ -117,7 +117,6 @@ multichain:
     enabled: true
     nstep: 2000
     burn_in: 0.5
-    covariance_mode: pooled_within_chain
     relative_ridge: 1.0e-6
     proposal_multiplier: auto
   diagnostics:

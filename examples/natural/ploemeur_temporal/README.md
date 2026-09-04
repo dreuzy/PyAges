@@ -3,13 +3,13 @@
 Quick run:
 
 ```bash
-python -m examples.natural.ploemeur_temporal.run_ploemeur_temporal
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 Maintained multi-chain qualification of the complete span:
 
 ```bash
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal_multichain.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal_multichain.yaml
 ```
 
 This slower development-branch profile runs four dispersed chains, learns one

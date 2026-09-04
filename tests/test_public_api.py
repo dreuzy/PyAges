@@ -79,26 +79,23 @@ def test_qualification_exposes_the_experiment_without_a_workflow_alias() -> None
 
 def test_mh_facade_exports_only_canonical_objects() -> None:
     expected = {
-        "MHChainResult": mh_results.MHChainResult,
         "MHConfig": mh_config.MHConfig,
         "MHConvergenceError": mh_errors.MHConvergenceError,
         "MHDiagnosticsConfig": mh_ensemble_config.MHDiagnosticsConfig,
-        "MHDiagnosticsUnavailableError": mh_errors.MHDiagnosticsUnavailableError,
         "MHEnsembleConfig": mh_ensemble_config.MHEnsembleConfig,
         "MHInitializationConfig": mh_ensemble_config.MHInitializationConfig,
-        "MHParameterDiagnostics": mh_results.MHParameterDiagnostics,
         "MHPilotConfig": mh_ensemble_config.MHPilotConfig,
-        "MHPilotResult": mh_results.MHPilotResult,
         "MHRunRecord": mh_results.MHRunRecord,
-        "MHSeedPlan": mh_ensemble_config.MHSeedPlan,
         "MetropolisHastings": mh_sampler.MetropolisHastings,
         "MultiChainMetropolisHastings": (mh_ensemble.MultiChainMetropolisHastings),
-        "build_seed_plan": mh_ensemble_config.build_seed_plan,
     }
 
     assert mh.__all__ == list(expected)
     assert all(getattr(mh, name) is value for name, value in expected.items())
     assert not hasattr(mh, "MHEnsembleResult")
+    assert not hasattr(mh, "MHChainResult")
+    assert not hasattr(mh, "MHSeedPlan")
+    assert not hasattr(mh, "build_seed_plan")
     assert not hasattr(mh_ensemble, "ProblemFactory")
     assert not hasattr(runtime_mh, "build_mh_ensemble_config")
     assert not hasattr(runtime_mh, "mh_stage_directory")

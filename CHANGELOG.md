@@ -9,6 +9,10 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ### Added
 
+- Added an explicitly exploratory five-chain Albuquerque shape-free profile
+  and extensive scientific characterization, while keeping provisional error
+  and age-support assumptions outside the canonical release qualification
+  archive.
 - Added a progressive Pyright gate for selected stable internal contracts and
   direct tests for prior-bound validation, LPM parameter-manager failures, and
   stage-inspection CLI errors.
@@ -35,8 +39,41 @@ Before 1.0, incompatible public changes are identified explicitly below.
   draft and checksum sidecar; durable publication still requires a clean,
   annotated version tag and an external deposit.
 
+### Deprecated
+
+- `pyages run --transient` is retained for legacy temporal configurations but
+  is deprecated in favor of `workflow.kind: temporal`; removal is planned for
+  PyAges 2.0.
+
 ### Changed
 
+- Simplified workflow entry and calibration plumbing: `pyages run` now selects
+  `single_date` or `temporal` from `workflow.kind`, both workflows share one MH
+  configuration/execution adapter, and the single-date runtime consumes the
+  nested `LauncherConfig` directly. The flattened `LauncherParams` view remains
+  available for compatible repository integrations.
+- Simplified the MH implementation by keeping one-chain state in the sampler
+  and representing prior behavior with typed normal, uniform, and empirical
+  marginals behind the existing `Prior` facade.
+- Removed the trivial Ploemeur, Albuquerque, and temporal Python example
+  wrappers in favor of their direct `pyages run <config.yaml>` commands, and
+  added a contributor code tour.
+- Parent result promotion now refuses any nested reserved stage candidate,
+  including candidates whose journal is missing or corrupt, so an unreadable
+  interrupted run cannot be silently removed.
+- Simplified the unreleased multi-chain interface: the pilot covariance always
+  uses the documented pooled-within-chain estimator, so the single-choice
+  `covariance_mode` input was removed while its resolved method remains in
+  result provenance. The MH package facade now exposes only high-level
+  configurations, samplers, the run record, and the convergence error.
+- Consolidated covariance regularization behind one implementation and folded
+  two single-consumer MH storage/transition micro-modules into the sampler.
+  The calibration base return contract is now included in the progressive
+  Pyright gate.
+- Expanded extensive-test pull-request triggers to every `pyages/**` change
+  and made raw evidence discovery independent of pytest function-directory
+  names. Release-candidate qualification now packages its extensive results
+  with the unchanged wheel and sdist built from the exact same tag.
 - Split LPM parameter-schema validation, MH result consistency checks, and
   workflow-manifest provenance/artifact/inspection logic into focused private
   modules while preserving their existing public facades.

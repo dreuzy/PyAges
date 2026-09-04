@@ -827,10 +827,7 @@ def promote_result_run(run: ResultRun) -> Path:
                 f"{result_directory}."
             )
         _assert_no_nested_staged_runs(result_directory)
-        _assert_no_nested_staged_runs(
-            working_directory,
-            allowed_root_run_id=run.run_id,
-        )
+        _assert_no_nested_staged_runs(working_directory)
         # Recheck after acquiring the lock so no late artifact can be published
         # under the already-written terminal manifest.
         _validated_staged_directories(run)

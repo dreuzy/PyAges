@@ -23,32 +23,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-
-def _positive_definite_regularization(
-    covariance: np.ndarray, relative_ridge: float
-) -> np.ndarray:
-    """Return a covariance matrix that a Gaussian sampler can use safely.
-
-    The input is first made exactly symmetric. A small value is then added to
-    its diagonal. If that is not enough to make every variance direction
-    positive, the function adds the smallest extra numerical correction needed.
-    """
-    dimension = covariance.shape[0]
-    symmetric = (covariance + covariance.T) / 2.0
-    typical_variance = max(float(np.trace(symmetric) / dimension), 1.0e-12)
-    regularized = symmetric + (relative_ridge * typical_variance * np.eye(dimension))
-
-    # A caller may request no regularization when the empirical covariance is
-    # already usable. If it is singular, add only the machine-level correction
-    # required to make Gaussian sampling possible.
-    smallest_eigenvalue = float(np.linalg.eigvalsh(regularized)[0])
-    if smallest_eigenvalue <= 0.0:
-        numerical_ridge = max(
-            np.finfo(float).eps * typical_variance,
-            -smallest_eigenvalue + np.finfo(float).eps * typical_variance,
-        )
-        regularized = regularized + numerical_ridge * np.eye(dimension)
-    return (regularized + regularized.T) / 2.0
+from pyages.calibration.methods.mh.proposals import _regularize_covariance
 
 
 def pooled_within_chain_covariance(
@@ -110,7 +85,7 @@ def pooled_within_chain_covariance(
     if scatter is None:
         raise AssertionError("validated pilot chains must initialize the scatter")
     covariance = scatter / degrees_of_freedom
-    return _positive_definite_regularization(covariance, relative_ridge)
+    return _regularize_covariance(covariance, relative_ridge)
 
 
 def automatic_proposal_multiplier(dimension: int) -> float:

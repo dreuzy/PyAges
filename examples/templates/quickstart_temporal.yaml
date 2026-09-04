@@ -10,6 +10,7 @@ lpm_models:
   directory: data_core/data_lpm
 
 workflow:
+  kind: temporal
   mode: span
 
 calibration:
@@ -32,7 +33,6 @@ calibration:
   #   pilot:
   #     enabled: true
   #     nstep: 2000
-  #     covariance_mode: pooled_within_chain
   #     proposal_multiplier: auto
   #   diagnostics:
   #     max_rhat: 1.01

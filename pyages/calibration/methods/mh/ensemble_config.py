@@ -112,8 +112,8 @@ class MHPilotConfig:
     ``nstep`` and fractional ``burn_in`` define pilot transitions retained with
     no thinning.
 
-    ``pooled_within_chain`` centers each chain separately before estimating the
-    shared native-coordinate covariance. ``relative_ridge`` regularizes that
+    Each chain is centered separately before estimating the shared
+    native-coordinate covariance. ``relative_ridge`` regularizes that
     covariance against singularity. A ``None`` proposal multiplier selects
     ``2.38 / sqrt(dimension)``.
 
@@ -124,7 +124,6 @@ class MHPilotConfig:
     enabled: bool = True
     nstep: int = 2_000
     burn_in: float = 0.5
-    covariance_mode: str = "pooled_within_chain"
     relative_ridge: float = 1.0e-6
     proposal_multiplier: float | None = None
     save_samples: bool = False
@@ -146,8 +145,6 @@ class MHPilotConfig:
             raise ValueError(
                 "pilot nstep and burn_in must retain at least two covariance draws"
             )
-        if self.covariance_mode != "pooled_within_chain":
-            raise ValueError("covariance_mode must be 'pooled_within_chain'")
         if (
             isinstance(self.relative_ridge, bool)
             or not math.isfinite(self.relative_ridge)

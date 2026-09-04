@@ -118,7 +118,6 @@ def _scientific_payload(results_root: Path) -> dict:
         "enabled": True,
         "nstep": 2_000,
         "burn_in": 0.50,
-        "covariance_mode": "pooled_within_chain",
         "relative_ridge": 1.0e-6,
         "proposal_multiplier": "auto",
         "save_samples": False,

@@ -1,21 +1,21 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# This file translates validated workflow settings into a multi-chain
-# Metropolis--Hastings run and creates a fresh calibration problem per stage.
-# It saves every chain and diagnostic, then returns pooled samples only when the
-# convergence gates pass; a rejected run raises after preserving its audit files.
+# This file translates validated workflow settings into single- or multi-chain
+# Metropolis--Hastings runs and creates a fresh calibration problem per stage.
 
-"""Shared workflow services for multi-chain Metropolis--Hastings runs.
+"""Shared workflow services for Metropolis--Hastings runs.
 
 The inference engine deliberately knows nothing about workflow result paths.
 This module is the integration boundary: it translates validated YAML, gives
 every stage a fresh :class:`~pyages.calibration.problem.CalibrationProblem`,
-serializes the complete audit trail, and enforces the qualification policy.
+handles the single/ensemble branch, serializes the audit trail, and enforces the
+qualification policy.
 """
 
 from __future__ import annotations
 
+import secrets
 from collections.abc import Callable
 from pathlib import Path
 
@@ -28,12 +28,63 @@ from pyages.calibration.methods.mh.ensemble_config import (
     MHPilotConfig,
 )
 from pyages.calibration.methods.mh.errors import MHConvergenceError
+from pyages.calibration.methods.mh.sampler import MetropolisHastings
 from pyages.calibration.problem import CalibrationProblem
-from pyages.config.models import MHMultichainCfg
-from pyages.data_io.mh_results import write_mh_ensemble_result
+from pyages.config.models import (
+    LauncherMetropolisCfg,
+    MHMultichainCfg,
+    TemporalCalibrationCfg,
+)
+from pyages.data_io.mh_results import (
+    clear_mh_ensemble_artifacts,
+    write_mh_ensemble_result,
+)
 from pyages.lpm.samples import LpmSampleTable
 
 _ProblemBuilder = Callable[[Path], CalibrationProblem]
+
+
+def build_mh_config(
+    config: LauncherMetropolisCfg | TemporalCalibrationCfg,
+) -> MHConfig:
+    """Translate either workflow's validated settings into one chain config."""
+    if isinstance(config, LauncherMetropolisCfg):
+        return MHConfig(
+            nstep=config.nstep,
+            burn_in=config.burn_in,
+            nskip=config.nskip,
+            prior_option=config.prior_option,
+            likelihood=config.likelihood,
+            monitor=config.monitor,
+            display_traj=config.display_traj,
+            componentwise_source="model",
+            seed=config.seed,
+        )
+    if isinstance(config, TemporalCalibrationCfg):
+        multichain_enabled = config.multichain is not None and config.multichain.enabled
+        seed = (
+            0
+            if multichain_enabled
+            else config.seed
+            if config.seed_enabled
+            else secrets.randbits(63)
+        )
+        if seed is None:
+            raise ValueError("calibration.seed is required when seed_enabled is true")
+        return MHConfig(
+            nstep=config.mh_nsteps,
+            burn_in=config.burn_in,
+            nskip=config.nskip,
+            prior_option=True,
+            prior_type="parametric",
+            likelihood=True,
+            monitor=False,
+            display_traj=False,
+            display_text=False,
+            componentwise_source="model",
+            seed=seed,
+        )
+    raise TypeError("config must be a validated single-date or temporal MH config")
 
 
 def _build_mh_ensemble_config(config: MHMultichainCfg) -> MHEnsembleConfig:
@@ -53,7 +104,6 @@ def _build_mh_ensemble_config(config: MHMultichainCfg) -> MHEnsembleConfig:
         enabled=config.pilot.enabled,
         nstep=config.pilot.nstep,
         burn_in=config.pilot.burn_in,
-        covariance_mode=config.pilot.covariance_mode,
         relative_ridge=config.pilot.relative_ridge,
         proposal_multiplier=(
             None if pilot_multiplier == "auto" else float(pilot_multiplier)
@@ -139,4 +189,27 @@ def run_mh_ensemble(
     )
 
 
-__all__ = ["run_mh_ensemble"]
+def run_mh_calibration(
+    chain_config: MHConfig,
+    multichain_config: MHMultichainCfg | None,
+    output_directory: str | Path,
+    problem_builder: _ProblemBuilder,
+) -> LpmSampleTable:
+    """Run one chain or a qualified ensemble behind one workflow boundary."""
+    root = Path(output_directory)
+    if multichain_config is not None and multichain_config.enabled:
+        return run_mh_ensemble(
+            chain_config,
+            multichain_config,
+            root,
+            problem_builder,
+        )
+
+    clear_mh_ensemble_artifacts(root)
+    calibration = MetropolisHastings(config=chain_config)
+    results = calibration.run(problem_builder(root))
+    calibration.write_calibrated_lpm(results)
+    return results
+
+
+__all__ = ["build_mh_config", "run_mh_calibration", "run_mh_ensemble"]

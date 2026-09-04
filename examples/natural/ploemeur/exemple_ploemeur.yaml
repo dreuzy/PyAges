@@ -1,3 +1,6 @@
+workflow:
+  kind: single_date
+
 dataset:
   # Identifier of the dataset file (directory + basename).
   # Example: "ploemeur_F09_2010.txt" maps to examples/natural/ploemeur/data/ploemeur_F09_2010.txt

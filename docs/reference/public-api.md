@@ -21,6 +21,10 @@ The following interfaces are intended for users:
 - documented YAML configuration fields and the result files defined in
   {doc}`outputs`.
 
+`LauncherConfig` is the canonical single-date model and preserves the nested
+YAML sections used by the workflow. The exported flattened `LauncherParams`
+model remains a compatibility view for existing integrations.
+
 Modules below `core`, `utils`, private names beginning with `_`, site-specific
 code, examples, and repository scripts are implementation or research
 interfaces. They can evolve without a compatibility alias.
@@ -75,10 +79,13 @@ imports the signature records and
 schema-version constant have this single canonical module; the problem module
 does not provide compatibility aliases.
 
-The contributor facade `pyages.calibration.methods.mh` exposes the immutable
-`MHRunRecord` produced by the ensemble engine. That record owns the exact chain
-and ensemble configurations consumed by serialization; writers do not accept a
-second configuration source. The experimental `MHEnsembleResult`,
+The contributor facade `pyages.calibration.methods.mh` exposes the high-level
+chain and ensemble configurations, the one-chain and multi-chain samplers,
+`MHConvergenceError`, and the immutable `MHRunRecord` produced by the ensemble
+engine. Leaf chain, pilot, diagnostic, and seed records stay in their defining
+contributor modules instead of enlarging the facade. `MHRunRecord` owns the
+exact chain and ensemble configurations consumed by serialization; writers do
+not accept a second configuration source. The experimental `MHEnsembleResult`,
 `ProblemFactory`, and workflow builder aliases were removed before release of
 the multi-chain feature. Internal callable protocols and path/configuration
 builders now use private names.

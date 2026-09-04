@@ -109,6 +109,7 @@ convention = "numpy"
 
 [tool.pyright]
 include = [
+    "pyages/calibration/methods/base.py",
     "pyages/calibration/methods/mh/_prior_support.py",
     "pyages/calibration/sampling_schedule.py",
     "pyages/convolution/settings.py",

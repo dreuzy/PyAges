@@ -32,6 +32,7 @@ from pyages.concentrations.schema import CONCENTRATION_COLUMN, ERROR_COLUMN
 
 if TYPE_CHECKING:
     from pyages.concentrations import Concentrations
+    from pyages.lpm.samples.table import LpmSampleTable
 
 
 class CalibrationMethod(ABC):
@@ -83,7 +84,7 @@ class CalibrationMethod(ABC):
         problem.ensure_prepared()
         self._problem = problem
 
-    def run(self, problem: CalibrationProblem):
+    def run(self, problem: CalibrationProblem) -> LpmSampleTable:
         """Bind a prepared problem and execute the algorithm.
 
         Binding is explicit so a method never copies or silently rebuilds the
@@ -161,7 +162,7 @@ class CalibrationMethod(ABC):
         write_key_values(file_name, values)
 
     @abstractmethod
-    def perform(self):
+    def perform(self) -> LpmSampleTable:
         """Execute the method after :meth:`run` binds a problem."""
 
     @abstractmethod

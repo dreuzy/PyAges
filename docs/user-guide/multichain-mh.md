@@ -15,13 +15,15 @@ in {doc}`../science/inference`.
 
 ## Start from a reproducible profile
 
-Four maintained configurations exercise the public YAML workflows:
+Four qualification configurations and one exploratory profile exercise the
+public YAML workflows:
 
 ```bash
 pyages run examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date_multichain.yaml
 pyages run examples/natural/ploemeur/exemple_ploemeur_multichain.yaml
 pyages run examples/natural/ploemeur/exemple_ploemeur_ig_shifted_prior_multichain.yaml
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal_multichain.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal_multichain.yaml
+pyages run examples/natural/albuquerque/exemple_albuquerque_shapefree_multichain.yaml
 ```
 
 The synthetic case has known generating parameters and is the first profile to
@@ -30,7 +32,10 @@ qualify convergence and the internal coherence of fitted latent concentrations
 only. See {doc}`../examples/synthetic-recovery`,
 {doc}`../examples/ploemeur-multichain`,
 {doc}`../examples/ploemeur-ig-shifted-prior-multichain`, and
-{doc}`../examples/ploemeur-temporal-multichain` for their exact protocols.
+{doc}`../examples/ploemeur-temporal-multichain` for their exact qualification
+protocols. The Albuquerque profile is documented separately in
+{doc}`../examples/albuquerque`: it is exploratory and is not part of the
+publishable four-case archive.
 
 All profiles use deterministic result-directory names. A new run writes into
 an isolated, run-ID-derived staging tree while the preceding published result
@@ -60,7 +65,8 @@ An enabled ensemble follows this sequence:
 
 Pilot draws tune the random walk; they are never posterior draws. The proposal
 covariance is not a prior covariance and is not learned from the first
-production chain.
+production chain. The pooled-within-chain estimator is the only supported
+method, so there is no covariance-method selector in the configuration.
 
 Prior-based ensemble starts use the prior's bounded marginal interface. A
 normal marginal is conditioned on the calibration interval before its
@@ -86,7 +92,6 @@ multichain:
     enabled: true
     nstep: 2000
     burn_in: 0.5
-    covariance_mode: pooled_within_chain
     relative_ridge: 1.0e-6
     proposal_multiplier: auto
   diagnostics:
@@ -165,7 +170,6 @@ ensemble_config = MHEnsembleConfig(
         enabled=True,
         nstep=1500,
         burn_in=0.5,
-        covariance_mode="pooled_within_chain",
         relative_ridge=1.0e-6,
         proposal_multiplier=None,  # None selects 2.38 / sqrt(dimension).
     ),
@@ -615,6 +619,7 @@ therefore the sum of all pilot and production transitions:
 | Ploemeur F09 | 5 × 2,000 | 5 × 5,000 | 19,995 |
 | Ploemeur F09 IG with prior | 5 × 5,000 | 5 × 15,000 | 59,995 |
 | Ploemeur temporal | 4 × 2,000 | 4 × 5,000 | 15,996 |
+| Albuquerque exploratory | 5 × 1,000 | 5 × 2,500 | 9,995 |
 
 Wall time depends strongly on tracer histories, LPM, convolution cache,
 processor, and dependency versions. These profiles are extensive scientific
@@ -629,6 +634,7 @@ python -m pytest -q --run-extensive tests/examples/test_synthetic_recovery_multi
 python -m pytest -q --run-extensive tests/examples/test_ploemeur_multichain_scientific.py
 python -m pytest -q --run-extensive tests/examples/test_ploemeur_ig_shifted_prior_multichain_scientific.py
 python -m pytest -q --run-extensive tests/examples/test_ploemeur_temporal_multichain_scientific.py
+python -m pytest -q --run-extensive tests/examples/test_albuquerque_shapefree_multichain_scientific.py
 ```
 
 Or run the complete standard-plus-extensive profile:

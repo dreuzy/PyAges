@@ -45,7 +45,7 @@ The templates avoid interactive figures and are suitable for a first check:
 
 ```bash
 pyages run examples/templates/quickstart_single.yaml
-pyages run --transient examples/templates/quickstart_temporal.yaml
+pyages run examples/templates/quickstart_temporal.yaml
 ```
 
 For a configuration located inside a PyAges source checkout, relative paths are

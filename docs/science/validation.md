@@ -30,6 +30,7 @@ commands and selection rules are maintained in {doc}`../dev/testing`.
 | Cross-software inverse cases | `validation/tracerlpm/benchmark/tests/`, with the adapter compilation checked separately | `TracerLPM validation` and `.NET build` | Benchmark fixtures and mapped synthetic cases | GitHub CI does not execute Excel, the XLL, or native Solver on a qualified Windows host |
 | Posterior diagnostics | Calibration proposal, prior, support, and scientific-contract modules plus the extensive synthetic, single-date, prior-active, and temporal multi-chain qualifications | Standard suite; selected extensive tests and reproduction campaigns | {doc}`inference`, {doc}`../user-guide/multichain-mh`, and {doc}`reproducibility` | Convergence diagnostics do not prove uniqueness, tracer consistency, or model adequacy |
 | Field benchmarks | Golden and workflow modules in `tests/examples/` and `tests/ploemeur/`, including the three Ploemeur multi-chain qualifications | Standard and scheduled extensive suites | {doc}`case-studies`, {doc}`../examples/ploemeur-multichain`, {doc}`../examples/ploemeur-ig-shifted-prior-multichain`, {doc}`../examples/ploemeur-temporal-multichain`, versioned case inputs, manifests, and accepted fixtures | Results qualify the documented cases only and do not generalize automatically to another aquifer |
+| Exploratory field characterization | `tests/examples/test_albuquerque_shapefree_multichain_scientific.py` | Scheduled extensive suite | {doc}`../examples/albuquerque`, versioned SSW 2007 inputs and result manifest | Checks a declared computational hypothesis; provisional uncertainties/support and absent independent reference prevent field qualification |
 
 Software delivery checks add a separate layer: CLI, configuration, package,
 Conda, documentation, and workflow tests verify that the qualified scientific
@@ -96,6 +97,14 @@ implementation, not the `pyages==1.0.1` package from PyPI:
   workflow over 58 observations and 20 dates, checking convergence, prior and
   proposal provenance, joint-row integrity, independent forward evaluations,
   and in-sample residual limits.
+
+An additional Albuquerque shape-free test executes five chains and verifies
+fraction normalization, joint-row integrity, fresh forward recomputation,
+diagnostics, and provenance. It is categorized separately as exploratory: the
+three observations do not identify four latent coordinates by themselves, and
+its provisional 1% error fallback and 120-year old-bin support still need
+scientific validation. It therefore does not enlarge the four-case release
+qualification archive.
 
 The synthetic result qualifies this one fixed noisy realization; it is not a
 frequentist coverage experiment over repeated noise draws. Ploemeur has no

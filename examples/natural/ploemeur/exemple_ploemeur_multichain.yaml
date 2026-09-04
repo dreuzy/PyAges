@@ -1,6 +1,9 @@
 # Reproducible multi-chain qualification profile for Ploemeur F09 (2010).
 # This checks MCMC convergence and in-sample predictive coherence; field data do
 # not provide a known true parameter vector or prove that this LPM is unique.
+workflow:
+  kind: single_date
+
 dataset:
   name: ploemeur_F09_2010.txt
   label: Ploemeur F09 2010 multi-chain qualification
@@ -28,7 +31,6 @@ calibration_metropolis_hastings:
   nstep: 5000
   burn_in: 0.2
   nskip: 1
-  seed: 12345  # Ignored by the enabled ensemble; master_seed controls all streams.
   prior_option: false
   likelihood: true
   monitor: false
@@ -44,7 +46,6 @@ calibration_metropolis_hastings:
       enabled: true
       nstep: 2000
       burn_in: 0.5
-      covariance_mode: pooled_within_chain
       relative_ridge: 1.0e-6
       proposal_multiplier: auto
       save_samples: false

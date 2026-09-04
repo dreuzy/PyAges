@@ -91,11 +91,11 @@ def test_explicit_initial_state_takes_precedence_over_prior_map(monkeypatch):
         likelihood=False,
     )
 
-    params, *_ = mh._initialize_state(  # noqa: SLF001
+    state = mh._initialize_state(  # noqa: SLF001
         np.array([]), np.array([])
     )
 
-    assert params == [35.0, 20.0]
+    assert state.params == [35.0, 20.0]
 
 
 def test_trajectory_records_negative_log_posterior_and_acceptance_state():

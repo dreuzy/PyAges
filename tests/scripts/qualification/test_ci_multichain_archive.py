@@ -329,15 +329,17 @@ def test_extensive_workflow_builds_archive_before_always_upload() -> None:
     assert ".artifacts/multichain-qualification-draft.zip.sha256" in workflow
     for case in ci_archive.CASES:
         assert case.executed_yaml_name in workflow
-    assert "test_synthetic_example_multich*" in workflow
-    assert "test_ploemeur_f09_multichain_s*" in workflow
-    assert "test_ploemeur_ig_shifted_prior*" in workflow
-    assert "test_ploemeur_temporal_multich*" in workflow
+    assert "test_synthetic_example_multich*" not in workflow
+    assert "test_ploemeur_f09_multichain_s*" not in workflow
+    assert "test_ploemeur_ig_shifted_prior*" not in workflow
+    assert "test_ploemeur_temporal_multich*" not in workflow
     for scientific_path in (
+        "pyages/**",
         "examples/**/*.py",
         "examples/**/*.yaml",
         "examples/**/*.csv",
         "examples/**/*.json",
+        "examples/**/*.ipynb",
         "examples/**/*.txt",
         "examples/**/*.xlsx",
         "sites/ploemeur/**",
@@ -349,3 +351,26 @@ def test_extensive_workflow_builds_archive_before_always_upload() -> None:
         "scripts/qualification/build_ci_multichain_archive.py",
     ):
         assert f'- "{scientific_path}"' in workflow
+
+
+def test_release_candidate_archives_the_tested_tag_and_distributions() -> None:
+    workflow = (ci_archive.ROOT / ".github/workflows/release-candidate.yml").read_text(
+        encoding="utf-8"
+    )
+
+    pytest_position = workflow.index("python -m pytest -q --run-extensive")
+    download_position = workflow.index("actions/download-artifact", pytest_position)
+    archive_position = workflow.index(
+        "python -m scripts.qualification.build_ci_multichain_archive",
+        download_position,
+    )
+    upload_position = workflow.index(
+        "Preserve the qualification archive built from the release candidate",
+        archive_position,
+    )
+
+    assert pytest_position < download_position < archive_position < upload_position
+    assert "--mode publishable" in workflow
+    assert '--expected-tag "$RELEASE_TAG"' in workflow
+    assert "release-distributions-${{ inputs.tag }}" in workflow
+    assert "multichain-qualification-${{ inputs.tag }}" in workflow

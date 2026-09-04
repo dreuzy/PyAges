@@ -5,6 +5,9 @@
 # scientific convergence qualification; use one of the maintained extensive
 # profiles documented in docs/user-guide/multichain-mh.md for that purpose.
 
+workflow:
+  kind: single_date
+
 dataset:
   name: ploemeur_F09_2010.txt
   year: 2010
@@ -26,7 +29,6 @@ calibration_metropolis_hastings:
   nstep: 120
   burn_in: 0.1
   nskip: 10
-  seed: 12345  # Ignored while the ensemble is enabled.
   prior_option: false
   likelihood: true
   monitor: false
@@ -41,7 +43,6 @@ calibration_metropolis_hastings:
       enabled: true
       nstep: 40
       burn_in: 0.25
-      covariance_mode: pooled_within_chain
       relative_ridge: 1.0e-6
       proposal_multiplier: auto
       save_samples: true

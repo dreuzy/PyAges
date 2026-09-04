@@ -13,6 +13,7 @@ import pytest
 
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.calibration.methods.mh._sampler_target import MHTarget
+from pyages.calibration.methods.mh.sampler import _MHState
 from pyages.calibration.problem import CalibrationProblem
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
@@ -68,17 +69,15 @@ def test_rejected_candidate_never_changes_committed_lpm(monkeypatch) -> None:
     monkeypatch.setattr(sampler, "_draw_proposal", lambda *_args: [90.0])
 
     selected = sampler._mcmc_step(  # noqa: SLF001
-        current,
-        log_p,
-        chi_square,
-        concentrations,
+        _MHState(current, log_p, chi_square, concentrations),
         observed,
         errors,
         _RejectRng(),
     )
 
-    assert selected[-1] is False
-    assert selected[0] == current
+    state, accepted = selected
+    assert accepted is False
+    assert state.params == current
     assert problem.lpm.get_parameters_to_array() == current
     assert sampler._target.candidate_lpm.get_parameters_to_array() == [90.0]  # noqa: SLF001
 
@@ -94,17 +93,15 @@ def test_prior_only_accepted_candidate_is_committed(monkeypatch) -> None:
     monkeypatch.setattr(sampler, "_draw_proposal", lambda *_args: [20.0])
 
     selected = sampler._mcmc_step(  # noqa: SLF001
-        current,
-        0.0,
-        0.0,
-        [np.nan],
+        _MHState(current, 0.0, 0.0, [np.nan]),
         observed,
         errors,
         np.random.default_rng(123),
     )
 
-    assert selected[-1] is True
-    assert selected[0] == [20.0]
+    state, accepted = selected
+    assert accepted is True
+    assert state.params == [20.0]
     assert problem.lpm.get_parameters_to_array() == [20.0]
 
 

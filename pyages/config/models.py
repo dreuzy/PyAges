@@ -189,7 +189,6 @@ class MHPilotCfg(_BaseCfg):
     enabled: bool = True
     nstep: int = Field(default=2000, ge=4)
     burn_in: float = Field(default=0.5, ge=0.0, lt=1.0)
-    covariance_mode: Literal["pooled_within_chain"] = "pooled_within_chain"
     relative_ridge: float = Field(default=1.0e-6, ge=0.0, allow_inf_nan=False)
     proposal_multiplier: float | Literal["auto"] = "auto"
     save_samples: bool = False
@@ -401,9 +400,16 @@ class LauncherResultsCfg(_BaseCfg):
         return self
 
 
+class LauncherWorkflowCfg(_BaseCfg):
+    """Workflow discriminator used by the command-line launcher."""
+
+    kind: Literal["single_date"] = "single_date"
+
+
 class LauncherConfig(_BaseCfg):
     """Full YAML schema for the single-date workflow."""
 
+    workflow: LauncherWorkflowCfg = Field(default_factory=LauncherWorkflowCfg)
     dataset: LauncherDatasetCfg = Field(default_factory=LauncherDatasetCfg)
     lpm: LauncherLpmCfg = Field(default_factory=LauncherLpmCfg)
     tracers: LauncherTracerCfg = Field(default_factory=LauncherTracerCfg)
@@ -547,6 +553,7 @@ class TemporalFiguresCfg(_BaseCfg):
 class TemporalWorkflowCfg(_BaseCfg):
     """Workflow control (span vs successive)."""
 
+    kind: Literal["temporal"] = "temporal"
     mode: str = "span"
 
     @field_validator("mode")

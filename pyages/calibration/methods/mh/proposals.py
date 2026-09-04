@@ -146,6 +146,33 @@ def sum_difference_log_abs_det_jacobian() -> float:
     return -math.log(2.0)
 
 
+def _regularize_covariance(
+    covariance: np.ndarray,
+    relative_ridge: float,
+) -> np.ndarray:
+    """Return one finite symmetric positive-definite covariance matrix."""
+    values = np.asarray(covariance, dtype=float)
+    if values.ndim != 2 or values.shape[0] == 0 or values.shape[0] != values.shape[1]:
+        raise ValueError("covariance must be a non-empty square matrix")
+    if not np.all(np.isfinite(values)):
+        raise ValueError("covariance must contain only finite values")
+    if relative_ridge < 0.0 or not math.isfinite(relative_ridge):
+        raise ValueError("relative_ridge must be finite and non-negative")
+
+    symmetric = (values + values.T) / 2.0
+    dimension = symmetric.shape[0]
+    typical_variance = max(float(np.trace(symmetric) / dimension), 1.0e-12)
+    regularized = symmetric + (relative_ridge * typical_variance * np.eye(dimension))
+    smallest_eigenvalue = float(np.linalg.eigvalsh(regularized)[0])
+    if smallest_eigenvalue <= 0.0:
+        numerical_ridge = max(
+            np.finfo(float).eps * typical_variance,
+            -smallest_eigenvalue + np.finfo(float).eps * typical_variance,
+        )
+        regularized = regularized + numerical_ridge * np.eye(dimension)
+    return (regularized + regularized.T) / 2.0
+
+
 def regularize_empirical_covariance(
     samples: np.ndarray, relative_ridge: float = 1.0e-6
 ) -> np.ndarray:
@@ -157,11 +184,8 @@ def regularize_empirical_covariance(
     values = np.asarray(samples, dtype=float)
     if values.ndim != 2 or values.shape[0] < 2:
         raise ValueError("samples must contain at least two multivariate draws")
-    if relative_ridge < 0.0 or not math.isfinite(relative_ridge):
-        raise ValueError("relative_ridge must be finite and non-negative")
     covariance = np.atleast_2d(np.cov(values, rowvar=False, ddof=1))
-    typical_variance = max(float(np.trace(covariance) / covariance.shape[0]), 1.0e-12)
-    return covariance + relative_ridge * typical_variance * np.eye(covariance.shape[0])
+    return _regularize_covariance(covariance, relative_ridge)
 
 
 @dataclass(frozen=True)

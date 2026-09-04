@@ -94,9 +94,11 @@ The test scopes and GitHub jobs referenced below are defined in
    only after the protected `main` checks and extensive suite pass, and never
    move it afterward.
 10. Dispatch the read-only GitHub Actions **Release candidate** workflow for
-    that tag. Download its `release-distributions-<tag>` artifact and verify its
-    digest locally. The workflow validates one build on every supported Python
-    version but cannot modify repository contents or publish packages.
+    that tag. Download its `release-distributions-<tag>` and
+    `multichain-qualification-<tag>` artifacts and verify their digests locally.
+    The workflow validates one build on every supported Python version and
+    builds the scientific archive from that same tagged commit; it cannot
+    modify repository contents or publish packages.
 11. Attach the validated wheel and source archive to a GitHub Release. Dispatch
     the **Publish package** workflow for that exact tag and select `testpypi`.
     The workflow downloads those existing release assets, verifies their

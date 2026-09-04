@@ -22,6 +22,13 @@ principaux points chauds. Leur complexité est en grande partie liée à des
 invariants de provenance et d'atomicité, mais d'autres extractions pourront être
 faites dans des changements dédiés.
 
+```{note}
+Suivi du 4 septembre 2026 : les micro-modules `_sampler_transition.py` et
+`_sampler_storage.py`, qui n'avaient chacun qu'un seul consommateur, ont été
+réintégrés dans `sampler.py`. Le contrat décrit ci-dessous est inchangé, mais le
+chemin d'accès est désormais plus direct.
+```
+
 ## 1. Une proposition MH n'est plus un état accepté
 
 ### Problème
@@ -55,8 +62,8 @@ LPM accepté theta
                               acceptation : commit theta' dans le LPM public
 ```
 
-[`_sampler_transition.py`](../../pyages/calibration/methods/mh/_sampler_transition.py)
-garde ensemble paramètres, log-cible, chi-deux et concentrations. Un seul choix
+[`sampler.py`](../../pyages/calibration/methods/mh/sampler.py) sélectionne
+ensemble paramètres, log-cible, chi-deux et concentrations. Un seul choix
 d'acceptation déplace donc tout l'état ou rien. La séquence de tirages aléatoires
 historique est conservée : une amélioration certaine ne consomme toujours pas
 de tirage uniforme supplémentaire.
@@ -225,8 +232,6 @@ contrats/fermeture des figures de trajectoire.
 | Module | Couverture de lignes |
 |---|---:|
 | `calibration/problem.py` | 100 % |
-| `_sampler_storage.py` | 100 % |
-| `_sampler_transition.py` | 100 % |
 | `_sampler_target.py` | 97 % |
 | `trajectory.py` | 94 % |
 | `_result_fingerprint.py` | 93 % |
@@ -253,15 +258,14 @@ du paquet.
 
 ## 8. Organisation des fichiers
 
-Les modules publics restent les façades d'accès. Les responsabilités privées
-répètent le préfixe demandé, notamment `_sampler_*` :
+Les modules publics restent les façades d'accès. Après la simplification du
+4 septembre, la transition et le stockage à consommateur unique sont lisibles
+directement dans `sampler.py` :
 
 ```text
 calibration/methods/mh/
 ├── sampler.py                 orchestration publique d'une chaîne
 ├── _sampler_target.py         évaluation sur le LPM candidat
-├── _sampler_transition.py     état et règle d'acceptation
-├── _sampler_storage.py        allocation et lignes retenues
 ├── prior.py                   façade et cycle de vie du prior
 ├── _prior_support.py          bornes et probabilités
 ├── _prior_parametric.py       normal/uniform et moments conditionnels

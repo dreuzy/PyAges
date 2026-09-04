@@ -40,12 +40,12 @@ from pyages.workflows.single_date.reporting import (
 def _manifest_details(context, calibrations: list[str]) -> dict[str, object]:
     """Return the shared single-date terminal-state metadata."""
     return {
-        "dataset": context.params.dataset_name,
-        "dataset_year": context.params.dataset_year,
-        "lpm": context.params.lpm_model_name,
+        "dataset": context.params.dataset.name,
+        "dataset_year": context.params.dataset.year,
+        "lpm": context.params.lpm.model_name,
         "calibrations": calibrations,
         "observation_error_policy": {
-            "missing_error_rel": context.params.missing_error_rel,
+            "missing_error_rel": context.params.dataset.missing_error_rel,
             "transformations": context.observations.error_provenance,
         },
     }
@@ -96,7 +96,7 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
     except MHConvergenceError as error:
         # ``run_calibrations`` executes Simplex first. Reaching its MH-specific
         # exception therefore proves that an enabled Simplex run completed.
-        completed = ["Simplex"] if context.params.run_calibration_simplex else []
+        completed = ["Simplex"] if context.params.run.calibration_simplex else []
         details = _manifest_details(context, completed)
         details["calibrations_attempted"] = ["Metropolis_Hastings"]
         # A convergence failure is a terminal scientific result rather than an

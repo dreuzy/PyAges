@@ -16,6 +16,17 @@ directory. Absolute paths are unchanged.
 
 Used with `pyages run <config.yaml>`.
 
+### Workflow Section
+
+```yaml
+workflow:
+  kind: single_date
+```
+
+`kind` is optional for compatibility and defaults to `single_date`, but keeping
+it explicit makes the file self-describing and lets the CLI dispatch without a
+separate mode flag.
+
 ### Dataset Section
 
 ```yaml
@@ -199,7 +210,6 @@ multichain:
     enabled: true
     nstep: 2000
     burn_in: 0.5
-    covariance_mode: pooled_within_chain
     relative_ridge: 1.0e-6
     proposal_multiplier: auto
     save_samples: false
@@ -255,17 +265,16 @@ or selects starts by likelihood.
 | `enabled` | boolean | true | Run separate pilot chains before production |
 | `nstep` | integer | 2000 | Transitions in each pilot chain; at least 4 and sufficient with `burn_in` to retain two draws |
 | `burn_in` | number | 0.5 | Fraction in `[0, 1)` discarded from each pilot; at least two draws must remain |
-| `covariance_mode` | string | `pooled_within_chain` | Estimate one covariance after centering every pilot chain separately |
 | `relative_ridge` | number | 1.0e-6 | Non-negative, scale-aware diagonal regularization ensuring a usable covariance |
 | `proposal_multiplier` | positive number or `auto` | `auto` | Scale applied to proposal standard deviations; `auto` uses $2.38/\sqrt{d}$ for $d$ parameters |
 | `save_samples` | boolean | false | Persist pilot draws as tuning evidence; they never enter the production posterior |
 
-The proposal covariance is therefore not a prior covariance and is not copied
-from the first chain. It pools the within-chain variation from all pilot
-chains, excludes differences between their means, adds the configured ridge,
-and is then held fixed for every production chain. Fixing it before production
-preserves the Markov-chain target while still adapting proposal geometry in a
-separate tuning phase.
+The proposal covariance always uses the pooled-within-chain estimator: each
+pilot chain is centered separately before their variations are combined. This
+is not a prior covariance and it is not copied from the first chain. The
+configured ridge is then added, and the resulting covariance is held fixed for
+every production chain. Fixing it before production preserves the Markov-chain
+target while still adapting proposal geometry in a separate tuning phase.
 
 `diagnostics` has these controls:
 
@@ -315,7 +324,7 @@ calibration_simplex:
 
 ## Temporal Workflow Configuration
 
-Used with `pyages run --transient <config.yaml>`.
+Used with `pyages run <config.yaml>` and `workflow.kind: temporal`.
 
 ### Dataset Section
 
@@ -353,11 +362,13 @@ lpm_models:
 
 ```yaml
 workflow:
+  kind: temporal
   mode: span                        # 'span' or 'successive'
 ```
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
+| `kind` | string | `temporal` | Fixed discriminator used by `pyages run` |
 | `mode` | string | `span` | Exactly `span` (one joint calibration) or `successive` (one calibration per distinct date) |
 
 ### Calibration Section

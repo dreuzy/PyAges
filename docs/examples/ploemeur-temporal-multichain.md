@@ -16,7 +16,7 @@ terminal manifest.
 Run it from the repository root:
 
 ```bash
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal_multichain.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal_multichain.yaml
 ```
 
 The default result location is:

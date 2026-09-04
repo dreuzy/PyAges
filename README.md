@@ -85,7 +85,7 @@ From a source checkout, use the minimal templates under `examples/templates/`:
 
 ```
 pyages run examples/templates/quickstart_single.yaml
-pyages run --transient examples/templates/quickstart_temporal.yaml
+pyages run examples/templates/quickstart_temporal.yaml
 ```
 
 ## Unreleased multi-chain MH qualification
@@ -143,8 +143,7 @@ The CLI provides quick access to common workflows once the package is installed.
 Main commands:
 - `pyages check` : validate installation, data paths, LPM registry, tracers.
 - `pyages list lpms|tracers` : list available models or tracers.
-- `pyages run <config.yaml>` : run a YAML-driven workflow (single-date by default).
-- `pyages run --transient <config.yaml>` : run the multi-date temporal workflow.
+- `pyages run <config.yaml>` : run the workflow declared by `workflow.kind`.
 - `pyages new lpm|tracer ...` : scaffold a new model or tracer template.
 
 Examples:
@@ -152,9 +151,9 @@ Examples:
 pyages check
 pyages list lpms
 pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 pyages run --lpm exp_shifted --mh-nsteps 5000 --data-name mydata.txt --data-dir examples/my_site/data my_config.yaml
-pyages run --transient --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
+pyages run --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
 ```
 
 ## Results directory
@@ -242,8 +241,8 @@ site-specific directory such as `sites/ploemeur/params_lpm`.
 
 ## Running examples
 
-Example runners live under `examples/<site>/` and read their own YAML configs.
-For instance, see:
+Examples live under `examples/<site>/` and are normally launched from their
+YAML configuration with `pyages run`. For instance, see:
 
 - `examples/natural/ploemeur/exemple_ploemeur.yaml`
 - `examples/natural/ploemeur_temporal/ploemeur_temporal.yaml`
@@ -251,12 +250,12 @@ For instance, see:
 
 ### Temporal MH launcher (multi-date concentrations)
 
-There is a dedicated launcher that runs Metropolis-Hastings on a multi-date
-concentration file (``ori_*.txt``) and produces temporal plots plus parameter
+The temporal workflow runs Metropolis-Hastings on a multi-date concentration
+file (``ori_*.txt``) and produces temporal plots plus parameter
 and concentration distributions:
 
 ```
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 Supported modes:
@@ -291,8 +290,8 @@ python run_tests.py extensive
 
 The supported workflow entrypoints are:
 
-- `pyages run`: single-date workflow driven by YAML.
-- `pyages.workflows.temporal`: canonical multi-date MH workflow, exposed by `pyages run --transient`.
+- `pyages run`: single-date or temporal workflow selected by the YAML.
+- `pyages.workflows.temporal`: canonical multi-date MH workflow.
 - `pyages check`: quick installation and data sanity check.
 
 Repository-only research and benchmark commands are catalogued in

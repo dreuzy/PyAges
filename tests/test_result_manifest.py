@@ -431,6 +431,47 @@ def test_ancestor_promotion_preserves_an_active_nested_staging_tree(tmp_path) ->
     assert ancestor.working_directory.is_dir()
 
 
+@pytest.mark.parametrize("journal_failure", ["missing", "corrupt"])
+def test_ancestor_promotion_preserves_an_unreadable_nested_staging_tree(
+    tmp_path,
+    journal_failure,
+) -> None:
+    """A reserved child stage must block replacement without a valid journal."""
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    result_directory = tmp_path / "results"
+    result_directory.mkdir()
+    previous_manifest = result_directory / "result_manifest.json"
+    previous_manifest.write_text('{"status": "complete"}\n', encoding="utf-8")
+
+    nested = begin_staged_result_run(result_directory / "nested")
+    nested_journal = nested.working_directory / ".pyages-run-state.json"
+    if journal_failure == "missing":
+        nested_journal.unlink()
+    else:
+        nested_journal.write_text("{", encoding="utf-8")
+
+    # Start the ancestor only after corruption so compare-and-swap alone cannot
+    # detect the pre-existing orphaned child stage.
+    ancestor = begin_staged_result_run(result_directory)
+    (ancestor.working_directory / "samples.tsv").write_text(
+        "ancestor\n", encoding="utf-8"
+    )
+    write_result_manifest(
+        ancestor.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=ancestor.run_id,
+    )
+
+    with pytest.raises(RuntimeError, match="invalid staging candidate"):
+        promote_result_run(ancestor)
+
+    assert nested.working_directory.is_dir()
+    assert previous_manifest.is_file()
+    assert ancestor.working_directory.is_dir()
+
+
 def test_nested_publication_invalidates_an_older_ancestor_run(tmp_path) -> None:
     config = tmp_path / "case.yaml"
     config.write_text("model: exp\n", encoding="utf-8")
@@ -480,6 +521,36 @@ def test_promotion_rejects_an_active_child_in_the_incoming_tree(tmp_path) -> Non
     )
 
     with pytest.raises(RuntimeError, match="active nested staged run"):
+        promote_result_run(parent)
+
+    assert parent.working_directory.is_dir()
+    assert child.working_directory.is_dir()
+    assert not parent.result_directory.exists()
+
+
+@pytest.mark.parametrize("journal_failure", ["missing", "corrupt"])
+def test_promotion_rejects_an_unreadable_child_in_the_incoming_tree(
+    tmp_path,
+    journal_failure,
+) -> None:
+    """A corrupt incoming child stage must never enter a publication."""
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    parent = begin_staged_result_run(tmp_path / "results")
+    child = begin_staged_result_run(parent.working_directory / "nested")
+    child_journal = child.working_directory / ".pyages-run-state.json"
+    if journal_failure == "missing":
+        child_journal.unlink()
+    else:
+        child_journal.write_text("{", encoding="utf-8")
+    write_result_manifest(
+        parent.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=parent.run_id,
+    )
+
+    with pytest.raises(RuntimeError, match="invalid staging candidate"):
         promote_result_run(parent)
 
     assert parent.working_directory.is_dir()

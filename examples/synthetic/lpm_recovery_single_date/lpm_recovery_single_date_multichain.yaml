@@ -1,6 +1,9 @@
 # Reproducible multi-chain qualification profile for the versioned synthetic case.
 # This is intentionally slower than lpm_recovery_single_date.yaml: its purpose is
 # convergence assessment and recovery of the known generating parameters.
+workflow:
+  kind: single_date
+
 dataset:
   name: synthetic_exp_shifted_2010.txt
   label: Synthetic exp_shifted multi-chain recovery
@@ -27,7 +30,6 @@ calibration_metropolis_hastings:
   nstep: 4000
   burn_in: 0.25
   nskip: 1
-  seed: 12345  # Ignored by the enabled ensemble; master_seed controls all streams.
   prior_option: false
   likelihood: true
   monitor: false
@@ -43,7 +45,6 @@ calibration_metropolis_hastings:
       enabled: true
       nstep: 1500
       burn_in: 0.5
-      covariance_mode: pooled_within_chain
       relative_ridge: 1.0e-6
       proposal_multiplier: auto
       save_samples: false

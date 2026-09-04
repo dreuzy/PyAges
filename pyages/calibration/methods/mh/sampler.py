@@ -22,6 +22,7 @@ import logging
 import math
 from collections.abc import Mapping
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -30,12 +31,7 @@ import numpy as np
 import pandas as pd
 
 from pyages.calibration.methods.base import CalibrationMethod
-from pyages.calibration.methods.mh._sampler_storage import (
-    prepare_retained_storage,
-    retained_row,
-)
 from pyages.calibration.methods.mh._sampler_target import MHTarget
-from pyages.calibration.methods.mh._sampler_transition import MHState, select_transition
 from pyages.calibration.methods.mh.config import MHConfig
 from pyages.calibration.methods.mh.prior import Prior
 from pyages.calibration.methods.mh.proposals import (
@@ -44,12 +40,23 @@ from pyages.calibration.methods.mh.proposals import (
     Proposal,
 )
 from pyages.calibration.methods.mh.trajectory import MHTrajectory
+from pyages.calibration.objective import normalized_residual_norm
 from pyages.calibration.outputs import write_key_values
 from pyages.lpm.samples.table import LpmSampleTable
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["MetropolisHastings"]
+
+
+@dataclass(frozen=True, slots=True)
+class _MHState:
+    """Values that must move together when a proposal is accepted."""
+
+    params: list[float]
+    log_posterior: float
+    chi_square: float
+    concentrations: list[float]
 
 
 class MetropolisHastings(CalibrationMethod):
@@ -254,22 +261,27 @@ class MetropolisHastings(CalibrationMethod):
         modeled observations in canonical order, and the bounds flag expected
         by :class:`~pyages.lpm.samples.table.LpmSampleTable`.
         """
-        return prepare_retained_storage(
-            self.lpm,
-            self.observations.observation_keys(),
-            self.config.retained_sample_count(),
+        column_names = (
+            self.lpm.get_param_names()
+            + ["obj_function"]
+            + list(self.observations.observation_keys())
+            + ["param_in_bounds"]
+        )
+        return (
+            np.zeros(
+                (self.config.retained_sample_count(), len(column_names)),
+                dtype=float,
+            ),
+            column_names,
         )
 
     def _mcmc_step(
         self,
-        params: list[float],
-        log_p: float,
-        chi_square: float,
-        conc: list[float],
+        current: _MHState,
         data_conc: np.ndarray,
         data_error: np.ndarray,
         rng: np.random.Generator,
-    ) -> tuple[list[float], float, float, list[float], bool]:
+    ) -> tuple[_MHState, bool]:
         r"""Perform one Metropolis-Hastings transition.
 
         Acceptance compares ``log(u)`` with the proposed-minus-current log
@@ -286,7 +298,7 @@ class MetropolisHastings(CalibrationMethod):
 
         """
         # Draw in the selected coordinates, then evaluate the physical target.
-        params_n = self._draw_proposal(params, rng)
+        params_n = self._draw_proposal(current.params, rng)
         log_pn, chi_square_n, conc_n = self._log_posterior_eval(
             params_n, data_conc, data_error
         )
@@ -294,23 +306,17 @@ class MetropolisHastings(CalibrationMethod):
         # supply log q(current|proposed) - log q(proposed|current).
         if self._proposal is None:
             raise RuntimeError("Proposal must be prepared before a transition")
-        log_hastings = self._proposal.log_hastings_ratio(params, params_n)
-        selected, success = select_transition(
-            MHState(params, log_p, chi_square, conc),
-            MHState(params_n, log_pn, chi_square_n, conc_n),
-            log_hastings=log_hastings,
-            rng=rng,
-        )
-        if success:
-            # Commit only an accepted candidate to the public calibration LPM.
-            self.lpm.set_param_from_array(selected.params)
-        return (
-            selected.params,
-            selected.log_posterior,
-            selected.chi_square,
-            selected.concentrations,
-            success,
-        )
+        log_hastings = self._proposal.log_hastings_ratio(current.params, params_n)
+        success = log_pn + log_hastings >= current.log_posterior
+        if not success:
+            log_acceptance = log_pn - current.log_posterior + log_hastings
+            success = np.log(rng.random()) < log_acceptance
+        if not success:
+            return current, False
+
+        # Commit only an accepted candidate to the public calibration LPM.
+        self.lpm.set_param_from_array(params_n)
+        return _MHState(params_n, log_pn, chi_square_n, conc_n), True
 
     def _finalize_trajectory(self, traj: MHTrajectory, n: int) -> None:
         """Resize and optionally display the retained trajectory."""
@@ -374,7 +380,7 @@ class MetropolisHastings(CalibrationMethod):
 
     def _initialize_state(
         self, data_conc: np.ndarray, data_error: np.ndarray
-    ) -> tuple[list[float], float, float, list[float]]:
+    ) -> _MHState:
         """Choose one valid chain start and evaluate its complete target state.
 
         Initialization follows an explicit precedence. ``config.initial_params``
@@ -429,7 +435,7 @@ class MetropolisHastings(CalibrationMethod):
                 "Initial parameters have zero or non-finite posterior density: "
                 f"{self._initial_params_used}"
             )
-        return params, log_p, chi_square, conc
+        return _MHState(params, log_p, chi_square, conc)
 
     def perform(self) -> LpmSampleTable:
         """Run and thin the configured Markov chain.
@@ -467,18 +473,15 @@ class MetropolisHastings(CalibrationMethod):
         ) = self._prepare_mcmc()
 
         # Initialization: select one supported state and evaluate it once.
-        params, log_p, chi_square, conc = self._initialize_state(data_conc, data_error)
+        state = self._initialize_state(data_conc, data_error)
         n = 0
         nsuccess = 0
 
         # Transition loop: update the current state, then retain by schedule.
         line = 0
         for i in range(self.config.nstep):
-            params, log_p, chi_square, conc, success = self._mcmc_step(
-                params,
-                log_p,
-                chi_square,
-                conc,
+            state, success = self._mcmc_step(
+                state,
                 data_conc,
                 data_error,
                 rng,
@@ -487,10 +490,25 @@ class MetropolisHastings(CalibrationMethod):
                 nsuccess += 1
             if self._should_retain(i):
                 # Persist the current state, including repeats after rejection.
-                array_results[line] = retained_row(params, chi_square, conc)
+                array_results[line] = (
+                    state.params
+                    + [
+                        normalized_residual_norm(
+                            state.chi_square,
+                            len(state.concentrations),
+                        )
+                    ]
+                    + state.concentrations
+                    + [1.0]
+                )
                 line += 1
                 if traj is not None:
-                    traj.update(n, params, log_p, accepted=success)
+                    traj.update(
+                        n,
+                        state.params,
+                        state.log_posterior,
+                        accepted=success,
+                    )
                     n += 1
 
         # Consolidate retained joint states without re-evaluating the chain.

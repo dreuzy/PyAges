@@ -16,7 +16,7 @@ stable Python API.
 | Synthetic recovery | Known-truth single-date teaching and multi-chain qualification | `run_lpm_recovery_single_date.py` / `pyages run` |
 | Ploemeur | Single-date teaching plus qualified multi-chain `exp_shifted` and prior-active `ig_shifted` profiles | `pyages run` |
 | Holten | Example-local preparation, benchmark, and calibration reuse | `run_holten.py` |
-| Ploemeur Temporal | Multi-date analysis and qualified full-span multi-chain profile | `pyages run --transient` |
+| Ploemeur Temporal | Multi-date analysis and qualified full-span multi-chain profile | `pyages run` |
 
 For a minimal, fast run, use the templates under `examples/templates/`.
 
@@ -41,6 +41,9 @@ pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
 
 ```yaml
 # examples/natural/ploemeur/exemple_ploemeur.yaml
+
+workflow:
+  kind: single_date
 
 dataset:
   name: ploemeur_F09_2010.txt      # Input data file
@@ -198,14 +201,14 @@ changes, subject to the assumptions and diagnostics of each fit.
 ### Run the Example
 
 ```bash
-python -m examples.natural.ploemeur_temporal.run_ploemeur_temporal
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 For the maintained convergence-gated calibration over all 58 observations and
 20 dates, run:
 
 ```bash
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal_multichain.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal_multichain.yaml
 ```
 
 This extensive profile is documented in
@@ -226,6 +229,7 @@ lpm_models:
   directory: data_core/data_lpm
 
 workflow:
+  kind: temporal
   mode: span                        # 'span' or 'successive'
 
 calibration:
@@ -393,12 +397,13 @@ lpm_models:
   directory: data_core/data_lpm
 
 workflow:
+  kind: temporal
   mode: span
 ```
 
 Run:
 ```
-pyages run --transient examples/my_site/my_temporal.yaml
+pyages run examples/my_site/my_temporal.yaml
 ```
 
 ### 5) Add or update tracers (if needed)

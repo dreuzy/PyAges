@@ -52,10 +52,10 @@ def _initialize(initial_params):
     problem = SimpleNamespace(lpm=_FakeLpm(), ensure_prepared=lambda: None)
     mh._bind_problem(problem)
     mh._target = MHTarget(problem, mh.prior, likelihood=False)  # noqa: SLF001
-    params, *_ = mh._initialize_state(  # noqa: SLF001
+    state = mh._initialize_state(  # noqa: SLF001
         np.array([]), np.array([])
     )
-    return mh, params
+    return mh, state.params
 
 
 def test_explicit_initial_params_are_applied_without_prior():

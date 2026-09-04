@@ -23,18 +23,11 @@ from pathlib import Path
 import pandas as pd
 
 from pyages.calibration.exploration.systematic import SystematicSampling
-from pyages.calibration.methods.mh import (
-    MetropolisHastings,
-    MHConfig,
-)
 from pyages.calibration.methods.simplex import FORWARD_UNCERTAINTY, Simplex
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.paths import result_subdirectory
-from pyages.data_io.mh_results import (
-    clear_mh_ensemble_artifacts,
-)
 from pyages.lpm.samples import LpmSampleTable
-from pyages.workflows.runtime.mh import run_mh_ensemble
+from pyages.workflows.runtime.mh import build_mh_config, run_mh_calibration
 from pyages.workflows.single_date.context import SingleDateContext
 
 
@@ -46,16 +39,16 @@ def _calibration_problem(
     display.directory = output_directory
     return CalibrationProblem(
         context.observations,
-        context.params.lpm_model_name,
+        context.params.lpm.model_name,
         display_options=display,
-        lpm_directory=context.params.directory_lpm,
-        tracer_data_directory=context.params.tracer_data_dir,
+        lpm_directory=context.params.lpm.data_directory,
+        tracer_data_directory=context.params.tracers.data_directory,
     ).prepare()
 
 
 def reachable_concentrations(context: SingleDateContext) -> pd.DataFrame | None:
     """Compute the reachable model space when enabled."""
-    if not context.params.run_reachable_concentrations:
+    if not context.params.run.reachable_concentrations:
         return None
     display = copy.deepcopy(context.saved_display)
     display.directory = result_subdirectory(
@@ -63,13 +56,13 @@ def reachable_concentrations(context: SingleDateContext) -> pd.DataFrame | None:
         "reachable_concentrations",
     )
     sampling = SystematicSampling(
-        context.params.lpm_model_name,
+        context.params.lpm.model_name,
         context.observations.observation_tracer_names(),
         date=context.observations.frame["date"],
-        sample_count=context.params.reachable_concentration_nmodels,
+        sample_count=context.params.reachable_concentrations.nmodels,
         display_options=display,
-        lpm_directory=context.params.directory_lpm,
-        tracer_data_directory=context.params.tracer_data_dir,
+        lpm_directory=context.params.lpm.data_directory,
+        tracer_data_directory=context.params.tracers.data_directory,
     )
     sampling.compute_concentrations()
     sampling.output()
@@ -79,8 +72,8 @@ def reachable_concentrations(context: SingleDateContext) -> pd.DataFrame | None:
 def _run_simplex(context: SingleDateContext) -> tuple[str, LpmSampleTable]:
     method = Simplex(
         FORWARD_UNCERTAINTY,
-        init_multiples_n=context.params.simplex_init_multiples_n,
-        fuq_n=context.params.simplex_fuq_n,
+        init_multiples_n=context.params.calibration_simplex.init_multiples_n,
+        fuq_n=context.params.calibration_simplex.fuq_n,
     )
     problem = _calibration_problem(
         context,
@@ -94,45 +87,27 @@ def _run_simplex(context: SingleDateContext) -> tuple[str, LpmSampleTable]:
 def _run_metropolis_hastings(
     context: SingleDateContext,
 ) -> tuple[str, LpmSampleTable]:
-    chain_config = MHConfig(
-        nstep=context.params.mh_nstep,
-        burn_in=context.params.mh_burn_in,
-        nskip=context.params.mh_nskip,
-        prior_option=context.params.mh_prior_option,
-        likelihood=context.params.mh_likelihood,
-        monitor=context.params.mh_monitor,
-        display_traj=context.params.mh_display_traj,
-        componentwise_source="model",
-        seed=context.params.mh_seed,
-    )
+    workflow_config = context.params.calibration_metropolis_hastings
+    chain_config = build_mh_config(workflow_config)
     output_directory = result_subdirectory(
         context.output_directory, "Metropolis_Hastings"
     )
-    multichain_cfg = context.params.mh_multichain
-    if multichain_cfg is None or not multichain_cfg.enabled:
-        clear_mh_ensemble_artifacts(output_directory)
-        method = MetropolisHastings(config=chain_config)
-        problem = _calibration_problem(context, output_directory)
-        results = method.run(problem)
-        method.write_calibrated_lpm(results)
-        return method.method, results
-
-    pooled = run_mh_ensemble(
+    results = run_mh_calibration(
         chain_config,
-        multichain_cfg,
+        workflow_config.multichain,
         output_directory,
         lambda directory: _calibration_problem(context, directory),
     )
-    return "Metropolis_Hastings", pooled
+    return "Metropolis_Hastings", results
 
 
 def run_calibrations(context: SingleDateContext) -> dict[str, LpmSampleTable]:
     """Run each independently enabled calibration strategy."""
     results: dict[str, LpmSampleTable] = {}
-    if context.params.run_calibration_simplex:
+    if context.params.run.calibration_simplex:
         method, distribution = _run_simplex(context)
         results[method] = distribution
-    if context.params.run_calibration_metropolis_hastings:
+    if context.params.run.calibration_metropolis_hastings:
         method, distribution = _run_metropolis_hastings(context)
         results[method] = distribution
     return results

@@ -98,6 +98,7 @@ def _model_required(model) -> dict[str, bool]:
         "examples/templates/smoke_multichain.yaml",
         "examples/natural/albuquerque/exemple_albuquerque.yaml",
         "examples/natural/albuquerque/exemple_albuquerque_shapefree.yaml",
+        "examples/natural/albuquerque/exemple_albuquerque_shapefree_multichain.yaml",
         "examples/natural/ploemeur/exemple_ploemeur.yaml",
         "examples/natural/ploemeur/exemple_ploemeur_ig_shifted_prior_multichain.yaml",
         "examples/natural/ploemeur/exemple_ploemeur_multichain.yaml",
@@ -125,6 +126,21 @@ def test_shipped_temporal_configs_are_strictly_valid(relative_path):
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
 
     TemporalParams.model_validate(payload)
+
+
+def test_workflow_discriminators_have_safe_defaults_and_reject_crossed_modes():
+    assert LauncherConfig().workflow.kind == "single_date"
+    assert TemporalParams(dataset={"file": "sample.txt"}).workflow.kind == "temporal"
+
+    with pytest.raises(ValidationError, match="single_date"):
+        LauncherConfig.model_validate({"workflow": {"kind": "temporal"}})
+    with pytest.raises(ValidationError, match="temporal"):
+        TemporalParams.model_validate(
+            {
+                "workflow": {"kind": "single_date"},
+                "dataset": {"file": "sample.txt"},
+            }
+        )
 
 
 @pytest.mark.parametrize(
@@ -415,6 +431,8 @@ def test_pilot_configuration_requires_covariance_draws_and_finite_scale() -> Non
         MHPilotCfg(nstep=4, burn_in=0.5)
     with pytest.raises(ValidationError, match="positive or 'auto'"):
         MHPilotCfg(proposal_multiplier=float("nan"))
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        MHPilotCfg(covariance_mode="pooled_within_chain")
 
 
 def test_temporal_relative_error_must_be_strictly_positive() -> None:
@@ -503,6 +521,11 @@ def test_multichain_example_profiles_isolate_existing_datasets() -> None:
             ROOT / "examples/natural/ploemeur/"
             "exemple_ploemeur_ig_shifted_prior_multichain.yaml",
         ),
+        (
+            ROOT / "examples/natural/albuquerque/exemple_albuquerque_shapefree.yaml",
+            ROOT / "examples/natural/albuquerque/"
+            "exemple_albuquerque_shapefree_multichain.yaml",
+        ),
     ]
     multichain_studies = set()
     for single_path, multichain_path in profile_pairs:
@@ -519,7 +542,7 @@ def test_multichain_example_profiles_isolate_existing_datasets() -> None:
         assert multichain.results.study_name != single.results.study_name
         multichain_studies.add(multichain.results.study_name)
 
-    assert len(multichain_studies) == 3
+    assert len(multichain_studies) == 4
 
 
 def test_all_documented_yaml_blocks_are_parseable():

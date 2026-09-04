@@ -171,14 +171,13 @@ def test_cli_run_rejects_non_positive_mh_steps(tmp_path) -> None:
     ("mode_args", "warning"),
     [
         (["--transient", "--data-name", "ignored.txt"], "single-date only"),
-        (["--data-file", "ignored.txt"], "transient only"),
+        (["--data-file", "ignored.txt"], "temporal only"),
     ],
 )
 def test_cli_run_warns_about_mode_specific_overrides(
     tmp_path, mode_args, warning, monkeypatch
 ) -> None:
-    monkeypatch.setattr(run_cmd, "_run_single_date", lambda *_args: None)
-    monkeypatch.setattr(run_cmd, "_run_transient", lambda *_args: None)
+    monkeypatch.setattr(run_cmd, "_run_workflow", lambda *_args, **_kwargs: None)
 
     result = CliRunner().invoke(run_cmd.run, [str(_config(tmp_path)), *mode_args])
 
@@ -191,12 +190,12 @@ def test_cli_run_removes_temporary_override_after_dispatch_failure(
 ) -> None:
     dispatched = {}
 
-    def fail(config, inline, verbose):
-        del inline, verbose
+    def fail(workflow, config, *, inline, verbose):
+        del workflow, inline, verbose
         dispatched["config"] = Path(config)
         raise RuntimeError("workflow failed")
 
-    monkeypatch.setattr(run_cmd, "_run_single_date", fail)
+    monkeypatch.setattr(run_cmd, "_run_workflow", fail)
 
     result = CliRunner().invoke(
         run_cmd.run,
@@ -209,7 +208,7 @@ def test_cli_run_removes_temporary_override_after_dispatch_failure(
     assert not dispatched["config"].exists()
 
 
-def test_cli_workflow_wrappers_translate_runtime_errors(
+def test_cli_workflow_dispatch_translates_runtime_errors(
     tmp_path, monkeypatch, capsys
 ) -> None:
     config = _config(tmp_path)
@@ -222,28 +221,33 @@ def test_cli_workflow_wrappers_translate_runtime_errors(
 
     monkeypatch.setattr(single_date_workflow, "run_single_date", fail_single)
     with pytest.raises(SystemExit) as single_exit:
-        run_cmd._run_single_date(config, inline=False, verbose=False)
+        run_cmd._run_workflow("single_date", config, inline=False, verbose=False)
     assert single_exit.value.code == 1
 
     monkeypatch.setattr(temporal_workflow, "run_temporal", fail_temporal)
     with pytest.raises(SystemExit) as temporal_exit:
-        run_cmd._run_transient(config, verbose=False)
+        run_cmd._run_workflow("temporal", config, inline=False, verbose=False)
     assert temporal_exit.value.code == 1
 
     output = capsys.readouterr().out
-    assert "Error running workflow: single failure" in output
-    assert "Error running transient workflow: temporal failure" in output
+    assert "Error running single_date workflow: single failure" in output
+    assert "Error running temporal workflow: temporal failure" in output
 
 
 @pytest.mark.parametrize(
     ("mode_args", "workflow_module", "workflow_name", "error_heading"),
     [
-        ([], single_date_workflow, "run_single_date", "Error running workflow"),
+        (
+            [],
+            single_date_workflow,
+            "run_single_date",
+            "Error running single_date workflow",
+        ),
         (
             ["--transient"],
             temporal_workflow,
             "run_temporal",
-            "Error running transient workflow",
+            "Error running temporal workflow",
         ),
     ],
 )
@@ -289,7 +293,12 @@ def test_cli_run_reports_returned_result_paths(tmp_path, monkeypatch) -> None:
 
     runner = CliRunner()
     single = runner.invoke(run_cmd.run, [str(config)])
-    temporal = runner.invoke(run_cmd.run, ["--transient", str(config)])
+    temporal_config = tmp_path / "temporal.yaml"
+    temporal_config.write_text(
+        "workflow:\n  kind: temporal\ndataset:\n  file: data.txt\n",
+        encoding="utf-8",
+    )
+    temporal = runner.invoke(run_cmd.run, [str(temporal_config)])
 
     assert single.exit_code == 0
     assert f"Results written to: {single_output}" in single.output
@@ -297,18 +306,15 @@ def test_cli_run_reports_returned_result_paths(tmp_path, monkeypatch) -> None:
     assert f"Results written to: {temporal_output}" in temporal.output
 
 
-def test_apply_overrides_returns_original_path_when_nothing_changes(tmp_path) -> None:
-    config = _config(tmp_path)
-
+def test_apply_overrides_reports_when_nothing_changes() -> None:
     result = run_cmd._apply_overrides(
-        config,
-        transient=False,
+        {},
+        workflow="single_date",
         lpm=None,
         mh_nsteps=None,
         data_name=None,
         data_dir=None,
         data_file=None,
-        verbose=False,
     )
 
-    assert result is config
+    assert result is False

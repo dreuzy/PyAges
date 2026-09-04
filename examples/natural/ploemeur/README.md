@@ -6,7 +6,7 @@ the three F09 observations from 2010.
 Quick run:
 
 ```bash
-python -m examples.natural.ploemeur.run_ploemeur
+pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```
 
 What it does:

@@ -5,9 +5,10 @@
 
 """Provide the public entry points for Metropolis--Hastings calibration.
 
-Importing from this package gives callers the supported chain and ensemble
-configuration classes, samplers, result objects, and diagnostic errors without
-requiring knowledge of the files in which they are implemented.
+Importing from this package gives callers the supported high-level chain and
+ensemble configurations, samplers, run record, and convergence error without
+requiring knowledge of the files in which they are implemented. Leaf result
+and seed records remain available from their defining contributor modules.
 """
 
 from pyages.calibration.methods.mh.config import MHConfig
@@ -17,35 +18,19 @@ from pyages.calibration.methods.mh.ensemble_config import (
     MHEnsembleConfig,
     MHInitializationConfig,
     MHPilotConfig,
-    MHSeedPlan,
-    build_seed_plan,
 )
-from pyages.calibration.methods.mh.errors import (
-    MHConvergenceError,
-    MHDiagnosticsUnavailableError,
-)
-from pyages.calibration.methods.mh.results import (
-    MHChainResult,
-    MHParameterDiagnostics,
-    MHPilotResult,
-    MHRunRecord,
-)
+from pyages.calibration.methods.mh.errors import MHConvergenceError
+from pyages.calibration.methods.mh.results import MHRunRecord
 from pyages.calibration.methods.mh.sampler import MetropolisHastings
 
 __all__ = [
-    "MHChainResult",
     "MHConfig",
     "MHConvergenceError",
     "MHDiagnosticsConfig",
-    "MHDiagnosticsUnavailableError",
     "MHEnsembleConfig",
     "MHInitializationConfig",
-    "MHParameterDiagnostics",
     "MHPilotConfig",
-    "MHPilotResult",
     "MHRunRecord",
-    "MHSeedPlan",
     "MetropolisHastings",
     "MultiChainMetropolisHastings",
-    "build_seed_plan",
 ]

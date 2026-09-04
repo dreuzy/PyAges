@@ -60,7 +60,6 @@ def test_temporal_workflow_runs_real_pilot_chains_diagnostics_and_pooling(
                     "enabled": True,
                     "nstep": 40,
                     "burn_in": 0.25,
-                    "covariance_mode": "pooled_within_chain",
                     "relative_ridge": 1.0e-6,
                     "proposal_multiplier": "auto",
                     "save_samples": True,
