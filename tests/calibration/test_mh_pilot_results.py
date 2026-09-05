@@ -116,7 +116,7 @@ def _record_configs(chain_count: int = 2) -> tuple[MHConfig, MHEnsembleConfig]:
         MHEnsembleConfig(
             chains=chain_count,
             master_seed=17,
-            initialization=MHInitializationConfig(strategy="model_default"),
+            initialization=MHInitializationConfig(strategy="bounds_stratified"),
             pilot=MHPilotConfig(enabled=False),
             diagnostics=MHDiagnosticsConfig(
                 max_rhat=1.05,

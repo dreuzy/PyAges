@@ -133,8 +133,8 @@ over the finite parameter calibration ranges. `prior_sample` instead draws
 independently from each enabled prior marginal conditioned on its calibration
 range.
 `explicit` accepts exactly one complete mapping per chain. The deterministic
-`model_default` and `prior_map` policies exist for compatibility but do not
-provide dispersed starts.
+duplicate-start policies are not supported because they do not provide an
+independent convergence check.
 
 `master_seed` makes the entire ensemble replayable. PyAges derives distinct
 streams for every chain and for initialization, pilot, and production. Set it

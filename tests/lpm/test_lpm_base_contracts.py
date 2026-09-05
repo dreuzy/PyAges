@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from pyages.convolution import Convolution, ConvolutionError
+from pyages.data_io import lpm_params
 from pyages.lpm import build_lpm
 from pyages.lpm.core.lpm_base import LpmBase
 from pyages.lpm.core.lpm_scipy import LpmScipy
@@ -56,6 +57,22 @@ def test_scipy_adapter_requires_a_concrete_parameter_mapping() -> None:
     assert LpmScipy.__abstractmethods__ == frozenset({"_scipy_params"})
 
 
+def test_bounds_named_parameter_aliases_are_absent() -> None:
+    removed = {
+        "get_param_range",
+        "get_param_interval",
+        "get_p_min",
+        "get_p_max",
+        "param_within_bounds",
+        "param_within_bounds_array",
+    }
+
+    assert not hasattr(lpm_params, "get_bounds")
+    assert not hasattr(lpm_params.LPMParameterDefinition, "bounds")
+    assert all(not hasattr(LpmBase, name) for name in removed)
+    assert all(not hasattr(ParameterManager, name) for name in removed)
+
+
 def test_constructor_copies_parameter_metadata_and_units_property() -> None:
     values = {"mu": 10.0}
     units = {"mu": "year"}
@@ -94,26 +111,6 @@ def test_calibration_ranges_require_complete_names_and_vector_shape() -> None:
     assert not model.param_within_calibration_range_array([2.0])
     assert not model.param_within_calibration_range_array([2.0, 10.0, 30.0])
     assert not model.param_within_calibration_range_array([[2.0, 10.0]])
-
-
-def test_legacy_bounds_methods_delegate_to_calibration_range_methods() -> None:
-    model = _lpm("exp")
-
-    assert model.param_within_bounds(model.p) == model.param_within_calibration_range(
-        model.p
-    )
-    assert model.param_within_bounds_array(
-        model.get_parameters_to_array()
-    ) == model.param_within_calibration_range_array(model.get_parameters_to_array())
-    assert model.get_param_interval() == (
-        [model.get_p_min("mu")],
-        [model.get_p_max("mu")],
-    )
-    assert model.get_calibration_range("mu") == (
-        model.get_p_min("mu"),
-        model.get_p_max("mu"),
-    )
-    assert model.get_param_range("mu") == model.get_calibration_range_width("mu")
 
 
 @pytest.mark.parametrize(
@@ -242,7 +239,7 @@ def test_load_sample_returns_the_selected_row_position() -> None:
             """model: other
 parameters:
   - name: mu
-    bounds: [0.1, 100.0]
+    calibration_range: [0.1, 100.0]
     init: 10.0
 """,
             "declares model",
@@ -251,7 +248,7 @@ parameters:
             """model: custom
 parameters:
   - name: other
-    bounds: [0.1, 100.0]
+    calibration_range: [0.1, 100.0]
     init: 10.0
 """,
             "names do not match",
@@ -260,7 +257,7 @@ parameters:
             """model: custom
 parameters:
   - name: mu
-    bounds: [0.1, 100.0]
+    calibration_range: [0.1, 100.0]
     init: .nan
 """,
             "must be finite and within",
@@ -322,7 +319,6 @@ def test_parameter_manager_mapping_checks_reject_invalid_values(params) -> None:
     manager = ParameterManager("exp", test_paths.lpm_data_dir(), ["mu"])
 
     assert not manager.param_within_calibration_range(params)
-    assert not manager.param_within_bounds(params)
 
 
 @pytest.mark.parametrize(
@@ -342,7 +338,6 @@ def test_parameter_manager_vector_checks_reject_invalid_values(values, order) ->
     manager = ParameterManager("exp", test_paths.lpm_data_dir(), ["mu"])
 
     assert not manager.param_within_calibration_range_array(values, order)
-    assert not manager.param_within_bounds_array(values, order)
 
 
 @pytest.mark.parametrize(
@@ -359,13 +354,3 @@ def test_parameter_manager_domain_vector_rejects_invalid_values(values, order) -
     manager = ParameterManager("exp", test_paths.lpm_data_dir(), ["mu"])
 
     assert not manager.param_within_domain_array(values, order)
-
-
-def test_parameter_manager_legacy_accessors_delegate_to_calibration_ranges() -> None:
-    manager = ParameterManager("exp", test_paths.lpm_data_dir(), ["mu"])
-    interval = manager.get_calibration_range("mu")
-
-    assert manager.get_param_range("mu") == manager.get_calibration_range_width("mu")
-    assert manager.get_param_interval() == ([interval[0]], [interval[1]])
-    assert manager.get_p_min("mu") == interval[0]
-    assert manager.get_p_max("mu") == interval[1]

@@ -22,8 +22,7 @@ The following interfaces are intended for users:
   {doc}`outputs`.
 
 `LauncherConfig` is the canonical single-date model and preserves the nested
-YAML sections used by the workflow. The exported flattened `LauncherParams`
-model remains a compatibility view for existing integrations.
+YAML sections used by the workflow.
 
 Modules below `core`, `utils`, private names beginning with `_`, site-specific
 code, examples, and repository scripts are implementation or research
@@ -96,13 +95,8 @@ search interval, and `prior` for probability mass. Contributor code should use
 `get_calibration_ranges()`, `get_calibration_range()`,
 `get_calibration_range_width()`,
 `param_within_calibration_range()`, and
-`param_within_calibration_range_array()`. The YAML field `bounds`, the
-`LPMParameterDefinition.bounds` property, `get_bounds()`, `get_param_range()`,
-`get_param_interval()`,
-`get_p_min()`, `get_p_max()`, and the two `param_within_bounds*()` methods remain
-non-deprecated compatibility aliases. They delegate to the calibration-range
-contract, and no removal version is currently planned. A legacy YAML parameter
-without `domain` additionally uses `bounds` as its mathematical-domain fallback.
+`param_within_calibration_range_array()`. The schema rejects the former YAML
+field `bounds`; no bounds-named Python aliases are provided.
 
 ## Compatibility policy
 

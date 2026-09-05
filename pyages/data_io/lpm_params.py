@@ -3,14 +3,11 @@
 # SPDX-License-Identifier: CECILL-2.1
 # This file loads, validates, and caches the parameter definition of an LPM.
 
-# This file loads and caches validated LPM parameter files.
-
 """Load and cache validated LPM parameter definitions.
 
 Schema validation is implemented by
-:mod:`pyages.data_io._lpm_parameter_schema`. This public facade preserves the
-historical import path and adds only filesystem access, content-keyed caching,
-and focused accessors for consumers.
+:mod:`pyages.data_io._lpm_parameter_schema`. This module adds filesystem access,
+content-keyed caching, and focused accessors for consumers.
 """
 
 from __future__ import annotations
@@ -120,13 +117,6 @@ def load_parameter_schema(
     return _read_cache_entry(model_name, data_dir).schema
 
 
-def get_bounds(
-    schema: LPMParameterSchema,
-) -> dict[str, tuple[float, float]]:
-    """Return the legacy alias for :func:`get_calibration_ranges`."""
-    return get_calibration_ranges(schema)
-
-
 def get_calibration_ranges(
     schema: LPMParameterSchema,
 ) -> dict[str, tuple[float, float]]:
@@ -178,7 +168,6 @@ __all__ = [
     "LPMParameterSchema",
     "LPMParamsError",
     "clear_params_cache",
-    "get_bounds",
     "get_calibration_ranges",
     "get_domains",
     "get_init",

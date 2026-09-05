@@ -16,6 +16,12 @@ import pytest
 from scipy.stats import truncnorm
 
 from pyages.calibration.methods.mh import ensemble_config
+from pyages.calibration.methods.mh._prior_marginals import (
+    EmpiricalMarginal,
+    NormalMarginal,
+    PriorMarginal,
+    UniformMarginal,
+)
 from pyages.calibration.methods.mh.ensemble_config import (
     MHDiagnosticsConfig,
     MHEnsembleConfig,
@@ -57,20 +63,22 @@ class _MarginalPriorOnly:
         del name
         return minimum + probability * (maximum - minimum)
 
-    def bounded_mode(self, name, minimum, maximum):
-        del name
-        return 0.5 * (minimum + maximum)
-
     def contains(self, name, value):
         del name, value
         return True
 
 
-def _parametric_prior() -> Prior:
-    prior = Prior(option=True, typ="parametric")
-    prior.distributions = {"mu": "normal", "width": "uniform"}
-    prior.parameters = {"mu": [12.0, 2.0], "width": [2.0, 8.0]}
+def _prior_with(*marginals: PriorMarginal, typ: str = "parametric") -> Prior:
+    prior = Prior(option=True, typ=typ)
+    prior._marginals = {marginal.name: marginal for marginal in marginals}  # noqa: SLF001
     return prior
+
+
+def _parametric_prior() -> Prior:
+    return _prior_with(
+        NormalMarginal("mu", 12.0, 2.0),
+        UniformMarginal("width", 2.0, 8.0),
+    )
 
 
 @pytest.mark.parametrize("chains", [True, 1, 0, -2, 2.5])
@@ -219,17 +227,6 @@ def test_explicit_starts_must_be_complete_and_bounded(state, message) -> None:
         build_initial_states(_TwoParameterModel(), None, config, 2, (1, 2))
 
 
-def test_model_defaults_are_copied_without_mutating_the_lpm() -> None:
-    lpm = _TwoParameterModel()
-    config = MHInitializationConfig(strategy="model_default")
-
-    states = build_initial_states(lpm, None, config, 3, (1, 2, 3))
-    states[0]["mu"] = 8.0
-
-    assert lpm.p == {"mu": 4.0, "width": 3.0}
-    assert states[1] == {"mu": 4.0, "width": 3.0}
-
-
 def test_prior_sampling_is_reproducible_bounded_and_does_not_clip_normals() -> None:
     lpm = _TwoParameterModel()
     prior = _parametric_prior()
@@ -263,21 +260,6 @@ def test_initialization_depends_only_on_the_marginal_prior_protocol() -> None:
     assert prior.required
 
 
-def test_prior_map_uses_bounded_mode_and_common_uniform_midpoint() -> None:
-    states = build_initial_states(
-        _TwoParameterModel(),
-        _parametric_prior(),
-        MHInitializationConfig(strategy="prior_map"),
-        2,
-        (1, 2),
-    )
-
-    assert states == (
-        {"mu": 10.0, "width": 5.0},
-        {"mu": 10.0, "width": 5.0},
-    )
-
-
 def test_bounds_stratified_places_one_point_in_each_marginal_stratum() -> None:
     chain_count = 4
     states = build_initial_states(
@@ -297,9 +279,10 @@ def test_bounds_stratified_places_one_point_in_each_marginal_stratum() -> None:
 
 
 def test_bounds_stratified_uses_effective_uniform_prior_mass() -> None:
-    prior = Prior(option=True, typ="parametric")
-    prior.distributions = {"mu": "uniform", "width": "uniform"}
-    prior.parameters = {"mu": [4.0, 6.0], "width": [2.0, 8.0]}
+    prior = _prior_with(
+        UniformMarginal("mu", 4.0, 6.0),
+        UniformMarginal("width", 2.0, 8.0),
+    )
     states = build_initial_states(
         _TwoParameterModel(),
         prior,
@@ -341,11 +324,14 @@ def test_bounds_stratified_uses_truncated_normal_probability_strata() -> None:
 
 
 def test_bounds_stratified_inverts_empirical_mass_without_sampling_zero_gap() -> None:
-    prior = Prior(option=True, typ="empirical")
-    prior.parameters = {
-        "mu": np.array([[0.0, 1.0], [2.0, 1.0], [4.0, 0.0], [6.0, 0.0], [10.0, 1.0]]),
-        "width": np.array([[1.0, 1.0], [9.0, 1.0]]),
-    }
+    prior = _prior_with(
+        EmpiricalMarginal(
+            "mu",
+            np.array([[0.0, 1.0], [2.0, 1.0], [4.0, 0.0], [6.0, 0.0], [10.0, 1.0]]),
+        ),
+        EmpiricalMarginal("width", np.array([[1.0, 1.0], [9.0, 1.0]])),
+        typ="empirical",
+    )
     states = build_initial_states(
         _TwoParameterModel(),
         prior,
@@ -362,9 +348,10 @@ def test_bounds_stratified_inverts_empirical_mass_without_sampling_zero_gap() ->
 
 
 def test_bounds_stratified_rejects_empty_effective_prior_mass_immediately() -> None:
-    prior = Prior(option=True, typ="parametric")
-    prior.distributions = {"mu": "uniform", "width": "uniform"}
-    prior.parameters = {"mu": [20.0, 30.0], "width": [2.0, 8.0]}
+    prior = _prior_with(
+        UniformMarginal("mu", 20.0, 30.0),
+        UniformMarginal("width", 2.0, 8.0),
+    )
 
     with pytest.raises(ValueError, match="no positive support for mu"):
         build_initial_states(
@@ -392,7 +379,7 @@ def test_initialization_requires_one_distinct_nonnegative_seed_per_chain(seeds) 
         build_initial_states(
             _TwoParameterModel(),
             None,
-            MHInitializationConfig(strategy="model_default"),
+            MHInitializationConfig(strategy="bounds_stratified"),
             2,
             seeds,
         )

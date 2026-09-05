@@ -1,5 +1,10 @@
 # Audit complet du code, de la documentation et de la dette technique — 2 septembre 2026
 
+> Mise à jour du 4 septembre 2026 : la couche de migration décrite dans cet
+> audit a depuis été retirée. Les alias `bounds`, le journal manifeste en place,
+> la configuration aplatie et le drapeau CLI historique ne font plus partie du
+> code courant.
+
 ## Conclusion générale
 
 PyAges est dans un état globalement robuste. L'organisation par domaines est
@@ -280,20 +285,14 @@ supplémentaire n'est recommandé.
 
 ### 5.2 Alias
 
-Les anciens modules plats et les alias expérimentaux antérieurs à 1.0 ont déjà
-été supprimés. Il ne reste qu'un groupe d'alias documenté et volontaire : les
-noms historiques fondés sur `bounds` pour les paramètres LPM. Ils délèguent à
-`calibration_range` et ne portent aucune logique parallèle.
+Les anciens modules plats et les alias expérimentaux antérieurs à 1.0 ont été
+supprimés. Le suivi du 4 septembre a également retiré les noms historiques
+fondés sur `bounds` après migration des fichiers maintenus vers
+`calibration_range`.
 
-Ces alias doivent rester tant que le format YAML et les intégrations existantes
-les utilisent. Les supprimer maintenant constituerait une rupture publique sans
-gain interne réel. Les nouveaux modules privés ne sont pas réexportés comme de
-nouvelles API et aucun alias supplémentaire n'a été ajouté.
-
-`begin_result_run()` subsiste comme aide interne pour les anciens tests et
-écrivains en place ; les workflows publics utilisent
-`begin_staged_result_run()`. Comme il n'est pas exporté par la façade runtime,
-il ne crée pas de dette de compatibilité publique.
+Le suivi du 4 septembre a supprimé `begin_result_run()` après migration des
+derniers tests. Tous les workflows utilisent désormais
+`begin_staged_result_run()`.
 
 ## 6. Tests et couverture
 
@@ -413,7 +412,7 @@ Il n'est pas recommandé de :
 
 - supprimer des validations pour réduire le nombre de lignes ;
 - fragmenter `config/models.py` uniquement parce qu'il dépasse 600 lignes ;
-- supprimer les alias `bounds` sans politique de migration publique ;
+- réintroduire des alias de migration sans calendrier de suppression ;
 - introduire un framework générique de workflow ou de résultat ;
 - viser 100 % de couverture de manière uniforme, notamment sur le rendu
   graphique.

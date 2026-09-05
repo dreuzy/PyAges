@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Mapping
+from typing import Literal
 
 
 @dataclass(frozen=True, init=False)
@@ -67,16 +67,15 @@ class StagedRunInspection:
 class RunState:
     """Validated private journal state for a result run.
 
-    ``implicit`` supports compatibility manifests without a journal,
-    ``in_place`` tracks a reused result tree, and ``staged`` binds an isolated
-    working tree to its public destination and compare-and-swap token.
+    ``implicit`` represents a direct manifest write without a journal.
+    ``staged`` binds an isolated working tree to its public destination and
+    compare-and-swap token.
     """
 
     run_id: str
     started_at_utc: str
-    mode: Literal["implicit", "in_place", "staged"]
+    mode: Literal["implicit", "staged"]
     result_directory: Path
-    baseline: Mapping[str, str]
     expected_publication_token: str | None
     terminal_manifest_sha256: str | None
     managed: bool

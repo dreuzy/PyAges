@@ -56,9 +56,6 @@ from scripts.qualification._archive_evidence import (
     validate_result_tree as _validate_result_tree,
 )
 from scripts.qualification._archive_verification import (
-    contained_path as _contained_path,  # noqa: F401 - tested compatibility alias
-)
-from scripts.qualification._archive_verification import (
     safe_member_names as _safe_member_names,
 )
 from scripts.qualification._archive_verification import (

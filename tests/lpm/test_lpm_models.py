@@ -52,7 +52,6 @@ def test_lpm_smoke_all(lpm_type):
     rng = np.random.default_rng(12345)
     lpm.random_uniform(rng=rng)
     assert lpm.param_within_calibration_range(lpm.p)
-    assert lpm.param_within_bounds(lpm.p)  # Historical alias.
 
     params = lpm.get_parameters_to_array()
     lpm.set_param_from_array(params)

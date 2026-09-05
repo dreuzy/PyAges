@@ -50,6 +50,8 @@ Continuous, point-mass, and mixed probability measures use separate paths:
 - two-Dirac models sum both weighted contributions;
 - mixed models evaluate the point mass directly and the normalized continuous
   component separately, then apply each mixture weight exactly once.
+- piecewise-uniform models precompute the response of each fixed age bin and
+  combine those responses with the current normalized bin masses.
 
 The implementation entry point is
 {py:class}`pyages.convolution.convolution.Convolution`. The derivation,
@@ -86,6 +88,30 @@ affine assumption, the code uses $K((a_i+b_i)/2)w_i$ in that bin. CDF values
 outside $[0,1]$, CDF non-monotonicity, and inconsistent partial moments raise
 a ``ConvolutionError``; only probability-bound or negative-weight deviations
 compatible with floating-point roundoff are clipped.
+
+### Piecewise-uniform response basis
+
+For fixed age bins $B_j=[u_j,v_j]$ with current normalized masses $f_j$, let
+$U_j$ be the unit-mass uniform distribution on $B_j$. Linearity gives
+
+```{math}
+C(t;f)=\sum_j f_j R_j(t),\qquad
+R_j(t)=\int_0^{T_{max}}K(t,\tau)\,dU_j(\tau).
+```
+
+For `shapefree_n_oldbin`, PyAges evaluates each $R_j$ once with the same
+prepared tracer grid and CDF/partial-moment kernel as ordinary continuous
+convolution. Later parameter proposals reconstruct the fractions through stick
+breaking and require only the displayed linear combination. The cache is an
+immutable derivative of the tracer, observation date, grid settings, and fixed
+bin edges. A date or geometry change invalidates it. Finite-window mass and
+diagnostics are reconstructed from the cached component CDFs, so old mass is
+still omitted without renormalization.
+
+The previous direct continuous calculation remains an equivalence oracle in
+tests over boundary and seeded random fraction states. The optimization changes
+floating-point operation order but not the numerical method or scientific
+support convention.
 
 ### Adaptive-grid controls
 
@@ -209,14 +235,12 @@ $\log(S_{proposed}/S_{current})$.
 Multi-chain prior initialization is defined through bounded marginal
 operations owned by `Prior`. Normal quantiles use the exact truncated-normal
 law on the calibration interval. Uniform quantiles use the intersection of
-the prior support and calibration range. Empirical quantiles invert trapezoidal mass
-of the clipped piecewise-linear density. Marginal modes and positive-support
-tests use the same definitions. The historical one-chain `Prior.param_init`
-path remains unchanged for compatibility: it selects the configured
-parametric center (or direct draw when called explicitly) and then clips it to
-the calibration range. Consequently a partially overlapping uniform prior can
-have a different compatibility start from the conditioned multi-chain
-`prior_map`; neither rule changes the posterior target.
+the prior support and calibration range. Empirical quantiles invert trapezoidal
+mass of the clipped piecewise-linear density. Positive-support tests use the
+same definitions. One-chain `Prior.param_init` selects the configured
+parametric center or a direct draw, then clips it to the calibration range.
+Multi-chain execution permits only dispersed prior samples, stratified starts,
+or explicit per-chain starts; none of these rules changes the posterior target.
 
 ``nstep`` counts accepted and rejected transitions. With zero-based iteration
 ``i``, PyAges retains the current state when

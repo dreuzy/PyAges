@@ -28,8 +28,6 @@ INITIALIZATION_STRATEGIES = frozenset(
         "prior_sample",
         "bounds_stratified",
         "explicit",
-        "model_default",
-        "prior_map",
     }
 )
 
@@ -68,9 +66,7 @@ class MHInitializationConfig:
     ``bounds_stratified`` uses a Latin hypercube over the calibration ranges,
     or over effective marginal prior mass when a prior is active.
 
-    ``explicit`` consumes ``explicit_starts`` in chain order, while
-    ``model_default`` and ``prior_map`` preserve deterministic compatibility
-    modes.
+    ``explicit`` consumes ``explicit_starts`` in chain order.
 
     Explicit mappings are copied and made read-only at construction.
     """

@@ -85,10 +85,6 @@ class MHTrajectory:
             index=self.path.columns,
         )
 
-    def check(self) -> pd.DataFrame:
-        """Return the retained-state summary kept by the historical API name."""
-        return self.summary()
-
     def resize(self, size: int) -> None:
         """Discard unused preallocated rows after validating the final size."""
         if isinstance(size, bool) or not isinstance(size, int):

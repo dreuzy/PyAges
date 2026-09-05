@@ -122,10 +122,11 @@ class ConvolutionTracers:
         if lpm is not None and lpm.convolution_strategy not in {
             ConvolutionStrategy.CONTINUOUS,
             ConvolutionStrategy.MIXED_DIRAC_CONTINUOUS,
+            ConvolutionStrategy.PIECEWISE_UNIFORM,
         }:
             return
         for convolution in self.convolutions:
-            convolution.prepare()
+            convolution.prepare(lpm)
 
     def units(self) -> list[str]:
         """Return tracer units in convolution order."""

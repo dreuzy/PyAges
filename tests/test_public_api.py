@@ -11,6 +11,7 @@ import yaml
 from click.testing import CliRunner
 
 import pyages
+import pyages.config as config_api
 import pyages.qualification as qualification
 import pyages.workflows.runtime as workflow_runtime
 from pyages.calibration.methods import mh
@@ -70,6 +71,8 @@ def test_removed_compatibility_facades_are_absent() -> None:
     )
 
     assert all(not (ROOT / path).exists() for path in removed_paths)
+    assert "LauncherParams" not in config_api.__all__
+    assert not hasattr(config_api, "LauncherParams")
 
 
 def test_qualification_exposes_the_experiment_without_a_workflow_alias() -> None:
@@ -116,6 +119,7 @@ def test_workflow_runtime_facade_exports_only_canonical_lifecycle_services() -> 
     )
     assert not hasattr(workflow_runtime, "RESULT_SCHEMA_VERSION")
     assert not hasattr(workflow_runtime, "begin_result_run")
+    assert not hasattr(runtime_manifest, "begin_result_run")
     assert not hasattr(workflow_runtime, "_promotion_lock")
 
 

@@ -24,7 +24,6 @@ from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import (
-    ConfigDict,
     Field,
     field_validator,
     model_validator,
@@ -133,8 +132,6 @@ class MHInitializationCfg(_BaseCfg):
         "prior_sample",
         "bounds_stratified",
         "explicit",
-        "model_default",
-        "prior_map",
     ] = "bounds_stratified"
     explicit_starts: list[dict[str, float]] | None = None
     max_attempts: int = Field(default=100, ge=1)
@@ -324,12 +321,10 @@ class LauncherMetropolisCfg(_BaseCfg):
         if (
             self.multichain is not None
             and self.multichain.enabled
-            and self.multichain.initialization.strategy in {"prior_sample", "prior_map"}
+            and self.multichain.initialization.strategy == "prior_sample"
             and not self.prior_option
         ):
-            raise ValueError(
-                "prior_sample and prior_map initialization require prior_option=true"
-            )
+            raise ValueError("prior_sample initialization requires prior_option=true")
         # Diagnostics operate on retained draws, not raw transitions; thinning
         # and the strict burn-in rule therefore enter every feasibility check.
         retained_count = strict_retained_sample_count(
@@ -403,13 +398,13 @@ class LauncherResultsCfg(_BaseCfg):
 class LauncherWorkflowCfg(_BaseCfg):
     """Workflow discriminator used by the command-line launcher."""
 
-    kind: Literal["single_date"] = "single_date"
+    kind: Literal["single_date"]
 
 
 class LauncherConfig(_BaseCfg):
     """Full YAML schema for the single-date workflow."""
 
-    workflow: LauncherWorkflowCfg = Field(default_factory=LauncherWorkflowCfg)
+    workflow: LauncherWorkflowCfg
     dataset: LauncherDatasetCfg = Field(default_factory=LauncherDatasetCfg)
     lpm: LauncherLpmCfg = Field(default_factory=LauncherLpmCfg)
     tracers: LauncherTracerCfg = Field(default_factory=LauncherTracerCfg)
@@ -425,42 +420,6 @@ class LauncherConfig(_BaseCfg):
     )
     calibration_simplex: LauncherSimplexCfg = Field(default_factory=LauncherSimplexCfg)
     results: LauncherResultsCfg = Field(default_factory=LauncherResultsCfg)
-
-
-class LauncherParams(_BaseCfg):
-    """Flattened parameters consumed by the single-date workflow."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    dataset_name: str
-    dataset_label: str | None
-    dataset_year: int
-    dataset_data_dir: Path
-    verbose: bool
-    missing_error_rel: float
-    lpm_model_name: str
-    directory_lpm: Path
-    tracer_data_dir: Path | None = None
-    run_reachable_concentrations: bool
-    run_objective_function: bool
-    run_calibration_metropolis_hastings: bool
-    run_calibration_simplex: bool
-    reachable_concentration_nmodels: int
-    objective_function_nmodels: int
-    mh_nstep: int
-    mh_burn_in: float
-    mh_nskip: int
-    mh_seed: int
-    mh_prior_option: bool
-    mh_likelihood: bool
-    mh_monitor: bool
-    mh_display_traj: bool
-    mh_multichain: MHMultichainCfg | None
-    simplex_init_multiples_n: int
-    simplex_fuq_n: int
-    results_use_default: bool
-    results_directory: Path | None
-    results_study_name: str
 
 
 # ---------------------------------------------------------------------------
@@ -553,7 +512,7 @@ class TemporalFiguresCfg(_BaseCfg):
 class TemporalWorkflowCfg(_BaseCfg):
     """Workflow control (span vs successive)."""
 
-    kind: Literal["temporal"] = "temporal"
+    kind: Literal["temporal"]
     mode: str = "span"
 
     @field_validator("mode")
@@ -619,7 +578,7 @@ class TemporalParams(_BaseCfg):
     dataset: TemporalDatasetCfg
     calibration: TemporalCalibrationCfg = Field(default_factory=TemporalCalibrationCfg)
     figures: TemporalFiguresCfg = Field(default_factory=TemporalFiguresCfg)
-    workflow: TemporalWorkflowCfg = Field(default_factory=TemporalWorkflowCfg)
+    workflow: TemporalWorkflowCfg
     lpm_models: TemporalLpmModelsCfg = Field(default_factory=TemporalLpmModelsCfg)
     results: TemporalResultsCfg = Field(default_factory=TemporalResultsCfg)
 
@@ -633,7 +592,6 @@ __all__ = [
     "MHDiagnosticsCfg",
     "MHMultichainCfg",
     "LauncherConfig",
-    "LauncherParams",
     "LauncherResultsCfg",
     "TemporalParams",
     "TEMPORAL_VALID_MODES",

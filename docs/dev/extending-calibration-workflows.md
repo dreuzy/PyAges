@@ -89,7 +89,7 @@ class MyMethod(CalibrationMethod):
             self.lpm.p.copy(),
             obj_function=normalized_residual_norm(chi_square, len(observed)),
             concentrations=modeled,
-            param_in_bounds=self.lpm.param_within_bounds_array(parameters),
+            param_in_bounds=self.lpm.param_within_calibration_range_array(parameters),
         )
         self.time_perform = perf_counter() - started
         return results.add_moments()

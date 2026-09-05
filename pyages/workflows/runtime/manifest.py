@@ -45,7 +45,6 @@ from pyages import __version__
 from pyages.workflows.runtime._manifest_artifacts import (
     _RUN_STATE_FILENAME,
     _TERMINAL_MANIFEST_FILENAME,
-    _artifacts,
     _publication_token,
     _snapshot,
 )
@@ -125,9 +124,7 @@ def _state_payload(
     *,
     run_id: str,
     started_at_utc: str,
-    mode: Literal["in_place", "staged"],
     result_directory: Path,
-    baseline: Mapping[str, str],
     expected_publication_token: str | None = None,
     terminal_manifest_sha256: str | None = None,
 ) -> dict[str, Any]:
@@ -136,39 +133,11 @@ def _state_payload(
         "status": "started",
         "run_id": run_id,
         "started_at_utc": started_at_utc,
-        "mode": mode,
+        "mode": "staged",
         "result_directory": str(result_directory),
-        "baseline": dict(baseline),
         "expected_publication_token": expected_publication_token,
         "terminal_manifest_sha256": terminal_manifest_sha256,
     }
-
-
-def begin_result_run(directory: str | Path) -> Path:
-    """Begin a legacy in-place run and invalidate its terminal marker.
-
-    Public workflows use :func:`begin_staged_result_run` so their artifacts can
-    be promoted as one isolated result tree. This internal compatibility helper
-    exists only for legacy callers that still write directly into a result root.
-    """
-    output_directory = Path(directory).resolve()
-    output_directory.mkdir(parents=True, exist_ok=True)
-    (output_directory / _TERMINAL_MANIFEST_FILENAME).unlink(missing_ok=True)
-    (output_directory / _RUN_STATE_FILENAME).unlink(missing_ok=True)
-    run_id = str(uuid.uuid4())
-    started_at_utc = _utc_now()
-    _write_json_atomic(
-        output_directory / _RUN_STATE_FILENAME,
-        _state_payload(
-            run_id=run_id,
-            started_at_utc=started_at_utc,
-            mode="in_place",
-            result_directory=output_directory,
-            baseline=_snapshot(output_directory),
-            expected_publication_token=None,
-        ),
-    )
-    return output_directory
 
 
 def begin_staged_result_run(directory: str | Path) -> ResultRun:
@@ -228,9 +197,7 @@ def begin_staged_result_run(directory: str | Path) -> ResultRun:
                 _state_payload(
                     run_id=run_id,
                     started_at_utc=started_at_utc,
-                    mode="staged",
                     result_directory=result_directory,
-                    baseline={},
                     expected_publication_token=expected_publication_token,
                 ),
             )
@@ -261,7 +228,6 @@ def _resolved_run_state(directory: Path, expected_run_id: str | None) -> _RunSta
             started_at_utc=_utc_now(),
             mode="implicit",
             result_directory=directory,
-            baseline={},
             expected_publication_token=None,
             terminal_manifest_sha256=None,
             managed=False,
@@ -311,7 +277,7 @@ def _manifest_payload(
         "environment": _environment(),
         "package": _distribution_provenance(from_worktree=repository is not None),
         "repository": _repository_provenance(repository),
-        "artifacts_sha256": _artifacts(output_directory, state),
+        "artifacts_sha256": _snapshot(output_directory),
     }
     if details:
         payload["details"] = dict(details)
@@ -348,9 +314,7 @@ def _write_manifest(
             _state_payload(
                 run_id=state.run_id,
                 started_at_utc=state.started_at_utc,
-                mode="staged",
                 result_directory=state.result_directory,
-                baseline=state.baseline,
                 expected_publication_token=state.expected_publication_token,
                 terminal_manifest_sha256=_sha256_strict_regular_file(
                     target,
@@ -358,9 +322,6 @@ def _write_manifest(
                 ),
             ),
         )
-    elif state.mode == "in_place":
-        _assert_active_run(output_directory, state)
-        (output_directory / _RUN_STATE_FILENAME).unlink(missing_ok=True)
     return target
 
 
@@ -393,8 +354,7 @@ def write_result_manifest(
     details : mapping, optional
         Workflow-specific, JSON-serializable provenance fields.
     run_id : str, optional
-        Identity of the staged or managed in-place run. For a staged run this
-        must be exactly ``run.run_id``.
+        Identity of the staged run. It must be exactly ``run.run_id``.
 
     Returns
     -------
@@ -451,8 +411,7 @@ def write_failure_manifest(
     details : mapping, optional
         Workflow-specific, JSON-serializable provenance fields.
     run_id : str, optional
-        Identity of the staged or managed in-place run. For a staged run this
-        must be exactly ``run.run_id``.
+        Identity of the staged run. It must be exactly ``run.run_id``.
 
     Returns
     -------

@@ -135,7 +135,7 @@ def test_configuration_reference_states_exact_temporal_constraints() -> None:
     assert "iteration > burn_in * mh_nsteps" in document
     assert "unknown section or field" in document
     assert "exact bounded quantile" in document
-    assert "Neither strategy performs rejection sampling" in document
+    assert "perform rejection sampling or consume `max_attempts`" in document
     assert "currently always enables the parametric priors" in document
     assert "does not expose" in document
 

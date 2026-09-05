@@ -61,11 +61,6 @@ class LPMParameterDefinition:
     step: float | None
     prior: Mapping[str, Any] | None
 
-    @property
-    def bounds(self) -> tuple[float, float]:
-        """Return the legacy alias for :attr:`calibration_range`."""
-        return self.calibration_range
-
     def __deepcopy__(self, memo: dict[int, Any]) -> LPMParameterDefinition:
         """Reuse this immutable value in deep-copied LPM instances."""
         del memo
@@ -136,11 +131,11 @@ def _validated_domain(
     *,
     model_name: str,
     parameter_name: str,
-    legacy_range: tuple[float, float],
+    calibration_range: tuple[float, float],
 ) -> LPMParameterDomain:
-    """Validate an explicit mathematical domain or derive the legacy fallback."""
+    """Validate a domain or derive it from the calibration range."""
     if raw_domain is None:
-        return LPMParameterDomain(legacy_range[0], legacy_range[1])
+        return LPMParameterDomain(calibration_range[0], calibration_range[1])
     if not isinstance(raw_domain, Mapping):
         raise LPMParamsError(
             f"{model_name}: domain for parameter {parameter_name!r} must be a mapping"
@@ -268,33 +263,24 @@ def _validated_calibration_range(
     model_name: str,
     parameter_name: str,
 ) -> tuple[float, float]:
-    """Return the canonical range while accepting the legacy ``bounds`` key."""
-    legacy = raw_parameter.get("bounds")
-    canonical = raw_parameter.get("calibration_range")
-    if legacy is not None and canonical is not None:
-        if not isinstance(legacy, (list, tuple)) or not isinstance(
-            canonical, (list, tuple)
-        ):
-            raise LPMParamsError(
-                f"{model_name}: parameter {parameter_name!r} must define two bounds"
-            )
-        if legacy != canonical:
-            raise LPMParamsError(
-                f"{model_name}: bounds and calibration_range disagree "
-                f"for {parameter_name!r}"
-            )
-    raw_range = canonical if canonical is not None else legacy
+    """Return the required operational ``calibration_range``."""
+    raw_range = raw_parameter.get("calibration_range")
     if not isinstance(raw_range, (list, tuple)) or len(raw_range) != 2:
         raise LPMParamsError(
-            f"{model_name}: parameter {parameter_name!r} must define two bounds"
+            f"{model_name}: parameter {parameter_name!r} must define "
+            "calibration_range with two values"
         )
     lower = _finite_float(
         raw_range[0],
-        message=f"{model_name}: invalid bounds for parameter {parameter_name!r}",
+        message=(
+            f"{model_name}: invalid calibration range for parameter {parameter_name!r}"
+        ),
     )
     upper = _finite_float(
         raw_range[1],
-        message=f"{model_name}: invalid bounds for parameter {parameter_name!r}",
+        message=(
+            f"{model_name}: invalid calibration range for parameter {parameter_name!r}"
+        ),
     )
     if lower > upper:
         raise LPMParamsError(
@@ -355,9 +341,9 @@ def _parameter_definition(
 ) -> LPMParameterDefinition:
     """Resolve all interacting constraints for one YAML parameter entry.
 
-    The canonical calibration range may come from ``calibration_range`` or the
-    legacy ``bounds`` spelling. An explicit mathematical domain may be wider or
-    open-ended; when absent, the calibration range becomes the legacy domain.
+    The calibration range comes from the required ``calibration_range`` field.
+    An explicit mathematical domain may be wider or open-ended; when absent,
+    the calibration range is also used as the mathematical domain.
     Both calibration endpoints must belong to that domain, and ``init`` must be
     finite and lie inside the calibration range.
 
@@ -385,7 +371,7 @@ def _parameter_definition(
         raw_parameter.get("domain"),
         model_name=model_name,
         parameter_name=name,
-        legacy_range=(lower, upper),
+        calibration_range=(lower, upper),
     )
     if not domain.contains(lower) or not domain.contains(upper):
         raise LPMParamsError(

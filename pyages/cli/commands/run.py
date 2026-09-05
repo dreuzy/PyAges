@@ -34,11 +34,6 @@ WorkflowKind = Literal["single_date", "temporal"]
 @click.command()
 @click.argument("config", type=click.Path(exists=True, path_type=Path))
 @click.option(
-    "--transient",
-    is_flag=True,
-    help="Deprecated: force a temporal workflow for a legacy configuration.",
-)
-@click.option(
     "--inline",
     is_flag=True,
     help="Force inline matplotlib backend (useful in notebooks/IDEs).",
@@ -74,7 +69,6 @@ WorkflowKind = Literal["single_date", "temporal"]
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output.")
 def run(
     config: Path,
-    transient: bool,
     inline: bool,
     lpm: str | None,
     mh_nsteps: int | None,
@@ -98,7 +92,6 @@ def run(
         params = CliRunParams.model_validate(
             {
                 "config": config,
-                "transient": transient,
                 "inline": inline,
                 "lpm": lpm,
                 "mh_nsteps": mh_nsteps,
@@ -113,7 +106,6 @@ def run(
         sys.exit(1)
 
     config = params.config
-    transient = params.transient
     inline = params.inline
     verbose = params.verbose
     lpm = params.lpm
@@ -122,13 +114,8 @@ def run(
     data_dir = params.data_dir
     data_file = params.data_file
 
-    data = _load_yaml(config)
-    workflow = _detect_workflow(data, force_temporal=transient)
-    if transient:
-        _warn(
-            "--transient is deprecated; set workflow.kind: temporal in the YAML "
-            "configuration instead."
-        )
+    data = load_yaml_mapping(config)
+    workflow = _detect_workflow(data)
 
     if verbose:
         click.echo(f"Configuration file: {config}")
@@ -156,31 +143,15 @@ def run(
             config.unlink(missing_ok=True)
 
 
-def _load_yaml(path: Path) -> dict:
-    return load_yaml_mapping(path)
-
-
-def _detect_workflow(data: dict, *, force_temporal: bool = False) -> WorkflowKind:
-    """Return the declared workflow, with a fallback for legacy YAML files."""
-    workflow = data.get("workflow", {})
+def _detect_workflow(data: dict) -> WorkflowKind:
+    """Return the workflow explicitly declared by the YAML mapping."""
+    workflow = data.get("workflow")
     declared = workflow.get("kind") if isinstance(workflow, dict) else None
-    if declared not in {None, "single_date", "temporal"}:
+    if declared not in {"single_date", "temporal"}:
         raise click.ClickException(
-            "workflow.kind must be either 'single_date' or 'temporal'"
+            "workflow.kind is required and must be 'single_date' or 'temporal'"
         )
-    if force_temporal:
-        if declared == "single_date":
-            raise click.ClickException(
-                "--transient conflicts with workflow.kind: single_date"
-            )
-        return "temporal"
-    if declared is not None:
-        return declared
-
-    dataset = data.get("dataset", {})
-    if "lpm_models" in data or (isinstance(dataset, dict) and "file" in dataset):
-        return "temporal"
-    return "single_date"
+    return declared
 
 
 def _apply_overrides(

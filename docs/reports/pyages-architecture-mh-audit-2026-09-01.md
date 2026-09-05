@@ -1,5 +1,10 @@
 # Audit d'architecture et de robustesse MH — 1er septembre 2026
 
+> Mise à jour du 4 septembre 2026 : les recommandations de conservation des
+> alias `bounds` et des départs multichaînes dupliqués ont été dépassées par le
+> refactoring de simplification. Seuls `calibration_range`, `bounds_stratified`,
+> `prior_sample` et `explicit` restent acceptés.
+
 ## Conclusion
 
 L'API publique reste stable, mais les contrats scientifiques et les frontières
@@ -137,9 +142,8 @@ Ici, la formule accepte tout `mu > 0`, la calibration cherche dans
 - Un prior uniforme doit avoir une intersection de largeur positive avec la
   plage de calibration. Les moments théoriques de qualification sont calculés
   sur le support effectif. Cela corrige notamment le diagnostic du prior `ig`.
-- Le champ historique `bounds` et les méthodes `get_bounds` restent des alias
-  compatibles. Dans un ancien YAML sans `domain`, `bounds` sert aussi de domaine
-  de repli. Aucun calendrier de suppression n'est décidé dans ce changement.
+- Mise à jour : le champ historique `bounds` et les méthodes `get_bounds` ont
+  été retirés le 4 septembre au profit du seul contrat `calibration_range`.
 
 Le gabarit `pyages new lpm` et la documentation produisent désormais les champs
 explicites.
@@ -345,16 +349,14 @@ Le passage final a rendu `calibration_range` canonique dans le code interne.
 `ParameterManager` et `LpmBase` portent maintenant l'implémentation dans
 `get_calibration_range()`, `get_calibration_ranges()`,
 `get_calibration_range_width()` et les deux méthodes
-`param_within_calibration_range*()`. Les anciens noms `bounds`, `get_bounds`,
-`get_param_range`, `get_param_interval`, `get_p_min`, `get_p_max` et
-`param_within_bounds*` délèguent vers ce contrat et restent compatibles sans
-calendrier de suppression. Le nom de configuration stable `bounds_stratified`
-est conservé, mais sa description utilise la notion exacte de plage de
-calibration.
+`param_within_calibration_range*()`. Le suivi du 4 septembre a supprimé les
+anciens noms `bounds`, `get_bounds`, `get_param_range`, `get_param_interval`,
+`get_p_min`, `get_p_max` et `param_within_bounds*`. Le nom de stratégie
+`bounds_stratified` est conservé, car il décrit réellement une stratification
+sur les limites de calibration.
 
 `LpmScipy` est explicitement abstraite par `_scipy_params()`, et le sampler
-utilise le nom canonique `MHTrajectory.summary()` tout en conservant `check()`
-comme alias historique. Les exemples Holten et Albuquerque déclarent désormais
+utilise le seul nom `MHTrajectory.summary()`. Les exemples Holten et Albuquerque déclarent désormais
 séparément `domain` et `calibration_range`.
 
 La clôture a été validée par 1 458 tests standards réussis et 15 ignorés, une

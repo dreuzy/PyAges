@@ -34,7 +34,6 @@ class CliRunParams(BaseConfigModel):
     """Validated CLI parameters for ``pyages run``."""
 
     config: Path
-    transient: bool = False
     inline: bool = False
     verbose: bool = False
     lpm: str | None = None

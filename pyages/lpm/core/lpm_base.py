@@ -225,10 +225,6 @@ class LpmBase(abc.ABC):
         """
         return self._param_manager.param_within_calibration_range(params)
 
-    def param_within_bounds(self, params: dict[str, float]) -> bool:
-        """Return the legacy alias for :meth:`param_within_calibration_range`."""
-        return self.param_within_calibration_range(params)
-
     def param_within_domain(self, params: dict[str, float]) -> bool:
         """Return whether values satisfy the model's mathematical domain."""
         return self._param_manager.param_within_domain(params)
@@ -255,10 +251,6 @@ class LpmBase(abc.ABC):
         return self._param_manager.param_within_calibration_range_array(
             values.tolist(), list(self.p)
         )
-
-    def param_within_bounds_array(self, params: npt.ArrayLike) -> bool:
-        """Return the legacy alias for the calibration-range vector check."""
-        return self.param_within_calibration_range_array(params)
 
     def param_within_domain_array(self, params: npt.ArrayLike) -> bool:
         """Return whether an ordered vector satisfies the mathematical domain."""
@@ -470,10 +462,6 @@ class LpmBase(abc.ABC):
         """
         return self._param_manager.get_calibration_range_width(param_name)
 
-    def get_param_range(self, param_name: str) -> float:
-        """Return the legacy alias for :meth:`get_calibration_range_width`."""
-        return self.get_calibration_range_width(param_name)
-
     def get_calibration_range(self, key: str) -> tuple[float, float]:
         """Return one parameter's inclusive operational calibration range."""
         return self._param_manager.get_calibration_range(key)
@@ -482,27 +470,9 @@ class LpmBase(abc.ABC):
         """Return calibration ranges in canonical parameter order."""
         return self._param_manager.get_calibration_ranges()
 
-    def get_param_interval(self) -> tuple[list[float], list[float]]:
-        """Return the legacy lower and upper calibration-limit lists.
-
-        Returns
-        -------
-        tuple[list[float], list[float]]
-            Lists of lower and upper calibration limits, respectively.
-        """
-        return self._param_manager.get_param_interval()
-
     def get_parameter_domain(self, key: str):
         """Return one parameter's mathematical validity domain."""
         return self._param_manager.get_domain(key)
-
-    def get_p_max(self, key: str) -> float:
-        """Return the legacy upper calibration limit for one parameter."""
-        return self.get_calibration_range(key)[1]
-
-    def get_p_min(self, key: str) -> float:
-        """Return the legacy lower calibration limit for one parameter."""
-        return self.get_calibration_range(key)[0]
 
     def _plot_range(self) -> tuple[float, float]:
         """Return an approximate age window intended only for visualization."""

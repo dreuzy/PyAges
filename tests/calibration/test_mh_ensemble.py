@@ -351,7 +351,7 @@ def test_factory_reusing_the_same_problem_is_rejected() -> None:
 def test_required_ess_threshold_must_be_reachable_from_retained_draws() -> None:
     config = MHEnsembleConfig(
         chains=2,
-        initialization=MHInitializationConfig(strategy="model_default"),
+        initialization=MHInitializationConfig(strategy="bounds_stratified"),
         pilot=MHPilotConfig(enabled=False),
         diagnostics=MHDiagnosticsConfig(
             min_bulk_ess=100.0,

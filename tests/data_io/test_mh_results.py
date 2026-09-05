@@ -59,7 +59,7 @@ def _configs(
     ensemble_config = MHEnsembleConfig(
         chains=2,
         master_seed=7123,
-        initialization=MHInitializationConfig(strategy="model_default"),
+        initialization=MHInitializationConfig(strategy="bounds_stratified"),
         pilot=MHPilotConfig(
             enabled=True,
             nstep=10,
@@ -205,7 +205,7 @@ def _write_exp_schema(data_directory: Path, *, step: float) -> Path:
 version: 1
 parameters:
   - name: mu
-    bounds: [0.1, 100.0]
+    calibration_range: [0.1, 100.0]
     init: 10.0
     step: {step}
     prior:

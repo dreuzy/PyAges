@@ -187,10 +187,6 @@ class ParameterManager:
                 return False
         return True
 
-    def param_within_bounds(self, params: dict[str, float]) -> bool:
-        """Return the legacy alias for :meth:`param_within_calibration_range`."""
-        return self.param_within_calibration_range(params)
-
     def param_within_domain(self, params: dict[str, float]) -> bool:
         """Return whether a complete mapping belongs to the mathematical domain."""
         if set(params) != set(self._parameter_names):
@@ -243,12 +239,6 @@ class ParameterManager:
                 return False
         return True
 
-    def param_within_bounds_array(
-        self, params: list[float], param_order: list[str]
-    ) -> bool:
-        """Return the legacy alias for the calibration-range vector check."""
-        return self.param_within_calibration_range_array(params, param_order)
-
     def param_within_domain_array(
         self, params: list[float], param_order: list[str]
     ) -> bool:
@@ -286,10 +276,6 @@ class ParameterManager:
         lower, upper = self.get_calibration_range(param_name)
         return upper - lower
 
-    def get_param_range(self, param_name: str) -> float:
-        """Return the legacy alias for :meth:`get_calibration_range_width`."""
-        return self.get_calibration_range_width(param_name)
-
     def get_calibration_range(self, key: str) -> tuple[float, float]:
         """Return one parameter's inclusive operational calibration range."""
         return self._calibration_min[key], self._calibration_max[key]
@@ -300,27 +286,6 @@ class ParameterManager:
             name: self.get_calibration_range(name) for name in self._parameter_names
         }
 
-    def get_param_interval(self) -> tuple[list[float], list[float]]:
-        """Return the legacy pair of lower and upper calibration-limit lists.
-
-        Returns
-        -------
-        tuple[list[float], list[float]]
-            Lower and upper calibration limits in canonical parameter order.
-        """
-        ranges = tuple(self.get_calibration_ranges().values())
-        pmin = [interval[0] for interval in ranges]
-        pmax = [interval[1] for interval in ranges]
-        return pmin, pmax
-
     def get_domain(self, key: str) -> lpm_params.LPMParameterDomain:
         """Return one parameter's mathematical validity domain."""
         return self._domains[key]
-
-    def get_p_max(self, key: str) -> float:
-        """Return the legacy upper calibration limit for one parameter."""
-        return self.get_calibration_range(key)[1]
-
-    def get_p_min(self, key: str) -> float:
-        """Return the legacy lower calibration limit for one parameter."""
-        return self.get_calibration_range(key)[0]

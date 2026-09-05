@@ -33,6 +33,7 @@ from scipy.special import expit
 
 from pyages.config.paths import DIRECTORY_LPM_DATA
 from pyages.data_io import lpm_params
+from pyages.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyages.lpm.core.lpm_base import LpmBase
 from pyages.lpm.core.registry import register_lpm
 
@@ -207,6 +208,8 @@ class ShapeFreeNOldBinLpm(LpmBase):
     final interval represents old water and is either explicitly bounded or
     closed at a configured finite support for numerical integration.
     """
+
+    convolution_strategy = ConvolutionStrategy.PIECEWISE_UNIFORM
 
     def __init__(self, directory_lpm=None):
         """Load the shape-free bin specification and initialize latent parameters."""

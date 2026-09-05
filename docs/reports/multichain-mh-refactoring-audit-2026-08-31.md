@@ -84,9 +84,14 @@ coverage to an independent aquifer and a four-coordinate stick-breaking LPM,
 but it does not close the production-evidence gap: zero source uncertainties,
 a provisional 1% fallback, a 120-year upper support, three observations for
 four latent coordinates, and the absence of an archived independent reference
-remain documented blockers. The run also exposes a performance priority:
-shape-free convolution inside MH should precompute tracer/bin responses under
-an equivalence test before longer chains are made routine.
+remain documented blockers. The separate performance priority is now closed:
+shape-free convolution precomputes immutable tracer/bin responses, retains the
+continuous integrator as an equivalence oracle, and invalidates the basis with
+its observation date. A fixed 200-objective Albuquerque microbenchmark improved
+from 65.88 to 0.81 seconds. The complete extensive test first improved from
+2,065.95 to 248.46 seconds after this optimization; a stable-tree rerun after
+the concurrent API cleanup took 156.70 seconds. These descriptive timings do
+not broaden the scientific claim.
 
 ## Maturity matrix
 

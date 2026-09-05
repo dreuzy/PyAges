@@ -383,7 +383,7 @@ def _plot_param_histogram_apriori(
         values, density=True, bins=bins, histtype="barstacked", label="MH"
     )
     nonzero_hist = histogram[0][histogram[0] != 0]
-    prior_density = prior.parameters[name]
+    prior_density = prior.density_grid(name)
     nonzero_prior = prior_density[prior_density[:, 1] != 0, 1]
     # The histogram contains sample counts whereas the prior is a density.
     # Aligning their typical non-zero heights is only a visual comparison; the

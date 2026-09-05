@@ -74,8 +74,8 @@ quantile is inverted; a uniform marginal uses the overlap between its own
 support and that interval; and an empirical marginal integrates its
 piecewise-linear density after clipping it precisely at the calibration range.
 The initializer therefore does not reinterpret prior storage or distribution
-metadata. This keeps `prior_sample`, `prior_map`, and `bounds_stratified` on
-one tested scientific definition.
+metadata. Both `prior_sample` and prior-aware `bounds_stratified` use this one
+tested scientific definition.
 
 ## Choose the controls deliberately
 

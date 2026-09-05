@@ -19,19 +19,17 @@ from pyages.calibration.methods.mh._prior_empirical import (
     EMPIRICAL_GRID_POINTS,
     EMPIRICAL_RELATIVE_TAIL_DECAY,
     build_empirical_prior_grid,
-    histogram_moments,
 )
 from pyages.calibration.methods.mh._prior_marginals import (
     EmpiricalMarginal,
     PriorMarginal,
     parametric_marginal,
 )
-from pyages.calibration.methods.mh._prior_parametric import normal_pdf
 from pyages.data_io.lpm_distribution import read_histogram
 
 
 class Prior:
-    """Factorized prior facade used by one- and multi-chain MH."""
+    """Factorized prior used by one- and multi-chain MH."""
 
     def __init__(
         self,
@@ -39,7 +37,7 @@ class Prior:
         typ: str = "parametric",
         prior_file: str = "",
     ) -> None:
-        """Create an empty prior facade with the requested storage format."""
+        """Create an empty prior with the requested storage format."""
         if type(option) is not bool:
             raise TypeError("option must be a boolean")
         if typ not in {"parametric", "empirical"}:
@@ -49,40 +47,20 @@ class Prior:
         self.option = option
         self.typ = typ
         self.prior_file = prior_file
-        # Retain the historical payload shape for site studies while routing
-        # every operation through typed marginal behavior.
-        self.distributions: dict[str, str] = {}
-        self.parameters: dict[str, Any] = {}
-        self.source_sha256: dict[str, str] = {}
+        self._marginals: dict[str, PriorMarginal] = {}
 
     def require_marginals(self, names: Sequence[str]) -> None:
         """Require an enabled, loaded marginal for every requested parameter."""
         if not self.option:
             raise ValueError("prior initialization requires an enabled prior")
-        missing = [name for name in names if name not in self.parameters]
-        if self.typ == "parametric":
-            missing.extend(
-                name
-                for name in names
-                if name not in self.distributions and name not in missing
-            )
+        missing = [name for name in names if name not in self._marginals]
         if missing:
             raise ValueError(f"prior must be loaded for parameters {missing}")
 
     def _marginal(self, name: str) -> PriorMarginal:
-        """Return typed behavior for one compatibility payload."""
+        """Return the loaded marginal for one parameter."""
         self.require_marginals((name,))
-        if self.typ == "parametric":
-            return parametric_marginal(
-                name,
-                self.distributions[name],
-                self.parameters[name],
-            )
-        return EmpiricalMarginal(
-            name,
-            self.parameters[name],
-            self.source_sha256.get(name),
-        )
+        return self._marginals[name]
 
     @staticmethod
     def _numeric_value(value: float) -> float | None:
@@ -102,14 +80,17 @@ class Prior:
         """Invert one marginal conditional on a calibration range."""
         return self._marginal(name).bounded_quantile(minimum, maximum, probability)
 
-    def bounded_mode(self, name: str, minimum: float, maximum: float) -> float:
-        """Return one deterministic marginal mode inside a calibration range."""
-        return self._marginal(name).bounded_mode(minimum, maximum)
-
     def contains(self, name: str, value: float) -> bool:
         """Return whether a value has finite positive marginal density."""
         numeric = self._numeric_value(value)
         return numeric is not None and self._marginal(name).contains(numeric)
+
+    def density_grid(self, name: str) -> np.ndarray:
+        """Return a detached empirical density grid for diagnostic plotting."""
+        marginal = self._marginal(name)
+        if not isinstance(marginal, EmpiricalMarginal):
+            raise TypeError(f"Prior marginal {name!r} is not empirical")
+        return marginal.density_grid()
 
     def param_init(
         self,
@@ -136,20 +117,21 @@ class Prior:
         """Load validated parametric definitions in native parameter order."""
         from pyages.data_io import lpm_params
 
-        self.distributions = {}
-        self.parameters = {}
-        self.source_sha256 = {}
+        self._marginals = {}
         schema = lpm_params.load_parameter_schema(lpm.name, lpm.lpm_data_directory)
         for name, prior in lpm_params.get_priors(schema).items():
             prior_type = prior.get("type")
             if not prior_type:
                 continue
-            self.distributions[name] = prior_type
             fields = ("min", "max") if prior_type == "uniform" else ("mean", "std")
-            self.parameters[name] = [prior.get(field) for field in fields]
+            self._marginals[name] = parametric_marginal(
+                name,
+                prior_type,
+                [prior.get(field) for field in fields],
+            )
         expected = list(lpm.p)
-        missing = [name for name in expected if name not in self.distributions]
-        extra = [name for name in self.distributions if name not in lpm.p]
+        missing = [name for name in expected if name not in self._marginals]
+        extra = [name for name in self._marginals if name not in lpm.p]
         if missing or extra:
             raise ValueError(
                 "Configured parametric priors must match the LPM parameters "
@@ -160,9 +142,7 @@ class Prior:
         """Load and extend one empirical density grid per model parameter."""
         if not self.prior_file:
             raise ValueError("prior_file must be non-empty for an empirical prior")
-        self.distributions = {}
-        self.parameters = {}
-        self.source_sha256 = {}
+        self._marginals = {}
         for parameter in lpm.get_param_names():
             source = Path(f"{self.prior_file}_{parameter}.txt")
             source_bytes = source.read_bytes()
@@ -171,7 +151,7 @@ class Prior:
                 raise RuntimeError(
                     f"Empirical prior source changed while loading {parameter!r}"
                 )
-            self.source_sha256[parameter] = hashlib.sha256(source_bytes).hexdigest()
+            source_sha256 = hashlib.sha256(source_bytes).hexdigest()
             minimum, maximum = lpm.get_calibration_range(parameter)
             parameter_range = maximum - minimum
             if parameter_range <= 0.0:
@@ -188,7 +168,11 @@ class Prior:
                 decay_left=decay,
                 decay_right=decay,
             )
-            self.parameters[parameter] = np.column_stack((values, density))
+            self._marginals[parameter] = EmpiricalMarginal(
+                parameter,
+                np.column_stack((values, density)),
+                source_sha256,
+            )
 
     def load(self, lpm: Any) -> None:
         """Load prior definitions for a model when the prior is enabled."""
@@ -275,9 +259,4 @@ class Prior:
         }
 
 
-__all__ = [
-    "Prior",
-    "build_empirical_prior_grid",
-    "histogram_moments",
-    "normal_pdf",
-]
+__all__ = ["Prior"]

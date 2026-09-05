@@ -21,7 +21,7 @@ from pyages.data_io.lpm_distribution import read_distribution
 from pyages.workflows.single_date import context as single_context
 from pyages.workflows.single_date import reporting as single_reporting
 from pyages.workflows.single_date import runner as single_date
-from pyages.workflows.single_date.config import load_params_payload
+from pyages.workflows.single_date.config import load_config_payload
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = (
@@ -101,12 +101,13 @@ def _scientific_payload() -> dict:
 
 def test_ploemeur_ig_shifted_prior_multichain_protocol() -> None:
     """Keep the maintained YAML on the validated prior-sampling path."""
-    params = load_params_payload(ROOT, _scientific_payload())
-    assert params.lpm_model_name == "ig_shifted"
-    assert params.mh_prior_option is True
-    assert params.mh_multichain.initialization.strategy == "prior_sample"
-    assert params.mh_multichain.pilot.nstep == 5_000
-    assert params.mh_multichain.pilot.burn_in == 0.75
+    config = load_config_payload(ROOT, _scientific_payload())
+    mh = config.calibration_metropolis_hastings
+    assert config.lpm.model_name == "ig_shifted"
+    assert mh.prior_option is True
+    assert mh.multichain.initialization.strategy == "prior_sample"
+    assert mh.multichain.pilot.nstep == 5_000
+    assert mh.multichain.pilot.burn_in == 0.75
 
 
 @pytest.mark.extensive

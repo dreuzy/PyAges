@@ -2,7 +2,7 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Independent scalar prior distributions used by the MH prior facade."""
+"""Independent scalar prior distributions used by MH calibration."""
 
 from __future__ import annotations
 
@@ -33,10 +33,6 @@ class PriorMarginal(Protocol):
         self, minimum: float, maximum: float, probability: float
     ) -> float:
         """Return a quantile restricted to the operational bounds."""
-        ...
-
-    def bounded_mode(self, minimum: float, maximum: float) -> float:
-        """Return a modal value restricted to the operational bounds."""
         ...
 
     def contains(self, value: float) -> bool:
@@ -105,12 +101,6 @@ class NormalMarginal:
                 f"Normal prior has no numerically usable mass for {self.name}"
             )
         return float(np.clip(value, minimum, maximum))
-
-    def bounded_mode(self, minimum: float, maximum: float) -> float:
-        """Return the normal mode clipped to the supplied bounds."""
-        self._validate()
-        minimum, maximum = validated_bounds(minimum, maximum)
-        return float(np.clip(self.mean, minimum, maximum))
 
     def contains(self, value: float) -> bool:
         """Return whether *value* is finite and hence in normal support."""
@@ -196,11 +186,6 @@ class UniformMarginal:
         lower, upper = self._effective_support(minimum, maximum)
         return lower + probability * (upper - lower)
 
-    def bounded_mode(self, minimum: float, maximum: float) -> float:
-        """Return the midpoint of the effective uniform support."""
-        lower, upper = self._effective_support(minimum, maximum)
-        return 0.5 * (lower + upper)
-
     def contains(self, value: float) -> bool:
         """Return whether *value* belongs to the uniform support."""
         self._validate()
@@ -263,6 +248,11 @@ class EmpiricalMarginal:
     histogram: np.ndarray
     source_sha256: str | None = None
 
+    def density_grid(self) -> np.ndarray:
+        """Return a detached validated value-density grid."""
+        values, density = self._arrays(strict=True)
+        return np.column_stack((values, density))
+
     def _arrays(self, *, strict: bool) -> tuple[np.ndarray, np.ndarray]:
         try:
             histogram = np.asarray(self.histogram, dtype=float)
@@ -319,13 +309,6 @@ class EmpiricalMarginal:
             discriminant = max(0.0, left_density**2 + 2.0 * slope * remaining)
             offset = (-left_density + math.sqrt(discriminant)) / slope
         return float(np.clip(values[cell] + offset, values[cell], values[cell + 1]))
-
-    def bounded_mode(self, minimum: float, maximum: float) -> float:
-        """Return the maximum-density grid value inside the bounds."""
-        values, density = self._bounded_grid(minimum, maximum)
-        if not np.any(density > 0.0):
-            raise ValueError(f"Empirical prior has no positive mass for {self.name}")
-        return float(values[np.argmax(density)])
 
     def contains(self, value: float) -> bool:
         """Return whether *value* lies on positive empirical support."""
@@ -395,7 +378,7 @@ def parametric_marginal(
     distribution: str,
     parameters: Sequence[object],
 ) -> PriorMarginal:
-    """Build one named parametric marginal from its compatibility payload."""
+    """Build one named parametric marginal from validated scalar parameters."""
     try:
         first, second = (float(item) for item in parameters)
     except (TypeError, ValueError) as exc:

@@ -9,7 +9,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
@@ -67,7 +66,7 @@ def test_simplex_rejects_an_optimizer_failure(tmp_path, monkeypatch):
         Simplex(SIMPLEX).run(problem)
 
 
-def test_explicit_initial_state_takes_precedence_over_prior_map(monkeypatch):
+def test_explicit_initial_state_takes_precedence_over_prior_initialization(monkeypatch):
     mh = MetropolisHastings(
         MHConfig(
             prior_option=True,
@@ -81,7 +80,7 @@ def test_explicit_initial_state_takes_precedence_over_prior_map(monkeypatch):
         mh.prior,
         "param_init",
         lambda *_args, **_kwargs: pytest.fail(
-            "prior MAP must not replace initial_params"
+            "prior initialization must not replace initial_params"
         ),
     )
     monkeypatch.setattr(mh.prior, "log_evaluate", lambda *_args: 0.0)
@@ -109,7 +108,7 @@ def test_trajectory_records_negative_log_posterior_and_acceptance_state():
     summary = trajectory.summary()
     assert summary.loc["mu", "mean"] == pytest.approx(10.5)
     assert summary.loc["mu", "std"] == pytest.approx(0.5)
-    pd.testing.assert_frame_equal(trajectory.check(), summary)
+    assert not hasattr(trajectory, "check")
 
 
 @pytest.mark.parametrize(

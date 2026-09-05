@@ -19,6 +19,11 @@ import numpy as np
 import pandas as pd
 
 from pyages.config.runtime import subdivide_interval
+from pyages.convolution._piecewise_uniform import (
+    PreparedPiecewiseUniformBasis,
+    piecewise_uniform_state,
+    prepare_piecewise_uniform_basis,
+)
 from pyages.convolution.continuous_integration import (
     ConvolutionDiagnostics,
     convolve_prepared_grid,
@@ -61,6 +66,7 @@ class Convolution:
     - DIRAC: Direct chronicle lookup for single spike
     - DIRAC_DOUBLE: Weighted combination of two lookups
     - MIXED_DIRAC_CONTINUOUS: Weighted Dirac + continuous component
+    - PIECEWISE_UNIFORM: Cached linear combination of fixed age-bin responses
 
     The finite window ``[0, t - datemin]`` is a scientific boundary
     convention: LPM mass older than the recharge chronicle contributes zero
@@ -132,6 +138,9 @@ class Convolution:
         self._date = self._validated_observation_date(date)
         self._grid_settings = grid_settings or DEFAULT_CONVOLUTION_SETTINGS
         self._prepared_grid: PreparedTracerGrid | None = None
+        self._prepared_piecewise_uniform_basis: PreparedPiecewiseUniformBasis | None = (
+            None
+        )
         self._last_diagnostics: ConvolutionDiagnostics | None = None
 
     @property
@@ -153,6 +162,7 @@ class Convolution:
             # observation date and must never leak into the next evaluation.
             self._date = validated
             self._prepared_grid = None
+            self._prepared_piecewise_uniform_basis = None
             self._last_diagnostics = None
 
     def _validated_observation_date(self, value: float) -> float:
@@ -249,7 +259,42 @@ class Convolution:
             settings=self._grid_settings,
         )
         self._prepared_grid = grid
+        self._prepared_piecewise_uniform_basis = None
         return grid
+
+    def _prepare_piecewise_uniform_basis(
+        self,
+        lpm: LpmBase,
+    ) -> PreparedPiecewiseUniformBasis:
+        """Build or reuse fixed age-bin responses for one model geometry."""
+        edges, _fractions = piecewise_uniform_state(lpm)
+        grid = self._prepared_grid
+        if grid is None or grid.date != self._date:
+            grid = self._prepare_tracer_grid()
+        basis = self._prepared_piecewise_uniform_basis
+        if basis is None or not basis.matches(edges):
+            basis = prepare_piecewise_uniform_basis(
+                grid,
+                edges,
+                lpm.name,
+                self._grid_settings,
+            )
+            self._prepared_piecewise_uniform_basis = basis
+        return basis
+
+    def _convolve_piecewise_uniform(self, lpm: LpmBase) -> float:
+        """Combine precomputed tracer responses with current age-bin masses."""
+        edges, fractions = piecewise_uniform_state(lpm)
+        basis = self._prepared_piecewise_uniform_basis
+        if basis is None or not basis.matches(edges):
+            basis = self._prepare_piecewise_uniform_basis(lpm)
+        result, diagnostics = basis.convolve(
+            fractions,
+            lpm.name,
+            self._grid_settings,
+        )
+        self._last_diagnostics = diagnostics
+        return result
 
     def _convolve_continuous(
         self,
@@ -324,6 +369,14 @@ class Convolution:
                 self._grid_settings,
             )
             return rate * float(represented) + (1.0 - rate) * continuous_mass
+        if strategy == ConvolutionStrategy.PIECEWISE_UNIFORM:
+            edges, fractions = piecewise_uniform_state(lpm)
+            represented_by_bin = np.clip(
+                (tmax - edges[:-1]) / np.diff(edges),
+                0.0,
+                1.0,
+            )
+            return float(np.dot(fractions, represented_by_bin))
         if strategy != ConvolutionStrategy.CONTINUOUS:
             raise ConvolutionError(
                 f"Unsupported convolution strategy {strategy!r} for LPM '{lpm.name}'"
@@ -450,9 +503,15 @@ class Convolution:
     # Public API
     # -------------------------------------------------------------------------
 
-    def prepare(self) -> PreparedTracerGrid:
-        """Eagerly build and return the tracer-response grid."""
-        return self._prepare_tracer_grid()
+    def prepare(self, lpm: LpmBase | None = None) -> PreparedTracerGrid:
+        """Eagerly build the tracer grid and any model-specific linear basis."""
+        grid = self._prepare_tracer_grid()
+        if (
+            lpm is not None
+            and lpm.convolution_strategy == ConvolutionStrategy.PIECEWISE_UNIFORM
+        ):
+            self._prepare_piecewise_uniform_basis(lpm)
+        return grid
 
     def _convolve_once(self, lpm: LpmBase) -> float:
         """Dispatch exactly one algorithm from the LPM's declared strategy."""
@@ -461,6 +520,8 @@ class Convolution:
 
         if strategy == ConvolutionStrategy.CONTINUOUS:
             return self._convolve_continuous(lpm)
+        if strategy == ConvolutionStrategy.PIECEWISE_UNIFORM:
+            return self._convolve_piecewise_uniform(lpm)
         if strategy == ConvolutionStrategy.DIRAC:
             return self._convolution_dirac(lpm)
         if strategy == ConvolutionStrategy.DIRAC_DOUBLE:
@@ -539,6 +600,7 @@ class Convolution:
             raise ValueError(f"resolution must be an integer >= 1: {exc}") from exc
         original_date = self._date
         original_grid = self._prepared_grid
+        original_piecewise_uniform_basis = self._prepared_piecewise_uniform_basis
         original_diagnostics = self._last_diagnostics
         try:
             concentrations = []
@@ -550,6 +612,7 @@ class Convolution:
             # cache/diagnostic state even if one intermediate date fails.
             self._date = original_date
             self._prepared_grid = original_grid
+            self._prepared_piecewise_uniform_basis = original_piecewise_uniform_basis
             self._last_diagnostics = original_diagnostics
         return pd.DataFrame(
             {

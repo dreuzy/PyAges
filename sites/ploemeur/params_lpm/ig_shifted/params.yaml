@@ -1,5 +1,5 @@
 ﻿# Canonical Ploemeur LPM configuration.
-# Defines bounds, initialization, proposal steps, and analytical priors.
+# Defines calibration ranges, initialization, proposal steps, and analytical priors.
 
 model: ig_shifted
 version: 1
@@ -9,7 +9,7 @@ parameters:
     label: mean_age
     unit: year
     description: "Mean of the distribution."
-    bounds: [0.1, 100.0]
+    calibration_range: [0.1, 100.0]
     init: 10.0
     step: 1.0
     prior:
@@ -22,7 +22,7 @@ parameters:
     label: std_age
     unit: year
     description: "Standard deviation (spread) parameter."
-    bounds: [0.1, 30.0]
+    calibration_range: [0.1, 30.0]
     init: 2.0
     step: 0.5
     prior:
@@ -35,7 +35,7 @@ parameters:
     label: time_shift
     unit: year
     description: "Temporal shift applied to the distribution."
-    bounds: [0.1, 50.0]
+    calibration_range: [0.1, 50.0]
     init: 4.0
     step: 0.5
     prior:

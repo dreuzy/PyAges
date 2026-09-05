@@ -8,6 +8,7 @@
 import importlib
 from pathlib import Path
 
+import click
 import pytest
 import yaml
 from click.testing import CliRunner
@@ -19,7 +20,10 @@ from pyages.cli.commands.new import new_group
 
 def _write_minimal_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("dataset: {}\n", encoding="utf-8")
+    config_path.write_text(
+        "workflow:\n  kind: single_date\ndataset: {}\n",
+        encoding="utf-8",
+    )
     return config_path
 
 
@@ -126,7 +130,7 @@ def test_cli_run_dispatch_single_date(tmp_path, monkeypatch):
     assert payload["calibration_metropolis_hastings"]["nstep"] == 1234
 
 
-def test_cli_run_dispatch_transient(tmp_path, monkeypatch):
+def test_cli_run_dispatch_temporal(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         "workflow:\n  kind: temporal\ndataset:\n  file: data.txt\n",
@@ -170,26 +174,18 @@ def test_cli_run_dispatch_transient(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     ("payload", "expected"),
     [
-        ({"dataset": {}}, "single_date"),
-        ({"dataset": {"file": "observations.txt"}}, "temporal"),
-        ({"lpm_models": {}}, "temporal"),
         ({"workflow": {"kind": "single_date"}}, "single_date"),
+        ({"workflow": {"kind": "temporal"}}, "temporal"),
     ],
 )
-def test_cli_detects_declared_and_legacy_workflows(payload, expected) -> None:
+def test_cli_detects_declared_workflows(payload, expected) -> None:
     assert run_cmd._detect_workflow(payload) == expected
 
 
-def test_cli_transient_compatibility_flag_is_deprecated(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(run_cmd, "_run_workflow", lambda *_args, **_kwargs: None)
-
-    result = CliRunner().invoke(
-        run_cmd.run,
-        [str(_write_minimal_config(tmp_path)), "--transient"],
-    )
-
-    assert result.exit_code == 0
-    assert "--transient is deprecated" in result.output
+@pytest.mark.parametrize("payload", [{}, {"dataset": {}}, {"workflow": {}}])
+def test_cli_rejects_missing_workflow_kind(payload) -> None:
+    with pytest.raises(click.ClickException, match="workflow.kind is required"):
+        run_cmd._detect_workflow(payload)
 
 
 def test_cli_new_lpm_writes_to_current_project() -> None:

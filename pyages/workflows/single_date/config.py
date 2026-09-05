@@ -12,7 +12,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from pyages.config.loading import load_yaml_mapping
-from pyages.config.models import LauncherConfig, LauncherParams
+from pyages.config.models import LauncherConfig
 
 
 def load_config_payload(root_dir: Path, data: dict) -> LauncherConfig:
@@ -28,51 +28,4 @@ def load_config(root_dir: Path, params_path: Path) -> LauncherConfig:
     return load_config_payload(root_dir, load_yaml_mapping(params_path))
 
 
-def load_params_payload(root_dir: Path, data: dict) -> LauncherParams:
-    """Return the pre-1.1 flattened compatibility view of a configuration."""
-    cfg = load_config_payload(root_dir, data)
-
-    return LauncherParams(
-        dataset_name=cfg.dataset.name,
-        dataset_label=cfg.dataset.label,
-        dataset_year=cfg.dataset.year,
-        dataset_data_dir=cfg.dataset.data_dir,
-        verbose=cfg.dataset.verbose,
-        missing_error_rel=cfg.dataset.missing_error_rel,
-        lpm_model_name=cfg.lpm.model_name,
-        directory_lpm=cfg.lpm.data_directory,
-        tracer_data_dir=cfg.tracers.data_directory,
-        run_reachable_concentrations=cfg.run.reachable_concentrations,
-        run_objective_function=cfg.run.objective_function,
-        run_calibration_metropolis_hastings=cfg.run.calibration_metropolis_hastings,
-        run_calibration_simplex=cfg.run.calibration_simplex,
-        reachable_concentration_nmodels=cfg.reachable_concentrations.nmodels,
-        objective_function_nmodels=cfg.objective_function.nmodels,
-        mh_nstep=cfg.calibration_metropolis_hastings.nstep,
-        mh_burn_in=cfg.calibration_metropolis_hastings.burn_in,
-        mh_nskip=cfg.calibration_metropolis_hastings.nskip,
-        mh_seed=cfg.calibration_metropolis_hastings.seed,
-        mh_prior_option=cfg.calibration_metropolis_hastings.prior_option,
-        mh_likelihood=cfg.calibration_metropolis_hastings.likelihood,
-        mh_monitor=cfg.calibration_metropolis_hastings.monitor,
-        mh_display_traj=cfg.calibration_metropolis_hastings.display_traj,
-        mh_multichain=cfg.calibration_metropolis_hastings.multichain,
-        simplex_init_multiples_n=cfg.calibration_simplex.init_multiples_n,
-        simplex_fuq_n=cfg.calibration_simplex.fuq_n,
-        results_use_default=cfg.results.use_default,
-        results_directory=cfg.results.directory,
-        results_study_name=cfg.results.study_name,
-    )
-
-
-def load_params(root_dir: Path, params_path: Path) -> LauncherParams:
-    """Load the flattened compatibility view used by repository studies."""
-    return load_params_payload(root_dir, load_yaml_mapping(params_path))
-
-
-__all__ = [
-    "load_config",
-    "load_config_payload",
-    "load_params",
-    "load_params_payload",
-]
+__all__ = ["load_config", "load_config_payload"]

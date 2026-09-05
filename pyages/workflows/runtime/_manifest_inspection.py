@@ -12,7 +12,7 @@ import json
 import os
 import uuid
 from datetime import datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Literal
 
 from pyages.workflows.runtime._manifest_artifacts import (
@@ -44,7 +44,18 @@ from pyages.workflows.runtime._manifest_types import (
 )
 from pyages.workflows.runtime._manifest_types import StagedRunInspection
 
-_RUN_STATE_SCHEMA_VERSION = 3
+_RUN_STATE_SCHEMA_VERSION = 4
+
+_RUN_STATE_FIELDS = {
+    "schema_version",
+    "status",
+    "run_id",
+    "started_at_utc",
+    "mode",
+    "result_directory",
+    "expected_publication_token",
+    "terminal_manifest_sha256",
+}
 
 
 def _is_sha256_digest(value: object) -> bool:
@@ -56,33 +67,8 @@ def _is_sha256_digest(value: object) -> bool:
     )
 
 
-def _validated_baseline(value: object) -> dict[str, str]:
-    """Validate a journal baseline without coercing malformed JSON values."""
-    if not isinstance(value, dict):
-        raise ValueError("baseline must be an object")
-    baseline: dict[str, str] = {}
-    for relative, digest in value.items():
-        if not isinstance(relative, str) or not relative:
-            raise ValueError("baseline paths must be non-empty strings")
-        portable = PurePosixPath(relative)
-        if (
-            portable.is_absolute()
-            or ".." in portable.parts
-            or portable.as_posix() != relative
-        ):
-            raise ValueError("baseline paths must be normalized relative POSIX paths")
-        if not _is_sha256_digest(digest):
-            raise ValueError("baseline values must be SHA-256 digests")
-        baseline[relative] = digest
-    return baseline
-
-
-def _validated_publication_token(value: object, *, mode: str) -> str | None:
-    """Validate the mode-specific compare-and-swap token in a run journal."""
-    if mode == "in_place":
-        if value is not None:
-            raise ValueError("in-place state cannot contain a publication token")
-        return None
+def _validated_publication_token(value: object) -> str:
+    """Validate the compare-and-swap token in a staged-run journal."""
     if not isinstance(value, str) or not (
         value == "absent"
         or (
@@ -131,23 +117,20 @@ def _parsed_run_state(payload: object) -> _RunState:
     """Build a run state from a fully validated JSON-compatible payload."""
     if not isinstance(payload, dict):
         raise ValueError("state payload must be an object")
+    if set(payload) != _RUN_STATE_FIELDS:
+        raise ValueError("state payload fields do not match the current schema")
     mode = payload["mode"]
-    if payload["status"] != "started" or mode not in {"in_place", "staged"}:
+    if payload["status"] != "started" or mode != "staged":
         raise ValueError("unsupported state")
     if payload.get("schema_version") != _RUN_STATE_SCHEMA_VERSION:
         raise ValueError("unsupported state schema")
-    baseline = _validated_baseline(payload.get("baseline", {}))
-    if mode == "staged" and baseline:
-        raise ValueError("staged state cannot contain an in-place baseline")
     return _RunState(
         run_id=_validated_run_id(payload["run_id"]),
         started_at_utc=_validated_started_at_utc(payload["started_at_utc"]),
-        mode=mode,
+        mode="staged",
         result_directory=_validated_result_directory(payload["result_directory"]),
-        baseline=baseline,
         expected_publication_token=_validated_publication_token(
-            payload.get("expected_publication_token"),
-            mode=mode,
+            payload.get("expected_publication_token")
         ),
         terminal_manifest_sha256=_validated_terminal_manifest_digest(
             payload.get("terminal_manifest_sha256")

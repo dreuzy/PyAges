@@ -82,6 +82,17 @@ explicit, but recorded `qualification_status: not_qualified`. The run took
 about 2,348 seconds on the development machine; runtime is descriptive, not a
 gate.
 
+The subsequent piecewise-uniform basis optimization preserves that negative
+scientific conclusion. It precomputes one response per tracer and fixed age bin
+and combines current fractions linearly. Equivalence tests retain the previous
+continuous CDF/partial-moment calculation as their oracle across boundary and
+seeded random states. On the same development machine, 200 objective calls
+improved from 65.88 to 0.81 seconds. The complete Albuquerque extensive test
+first improved from 2,065.95 to 248.46 seconds after this optimization and
+passed all computational and interpretation contracts; a stable-tree rerun
+after the concurrent API cleanup took 156.70 seconds. Timings are descriptive
+and are not acceptance thresholds.
+
 ## Registered protocols and computational cost
 
 All four profiles use master seed `20260831`, `nskip: 1`, pooled within-chain

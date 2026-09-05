@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from pyages import __version__
+from scripts.qualification import _archive_verification as archive_verification
 from scripts.qualification import build_multichain_archive as archive
 
 
@@ -311,8 +312,9 @@ def test_publishable_state_is_rechecked_before_zip_sealing(
 def test_semantic_paths_reject_posix_and_windows_escapes(
     tmp_path: Path, value: str
 ) -> None:
+    assert not hasattr(archive, "_contained_path")
     with pytest.raises(RuntimeError, match="Unsafe qualification archive"):
-        archive._contained_path(tmp_path, value, "protocol")
+        archive_verification.contained_path(tmp_path, value, "protocol")
 
 
 def test_zip_members_reject_windows_separators() -> None:

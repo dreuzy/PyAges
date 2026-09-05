@@ -31,7 +31,7 @@ from pyages.config.models import (
     TemporalResultsCfg,
 )
 from pyages.lpm import list_available_lpms
-from pyages.workflows.single_date.config import load_params_payload
+from pyages.workflows.single_date.config import load_config_payload
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIGURATION_DOC = ROOT / "docs" / "user-guide" / "configuration.md"
@@ -128,9 +128,11 @@ def test_shipped_temporal_configs_are_strictly_valid(relative_path):
     TemporalParams.model_validate(payload)
 
 
-def test_workflow_discriminators_have_safe_defaults_and_reject_crossed_modes():
-    assert LauncherConfig().workflow.kind == "single_date"
-    assert TemporalParams(dataset={"file": "sample.txt"}).workflow.kind == "temporal"
+def test_workflow_discriminators_are_required_and_reject_crossed_modes():
+    with pytest.raises(ValidationError, match="workflow"):
+        LauncherConfig.model_validate({})
+    with pytest.raises(ValidationError, match="workflow"):
+        TemporalParams.model_validate({"dataset": {"file": "sample.txt"}})
 
     with pytest.raises(ValidationError, match="single_date"):
         LauncherConfig.model_validate({"workflow": {"kind": "temporal"}})
@@ -170,6 +172,7 @@ def test_unknown_configuration_keys_are_rejected(model, payload):
 def test_documented_single_date_yaml_sections_form_a_valid_configuration():
     document = CONFIGURATION_DOC.read_text(encoding="utf-8")
     headings = (
+        "### Workflow Section",
         "### Dataset Section",
         "### LPM Section",
         "### Tracer Data Override",
@@ -416,7 +419,7 @@ def test_multichain_configuration_requires_enough_diagnostic_draws() -> None:
             display_traj=True,
             multichain={"enabled": True},
         )
-    with pytest.raises(ValidationError, match="require prior_option=true"):
+    with pytest.raises(ValidationError, match="requires prior_option=true"):
         LauncherMetropolisCfg(
             prior_option=False,
             multichain={
@@ -473,29 +476,33 @@ def test_custom_temporal_results_require_a_directory(directory) -> None:
         TemporalResultsCfg(use_default=False, directory=directory)
 
 
-def test_single_date_results_defaults_and_relative_directory_are_propagated(
+def test_single_date_results_defaults_and_relative_directory_are_resolved(
     tmp_path: Path,
 ) -> None:
-    defaults = load_params_payload(tmp_path, {})
+    defaults = load_config_payload(
+        tmp_path,
+        {"workflow": {"kind": "single_date"}},
+    )
 
-    assert defaults.results_use_default is True
-    assert defaults.results_directory is None
-    assert defaults.results_study_name == "test_cases"
+    assert defaults.results.use_default is True
+    assert defaults.results.directory is None
+    assert defaults.results.study_name == "test_cases"
 
-    custom = load_params_payload(
+    custom = load_config_payload(
         tmp_path,
         {
+            "workflow": {"kind": "single_date"},
             "results": {
                 "use_default": False,
                 "directory": "relative-results",
                 "study_name": "profile_a",
-            }
+            },
         },
     )
 
-    assert custom.results_use_default is False
-    assert custom.results_directory == tmp_path / "relative-results"
-    assert custom.results_study_name == "profile_a"
+    assert custom.results.use_default is False
+    assert custom.results.directory == tmp_path / "relative-results"
+    assert custom.results.study_name == "profile_a"
 
 
 @pytest.mark.parametrize("directory", [None, "", "   "])

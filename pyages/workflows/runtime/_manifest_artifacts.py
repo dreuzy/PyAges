@@ -19,7 +19,6 @@ from pyages.workflows.runtime._manifest_fs import (
 from pyages.workflows.runtime._manifest_fs import (
     strict_tree_entries as _strict_tree_entries,
 )
-from pyages.workflows.runtime._manifest_types import RunState as _RunState
 
 _RUN_STATE_FILENAME = ".pyages-run-state.json"
 _TERMINAL_MANIFEST_FILENAME = "result_manifest.json"
@@ -48,17 +47,6 @@ def _snapshot(directory: Path) -> dict[str, str]:
     }
 
 
-def _artifacts(directory: Path, state: _RunState) -> dict[str, str]:
-    artifacts: dict[str, str] = {}
-    for path in _artifact_files(directory):
-        relative = path.relative_to(directory).as_posix()
-        digest = _sha256_strict_regular_file(path, label="Result artifact")
-        if state.mode == "in_place" and state.baseline.get(relative) == digest:
-            continue
-        artifacts[relative] = digest
-    return artifacts
-
-
 def _publication_token(result_directory: Path) -> str:
     """Return a compare-and-swap token for the complete public result tree."""
     if not _path_entry_exists(result_directory):
@@ -85,7 +73,6 @@ def _publication_token(result_directory: Path) -> str:
 
 
 __all__ = [
-    "_artifacts",
     "_publication_token",
     "_RUN_STATE_FILENAME",
     "_snapshot",

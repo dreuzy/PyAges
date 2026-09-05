@@ -44,7 +44,7 @@ from scipy.stats import invgauss
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from pyages.calibration.methods.mh.prior import (
+from pyages.calibration.methods.mh._prior_empirical import (
     build_empirical_prior_grid,
 )
 from pyages.calibration.methods.mh.ig_coordinates import (

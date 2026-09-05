@@ -22,4 +22,3 @@ def test_trajectory_plot_uses_problem_display_directory(tmp_path):
 
     trajectory.resize.assert_called_once_with(3)
     trajectory.plot.assert_called_once_with(tmp_path)
-    trajectory.check.assert_not_called()

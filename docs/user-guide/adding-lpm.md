@@ -53,7 +53,8 @@ represented faithfully by one continuous SciPy distribution. This includes:
 
 - exact point masses (`DIRAC` and `DIRAC_DOUBLE`);
 - mixed discrete/continuous measures (`MIXED_DIRAC_CONTINUOUS`);
-- custom continuous laws such as the configurable shape-free model.
+- fixed uniform age bins with variable masses (`PIECEWISE_UNIFORM`);
+- other custom continuous laws.
 
 The model must then implement its probability functions and moments and select
 the appropriate `ConvolutionStrategy`. A custom continuous model must also
@@ -68,7 +69,7 @@ below. See {doc}`convolution` for direct forward calculations and diagnostics.
 | `pyages/lpm/models/<name>.py` | Scientific parameterization, SciPy parameter conversion, and any distribution-specific convolution formula |
 | `data_core/data_lpm/<name>/params.yaml` | Mathematical domains, calibration ranges, initial values, proposal steps, priors, labels, units, and descriptions |
 | `pyages/lpm/core/convolution_strategy.py` | Declaration of the convolution mechanism required by the probability measure |
-| `pyages/convolution/` | Generic execution of the declared continuous, Dirac, double-Dirac, or mixed convolution mechanism |
+| `pyages/convolution/` | Generic execution of the declared continuous, piecewise-uniform, Dirac, double-Dirac, or mixed convolution mechanism |
 | `pyages/lpm/core/registry.py` | Discovery of model classes decorated with `@register_lpm` |
 
 The existing SciPy-backed models are `exp`, `exp_shifted`, `gamma`, `uniform`,
@@ -329,6 +330,7 @@ class MySpecialLpm(LpmScipy):
 Available strategies:
 
 - `CONTINUOUS`: CDF and partial-first-moment convolution (default)
+- `PIECEWISE_UNIFORM`: Precomputed response for each fixed uniform age bin
 - `DIRAC`: Direct lookup for point mass distributions
 - `DIRAC_DOUBLE`: Two-point mass distributions
 - `MIXED_DIRAC_CONTINUOUS`: Direct point mass plus normalized continuous part
@@ -336,6 +338,12 @@ Available strategies:
 PyAges does not reconstruct a production CDF from sampled PDF values. A
 continuous model without a trustworthy vectorized CDF and partial first moment
 is rejected explicitly.
+
+A `PIECEWISE_UNIFORM` model must expose `bin_edges()` and `fractions()`. Edges
+must be finite, strictly increasing, start at zero, and remain fixed while a
+prepared problem is used. Fractions must contain one finite non-negative mass
+per bin and sum to one. The standard shape-free model is the maintained example
+of this contract.
 
 For every finite, non-negative vector `t`, the provider must satisfy all of the
 following conditions:

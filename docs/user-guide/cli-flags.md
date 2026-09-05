@@ -70,11 +70,10 @@ pyages list tracers --verbose
 ## `pyages run <config.yaml>`
 
 Runs the workflow selected by `workflow.kind` in the YAML configuration.
-Legacy files without that field are detected from their dataset structure.
+The field is required and must be `single_date` or `temporal`.
 
 | Flag | Type | Description |
 | --- | --- | --- |
-| `--transient` | flag | Deprecated compatibility flag for legacy temporal files; prefer `workflow.kind: temporal`. |
 | `--inline` | flag | Force the inline matplotlib backend for the single-date workflow; accepted but unused for temporal workflows. |
 | `--lpm <name>` | option | Override the single-date model or replace a temporal model list with this one model. |
 | `--mh-nsteps <int>` | option | Override Metropolis-Hastings transitions; must be positive, and the temporal configuration additionally requires a value greater than 100. |

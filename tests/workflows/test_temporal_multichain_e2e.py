@@ -43,7 +43,7 @@ def test_temporal_workflow_runs_real_pilot_chains_diagnostics_and_pooling(
             "list": ["exp_shifted"],
             "directory": str(ROOT / "data_core" / "data_lpm"),
         },
-        "workflow": {"mode": "span"},
+        "workflow": {"kind": "temporal", "mode": "span"},
         "calibration": {
             "explo_res": 2,
             "mh_nsteps": 120,

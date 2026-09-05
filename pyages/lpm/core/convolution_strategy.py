@@ -71,9 +71,13 @@ class ConvolutionStrategy(Enum):
     MIXED_DIRAC_CONTINUOUS : enum
         Weighted combination of direct Dirac lookup and a normalized
         continuous component.
+
+    PIECEWISE_UNIFORM : enum
+        Cached linear combination of fixed uniform age-bin responses.
     """
 
     CONTINUOUS = auto()
     DIRAC = auto()
     DIRAC_DOUBLE = auto()
     MIXED_DIRAC_CONTINUOUS = auto()
+    PIECEWISE_UNIFORM = auto()

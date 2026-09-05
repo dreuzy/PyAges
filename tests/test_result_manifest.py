@@ -18,7 +18,6 @@ from pyages import __version__
 from pyages.workflows.runtime.manifest import (
     RESULT_SCHEMA_VERSION,
     ResultRun,
-    begin_result_run,
     begin_staged_result_run,
     inspect_staged_result_run,
     inventory_staged_result_runs,
@@ -129,25 +128,6 @@ def test_failure_manifest_preserves_rejected_run_provenance(tmp_path) -> None:
     assert "`failed`" in documentation
 
 
-def test_begin_result_run_invalidates_only_the_previous_success_marker(
-    tmp_path,
-) -> None:
-    artifact = tmp_path / "samples.csv"
-    artifact.write_text("mu\n10\n", encoding="utf-8")
-    manifest = tmp_path / "result_manifest.json"
-    manifest.write_text('{"status": "complete"}\n', encoding="utf-8")
-
-    assert begin_result_run(tmp_path) == tmp_path.resolve()
-
-    assert artifact.is_file()
-    assert not manifest.exists()
-    state = json.loads(
-        (tmp_path / ".pyages-run-state.json").read_text(encoding="utf-8")
-    )
-    assert state["status"] == "started"
-    assert state["mode"] == "in_place"
-
-
 def test_staged_run_promotes_only_the_current_run_artifacts(tmp_path) -> None:
     config = tmp_path / "case.yaml"
     config.write_text("model: exp\n", encoding="utf-8")
@@ -180,7 +160,7 @@ def test_staged_run_promotes_only_the_current_run_artifacts(tmp_path) -> None:
     sealed_state = json.loads(
         (run.working_directory / ".pyages-run-state.json").read_text(encoding="utf-8")
     )
-    assert sealed_state["schema_version"] == 3
+    assert sealed_state["schema_version"] == 4
     assert (
         sealed_state["terminal_manifest_sha256"]
         == hashlib.sha256(manifest_path.read_bytes()).hexdigest()
@@ -869,14 +849,14 @@ def test_staged_run_inspection_diagnoses_a_structurally_invalid_journal(
     run = begin_staged_result_run(tmp_path / "results")
     journal = run.working_directory / ".pyages-run-state.json"
     payload = json.loads(journal.read_text(encoding="utf-8"))
-    payload["baseline"] = []
+    payload["mode"] = "in_place"
     journal.write_text(json.dumps(payload), encoding="utf-8")
 
     inspection = inspect_staged_result_run(run.working_directory)
 
     assert inspection.journal_status == "invalid"
     assert not inspection.promotable_now
-    assert "baseline must be an object" in inspection.issues[0]
+    assert "unsupported state" in inspection.issues[0]
 
 
 def test_staged_run_inspection_rejects_a_junction_run_journal(
@@ -1329,57 +1309,6 @@ def test_staged_run_rejects_a_mismatched_run_identity(tmp_path) -> None:
         raise AssertionError("A mismatched run identity must not be finalized")
 
     assert not (run.working_directory / "result_manifest.json").exists()
-
-
-def test_in_place_run_inventory_excludes_unchanged_older_artifacts(tmp_path) -> None:
-    config = tmp_path / "case.yaml"
-    config.write_text("model: exp\n", encoding="utf-8")
-    result_directory = tmp_path / "results"
-    result_directory.mkdir()
-    stale = result_directory / "stale.tsv"
-    stale.write_text("old\n", encoding="utf-8")
-
-    begin_result_run(result_directory)
-    current = result_directory / "current.tsv"
-    current.write_text("new\n", encoding="utf-8")
-    target = write_result_manifest(
-        result_directory,
-        workflow="single_date",
-        config_path=config,
-    )
-
-    payload = json.loads(target.read_text(encoding="utf-8"))
-    assert payload["artifacts_sha256"] == {
-        "current.tsv": hashlib.sha256(current.read_bytes()).hexdigest()
-    }
-    assert stale.is_file()
-    assert not (result_directory / ".pyages-run-state.json").exists()
-
-
-def test_in_place_inventory_detects_same_size_preserved_mtime_rewrites(
-    tmp_path,
-) -> None:
-    config = tmp_path / "case.yaml"
-    config.write_text("model: exp\n", encoding="utf-8")
-    result_directory = tmp_path / "results"
-    result_directory.mkdir()
-    artifact = result_directory / "samples.tsv"
-    artifact.write_text("old", encoding="utf-8")
-    original = artifact.stat()
-
-    begin_result_run(result_directory)
-    artifact.write_text("new", encoding="utf-8")
-    os.utime(artifact, ns=(original.st_atime_ns, original.st_mtime_ns))
-    target = write_result_manifest(
-        result_directory,
-        workflow="single_date",
-        config_path=config,
-    )
-
-    payload = json.loads(target.read_text(encoding="utf-8"))
-    assert payload["artifacts_sha256"] == {
-        "samples.tsv": hashlib.sha256(b"new").hexdigest()
-    }
 
 
 def test_result_manifest_expands_and_deduplicates_input_directories(tmp_path) -> None:

@@ -4,12 +4,14 @@
 
 """Support behavior for generic calibration priors."""
 
+import json
 import math
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from pyages.calibration.methods.mh._prior_marginals import UniformMarginal
 from pyages.calibration.methods.mh._prior_support import (
     open_unit_probability,
     validated_bounds,
@@ -69,8 +71,7 @@ def test_validated_bounds_returns_finite_float_interval() -> None:
 
 def test_uniform_prior_has_exact_zero_support():
     prior = Prior(option=True, typ="parametric")
-    prior.distributions = {"mu": "uniform"}
-    prior.parameters = {"mu": [1.0, 2.0]}
+    prior._marginals = {"mu": UniformMarginal("mu", 1.0, 2.0)}  # noqa: SLF001
     model = _OneParameterModel()
 
     assert prior.evaluate(model, [0.5]) == 0.0
@@ -85,14 +86,14 @@ def test_loading_parametric_priors_requires_every_model_parameter(tmp_path) -> N
 version: 1
 parameters:
   - name: mu
-    bounds: [0.0, 10.0]
+    calibration_range: [0.0, 10.0]
     init: 1.0
     prior:
       type: uniform
       min: 0.0
       max: 10.0
   - name: sigma
-    bounds: [0.1, 10.0]
+    calibration_range: [0.1, 10.0]
     init: 1.0
 """,
         encoding="utf-8",
@@ -115,5 +116,7 @@ def test_loading_empirical_priors_uses_the_histogram_file_family(tmp_path) -> No
 
     prior.load(model)
 
-    assert list(prior.parameters) == ["mu"]
-    assert prior.parameters["mu"].shape == (101, 2)
+    metadata = prior.resolved_metadata(model)
+    assert metadata["prior_distribution_mu"] == "empirical"
+    assert metadata["prior_grid_points_mu"] == 101
+    assert json.loads(metadata["prior_effective_support_mu"]) == [0.1, 100.0]

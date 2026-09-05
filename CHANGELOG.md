@@ -39,22 +39,32 @@ Before 1.0, incompatible public changes are identified explicitly below.
   draft and checksum sidecar; durable publication still requires a clean,
   annotated version tag and an external deposit.
 
-### Deprecated
+### Removed
 
-- `pyages run --transient` is retained for legacy temporal configurations but
-  is deprecated in favor of `workflow.kind: temporal`; removal is planned for
-  PyAges 2.0.
+- Removed the flattened `LauncherParams`/`load_params*` configuration view and
+  the `pyages run --transient` dispatch flag. Every launcher configuration now
+  requires an explicit `workflow.kind`.
+- Removed the former YAML `bounds` field and bounds-named LPM accessors; use the
+  single `calibration_range` vocabulary throughout.
+- Removed the duplicate-start multi-chain policies `model_default` and
+  `prior_map`, the in-place manifest journal path, and the qualification-script
+  `_contained_path` compatibility alias. Staged-run journals now use the
+  strict schema version 4.
 
 ### Changed
 
+- Accelerated piecewise-uniform shape-free calibration by precomputing one
+  immutable tracer response per age bin and reducing every later proposal to
+  a linear combination. The previous continuous integrator remains the
+  numerical reference in equivalence tests, and cache invalidation follows the
+  tracer observation date.
 - Simplified workflow entry and calibration plumbing: `pyages run` now selects
   `single_date` or `temporal` from `workflow.kind`, both workflows share one MH
   configuration/execution adapter, and the single-date runtime consumes the
-  nested `LauncherConfig` directly. The flattened `LauncherParams` view remains
-  available for compatible repository integrations.
+  nested `LauncherConfig` directly.
 - Simplified the MH implementation by keeping one-chain state in the sampler
-  and representing prior behavior with typed normal, uniform, and empirical
-  marginals behind the existing `Prior` facade.
+  and storing prior behavior directly as typed normal, uniform, and empirical
+  marginals.
 - Removed the trivial Ploemeur, Albuquerque, and temporal Python example
   wrappers in favor of their direct `pyages run <config.yaml>` commands, and
   added a contributor code tour.
@@ -88,10 +98,9 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Separated each LPM parameter's mathematical `domain`, operational
   `calibration_range`, and probabilistic `prior` throughout runtime code,
   shipped parameter metadata, examples, and documentation. Internal consumers
-  now use the calibration-range API as the source of truth; the historical YAML
-  `bounds` field and Python bounds-named accessors remain non-deprecated
-  compatibility aliases with no planned removal. `LpmScipy` is now explicitly
-  abstract, preventing accidental construction without a SciPy parameter map.
+  now use the calibration-range API as the sole source of truth. `LpmScipy` is
+  now explicitly abstract, preventing accidental construction without a SciPy
+  parameter map.
 - Staged-result verification now fails closed on symbolic links, Windows
   junctions, special files, unreadable subtrees, corrupted journals, and
   redirected public paths. The user-global hierarchy lock is stored as a

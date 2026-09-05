@@ -23,9 +23,7 @@ workflow:
   kind: single_date
 ```
 
-`kind` is optional for compatibility and defaults to `single_date`, but keeping
-it explicit makes the file self-describing and lets the CLI dispatch without a
-separate mode flag.
+`kind` is required. It is the sole workflow discriminator used by the CLI.
 
 ### Dataset Section
 
@@ -238,17 +236,13 @@ multichain:
 | `max_attempts` | integer | 100 | Maximum within-stratum retries for unresolved `bounds_stratified` candidates that fail the active-prior support check; currently unused by the other strategies; at least 1 |
 
 The other initialization strategies are `prior_sample`, which independently
-draws each chain from the enabled and loaded prior; `explicit`, which uses the
-ordered mappings in `explicit_starts`; `model_default`, which deliberately
-starts every chain from the LPM defaults; and `prior_map`, which deliberately
-starts every chain at a bounded prior mode. The two deterministic strategies
-are compatibility tools, not dispersed convergence checks. `prior_sample` and
-`prior_map` require `prior_option: true` and a prior covering every parameter.
+draws each chain from the enabled and loaded prior, and `explicit`, which uses
+the ordered mappings in `explicit_starts`. `prior_sample` requires
+`prior_option: true` and a prior covering every parameter.
 Every returned candidate is checked against the calibration ranges and, when the
 prior is active, its support. `prior_sample` uses each prior marginal conditioned
-on the operational interval through an exact bounded quantile; `prior_map` uses a
-bounded marginal mode. Neither strategy performs rejection sampling or consumes
-`max_attempts`.
+on the operational interval through an exact bounded quantile. It does not
+perform rejection sampling or consume `max_attempts`.
 
 For `bounds_stratified`, one random permutation assigns a fixed marginal
 stratum to each chain, while that chain's own initialization stream supplies
@@ -366,10 +360,10 @@ workflow:
   mode: span                        # 'span' or 'successive'
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `kind` | string | `temporal` | Fixed discriminator used by `pyages run` |
-| `mode` | string | `span` | Exactly `span` (one joint calibration) or `successive` (one calibration per distinct date) |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `kind` | string | Yes | Fixed discriminator `temporal` used by `pyages run` |
+| `mode` | string | No (`span`) | Exactly `span` (one joint calibration) or `successive` (one calibration per distinct date) |
 
 ### Calibration Section
 
@@ -559,10 +553,8 @@ These fields answer three different questions:
 The effective MH support is the intersection of the calibration range and the
 prior support. A normal prior is therefore conditioned on the calibration
 range; a uniform prior may narrow it further. Scientific analyses should
-report all three choices. For compatibility, version-1 files may still use
-`bounds` instead of `calibration_range`; when `domain` is absent, that legacy
-range is also used as the mathematical domain. New files should use the
-explicit fields.
+report all three choices. `calibration_range` is required; the former `bounds`
+field is rejected.
 
 ---
 

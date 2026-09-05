@@ -22,9 +22,13 @@ import pyages.workflows.temporal as temporal_workflow
 from pyages.cli.commands.list_cmd import list_group
 
 
-def _config(tmp_path: Path) -> Path:
+def _config(tmp_path: Path, workflow: str = "single_date") -> Path:
     path = tmp_path / "config.yaml"
-    path.write_text("dataset: {}\n", encoding="utf-8")
+    dataset = "\n  file: observations.txt" if workflow == "temporal" else " {}"
+    path.write_text(
+        f"workflow:\n  kind: {workflow}\ndataset:{dataset}\n",
+        encoding="utf-8",
+    )
     return path
 
 
@@ -168,18 +172,21 @@ def test_cli_run_rejects_non_positive_mh_steps(tmp_path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("mode_args", "warning"),
+    ("workflow", "mode_args", "warning"),
     [
-        (["--transient", "--data-name", "ignored.txt"], "single-date only"),
-        (["--data-file", "ignored.txt"], "temporal only"),
+        ("temporal", ["--data-name", "ignored.txt"], "single-date only"),
+        ("single_date", ["--data-file", "ignored.txt"], "temporal only"),
     ],
 )
 def test_cli_run_warns_about_mode_specific_overrides(
-    tmp_path, mode_args, warning, monkeypatch
+    tmp_path, workflow, mode_args, warning, monkeypatch
 ) -> None:
     monkeypatch.setattr(run_cmd, "_run_workflow", lambda *_args, **_kwargs: None)
 
-    result = CliRunner().invoke(run_cmd.run, [str(_config(tmp_path)), *mode_args])
+    result = CliRunner().invoke(
+        run_cmd.run,
+        [str(_config(tmp_path, workflow)), *mode_args],
+    )
 
     assert result.exit_code == 0
     assert warning in result.output
@@ -235,16 +242,16 @@ def test_cli_workflow_dispatch_translates_runtime_errors(
 
 
 @pytest.mark.parametrize(
-    ("mode_args", "workflow_module", "workflow_name", "error_heading"),
+    ("workflow", "workflow_module", "workflow_name", "error_heading"),
     [
         (
-            [],
+            "single_date",
             single_date_workflow,
             "run_single_date",
             "Error running single_date workflow",
         ),
         (
-            ["--transient"],
+            "temporal",
             temporal_workflow,
             "run_temporal",
             "Error running temporal workflow",
@@ -254,7 +261,7 @@ def test_cli_workflow_dispatch_translates_runtime_errors(
 def test_cli_run_prints_preserved_evidence_note_once_without_verbose(
     tmp_path,
     monkeypatch,
-    mode_args,
+    workflow,
     workflow_module,
     workflow_name,
     error_heading,
@@ -269,7 +276,7 @@ def test_cli_run_prints_preserved_evidence_note_once_without_verbose(
 
     monkeypatch.setattr(workflow_module, workflow_name, fail)
 
-    result = CliRunner().invoke(run_cmd.run, [str(_config(tmp_path)), *mode_args])
+    result = CliRunner().invoke(run_cmd.run, [str(_config(tmp_path, workflow))])
 
     assert result.exit_code == 1
     assert f"{error_heading}: convergence gate rejected the chains" in result.output

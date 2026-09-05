@@ -111,7 +111,7 @@ def test_ploemeur_temporal_golden(update_golden, tmp_path: Path) -> None:
     params["calibration"]["seed_enabled"] = True
     params["calibration"]["seed"] = 12345
     params["figures"] = {"temporal": False, "distributions": False}
-    params["workflow"] = {"mode": "span"}
+    params["workflow"] = {"kind": "temporal", "mode": "span"}
 
     params_path = tmp_path / "ploemeur_temporal_test.yaml"
     with params_path.open("w", encoding="utf-8") as handle:

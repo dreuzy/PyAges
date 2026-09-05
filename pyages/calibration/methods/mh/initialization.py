@@ -5,10 +5,9 @@
 
 """Choose the initial parameter values for every chain in an MH ensemble.
 
-The caller can provide explicit values, reuse the model defaults, start at the
-mode of the prior, draw independently from the prior, or spread chains across
-the allowed parameter ranges. Every state is checked against the calibration range
-and, when enabled, the prior support.
+The caller can provide explicit values, draw independently from the prior, or
+spread chains across the allowed parameter ranges. Every state is checked
+against the calibration range and, when enabled, the prior support.
 
 Each chain uses its own random seed. The functions return new mappings and do
 not modify the model while the starting states are being constructed.
@@ -30,10 +29,6 @@ class _LpmInitializationView(Protocol):
 
     def get_param_names(self) -> Sequence[str]:
         """Return parameter names in canonical calibration order."""
-        ...
-
-    def get_parameters_to_array(self) -> Sequence[float]:
-        """Return current values in canonical calibration order."""
         ...
 
     def get_calibration_range(self, name: str) -> tuple[float, float]:
@@ -58,10 +53,6 @@ class _MarginalPrior(Protocol):
         probability: float,
     ) -> float:
         """Return the value at one probability within the bounded prior."""
-        ...
-
-    def bounded_mode(self, name: str, minimum: float, maximum: float) -> float:
-        """Return a marginal mode restricted to the calibration range."""
         ...
 
     def contains(self, name: str, value: float) -> bool:
@@ -200,42 +191,21 @@ def _prior_state(
     names: Sequence[str],
     lower: np.ndarray,
     upper: np.ndarray,
-    rng: np.random.Generator | None,
-    *,
-    sample: bool,
+    rng: np.random.Generator,
 ) -> dict[str, float]:
-    """Construct one sampled or MAP-like state from an already loaded prior."""
+    """Sample one state from an already loaded bounded prior."""
     active_prior = _require_prior(prior, names)
     state: dict[str, float] = {}
     for index, name in enumerate(names):
         minimum, maximum = float(lower[index]), float(upper[index])
-        if sample:
-            if rng is None:
-                raise AssertionError("sampled initialization requires an RNG")
-            value = active_prior.bounded_quantile(
-                name,
-                minimum,
-                maximum,
-                float(rng.random()),
-            )
-        else:
-            value = active_prior.bounded_mode(name, minimum, maximum)
+        value = active_prior.bounded_quantile(
+            name,
+            minimum,
+            maximum,
+            float(rng.random()),
+        )
         state[name] = value
     return state
-
-
-def _model_default_state(
-    lpm: _LpmInitializationView,
-    names: Sequence[str],
-) -> dict[str, float]:
-    """Copy the current model parameters without mutating the model."""
-    try:
-        values = lpm.get_parameters_to_array()
-    except AttributeError as exc:
-        raise TypeError("lpm must expose get_parameters_to_array()") from exc
-    if len(values) != len(names):
-        raise ValueError("lpm default parameter count does not match its names")
-    return dict(zip(names, values, strict=True))
 
 
 def _has_prior_support(
@@ -333,7 +303,7 @@ def build_initial_states(
         calibration ranges. The model is read but not changed.
     prior
         Loaded :class:`~pyages.calibration.methods.mh.prior.Prior`, required
-        only by ``prior_sample`` and ``prior_map``.
+        by ``prior_sample``.
     config
         Initialization strategy and its controls.
     chain_count
@@ -371,12 +341,6 @@ def build_initial_states(
                 f"(expected {chain_count}, got {len(starts)})"
             )
         candidates = [dict(start) for start in starts]
-    elif config.strategy == "model_default":
-        default = _model_default_state(lpm, names)
-        candidates = [dict(default) for _ in range(chain_count)]
-    elif config.strategy == "prior_map":
-        prior_map = _prior_state(prior, names, lower, upper, None, sample=False)
-        candidates = [dict(prior_map) for _ in range(chain_count)]
     elif config.strategy == "prior_sample":
         candidates = [
             _prior_state(
@@ -385,7 +349,6 @@ def build_initial_states(
                 lower,
                 upper,
                 np.random.default_rng(seed),
-                sample=True,
             )
             for seed in normalized_seeds
         ]

@@ -419,7 +419,7 @@ class MetropolisHastings(CalibrationMethod):
             self._initialization_source = "config"
         elif self.prior.option:
             self.prior.param_init(self.lpm)
-            self._initialization_source = "prior_map"
+            self._initialization_source = "prior_mode"
         else:
             # The LPM already carries its configured default parameters.
             self._initialization_source = "lpm_default"

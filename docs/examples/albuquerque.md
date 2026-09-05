@@ -109,12 +109,21 @@ establish computational consistency, but promotion to a field benchmark
 requires substantive hydrogeologic review by the project owner or another
 qualified reviewer.
 
-The current shape-free forward calculation is also expensive inside MH: the
-review run took about 2,348 seconds on the development machine, of which about
-1,636 seconds were production and 712 seconds pilot calculation. Runtime is
-not a test threshold and varies by machine. A separate optimization should
-precompute each tracer/bin response and prove numerical equivalence before
-increasing the chain length or tightening convergence thresholds.
+The original shape-free review run took about 2,348 seconds on the development
+machine, of which about 1,636 seconds were production and 712 seconds pilot
+calculation. PyAges now precomputes one immutable response per tracer and age
+bin, then combines those responses with the current fractions. On the same
+development machine, 200 Albuquerque objective evaluations fell from 65.88 to
+0.81 seconds (about 81 times faster in the hot loop). The complete extensive
+test first fell from 2,065.95 to 248.46 seconds after this optimization; a
+stable-tree rerun after the concurrent API cleanup took 156.70 seconds. The
+optimized predictions and integration diagnostics are compared
+with the previous continuous integrator over boundary and seeded random states.
+Timings remain descriptive rather than test thresholds.
+
+This performance change does not alter the scientific interpretation: the
+optimized extensive run still passes its computational contracts and still
+classifies the 120-year Albuquerque hypothesis as `not_qualified`.
 
 A successful optimizer or MCMC chain does not by itself establish that the
 binary or shape-free LPM is hydrogeologically unique.

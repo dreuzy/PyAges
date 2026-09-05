@@ -16,7 +16,6 @@ _EXPORTS = {
     "CliCheckParams": ("pyages.config.models", "CliCheckParams"),
     "CliRunParams": ("pyages.config.models", "CliRunParams"),
     "LauncherConfig": ("pyages.config.models", "LauncherConfig"),
-    "LauncherParams": ("pyages.config.models", "LauncherParams"),
     "SystemCheckConfig": ("pyages.config.models", "SystemCheckConfig"),
     "TemporalParams": ("pyages.config.models", "TemporalParams"),
     "DIRECTORY_LPM_DATA": ("pyages.config.paths", "DIRECTORY_LPM_DATA"),

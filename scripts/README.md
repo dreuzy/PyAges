@@ -15,9 +15,9 @@ Then run a script from the repository root, for example:
 
 ```bash
 pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 pyages run examples/templates/quickstart_single.yaml
-pyages run --transient examples/templates/quickstart_temporal.yaml
+pyages run examples/templates/quickstart_temporal.yaml
 python -m scripts.qualification.run_system_check
 python -m scripts.qualification.run_system_check --params configs/system_check.yaml
 python -m scripts.qualification.run_calibration_benchmark
@@ -35,7 +35,7 @@ python -m examples.natural.holten.run_holten
 Temporal workflows (multi-date concentrations):
 
 ```bash
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 ## Output location
@@ -181,6 +181,9 @@ pyages run examples/my_site/my_config.yaml
 
 Minimal YAML:
 ```yaml
+workflow:
+  kind: single_date
+
 dataset:
   name: my_site_2010.txt
   year: 2010
@@ -194,7 +197,7 @@ lpm:
 4) If the data contains multiple dates, use the temporal workflow:
 
 ```bash
-pyages run --transient examples/my_site/my_temporal.yaml
+pyages run examples/my_site/my_temporal.yaml
 ```
 
 ```yaml
@@ -207,6 +210,7 @@ lpm_models:
   directory: data_core/data_lpm
 
 workflow:
+  kind: temporal
   mode: span
 ```
 
@@ -245,7 +249,7 @@ validate the installation with `pyages check`.
     - `Metropolis_Hastings/concentrations_all_models.txt`
     - equivalent files below `forward_uncertainty_quantification/` when that
       method is enabled
-- `pyages run --transient`
+- Temporal workflow (`pyages run` with `workflow.kind: temporal`)
   - Results under:
     `<results_root>/<study_name>/<dataset_stem>/<mode>/<span_full-or-date>/<lpm_type>/`
     (`study_name` defaults to `temporal`)
