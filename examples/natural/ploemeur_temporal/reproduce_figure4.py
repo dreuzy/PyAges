@@ -33,14 +33,26 @@ import numpy as np
 import pandas as pd
 import scipy
 from scipy.integrate import IntegrationWarning, quad
-from scipy.special import ndtri
-from scipy.stats import rankdata
 
+from examples.natural.ploemeur_temporal.reproduction_diagnostics import (
+    autocorrelation_table as _autocorrelation_table,
+)
+from examples.natural.ploemeur_temporal.reproduction_diagnostics import (
+    chain_diagnostics,
+)
+from examples.natural.ploemeur_temporal.reproduction_diagnostics import (
+    joint_indices as _joint_indices,
+)
+from examples.natural.ploemeur_temporal.reproduction_diagnostics import (
+    summarize_chains as _summaries,
+)
 from pyages.convolution import DEFAULT_CONVOLUTION_SETTINGS, Convolution
 from pyages.lpm.models.inverse_gaussian_shifted import (
     InverseGaussianShiftedLpm,
 )
 from pyages.tracer.tracer_root import Tracer
+from scripts.common.provenance import sha256_file as _sha256
+from scripts.common.reporting import markdown_table
 
 ROOT = Path(__file__).resolve().parents[3]
 TRACERS = ("cfc11", "cfc12", "cfc113")
@@ -60,14 +72,6 @@ QUANTILES = (0.05, 0.10, 0.50, 0.90, 0.95)
 
 def _relative(path: Path) -> str:
     return path.resolve().relative_to(ROOT).as_posix()
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _run_git(*args: str) -> str:
@@ -100,6 +104,11 @@ def _git_state() -> dict:
 
 
 def load_observations() -> pd.DataFrame:
+    """Load the validated F09 time series and enforce its scientific schema.
+
+    Explicit row, date, and tracer checks prevent an incomplete or differently
+    prepared table from being used as if it were the article data.
+    """
     data = pd.read_csv(ROOT / DATA_PATH, sep="\t")
     required = {"element", "concentration", "error", "unit", "date"}
     if set(data.columns) != required:
@@ -213,6 +222,8 @@ class PreparedForward:
 
 
 class LogPosterior:
+    """Evaluate the bounded uniform-prior posterior for one experiment."""
+
     def __init__(self, observations: pd.DataFrame):
         self.observations = observations.reset_index(drop=True)
         self.forward = PreparedForward(self.observations)
@@ -299,143 +310,6 @@ def _production_chunk(
     return q, samples, logps, objectives, accepted
 
 
-def _split(chains: np.ndarray) -> np.ndarray:
-    n = chains.shape[1] // 2
-    if n < 2:
-        raise ValueError("At least four draws per chain are required")
-    return np.concatenate((chains[:, :n], chains[:, -n:]), axis=0)
-
-
-def _rank_normalize(values: np.ndarray) -> np.ndarray:
-    flat = values.reshape(-1)
-    ranks = rankdata(flat, method="average")
-    probability = (ranks - 0.375) / (len(flat) + 0.25)
-    return ndtri(probability).reshape(values.shape)
-
-
-def _basic_rhat(values: np.ndarray) -> float:
-    values = _split(values)
-    m, n = values.shape
-    chain_means = values.mean(axis=1)
-    between = n * np.var(chain_means, ddof=1)
-    within = np.mean(np.var(values, axis=1, ddof=1))
-    if within == 0.0:
-        return 1.0 if between == 0.0 else np.inf
-    var_plus = (n - 1.0) / n * within + between / n
-    return float(np.sqrt(var_plus / within))
-
-
-def split_rhat(values: np.ndarray) -> float:
-    split = _split(values)
-    ranked = _rank_normalize(split)
-    folded = np.abs(split - np.median(split))
-    return max(_basic_rhat(ranked), _basic_rhat(_rank_normalize(folded)))
-
-
-def _autocovariance(values: np.ndarray) -> np.ndarray:
-    values = np.asarray(values, dtype=float)
-    centered = values - values.mean()
-    n = len(values)
-    fft = np.fft.rfft(centered, n=2 * n)
-    return np.fft.irfft(fft * np.conjugate(fft), n=2 * n)[:n] / n
-
-
-def effective_sample_size(values: np.ndarray) -> float:
-    values = _split(np.asarray(values, dtype=float))
-    m, n = values.shape
-    autocov = np.asarray([_autocovariance(chain) for chain in values])
-    within = np.mean(autocov[:, 0] * n / (n - 1.0))
-    between = n * np.var(values.mean(axis=1), ddof=1)
-    var_plus = (n - 1.0) / n * within + between / n
-    if not np.isfinite(var_plus) or var_plus <= 0.0:
-        return float(m * n)
-    rho = np.ones(n)
-    for lag in range(1, n):
-        rho[lag] = 1.0 - (within - np.mean(autocov[:, lag])) / var_plus
-    pairs = []
-    for lag in range(1, n - 1, 2):
-        pair = rho[lag] + rho[lag + 1]
-        if pair < 0.0:
-            break
-        pairs.append(pair)
-    if pairs:
-        pairs = np.minimum.accumulate(np.asarray(pairs))
-        tau = max(1.0, -1.0 + 2.0 * (1.0 + float(np.sum(pairs))))
-    else:
-        tau = 1.0
-    return float(min(m * n, m * n / tau))
-
-
-def chain_diagnostics(chains: np.ndarray) -> pd.DataFrame:
-    rows = []
-    for index, name in enumerate(PARAMETERS):
-        values = chains[:, :, index]
-        ranked = _rank_normalize(values)
-        low = (values <= np.quantile(values, 0.05)).astype(float)
-        high = (values >= np.quantile(values, 0.95)).astype(float)
-        rows.append(
-            {
-                "parameter": name,
-                "split_rhat": split_rhat(values),
-                "bulk_ess": effective_sample_size(ranked),
-                "tail_ess": min(
-                    effective_sample_size(low), effective_sample_size(high)
-                ),
-            }
-        )
-    return pd.DataFrame(rows)
-
-
-def _autocorrelation_table(chains: np.ndarray, max_lag: int = 100) -> pd.DataFrame:
-    rows = []
-    for chain in range(chains.shape[0]):
-        for parameter, name in enumerate(PARAMETERS):
-            covariance = _autocovariance(chains[chain, :, parameter])
-            acf = covariance[: max_lag + 1] / covariance[0]
-            rows.extend(
-                {
-                    "chain": chain + 1,
-                    "parameter": name,
-                    "lag": lag,
-                    "autocorrelation": value,
-                }
-                for lag, value in enumerate(acf)
-            )
-    return pd.DataFrame(rows)
-
-
-def _summaries(chains: np.ndarray, experiment: str) -> pd.DataFrame:
-    flat = chains.reshape(-1, 3)
-    values = {
-        "mu": flat[:, 0],
-        "sigma": flat[:, 1],
-        "t0": flat[:, 2],
-        "mu_plus_t0": flat[:, 0] + flat[:, 2],
-    }
-    rows = []
-    for name, sample in values.items():
-        quantile = np.quantile(sample, QUANTILES)
-        rows.append(
-            {
-                "experiment": experiment,
-                "parameter": name,
-                "mean": np.mean(sample),
-                "median": np.median(sample),
-                "sd": np.std(sample, ddof=1),
-                **{
-                    f"q{int(q * 100):02d}": value
-                    for q, value in zip(QUANTILES, quantile, strict=False)
-                },
-            }
-        )
-    return pd.DataFrame(rows)
-
-
-def _joint_indices(total: int, count: int, seed: int) -> np.ndarray:
-    rng = np.random.default_rng(seed)
-    return rng.choice(total, size=min(total, count), replace=False)
-
-
 def posterior_diagnostics(
     experiment: str,
     target: LogPosterior,
@@ -444,6 +318,7 @@ def posterior_diagnostics(
     seed: int,
     sample_count: int,
 ) -> None:
+    """Write parameter, acceptance, and convergence diagnostics for chains."""
     flat = chains.reshape(-1, 3)
     indices = _joint_indices(len(flat), sample_count, seed)
     joint = flat[indices]
@@ -553,6 +428,7 @@ def _quadrature_reference(conv: Convolution, model: InverseGaussianShiftedLpm) -
 def quadrature_checks(
     experiment: str, target: LogPosterior, chains: np.ndarray, output: Path
 ) -> None:
+    """Compare production convolutions with independent numerical quadrature."""
     flat = chains.reshape(-1, 3)
     chosen = [
         np.argmin(np.sum((flat - np.median(flat, axis=0)) ** 2, axis=1)),
@@ -630,6 +506,12 @@ def calibrate_experiment(
     max_production: int,
     min_ess: float,
 ) -> tuple[np.ndarray, LogPosterior]:
+    """Run pilot and fixed-proposal production chains for one data selection.
+
+    Production is extended in chunks until the documented diagnostics pass or
+    the configured draw limit is reached. Intermediate evidence is written
+    below ``output`` for later reporting and audit.
+    """
     target = LogPosterior(observations)
     starts = np.array(
         [[0.15, 0.20, 0.20], [0.80, 0.20, 0.70], [0.25, 0.80, 0.75], [0.75, 0.75, 0.25]]
@@ -757,6 +639,11 @@ def _prediction_frame(
 
 
 def create_figure(output: Path, prediction_draws: int, prediction_seed: int) -> None:
+    """Build Figure 4 from actual joint posterior prediction draws.
+
+    Panel a compares both calibrations with the complete observation series;
+    panel b displays the physical parameters and total mean transit time.
+    """
     observations = load_observations()
     chains = {
         name: np.load(output / f"{name}_raw_chains.npz")["parameters"]
@@ -929,20 +816,7 @@ def _write_manifest(
 
 
 def _markdown_table(frame: pd.DataFrame, columns: list[str], digits: int = 3) -> str:
-    header = "| " + " | ".join(columns) + " |"
-    separator = "| " + " | ".join("---" for _ in columns) + " |"
-    rows = []
-    for _, row in frame.iterrows():
-        values = []
-        for column in columns:
-            value = row[column]
-            values.append(
-                f"{value:.{digits}f}"
-                if isinstance(value, (float, np.floating))
-                else str(value)
-            )
-        rows.append("| " + " | ".join(values) + " |")
-    return "\n".join((header, separator, *rows))
+    return markdown_table(frame.loc[:, columns], float_format=f".{digits}f")
 
 
 def write_report(output: Path) -> None:
@@ -1065,7 +939,7 @@ def write_report(output: Path) -> None:
     t_total = temporal.loc["mu_plus_t0"]
     section_42 = f"""### Proposed English replacement for manuscript Section 4.2
 
-We recalibrated the Ploemeur F09 record with a shifted inverse Gaussian transit-time distribution using the physical parameterization in which *mu* is the mean and *sigma* the standard deviation of the unshifted component, *t0* is the shift, and the total mean transit time is *mu + t0*. The single-date and time-series experiments used identical uniform priors, parameter bounds, 20% observation errors, convolution settings, and random-walk Metropolis algorithm; they differed only in using the three observations collected at 2010.9 or all 58 observations from 20 sampling dates, respectively. Four dispersed chains were run for each experiment, and 20,000 post-warm-up draws per chain were retained without thinning. All principal parameters had split R-hat below 1.01 and bulk and tail effective sample sizes above 11,000.
+We recalibrated the Ploemeur F09 record with a shifted inverse Gaussian transit-time distribution using the physical parameterization in which *mu* is the mean and *sigma* the standard deviation of the unshifted component, *t0* is the shift, and the total mean transit time is *mu + t0*. The single-date and time-series experiments used identical uniform priors, calibration ranges, 20% observation errors, convolution settings, and random-walk Metropolis algorithm; they differed only in using the three observations collected at 2010.9 or all 58 observations from 20 sampling dates, respectively. Four dispersed chains were run for each experiment, and 20,000 post-warm-up draws per chain were retained without thinning. All principal parameters had split R-hat below 1.01 and bulk and tail effective sample sizes above 11,000.
 
 The single-date posterior median total mean transit time was {s_total["median"]:.2f} yr (90% credible interval {s_total["q05"]:.2f}–{s_total["q95"]:.2f} yr), compared with {t_total["median"]:.2f} yr ({t_total["q05"]:.2f}–{t_total["q95"]:.2f} yr) for the time-series calibration. The corresponding median component parameters were *mu* = {single.loc["mu", "median"]:.2f}, *sigma* = {single.loc["sigma", "median"]:.2f}, and *t0* = {single.loc["t0", "median"]:.2f} yr for the single-date analysis, and *mu* = {temporal.loc["mu", "median"]:.2f}, *sigma* = {temporal.loc["sigma", "median"]:.2f}, and *t0* = {temporal.loc["t0", "median"]:.2f} yr for the time-series analysis. Thus, under the controlled protocol, the time-series posterior supports a lower total mean transit time while its median *sigma* is slightly higher; these statements describe the new posterior and are not transformations of the legacy parameters.
 
@@ -1156,6 +1030,7 @@ def _archive(output: Path) -> None:
 
 
 def calibrate(args: argparse.Namespace, output: Path) -> None:
+    """Execute both calibrated experiments and write their common manifest."""
     observations = load_observations()
     observations.to_csv(output / "validated_observations_20pct_pptv.csv", index=False)
     single = observations[np.isclose(observations.date, SINGLE_DATE)].copy()
@@ -1195,6 +1070,7 @@ def calibrate(args: argparse.Namespace, output: Path) -> None:
 
 
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
+    """Parse calibration, plotting, archive, and reproducibility options."""
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument(
@@ -1223,6 +1099,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Iterable[str] | None = None) -> int:
+    """Run the requested Figure 4 reproduction stages."""
     args = parse_args(argv)
     output = args.output if args.output.is_absolute() else ROOT / args.output
     output.mkdir(parents=True, exist_ok=True)

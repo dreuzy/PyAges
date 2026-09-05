@@ -15,6 +15,7 @@ lpm_models:
   directory: data_core/data_lpm
 
 workflow:
+  kind: temporal
   # span: single calibration over full time span
   # successive: one calibration per observation date
   mode: span

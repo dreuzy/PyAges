@@ -11,7 +11,6 @@ new artifact is confined to results/robustness/holten_prior_dirichlet1.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import platform
@@ -57,7 +56,12 @@ from scripts.article.run_final_shifted_exponential import (  # noqa: E402
     _summary,
 )
 from scripts.common.mcmc_diagnostics import mcse_mean  # noqa: E402
-from scripts.common.provenance import repository_provenance  # noqa: E402
+from scripts.common.provenance import (  # noqa: E402
+    repository_provenance,
+)
+from scripts.common.provenance import (  # noqa: E402
+    sha256_file as _sha256,
+)
 from scripts.common.publication_plotting import (  # noqa: E402
     PUBLICATION_RC,
     mm_to_in,
@@ -125,14 +129,6 @@ def _guard_output(path: Path) -> Path:
         raise ValueError(f"Output must stay below {expected}")
     resolved.mkdir(parents=True, exist_ok=True)
     return resolved
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def log_abs_stick_breaking_jacobian(z: np.ndarray) -> float | np.ndarray:

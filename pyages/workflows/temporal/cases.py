@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file receives temporal observations and a case mode, then returns labeled
+# data frames for either the complete span or each date in sorted order.
+# Date labels preserve the decimal year for directory names, and collisions are
+# rejected before any calibration starts.
 
 """Case partitioning and stable directory labels for temporal workflows."""
 

@@ -1,0 +1,385 @@
+# Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
+# Contributor: Jean-Raynald de Dreuzy
+# SPDX-License-Identifier: CECILL-2.1
+
+"""Contracts for reproducible MH ensemble configuration and initialization."""
+
+from __future__ import annotations
+
+import copy
+import math
+import pickle
+from dataclasses import FrozenInstanceError, asdict
+
+import numpy as np
+import pytest
+from scipy.stats import truncnorm
+
+from pyages.calibration.methods.mh import ensemble_config
+from pyages.calibration.methods.mh._prior_marginals import (
+    EmpiricalMarginal,
+    NormalMarginal,
+    PriorMarginal,
+    UniformMarginal,
+)
+from pyages.calibration.methods.mh.ensemble_config import (
+    MHDiagnosticsConfig,
+    MHEnsembleConfig,
+    MHInitializationConfig,
+    MHPilotConfig,
+    MHSeedPlan,
+    build_seed_plan,
+)
+from pyages.calibration.methods.mh.initialization import build_initial_states
+from pyages.calibration.methods.mh.prior import Prior
+
+
+class _TwoParameterModel:
+    def __init__(self) -> None:
+        self.p = {"mu": 4.0, "width": 3.0}
+
+    def get_param_names(self):
+        return list(self.p)
+
+    def get_parameters_to_array(self):
+        return list(self.p.values())
+
+    def get_calibration_range(self, name):
+        return {"mu": (0.0, 10.0), "width": (1.0, 9.0)}[name]
+
+
+class _MarginalPriorOnly:
+    """Structural prior double with no storage or distribution attributes."""
+
+    option = True
+
+    def __init__(self) -> None:
+        self.required: list[tuple[str, ...]] = []
+
+    def require_marginals(self, names) -> None:
+        self.required.append(tuple(names))
+
+    def bounded_quantile(self, name, minimum, maximum, probability):
+        del name
+        return minimum + probability * (maximum - minimum)
+
+    def contains(self, name, value):
+        del name, value
+        return True
+
+
+def _prior_with(*marginals: PriorMarginal, typ: str = "parametric") -> Prior:
+    prior = Prior(option=True, typ=typ)
+    prior._marginals = {marginal.name: marginal for marginal in marginals}  # noqa: SLF001
+    return prior
+
+
+def _parametric_prior() -> Prior:
+    return _prior_with(
+        NormalMarginal("mu", 12.0, 2.0),
+        UniformMarginal("width", 2.0, 8.0),
+    )
+
+
+@pytest.mark.parametrize("chains", [True, 1, 0, -2, 2.5])
+def test_ensemble_config_requires_at_least_two_integer_chains(chains) -> None:
+    with pytest.raises(ValueError, match="chains"):
+        MHEnsembleConfig(chains=chains)
+
+
+@pytest.mark.parametrize("seed", [True, -1, 1.5, "12"])
+def test_ensemble_config_rejects_invalid_master_seed(seed) -> None:
+    with pytest.raises(ValueError, match="master_seed"):
+        MHEnsembleConfig(master_seed=seed)
+
+
+def test_omitted_master_seed_is_realized_and_recorded(monkeypatch) -> None:
+    monkeypatch.setattr(ensemble_config.secrets, "randbits", lambda bits: 987_654)
+
+    config = MHEnsembleConfig(master_seed=None)
+    plan = build_seed_plan(config)
+
+    assert config.master_seed == 987_654
+    assert plan.master_seed == 987_654
+
+
+def test_seed_plan_is_reproducible_distinct_and_phase_separated() -> None:
+    config = MHEnsembleConfig(chains=4, master_seed=20260830)
+
+    first = build_seed_plan(config)
+    second = build_seed_plan(config)
+    all_seeds = first.initialization_seeds + first.pilot_seeds + first.production_seeds
+
+    assert first == second
+    assert first.chain_count == 4
+    assert len(set(all_seeds)) == 12
+    assert first.initialization_seeds != first.production_seeds
+
+
+def test_seed_plan_detaches_mutable_phase_sequences() -> None:
+    initialization = [1, 2]
+    pilot = [3, 4]
+    production = [5, 6]
+    plan = MHSeedPlan(17, initialization, pilot, production)
+
+    initialization[0] = 99
+    pilot[0] = 99
+    production[0] = 99
+
+    assert plan.initialization_seeds == (1, 2)
+    assert plan.pilot_seeds == (3, 4)
+    assert plan.production_seeds == (5, 6)
+
+
+def test_configuration_objects_are_frozen() -> None:
+    config = MHEnsembleConfig()
+
+    assert config.initialization.strategy == "bounds_stratified"
+    with pytest.raises(FrozenInstanceError):
+        config.chains = 8
+
+
+def test_explicit_initialization_is_copy_and_pickle_safe() -> None:
+    config = MHInitializationConfig(
+        strategy="explicit",
+        explicit_starts=({"mu": 1.0}, {"mu": 2.0}),
+    )
+
+    assert copy.deepcopy(config) == config
+    assert asdict(config)["explicit_starts"] == ({"mu": 1.0}, {"mu": 2.0})
+    assert pickle.loads(pickle.dumps(config)) == config
+
+
+@pytest.mark.parametrize(
+    ("start", "message"),
+    [
+        ({"": 1.0}, "non-empty strings"),
+        ({1: 1.0}, "non-empty strings"),
+        ({"mu": True}, "finite numbers"),
+        ({"mu": math.nan}, "finite numbers"),
+        ({"mu": math.inf}, "finite numbers"),
+        ({}, "non-empty parameter mappings"),
+    ],
+)
+def test_explicit_initialization_rejects_invalid_states(start, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        MHInitializationConfig(strategy="explicit", explicit_starts=(start, start))
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    [
+        (lambda: MHInitializationConfig(strategy="random"), "strategy"),
+        (lambda: MHInitializationConfig(max_attempts=0), "max_attempts"),
+        (lambda: MHPilotConfig(burn_in=1.0), "burn_in"),
+        (lambda: MHPilotConfig(burn_in=False), "burn_in"),
+        (lambda: MHPilotConfig(nstep=4, burn_in=0.5), "two covariance draws"),
+        (lambda: MHPilotConfig(relative_ridge=-1.0), "relative_ridge"),
+        (lambda: MHDiagnosticsConfig(max_rhat=0.99), "max_rhat"),
+        (lambda: MHDiagnosticsConfig(min_tail_ess=0.0), "min_tail_ess"),
+    ],
+)
+def test_nested_configuration_rejects_invalid_controls(factory, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        factory()
+
+
+def test_explicit_starts_are_defensively_copied_and_length_checked() -> None:
+    original = {"mu": 2.0, "width": 3.0}
+    config = MHInitializationConfig(
+        strategy="explicit",
+        explicit_starts=(original,),
+    )
+    original["mu"] = 9.0
+
+    assert config.explicit_starts is not None
+    assert config.explicit_starts[0]["mu"] == 2.0
+    with pytest.raises(TypeError):
+        config.explicit_starts[0]["mu"] = 4.0
+    with pytest.raises(ValueError, match="one state per chain"):
+        build_initial_states(_TwoParameterModel(), None, config, 2, (1, 2))
+
+
+def test_explicit_starts_return_fresh_ordered_dictionaries() -> None:
+    starts = ({"width": 3.0, "mu": 2.0}, {"mu": 8.0, "width": 7.0})
+    config = MHInitializationConfig(strategy="explicit", explicit_starts=starts)
+
+    states = build_initial_states(_TwoParameterModel(), None, config, 2, (101, 102))
+
+    assert states == ({"mu": 2.0, "width": 3.0}, {"mu": 8.0, "width": 7.0})
+    assert list(states[0]) == ["mu", "width"]
+    assert states[0] is not starts[0]
+
+
+@pytest.mark.parametrize(
+    ("state", "message"),
+    [
+        ({"mu": 2.0}, "exactly"),
+        ({"mu": 11.0, "width": 3.0}, "outside"),
+    ],
+)
+def test_explicit_starts_must_be_complete_and_bounded(state, message) -> None:
+    config = MHInitializationConfig(
+        strategy="explicit", explicit_starts=(state, dict(state))
+    )
+
+    with pytest.raises(ValueError, match=message):
+        build_initial_states(_TwoParameterModel(), None, config, 2, (1, 2))
+
+
+def test_prior_sampling_is_reproducible_bounded_and_does_not_clip_normals() -> None:
+    lpm = _TwoParameterModel()
+    prior = _parametric_prior()
+    config = MHInitializationConfig(strategy="prior_sample")
+    seeds = (11, 22, 33, 44)
+
+    first = build_initial_states(lpm, prior, config, 4, seeds)
+    second = build_initial_states(lpm, prior, config, 4, seeds)
+
+    assert first == second
+    assert len({tuple(state.values()) for state in first}) == 4
+    assert all(0.0 < state["mu"] < 10.0 for state in first)
+    assert all(2.0 <= state["width"] < 8.0 for state in first)
+    assert lpm.p == {"mu": 4.0, "width": 3.0}
+
+
+def test_initialization_depends_only_on_the_marginal_prior_protocol() -> None:
+    prior = _MarginalPriorOnly()
+
+    states = build_initial_states(
+        _TwoParameterModel(),
+        prior,
+        MHInitializationConfig(strategy="prior_sample"),
+        2,
+        (11, 22),
+    )
+
+    assert len(states) == 2
+    assert all(0.0 < state["mu"] < 10.0 for state in states)
+    assert all(1.0 < state["width"] < 9.0 for state in states)
+    assert prior.required
+
+
+def test_bounds_stratified_places_one_point_in_each_marginal_stratum() -> None:
+    chain_count = 4
+    states = build_initial_states(
+        _TwoParameterModel(),
+        None,
+        MHInitializationConfig(strategy="bounds_stratified"),
+        chain_count,
+        (101, 102, 103, 104),
+    )
+
+    for name, minimum, maximum in (("mu", 0.0, 10.0), ("width", 1.0, 9.0)):
+        normalized = np.asarray(
+            [(state[name] - minimum) / (maximum - minimum) for state in states]
+        )
+        strata = np.floor(chain_count * normalized).astype(int)
+        assert sorted(strata.tolist()) == list(range(chain_count))
+
+
+def test_bounds_stratified_uses_effective_uniform_prior_mass() -> None:
+    prior = _prior_with(
+        UniformMarginal("mu", 4.0, 6.0),
+        UniformMarginal("width", 2.0, 8.0),
+    )
+    states = build_initial_states(
+        _TwoParameterModel(),
+        prior,
+        MHInitializationConfig(strategy="bounds_stratified"),
+        4,
+        (10, 20, 30, 40),
+    )
+
+    for name, minimum, maximum in (("mu", 4.0, 6.0), ("width", 2.0, 8.0)):
+        normalized = np.asarray(
+            [(state[name] - minimum) / (maximum - minimum) for state in states]
+        )
+        strata = np.floor(4 * normalized).astype(int)
+        assert sorted(strata.tolist()) == [0, 1, 2, 3]
+
+
+def test_bounds_stratified_uses_truncated_normal_probability_strata() -> None:
+    prior = _parametric_prior()
+    chain_count = 4
+    states = build_initial_states(
+        _TwoParameterModel(),
+        prior,
+        MHInitializationConfig(strategy="bounds_stratified"),
+        chain_count,
+        (10, 20, 30, 40),
+    )
+
+    standardized_minimum = (0.0 - 12.0) / 2.0
+    standardized_maximum = (10.0 - 12.0) / 2.0
+    probabilities = truncnorm.cdf(
+        [state["mu"] for state in states],
+        standardized_minimum,
+        standardized_maximum,
+        loc=12.0,
+        scale=2.0,
+    )
+    strata = np.floor(chain_count * probabilities).astype(int)
+    assert sorted(strata.tolist()) == list(range(chain_count))
+
+
+def test_bounds_stratified_inverts_empirical_mass_without_sampling_zero_gap() -> None:
+    prior = _prior_with(
+        EmpiricalMarginal(
+            "mu",
+            np.array([[0.0, 1.0], [2.0, 1.0], [4.0, 0.0], [6.0, 0.0], [10.0, 1.0]]),
+        ),
+        EmpiricalMarginal("width", np.array([[1.0, 1.0], [9.0, 1.0]])),
+        typ="empirical",
+    )
+    states = build_initial_states(
+        _TwoParameterModel(),
+        prior,
+        MHInitializationConfig(strategy="bounds_stratified"),
+        8,
+        tuple(range(100, 108)),
+    )
+
+    assert all(not 4.0 < state["mu"] < 6.0 for state in states)
+    assert all(
+        math.isfinite(prior.log_evaluate(_TwoParameterModel(), list(state.values())))
+        for state in states
+    )
+
+
+def test_bounds_stratified_rejects_empty_effective_prior_mass_immediately() -> None:
+    prior = _prior_with(
+        UniformMarginal("mu", 20.0, 30.0),
+        UniformMarginal("width", 2.0, 8.0),
+    )
+
+    with pytest.raises(ValueError, match="no positive support for mu"):
+        build_initial_states(
+            _TwoParameterModel(),
+            prior,
+            MHInitializationConfig(strategy="bounds_stratified"),
+            2,
+            (10, 20),
+        )
+
+
+def test_bounds_stratified_is_reproducible_but_changes_with_seed_plan() -> None:
+    config = MHInitializationConfig(strategy="bounds_stratified")
+    first = build_initial_states(_TwoParameterModel(), None, config, 3, (10, 20, 30))
+    replay = build_initial_states(_TwoParameterModel(), None, config, 3, (10, 20, 30))
+    changed = build_initial_states(_TwoParameterModel(), None, config, 3, (11, 21, 31))
+
+    assert first == replay
+    assert first != changed
+
+
+@pytest.mark.parametrize("seeds", [(1,), (1, 1), (1, -2)])
+def test_initialization_requires_one_distinct_nonnegative_seed_per_chain(seeds) -> None:
+    with pytest.raises(ValueError, match="seeds"):
+        build_initial_states(
+            _TwoParameterModel(),
+            None,
+            MHInitializationConfig(strategy="bounds_stratified"),
+            2,
+            seeds,
+        )

@@ -1,0 +1,62 @@
+# Exploratory, reproducible multi-chain profile for Albuquerque SSW 2007.
+#
+# This profile qualifies the numerical MCMC execution and the internal
+# consistency of the shape-free model.  It is not yet a reference scientific
+# interpretation: the 1 % fallback uncertainty and the 120-year old-bin limit
+# remain explicit hypotheses that require domain validation.
+workflow:
+  kind: single_date
+
+dataset:
+  name: SSW_2007.txt
+  label: Albuquerque SSW 2007 exploratory multi-chain shape-free analysis
+  year: 2007
+  data_dir: examples/natural/albuquerque/data
+  verbose: true
+  # The source table contains zero uncertainties. This provisional fallback is
+  # recorded in the result manifest and must be replaced or justified before
+  # treating the posterior as a field reference.
+  missing_error_rel: 0.01
+
+lpm:
+  model_name: shapefree_n_oldbin
+  data_directory: examples/natural/albuquerque/data_lpm
+
+results:
+  study_name: albuquerque_exploratory_multichain
+
+run:
+  reachable_concentrations: false
+  objective_function: false
+  calibration_metropolis_hastings: true
+  calibration_simplex: false
+
+calibration_metropolis_hastings:
+  nstep: 2500
+  burn_in: 0.2
+  nskip: 1
+  prior_option: true
+  likelihood: true
+  monitor: false
+  display_traj: false
+  multichain:
+    enabled: true
+    chains: 5
+    master_seed: 20260904
+    initialization:
+      strategy: bounds_stratified
+      max_attempts: 100
+    pilot:
+      enabled: true
+      nstep: 1000
+      burn_in: 0.5
+      relative_ridge: 1.0e-6
+      proposal_multiplier: auto
+      save_samples: false
+    diagnostics:
+      max_rhat: 1.10
+      min_bulk_ess: 50
+      min_tail_ess: 50
+      # Exploratory output remains available if the deliberately strict
+      # characterization below exposes weak identifiability.
+      require_convergence: false

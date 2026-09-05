@@ -3,8 +3,13 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""
-Preparation utilities for the Holten benchmark workflow.
+"""Prepare the source data consumed by the Holten benchmark calculations.
+
+The raw study table uses publication-specific columns and units. This module
+selects the configured wells, validates local tracer metadata, converts the
+three calibration tracers to PyAges tables, records helium-only diagnostics,
+and writes both aggregated and per-well inputs. It performs preparation only;
+model fitting and comparison with the article live in neighboring modules.
 """
 
 from __future__ import annotations
@@ -38,6 +43,7 @@ TRITIUM_MEAN_LIFETIME_YEARS = TRITIUM_HALF_LIFE_YEARS / np.log(2.0)
 
 
 def read_sampling_table(context: HoltenContext) -> pd.DataFrame:
+    """Read the raw sampling table and add exact and rounded decimal dates."""
     frame = pd.read_csv(context.paths.sampling_raw_path, sep="\t")
     frame["Date_decimal_exact"] = frame["Date"].apply(decimal_year_from_sampling_date)
     frame["Date_decimal"] = frame["Date_decimal_exact"].round(
@@ -47,6 +53,7 @@ def read_sampling_table(context: HoltenContext) -> pd.DataFrame:
 
 
 def select_v1_wells(frame: pd.DataFrame, selected_wells: list[str]) -> pd.DataFrame:
+    """Select configured wells and fail when any requested well is absent."""
     filtered = frame.loc[frame["ID"].isin(selected_wells)].copy()
     missing = sorted(set(selected_wells).difference(set(filtered["ID"])))
     if missing:
@@ -207,6 +214,7 @@ def _validate_tracer_specific_rules(
 def validate_local_tracer_yaml(
     tracer_name: str, context: HoltenContext
 ) -> dict[str, Any]:
+    """Validate one Holten tracer file and return its parsed configuration."""
     yaml_path, payload = _load_local_tracer_yaml(tracer_name, context)
     _validate_tracer_payload_shape(payload, yaml_path)
     holten, preparation = _validate_holten_sections(payload, yaml_path, context)
@@ -315,6 +323,7 @@ def _prepare_tracer_history(
 def build_prepared_tracer_directory(
     context: HoltenContext, reference_year: float | None = None
 ) -> dict[str, pd.DataFrame]:
+    """Convert and write all configured recharge histories for model use."""
     histories: dict[str, pd.DataFrame] = {}
     context.paths.prepared_tracer_dir.mkdir(parents=True, exist_ok=True)
     for tracer_name in context.calibration_tracers:
@@ -334,6 +343,7 @@ def build_prepared_tracer_directory(
 
 
 def convert_3h_record(row: pd.Series) -> dict[str, Any]:
+    """Convert one non-missing tritium observation to the PyAges schema."""
     return {
         "element": "3H",
         "concentration": float(row["3H_TU"]),
@@ -344,6 +354,7 @@ def convert_3h_record(row: pd.Series) -> dict[str, Any]:
 
 
 def convert_kr85_record(row: pd.Series) -> dict[str, Any]:
+    """Convert one non-missing krypton-85 observation without changing units."""
     return {
         "element": "kr85",
         "concentration": float(row["Kr85_dpm_ccKr"]),
@@ -354,6 +365,7 @@ def convert_kr85_record(row: pd.Series) -> dict[str, Any]:
 
 
 def convert_39ar_record(row: pd.Series) -> dict[str, Any]:
+    """Convert one argon-39 observation from percent modern to a fraction."""
     return {
         "element": "39Ar",
         "concentration": float(row["Ar39_pMC"]) / 100.0,
@@ -397,6 +409,11 @@ def _infer_default_3he_error(frame: pd.DataFrame) -> float:
 
 
 def build_helium_diagnostics(frame: pd.DataFrame) -> pd.DataFrame:
+    """Derive audited helium quantities that diagnose the fourth observable.
+
+    These columns support the Holten reproduction but are deliberately kept
+    outside the three-tracer calibration table prepared by this module.
+    """
     default_3he_err = _infer_default_3he_error(frame)
     records: list[dict[str, Any]] = []
     for _, row in frame.iterrows():
@@ -514,6 +531,7 @@ def _convert_sampling_row(
 def convert_sampling_observations(
     frame: pd.DataFrame, context: HoltenContext
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Convert selected raw rows and return observations plus a preparation log."""
     records: list[dict[str, Any]] = []
     prep_log: list[dict[str, Any]] = []
     for _, row in frame.iterrows():
@@ -529,6 +547,7 @@ def convert_sampling_observations(
 def validate_converted_dataset(
     frame: pd.DataFrame, selected_wells: list[str], aggregated_file: bool
 ) -> None:
+    """Reject incomplete, non-finite, or scientifically inconsistent tables."""
     required = ["element", "concentration", "error", "unit", "date"]
     if aggregated_file:
         required = ["well_id", *required]
@@ -592,6 +611,7 @@ def _validate_per_well_rows(frame: pd.DataFrame) -> None:
 
 
 def write_aggregated_dataset(frame: pd.DataFrame, context: HoltenContext) -> Path:
+    """Write one deterministic, tracer-ordered table for all selected wells."""
     context.paths.data_dir.mkdir(parents=True, exist_ok=True)
     ordered = frame[
         ["well_id", "element", "concentration", "error", "unit", "date"]
@@ -609,6 +629,7 @@ def write_aggregated_dataset(frame: pd.DataFrame, context: HoltenContext) -> Pat
 def write_per_well_files(
     frame: pd.DataFrame, context: HoltenContext
 ) -> dict[str, Path]:
+    """Write the validated five-column PyAges input table for each well."""
     paths: dict[str, Path] = {}
     for well_id, group in frame.groupby("well_id"):
         payload = group[["element", "concentration", "error", "unit", "date"]].copy()
@@ -620,6 +641,7 @@ def write_per_well_files(
 
 
 def build_observed_by_well(frame: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Return in-memory calibration observations keyed by well identifier."""
     observed_by_well: dict[str, pd.DataFrame] = {}
     for well_id, group in frame.groupby("well_id"):
         observed_by_well[well_id] = (
@@ -636,6 +658,7 @@ def _prepare_runtime_directories(context: HoltenContext) -> None:
 
 
 def prepare_holten_inputs(config_path: Path | None = None) -> PreparedHoltenCase:
+    """Run the full deterministic preparation and return its shared case record."""
     context = build_context(config_path)
     _prepare_runtime_directories(context)
 

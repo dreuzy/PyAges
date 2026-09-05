@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file combines a prepared tracer-response grid with the cumulative mass
+# and first moment of a continuous water-age model. It returns one predicted
+# concentration plus diagnostics, while probability older than the known tracer
+# history remains unnormalized and therefore contributes zero.
 
 """Integrate continuous LPM laws on a prepared tracer-response grid.
 

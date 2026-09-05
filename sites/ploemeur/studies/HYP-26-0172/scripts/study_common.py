@@ -15,6 +15,8 @@ from typing import Any, Iterable
 
 import yaml
 
+from scripts.common.provenance import sha256_file as sha256
+
 REPO_ROOT = Path(__file__).resolve().parents[5]
 STUDY_ROOT = Path(__file__).resolve().parents[1]
 MATRIX_PATH = STUDY_ROOT / "experiment_matrix.csv"
@@ -81,14 +83,6 @@ def load_yaml(path: Path) -> dict[str, Any]:
 def resolve_repo_path(value: str) -> Path:
     path = Path(value)
     return path if path.is_absolute() else REPO_ROOT / path
-
-
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def input_files(row: dict[str, str], params_path: Path) -> Iterable[Path]:

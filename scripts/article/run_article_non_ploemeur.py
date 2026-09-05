@@ -49,6 +49,7 @@ from pyages.convolution import (
 from pyages.lpm import build_lpm
 from pyages.tracer.simple_tracers import ConstantTracer, SyntheticTracer
 from pyages.tracer.tracer_root import Tracer
+from scripts.common.provenance import sha256_file as _sha256
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = ROOT / "results" / "article_non_ploemeur_final"
@@ -84,14 +85,6 @@ def _guard_output(path: Path) -> Path:
         raise ValueError(f"Refusing excluded output path: {resolved}")
     resolved.mkdir(parents=True, exist_ok=True)
     return resolved
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _git(*args: str, binary: bool = False) -> bytes | str:
@@ -801,9 +794,9 @@ Les moments partiels $M(t)=E[T\\,1(T\\leq t)]$ utilis\u00e9s par le moteur sont 
 | Weibull | $\\lambda\\Gamma(1+1/k)P(1+1/k,(t/\\lambda)^k)$ |
 | inverse Gaussian | $\\mu[\\Phi(d_-)-e^{{2\\Lambda/\\mu}}\\Phi(-d_+)]$, $d_\\pm=\\sqrt{{\\Lambda/t}}(t/\\mu\\pm1)$, $\\Lambda=\\mu^3/\\sigma^2$ |
 | shifted inverse Gaussian | $sF_X(t-s)+M_X(t-s)$ |
-| ShapeFree | somme exacte des intÃ©grales uniformes tronquÃ©es par classe |
-| Diracâ€“exponential | somme du moment de l'atome et du moment exponentiel continu pondÃ©rÃ©s |
-| Dirac / double Dirac | somme des Ã¢ges des atomes atteints, pondÃ©rÃ©s |
+| ShapeFree | somme exacte des intégrales uniformes tronquées par classe |
+| Dirac–exponential | somme du moment de l'atome et du moment exponentiel continu pondérés |
+| Dirac / double Dirac | somme des âges des atomes atteints, pondérés |
 
 {_markdown(analytical)}
 

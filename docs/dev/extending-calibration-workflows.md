@@ -10,6 +10,14 @@ This page documents the current contributor contract. Presence in the selected
 API reference does not make these objects part of the public compatibility
 surface defined in {doc}`../reference/public-api`.
 
+Multi-chain MH is deliberately composition-based rather than a
+`CalibrationMethod` subclass. For a complete direct-Python example using its
+canonical contributor facade, fresh problem factory, `MHRunRecord`, and guarded
+pooling, see {ref}`multichain-mh-python-contributor-interface`. The resulting
+object topology, per-chain sample tables, diagnostic matrix axes, and pooling
+boundary are illustrated in
+{ref}`the in-memory ensemble map <multichain-mh-in-memory-record>`.
+
 ## Calibration method contract
 
 Subclass {py:class}`pyages.calibration.methods.base.CalibrationMethod` and:
@@ -38,8 +46,9 @@ A returned sample table must preserve these semantics:
 | derived moments | `mean`, `std`, and quantiles should be added with `add_moments()` before serialization |
 
 Use the prepared problem's `objective_function()` so the method cannot silently
-replace the forward model or observation-error convention. Parameter bounds
-and priors remain the method's responsibility.
+replace the forward model or observation-error convention. Calibration ranges
+and priors remain the method's responsibility; formula validity stays with the
+LPM domain contract.
 
 The smallest useful structural example is:
 
@@ -80,7 +89,7 @@ class MyMethod(CalibrationMethod):
             self.lpm.p.copy(),
             obj_function=normalized_residual_norm(chi_square, len(observed)),
             concentrations=modeled,
-            param_in_bounds=self.lpm.param_within_bounds_array(parameters),
+            param_in_bounds=self.lpm.param_within_calibration_range_array(parameters),
         )
         self.time_perform = perf_counter() - started
         return results.add_moments()
@@ -108,7 +117,7 @@ the method.
 - reject invalid settings before starting the expensive calculation;
 - record all settings, seeds, initialization sources, and proposal metadata;
 - make failure explicit when the algorithm does not converge or returns
-  non-finite/out-of-bounds parameters;
+  non-finite or out-of-calibration-range parameters;
 - test the returned joint-sample schema and objective convention;
 - test deterministic behavior for fixed seeds;
 - add numerical or golden qualification appropriate to the algorithm;
@@ -125,26 +134,36 @@ inherit from them. Follow the sequence below:
 2. resolve paths relative to the configuration using the shared loading rules;
 3. load observations through `Concentrations.from_file()` or
    `Concentrations.from_dataframe()`;
-4. create an explicit, preferably immutable context containing resolved inputs
-   and output paths;
+4. create an isolated run with
+   {py:func}`pyages.workflows.runtime.begin_staged_result_run`, then
+   place its identity and resolved working/output paths in an explicit,
+   preferably immutable context;
 5. construct and prepare `CalibrationProblem`;
 6. call `method.run(problem)` and write standard calibration outputs;
 7. write workflow-specific tables and optional figures;
-8. write {py:func}`pyages.workflows.runtime.manifest.write_result_manifest`
-   **last**;
-9. return the result path.
+8. write {py:func}`pyages.workflows.runtime.write_result_manifest`
+   **last**, passing the run identity;
+9. call {py:func}`pyages.workflows.runtime.promote_result_run` and
+   return the public result path.
+
+The returned `ResultRun` is an opaque lifecycle handle: inspect its identity and
+resolved directories as needed, but do not construct or alter it. Pass that same
+handle to `promote_result_run()` so the stored compare-and-swap identity remains
+bound to the staged tree.
 
 The manifest must index the YAML configuration and every external scientific
 input. Its `details` mapping should record the choices needed to understand the
 directory tree, such as dataset, mode, LPMs, and case directories. Never write
 a `complete` manifest from a `finally` block or after catching and suppressing
-an incomplete calculation.
+an incomplete calculation. Do not bypass staging for a supported public
+workflow: direct in-place writers cannot provide the same whole-tree isolation.
 
 Use `pyages.config.paths.result_subdirectory()` for fixed child names, but
 validate any user-derived directory component with
 `pyages.config.paths.validate_path_component()` before passing it. A public
-workflow must have a deterministic, documented layout and must not silently
-delete an earlier result directory.
+workflow must have a deterministic, documented layout. Terminal promotion
+replaces the preceding tree deliberately; document that lifecycle and require
+callers to archive an earlier result when it must be retained.
 
 ### Exposure levels
 
@@ -159,7 +178,8 @@ delete an earlier result directory.
 
 - cover minimal successful execution and every mode with tests;
 - verify path resolution inside and outside a source checkout;
-- verify the manifest is absent on failure and complete on success;
+- verify the manifest is complete on success, failed for a documented
+  scientific gate rejection, and absent for other pre-terminal failures;
 - verify every documented artifact name and table schema;
 - keep plotting optional and non-interactive for automated runs;
 - record random seeds and numerical settings that affect results;

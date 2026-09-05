@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file applies one water-age model to an ordered collection of tracers.
+# It pairs every tracer with its sampling date and returns concentrations for
+# one date or a date range without losing the caller's names, units, or order.
 
 """Coordinate convolution for an ordered collection of groundwater tracers.
 
@@ -119,10 +122,11 @@ class ConvolutionTracers:
         if lpm is not None and lpm.convolution_strategy not in {
             ConvolutionStrategy.CONTINUOUS,
             ConvolutionStrategy.MIXED_DIRAC_CONTINUOUS,
+            ConvolutionStrategy.PIECEWISE_UNIFORM,
         }:
             return
         for convolution in self.convolutions:
-            convolution.prepare()
+            convolution.prepare(lpm)
 
     def units(self) -> list[str]:
         """Return tracer units in convolution order."""

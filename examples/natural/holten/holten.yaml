@@ -1,3 +1,6 @@
+workflow:
+  kind: single_date
+
 dataset:
   name: holten_2010_selected_wells.txt
   label: Holten 2010 benchmark multi-traceurs

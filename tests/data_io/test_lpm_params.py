@@ -30,14 +30,14 @@ def test_load_params_smoke(model_name):
 
 
 @pytest.mark.parametrize("model_name", _models())
-def test_bounds_init_steps_priors(model_name):
+def test_calibration_ranges_init_steps_priors(model_name):
     schema = lpm_params.load_parameter_schema(model_name, _data_dir())
-    bounds = lpm_params.get_bounds(schema)
+    calibration_ranges = lpm_params.get_calibration_ranges(schema)
     init = lpm_params.get_init(schema)
     steps = lpm_params.get_steps(schema)
     priors = lpm_params.get_priors(schema)
 
-    assert bounds
+    assert calibration_ranges
     assert init
     assert steps
     assert priors
@@ -50,7 +50,7 @@ def _write_params(path: Path, *, initial: float = 10.0) -> None:
         f"""model: custom
 parameters:
   - name: mu
-    bounds: [0.1, 100.0]
+    calibration_range: [0.1, 100.0]
     init: {initial}
     step: 1.0
     prior:
@@ -70,10 +70,67 @@ def test_load_parameter_schema_is_typed_and_immutable(tmp_path) -> None:
     assert schema.model == "custom"
     assert schema.version == 1
     assert schema.names == ("mu",)
-    assert schema.parameters[0].bounds == (0.1, 100.0)
+    assert schema.parameters[0].calibration_range == (0.1, 100.0)
     assert schema.parameters[0].init == 10.0
     with pytest.raises(TypeError):
         schema.parameters[0].prior["type"] = "normal"
+
+
+def test_explicit_domain_is_distinct_from_the_calibration_range() -> None:
+    schema = lpm_params.parse_parameter_schema(
+        {
+            "model": "custom",
+            "parameters": [
+                {
+                    "name": "mu",
+                    "domain": {
+                        "min": 0.0,
+                        "min_inclusive": False,
+                        "max": None,
+                    },
+                    "calibration_range": [0.1, 100.0],
+                    "init": 10.0,
+                }
+            ],
+        }
+    )
+
+    parameter = schema.parameters[0]
+    assert parameter.domain.minimum == 0.0
+    assert not parameter.domain.minimum_inclusive
+    assert parameter.domain.maximum is None
+    assert parameter.calibration_range == (0.1, 100.0)
+
+
+def test_bounds_alias_is_rejected() -> None:
+    with pytest.raises(lpm_params.LPMParamsError, match="calibration_range"):
+        lpm_params.parse_parameter_schema(
+            {
+                "model": "custom",
+                "parameters": [{"name": "mu", "bounds": [0.1, 100.0], "init": 10.0}],
+            }
+        )
+
+
+def test_calibration_range_must_be_inside_the_formula_domain() -> None:
+    with pytest.raises(lpm_params.LPMParamsError, match="mathematical domain"):
+        lpm_params.parse_parameter_schema(
+            {
+                "model": "custom",
+                "parameters": [
+                    {
+                        "name": "mu",
+                        "domain": {
+                            "min": 0.0,
+                            "min_inclusive": False,
+                            "max": None,
+                        },
+                        "calibration_range": [0.0, 100.0],
+                        "init": 10.0,
+                    }
+                ],
+            }
+        )
 
 
 def test_load_params_returns_a_defensive_copy(tmp_path) -> None:
@@ -148,7 +205,7 @@ def test_shared_schema_rejects_invalid_optional_metadata(field, value, message) 
         "parameters": [
             {
                 "name": "mu",
-                "bounds": [0.1, 100.0],
+                "calibration_range": [0.1, 100.0],
                 "init": 10.0,
                 field: value,
             }
@@ -189,7 +246,7 @@ def test_schema_rejects_invalid_parametric_priors(prior, message) -> None:
         "parameters": [
             {
                 "name": "mu",
-                "bounds": [0.0, 1.0],
+                "calibration_range": [0.0, 1.0],
                 "init": 0.5,
                 "prior": prior,
             }
@@ -207,7 +264,7 @@ def test_schema_accepts_normal_prior() -> None:
         "parameters": [
             {
                 "name": "mu",
-                "bounds": [0.0, 10.0],
+                "calibration_range": [0.0, 10.0],
                 "init": 1.0,
                 "prior": {"type": "normal", "mean": 2.0, "std": 0.5},
             }
@@ -227,7 +284,7 @@ def test_schema_rejects_unsupported_versions(version) -> None:
     params = {
         "model": "custom",
         "version": version,
-        "parameters": [{"name": "mu", "bounds": [0.0, 1.0], "init": 0.5}],
+        "parameters": [{"name": "mu", "calibration_range": [0.0, 1.0], "init": 0.5}],
     }
 
     with pytest.raises(lpm_params.LPMParamsError, match="expected 1"):

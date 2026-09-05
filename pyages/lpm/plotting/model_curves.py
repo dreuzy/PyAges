@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file turns one LPM and a requested PDF or CDF into a diagnostic figure.
+# It samples the model over a suitable age range, then displays or saves the
+# curve through the shared plotting lifecycle so developers can see where the
+# model places water-age probability.
 
 """PDF and CDF plotting helpers for individual LPMs."""
 

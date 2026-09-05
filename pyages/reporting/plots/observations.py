@@ -1,8 +1,20 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file creates figures that describe tracer observations before calibration.
 
-"""Observation overview figures."""
+"""Plot measured tracer concentrations through time, without model predictions.
+
+The observation table is separated by tracer, with one panel showing sampling
+date on the horizontal axis and measured concentration on the vertical axis.
+Units are included in the labels and measurement errors are drawn when the
+table provides them.
+
+Selected dates can be highlighted across every tracer, for example to identify
+the measurements used by a single-date interpretation. These figures contain
+neither an LPM response nor posterior uncertainty: they provide a direct view
+of the input data before comparison with a calibrated model.
+"""
 
 from __future__ import annotations
 
@@ -32,8 +44,18 @@ def plot_observations_overview(
     highlight_label: str = "Single-date interpretation",
     highlight_tolerance: float = 0.02,
 ):
-    """
-    Plot observation-only panels for each tracer.
+    """Plot the measured history of every tracer without model predictions.
+
+    ``observations.frame`` must use the canonical concentration-table columns.
+    Rows are grouped by tracer in their first-seen order and sorted by date. One
+    subplot then shows concentration versus year, including the validated unit
+    and measurement-error bars when positive errors are available.
+
+    Dates in ``highlight_dates`` are matched independently for every tracer with
+    the absolute ``highlight_tolerance``. A highlighted point keeps its original
+    error bar and receives a separate legend entry only when a matching
+    observation actually exists. Supplying ``filename`` saves the assembled
+    figure; the Matplotlib figure is returned in all cases.
     """
     apply_example_style()
     df = observations.frame.copy()
@@ -46,6 +68,8 @@ def plot_observations_overview(
     highlight_array = np.asarray(highlight_dates or [], dtype=float)
     highlighted_any = False
 
+    # Build each panel from one date-sorted tracer subset so error bars, units,
+    # and highlighted dates cannot be mixed across tracers.
     for ax, tracer in zip(axs.flatten(), tracers, strict=False):
         tracer_df = df[df["element"] == tracer].sort_values("date")
         has_error = "error" in tracer_df.columns and np.any(

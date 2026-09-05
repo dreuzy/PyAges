@@ -12,12 +12,19 @@ list.
 |---|---|---|
 | Standard suite | `python run_tests.py standard` | Every pull request and local code change |
 | Detailed standard suite | `python run_tests.py standard detail` | Diagnosing a failure or reviewing parametrized cases |
-| Extensive suite | `python run_tests.py extensive` | Scientific changes, golden changes, nightly qualification, and releases |
+| Extensive suite | `python run_tests.py extensive` | Scientific changes, golden changes, scheduled weekly qualification, and releases |
 | Coverage | `python run_tests.py coverage` | Changes that add behavior or alter tested paths |
 | pandas compatibility | CI `pandas-compatibility` job | Changes to tables, data types, indexing, assignment, or serialization |
 | TracerLPM validation | `python run_tests.py validation` | Changes to LPM mappings, tracer observations, comparison logic, or the adapter |
 | Test collection | `python run_tests.py collect` | Inspecting the exact standard-suite node IDs without executing them |
 | Golden update | `python run_tests.py standard update` | Only after independently justifying an intentional numerical-contract change |
+
+Static typing is introduced progressively rather than asserted for the whole
+historical repository. `python -m pyright` checks the small set of core
+contracts and stable repository helpers listed in `pyproject.toml`; add a
+module only after its annotations and dependencies pass without suppressing
+real errors. The shared provenance helper is included because archive and
+article scripts now depend on its typed text-versus-binary Git contract.
 
 The direct pytest equivalents used by GitHub Actions are:
 
@@ -27,6 +34,15 @@ python -m pytest -q --run-extensive
 python -m pytest -q --cov=pyages --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=75
 python -m pytest -q validation/tracerlpm/benchmark/tests
 python -m pytest --collect-only -q tests
+```
+
+On Windows hosts where long paths are not enabled, the historical Ploemeur
+golden can exceed the legacy path limit when pytest chooses a long temporary
+root. Give that run a dedicated short base directory; pytest owns and may
+clear this directory:
+
+```powershell
+python -m pytest -q --run-extensive --basetemp "$env:TEMP\pyages-t"
 ```
 
 The pandas compatibility job runs the standard suite on the supported 2.2.3
@@ -52,7 +68,7 @@ It complements the generated module-by-module {doc}`test-inventory`.
 | Tracers and convolution | Verify decay, distributed inputs, concentration chronicles, convolution identities, settings, and tracer coupling | `tests/tracer/`, `tests/concentrations/`, `tests/convolution/` | Standard suite | Analytical invariants and independent high-accuracy calculations described in {doc}`../science/validation` | Numerical agreement is tolerance- and grid-dependent |
 | Calibration and inference | Protect objectives, priors, proposals, parameter grids, initialization, diagnostics, and public calibration APIs | `tests/calibration/` | Standard suite; selected cases require `--run-extensive` | Synthetic cases, proposal qualification, posterior and support contracts | Solver convergence does not establish hydrogeological realism or identifiability for every dataset |
 | Installed interfaces and workflows | Exercise validated configuration, CLI behavior, plotting runtime, installed single-date execution, and wheel use outside the checkout | `tests/config/`, `tests/cli/`, `tests/workflows/`; package smoke test | Standard suite plus Conda and package CI jobs | CLI contract, quickstart configuration, result-manifest schema | The Linux runner does not cover every operating system or interactive backend |
-| Examples and field cases | Detect changes in runnable examples, Holten, Fontainebleau, and Ploemeur preparation and outputs | `tests/examples/`, `tests/ploemeur/` | Standard suite; selected Ploemeur cases are extensive | Reviewed golden fixtures, published or internally consistent case data, {doc}`../science/case-studies` | A golden match detects stability, not independent scientific correctness |
+| Examples and field cases | Detect changes in runnable examples and qualify known-truth recovery or field-data coherence where possible | `tests/examples/`, `tests/ploemeur/` | Standard suite; synthetic recovery and selected single-date, prior-active, and temporal Ploemeur cases require `--run-extensive` | Reviewed golden fixtures, the maintained multi-chain qualifications, published or internally consistent case data, {doc}`../science/case-studies` | Known-truth recovery applies only to the versioned synthetic realization; a converged field posterior is not a ground-truth parameter validation |
 | Reproducibility orchestration | Verify article registries, campaign preparation, qualification helpers, paths, and resumable execution contracts | `tests/scripts/` | Standard suite; complete campaigns run through documented reproduction commands | {doc}`../science/reproducibility`, case manifests, checksums, and expected artifacts | Unit tests cannot replace absent raw chains, external archives, or independent review |
 | TracerLPM cross-software validation | Verify parameter mappings, inputs, observations, reference outputs, pilots, comparisons, and robustness summaries | `validation/tracerlpm/benchmark/tests/` | Dedicated `TracerLPM validation` CI job; .NET build is separate | Benchmark README, reference fixtures, mapped synthetic cases | CI does not run the proprietary Excel/XLL integration or rank optimizer quality |
 

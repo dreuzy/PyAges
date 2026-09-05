@@ -67,3 +67,45 @@ adopted model.
 The comparison measures the information supplied by different temporal
 sampling extents under one stationary LPM. It does not infer a time-varying age
 distribution and does not compare alternative LPM families for the site.
+
+### Current F09 2010 executable qualification
+
+The maintained multi-chain example is a separate, narrower qualification. It
+uses only the three F09 observations from 2010, `exp_shifted`, a fallback equal
+to 1% of the mean tracer-history response for every zero uncertainty
+placeholder, and no informative parameter prior. Five chains pass the
+registered folded rank-normalized R-hat and bulk/tail ESS gates; representative
+retained rows are also recomputed through the forward operator.
+
+Its concentration checks concern fitted latent predictions at the same
+observations used in the likelihood. PyAges does not draw new observation
+noise, so this is an in-sample latent-fit check, not posterior predictive or
+out-of-sample validation. The field data do not provide known true `mu` or
+`shift` values.
+
+The exact command, protocol, observed diagnostics, cost, and limitations are
+in {doc}`../examples/ploemeur-multichain`. This current test must not be
+conflated with the manuscript's F09/F11 full-record versus window comparison
+described above.
+
+### Prior-active and temporal executable qualifications
+
+Two additional development-branch profiles broaden software and scientific
+coverage without changing the interpretation of the historical benchmark:
+
+- the F09 2010 `ig_shifted` profile uses the canonical three-parameter uniform
+  prior conditioned on the calibration ranges for initialization. It replaces
+  zero uncertainty placeholders with 20% of the mean tracer-history response.
+  Its chains converge, but posterior `sigma` remains close to the 30-year upper
+  support. This is retained as an explicit upper-support warning rather than
+  presented as identification;
+- the F09 temporal `exp_shifted` profile calibrates one stationary LPM against
+  all 58 observations from 20 dates. It exercises the canonical temporal
+  workflow and passes its registered convergence and in-sample residual gates.
+
+Neither profile supplies field parameter truth or independent validation data.
+The single-date profiles use different uncertainty scales and do not constitute
+a controlled comparison between `exp_shifted` and `ig_shifted`.
+The exact protocols and limits are in
+{doc}`../examples/ploemeur-ig-shifted-prior-multichain` and
+{doc}`../examples/ploemeur-temporal-multichain`.

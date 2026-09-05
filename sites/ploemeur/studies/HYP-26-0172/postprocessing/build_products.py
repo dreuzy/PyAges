@@ -2,357 +2,45 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""Build article tables and figures from HYP-26-0172 workflow outputs."""
+"""Build HYP-26-0172 article figures from durable derived tables.
+
+The extraction layer converts native workflow folders to stable CSV tables;
+this façade selects those tables and delegates publication rendering. Keeping
+the two stages explicit lets figures be rebuilt without rediscovering dated
+execution directories.
+"""
 
 from __future__ import annotations
 
 import argparse
-import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
 from ..scripts.study_common import validate_profile
 from .export import export_figure
+from .product_extraction import (
+    REPO_ROOT,
+    collect_diagnostics,
+    collect_statistics,
+    latest_scenario_outputs,
+    profile_root,
+    run_directories,
+    save_derived_tables,
+)
 from .style import (
     CONDITIONED,
     FULL_SERIES,
-    MODEL_COLORS,
     OBSERVATIONS,
     UNCONSTRAINED,
-    WELL_COLORS,
 )
-
-REPO_ROOT = Path(__file__).resolve().parents[5]
-STUDY_RESULTS = REPO_ROOT / "results" / "HYP-26-0172"
-SCENARIO_RE = re.compile(
-    r"ploemeur_(?P<conditioning>apriori_double_)?(?P<error>\d+(?:\.\d+)?)"
-    r"(?P<mode>span_full|span_with_prior|successive_with_prior|successive)$"
+from .summary_figures import (
+    plot_figure4,
+    plot_figure5,
+    plot_figure6,
+    plot_figure_a1,
 )
-
-
-def profile_root(profile: str) -> Path:
-    return STUDY_RESULTS if profile == "production" else STUDY_RESULTS / profile
-
-
-def run_directories(root: Path) -> list[Path]:
-    runs = root / "runs"
-    if not runs.is_dir():
-        raise FileNotFoundError(f"No run directory found: {runs}")
-    return sorted(path for path in runs.iterdir() if (path / "workflow").is_dir())
-
-
-def latest_scenario_outputs(workflow: Path) -> list[tuple[Path, re.Match[str]]]:
-    outputs: list[tuple[Path, re.Match[str]]] = []
-    for scenario in workflow.iterdir() if workflow.is_dir() else []:
-        if not scenario.is_dir() or not (match := SCENARIO_RE.fullmatch(scenario.name)):
-            continue
-        timestamps = [path for path in scenario.iterdir() if path.is_dir()]
-        if timestamps:
-            outputs.append(
-                (max(timestamps, key=lambda path: path.stat().st_mtime), match)
-            )
-    return outputs
-
-
-def collect_statistics(root: Path) -> pd.DataFrame:
-    records: list[dict] = []
-    for run_dir in run_directories(root):
-        for output, match in latest_scenario_outputs(run_dir / "workflow"):
-            # Read each calibration case directly. Unlike the historical
-            # concatenated summaries, the directory name preserves the well.
-            for stats_file in sorted(
-                output.glob("*_????_????/*/Metropolis_Hastings/distributions_stats.txt")
-            ):
-                model_dir = stats_file.parents[1]
-                case_dir = model_dir.parent
-                case_match = re.fullmatch(
-                    r"(?P<well>.+)_(?P<start>\d{4})_(?P<end>\d{4})", case_dir.name
-                )
-                if not case_match:
-                    continue
-                samples = pd.read_csv(stats_file, sep="\t")
-                if samples.empty or "p50" not in samples:
-                    continue
-                record = {
-                    "date": float(case_match.group("end")),
-                    "window_start": int(case_match.group("start")),
-                    "window_end": int(case_match.group("end")),
-                    "well": case_match.group("well"),
-                }
-                for column in (
-                    "p10",
-                    "p25",
-                    "p50",
-                    "p75",
-                    "p90",
-                    "mean",
-                ):
-                    if column in samples:
-                        record[f"{column}_mean"] = float(samples[column].mean())
-                        record[f"{column}_std"] = float(samples[column].std(ddof=0))
-                record.update(
-                    experiment_id=run_dir.name,
-                    scenario=output.parent.name,
-                    output_directory=str(output.relative_to(REPO_ROOT)),
-                    mode=match.group("mode"),
-                    conditioned=bool(match.group("conditioning")),
-                    relative_error=float(match.group("error")),
-                    lpm=model_dir.name,
-                )
-                records.append(record)
-    if not records:
-        raise FileNotFoundError(
-            f"No *_stats_quantiles.txt files found below {root / 'runs'}"
-        )
-    return pd.DataFrame.from_records(records)
-
-
-def infer_well(experiment_id: str) -> str:
-    for well in ("F09", "F11", "F38", "MF1", "PE"):
-        if well in experiment_id:
-            return well
-    return "multiple"
-
-
-def save_derived_tables(stats: pd.DataFrame, derived: Path) -> dict[str, Path]:
-    derived.mkdir(parents=True, exist_ok=True)
-    stats = stats.copy()
-    if "well" not in stats:
-        stats["well"] = stats["experiment_id"].map(infer_well)
-    all_path = derived / "posterior_statistics.csv"
-    stats.to_csv(all_path, index=False)
-
-    tables = {"all": all_path}
-    definitions = {
-        "figure4_median_transit_times.csv": stats[
-            stats["experiment_id"].str.startswith("main_")
-            & stats["mode"].isin(["successive", "successive_with_prior"])
-            & stats["lpm"].eq("exp_shifted")
-        ],
-        "figure5_model_comparison.csv": stats[
-            stats["experiment_id"].str.startswith("main_")
-            & stats["mode"].eq("successive_with_prior")
-        ],
-        "figure6_median_transit_times.csv": stats[
-            (
-                stats["experiment_id"].str.startswith("regime_")
-                | stats["experiment_id"].str.startswith("main_")
-            )
-            & stats["mode"].eq("successive_with_prior")
-            & stats["lpm"].eq("exp_shifted")
-            & stats["relative_error"].eq(0.2)
-        ],
-        "figureA1_error_sensitivity.csv": stats[
-            (
-                stats["experiment_id"].str.startswith("error_")
-                | stats["experiment_id"].str.startswith("main_")
-            )
-            & stats["mode"].eq("successive_with_prior")
-        ],
-        "F11_initialization_robustness.csv": stats[
-            stats["experiment_id"].str.startswith("init_F11_")
-        ],
-        "F11_tracer_sensitivity.csv": stats[
-            stats["experiment_id"].str.startswith("tracer_F11_")
-            | stats["experiment_id"].str.startswith("main_F11_")
-        ],
-    }
-    for filename, frame in definitions.items():
-        path = derived / filename
-        frame.to_csv(path, index=False)
-        tables[filename] = path
-    return tables
-
-
-def collect_diagnostics(root: Path, derived: Path) -> Path:
-    records = []
-    for run_dir in run_directories(root):
-        for result_file in (run_dir / "workflow").glob(
-            "**/Metropolis_Hastings/results_calibration.txt"
-        ):
-            frame = pd.read_csv(result_file, sep="\t")
-            values = (
-                dict(zip(frame.iloc[:, 0], frame.iloc[:, 1], strict=False))
-                if len(frame.columns) >= 2
-                else {}
-            )
-            stats_file = result_file.with_name("distributions_stats.txt")
-            finite = True
-            if stats_file.is_file():
-                samples = pd.read_csv(stats_file, sep="\t")
-                finite = bool(
-                    np.isfinite(
-                        samples.select_dtypes(include="number").to_numpy()
-                    ).all()
-                )
-            records.append(
-                {
-                    "experiment_id": run_dir.name,
-                    "case": str(
-                        result_file.parent.parent.relative_to(run_dir / "workflow")
-                    ),
-                    "success_rate": pd.to_numeric(
-                        values.get("success_rate"), errors="coerce"
-                    ),
-                    "finite_posterior": finite,
-                }
-            )
-    path = derived / "mcmc_diagnostics.csv"
-    pd.DataFrame.from_records(
-        records, columns=["experiment_id", "case", "success_rate", "finite_posterior"]
-    ).to_csv(path, index=False)
-    return path
-
-
-def plot_figure4(frame: pd.DataFrame, figures: Path) -> list[Path]:
-    if frame.empty:
-        return []
-    fig, axes = plt.subplots(2, 1, figsize=(8, 7), sharex=True, constrained_layout=True)
-    for ax, well in zip(axes, ("F11", "F09"), strict=False):
-        subset = frame[frame["well"].eq(well)]
-        for mode, color, label in (
-            ("successive_with_prior", CONDITIONED, "Conditioned"),
-            ("successive", UNCONSTRAINED, "Unconstrained"),
-        ):
-            data = subset[subset["mode"].eq(mode)].sort_values("date")
-            ax.errorbar(
-                data["date"],
-                data["p50_mean"],
-                yerr=data["p50_std"],
-                fmt="o",
-                capsize=3,
-                color=color,
-                label=label,
-            )
-        ax.set_title(well, loc="left", fontweight="bold")
-        ax.grid(alpha=0.25)
-    axes[0].legend(frameon=False)
-    axes[-1].set_xlabel("Date")
-    fig.supylabel("Median transit time (years)")
-    return export_figure(fig, figures, "Figure4")
-
-
-def plot_figure5(frame: pd.DataFrame, figures: Path) -> list[Path]:
-    if frame.empty:
-        return []
-    fig, axes = plt.subplots(2, 1, figsize=(8, 7), sharex=True, constrained_layout=True)
-    for ax, well in zip(axes, ("F11", "F09"), strict=False):
-        subset = frame[frame["well"].eq(well)]
-        for model, label in (
-            ("exp_shifted", "Shifted exponential"),
-            ("ig_shifted", "Shifted inverse Gaussian"),
-        ):
-            data = subset[subset["lpm"].eq(model)].sort_values("date")
-            ax.errorbar(
-                data["date"],
-                data["p50_mean"],
-                yerr=data["p50_std"],
-                fmt="o--",
-                capsize=3,
-                color=MODEL_COLORS[model],
-                label=label,
-            )
-        ax.set_title(well, loc="left", fontweight="bold")
-        ax.grid(alpha=0.25)
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=2, frameon=False)
-    axes[-1].set_xlabel("Sampling year")
-    fig.supylabel("Median transit time (years)")
-    return export_figure(fig, figures, "Figure5")
-
-
-def _well_from_output(output_directory: str) -> str | None:
-    path = REPO_ROOT / output_directory
-    candidates = list(path.glob("*_????_????"))
-    return candidates[0].name.split("_", 1)[0] if candidates else None
-
-
-def plot_figure6(
-    frame: pd.DataFrame, figures: Path, allow_partial: bool = False
-) -> list[Path]:
-    if frame.empty:
-        return []
-    frame = frame.copy()
-    present = set(frame["well"].dropna())
-    required = set(WELL_COLORS)
-    if not allow_partial and present != required:
-        return []
-    low = frame[frame["p50_mean"] < 25]
-    high = frame[frame["p50_mean"] >= 25]
-    broken = not low.empty and not high.empty
-    if broken:
-        fig, (top, bottom) = plt.subplots(
-            2,
-            1,
-            sharex=True,
-            figsize=(8, 5),
-            gridspec_kw={"height_ratios": [4, 1], "hspace": 0.05},
-        )
-        axes = (top, bottom)
-    else:
-        fig, top = plt.subplots(figsize=(8, 5))
-        axes = (top,)
-    for well, color in WELL_COLORS.items():
-        data = frame[frame["well"].eq(well)].sort_values("date")
-        if data.empty:
-            continue
-        for ax in axes:
-            ax.errorbar(
-                data["date"],
-                data["p50_mean"],
-                yerr=data["p50_std"],
-                fmt="o--",
-                capsize=3,
-                color=color,
-                label=well,
-            )
-    if broken:
-        top.set_ylim(max(25, high["p50_mean"].min() - 8), high["p50_mean"].max() + 8)
-        bottom.set_ylim(0, max(12, low["p50_mean"].max() + 3))
-        top.spines.bottom.set_visible(False)
-        bottom.spines.top.set_visible(False)
-        top.tick_params(labeltop=False, bottom=False)
-        bottom.xaxis.tick_bottom()
-        kwargs = dict(
-            marker=[(-1, -0.5), (1, 0.5)],
-            markersize=8,
-            linestyle="none",
-            color="k",
-            mec="k",
-            mew=1,
-            clip_on=False,
-        )
-        top.plot([0, 1], [0, 0], transform=top.transAxes, **kwargs)
-        bottom.plot([0, 1], [1, 1], transform=bottom.transAxes, **kwargs)
-    top.set_title("Shifted Exponential | error=20%", fontweight="bold")
-    top.legend(frameon=False, ncol=2)
-    for ax in axes:
-        ax.grid(alpha=0.25)
-    axes[-1].set_xlabel("Date")
-    fig.supylabel("Median transit time (years)")
-    return export_figure(fig, figures, "Figure6")
-
-
-def plot_figure_a1(frame: pd.DataFrame, figures: Path) -> list[Path]:
-    if frame.empty:
-        return []
-    fig, axes = plt.subplots(2, 1, figsize=(8, 7), sharex=True, constrained_layout=True)
-    for ax, well in zip(axes, ("F11", "F09"), strict=False):
-        subset = frame[frame["well"].eq(well)]
-        grouped = subset.groupby(["relative_error", "lpm"], as_index=False)[
-            "p50_mean"
-        ].mean()
-        for model, data in grouped.groupby("lpm"):
-            ax.plot(100 * data["relative_error"], data["p50_mean"], "o-", label=model)
-        ax.set_title(well, loc="left", fontweight="bold")
-        ax.grid(alpha=0.25)
-    axes[0].legend(frameon=False)
-    axes[-1].set_xlabel("Relative error (%)")
-    fig.supylabel("Mean posterior median transit time (years)")
-    return export_figure(fig, figures, "FigureA1")
 
 
 def _prediction_file(
@@ -382,6 +70,12 @@ def _find_main_output(root: Path, well: str, mode: str) -> Path | None:
 def plot_figure3(
     root: Path, figures: Path, window: tuple[int, int] = (2018, 2019)
 ) -> list[Path]:
+    """Render posterior prediction ensembles for the two principal wells.
+
+    Figure 3 is the declared exception to the derived-table-only rule because
+    it needs joint posterior prediction curves. Native outputs are located by
+    the extraction helpers, then reduced to the payload plotted here.
+    """
     tracers = ("cfc11", "cfc12", "cfc113")
     payload = _figure3_payload(root, window)
     if payload is None:
@@ -470,6 +164,7 @@ def _plot_figure3_panel(ax, predictions: dict, observations: pd.DataFrame, trace
 
 
 def build(profile: str, allow_partial: bool = False) -> list[Path]:
+    """Extract durable tables and render every figure available for a profile."""
     root = profile_root(profile)
     derived, figures = root / "derived", root / "figures"
     stats = collect_statistics(root)
@@ -493,6 +188,7 @@ def build(profile: str, allow_partial: bool = False) -> list[Path]:
 
 
 def main() -> None:
+    """Build study products for the requested isolated campaign profile."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--profile",

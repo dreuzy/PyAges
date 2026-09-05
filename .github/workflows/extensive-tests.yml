@@ -2,6 +2,30 @@ name: Extensive tests
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "pyages/**"
+      - "data_core/data_lpm/**"
+      - "examples/**/*.py"
+      - "examples/**/*.yaml"
+      - "examples/**/*.csv"
+      - "examples/**/*.json"
+      - "examples/**/*.ipynb"
+      - "examples/**/*.txt"
+      - "examples/**/*.xlsx"
+      - "sites/ploemeur/**"
+      - "scripts/common/mcmc_diagnostics.py"
+      - "scripts/common/provenance.py"
+      - "scripts/common/reporting.py"
+      - "scripts/qualification/_archive_*.py"
+      - "scripts/qualification/build_multichain_archive.py"
+      - "scripts/qualification/build_ci_multichain_archive.py"
+      - "tests/calibration/**"
+      - "tests/data_io/**"
+      - "tests/examples/**"
+      - "tests/lpm/**"
+      - "tests/ploemeur/**"
+      - ".github/workflows/extensive-tests.yml"
   schedule:
     - cron: "17 1 * * 1"
 
@@ -29,5 +53,35 @@ jobs:
             pyproject.toml
             install/constraints.txt
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -c install/constraints.txt -e ".[dev]"
-      - run: python -m pytest -q --run-extensive
+      - run: python -m pip install -c install/constraints.txt -e ".[dev,examples]"
+      - run: >-
+          python -m pytest -q --run-extensive
+          --basetemp "$RUNNER_TEMP/pyages-extensive-$GITHUB_RUN_ID"
+      - name: Build wheel and source distribution for qualification evidence
+        run: python -m build
+      - name: Build draft multi-chain qualification archive
+        run: >-
+          python -m scripts.qualification.build_ci_multichain_archive
+          --basetemp "$RUNNER_TEMP/pyages-extensive-$GITHUB_RUN_ID"
+          --dist-dir dist
+          --output .artifacts/multichain-qualification-draft.zip
+      - name: Preserve multi-chain scientific evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: multichain-scientific-evidence-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/synthetic_multichain_scientific.yaml
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_f09_multichain_scientific.yaml
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_ig_shifted_prior_multichain.yaml
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_temporal_multichain_scientific.yaml
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/albuquerque_shapefree_multichain_exploratory.yaml
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/synthetic_multichain_scientific/**
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_f09_multichain_scientific/**
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_ig_shifted_prior_multichain/**
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/ploemeur_temporal_multichain_scientific/**
+            ${{ runner.temp }}/pyages-extensive-${{ github.run_id }}/**/albuquerque_shapefree_multichain_exploratory/**
+            .artifacts/multichain-qualification-draft.zip
+            .artifacts/multichain-qualification-draft.zip.sha256
+          if-no-files-found: warn
+          retention-days: 30

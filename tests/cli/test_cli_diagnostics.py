@@ -22,9 +22,13 @@ import pyages.workflows.temporal as temporal_workflow
 from pyages.cli.commands.list_cmd import list_group
 
 
-def _config(tmp_path: Path) -> Path:
+def _config(tmp_path: Path, workflow: str = "single_date") -> Path:
     path = tmp_path / "config.yaml"
-    path.write_text("dataset: {}\n", encoding="utf-8")
+    dataset = "\n  file: observations.txt" if workflow == "temporal" else " {}"
+    path.write_text(
+        f"workflow:\n  kind: {workflow}\ndataset:{dataset}\n",
+        encoding="utf-8",
+    )
     return path
 
 
@@ -168,19 +172,21 @@ def test_cli_run_rejects_non_positive_mh_steps(tmp_path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("mode_args", "warning"),
+    ("workflow", "mode_args", "warning"),
     [
-        (["--transient", "--data-name", "ignored.txt"], "single-date only"),
-        (["--data-file", "ignored.txt"], "transient only"),
+        ("temporal", ["--data-name", "ignored.txt"], "single-date only"),
+        ("single_date", ["--data-file", "ignored.txt"], "temporal only"),
     ],
 )
 def test_cli_run_warns_about_mode_specific_overrides(
-    tmp_path, mode_args, warning, monkeypatch
+    tmp_path, workflow, mode_args, warning, monkeypatch
 ) -> None:
-    monkeypatch.setattr(run_cmd, "_run_single_date", lambda *_args: None)
-    monkeypatch.setattr(run_cmd, "_run_transient", lambda *_args: None)
+    monkeypatch.setattr(run_cmd, "_run_workflow", lambda *_args, **_kwargs: None)
 
-    result = CliRunner().invoke(run_cmd.run, [str(_config(tmp_path)), *mode_args])
+    result = CliRunner().invoke(
+        run_cmd.run,
+        [str(_config(tmp_path, workflow)), *mode_args],
+    )
 
     assert result.exit_code == 0
     assert warning in result.output
@@ -191,12 +197,12 @@ def test_cli_run_removes_temporary_override_after_dispatch_failure(
 ) -> None:
     dispatched = {}
 
-    def fail(config, inline, verbose):
-        del inline, verbose
+    def fail(workflow, config, *, inline, verbose):
+        del workflow, inline, verbose
         dispatched["config"] = Path(config)
         raise RuntimeError("workflow failed")
 
-    monkeypatch.setattr(run_cmd, "_run_single_date", fail)
+    monkeypatch.setattr(run_cmd, "_run_workflow", fail)
 
     result = CliRunner().invoke(
         run_cmd.run,
@@ -209,7 +215,7 @@ def test_cli_run_removes_temporary_override_after_dispatch_failure(
     assert not dispatched["config"].exists()
 
 
-def test_cli_workflow_wrappers_translate_runtime_errors(
+def test_cli_workflow_dispatch_translates_runtime_errors(
     tmp_path, monkeypatch, capsys
 ) -> None:
     config = _config(tmp_path)
@@ -222,31 +228,100 @@ def test_cli_workflow_wrappers_translate_runtime_errors(
 
     monkeypatch.setattr(single_date_workflow, "run_single_date", fail_single)
     with pytest.raises(SystemExit) as single_exit:
-        run_cmd._run_single_date(config, inline=False, verbose=False)
+        run_cmd._run_workflow("single_date", config, inline=False, verbose=False)
     assert single_exit.value.code == 1
 
     monkeypatch.setattr(temporal_workflow, "run_temporal", fail_temporal)
     with pytest.raises(SystemExit) as temporal_exit:
-        run_cmd._run_transient(config, verbose=False)
+        run_cmd._run_workflow("temporal", config, inline=False, verbose=False)
     assert temporal_exit.value.code == 1
 
     output = capsys.readouterr().out
-    assert "Error running workflow: single failure" in output
-    assert "Error running transient workflow: temporal failure" in output
+    assert "Error running single_date workflow: single failure" in output
+    assert "Error running temporal workflow: temporal failure" in output
 
 
-def test_apply_overrides_returns_original_path_when_nothing_changes(tmp_path) -> None:
+@pytest.mark.parametrize(
+    ("workflow", "workflow_module", "workflow_name", "error_heading"),
+    [
+        (
+            "single_date",
+            single_date_workflow,
+            "run_single_date",
+            "Error running single_date workflow",
+        ),
+        (
+            "temporal",
+            temporal_workflow,
+            "run_temporal",
+            "Error running temporal workflow",
+        ),
+    ],
+)
+def test_cli_run_prints_preserved_evidence_note_once_without_verbose(
+    tmp_path,
+    monkeypatch,
+    workflow,
+    workflow_module,
+    workflow_name,
+    error_heading,
+) -> None:
+    evidence = tmp_path / "preserved-results"
+    note = f"Preserved result evidence: {evidence}"
+
+    def fail(*_args, **_kwargs):
+        error = RuntimeError("convergence gate rejected the chains")
+        error.add_note(note)
+        raise error
+
+    monkeypatch.setattr(workflow_module, workflow_name, fail)
+
+    result = CliRunner().invoke(run_cmd.run, [str(_config(tmp_path, workflow))])
+
+    assert result.exit_code == 1
+    assert f"{error_heading}: convergence gate rejected the chains" in result.output
+    assert result.output.count(note) == 1
+
+
+def test_cli_run_reports_returned_result_paths(tmp_path, monkeypatch) -> None:
     config = _config(tmp_path)
+    single_output = tmp_path / "single-results"
+    temporal_output = tmp_path / "temporal-results"
+    monkeypatch.setattr(
+        single_date_workflow,
+        "run_single_date",
+        lambda *_args, **_kwargs: single_output,
+    )
+    monkeypatch.setattr(
+        temporal_workflow,
+        "run_temporal",
+        lambda *_args, **_kwargs: temporal_output,
+    )
 
+    runner = CliRunner()
+    single = runner.invoke(run_cmd.run, [str(config)])
+    temporal_config = tmp_path / "temporal.yaml"
+    temporal_config.write_text(
+        "workflow:\n  kind: temporal\ndataset:\n  file: data.txt\n",
+        encoding="utf-8",
+    )
+    temporal = runner.invoke(run_cmd.run, [str(temporal_config)])
+
+    assert single.exit_code == 0
+    assert f"Results written to: {single_output}" in single.output
+    assert temporal.exit_code == 0
+    assert f"Results written to: {temporal_output}" in temporal.output
+
+
+def test_apply_overrides_reports_when_nothing_changes() -> None:
     result = run_cmd._apply_overrides(
-        config,
-        transient=False,
+        {},
+        workflow="single_date",
         lpm=None,
         mh_nsteps=None,
         data_name=None,
         data_dir=None,
         data_file=None,
-        verbose=False,
     )
 
-    assert result is config
+    assert result is False

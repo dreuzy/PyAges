@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines the numerical accuracy and safety limits for convolution.
 
-"""Define numerical controls shared by convolution preparation and integration."""
+"""Configure adaptive tracer-grid preparation and continuous LPM integration.
+
+Absolute and relative tolerances determine where a tracer response needs more
+age-grid resolution. Initial resolution and minimum bin width set the starting
+and smallest useful intervals, while maximum refinement depth and total grid
+size provide hard resource limits.
+
+``ConvolutionSettings`` is immutable and validates all controls at construction.
+If the requested accuracy cannot be reached within its limits, convolution code
+raises an error instead of silently accepting an under-resolved response.
+"""
 
 from __future__ import annotations
 

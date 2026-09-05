@@ -1,8 +1,22 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file locates one set of posterior solutions in its objective landscape.
 
-"""Detailed objective-solution figures."""
+"""Inspect posterior solutions within the objective landscape explored beforehand.
+
+The objective grid describes how fit quality varies across the prior parameter
+space, while the posterior frame contains the solutions retained by one
+calibration. For a one-parameter model, both stages are plotted against the
+objective value. For a larger model, the grid is interpolated into colored
+pairwise landscapes and the posterior solutions are placed on top.
+
+Grid and posterior values share one color scale so the same color always means
+the same fit quality; lower values are better. A star identifies the best
+posterior solution and an optional diamond identifies independently known
+parameters. Large frames are thinned reproducibly for display only, without
+changing how the best or reference solutions are selected.
+"""
 
 from __future__ import annotations
 
@@ -38,7 +52,12 @@ def _plot_solution_objective_axis(
     vmin: float,
     vmax: float,
 ):
-    """Plot one parameter against objective values."""
+    """Plot one parameter against objective values from two sampling stages.
+
+    The faint points represent the objective evaluated on the prior grid.  The
+    stronger points are posterior solutions on the same color scale, allowing
+    the reader to see both the explored landscape and where calibration ended.
+    """
     scalar = ax.scatter(
         grid[x_name],
         grid_values,
@@ -104,7 +123,12 @@ def _plot_solution_parameter_axis(
     vmin: float,
     vmax: float,
 ):
-    """Plot two parameters over the interpolated objective landscape."""
+    """Plot two parameters over the interpolated prior objective landscape.
+
+    Posterior points retain their individual objective colors.  The star and
+    optional diamond distinguish the best sampled solution from an independent
+    reference rather than asking the reader to infer them from color alone.
+    """
     scalar = _plot_interpolated_objective_surface(
         ax,
         grid[x_name],
@@ -164,7 +188,7 @@ def _plot_solution_parameter_axis(
 
 
 def _solution_legend(reference_params, reference_label: str) -> list[Line2D]:
-    """Build the fixed legend for expert objective figures."""
+    """Describe the visual roles shared by every objective-solution panel."""
     handles = [
         Line2D(
             [],
@@ -223,13 +247,22 @@ def plot_objective_solution_map(
     filename: str | Path | None = None,
     title: str = "Expert view: posterior solutions colored by objective value",
 ):
-    """
-    Plot posterior solutions on top of the colored objective landscape.
+    """Show where posterior solutions fall in the prior objective landscape.
+
+    With one parameter, the figure plots that parameter directly against the
+    objective.  With several parameters, it displays up to three pairwise
+    projections.  A shared color range makes prior-grid and posterior objective
+    values comparable across all panels; lower values indicate better fits.
+
+    Large inputs are reproducibly thinned for rendering only.  Best-solution
+    and optional reference markers are still derived from the full frames.
     """
     apply_example_style()
     if not param_names:
         raise ValueError("At least one parameter is required.")
 
+    # Accept both names used by the objective-grid and calibration pipelines,
+    # then normalize their visual meaning through a shared color scale.
     objective_col = (
         "half_log_chi_square"
         if "half_log_chi_square" in objective_frame.columns
@@ -247,6 +280,8 @@ def plot_objective_solution_map(
             "Posterior frame must contain 'obj_function' or 'half_log_chi_square'."
         )
 
+    # A single parameter needs an objective axis.  Higher-dimensional models
+    # use pairwise projections, capped at three to keep the figure readable.
     if len(param_names) == 1:
         pairs = [(param_names[0], objective_col)]
     else:
@@ -258,6 +293,8 @@ def plot_objective_solution_map(
     fig, axs = plt.subplots(1, ncols, figsize=(fig_width, 4.9), squeeze=False)
     axs = axs.flatten()
 
+    # Downsampling controls plotting cost only and uses a fixed seed so report
+    # images remain reproducible between runs.
     grid_frame = objective_frame.copy()
     if len(grid_frame) > 9000:
         grid_frame = grid_frame.sample(9000, random_state=12345)
@@ -277,6 +314,8 @@ def plot_objective_solution_map(
             "No valid objective values found for the expert objective plot."
         )
 
+    # Both layers must share these limits; otherwise equal colors could imply
+    # different objective values for grid and posterior points.
     vmin = float(combined_values.min())
     vmax = float(combined_values.max())
     best_posterior = _best_row(post_frame)

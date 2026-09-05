@@ -57,11 +57,7 @@ The distribution, Python import, and command all use the single identifier
 `pyages`. The wheel contains the reusable library, its CLI,
 and core model data. Repository examples and site studies remain in the Git
 source tree. The `1.0.1` release is available from
-[PyPI](https://pypi.org/project/pyages/1.0.1/):
-
-```
-python -m pip install "pyages==1.0.1"
-```
+[PyPI](https://pypi.org/project/pyages/1.0.1/).
 
 Use `python -m pip install pyages` when deliberately selecting the newest
 published compatible release. Prerelease artifacts, if any, require an
@@ -71,7 +67,7 @@ explicit prerelease request:
 python -m pip install --pre pyages
 ```
 
-Run the full test suite:
+Run the standard test suite:
 
 ```
 python run_tests.py standard
@@ -89,18 +85,44 @@ From a source checkout, use the minimal templates under `examples/templates/`:
 
 ```
 pyages run examples/templates/quickstart_single.yaml
-pyages run --transient examples/templates/quickstart_temporal.yaml
+pyages run examples/templates/quickstart_temporal.yaml
 ```
+
+## Unreleased multi-chain MH qualification
+
+The development branch includes opt-in multi-chain Metropolis--Hastings with
+dispersed starts, a separate pilot that learns one fixed proposal covariance,
+independent production streams, rank-normalized convergence diagnostics, and
+qualification-gated pooling. This feature is **not** present in the
+`pyages==1.0.1` package on PyPI; use an editable source installation and record
+its exact Git commit until the next release.
+
+Two canonical source-checkout profiles are available:
+
+```bash
+pyages run examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date_multichain.yaml
+pyages run examples/natural/ploemeur/exemple_ploemeur_multichain.yaml
+```
+
+The first checks recovery of known synthetic parameters. The second qualifies
+convergence and fitted latent concentrations for the F09 2010 observations; it
+does not provide known field parameter truth. Run both executable scientific
+qualifications with:
+
+```bash
+python run_tests.py extensive
+```
+
+See the
+[multi-chain guide](docs/user-guide/multichain-mh.md),
+[configuration reference](docs/user-guide/configuration.md),
+[output contract](docs/reference/outputs.md), and
+[qualification record](docs/reports/multichain-mh-qualification-2026-08-31.md).
 
 ## Installation and execution
 
-Recommended stable package:
-
-```
-python -m pip install "pyages==1.0.1"
-```
-
-This makes `import pyages` work from any directory and enables the CLI:
+The installation in the quick start makes `import pyages` work from any
+directory and enables the CLI:
 
 ```
 pyages check
@@ -121,8 +143,7 @@ The CLI provides quick access to common workflows once the package is installed.
 Main commands:
 - `pyages check` : validate installation, data paths, LPM registry, tracers.
 - `pyages list lpms|tracers` : list available models or tracers.
-- `pyages run <config.yaml>` : run a YAML-driven workflow (single-date by default).
-- `pyages run --transient <config.yaml>` : run the multi-date temporal workflow.
+- `pyages run <config.yaml>` : run the workflow declared by `workflow.kind`.
 - `pyages new lpm|tracer ...` : scaffold a new model or tracer template.
 
 Examples:
@@ -130,9 +151,9 @@ Examples:
 pyages check
 pyages list lpms
 pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 pyages run --lpm exp_shifted --mh-nsteps 5000 --data-name mydata.txt --data-dir examples/my_site/data my_config.yaml
-pyages run --transient --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
+pyages run --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
 ```
 
 ## Results directory
@@ -165,7 +186,7 @@ setx PYAGES_RESULTS_DIR "D:\results\PyAges"
   - `pyages/config/`: validated configuration models, paths, and runtime helpers
   - `pyages/_plotting.py`: private plotting primitives shared across modules
 - `data_core/`: shared model data for LPMs and tracers (not observations)
-  - `data_core/data_lpm/`: LPM parameter files (`params.yaml`, bounds, etc.)
+  - `data_core/data_lpm/`: LPM parameter files (`params.yaml`, domains, calibration ranges, priors, etc.)
   - `data_core/data_tracer/`: tracer chronologies and recharge series
   - `data_core/sources/`: provenance sources excluded from runtime packages
 - `sites/`: site-specific workflows, data, and scripts (e.g., `ploemeur/`)
@@ -220,8 +241,8 @@ site-specific directory such as `sites/ploemeur/params_lpm`.
 
 ## Running examples
 
-Example runners live under `examples/<site>/` and read their own YAML configs.
-For instance, see:
+Examples live under `examples/<site>/` and are normally launched from their
+YAML configuration with `pyages run`. For instance, see:
 
 - `examples/natural/ploemeur/exemple_ploemeur.yaml`
 - `examples/natural/ploemeur_temporal/ploemeur_temporal.yaml`
@@ -229,12 +250,12 @@ For instance, see:
 
 ### Temporal MH launcher (multi-date concentrations)
 
-There is a dedicated launcher that runs Metropolis-Hastings on a multi-date
-concentration file (``ori_*.txt``) and produces temporal plots plus parameter
+The temporal workflow runs Metropolis-Hastings on a multi-date concentration
+file (``ori_*.txt``) and produces temporal plots plus parameter
 and concentration distributions:
 
 ```
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 Supported modes:
@@ -269,8 +290,8 @@ python run_tests.py extensive
 
 The supported workflow entrypoints are:
 
-- `pyages run`: single-date workflow driven by YAML.
-- `pyages.workflows.temporal`: canonical multi-date MH workflow, exposed by `pyages run --transient`.
+- `pyages run`: single-date or temporal workflow selected by the YAML.
+- `pyages.workflows.temporal`: canonical multi-date MH workflow.
 - `pyages check`: quick installation and data sanity check.
 
 Repository-only research and benchmark commands are catalogued in

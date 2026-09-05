@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file turns a short model name and optional data directory into an LPM.
+# It asks the registry for the matching class, then returns an instance using
+# either its configured initial parameters or draws inside calibration ranges.
 
 """
 Factory utilities for LPM model construction and initialization.

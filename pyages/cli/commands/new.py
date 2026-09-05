@@ -1,9 +1,17 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file implements commands that scaffold a new LPM or tracer definition.
 
-"""
-PyAges new commands - Generate templates for new LPMs and tracers.
+"""Generate editable extension templates through the ``pyages new`` command.
+
+The LPM subcommand creates a Python model skeleton together with its parameter
+YAML, while the tracer subcommand creates metadata and recharge-history examples.
+Content generation is delegated to the template modules so command behavior and
+generated documentation remain separate.
+
+Existing targets are protected by the command's explicit replacement rules,
+preventing ordinary scaffolding from silently overwriting contributor work.
 """
 
 import click

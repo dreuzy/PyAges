@@ -157,6 +157,12 @@ must consume a declared derived table, except Figure 3 (posterior prediction
 ensembles) and the observation-only Figures 2/S1. See `figures.yaml` for the
 complete contract.
 
+The code follows the same boundary: `product_extraction.py` discovers and
+validates native run outputs, `summary_figures.py` renders Figures 4, 5, 6 and
+A1 only from derived tables, and `build_products.py` is the short orchestration
+facade. Figure 3 remains in the facade as the documented native-posterior
+exception.
+
 Each generated figure has three outputs: a 300-DPI PNG preview, a vector PDF,
 and the submission artifact (`.tif`). Submission TIFF files are flattened RGB,
 single-frame, LZW-compressed graphs at 600 DPI. Validate them with:

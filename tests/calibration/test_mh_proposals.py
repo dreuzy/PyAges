@@ -14,6 +14,7 @@ import pytest
 from scipy.stats import multivariate_normal
 
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh._sampler_target import MHTarget
 from pyages.calibration.methods.mh.ig_coordinates import (
     physical_to_scipy_coordinates,
     scipy_to_physical_coordinates,
@@ -27,13 +28,17 @@ from pyages.calibration.methods.mh.proposals import (
     sum_difference_log_abs_det_jacobian,
     sum_difference_to_native,
 )
+from pyages.calibration.methods.mh.sampler import _MHState
 
 
 class _BoundedTarget:
     p = {"mu": 10.0, "shift": 10.0}
 
+    def set_param_from_array(self, values):
+        self.p = dict(zip(self.p, values, strict=True))
+
     @staticmethod
-    def param_within_bounds_array(values):
+    def param_within_calibration_range_array(values):
         return 0.1 <= values[0] <= 70.0 and 0.0 <= values[1] <= 70.0
 
 
@@ -86,6 +91,20 @@ def test_correlated_proposal_has_requested_covariance_and_is_symmetric():
     assert proposal.log_hastings_ratio(current, proposed) == 0.0
 
 
+def test_correlated_proposal_owns_a_read_only_covariance_snapshot() -> None:
+    covariance = np.array([[4.0, -1.5], [-1.5, 2.0]])
+    proposal = GaussianRandomWalk(covariance)
+
+    covariance[0, 0] = 99.0
+
+    assert proposal.covariance[0, 0] == 4.0
+    assert not proposal.covariance.flags.writeable
+    with pytest.raises(ValueError, match="read-only"):
+        proposal.covariance[0, 0] = 3.0
+    with pytest.raises(ValueError, match="cannot set WRITEABLE flag"):
+        proposal.covariance.setflags(write=True)
+
+
 def test_proposal_is_reproducible_for_a_fixed_seed():
     proposal = GaussianRandomWalk.diagonal((2.0, 5.0), "sum_difference")
     first = np.random.default_rng(9012)
@@ -98,6 +117,15 @@ def test_proposal_is_reproducible_for_a_fixed_seed():
 def test_regularized_empirical_covariance_is_positive_definite():
     samples = np.column_stack((np.arange(20.0), 2.0 * np.arange(20.0)))
     covariance = regularize_empirical_covariance(samples, relative_ridge=1.0e-6)
+    assert np.all(np.linalg.eigvalsh(covariance) > 0.0)
+
+
+def test_zero_ridge_still_repairs_a_singular_empirical_covariance() -> None:
+    samples = np.column_stack((np.arange(20.0), 2.0 * np.arange(20.0)))
+
+    covariance = regularize_empirical_covariance(samples, relative_ridge=0.0)
+
+    assert np.allclose(covariance, covariance.T)
     assert np.all(np.linalg.eigvalsh(covariance) > 0.0)
 
 
@@ -127,16 +155,24 @@ def test_target_and_bounds_do_not_depend_on_proposal_choice():
     )
     for sampler in (componentwise, transformed):
 
-        def objective_function(params, *_args, return_concentrations=False, **_kwargs):
+        def objective_function_for_lpm(
+            lpm, params, *_args, return_concentrations=False, **_kwargs
+        ):
+            lpm.set_param_from_array(params)
             result = float(params[0] ** 2 + 0.5 * params[1] ** 2)
             return (result, [1.0]) if return_concentrations else result
 
         problem = SimpleNamespace(
             lpm=_BoundedTarget(),
-            objective_function=objective_function,
+            objective_function_for_lpm=objective_function_for_lpm,
             ensure_prepared=lambda: None,
         )
         sampler._bind_problem(problem)
+        sampler._target = MHTarget(  # noqa: SLF001
+            problem,
+            sampler.prior,
+            likelihood=True,
+        )
     args = ([10.0, 30.0], np.array([1.0]), np.array([1.0]))
     componentwise_target = componentwise._log_posterior_eval(*args)  # noqa: SLF001
     transformed_target = transformed._log_posterior_eval(*args)  # noqa: SLF001
@@ -144,16 +180,12 @@ def test_target_and_bounds_do_not_depend_on_proposal_choice():
 
     transformed._proposal = GaussianRandomWalk.diagonal((100.0, 100.0))
     rng = np.random.default_rng(772)
-    state = [10.0, 30.0]
-    log_p, objective, concentration = transformed_target
+    state = _MHState([10.0, 30.0], *transformed_target)
     for _ in range(500):
-        state, log_p, objective, concentration, _ = transformed._mcmc_step(  # noqa: SLF001
+        state, _ = transformed._mcmc_step(  # noqa: SLF001
             state,
-            log_p,
-            objective,
-            concentration,
             np.array([1.0]),
             np.array([1.0]),
             rng,
         )
-        assert _BoundedTarget.param_within_bounds_array(state)
+        assert _BoundedTarget.param_within_calibration_range_array(state.params)

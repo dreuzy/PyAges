@@ -16,6 +16,15 @@ directory. Absolute paths are unchanged.
 
 Used with `pyages run <config.yaml>`.
 
+### Workflow Section
+
+```yaml
+workflow:
+  kind: single_date
+```
+
+`kind` is required. It is the sole workflow discriminator used by the CLI.
+
 ### Dataset Section
 
 ```yaml
@@ -141,25 +150,156 @@ the normalized residual norm stored in calibration result tables. See
 ```yaml
 calibration_metropolis_hastings:
   nstep: 5000                       # MCMC iterations
+  burn_in: 0.2                      # Fraction discarded before retention
+  nskip: 10                         # Retain every tenth post-burn-in state
+  seed: 12345                       # Seed used by the one-chain mode
   prior_option: false               # Use prior in likelihood
   likelihood: true                  # Use likelihood (should be true)
   monitor: false                    # Track acceptance statistics
   display_traj: false               # Plot parameter trajectories
+  multichain: null                  # Optional ensemble; see the next section
 ```
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `nstep` | integer | 5000 | Number of MCMC transitions; at least 11 so the fixed burn-in/thinning defaults retain a state |
+| `nstep` | integer | 5000 | Number of production transitions per chain; at least 11 |
+| `burn_in` | number | 0.2 | Fraction in `[0, 1)` discarded by the strict retention rule |
+| `nskip` | integer | 10 | Retain iterations divisible by this value after strict burn-in; at least 1 |
+| `seed` | non-negative integer | 12345 | Random seed for the one-chain mode |
 | `prior_option` | boolean | false | Include prior probability in acceptance |
 | `likelihood` | boolean | true | Use likelihood function |
 | `monitor` | boolean | false | Monitor and display acceptance rates |
 | `display_traj` | boolean | false | Generate trajectory plots (slow) |
+| `multichain` | object or null | null | Optional multi-chain controls; omitted or `null` preserves the one-chain workflow |
 
 These launcher fields do not by themselves demonstrate MCMC convergence.
 Acceptance, retention, prior, and proposal equations are given in
 {doc}`../scientific-methods`; article results additionally require the
 multiple-chain diagnostics described in {doc}`../science/inference`.
 The operational calibration checklist is in {doc}`calibration`.
+
+(optional-multi-chain-mh-configuration)=
+### Optional Multi-chain MH Configuration
+
+```{note}
+This section documents an **Unreleased** development-branch feature. It is not
+implemented by the `pyages==1.0.1` package from PyPI. Until the next release,
+use an editable source installation and record its exact Git commit.
+```
+
+The same optional `multichain` mapping is accepted below
+`calibration_metropolis_hastings` in a single-date file and below `calibration`
+in a temporal file. Omitting it or setting it to `null` preserves the existing
+one-chain execution. The presence of a mapping activates the ensemble because
+`enabled` defaults to `true`; set `enabled: false` explicitly to keep a
+temporarily retained block inactive. A production ensemble can be written as
+follows:
+
+```yaml
+multichain:
+  enabled: true
+  chains: 4
+  master_seed: 12345
+  initialization:
+    strategy: bounds_stratified
+    explicit_starts: null
+    max_attempts: 100
+  pilot:
+    enabled: true
+    nstep: 2000
+    burn_in: 0.5
+    relative_ridge: 1.0e-6
+    proposal_multiplier: auto
+    save_samples: false
+  diagnostics:
+    max_rhat: 1.01
+    min_bulk_ess: 300.0
+    min_tail_ess: 300.0
+    require_convergence: true
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | true | Run the multi-chain path when the mapping is present; set false to disable that retained block |
+| `chains` | integer | 4 | Number of pilot and production chains; at least 2 |
+| `master_seed` | non-negative integer or null | 12345 | Root of independent initialization, pilot, and production streams; `null` generates a fresh root seed that is recorded for replay |
+| `initialization` | object | see below | Policy used to construct one bounded start per chain |
+| `pilot` | object | see below | Pilot phase used to estimate a common, fixed production proposal covariance |
+| `diagnostics` | object | see below | Production-chain qualification thresholds |
+
+`initialization` has these controls:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `strategy` | string | `bounds_stratified` | Dispersed Latin-hypercube draws over calibration ranges, or effective marginal prior mass when a prior is active |
+| `explicit_starts` | array of mappings or null | null | Exactly one complete parameter mapping per chain; accepted only with `strategy: explicit` |
+| `max_attempts` | integer | 100 | Maximum within-stratum retries for unresolved `bounds_stratified` candidates that fail the active-prior support check; currently unused by the other strategies; at least 1 |
+
+The other initialization strategies are `prior_sample`, which independently
+draws each chain from the enabled and loaded prior, and `explicit`, which uses
+the ordered mappings in `explicit_starts`. `prior_sample` requires
+`prior_option: true` and a prior covering every parameter.
+Every returned candidate is checked against the calibration ranges and, when the
+prior is active, its support. `prior_sample` uses each prior marginal conditioned
+on the operational interval through an exact bounded quantile. It does not
+perform rejection sampling or consume `max_attempts`.
+
+For `bounds_stratified`, one random permutation assigns a fixed marginal
+stratum to each chain, while that chain's own initialization stream supplies
+its within-stratum jitter. If a candidate fails the active-prior support check,
+only unresolved chains redraw jitter inside their already assigned strata. A
+successful result therefore remains a Latin hypercube; otherwise initialization
+fails explicitly after `max_attempts`. Initialization never uses observations
+or selects starts by likelihood.
+
+`pilot` has these controls:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | true | Run separate pilot chains before production |
+| `nstep` | integer | 2000 | Transitions in each pilot chain; at least 4 and sufficient with `burn_in` to retain two draws |
+| `burn_in` | number | 0.5 | Fraction in `[0, 1)` discarded from each pilot; at least two draws must remain |
+| `relative_ridge` | number | 1.0e-6 | Non-negative, scale-aware diagonal regularization ensuring a usable covariance |
+| `proposal_multiplier` | positive number or `auto` | `auto` | Scale applied to proposal standard deviations; `auto` uses $2.38/\sqrt{d}$ for $d$ parameters |
+| `save_samples` | boolean | false | Persist pilot draws as tuning evidence; they never enter the production posterior |
+
+The proposal covariance always uses the pooled-within-chain estimator: each
+pilot chain is centered separately before their variations are combined. This
+is not a prior covariance and it is not copied from the first chain. The
+configured ridge is then added, and the resulting covariance is held fixed for
+every production chain. Fixing it before production preserves the Markov-chain
+target while still adapting proposal geometry in a separate tuning phase.
+
+`diagnostics` has these controls:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `max_rhat` | number | 1.01 | Strict upper qualification limit for rank-normalized split-$\hat R$; greater than 1 |
+| `min_bulk_ess` | number | 300.0 | Minimum bulk effective sample size; strictly positive |
+| `min_tail_ess` | number | 300.0 | Minimum tail effective sample size; strictly positive |
+| `require_convergence` | boolean | true | Require every applicable sampled or derived quantity to meet the gates before treating pooled draws as a qualified posterior; derived quantities that are constant across all retained production draws are reported but excluded |
+
+When convergence is required, configuration validation also checks the
+algorithmic ESS ceiling after splitting the retained chains. Following Stan,
+antithetic chains may have ESS greater than their raw draw count, with a ceiling
+of $N\log_{10}(N)$ for $N$ split draws. If a requested ESS cannot possibly be
+reached, increase `nstep`/`mh_nsteps`, reduce thinning, or set
+`require_convergence: false` for an explicitly exploratory short run.
+
+In multi-chain mode, `master_seed` controls the whole ensemble and the
+one-chain `seed` is not reused. In a temporal file, `seed_enabled` and `seed`
+likewise apply only to the one-chain mode. Separate derived streams keep
+initialization, pilot, and production randomness reproducible without making
+the production chains share a random-number stream.
+
+The single-date `monitor` and `display_traj` switches are one-chain options and
+cannot be combined with an enabled ensemble. Multi-chain runs persist every
+raw chain under `chains/`, which is the stable input for trace diagnostics and
+avoids transient plots being confused with convergence qualification. The
+direct Python `MultiChainMetropolisHastings` API enforces the same restriction
+instead of silently changing those options. Its lower-level `display_text`
+option remains valid and logs a separate summary for each pilot or production
+sampler; it is not exposed by the YAML launcher.
 
 ### Simplex Section
 
@@ -178,7 +318,7 @@ calibration_simplex:
 
 ## Temporal Workflow Configuration
 
-Used with `pyages run --transient <config.yaml>`.
+Used with `pyages run <config.yaml>` and `workflow.kind: temporal`.
 
 ### Dataset Section
 
@@ -216,12 +356,14 @@ lpm_models:
 
 ```yaml
 workflow:
+  kind: temporal
   mode: span                        # 'span' or 'successive'
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `mode` | string | `span` | Exactly `span` (one joint calibration) or `successive` (one calibration per distinct date) |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `kind` | string | Yes | Fixed discriminator `temporal` used by `pyages run` |
+| `mode` | string | No (`span`) | Exactly `span` (one joint calibration) or `successive` (one calibration per distinct date) |
 
 ### Calibration Section
 
@@ -234,6 +376,7 @@ calibration:
   lpm_number: 10                    # Posterior draws used in plotted outputs (0 = auto)
   seed_enabled: false               # Enable reproducible RNG explicitly
   seed: 12345                       # Random seed
+  multichain: null                  # Optional ensemble; same block as above
 ```
 
 | Field | Type | Default | Description |
@@ -243,13 +386,26 @@ calibration:
 | `burn_in` | number | 0.2 | Burn-in fraction in `[0, 0.5)` |
 | `nskip` | integer | 10 | Keep iterations divisible by this value after strict burn-in; at least 1 |
 | `lpm_number` | integer | 10 | Posterior draws used for distribution and concentration plots; non-negative, with 0 selecting an automatic count |
-| `seed_enabled` | boolean | false | Use the configured fixed random seed; otherwise generate a fresh seed for each chain and record it in `parameters_calibration.txt` |
+| `seed_enabled` | boolean | false | Use the configured fixed one-chain seed; otherwise generate and record a fresh seed for that run |
 | `seed` | non-negative integer or null | null | Required when `seed_enabled: true`; ignored otherwise |
+| `multichain` | object or null | null | Optional multi-chain controls; omitted or `null` preserves the one-chain workflow |
 
 The retention rule is zero-based and strict: a state is retained when
 `iteration > burn_in * mh_nsteps` and `iteration % nskip == 0`. Rejected
 proposals retain the repeated current state, as required for a valid Markov
 chain.
+
+For an ensemble, place the mapping from
+{ref}`optional-multi-chain-mh-configuration` under `calibration`. Its
+`master_seed` replaces the one-chain `seed_enabled`/`seed` controls and its
+`chains` value sets the number of independent production chains.
+
+The temporal workflow currently always enables the parametric priors declared
+in each selected LPM's `params.yaml` (`prior_option=True`,
+`prior_type="parametric"`). Unlike the single-date workflow, it does not expose
+`prior_option` or `prior_type` in this YAML section. LPM calibration ranges remain
+active and restrict the resulting target. Changing this behavior therefore
+requires a workflow/API change, not an undocumented configuration key.
 
 ### Figures Section
 
@@ -303,7 +459,11 @@ parameters:
     label: mean_age                 # Human-readable label
     unit: year                      # Physical unit
     description: "Mean of the distribution."
-    bounds: [0.1, 70.0]            # Valid range [min, max]
+    domain:                         # Formula validity, independent of inference
+      min: 0.0
+      min_inclusive: false
+      max: null
+    calibration_range: [0.1, 70.0] # Finite operational search range
     init: 10.0                      # Initial value for simplex
     step: 1.5                       # MH proposal step size
     prior:
@@ -316,7 +476,8 @@ parameters:
     label: std_age
     unit: year
     description: "Standard deviation parameter."
-    bounds: [0.1, 70.0]
+    domain: {min: 0.0, min_inclusive: false, max: null}
+    calibration_range: [0.1, 70.0]
     init: 2.0
     step: 1.0
     prior:
@@ -336,7 +497,8 @@ notes: "Optional notes about the model."
 | `label` | string | No | Display label |
 | `unit` | string | No | Physical unit |
 | `description` | string | No | Parameter description |
-| `bounds` | array | Yes | `[min, max]` valid range |
+| `domain` | object | Yes for new files | Mathematical formula domain; `min` or `max` may be `null`, and endpoints are inclusive unless the corresponding `*_inclusive` flag is false |
+| `calibration_range` | array | Yes for new files | Finite inclusive `[min, max]` used by optimizers and samplers |
 | `init` | number | Yes | Initial value for optimization |
 | `step` | number | Conditional | Proposal step used with `componentwise_source="model"` |
 | `prior` | object | No | Prior distribution specification |
@@ -344,13 +506,15 @@ notes: "Optional notes about the model."
 At LPM construction time, PyAges validates the runtime fields used by the
 model: the YAML `model` identifier must match the requested LPM; parameter
 names must be non-empty, unique, and exactly match the model constructor;
-every `bounds` pair must contain finite numbers in ascending order; and each
-finite `init` value must lie inside its inclusive bounds. The constructor's
+every `calibration_range` pair must contain finite numbers in ascending order
+and lie inside `domain`; and each finite `init` value must lie inside its
+inclusive calibration range. The constructor's
 parameter order remains the canonical order for calibration vectors even when
 the entries appear in another order in YAML.
 
-The shared YAML loader validates `version`, `name`, `bounds`, `init`, and any
-supplied `step` or `prior`, then caches an immutable schema. Cache reuse is
+The shared YAML loader validates `version`, `name`, `domain`,
+`calibration_range`, `init`, and any supplied `step` or `prior`, then caches an
+immutable schema. Cache reuse is
 based on the exact file content, so replacing a file while preserving its size
 and timestamp cannot return stale parameters. `ParameterManager` binds that
 schema to the constructor's parameter set and order. Descriptive fields remain
@@ -358,7 +522,7 @@ available in the defensive copy returned by the document loader; proposal
 steps and priors are exposed through the immutable runtime schema.
 
 `step` may be omitted when Metropolis-Hastings derives componentwise proposal
-scales from parameter bounds (the default). It is required for every parameter
+scales from parameter calibration ranges (the default). It is required for every parameter
 when `MHConfig(componentwise_source="model")` is selected. When present, it
 must be finite and strictly positive.
 
@@ -378,9 +542,19 @@ mean and a finite, strictly-positive standard deviation. Unknown prior types
 and incomplete prior mappings are rejected while loading `params.yaml`. When
 parametric priors are enabled, every model parameter must define one.
 
-Parameter bounds remain active independently of the prior and define the
-admissible calibration domain. Scientific analyses should report both the
-bounds and the prior actually used.
+These fields answer three different questions:
+
+1. `domain`: can the LPM formula be evaluated? For example, an exponential
+   scale must be strictly positive, but it has no universal finite maximum.
+2. `calibration_range`: what finite interval is this run allowed to search?
+   It is a numerical and study-design choice inside the mathematical domain.
+3. `prior`: how is probability weighted before seeing the observations?
+
+The effective MH support is the intersection of the calibration range and the
+prior support. A normal prior is therefore conditioned on the calibration
+range; a uniform prior may narrow it further. Scientific analyses should
+report all three choices. `calibration_range` is required; the former `bounds`
+field is rejected.
 
 ---
 

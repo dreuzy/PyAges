@@ -6,34 +6,62 @@
 
 from __future__ import annotations
 
+import json
 import math
 
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.stats import truncnorm
 
-from pyages.calibration.methods.mh.prior import (
-    Prior,
+from pyages.calibration.methods.mh._prior_empirical import (
     build_empirical_prior_grid,
     histogram_moments,
 )
+from pyages.calibration.methods.mh._prior_marginals import (
+    EmpiricalMarginal,
+    NormalMarginal,
+    PriorMarginal,
+    UniformMarginal,
+    parametric_marginal,
+)
+from pyages.calibration.methods.mh.prior import Prior
+from pyages.lpm import build_lpm
 
 
 class _TwoParameterModel:
     def __init__(self) -> None:
         self.p = {"mu": 0.0, "width": 0.0}
 
-    def get_p_min(self, name):
-        return {"mu": 0.0, "width": 1.0}[name]
-
-    def get_p_max(self, name):
-        return {"mu": 10.0, "width": 9.0}[name]
+    def get_calibration_range(self, name):
+        return {"mu": (0.0, 10.0), "width": (1.0, 9.0)}[name]
 
     def get_param_names(self):
         return list(self.p)
 
     def set_param_from_array(self, values):
         self.p.update(zip(self.p, values, strict=True))
+
+
+def _prior_with(*marginals: PriorMarginal, typ: str = "parametric") -> Prior:
+    prior = Prior(typ=typ)
+    prior._marginals = {marginal.name: marginal for marginal in marginals}  # noqa: SLF001
+    return prior
+
+
+def _standard_parametric_prior() -> Prior:
+    return _prior_with(
+        NormalMarginal("mu", 5.0, 2.0),
+        UniformMarginal("width", 2.0, 8.0),
+    )
+
+
+def test_prior_exposes_no_parallel_storage_payloads() -> None:
+    prior = _standard_parametric_prior()
+
+    assert not hasattr(prior, "distributions")
+    assert not hasattr(prior, "parameters")
+    assert not hasattr(prior, "source_sha256")
 
 
 def test_exponential_prior_extension_is_positive_and_normalized() -> None:
@@ -70,9 +98,10 @@ def test_histogram_moments_require_positive_finite_mass(density) -> None:
 
 def test_parametric_map_initialization_clips_to_model_bounds() -> None:
     model = _TwoParameterModel()
-    prior = Prior(typ="parametric")
-    prior.distributions = {"mu": "normal", "width": "uniform"}
-    prior.parameters = {"mu": [12.0, 2.0], "width": [-4.0, 4.0]}
+    prior = _prior_with(
+        NormalMarginal("mu", 12.0, 2.0),
+        UniformMarginal("width", -4.0, 4.0),
+    )
 
     prior.param_init(model, strategy="map")
 
@@ -80,9 +109,7 @@ def test_parametric_map_initialization_clips_to_model_bounds() -> None:
 
 
 def test_parametric_sample_initialization_is_seeded_and_bounded() -> None:
-    prior = Prior(typ="parametric")
-    prior.distributions = {"mu": "normal", "width": "uniform"}
-    prior.parameters = {"mu": [5.0, 2.0], "width": [2.0, 8.0]}
+    prior = _standard_parametric_prior()
     first = _TwoParameterModel()
     second = _TwoParameterModel()
 
@@ -94,18 +121,62 @@ def test_parametric_sample_initialization_is_seeded_and_bounded() -> None:
     assert 1.0 <= first.p["width"] <= 9.0
 
 
+def test_single_chain_param_init_follows_the_seeded_marginal_law() -> None:
+    prior = _standard_parametric_prior()
+    expected_rng = np.random.default_rng(123)
+    expected = {
+        "mu": float(np.clip(expected_rng.normal(5.0, 2.0), 0.0, 10.0)),
+        "width": float(np.clip(expected_rng.uniform(2.0, 8.0), 1.0, 9.0)),
+    }
+    model = _TwoParameterModel()
+
+    prior.param_init(model, strategy="sample", rng=np.random.default_rng(123))
+
+    assert model.p == pytest.approx(expected)
+
+
+def test_parametric_bounded_marginal_api_conditions_on_physical_bounds() -> None:
+    prior = _prior_with(
+        NormalMarginal("mu", 12.0, 2.0),
+        UniformMarginal("width", 2.0, 8.0),
+    )
+
+    normal_median = prior.bounded_quantile("mu", 0.0, 10.0, 0.5)
+
+    assert normal_median == pytest.approx(
+        truncnorm.ppf(0.5, -6.0, -1.0, loc=12.0, scale=2.0)
+    )
+    assert prior.bounded_quantile("width", 1.0, 9.0, 0.25) == 3.5
+    assert prior.contains("mu", -1.0)
+    assert prior.contains("width", 2.0)
+    assert not prior.contains("width", 1.0)
+
+
+def test_empirical_bounded_marginal_api_inverts_piecewise_linear_mass() -> None:
+    prior = _prior_with(
+        EmpiricalMarginal("mu", np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]])),
+        typ="empirical",
+    )
+
+    assert prior.bounded_quantile("mu", 0.0, 2.0, 0.5) == pytest.approx(1.0)
+    assert prior.contains("mu", 1.0)
+    assert not prior.contains("mu", 0.0)
+    assert not prior.contains("mu", 3.0)
+
+
 def test_empirical_initialization_handles_map_sample_and_zero_mass() -> None:
     model = _TwoParameterModel()
-    prior = Prior(typ="empirical")
-    prior.parameters = {
-        "mu": np.array([[0.0, 0.0], [4.0, 2.0], [10.0, 0.0]]),
-        "width": np.array([[1.0, 0.0], [5.0, 0.0], [9.0, 0.0]]),
-    }
+    width_histogram = np.array([[1.0, 0.0], [5.0, 0.0], [9.0, 0.0]])
+    prior = _prior_with(
+        EmpiricalMarginal("mu", np.array([[0.0, 0.0], [4.0, 2.0], [10.0, 0.0]])),
+        EmpiricalMarginal("width", width_histogram),
+        typ="empirical",
+    )
 
     prior.param_init(model, strategy="map")
     assert model.p == {"mu": 4.0, "width": 5.0}
 
-    prior.parameters["width"][:, 1] = [0.0, 1.0, 0.0]
+    width_histogram[:, 1] = [0.0, 1.0, 0.0]
     prior.param_init(model, strategy="sample", rng=np.random.default_rng(7))
     assert 0.0 <= model.p["mu"] <= 10.0
     assert 1.0 <= model.p["width"] <= 9.0
@@ -113,22 +184,21 @@ def test_empirical_initialization_handles_map_sample_and_zero_mass() -> None:
 
 def test_prior_initialization_rejects_unknown_strategy_and_distribution() -> None:
     model = _TwoParameterModel()
-    prior = Prior(typ="parametric")
+    prior = _standard_parametric_prior()
 
     with pytest.raises(ValueError, match="strategy"):
         prior.param_init(model, strategy="median")
 
-    prior.distributions = {"mu": "triangular", "width": "uniform"}
-    prior.parameters = {"mu": [1.0, 2.0], "width": [1.0, 9.0]}
     with pytest.raises(ValueError, match="Unsupported prior distribution"):
-        prior.param_init(model)
+        parametric_marginal("mu", "triangular", [1.0, 2.0])
 
 
 def test_parametric_density_and_log_density_are_consistent() -> None:
     model = _TwoParameterModel()
-    prior = Prior(typ="parametric")
-    prior.distributions = {"mu": "normal", "width": "uniform"}
-    prior.parameters = {"mu": [5.0, 2.0], "width": [1.0, 9.0]}
+    prior = _prior_with(
+        NormalMarginal("mu", 5.0, 2.0),
+        UniformMarginal("width", 1.0, 9.0),
+    )
 
     density = prior.evaluate(model, [6.0, 4.0])
 
@@ -149,19 +219,19 @@ def test_log_prior_rejects_invalid_parametric_definitions(
 ) -> None:
     model = _TwoParameterModel()
     model.p = {"mu": 0.0}
-    prior = Prior(typ="parametric")
-    prior.distributions = {"mu": distribution}
-    prior.parameters = {"mu": parameters}
 
     with pytest.raises(ValueError, match=message):
+        prior = _prior_with(parametric_marginal("mu", distribution, parameters))
         prior.log_evaluate(model, [4.0])
 
 
 def test_empirical_prior_has_exact_support_and_rejects_zero_density() -> None:
     model = _TwoParameterModel()
     model.p = {"mu": 0.0}
-    prior = Prior(typ="empirical")
-    prior.parameters = {"mu": np.array([[0.0, 0.0], [1.0, 0.5], [2.0, np.nan]])}
+    prior = _prior_with(
+        EmpiricalMarginal("mu", np.array([[0.0, 0.0], [1.0, 0.5], [2.0, np.nan]])),
+        typ="empirical",
+    )
 
     assert prior.evaluate(model, [-1.0]) == 0.0
     assert prior.log_evaluate(model, [-1.0]) == -math.inf
@@ -173,8 +243,10 @@ def test_empirical_prior_has_exact_support_and_rejects_zero_density() -> None:
 def test_empirical_prior_evaluation_interpolates_between_grid_points() -> None:
     model = _TwoParameterModel()
     model.p = {"mu": 0.0}
-    prior = Prior(typ="empirical")
-    prior.parameters = {"mu": np.array([[0.0, 0.0], [1.0, 0.5], [2.0, 1.0]])}
+    prior = _prior_with(
+        EmpiricalMarginal("mu", np.array([[0.0, 0.0], [1.0, 0.5], [2.0, 1.0]])),
+        typ="empirical",
+    )
 
     assert prior.evaluate(model, [0.5]) == pytest.approx(0.25)
     assert prior.log_evaluate(model, [0.5]) == pytest.approx(math.log(0.25))
@@ -200,13 +272,35 @@ def test_prior_load_is_a_noop_when_disabled_and_rejects_unknown_type() -> None:
 
 def test_prior_validation_reports_parametric_theory() -> None:
     model = _TwoParameterModel()
-    prior = Prior(typ="parametric")
-    prior.distributions = {"mu": "normal", "width": "uniform"}
-    prior.parameters = {"mu": [5.0, 2.0], "width": [1.0, 9.0]}
+    prior = _prior_with(
+        NormalMarginal("mu", 5.0, 2.0),
+        UniformMarginal("width", 1.0, 9.0),
+    )
     path = pd.DataFrame({"mu": [3.0, 5.0, 7.0], "width": [1.0, 5.0, 9.0]})
 
     result = prior.validate_chain_moments(path, model)
 
-    assert result["theory"]["mu"] == {"mean": 5.0, "var": 4.0}
+    assert result["theory"]["mu"] == pytest.approx(
+        {"mean": 5.0, "var": 3.6450254437415675}
+    )
     assert result["theory"]["width"]["mean"] == 5.0
     assert result["theory"]["width"]["var"] == pytest.approx(64.0 / 12.0)
+
+
+def test_packaged_ig_prior_reports_its_effective_calibration_support() -> None:
+    model = build_lpm("ig")
+    prior = Prior(typ="parametric")
+    prior.load(model)
+    path = pd.DataFrame({"mu": [1.0, 2.0], "sigma": [1.0, 2.0]})
+
+    result = prior.validate_chain_moments(path, model)
+    metadata = prior.resolved_metadata(model)
+
+    assert json.loads(metadata["prior_effective_support_mu"]) == [0.1, 70.0]
+    assert json.loads(metadata["prior_effective_support_sigma"]) == [0.1, 30.0]
+    assert result["theory"]["mu"] == pytest.approx(
+        {"mean": 35.05, "var": (70.0 - 0.1) ** 2 / 12.0}
+    )
+    assert result["theory"]["sigma"] == pytest.approx(
+        {"mean": 15.05, "var": (30.0 - 0.1) ** 2 / 12.0}
+    )

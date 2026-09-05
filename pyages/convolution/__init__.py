@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines the public import surface for tracer/LPM convolution.
+# It gives callers the single- and multi-tracer engines, settings, diagnostics,
+# prepared grids, and errors without exposing their implementation modules.
 
 """Public entry point for tracer/LPM convolution.
 

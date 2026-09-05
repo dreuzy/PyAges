@@ -9,26 +9,41 @@ enabled in the YAML configuration.
 
 Every successful public workflow writes `result_manifest.json` last. Treat a
 result directory as complete only when this file exists and contains
-`"status": "complete"`. When a new run starts writing to a prepared result
-directory, it first removes the preceding success manifest; a failed rerun is
-therefore visibly incomplete.
+`"status": "complete"`. A required multi-chain convergence gate writes
+`"status": "failed"` after preserving and hashing its chain and diagnostic
+evidence. Other execution errors can leave the manifest absent. A public
+workflow writes into an isolated hidden sibling directory identified by a
+UUID, while any preceding terminal publication remains intact. That staging
+directory contains `.pyages-run-state.json` with `status: started`. Before a
+terminal success or qualified rejection is promoted, artifact hashes and the
+identity of the publication being replaced are checked again. Files from two
+runs are therefore never combined, and a stale concurrent promotion is
+rejected. An interrupted staging directory can remain for audit or manual
+recovery, but is not a completed result. Scientific inputs are loaded and
+validated before this staging tree is allocated. After a required convergence
+rejection is promoted, the raised exception notes the resulting public
+evidence directory.
 
 Manifest schema 2 contains:
 
 | Field | Meaning |
 | --- | --- |
 | `schema_version` | Version of the result/provenance contract; currently `2`. |
-| `status` | `complete`; incomplete workflows do not write a success manifest. |
-| `created_at_utc` | UTC completion timestamp in ISO 8601 form. |
+| `status` | `complete`, or `failed` for rejection by a required multi-chain convergence gate. |
+| `run_id` | UUID shared by the started-state journal and terminal manifest. |
+| `started_at_utc` | UTC timestamp at which the isolated run was created. |
+| `created_at_utc` | UTC terminal-manifest timestamp in ISO 8601 form. |
 | `pyages_version` | Installed PyAges version. |
 | `workflow` | `single_date` or `temporal`. |
 | `command` | Process argument vector recorded by Python. |
 | `configuration` | Portable configuration path and SHA-256 digest. |
 | `inputs` | Portable input paths and SHA-256 digests. |
 | `environment` | Python implementation, platform, and direct dependency versions. |
+| `package` | Installed-distribution identity, metadata digest, and PEP 610 `direct_url.json` or wheel `RECORD` evidence when available. |
 | `repository` | Git commit, dirty state, diff digest, tracked-workspace digest, and tracked file count. |
-| `artifacts_sha256` | Relative filename-to-SHA-256 map for every artifact written before the manifest. |
+| `artifacts_sha256` | Relative filename-to-SHA-256 map for artifacts produced by this run only. |
 | `details` | Workflow-specific dataset, LPM, mode, calibration, or case-directory information. |
+| `failure` | Optional exception type and message for a failed convergence gate. |
 
 For both public workflows, `details.observation_error_policy` records the
 configured missing-error fraction and the ordered transformations that
@@ -37,13 +52,20 @@ transformation gives its method, fraction, affected row indices, and row count.
 
 The manifest fingerprints a run; it does not by itself prove numerical or
 scientific correctness. Use the validation layers in {doc}`../science/validation`.
+A failure manifest makes a rejected calculation auditable; it never authorizes
+use of unqualified chains as a pooled posterior.
 
 For a source checkout, the repository section fingerprints the complete
-tracked workspace. In an installed wheel without Git metadata or a Git
-executable, repository fields can be empty. The `inputs` collection explicitly
-hashes the observation table and every file below the selected LPM and tracer
-resource directories. A publication archive must still preserve the exact
-package artifact and environment in addition to the manifest.
+tracked workspace only when Git confirms that the imported PyAges source file
+is tracked by that worktree. A wheel located inside a checkout is therefore not
+misattributed to the enclosing repository. Otherwise the Git fields are
+neutral and `package` records installed-distribution metadata, including the
+PEP 610 direct URL and the `RECORD` digest when those files exist. The `inputs`
+collection explicitly hashes the observation table and every file below the
+selected LPM and tracer resource directories. A publication archive must still
+preserve the exact package artifact and environment in addition to the
+manifest. `package.version_matches_runtime` exposes any mismatch between the
+distribution metadata and `pyages.__version__` instead of silently choosing one.
 
 ## Single-date layout
 
@@ -77,7 +99,7 @@ Each enabled calibration method has its own directory, normally
 
 | File | Contents |
 | --- | --- |
-| `parameters_calibration.txt` | Effective sampler or optimizer settings, seeds, bounds/proposal metadata, and tolerances where applicable. |
+| `parameters_calibration.txt` | Effective sampler or optimizer settings, seeds, calibration-range/proposal metadata, and tolerances where applicable. |
 | `results_calibration.txt` | Wall time and method-specific termination or acceptance information. |
 | `lpm_dist_calibrated.txt` | Retained parameter, objective, and modeled-concentration rows. Repeated MCMC states after rejection are meaningful and must be preserved. |
 | `lpm_stats_calibrated.txt` | Pandas descriptive statistics for numeric sample columns. These are not convergence diagnostics. |
@@ -86,6 +108,11 @@ Each enabled calibration method has its own directory, normally
 | `distributions_stats.txt` | Summary statistics for the selected age distributions. |
 | `concentrations_all_models.txt` | Optional modeled tracer chronicles for selected posterior draws. |
 | `concentration_times.png` | Optional modeled concentration chronicle from workflows or plotting paths that explicitly enable it; the smoke template does not emit it. |
+
+The **Unreleased** multi-chain workflow adds separate chain directories,
+diagnostics, pilot covariance, and seed provenance, and gates the pooled root
+tables. Its normative layout, statuses, and failure behavior are documented in
+{doc}`outputs`; they are not present in the `pyages==1.0.1` package from PyPI.
 
 ## Temporal layout
 

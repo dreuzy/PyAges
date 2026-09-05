@@ -12,7 +12,6 @@ three requested decision reports are written at repository root.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import subprocess
 import sys
@@ -47,6 +46,7 @@ from scripts.article.run_article_non_ploemeur import (  # noqa: E402
     _model,
     _run_table3_chain,
 )
+from scripts.common.provenance import sha256_file as _sha256  # noqa: E402
 
 DEFAULT_OUTPUT = ROOT / "results" / "remaining_non_ploemeur_simulations"
 HOLTEN_STEPS = 4_000
@@ -109,14 +109,6 @@ def _git(*args: str) -> str:
         encoding="utf-8",
         errors="replace",
     ).stdout
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def write_preflight(output: Path) -> Path:

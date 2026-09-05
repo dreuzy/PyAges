@@ -11,10 +11,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from pyages.calibration.methods.mh import diagnostics as core_mcmc_diagnostics
 from scripts.article import build_article_non_ploemeur_report as non_ploemeur_report
 from scripts.article import postprocess_holten_prior_sensitivity as prior_postprocess
 from scripts.article import run_ploemeur_shifted_exponential_final as ploemeur_runner
 from scripts.article import run_ploemeur_targeted_ig_reproduction as ig_runner
+from scripts.common import mcmc_diagnostics as script_mcmc_diagnostics
+from scripts.common import provenance
 from scripts.common.mcmc_diagnostics import ess, mcse_mean, split_rhat
 from scripts.common.reporting import markdown_table
 from scripts.release import build_article_package as package
@@ -64,6 +67,16 @@ def test_shared_mcmc_diagnostics_distinguish_mixed_and_shifted_chains():
     assert split_rhat(shifted) > 1.1
 
 
+def test_repository_scripts_use_the_canonical_core_mcmc_diagnostics():
+    """Prevent article helpers from drifting from the maintained MH formulas."""
+    assert script_mcmc_diagnostics.split_chains is core_mcmc_diagnostics.split_chains
+    assert (
+        script_mcmc_diagnostics.rank_normalize is core_mcmc_diagnostics.rank_normalize
+    )
+    assert script_mcmc_diagnostics.split_rhat is core_mcmc_diagnostics.split_rhat
+    assert script_mcmc_diagnostics.ess is core_mcmc_diagnostics.ess
+
+
 def test_mcse_mean_uses_ess_and_preserves_constant_limit():
     values = np.asarray([1.0, 2.0, 3.0, 4.0])
 
@@ -80,6 +93,20 @@ def test_markdown_table_rounds_and_escapes_without_tabulate():
 
     assert "a\\|b" in rendered
     assert "1.235" in rendered
+
+
+def test_shared_provenance_hashes_files_and_preserves_git_output_type(tmp_path):
+    """Cover the common helpers used by article, release, and archive scripts."""
+    payload = b"reproducible evidence\n"
+    source = tmp_path / "evidence.bin"
+    source.write_bytes(payload)
+
+    assert provenance.sha256_file(source) == provenance.sha256_bytes(payload)
+    root = Path(__file__).resolve().parents[3]
+    assert isinstance(provenance.git_output(root, "rev-parse", "HEAD"), str)
+    assert isinstance(
+        provenance.git_output(root, "rev-parse", "HEAD", binary=True), bytes
+    )
 
 
 def test_article_boolean_diagnostics_treat_missing_values_as_false():

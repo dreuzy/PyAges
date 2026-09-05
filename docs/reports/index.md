@@ -33,4 +33,8 @@ repository_root_structure_audit_2026-08-27
 calibration_audit_refactoring_2026-08-27
 workflows_audit_refactoring_2026-08-28
 ploemeur_f09_golden_qualification_2026-08-29
+multichain-mh-refactoring-audit-2026-08-31
+multichain-mh-qualification-2026-08-31
+pyages-architecture-mh-audit-2026-09-01
+code_quality_audit_2026-09-02
 ```

@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file converts a completed calibration and its joint parameter samples
+# into standard result files and diagnostic plots. It can also save posterior
+# histograms as explicit prior inputs for a later calibration stage.
 
 """Presentation and serialization boundary for calibration runs.
 

@@ -1,8 +1,22 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file compares several calibration results with an objective-function grid.
 
-"""Objective-landscape figures."""
+"""Summarize an objective landscape and results from several calibration methods.
+
+An objective grid records the quality of fit at predefined combinations of
+model parameters; lower objective values represent better agreement with the
+observations. This module displays that grid directly as colored points, using
+one parameter against the objective for a one-dimensional model and up to three
+pairwise parameter projections for a larger model.
+
+Each calibration method is then overlaid as a diffuse posterior sample cloud
+with a star marking its best sampled solution. The best point on the original
+grid and optional reference parameters are shown separately. The resulting
+figure is intended as a compact comparison between methods, not as a complete
+display of every parameter pair.
+"""
 
 from __future__ import annotations
 
@@ -32,7 +46,12 @@ def _plot_summary_posterior(
     *,
     show_labels: bool,
 ) -> None:
-    """Overlay posterior samples and best points on one summary axis."""
+    """Overlay each method's posterior cloud and best solution on one axis.
+
+    Colors identify calibration methods.  The diffuse cloud communicates
+    uncertainty, while the star exposes the minimum-objective sample without
+    relying on point density to make it visible.
+    """
     for method_index, (method_name, result) in enumerate(posterior_results.items()):
         frame = _ensure_frame(result)
         color = _method_color(method_name, method_index)
@@ -74,7 +93,11 @@ def _plot_summary_objective_axis(
     *,
     show_labels: bool,
 ):
-    """Plot a one-parameter objective summary."""
+    """Compare a one-parameter objective grid with posterior solutions.
+
+    This special case uses objective value as the vertical coordinate because
+    there is no second model parameter available for a pairwise projection.
+    """
     scalar = ax.scatter(
         grid_frame[x_name],
         grid_frame[objective_column],
@@ -132,7 +155,12 @@ def _plot_summary_parameter_axis(
     *,
     show_labels: bool,
 ):
-    """Plot a two-parameter objective summary."""
+    """Compare posterior solutions with a two-parameter objective grid.
+
+    Grid-point color represents fit quality, whereas posterior color represents
+    the calibration method.  Separate star and diamond markers identify the
+    best grid point and optional reference parameters.
+    """
     scalar = ax.scatter(
         grid_frame[x_name],
         grid_frame[y_name],
@@ -186,8 +214,15 @@ def plot_objective_summary(
     filename: str | Path | None = None,
     title: str = "Objective landscape and estimated parameters",
 ):
-    """
-    Plot pairwise parameter views colored by objective value.
+    """Summarize an objective grid and one or more calibration results.
+
+    The figure shows up to three parameter pairs, colored by the objective on
+    the prior grid, and overlays the posterior cloud and best point from every
+    named method.  For a one-parameter model, the sole panel instead plots the
+    parameter against its objective value.  Lower objective values are better.
+
+    Only the rendered grid is reproducibly thinned when it is large; best and
+    reference locations are computed from the complete input frame.
     """
     apply_example_style()
     if not param_names:
@@ -202,6 +237,8 @@ def plot_objective_summary(
             "Objective frame must contain 'half_log_chi_square' or 'obj_function'."
         )
 
+    # Keep a useful vertical coordinate for one-dimensional models; otherwise
+    # show at most three parameter pairs to avoid an unreadable pair matrix.
     if len(param_names) == 1:
         pairs = [(param_names[0], objective_col)]
     else:
@@ -213,6 +250,8 @@ def plot_objective_summary(
     fig, axs = plt.subplots(1, ncols, figsize=(fig_width, 4.8), squeeze=False)
     axs = axs.flatten()
 
+    # Thinning limits rendering cost but deliberately leaves the calculations
+    # of the best grid point and nearest reference on the full objective frame.
     grid_frame = objective_frame.copy()
     if len(grid_frame) > 8000:
         grid_frame = grid_frame.sample(8000, random_state=12345)
@@ -227,6 +266,8 @@ def plot_objective_summary(
     scalar = None
 
     for ax_index, ((xname, yname), ax) in enumerate(zip(pairs, axs, strict=True)):
+        # Labels are attached only to the first panel so the figure-level legend
+        # contains one entry for each semantic layer, not one per subplot.
         if yname == objective_col:
             scalar = _plot_summary_objective_axis(
                 ax,

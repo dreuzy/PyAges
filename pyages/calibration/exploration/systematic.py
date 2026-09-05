@@ -1,12 +1,15 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file evaluates an LPM and its tracer convolutions at every point of a
+# regular parameter grid. It returns tables and plots of reachable concentrations
+# and, when observations are present, the corresponding objective values.
 
 r"""Systematic exploration of reachable concentrations and objective values.
 
 This module evaluates a regular Cartesian grid independently of an optimizer
 or posterior sampler. It visualizes which concentration vectors are reachable
-within LPM bounds and, when observations are supplied, the structure of
+within LPM calibration ranges and, when observations are supplied, the structure of
 :math:`0.5\log(\chi^2)` over that same grid.
 """
 
@@ -36,7 +39,7 @@ if TYPE_CHECKING:
 class SystematicSampling:
     """Evaluate concentrations and an objective on a regular parameter grid.
 
-    Parameter axes include both configured bounds. Modeled concentration
+    Parameter axes include both calibration-range endpoints. Modeled concentration
     columns follow the tracer/date order established by ``ConvolutionTracers``;
     objective construction verifies that this order exactly matches the
     observations before residuals are computed.
@@ -76,7 +79,9 @@ class SystematicSampling:
         self.explore_objective = bool(explore_objective)
         self.explore_reachable = bool(explore_reachable)
 
-        minima, maxima = self._lpm.get_param_interval()
+        calibration_ranges = tuple(self._lpm.get_calibration_ranges().values())
+        minima = [interval[0] for interval in calibration_ranges]
+        maxima = [interval[1] for interval in calibration_ranges]
         self._grid = ParameterGrid(
             minima,
             maxima,

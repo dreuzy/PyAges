@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file produces the basic human-readable report for one water-age model.
+# Given an LPM and display options, it prints parameters and age statistics and
+# delegates PDF and CDF figures to the plotting layer; its diagnostic entry point
+# can also construct the requested model by name.
 
 """Text summaries and diagnostic orchestration for individual LPMs."""
 

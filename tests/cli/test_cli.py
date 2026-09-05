@@ -8,6 +8,8 @@
 import importlib
 from pathlib import Path
 
+import click
+import pytest
 import yaml
 from click.testing import CliRunner
 
@@ -18,7 +20,10 @@ from pyages.cli.commands.new import new_group
 
 def _write_minimal_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("dataset: {}\n", encoding="utf-8")
+    config_path.write_text(
+        "workflow:\n  kind: single_date\ndataset: {}\n",
+        encoding="utf-8",
+    )
     return config_path
 
 
@@ -85,13 +90,14 @@ def test_cli_run_dispatch_single_date(tmp_path, monkeypatch):
     config_path = _write_minimal_config(tmp_path)
     called = {}
 
-    def _fake_run_single_date(config, inline, verbose):
+    def _fake_run_workflow(workflow, config, *, inline, verbose):
+        called["workflow"] = workflow
         called["config"] = config
         called["payload"] = yaml.safe_load(Path(config).read_text(encoding="utf-8"))
         called["inline"] = inline
         called["verbose"] = verbose
 
-    monkeypatch.setattr(run_cmd, "_run_single_date", _fake_run_single_date)
+    monkeypatch.setattr(run_cmd, "_run_workflow", _fake_run_workflow)
 
     runner = CliRunner()
     result = runner.invoke(
@@ -112,6 +118,7 @@ def test_cli_run_dispatch_single_date(tmp_path, monkeypatch):
     )
     assert result.exit_code == 0
     assert called["config"] != config_path
+    assert called["workflow"] == "single_date"
     assert Path(called["config"]).parent == tmp_path
     assert not Path(called["config"]).exists()
     assert called["inline"] is True
@@ -123,23 +130,27 @@ def test_cli_run_dispatch_single_date(tmp_path, monkeypatch):
     assert payload["calibration_metropolis_hastings"]["nstep"] == 1234
 
 
-def test_cli_run_dispatch_transient(tmp_path, monkeypatch):
-    config_path = _write_minimal_config(tmp_path)
+def test_cli_run_dispatch_temporal(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "workflow:\n  kind: temporal\ndataset:\n  file: data.txt\n",
+        encoding="utf-8",
+    )
     called = {}
 
-    def _fake_run_transient(config, verbose):
+    def _fake_run_workflow(workflow, config, *, inline, verbose):
+        called["workflow"] = workflow
         called["config"] = config
         called["payload"] = yaml.safe_load(Path(config).read_text(encoding="utf-8"))
         called["verbose"] = verbose
 
-    monkeypatch.setattr(run_cmd, "_run_transient", _fake_run_transient)
+    monkeypatch.setattr(run_cmd, "_run_workflow", _fake_run_workflow)
 
     runner = CliRunner()
     result = runner.invoke(
         run_cmd.run,
         [
             str(config_path),
-            "--transient",
             "--lpm",
             "ig",
             "--mh-nsteps",
@@ -150,6 +161,7 @@ def test_cli_run_dispatch_transient(tmp_path, monkeypatch):
     )
     assert result.exit_code == 0
     assert called["config"] != config_path
+    assert called["workflow"] == "temporal"
     assert Path(called["config"]).parent == tmp_path
     assert not Path(called["config"]).exists()
     assert called["verbose"] is False
@@ -157,6 +169,23 @@ def test_cli_run_dispatch_transient(tmp_path, monkeypatch):
     assert payload["dataset"]["file"] == str(tmp_path / "data.txt")
     assert payload["lpm_models"]["list"] == ["ig"]
     assert payload["calibration"]["mh_nsteps"] == 987
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ({"workflow": {"kind": "single_date"}}, "single_date"),
+        ({"workflow": {"kind": "temporal"}}, "temporal"),
+    ],
+)
+def test_cli_detects_declared_workflows(payload, expected) -> None:
+    assert run_cmd._detect_workflow(payload) == expected
+
+
+@pytest.mark.parametrize("payload", [{}, {"dataset": {}}, {"workflow": {}}])
+def test_cli_rejects_missing_workflow_kind(payload) -> None:
+    with pytest.raises(click.ClickException, match="workflow.kind is required"):
+        run_cmd._detect_workflow(payload)
 
 
 def test_cli_new_lpm_writes_to_current_project() -> None:

@@ -26,3 +26,5 @@ calibration_metropolis_hastings:
 calibration_simplex:
   init_multiples_n: 3
   fuq_n: 30
+workflow:
+  kind: single_date

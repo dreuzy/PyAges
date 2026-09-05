@@ -14,13 +14,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import subprocess
 import tempfile
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from pyages import __version__
+from scripts.common.provenance import git_output
+from scripts.common.provenance import sha256_file as sha256
 
 ROOT = Path(__file__).resolve().parents[2]
 PROMOTION_NAME = "release_promotion.json"
@@ -43,18 +44,8 @@ SOURCE_MANIFESTS = {
 EXCLUDED_PARTS = {"work", "__pycache__", ".pytest_cache"}
 
 
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def _git(*args: str) -> str:
-    return subprocess.run(
-        ["git", *args], cwd=ROOT, capture_output=True, text=True, check=True
-    ).stdout.strip()
+    return git_output(ROOT, *args).strip()
 
 
 def _files(root: Path):

@@ -5,6 +5,160 @@ All notable changes to PyAges are recorded in this file.
 The project follows semantic versioning for its public API from version 1.0.
 Before 1.0, incompatible public changes are identified explicitly below.
 
+## Unreleased
+
+### Added
+
+- Added an explicitly exploratory five-chain Albuquerque shape-free profile
+  and extensive scientific characterization, while keeping provisional error
+  and age-support assumptions outside the canonical release qualification
+  archive.
+- Added a progressive Pyright gate for selected stable internal contracts and
+  direct tests for prior-bound validation, LPM parameter-manager failures, and
+  stage-inspection CLI errors.
+- Added opt-in multi-chain Metropolis--Hastings workflows with reproducible
+  dispersed initialization, a separate pilot stage that learns one fixed
+  pooled within-chain proposal covariance, independent production streams,
+  rank-normalized split-R-hat, bulk/tail ESS, MCSE, convergence-gated pooling,
+  and per-chain diagnostic/provenance outputs. Existing one-chain workflows
+  remain the default.
+- Added four fixed-protocol scientific qualification profiles: synthetic
+  shifted-exponential recovery, natural Ploemeur F09 shifted-exponential
+  calibration, prior-active three-parameter `ig_shifted` calibration, and
+  temporal `span` calibration over 58 observations and 20 dates. Each profile
+  has maintained YAML, an executable extensive test, and an interpretation
+  page with an explicit scientific boundary.
+- Added directly runnable, versioned multi-chain profiles with isolated result
+  namespaces, plus a backward-compatible single-date `results` namespace.
+- Added read-only `pyages stages inspect` diagnostics for journals, terminal
+  seals, artifacts, and publication CAS state, together with explicit,
+  exact-UUID `pyages stages quarantine`. Quarantine revalidates under the
+  hierarchy lock, preserves the stage by sibling rename, and never purges it.
+- Added deterministic, self-verifying qualification archives with explicit
+  `draft` and `publishable` modes. The extensive CI assembles a four-profile
+  draft and checksum sidecar; durable publication still requires a clean,
+  annotated version tag and an external deposit.
+
+### Removed
+
+- Removed the flattened `LauncherParams`/`load_params*` configuration view and
+  the `pyages run --transient` dispatch flag. Every launcher configuration now
+  requires an explicit `workflow.kind`.
+- Removed the former YAML `bounds` field and bounds-named LPM accessors; use the
+  single `calibration_range` vocabulary throughout.
+- Removed the duplicate-start multi-chain policies `model_default` and
+  `prior_map`, the in-place manifest journal path, and the qualification-script
+  `_contained_path` compatibility alias. Staged-run journals now use the
+  strict schema version 4.
+
+### Changed
+
+- Accelerated piecewise-uniform shape-free calibration by precomputing one
+  immutable tracer response per age bin and reducing every later proposal to
+  a linear combination. The previous continuous integrator remains the
+  numerical reference in equivalence tests, and cache invalidation follows the
+  tracer observation date.
+- Simplified workflow entry and calibration plumbing: `pyages run` now selects
+  `single_date` or `temporal` from `workflow.kind`, both workflows share one MH
+  configuration/execution adapter, and the single-date runtime consumes the
+  nested `LauncherConfig` directly.
+- Simplified the MH implementation by keeping one-chain state in the sampler
+  and storing prior behavior directly as typed normal, uniform, and empirical
+  marginals.
+- Removed the trivial Ploemeur, Albuquerque, and temporal Python example
+  wrappers in favor of their direct `pyages run <config.yaml>` commands, and
+  added a contributor code tour.
+- Parent result promotion now refuses any nested reserved stage candidate,
+  including candidates whose journal is missing or corrupt, so an unreadable
+  interrupted run cannot be silently removed.
+- Simplified the unreleased multi-chain interface: the pilot covariance always
+  uses the documented pooled-within-chain estimator, so the single-choice
+  `covariance_mode` input was removed while its resolved method remains in
+  result provenance. The MH package facade now exposes only high-level
+  configurations, samplers, the run record, and the convergence error.
+- Consolidated covariance regularization behind one implementation and folded
+  two single-consumer MH storage/transition micro-modules into the sampler.
+  The calibration base return contract is now included in the progressive
+  Pyright gate.
+- Expanded extensive-test pull-request triggers to every `pyages/**` change
+  and made raw evidence discovery independent of pytest function-directory
+  names. Release-candidate qualification now packages its extensive results
+  with the unchanged wheel and sdist built from the exact same tag.
+- Split LPM parameter-schema validation, MH result consistency checks, and
+  workflow-manifest provenance/artifact/inspection logic into focused private
+  modules while preserving their existing public facades.
+- Clarified package dependency rules, simplified duplicated installation and
+  API-navigation documentation, and corrected remaining mojibake in the
+  non-Ploemeur article runner.
+- Shortened test-owned output paths for the extensive temporal Ploemeur case so
+  the documented extensive test command also runs with legacy Windows paths.
+- Single-date and temporal workflows now leave a new public result leaf absent
+  until atomic promotion, avoiding a false concurrent-mutation failure if an
+  empty leaf is removed during a long run.
+- Separated each LPM parameter's mathematical `domain`, operational
+  `calibration_range`, and probabilistic `prior` throughout runtime code,
+  shipped parameter metadata, examples, and documentation. Internal consumers
+  now use the calibration-range API as the sole source of truth. `LpmScipy` is
+  now explicitly abstract, preventing accidental construction without a SciPy
+  parameter map.
+- Staged-result verification now fails closed on symbolic links, Windows
+  junctions, special files, unreadable subtrees, corrupted journals, and
+  redirected public paths. The user-global hierarchy lock is stored as a
+  private regular file opened without following links, and the inspection API
+  exposes the single point-in-time name `promotable_now` without an alias.
+- Centralized multi-chain execution, serialization, qualification, and failure
+  handling across single-date and temporal workflows.
+- Stratified initialization now spans effective marginal prior mass when a
+  prior is enabled (including truncated normal, bounded uniform, and empirical
+  priors), instead of retrying physically stratified points outside its support.
+- Multi-chain runs now verify a versioned scientific-target signature across
+  every pilot and production problem and carry the realized phase seed plan in
+  their result provenance before any chain pooling.
+- Required convergence-gate failures now write an auditable failed workflow
+  manifest that fingerprints the preserved chains, diagnostics, inputs,
+  environment, and source state without marking the result complete.
+- Atomic result writers now use short temporary names, preserving atomic
+  replacement while avoiding avoidable Windows path-length failures in deeply
+  nested calibration directories.
+- Multi-chain execution now returns one immutable `MHRunRecord` that binds the
+  exact chain and ensemble configurations to samples, diagnostics, seeds, and
+  scientific-target identity. Serialization has one source of truth and
+  rejects post-diagnostic sample mutation.
+- Consolidated prior marginal operations and the strict retention/ESS schedule
+  behind canonical modules, and removed the unreleased `MHEnsembleResult`,
+  factory, workflow-helper, and target-signature compatibility aliases.
+- Public workflows now build results in run-ID staging trees and promote only a
+  terminal `complete` or convergence-rejected `failed` tree. Manifest schema 2
+  also distinguishes tracked-worktree provenance from installed-distribution
+  metadata.
+- Normalized unreleased multi-chain metadata to `burn_in`, `pilot_burn_in`, and
+  `acceptance_rate`; stable root `success_rate` and `time_perform` fields remain
+  available for existing result consumers.
+- Centralized the ordered diagnostic-quantity and qualification-inclusion
+  contract behind one internal implementation shared by live computation and
+  immutable run-record validation, while shortening the ensemble orchestrator.
+- Added a canonical workflow-runtime contributor facade with an opaque staged
+  run handle. Staged promotion now seals the terminal manifest, rejects
+  link/junction targets and active child stages in either tree, inventories
+  nested control-name artifacts, and reports explicit recovery paths if
+  rollback fails. Non-verbose CLI failures display preserved-evidence notes
+  such as the promoted result path.
+- Added a syntax-checked direct-Python ensemble example and a progressive CI
+  docstring quality gate for the qualified calibration and workflow-runtime
+  surface.
+- Expanded installed-wheel smoke coverage outside the source checkout to run
+  one-chain and two-chain workflows, inspect interrupted stages, and verify
+  installed-distribution provenance and multi-chain result artifacts.
+- Moved the extensive pytest base directory to the runner's external temporary
+  root so qualification artifacts cannot alter checkout-root or provenance
+  semantics, and made CI link checking retry transient remote timeouts once.
+- Retained sequential chain execution after a bit-for-bit thread prototype
+  outside runtime fields produced only small, unstable gains: `1.05x` on the
+  smoke workload with two regressions in seven trials, and `1.09x` at five
+  times the load with one approximately 20% regression. The measured benefit
+  does not justify the added executor, shared LPM registry, log, and provenance
+  surface.
+
 ## 1.0.1 - 2026-08-29
 
 ### Changed

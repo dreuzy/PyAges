@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import shutil
@@ -19,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 import yaml
 
+from scripts.common.provenance import sha256_file as sha256
 from scripts.release import build_reproduction_archive
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,15 +43,6 @@ KEYWORDS = (
     "prior sensitivity",
     "scientific reproducibility",
 )
-
-
-def sha256(path: Path) -> str:
-    """Return the hexadecimal SHA-256 digest of *path*."""
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _files(root: Path, *, exclude: set[str] | None = None):

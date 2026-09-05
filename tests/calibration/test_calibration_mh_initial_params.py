@@ -10,21 +10,24 @@ import numpy as np
 import pytest
 
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh._sampler_target import MHTarget
 
 
 class _FakeLpm:
     def __init__(self):
         self.p = {"mu": 10.0, "shift": 10.0}
 
-    def get_p_min(self, name):
-        return {"mu": 0.1, "shift": 0.0}[name]
+    def get_calibration_range(self, name):
+        return {"mu": (0.1, 70.0), "shift": (0.0, 70.0)}[name]
 
-    def get_p_max(self, name):
-        return 70.0
+    def get_calibration_ranges(self):
+        return {name: self.get_calibration_range(name) for name in self.p}
 
-    def param_within_bounds_array(self, values):
+    def param_within_calibration_range_array(self, values):
         return all(
-            self.get_p_min(name) <= value <= self.get_p_max(name)
+            self.get_calibration_range(name)[0]
+            <= value
+            <= self.get_calibration_range(name)[1]
             for name, value in zip(self.p, values, strict=False)
         )
 
@@ -48,10 +51,11 @@ def _initialize(initial_params):
     )
     problem = SimpleNamespace(lpm=_FakeLpm(), ensure_prepared=lambda: None)
     mh._bind_problem(problem)
-    params, *_ = mh._initialize_state(  # noqa: SLF001
+    mh._target = MHTarget(problem, mh.prior, likelihood=False)  # noqa: SLF001
+    state = mh._initialize_state(  # noqa: SLF001
         np.array([]), np.array([])
     )
-    return mh, params
+    return mh, state.params
 
 
 def test_explicit_initial_params_are_applied_without_prior():
@@ -77,7 +81,7 @@ def test_initial_params_are_optional_and_keep_lpm_defaults():
     [
         ({"mu": 35.0}, "must define exactly"),
         ({"mu": 35.0, "shift": 20.0, "other": 1.0}, "must define exactly"),
-        ({"mu": 80.0, "shift": 20.0}, "outside the LPM bounds"),
+        ({"mu": 80.0, "shift": 20.0}, "outside the LPM calibration ranges"),
     ],
 )
 def test_invalid_initial_params_are_rejected(initial_params, message):

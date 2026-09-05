@@ -20,7 +20,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
@@ -32,6 +31,12 @@ from examples.natural.holten.holten_case import (
     build_context,
     load_yaml,
     tracer_yaml_path,
+)
+from examples.natural.holten.holten_four_bin_plots import (
+    plot_fraction_bars,
+    plot_fraction_interval_comparison,
+    plot_fraction_posteriors,
+    plot_modeled_vs_observed,
 )
 from pyages.tracer.decay import rate_from_config
 
@@ -241,6 +246,12 @@ def build_4bin_endmembers(
     *,
     include_helium: bool = False,
 ) -> pd.DataFrame:
+    """Build tracer concentrations for the four study-specific age bins.
+
+    Young bins integrate each atmospheric history over its age interval. The
+    open old bin uses the tracer-specific convention documented by the Holten
+    benchmark, which is why this calculation remains local to the example.
+    """
     reference_year = _reference_year(prepared)
     rows: list[dict[str, Any]] = []
 
@@ -445,6 +456,7 @@ def fit_well_4bin(
     *,
     include_helium: bool = False,
 ) -> tuple[dict[str, Any], pd.DataFrame]:
+    """Fit constrained age fractions and residuals for one Holten well."""
     obs = _local_4bin_observations(prepared, well_id, include_helium=include_helium)
     matrix, y, sigma, z_opt, tracer_order, best = _optimize_well_4bin(obs, endmembers)
     fractions = _stick_breaking_fractions(z_opt)
@@ -490,6 +502,7 @@ def fit_all_wells_4bin(
     *,
     include_helium: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Build end-members and fit all wells selected by the prepared case."""
     endmembers = build_4bin_endmembers(prepared, include_helium=include_helium)
     summary_rows: list[dict[str, Any]] = []
     fit_frames: list[pd.DataFrame] = []
@@ -578,6 +591,7 @@ def _paper_fraction_row(cumulative: pd.DataFrame, well_id: str) -> dict[str, Any
 
 
 def load_paper_4bin_fractions(prepared: PreparedHoltenCase) -> pd.DataFrame:
+    """Read the Visser cumulative curves and convert them to bin fractions."""
     raw_table = _load_shape_free_reference_table(prepared)
     cumulative = _extract_4bin_cumulative(raw_table)
 
@@ -598,6 +612,7 @@ def sample_well_4bin_mh(
     seed: int = 12345,
     include_helium: bool = False,
 ) -> pd.DataFrame:
+    """Sample one well's four-bin likelihood with a local random-walk MH chain."""
     obs = _local_4bin_observations(prepared, well_id, include_helium=include_helium)
     matrix, y, sigma, z_current, tracer_order, best = _optimize_well_4bin(
         obs, endmembers
@@ -651,6 +666,7 @@ def sample_all_wells_4bin_mh(
     seed: int = 12345,
     include_helium: bool = False,
 ) -> pd.DataFrame:
+    """Sample every selected well with reproducibly derived random seeds."""
     frames: list[pd.DataFrame] = []
     for idx, well_id in enumerate(prepared.context.selected_wells):
         frames.append(
@@ -669,6 +685,7 @@ def sample_all_wells_4bin_mh(
 
 
 def summarize_4bin_mh_posterior(samples: pd.DataFrame) -> pd.DataFrame:
+    """Compute posterior quantiles for fractions, age, and objective values."""
     rows: list[dict[str, Any]] = []
     summary_cols = [*FRACTION_COLUMNS, "mean_age_local_4bin", "chi2_local_4bin"]
     for well_id, group in samples.groupby("well_id"):
@@ -693,6 +710,7 @@ def summarize_4bin_mh_posterior(samples: pd.DataFrame) -> pd.DataFrame:
 def compare_paper_vs_mh_4bin(
     paper: pd.DataFrame, posterior: pd.DataFrame
 ) -> pd.DataFrame:
+    """Align paper fractions with local posterior medians and intervals."""
     merged = paper.merge(posterior, on="well_id", how="inner")
     rows: list[dict[str, Any]] = []
     for _, row in merged.iterrows():
@@ -706,247 +724,13 @@ def compare_paper_vs_mh_4bin(
     return pd.DataFrame(rows)
 
 
-def _plot_fraction_bars(summary: pd.DataFrame, output_dir: Path) -> Path:
-    fig, ax = plt.subplots(figsize=(9, 5))
-    x = np.arange(len(summary))
-    bottom = np.zeros(len(summary), dtype=float)
-    colors = ["#4c78a8", "#72b7b2", "#f2cf5b", "#d95f5f"]
-    labels = [spec["label"] for spec in BIN_DEFINITIONS]
-    for color, frac_name, label in zip(colors, BIN_ORDER, labels, strict=False):
-        values = summary[frac_name].to_numpy(dtype=float)
-        ax.bar(x, values, bottom=bottom, color=color, label=label)
-        bottom += values
-    ax.set_xticks(x, summary["well_id"].tolist())
-    ax.set_ylim(0.0, 1.0)
-    ax.set_ylabel("Fraction")
-    ax.set_title("Holten local 4-bin fit: estimated age fractions")
-    ax.legend(title="Age bin")
-    ax.grid(axis="y", alpha=0.25)
-    fig.tight_layout()
-    out_path = output_dir / "holten_4bin_fractions.png"
-    fig.savefig(out_path, dpi=150)
-    plt.close(fig)
-    return out_path
-
-
-def _plot_modeled_vs_observed(fit_df: pd.DataFrame, output_dir: Path) -> Path:
-    order_map = {name: idx for idx, name in enumerate(LOCAL_4BIN_TRACER_ORDER)}
-    tracers = sorted(
-        fit_df["tracer"].astype(str).unique().tolist(),
-        key=lambda name: order_map.get(name, 999),
-    )
-    ncols = 2 if len(tracers) > 3 else len(tracers)
-    nrows = int(np.ceil(len(tracers) / ncols))
-    fig, axes = plt.subplots(
-        nrows, ncols, figsize=(6.0 * ncols, 4.2 * nrows), sharey=False
-    )
-    axes_array = np.atleast_1d(axes).reshape(nrows, ncols)
-    flat_axes = axes_array.ravel()
-    for ax, tracer_name in zip(flat_axes, tracers, strict=False):
-        subset = fit_df.loc[fit_df["tracer"] == tracer_name].copy()
-        x = np.arange(len(subset))
-        ax.errorbar(
-            x,
-            subset["observed"],
-            yerr=subset["error"],
-            fmt="o",
-            color="#c13b31",
-            label="Observed",
-        )
-        ax.scatter(x, subset["modeled"], marker="s", color="#1f4b99", label="Modeled")
-        ax.set_xticks(x, subset["well_id"].tolist(), rotation=0)
-        ax.set_title(tracer_name)
-        ax.set_ylabel(f"Concentration [{subset.iloc[0]['unit']}]")
-        ax.grid(axis="y", alpha=0.25)
-    for ax in flat_axes[len(tracers) :]:
-        ax.axis("off")
-    flat_axes[0].legend(loc="best")
-    fig.suptitle("Holten local 4-bin fit: observed vs modeled concentrations")
-    fig.tight_layout()
-    out_path = output_dir / "holten_4bin_observed_vs_modeled.png"
-    fig.savefig(out_path, dpi=150)
-    plt.close(fig)
-    return out_path
-
-
-def _plot_fraction_posteriors(
-    samples: pd.DataFrame,
-    paper: pd.DataFrame,
-    output_dir: Path,
-) -> Path:
-    well_ids = list(samples["well_id"].drop_duplicates())
-    fig, axes = plt.subplots(
-        len(well_ids),
-        len(FRACTION_COLUMNS),
-        figsize=(3.4 * len(FRACTION_COLUMNS), 2.8 * len(well_ids)),
-        sharex="col",
-        sharey=False,
-    )
-    if len(well_ids) == 1:
-        axes = np.asarray([axes])
-    colors = {
-        "f_0_20": "#4c78a8",
-        "f_20_40": "#72b7b2",
-        "f_40_60": "#f2cf5b",
-        "f_old": "#d95f5f",
-    }
-    titles = {
-        "f_0_20": "0-20",
-        "f_20_40": "20-40",
-        "f_40_60": "40-60",
-        "f_old": ">60",
-    }
-    for row_idx, well_id in enumerate(well_ids):
-        group = samples.loc[samples["well_id"] == well_id]
-        paper_row = paper.loc[paper["well_id"] == well_id].iloc[0]
-        for col_idx, frac in enumerate(FRACTION_COLUMNS):
-            ax = axes[row_idx, col_idx]
-            values = group[frac].astype(float)
-            q10 = float(values.quantile(0.10))
-            q90 = float(values.quantile(0.90))
-            median = float(values.quantile(0.50))
-            paper_value = float(paper_row[frac])
-            ax.hist(values, bins=24, color=colors[frac], alpha=0.75, density=True)
-            ax.axvline(paper_value, color="black", linestyle="--", linewidth=1.6)
-            ax.axvline(median, color="#1f4b99", linestyle="-", linewidth=1.2, alpha=0.9)
-            if row_idx == 0:
-                ax.set_title(titles[frac])
-            if col_idx == 0:
-                ax.set_ylabel(f"{well_id}\ndensity")
-            ax.set_xlim(0.0, 1.0)
-            ax.grid(alpha=0.2)
-            if q90 < 1e-4:
-                ax.text(
-                    0.98,
-                    0.92,
-                    f"posterior near 0\nq90={q90:.1e}",
-                    transform=ax.transAxes,
-                    ha="right",
-                    va="top",
-                    fontsize=8,
-                    bbox={
-                        "boxstyle": "round,pad=0.2",
-                        "fc": "white",
-                        "ec": "#b0b0b0",
-                        "alpha": 0.9,
-                    },
-                )
-            elif q10 > 0.75:
-                ax.text(
-                    0.98,
-                    0.92,
-                    f"high fraction\nq10={q10:.3f}",
-                    transform=ax.transAxes,
-                    ha="right",
-                    va="top",
-                    fontsize=8,
-                    bbox={
-                        "boxstyle": "round,pad=0.2",
-                        "fc": "white",
-                        "ec": "#b0b0b0",
-                        "alpha": 0.9,
-                    },
-                )
-            ax.text(
-                0.98,
-                0.74,
-                f"paper={paper_value:.3g}\nmedian={median:.3g}",
-                transform=ax.transAxes,
-                ha="right",
-                va="top",
-                fontsize=8,
-                color="#333333",
-            )
-    fig.supxlabel("Fraction value")
-    fig.suptitle(
-        "Holten 4-bin fractions: local MH posterior with paper reference", y=1.02
-    )
-    fig.tight_layout()
-    out_path = output_dir / "holten_4bin_mh_fraction_posteriors.png"
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    return out_path
-
-
-def _plot_fraction_interval_comparison(
-    comparison: pd.DataFrame, output_dir: Path
-) -> Path:
-    panel_titles = {
-        "f_0_20": "0-20 years",
-        "f_20_40": "20-40 years",
-        "f_40_60": "40-60 years",
-        "f_old": "> 60 years",
-    }
-    axis_labels = {
-        "f_0_20": r"$f_1$",
-        "f_20_40": r"$f_2$",
-        "f_40_60": r"$f_3$",
-        "f_old": r"$f_4$",
-    }
-    fig, axes = plt.subplots(
-        1,
-        len(FRACTION_COLUMNS),
-        figsize=(4.8 * len(FRACTION_COLUMNS), 5.2),
-        sharey=True,
-    )
-    if len(FRACTION_COLUMNS) == 1:
-        axes = [axes]
-    y = np.arange(len(comparison))
-    for ax, frac in zip(axes, FRACTION_COLUMNS, strict=False):
-        lower = comparison[f"{frac}_posterior_q10"].astype(float)
-        median = comparison[f"{frac}_posterior_median"].astype(float)
-        upper = comparison[f"{frac}_posterior_q90"].astype(float)
-        paper = comparison[f"{frac}_paper"].astype(float)
-        ax.hlines(
-            y,
-            lower,
-            upper,
-            color="#4c78a8",
-            linewidth=4,
-            label="MH q10-q90" if frac == FRACTION_COLUMNS[0] else None,
-        )
-        ax.scatter(
-            median,
-            y,
-            color="#1f4b99",
-            marker="o",
-            s=90,
-            label="MH median" if frac == FRACTION_COLUMNS[0] else None,
-            zorder=3,
-        )
-        ax.scatter(
-            paper,
-            y,
-            color="#c13b31",
-            marker="D",
-            s=110,
-            label="Paper value" if frac == FRACTION_COLUMNS[0] else None,
-            zorder=4,
-        )
-        ax.set_title(
-            panel_titles.get(frac, frac.replace("f_", "").replace("_", "-")),
-            fontsize=17,
-            fontweight="bold",
-        )
-        ax.set_xlim(0.0, 1.0)
-        ax.set_xlabel(axis_labels.get(frac, "Fraction"), fontsize=26)
-        ax.tick_params(axis="both", labelsize=17)
-        ax.grid(alpha=0.25)
-    axes[0].set_yticks(y, comparison["well_id"].tolist())
-    axes[0].legend(loc="best", fontsize=14, frameon=True)
-    fig.tight_layout()
-    out_path = output_dir / "holten_4bin_paper_vs_mh_intervals.png"
-    fig.savefig(out_path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
-    return out_path
-
-
 def write_4bin_outputs(
     endmembers: pd.DataFrame,
     summary: pd.DataFrame,
     fit_df: pd.DataFrame,
     output_dir: Path,
 ) -> dict[str, Path]:
+    """Write deterministic-fit tables and their two diagnostic figures."""
     output_dir.mkdir(parents=True, exist_ok=True)
     endmembers_path = output_dir / "holten_4bin_endmembers.csv"
     summary_path = output_dir / "holten_4bin_summary.csv"
@@ -954,8 +738,8 @@ def write_4bin_outputs(
     endmembers.to_csv(endmembers_path, index=False)
     summary.to_csv(summary_path, index=False)
     fit_df.to_csv(fit_path, index=False)
-    fraction_plot = _plot_fraction_bars(summary, output_dir)
-    fit_plot = _plot_modeled_vs_observed(fit_df, output_dir)
+    fraction_plot = plot_fraction_bars(summary, output_dir)
+    fit_plot = plot_modeled_vs_observed(fit_df, output_dir)
     return {
         "endmembers": endmembers_path,
         "summary": summary_path,
@@ -972,6 +756,7 @@ def write_4bin_mh_outputs(
     comparison: pd.DataFrame,
     output_dir: Path,
 ) -> dict[str, Path]:
+    """Write posterior tables and figures for comparison with the paper."""
     output_dir.mkdir(parents=True, exist_ok=True)
     paper_path = output_dir / "holten_4bin_paper_reference.csv"
     samples_path = output_dir / "holten_4bin_mh_samples.csv"
@@ -981,8 +766,8 @@ def write_4bin_mh_outputs(
     samples.to_csv(samples_path, index=False)
     posterior.to_csv(posterior_path, index=False)
     comparison.to_csv(comparison_path, index=False)
-    posterior_plot = _plot_fraction_posteriors(samples, paper, output_dir)
-    comparison_plot = _plot_fraction_interval_comparison(comparison, output_dir)
+    posterior_plot = plot_fraction_posteriors(samples, paper, output_dir)
+    comparison_plot = plot_fraction_interval_comparison(comparison, output_dir)
     return {
         "paper_reference": paper_path,
         "mh_samples": samples_path,
@@ -999,6 +784,7 @@ def run_local_4bin(
     *,
     include_helium: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Path]]:
+    """Run and persist the optimizer-based local four-bin benchmark."""
     endmembers, summary, fit_df = fit_all_wells_4bin(
         prepared,
         include_helium=include_helium,
@@ -1016,6 +802,7 @@ def run_local_4bin_mh(
     seed: int = 12345,
     include_helium: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Path]]:
+    """Run and persist the sampling-based local four-bin benchmark."""
     endmembers = build_4bin_endmembers(prepared, include_helium=include_helium)
     paper = load_paper_4bin_fractions(prepared)
     samples = sample_all_wells_4bin_mh(

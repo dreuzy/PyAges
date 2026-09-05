@@ -53,7 +53,8 @@ represented faithfully by one continuous SciPy distribution. This includes:
 
 - exact point masses (`DIRAC` and `DIRAC_DOUBLE`);
 - mixed discrete/continuous measures (`MIXED_DIRAC_CONTINUOUS`);
-- custom continuous laws such as the configurable shape-free model.
+- fixed uniform age bins with variable masses (`PIECEWISE_UNIFORM`);
+- other custom continuous laws.
 
 The model must then implement its probability functions and moments and select
 the appropriate `ConvolutionStrategy`. A custom continuous model must also
@@ -66,9 +67,9 @@ below. See {doc}`convolution` for direct forward calculations and diagnostics.
 | --- | --- |
 | `pyages/lpm/core/lpm_scipy.py` | Generic SciPy delegation for PDF, CDF, quantiles, mean, and standard deviation |
 | `pyages/lpm/models/<name>.py` | Scientific parameterization, SciPy parameter conversion, and any distribution-specific convolution formula |
-| `data_core/data_lpm/<name>/params.yaml` | Calibration bounds, initial values, proposal steps, priors, labels, units, and descriptions |
+| `data_core/data_lpm/<name>/params.yaml` | Mathematical domains, calibration ranges, initial values, proposal steps, priors, labels, units, and descriptions |
 | `pyages/lpm/core/convolution_strategy.py` | Declaration of the convolution mechanism required by the probability measure |
-| `pyages/convolution/` | Generic execution of the declared continuous, Dirac, double-Dirac, or mixed convolution mechanism |
+| `pyages/convolution/` | Generic execution of the declared continuous, piecewise-uniform, Dirac, double-Dirac, or mixed convolution mechanism |
 | `pyages/lpm/core/registry.py` | Discovery of model classes decorated with `@register_lpm` |
 
 The existing SciPy-backed models are `exp`, `exp_shifted`, `gamma`, `uniform`,
@@ -214,7 +215,8 @@ parameters:
     label: shape
     unit: "-"
     description: "Shape parameter (k > 0). k < 1: decreasing hazard, k = 1: constant (exponential), k > 1: increasing hazard."
-    bounds: [0.1, 10.0]
+    domain: {min: 0.0, min_inclusive: false, max: null}
+    calibration_range: [0.1, 10.0]
     init: 1.5
     step: 0.2
     prior:
@@ -227,7 +229,8 @@ parameters:
     label: scale
     unit: year
     description: "Scale parameter representing characteristic transit time."
-    bounds: [0.1, 100.0]
+    domain: {min: 0.0, min_inclusive: false, max: null}
+    calibration_range: [0.1, 100.0]
     init: 10.0
     step: 2.0
     prior:
@@ -327,6 +330,7 @@ class MySpecialLpm(LpmScipy):
 Available strategies:
 
 - `CONTINUOUS`: CDF and partial-first-moment convolution (default)
+- `PIECEWISE_UNIFORM`: Precomputed response for each fixed uniform age bin
 - `DIRAC`: Direct lookup for point mass distributions
 - `DIRAC_DOUBLE`: Two-point mass distributions
 - `MIXED_DIRAC_CONTINUOUS`: Direct point mass plus normalized continuous part
@@ -334,6 +338,12 @@ Available strategies:
 PyAges does not reconstruct a production CDF from sampled PDF values. A
 continuous model without a trustworthy vectorized CDF and partial first moment
 is rejected explicitly.
+
+A `PIECEWISE_UNIFORM` model must expose `bin_edges()` and `fractions()`. Edges
+must be finite, strictly increasing, start at zero, and remain fixed while a
+prepared problem is used. Fractions must contain one finite non-negative mass
+per bin and sum to one. The standard shape-free model is the maintained example
+of this contract.
 
 For every finite, non-negative vector `t`, the provider must satisfy all of the
 following conditions:
@@ -414,7 +424,8 @@ pyages check
 ```yaml
 parameters:
   - name: mu              # Must match constructor parameter
-    bounds: [0.1, 100.0]  # Valid range
+    domain: {min: 0.0, min_inclusive: false, max: null}
+    calibration_range: [0.1, 100.0]
     init: 10.0            # Initial value for optimization
 ```
 
@@ -437,10 +448,11 @@ parameters:
 
 | Field | Guideline |
 |-------|-----------|
-| `bounds` | Physical constraints (e.g., ages > 0) |
+| `domain` | Formula validity (for example, a scale is strictly positive) |
+| `calibration_range` | Finite search interval for this model configuration |
 | `init` | Reasonable starting point for your application |
 | `step` | Positive finite value; needed only for model-configured MH steps |
-| `prior.min/max` | Wider than `bounds` to allow exploration |
+| `prior.min/max` | Prior support; effective support is its intersection with `calibration_range` |
 
 ---
 
@@ -523,7 +535,8 @@ parameters:
     label: mean_age
     unit: year
     description: "Mean transit time."
-    bounds: [0.1, 100.0]
+    domain: {min: 0.0, min_inclusive: false, max: null}
+    calibration_range: [0.1, 100.0]
     init: 10.0
     step: 2.0
     prior:
@@ -536,7 +549,8 @@ parameters:
     label: std_age
     unit: year
     description: "Standard deviation of transit time."
-    bounds: [0.1, 50.0]
+    domain: {min: 0.0, min_inclusive: false, max: null}
+    calibration_range: [0.1, 50.0]
     init: 5.0
     step: 1.0
     prior:
@@ -561,7 +575,7 @@ notes: |
 - Ensure the checkout is installed in editable mode in the active environment
 - Ensure no import errors: `python -c "import pyages.lpm.models.mymodel"`
 
-### "Parameter 'x' not found in bounds"
+### "Parameter 'x' not found in the parameter schema"
 
 - Ensure `params.yaml` has an entry for each parameter
 - Check that `name` in YAML matches the parameter name in `__init__`

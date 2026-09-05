@@ -1,13 +1,17 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file converts inverse-Gaussian parameters between two naming systems.
 
-"""Coordinate transforms for the shifted inverse-Gaussian model.
+"""Convert shifted inverse-Gaussian parameters between PyAges and SciPy.
 
-PyAges calibrates the distribution with its physical mean ``M`` and standard
-deviation ``S``.  Earlier Ploemeur experiments used SciPy's ``shape`` and
-``scale`` parameters.  Keeping the exact, named bijection in one module makes
-the change of measure auditable without exposing compatibility aliases.
+PyAges describes the distribution with its physical mean ``M``, standard
+deviation ``S``, and time shift ``t0``. Earlier Ploemeur experiments described
+the same distribution with SciPy's ``shape``, ``scale``, and ``shift`` values.
+
+This module contains both conversion directions and the associated Jacobian.
+Keeping the formulas together makes it possible to check how a proposal or
+probability density changes when it moves between the two parameter systems.
 """
 
 from __future__ import annotations

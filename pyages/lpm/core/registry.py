@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file discovers decorated LPM classes and maps each one to a short name.
+# The factory uses names read from configuration or the command line to retrieve
+# classes lazily; duplicate registrations fail instead of changing the selected
+# scientific model silently.
 
 """Associate LPM configuration names with their implementation classes.
 

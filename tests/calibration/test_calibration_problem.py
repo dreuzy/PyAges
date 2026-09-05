@@ -6,16 +6,20 @@
 
 from __future__ import annotations
 
+import shutil
+from copy import deepcopy
 from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
 from pyages.calibration.exploration.systematic import SystematicSampling
 from pyages.calibration.methods.simplex import SIMPLEX, Simplex
 from pyages.calibration.problem import CalibrationProblem, resolve_observation_errors
 from pyages.concentrations import Concentrations
+from pyages.config.paths import DIRECTORY_LPM_DATA
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
@@ -55,6 +59,80 @@ def test_problem_uses_composition_and_preserves_the_target_objective(tmp_path):
 
     assert objective == pytest.approx(0.0, abs=1e-12)
     assert np.allclose(modeled, problem.observations.frame["concentration"])
+
+
+def test_scientific_target_signature_is_stable_across_display_paths(tmp_path) -> None:
+    first = _prepared_problem(tmp_path / "first")
+    second = _prepared_problem(tmp_path / "second")
+
+    first_signature = first.target_signature()
+    second_signature = second.target_signature()
+
+    assert first_signature == second_signature
+    assert first_signature.sha256 == second_signature.sha256
+    assert len(first_signature.sha256) == 64
+    assert first_signature.differing_category(second_signature) is None
+
+
+def test_lpm_document_signature_ignores_yaml_formatting_and_source_path(
+    tmp_path,
+) -> None:
+    first_root = tmp_path / "first_lpm_root"
+    second_root = tmp_path / "second_lpm_root"
+    shutil.copytree(DIRECTORY_LPM_DATA / "exp", first_root / "exp")
+    shutil.copytree(DIRECTORY_LPM_DATA / "exp", second_root / "exp")
+    second_path = second_root / "exp" / "params.yaml"
+    parsed = yaml.safe_load(second_path.read_text(encoding="utf-8"))
+    second_path.write_text(
+        "# Semantically identical document with different formatting.\n"
+        + yaml.safe_dump(parsed, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    target = build_lpm("exp")
+    tracers = ConvolutionTracers(names=["cfc11"], date=2010.0)
+    observations = tracers.convolve(target, return_type="concentrations")
+    observations.set_relative_errors(0.05)
+    first = CalibrationProblem(
+        Concentrations.from_dataframe(observations.frame),
+        "exp",
+        lpm_directory=first_root,
+        explore_objective=False,
+        explore_reachable=False,
+    ).prepare()
+    second = CalibrationProblem(
+        Concentrations.from_dataframe(observations.frame),
+        "exp",
+        lpm_directory=second_root,
+        explore_objective=False,
+        explore_reachable=False,
+    ).prepare()
+
+    assert first.target_signature() == second.target_signature()
+
+
+def test_lpm_fixed_scientific_state_is_part_of_the_signature() -> None:
+    target = build_lpm("dirac_double_1_set")
+    tracers = ConvolutionTracers(names=["cfc11"], date=2010.0)
+    observations = tracers.convolve(target, return_type="concentrations")
+    observations.set_relative_errors(0.05)
+    first = CalibrationProblem(
+        Concentrations.from_dataframe(observations.frame),
+        "dirac_double_1_set",
+        explore_objective=False,
+        explore_reachable=False,
+    ).prepare()
+    second = CalibrationProblem(
+        Concentrations.from_dataframe(observations.frame),
+        "dirac_double_1_set",
+        explore_objective=False,
+        explore_reachable=False,
+    ).prepare()
+    second.lpm._DiracDouble1SetLpm__muset = 71.0  # noqa: SLF001
+
+    assert (
+        first.target_signature().differing_category(second.target_signature()) == "lpm"
+    )
 
 
 def test_objective_loop_does_not_repeat_unit_validation(tmp_path):
@@ -103,6 +181,56 @@ def test_problem_rejects_non_positive_observation_errors(tmp_path):
             np.array([1.0]),
             np.array([0.0]),
         )
+
+
+def test_problem_preparation_is_atomic_when_tracer_preparation_fails(tmp_path):
+    problem = _prepared_problem(tmp_path)
+    observations = Concentrations.from_dataframe(problem.observations.frame)
+    failing = CalibrationProblem(
+        observations,
+        "exp",
+        explore_objective=False,
+        explore_reachable=False,
+    )
+
+    with patch.object(
+        ConvolutionTracers,
+        "prepare",
+        side_effect=RuntimeError("prepared grid failed"),
+    ):
+        with pytest.raises(RuntimeError, match="prepared grid failed"):
+            failing.prepare()
+
+    assert failing.is_prepared is False
+    assert failing.lpm is None
+    assert failing.tracers is None
+    with pytest.raises(RuntimeError, match="initialize"):
+        failing.ensure_prepared()
+
+
+def test_problem_rejects_observation_mutation_after_preparation(tmp_path):
+    problem = _prepared_problem(tmp_path)
+    problem.observations.frame.loc[0, "concentration"] += 1.0
+
+    with pytest.raises(RuntimeError, match="Observations changed"):
+        problem.ensure_prepared()
+
+
+def test_candidate_objective_does_not_mutate_committed_lpm(tmp_path):
+    problem = _prepared_problem(tmp_path)
+    committed = problem.lpm.get_parameters_to_array()
+    candidate = deepcopy(problem.lpm)
+    observed, errors = problem.prepared_observation_arrays()
+
+    problem.objective_function_for_lpm(
+        candidate,
+        [20.0],
+        observed,
+        errors,
+    )
+
+    assert problem.lpm.get_parameters_to_array() == committed
+    assert candidate.get_parameters_to_array() == [20.0]
 
 
 def test_problem_rejects_observation_model_unit_mismatch_before_calibration(

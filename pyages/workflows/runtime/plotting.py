@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file manages Matplotlib setup and display behavior for workflows.
 
-"""Matplotlib runtime services shared by packaged workflows."""
+"""Configure plotting once and give workflows a consistent figure lifecycle.
+
+Backend selection respects an explicit environment choice and otherwise adapts
+to notebook, interactive desktop, or headless execution. The resulting runtime
+state records whether figures can be displayed immediately or must only be
+written to files.
+
+``PlotSession`` delays importing ``pyplot`` until configuration is complete and
+provides uniform show, close, close-all, and final blocking-display operations.
+Scientific plotting modules remain responsible for figure contents.
+"""
 
 from __future__ import annotations
 
@@ -12,10 +23,7 @@ from typing import Any
 
 
 def configure_backend(force_inline: bool = False) -> bool:
-    """
-    Purpose
-    -------
-    Configure matplotlib backend depending on environment.
+    """Configure the Matplotlib backend for the current environment.
 
     Returns
     -------
@@ -57,20 +65,12 @@ def configure_backend(force_inline: bool = False) -> bool:
 
 
 def enable_interactive(plt):
-    """
-    Purpose
-    -------
-    Enable interactive mode for long-running scripts.
-    """
+    """Enable interactive mode for long-running scripts."""
     plt.ion()
 
 
 def show_figures(plt, is_interactive):
-    """
-    Purpose
-    -------
-    Flush figures in interactive mode.
-    """
+    """Flush figures in interactive mode."""
     if is_interactive:
         plt.show()
 

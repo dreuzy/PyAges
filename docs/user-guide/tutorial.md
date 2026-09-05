@@ -89,7 +89,8 @@ Open `result_manifest.json` first. A completed run has:
 ```
 
 The same file records SHA-256 hashes for the configuration, input table, and
-every generated artifact. It is written only after the workflow succeeds. A
+every generated artifact. A required multi-chain convergence rejection can
+write it with `status: failed`; other execution errors can leave it absent. A
 directory without a complete manifest must not be treated as a finished run.
 
 The full file and column reference is {doc}`../reference/results`.

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import pyages.workflows.single_date.paths as single_date_paths
 from pyages.config.paths import configuration_root
 from pyages.workflows.single_date.paths import dataset_results_directory
 
@@ -57,3 +58,52 @@ def test_configuration_root_accepts_checkout_working_directory(
 def test_dataset_results_directory_rejects_path_components(dataset_name: str) -> None:
     with pytest.raises(ValueError, match="single non-empty path component"):
         dataset_results_directory(dataset_name)
+
+
+def test_dataset_results_directory_keeps_the_historical_default(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    results_root = tmp_path / "default-results"
+    monkeypatch.setattr(single_date_paths, "ROOT_DIRECTORY_RESULTS", results_root)
+
+    output = dataset_results_directory("observations.txt")
+
+    assert output == results_root / "test_cases" / "observations.txt"
+    assert output.is_dir()
+
+
+def test_dataset_results_directory_isolates_studies_for_the_same_dataset(
+    tmp_path: Path,
+) -> None:
+    first = dataset_results_directory(
+        "observations.txt",
+        use_default=False,
+        directory=tmp_path,
+        study_name="profile_a",
+    )
+    second = dataset_results_directory(
+        "observations.txt",
+        use_default=False,
+        directory=tmp_path,
+        study_name="profile_b",
+    )
+
+    assert first == tmp_path / "profile_a" / "observations.txt"
+    assert second == tmp_path / "profile_b" / "observations.txt"
+    assert first != second
+
+
+def test_dataset_results_directory_can_leave_the_public_leaf_absent(
+    tmp_path: Path,
+) -> None:
+    output = dataset_results_directory(
+        "observations.txt",
+        use_default=False,
+        directory=tmp_path,
+        study_name="staged",
+        create=False,
+    )
+
+    assert output == tmp_path / "staged" / "observations.txt"
+    assert not output.exists()

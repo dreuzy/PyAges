@@ -15,6 +15,8 @@ promise is {doc}`../reference/public-api`.
    pyages.calibration.methods.base
    pyages.calibration.outputs
    pyages.calibration.problem
+   pyages.calibration.sampling_schedule
+   pyages.calibration.target_signature
    pyages.calibration.exploration.grid
    pyages.calibration.exploration.systematic
    pyages.convolution
@@ -31,6 +33,9 @@ promise is {doc}`../reference/public-api`.
    pyages.concentrations.series
    pyages.concentrations.temporal
    pyages.calibration.methods.mh
+   pyages.calibration.methods.mh.ensemble
+   pyages.calibration.methods.mh.ensemble_config
+   pyages.calibration.methods.mh.diagnostics
    pyages.calibration.methods.mh.prior
    pyages.calibration.methods.mh.proposals
    pyages.calibration.methods.mh.trajectory
@@ -45,21 +50,29 @@ promise is {doc}`../reference/public-api`.
    pyages.data_io.lpm_params
    pyages.data_io.lpm_results
    pyages.data_io.lpm_distribution
+   pyages.data_io.mh_results
    pyages.data_io.concentrations
    pyages.cli.main
    pyages.workflows
    pyages.workflows.single_date
    pyages.workflows.temporal
-   pyages.workflows.runtime.manifest
+   pyages.workflows.runtime
    pyages.reporting
    pyages.reporting.chronicles
    pyages.reporting.plots
    pyages.qualification
 ```
 
-```{toctree}
-:hidden:
-:glob:
+## Administrative staged-result API
 
-generated/*
+The canonical contributor lifecycle is documented through
+`pyages.workflows.runtime` above. The following lower-level operations are for
+explicit inspection and quarantine tools; lifecycle names re-exported by the
+facade are intentionally not indexed a second time.
+
+```{eval-rst}
+.. automodule:: pyages.workflows.runtime.manifest
+   :members: RESULT_SCHEMA_VERSION, StagedRunInspection, inspect_staged_result_run, inventory_staged_result_runs, quarantine_staged_result_run
+   :exclude-members: ResultRun, begin_staged_result_run, promote_result_run, write_failure_manifest, write_result_manifest
+   :no-undoc-members:
 ```

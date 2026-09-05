@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file aligns predictions from many model realizations on common date grids
+# and calculates posterior quantiles for temporal reports and figures.
+# It first requires every realization to return the same tracers and finite,
+# unique dates, then returns the 10/25/50/75/90 percent summaries per tracer.
 
 """Compute aligned temporal posterior summaries independently of plotting.
 

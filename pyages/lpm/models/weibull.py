@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines a Weibull water-age model from shape and scale parameters.
+# These inputs can describe decreasing or peaked transit-time probabilities and
+# produce standard probability functions, age statistics, and exact cumulative
+# moments for continuous tracer convolution.
 
 """
 LPM Weibull distribution model.

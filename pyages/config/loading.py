@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file reads a YAML file as a mapping and validates it against a requested
+# Pydantic model. It also resolves referenced paths from a chosen base directory
+# so every workflow reports missing files and invalid settings consistently.
 
 """Shared YAML loading and configuration path helpers."""
 

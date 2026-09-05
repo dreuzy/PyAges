@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines a uniform water-age model from an interval start and width.
+# Every transit time inside that interval receives equal probability, and the
+# model returns SciPy probability functions, age statistics, and exact cumulative
+# moments for continuous tracer convolution.
 
 """
 LPM Uniform distribution model.

@@ -23,13 +23,19 @@ Run the checks relevant to the change before opening a pull request:
 ```bash
 python -m ruff check .
 python -m ruff format --check .
+python -m pyright
+python -m scripts.maintenance.check_qualified_docstrings
 python -m pytest -q
 python -m sphinx -W --keep-going -b html docs docs/_build/html
 ```
 
-The [testing guide](https://pyages-gw.readthedocs.io/en/latest/dev/testing.html)
+The dedicated Ruff command applies the NumPy docstring convention to the
+qualified calibration and workflow-runtime surface. Its scope is intentionally
+expanded progressively as legacy modules are brought under the same contract.
+
+The [testing guide](https://pyage-gw.readthedocs.io/en/latest/dev/testing.html)
 explains the standard, extensive, coverage, TracerLPM, collection, and golden
-scopes. The [continuous-integration reference](https://pyages-gw.readthedocs.io/en/latest/dev/ci.html)
+scopes. The [continuous-integration reference](https://pyage-gw.readthedocs.io/en/latest/dev/ci.html)
 maps every GitHub Actions job to its local command, trigger, and artifact.
 
 Changes to validation infrastructure should also run

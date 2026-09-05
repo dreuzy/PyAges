@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file builds the top-level ``pyages`` command and registers every
+# supported subcommand before handing control to Click.
+# It is the console-script entry point: argument parsing occurs here, while the
+# actual validation, file creation, and scientific work remain in submodules.
 
 """
 PyAges CLI - Main entry point.
@@ -13,6 +17,7 @@ Usage:
     pyages new lpm my_model
     pyages new tracer my_tracer
     pyages check
+    pyages stages inspect RESULTS_ROOT
 """
 
 import click
@@ -22,6 +27,7 @@ from pyages.cli.commands.check import check
 from pyages.cli.commands.list_cmd import list_group
 from pyages.cli.commands.new import new_group
 from pyages.cli.commands.run import run
+from pyages.cli.commands.stages import stages_group
 
 
 @click.group()
@@ -47,6 +53,7 @@ cli.add_command(run)
 cli.add_command(list_group)
 cli.add_command(new_group)
 cli.add_command(check)
+cli.add_command(stages_group)
 
 
 def main():

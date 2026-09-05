@@ -50,6 +50,8 @@ Continuous, point-mass, and mixed probability measures use separate paths:
 - two-Dirac models sum both weighted contributions;
 - mixed models evaluate the point mass directly and the normalized continuous
   component separately, then apply each mixture weight exactly once.
+- piecewise-uniform models precompute the response of each fixed age bin and
+  combine those responses with the current normalized bin masses.
 
 The implementation entry point is
 {py:class}`pyages.convolution.convolution.Convolution`. The derivation,
@@ -86,6 +88,30 @@ affine assumption, the code uses $K((a_i+b_i)/2)w_i$ in that bin. CDF values
 outside $[0,1]$, CDF non-monotonicity, and inconsistent partial moments raise
 a ``ConvolutionError``; only probability-bound or negative-weight deviations
 compatible with floating-point roundoff are clipped.
+
+### Piecewise-uniform response basis
+
+For fixed age bins $B_j=[u_j,v_j]$ with current normalized masses $f_j$, let
+$U_j$ be the unit-mass uniform distribution on $B_j$. Linearity gives
+
+```{math}
+C(t;f)=\sum_j f_j R_j(t),\qquad
+R_j(t)=\int_0^{T_{max}}K(t,\tau)\,dU_j(\tau).
+```
+
+For `shapefree_n_oldbin`, PyAges evaluates each $R_j$ once with the same
+prepared tracer grid and CDF/partial-moment kernel as ordinary continuous
+convolution. Later parameter proposals reconstruct the fractions through stick
+breaking and require only the displayed linear combination. The cache is an
+immutable derivative of the tracer, observation date, grid settings, and fixed
+bin edges. A date or geometry change invalidates it. Finite-window mass and
+diagnostics are reconstructed from the cached component CDFs, so old mass is
+still omitted without renormalization.
+
+The previous direct continuous calculation remains an equivalence oracle in
+tests over boundary and seeded random fraction states. The optimization changes
+floating-point operation order but not the numerical method or scientific
+support convention.
 
 ### Adaptive-grid controls
 
@@ -165,7 +191,8 @@ objective is
 
 This assumes independent, unbiased Gaussian errors with known standard
 deviations. PyAges does not currently represent an observation-error covariance
-matrix. Parameter bounds and priors are separate from $\chi^2$.
+matrix. Mathematical domains, calibration ranges, and priors are separate from
+$\chi^2$.
 
 Three objective quantities must not be interchanged:
 
@@ -180,14 +207,15 @@ normalization by uncertainty; it is not an RMSE in concentration units.
 
 ## Metropolis-Hastings target and sampling
 
-Within LPM parameter bounds, the enabled target is
+Within the configured LPM calibration range, the enabled target is
 
 ```{math}
 \log\pi(\theta)=-\frac12\chi^2(\theta)+\log p(\theta)+c.
 ```
 
-Disabled likelihood or prior terms are omitted. Out-of-bounds states and
-parameters outside the configured prior support have log density $-\infty$.
+Disabled likelihood or prior terms are omitted. States outside the calibration
+range or configured prior support have log density $-\infty$. The calibration
+range is validated as a subset of the LPM formula's mathematical domain.
 Prior densities are evaluated directly in log space after an exact zero check;
 no positive probability floor is substituted for zero support. Given proposal
 density $q$, acceptance uses
@@ -204,6 +232,16 @@ coordinates but not in physical $(M,S,t_0)$ coordinates. Since
 $|\partial(shape,scale)/\partial(M,S)|=2/S$, its Hastings correction is
 $\log(S_{proposed}/S_{current})$.
 
+Multi-chain prior initialization is defined through bounded marginal
+operations owned by `Prior`. Normal quantiles use the exact truncated-normal
+law on the calibration interval. Uniform quantiles use the intersection of
+the prior support and calibration range. Empirical quantiles invert trapezoidal
+mass of the clipped piecewise-linear density. Positive-support tests use the
+same definitions. One-chain `Prior.param_init` selects the configured
+parametric center or a direct draw, then clips it to the calibration range.
+Multi-chain execution permits only dispersed prior samples, stratified starts,
+or explicit per-chain starts; none of these rules changes the posterior target.
+
 ``nstep`` counts accepted and rejected transitions. With zero-based iteration
 ``i``, PyAges retains the current state when
 ``i > burn_in * nstep`` and ``i % nskip == 0``. Rejected proposals therefore
@@ -216,6 +254,50 @@ $\hat R$, effective sample size, and Monte Carlo uncertainty. Proposal
 qualification evidence is in {doc}`reports/mh_proposal_qualification` and the
 operational checklist is in {doc}`user-guide/calibration`.
 
+### Multi-chain pilot covariance and random streams
+
+Let $\theta_{ct}$ be retained pilot draw $t$ from chain $c$, let $n_c$ be that
+chain's retained count, and let $\bar\theta_c$ be its own mean. The common
+production proposal starts from the pooled within-chain covariance
+
+```{math}
+\widehat\Sigma_w =
+\frac{\sum_c\sum_{t=1}^{n_c}
+(\theta_{ct}-\bar\theta_c)(\theta_{ct}-\bar\theta_c)^\mathsf{T}}
+{\sum_c(n_c-1)}.
+```
+
+The separate centering is normative: between-chain differences in pilot
+location are not proposal variance. For dimension $d$, define
+
+```{math}
+\bar v=\max\left(\frac{\mathrm{tr}(\widehat\Sigma_w)}{d},10^{-12}\right),
+\qquad
+\widehat\Sigma=\widehat\Sigma_w+r\bar v I,
+```
+
+where $r$ is `relative_ridge`. If needed, the implementation adds the smallest
+machine-scale correction that makes $\widehat\Sigma$ positive definite even
+when $r=0$. With automatic scaling and a Cholesky factor
+$LL^\mathsf{T}=\widehat\Sigma$, each fixed production proposal is
+
+```{math}
+\theta'=\theta+\frac{2.38}{\sqrt d}Lz,
+\qquad z\sim\mathcal N(0,I).
+```
+
+Pilot samples do not enter the posterior. The covariance is frozen before
+production and is unrelated to the prior covariance. One `master_seed` feeds
+three child `SeedSequence` branches for initialization, pilot, and production,
+then one child per chain. All realized seeds and starts are serialized. A null
+master seed is generated once and must be recovered from provenance to replay
+the run.
+
+The exact folded rank-normalized split-R-hat, bulk/tail ESS, MCSE, constant
+quantity, and qualification conventions are defined in
+{doc}`science/inference`. The maintained executable evidence is summarized in
+{doc}`reports/multichain-mh-qualification-2026-08-31`.
+
 ## Traceability matrix
 
 | Scientific claim | Code contract | User/manual entry | Qualification evidence |
@@ -224,8 +306,9 @@ operational checklist is in {doc}`user-guide/calibration`.
 | adaptive tracer-grid semantics | ``pyages/convolution/tracer_grid.py`` and ``settings.py`` | this page | ``tests/convolution/test_convolution_settings.py`` |
 | independent forward acceptance | ``validation/tracerlpm/benchmark/scripts/compare_pyages.py`` | this page | ``validation/tracerlpm/benchmark/tests/test_compare_pyages.py``; {doc}`reports/forward_qualification_2026-08-27` |
 | IG physical moments and shift | ``pyages/lpm/models/inverse_gaussian*.py`` | this page; {doc}`user-guide/adding-lpm` | ``tests/lpm/test_inverse_gaussian_analytics.py``; {doc}`scientific-migration-ig-decay` |
-| normalized-residual objective | ``pyages/calibration/problem.py`` and ``utils/objective_functions.py`` | this page | ``tests/calibration/test_calibration_problem.py`` |
-| MH target, priors, proposals, and retention | ``pyages/calibration/methods/metropolis_hastings.py``, ``methods/prior.py``, and ``mh_proposals.py`` | {doc}`user-guide/configuration`; this page | ``tests/calibration/test_mh_proposals.py``; {doc}`reports/mh_proposal_qualification` |
+| normalized-residual objective | ``pyages/calibration/problem.py`` and ``pyages/calibration/objective.py`` | this page | ``tests/calibration/test_calibration_problem.py`` |
+| MH target, priors, proposals, and retention | ``pyages/calibration/methods/mh/sampler.py``, ``prior.py``, ``proposals.py``, and ``config.py`` | {doc}`user-guide/configuration`; this page | ``tests/calibration/test_calibration_scientific_contracts.py`` and ``test_mh_proposals.py``; {doc}`reports/mh_proposal_qualification` |
+| multi-chain initialization, pilot covariance, diagnostics, and pooling gate | ``pyages/calibration/methods/mh/initialization.py``, ``pilot.py``, ``diagnostics.py``, ``ensemble.py``, and ``pyages/data_io/mh_results.py`` | {doc}`user-guide/multichain-mh`; this page | ``tests/calibration/test_mh_*.py`` and the four extensive example tests; {doc}`reports/multichain-mh-qualification-2026-08-31` |
 
 For every published result, archive the PyAges release or commit, configuration,
 input checksums, random seeds, dependency versions, numerical settings, and raw

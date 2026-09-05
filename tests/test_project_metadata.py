@@ -104,6 +104,11 @@ def test_repository_scripts_are_grouped_by_responsibility():
             "verify_forward.py",
         },
         "qualification": {
+            "_archive_contract.py",
+            "_archive_evidence.py",
+            "_archive_verification.py",
+            "build_ci_multichain_archive.py",
+            "build_multichain_archive.py",
             "qualify_mh_proposals.py",
             "run_calibration_benchmark.py",
             "run_system_check.py",
@@ -117,6 +122,7 @@ def test_repository_scripts_are_grouped_by_responsibility():
         "maintenance": {
             "check_licensing.py",
             "check_project_metadata.py",
+            "check_qualified_docstrings.py",
             "clean_release_artifacts.py",
             "generate_test_inventory.py",
         },
@@ -147,7 +153,11 @@ def test_script_tests_mirror_entrypoint_families():
             "test_remaining_non_ploemeur_simulations.py",
             "test_reproduce_manuscript_figure2.py",
         },
-        "qualification": {"test_qualify_mh_proposals.py"},
+        "qualification": {
+            "test_ci_multichain_archive.py",
+            "test_multichain_archive.py",
+            "test_qualify_mh_proposals.py",
+        },
         "release": {"test_campaign_promotion.py", "test_zenodo_bundle.py"},
         "maintenance": {
             "test_generate_test_inventory.py",

@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file exposes ``CalibrationProblem`` as the public entry point for
+# preparing a fit. It imports the implementation only when callers request it,
+# keeping a simple package import free of the full scientific dependency chain.
 
 """Small, lazily loaded public API for calibration."""
 

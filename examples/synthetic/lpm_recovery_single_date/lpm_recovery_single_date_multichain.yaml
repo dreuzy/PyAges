@@ -1,0 +1,55 @@
+# Reproducible multi-chain qualification profile for the versioned synthetic case.
+# This is intentionally slower than lpm_recovery_single_date.yaml: its purpose is
+# convergence assessment and recovery of the known generating parameters.
+workflow:
+  kind: single_date
+
+dataset:
+  name: synthetic_exp_shifted_2010.txt
+  label: Synthetic exp_shifted multi-chain recovery
+  year: 2010
+  data_dir: examples/synthetic/lpm_recovery_single_date/data
+  verbose: true
+  missing_error_rel: 0.01
+
+lpm:
+  model_name: exp_shifted
+  data_directory: data_core/data_lpm
+
+results:
+  study_name: synthetic_lpm_recovery_multichain
+
+run:
+  reachable_concentrations: false
+  objective_function: false
+  calibration_metropolis_hastings: true
+  calibration_simplex: false
+
+calibration_metropolis_hastings:
+  # Retain every post-burn-in draw so ESS, not thinning, measures information.
+  nstep: 4000
+  burn_in: 0.25
+  nskip: 1
+  prior_option: false
+  likelihood: true
+  monitor: false
+  display_traj: false
+  multichain:
+    enabled: true
+    chains: 4
+    master_seed: 20260831
+    initialization:
+      strategy: bounds_stratified
+      max_attempts: 100
+    pilot:
+      enabled: true
+      nstep: 1500
+      burn_in: 0.5
+      relative_ridge: 1.0e-6
+      proposal_multiplier: auto
+      save_samples: false
+    diagnostics:
+      max_rhat: 1.01
+      min_bulk_ess: 300
+      min_tail_ess: 300
+      require_convergence: true

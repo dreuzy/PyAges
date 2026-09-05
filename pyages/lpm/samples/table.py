@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file stores the rows produced while calibrating one water-age model.
+# Given a model template and tracer names, it keeps parameters, fit scores, and
+# predicted concentrations in one validated table and returns combined samples,
+# best-fit model copies, histograms, moments, and descriptive statistics.
 
 """Manage the results produced when calibrating a Lumped Parameter Model (LPM).
 

@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file prepares validated inputs and staging for a temporal workflow.
 
-"""Configuration and scientific inputs for temporal workflows."""
+"""Build the shared context for a temporal workflow from its YAML configuration.
+
+Preparation resolves observation and data directories, validates the requested
+LPM names, loads dated concentrations, and fills missing measurement errors by
+the configured policy. Plotting is configured and a private result stage is
+created only after the scientific inputs are usable.
+
+The resulting context is reused across temporal cases and model calibrations.
+It also identifies every dataset, model definition, and tracer resource whose
+contents must be included in terminal provenance.
+"""
 
 from __future__ import annotations
 
@@ -27,7 +38,7 @@ from pyages.config.paths import (
     result_subdirectory,
     validate_path_component,
 )
-from pyages.workflows.runtime.manifest import begin_result_run
+from pyages.workflows.runtime import ResultRun, begin_staged_result_run
 
 DEFAULT_LPMS = ["exp_shifted", "ig", "ig_shifted"]
 
@@ -44,6 +55,7 @@ class TemporalContext:
     models: list[str]
     lpm_directory: Path
     observations: Concentrations
+    result_run: ResultRun
     output_directory: Path
 
 
@@ -116,15 +128,6 @@ def prepare_context(params_path: str | Path) -> TemporalContext:
     configuration_directory = configuration_root(config_path)
     params = _load_params_validated(config_path)
     dataset_path = resolve_from(configuration_directory, params.dataset.file)
-    results_root = _results_root(params.results, configuration_directory)
-    output_directory = result_subdirectory(
-        result_subdirectory(
-            result_subdirectory(results_root, params.results.study_name),
-            dataset_path.stem,
-        ),
-        params.workflow.mode,
-    )
-    begin_result_run(output_directory)
     if not dataset_path.is_file():
         raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
     models, lpm_directory = _resolve_lpms(
@@ -136,6 +139,18 @@ def prepare_context(params_path: str | Path) -> TemporalContext:
         params.dataset.error_rel,
         params.dataset.missing_error_rel,
     )
+    # Allocate the staging tree only after all scientific inputs required to
+    # start the workflow have passed validation and loading.
+    results_root = _results_root(params.results, configuration_directory)
+    result_parent = result_subdirectory(
+        result_subdirectory(results_root, params.results.study_name),
+        dataset_path.stem,
+    )
+    # Keep the public leaf absent until atomic promotion. Creating an empty leaf
+    # here makes its disappearance observable as a false concurrent mutation.
+    result_directory = result_parent / params.workflow.mode
+    result_run = begin_staged_result_run(result_directory)
+    output_directory = result_run.working_directory
     return TemporalContext(
         config_path=config_path,
         configuration_directory=configuration_directory,
@@ -145,6 +160,7 @@ def prepare_context(params_path: str | Path) -> TemporalContext:
         models=models,
         lpm_directory=lpm_directory,
         observations=observations,
+        result_run=result_run,
         output_directory=output_directory,
     )
 

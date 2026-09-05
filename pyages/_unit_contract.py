@@ -1,8 +1,18 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file validates concentration units when observations enter PyAges.
 
-"""Concentration-unit contracts evaluated only at API boundaries."""
+"""Normalize concentration-unit labels before scientific calculations begin.
+
+Known units must use their canonical spelling, while blank values and common
+placeholder labels are rejected. For a set of observations, every tracer must
+have one unambiguous unit; mixed units for the same tracer fail at the input
+boundary instead of being combined silently during calibration or plotting.
+
+The functions return cleaned labels or mappings and do not convert numerical
+concentrations between unit systems.
+"""
 
 from __future__ import annotations
 

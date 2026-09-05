@@ -46,11 +46,26 @@ Pure Dirac and double-Dirac paths return `None` for `diagnostics` because they
 do not use an integration grid. `window_mass(lpm)` remains available for every
 strategy.
 
-`convolution.prepare()` eagerly constructs the tracer-only grid. Repeated LPM
-evaluations at the same observation date reuse it, which is useful in
-calibration loops. The returned `PreparedTracerGrid` and its NumPy arrays are
-read-only snapshots. Assigning a new `convolution.date` invalidates the cached
-grid and diagnostics.
+`convolution.prepare()` eagerly constructs the tracer-only grid. Passing an LPM
+as `convolution.prepare(lpm)` also prepares any representation-specific cache;
+calibration workflows do this automatically. Repeated LPM evaluations at the
+same observation date reuse the prepared state. The returned
+`PreparedTracerGrid` and its NumPy arrays are read-only snapshots. Assigning a
+new `convolution.date` invalidates all date-dependent caches and diagnostics.
+
+For a piecewise-uniform shape-free model, PyAges integrates the tracer response
+once for each fixed age bin. If `R_j` is that response and `f_j` is the current
+stick-breaking fraction, every later proposal evaluates only
+
+```{math}
+C = \sum_j f_j R_j.
+```
+
+The cached basis is private, immutable, and specific to the tracer, observation
+date, numerical grid, and age-bin geometry. A different date or geometry forces
+recomputation. The ordinary CDF/partial-first-moment integrator remains the
+reference path used by numerical equivalence tests; this optimization does not
+change support truncation or renormalize old water.
 
 ## A date range
 

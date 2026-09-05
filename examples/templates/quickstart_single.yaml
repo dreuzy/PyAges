@@ -1,5 +1,8 @@
 # Minimal single-date quickstart (fast, no interactive plots).
 
+workflow:
+  kind: single_date
+
 dataset:
   name: ploemeur_F09_2010.txt
   year: 2010
@@ -27,10 +30,31 @@ objective_function:
 
 calibration_metropolis_hastings:
   nstep: 200
+  burn_in: 0.2
+  nskip: 10
+  seed: 12345
   prior_option: false
   likelihood: true
   monitor: false
   display_traj: false
+  # Multi-chain MH is opt-in. Uncomment this block for an ensemble; leaving it
+  # absent preserves the one-chain quickstart. Also raise nstep (for example
+  # to 5000): the configured ESS gates must be reachable from retained draws.
+  # multichain:
+  #   enabled: true
+  #   chains: 4
+  #   master_seed: 12345
+  #   initialization:
+  #     strategy: bounds_stratified
+  #   pilot:
+  #     enabled: true
+  #     nstep: 2000
+  #     proposal_multiplier: auto
+  #   diagnostics:
+  #     max_rhat: 1.01
+  #     min_bulk_ess: 300
+  #     min_tail_ess: 300
+  #     require_convergence: true
 
 calibration_simplex:
   init_multiples_n: 2

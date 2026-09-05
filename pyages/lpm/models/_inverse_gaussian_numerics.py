@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file computes inverse-Gaussian ages from requested probabilities for both
+# shifted and unshifted models. It uses SciPy when possible and a bounded root
+# search for extreme probabilities, returning finite quantiles without changing
+# the analytical formulas used by convolution.
 
 """Private numerical support shared by the two inverse-Gaussian LPMs.
 

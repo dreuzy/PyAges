@@ -1,3 +1,6 @@
+workflow:
+  kind: single_date
+
 dataset:
   # Generated synthetic observations created from generation/generation_settings.yaml.
   name: synthetic_exp_shifted_2010.txt

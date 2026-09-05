@@ -11,6 +11,7 @@ import pytest
 
 from pyages.convolution import Convolution
 from pyages.lpm import build_lpm
+from pyages.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyages.tracer.simple_tracers import SyntheticTracer
 from tests.utils import paths as test_paths
 
@@ -42,7 +43,7 @@ def _make_support_open_lpm(tmp_path):
               - name: z1
                 label: latent_fraction_1
                 unit: "-"
-                bounds: [-8.0, 8.0]
+                calibration_range: [-8.0, 8.0]
                 init: 0.0
                 step: 0.5
                 prior:
@@ -54,7 +55,7 @@ def _make_support_open_lpm(tmp_path):
               - name: z2
                 label: latent_fraction_2
                 unit: "-"
-                bounds: [-8.0, 8.0]
+                calibration_range: [-8.0, 8.0]
                 init: 0.0
                 step: 0.5
                 prior:
@@ -80,6 +81,7 @@ def test_shapefree_n_oldbin_fraction_closure():
     assert lpm.bin_edges().tolist() == [0.0, 20.0, 40.0, 60.0, 200.0]
     assert fractions.tolist() == [0.5, 0.25, 0.125, 0.125]
     assert float(fractions.sum()) == 1.0
+    assert lpm.convolution_strategy is ConvolutionStrategy.PIECEWISE_UNIFORM
 
 
 def test_shapefree_n_oldbin_piecewise_pdf_cdf():

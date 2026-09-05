@@ -18,8 +18,8 @@ from typing import Any
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from pyages.config.models import LauncherConfig, LauncherParams
-from pyages.workflows.single_date.config import load_params_payload
+from pyages.config.models import LauncherConfig
+from pyages.workflows.single_date.config import load_config_payload
 from scripts.common.example_case_utils import (
     dump_yaml_dict as dump_yaml,
 )
@@ -125,8 +125,8 @@ def _launcher_payload(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _load_launcher_params(root: Path, payload: dict[str, Any]) -> LauncherParams:
-    return load_params_payload(root, _launcher_payload(payload))
+def _load_launcher_config(root: Path, payload: dict[str, Any]) -> LauncherConfig:
+    return load_config_payload(root, _launcher_payload(payload))
 
 
 @dataclass(frozen=True)
@@ -153,7 +153,7 @@ class HoltenPaths:
 class HoltenContext:
     paths: HoltenPaths
     config: dict[str, Any]
-    params: LauncherParams
+    params: LauncherConfig
     tracer_source_dirs: dict[str, Path]
     selected_wells: list[str]
     calibration_tracers: list[str]
@@ -241,17 +241,17 @@ def resolve_paths(config_path: Path | None = None) -> HoltenPaths:
     )
     cfg = load_yaml(yaml_path)
     _validate_holten_config(cfg, root)
-    params = _load_launcher_params(root, cfg)
+    params = _load_launcher_config(root, cfg)
     holten_cfg = cfg.get("holten", {})
     tracer_cfg = holten_cfg.get("tracers", {})
     prep_cfg = holten_cfg.get("preparation", {})
     validation_cfg = holten_cfg.get("validation", {})
 
-    data_dir = params.dataset_data_dir
-    lpm_data_dir = params.directory_lpm
+    data_dir = params.dataset.data_dir
+    lpm_data_dir = params.lpm.data_directory
     prepared_tracer_dir = (
-        params.tracer_data_dir
-        if params.tracer_data_dir is not None
+        params.tracers.data_directory
+        if params.tracers.data_directory is not None
         else _resolve_repo_relative(
             tracer_cfg.get(
                 "prepared_data_dir", example_dir / "prepared_tracers" / "data_tracer"
@@ -328,7 +328,7 @@ def load_holten_config(config_path: Path | None = None) -> dict[str, Any]:
 def build_context(config_path: Path | None = None) -> HoltenContext:
     paths = resolve_paths(config_path)
     cfg = load_holten_config(paths.yaml_path)
-    params = _load_launcher_params(paths.repo_root, cfg)
+    params = _load_launcher_config(paths.repo_root, cfg)
     holten_cfg = cfg.get("holten", {})
     campaign_cfg = holten_cfg.get("campaign", {})
     tracer_cfg = holten_cfg.get("tracers", {})
@@ -353,7 +353,7 @@ def build_context(config_path: Path | None = None) -> HoltenContext:
         selected_wells=selected_wells,
         calibration_tracers=calibration_tracers,
         date_round_decimals=int(prep_cfg.get("date_round_decimals", 5)),
-        lpm_name=params.lpm_model_name,
+        lpm_name=params.lpm.model_name,
         launcher_enabled=bool(launcher_cfg.get("enabled", False)),
         launcher_inline=bool(launcher_cfg.get("inline", False)),
         generate_per_well_files=bool(prep_cfg.get("generate_per_well_files", True)),
@@ -374,8 +374,8 @@ def generated_config_path(
 ) -> Path:
     return generated_launcher_config_path(
         context.paths.launcher_config_dir,
-        dataset_name=dataset_name or context.params.dataset_name,
-        lpm_model_name=lpm_model_name or context.params.lpm_model_name,
+        dataset_name=dataset_name or context.params.dataset.name,
+        lpm_model_name=lpm_model_name or context.params.lpm.model_name,
     )
 
 
@@ -460,10 +460,10 @@ def write_well_launcher_config(context: HoltenContext, well_id: str) -> Path:
         / f"holten_{well_id}_launcher.yaml",
         dataset_name=dataset_name,
         dataset_label=f"Holten {well_id}",
-        dataset_year=context.params.dataset_year,
+        dataset_year=context.params.dataset.year,
         dataset_data_dir=context.paths.data_dir.relative_to(context.paths.repo_root),
         dataset_verbose=True,
-        lpm_model_name=context.params.lpm_model_name,
+        lpm_model_name=context.params.lpm.model_name,
         lpm_data_directory=context.paths.lpm_data_dir.relative_to(
             context.paths.repo_root
         ),
