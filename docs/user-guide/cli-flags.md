@@ -70,7 +70,9 @@ pyages list tracers --verbose
 ## `pyages run <config.yaml>`
 
 Runs the workflow selected by `workflow.kind` in the YAML configuration.
-The field is required and must be `single_date` or `temporal`.
+Schema-2 files require the field to be `single_date` or `temporal`.
+Unversioned 1.x files without it retain the historical `single_date` default
+and print a migration warning.
 
 | Flag | Type | Description |
 | --- | --- | --- |
@@ -107,6 +109,37 @@ When overrides are used, the result manifest fingerprints the temporary
 effective YAML before it is removed and the `command` field records the CLI
 flags. Preserve the original configuration plus the command line with any
 archived result.
+
+## `pyages new config <directory>`
+
+Creates a self-contained schema-2 quickstart with synthetic observations. It
+does not overwrite an existing generated YAML or observation table.
+
+| Flag | Type | Description |
+| --- | --- | --- |
+| `--kind <single_date|temporal>` | option | Select the demonstrated workflow (default: `single_date`). |
+
+Example:
+
+```console
+pyages new config quickstart
+pyages run quickstart/pyages.yaml
+```
+
+The short example checks the installed data and workflow plumbing. Its
+synthetic values and deliberately small sampling settings are not scientific
+qualification evidence.
+
+## `pyages config migrate <source> <destination>`
+
+Copies an unversioned 1.x configuration to schema 2, validates the result, and
+leaves the source untouched. The destination must not exist and must be beside
+the source so relative paths retain their meaning. YAML comments are not
+preserved.
+
+```console
+pyages config migrate legacy.yaml pyages-schema2.yaml
+```
 
 ## `pyages stages inspect <root>`
 

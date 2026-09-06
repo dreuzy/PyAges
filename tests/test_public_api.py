@@ -94,17 +94,22 @@ def test_removed_compatibility_facades_are_absent() -> None:
     )
 
     assert all(not (ROOT / path).exists() for path in removed_paths)
-    assert "LauncherParams" not in config_api.__all__
-    assert not hasattr(config_api, "LauncherParams")
+    assert "LauncherParams" in config_api.__all__
+    assert config_api.LauncherParams.__name__ == "LauncherParams"
 
 
 def test_config_facade_uses_explicit_exports() -> None:
     assert config_api.__all__ == [
         "CliCheckParams",
         "CliRunParams",
+        "CONFIGURATION_SCHEMA_VERSION",
+        "LegacyConfigurationWarning",
         "LauncherConfig",
+        "LauncherParams",
         "SystemCheckConfig",
         "TemporalParams",
+        "migrate_configuration_payload",
+        "normalize_configuration_payload",
         "DIRECTORY_LPM_DATA",
         "DIRECTORY_TRACER_DATA",
         "ROOT_DIRECTORY",

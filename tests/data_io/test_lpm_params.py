@@ -85,6 +85,7 @@ def test_load_parameter_schema_is_typed_and_immutable(tmp_path) -> None:
     ("accessor_name", "property_name"),
     [
         ("get_calibration_ranges", "calibration_ranges"),
+        ("get_bounds", "calibration_ranges"),
         ("get_domains", "domains"),
         ("get_init", "initial_values"),
     ],
@@ -98,7 +99,7 @@ def test_deprecated_schema_accessors_delegate_to_properties(
     schema = lpm_params.load_parameter_schema("custom", tmp_path)
     accessor = getattr(lpm_params, accessor_name)
 
-    with pytest.warns(DeprecationWarning, match="removed in PyAges 2.0"):
+    with pytest.warns(DeprecationWarning, match="deprecated"):
         actual = accessor(schema)
 
     assert actual == getattr(schema, property_name)
@@ -130,12 +131,29 @@ def test_explicit_domain_is_distinct_from_the_calibration_range() -> None:
     assert parameter.calibration_range == (0.1, 100.0)
 
 
-def test_bounds_alias_is_rejected() -> None:
-    with pytest.raises(lpm_params.LPMParamsError, match="calibration_range"):
-        lpm_params.parse_parameter_schema(
+def test_bounds_alias_remains_compatible_and_cannot_be_ambiguous() -> None:
+    with pytest.warns(DeprecationWarning, match="bounds"):
+        schema = lpm_params.parse_parameter_schema(
             {
                 "model": "custom",
                 "parameters": [{"name": "mu", "bounds": [0.1, 100.0], "init": 10.0}],
+            }
+        )
+    with pytest.warns(DeprecationWarning, match="bounds"):
+        assert schema.parameters[0].bounds == (0.1, 100.0)
+
+    with pytest.raises(lpm_params.LPMParamsError, match="cannot combine"):
+        lpm_params.parse_parameter_schema(
+            {
+                "model": "custom",
+                "parameters": [
+                    {
+                        "name": "mu",
+                        "bounds": [0.1, 100.0],
+                        "calibration_range": [0.1, 100.0],
+                        "init": 10.0,
+                    }
+                ],
             }
         )
 
@@ -220,10 +238,13 @@ def test_resolved_paths_share_one_cached_parse(tmp_path, monkeypatch) -> None:
     assert calls == 1
 
 
-def test_ambiguous_load_params_alias_is_absent() -> None:
+def test_deprecated_load_params_alias_delegates_to_document_loader(tmp_path) -> None:
+    _write_params(tmp_path)
     assert "load_parameter_document" in lpm_params.__all__
     assert "load_parameter_schema" in lpm_params.__all__
-    assert not hasattr(lpm_params, "load_params")
+    with pytest.warns(DeprecationWarning, match="load_parameter_document"):
+        document = lpm_params.load_params("custom", tmp_path)
+    assert document == lpm_params.load_parameter_document("custom", tmp_path)
 
 
 @pytest.mark.parametrize(

@@ -81,15 +81,17 @@ conda install -c conda-forge spyder imageio ffmpeg av imageio-ffmpeg
 ```
 
 The distribution, import package, and CLI share the same `pyages` name. The
-stable `1.0.1` distribution is published on
-[PyPI](https://pypi.org/project/pyages/1.0.1/) and can be installed with:
+latest stable distribution currently published is
+[`1.0.1` on PyPI](https://pypi.org/project/pyages/1.0.1/) and can be installed
+with:
 
 ```bash
 python -m pip install "pyages==1.0.1"
 pyages check
 ```
 
-Use the editable commands above for development or exact source-checkout
-qualification. The `--pre` flag is needed only when deliberately installing a
-published beta or release-candidate version. Python code continues to use
-`import pyages`.
+This repository prepares the compatible `1.2.0` release. Use the editable
+commands above to exercise that version before publication or to qualify an
+exact source checkout. The `--pre` flag is needed only when deliberately
+installing a published beta or release-candidate version. Python code continues
+to use `import pyages`.

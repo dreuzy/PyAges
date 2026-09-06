@@ -205,8 +205,8 @@ from the LPM directory that holds the calibration tables.
 ## Multi-chain MH artifacts
 
 ```{note}
-These artifacts belong to the **Unreleased** multi-chain feature on the
-development branch and are not produced by `pyages==1.0.1` from PyPI.
+These optional multi-chain artifacts are available in PyAges 1.2. One-chain
+runs retain their historical output layout.
 ```
 
 When a present `multichain` block is enabled (the default for that block), the

@@ -123,6 +123,16 @@ command line, and calls the selected workflow. Keeping this decision near the
 CLI means that the scientific calculation does not need to understand command-
 line syntax.
 
+Configuration compatibility has one boundary. `pyages/config/migration.py`
+recognizes schema 2 or normalizes an unversioned 1.x mapping before either
+workflow's strict Pydantic model sees it. `pyages/config/paths.py` then applies
+the schema's path rule: schema 2 is relative to its YAML file, while legacy
+source examples keep checkout-relative behavior. Change this boundary when a
+user-facing field is renamed; do not duplicate aliases inside scientific
+calibration code. The focused contracts are in
+`tests/config/test_configuration_migration.py` and
+`tests/test_workflow_paths.py`.
+
 ### Single-date route
 
 Read these files in order when changing a single-date run:

@@ -118,9 +118,9 @@ def test_dependabot_groups_dependency_updates_by_qualification_scope():
 
 
 def test_release_identity_is_aligned():
-    assert release_identity_errors("1.0.1") == []
-    assert release_identity_errors("v1.0.1") == [
-        "tag/version mismatch: tag=v1.0.1, package=1.0.1"
+    assert release_identity_errors("1.2.0") == []
+    assert release_identity_errors("v1.2.0") == [
+        "tag/version mismatch: tag=v1.2.0, package=1.2.0"
     ]
 
 

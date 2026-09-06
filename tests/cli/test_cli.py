@@ -182,10 +182,47 @@ def test_cli_detects_declared_workflows(payload, expected) -> None:
     assert run_cmd._detect_workflow(payload) == expected
 
 
-@pytest.mark.parametrize("payload", [{}, {"dataset": {}}, {"workflow": {}}])
+@pytest.mark.parametrize("payload", [{"workflow": {}}])
 def test_cli_rejects_missing_workflow_kind(payload) -> None:
     with pytest.raises(click.ClickException, match="workflow.kind is required"):
         run_cmd._detect_workflow(payload)
+
+
+@pytest.mark.parametrize("payload", [{}, {"dataset": {}}])
+def test_cli_legacy_config_without_workflow_defaults_to_single_date(payload) -> None:
+    assert run_cmd._detect_workflow(payload) == "single_date"
+
+
+def test_cli_transient_alias_selects_temporal_and_rejects_conflicts() -> None:
+    assert run_cmd._detect_workflow({}, transient=True) == "temporal"
+    with pytest.raises(click.ClickException, match="conflicts"):
+        run_cmd._detect_workflow(
+            {"workflow": {"kind": "single_date"}},
+            transient=True,
+        )
+
+
+def test_schema_2_cli_overrides_use_canonical_fields(tmp_path) -> None:
+    payload = {
+        "schema_version": 2,
+        "workflow": {"kind": "temporal"},
+        "data": {"file": "old.tsv"},
+    }
+
+    changed = run_cmd._apply_overrides(
+        payload,
+        workflow="temporal",
+        lpm="ig",
+        mh_nsteps=456,
+        data_name=None,
+        data_dir=None,
+        data_file=tmp_path / "observations.tsv",
+    )
+
+    assert changed is True
+    assert payload["data"]["file"] == str(tmp_path / "observations.tsv")
+    assert payload["lpm"]["models"] == ["ig"]
+    assert payload["calibration"]["metropolis_hastings"]["nsteps"] == 456
 
 
 def test_cli_new_lpm_writes_to_current_project(tmp_path, monkeypatch) -> None:

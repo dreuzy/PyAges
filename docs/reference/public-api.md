@@ -95,24 +95,30 @@ search interval, and `prior` for probability mass. Contributor code should use
 the prepared-LPM methods `get_calibration_ranges()`, `get_calibration_range()`,
 `get_calibration_range_width()`,
 `param_within_calibration_range()`, and
-`param_within_calibration_range_array()`. The schema rejects the former YAML
-field `bounds`; no bounds-named Python aliases are provided.
+`param_within_calibration_range_array()`. The former YAML field `bounds`, the
+`LPMParameterDefinition.bounds` property, and `get_bounds()` remain deprecated
+1.x aliases; new definitions and code use `calibration_range` consistently.
 
 When contributor code needs parameter metadata, it should normally call
 `load_parameter_schema()`: the returned typed, immutable object exposes the
 shared per-parameter fields (`domain`, `calibration_range`, `init`, `step`, and
 `prior`) and the aggregate `calibration_ranges`, `domains`, and
-`initial_values` properties. The former module-level `get_calibration_ranges()`,
-`get_domains()`, and `get_init()` helpers are deprecated and planned for removal
-in PyAges 2.0. Use
+`initial_values` properties. PyAges 1.2 retains the former module-level
+`get_calibration_ranges()`, `get_domains()`, and `get_init()` helpers for 1.x
+compatibility, but new code should use
 `load_parameter_document()` only for model-specific YAML fields that are not
 part of that shared schema; it returns a defensive, mutable copy of the raw
-document. The ambiguous former name `load_params()` is removed rather than
-kept as a second spelling.
+document. The former `load_params()` name remains a deprecated alias in 1.2.
+
+The nested `LauncherConfig`, `load_config()`, and `load_config_payload()` APIs
+are canonical for single-date configurations. The flattened `LauncherParams`,
+`load_params()`, and `load_params_payload()` view remains importable with a
+deprecation warning for 1.0.1 consumers.
 
 Temporal workflow configurations select LPMs with `lpm_models.models`. The
-former `lpm_models.list` spelling is removed without an alias; maintained YAML
-files and CLI overrides use the canonical field.
+former `lpm_models.list` spelling remains a deprecated compatibility alias in
+1.2; maintained YAML files, migrated configurations, and CLI overrides use the
+canonical field.
 
 ## Compatibility policy
 

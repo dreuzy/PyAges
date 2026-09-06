@@ -23,6 +23,21 @@ def test_configuration_root_finds_checkout_from_nested_config(tmp_path: Path) ->
     assert configuration_root(config) == tmp_path
 
 
+def test_versioned_configuration_is_self_contained_inside_checkout(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    (tmp_path / "data_core").mkdir()
+    config = tmp_path / "examples" / "generated" / "pyages.yaml"
+    config.parent.mkdir(parents=True)
+    config.write_text(
+        "schema_version: 2\nworkflow:\n  kind: single_date\n",
+        encoding="utf-8",
+    )
+
+    assert configuration_root(config) == config.parent
+
+
 def test_configuration_root_falls_back_to_config_directory(
     tmp_path: Path,
     monkeypatch,

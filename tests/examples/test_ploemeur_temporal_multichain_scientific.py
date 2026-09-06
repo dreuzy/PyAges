@@ -166,10 +166,11 @@ def test_ploemeur_temporal_multichain_scientific_qualification(
 ) -> None:
     """Require convergence and coherent fitted values over all sampling dates."""
     monkeypatch.setenv("MPLBACKEND", "Agg")
-    # Nested temporal outputs approach the legacy Windows path-length limit.
-    # These test-owned names carry no scientific meaning, so keep them short.
+    # Nested temporal outputs approach the legacy Windows path-length limit, so
+    # keep the results root short.  The YAML keeps its canonical evidence name
+    # because the post-test qualification archive discovers it by that name.
     results_root = tmp_path / "r"
-    config = tmp_path / "c.yaml"
+    config = tmp_path / "ploemeur_temporal_multichain_scientific.yaml"
     config.write_text(
         yaml.safe_dump(_scientific_payload(results_root), sort_keys=False),
         encoding="utf-8",

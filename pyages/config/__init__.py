@@ -8,10 +8,17 @@
 
 from __future__ import annotations
 
+from pyages.config.migration import (
+    CONFIGURATION_SCHEMA_VERSION,
+    LegacyConfigurationWarning,
+    migrate_configuration_payload,
+    normalize_configuration_payload,
+)
 from pyages.config.models import (
     CliCheckParams,
     CliRunParams,
     LauncherConfig,
+    LauncherParams,
     SystemCheckConfig,
     TemporalParams,
 )
@@ -28,9 +35,14 @@ from pyages.config.runtime import DisplayOptions, SimulationTimer, subdivide_int
 __all__ = [
     "CliCheckParams",
     "CliRunParams",
+    "CONFIGURATION_SCHEMA_VERSION",
+    "LegacyConfigurationWarning",
     "LauncherConfig",
+    "LauncherParams",
     "SystemCheckConfig",
     "TemporalParams",
+    "migrate_configuration_payload",
+    "normalize_configuration_payload",
     "DIRECTORY_LPM_DATA",
     "DIRECTORY_TRACER_DATA",
     "ROOT_DIRECTORY",

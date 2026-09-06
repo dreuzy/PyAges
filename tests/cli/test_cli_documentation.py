@@ -31,8 +31,11 @@ CLI_REFERENCE = ROOT / "docs" / "user-guide" / "cli-flags.md"
         ["stages", "inspect"],
         ["stages", "quarantine"],
         ["new"],
+        ["new", "config"],
         ["new", "lpm"],
         ["new", "tracer"],
+        ["config"],
+        ["config", "migrate"],
     ],
 )
 def test_every_long_cli_option_is_documented(command: list[str]) -> None:

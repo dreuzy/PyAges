@@ -4,13 +4,13 @@ This tutorial checks an installation, runs the small single-date template, and
 shows how to decide whether a result directory is complete. It is a software
 smoke run, not a calibrated scientific interpretation.
 
-## 1. Install the current release
+## 1. Install the prepared 1.2 source
 
-Install the stable distribution from PyPI. Keep a source checkout available
-because this tutorial uses its minimal example template:
+From the repository root, install the current checkout. Once 1.2 is published,
+the equivalent user installation will be `python -m pip install pyages==1.2.0`:
 
 ```bash
-python -m pip install "pyages==1.0.1"
+python -m pip install .
 ```
 
 See {doc}`../reference/install` for the separate editable development and
@@ -29,36 +29,26 @@ pyages list tracers
 distributed tracer definitions can be loaded. The lists are authoritative for
 the installed version.
 
-## 3. Choose a separate result directory
+## 3. Generate a self-contained example
 
-Keeping results outside the source checkout avoids mixing generated artifacts
-with versioned inputs.
-
-On Linux or macOS:
+Create a local project. It contains its own schema-2 configuration, synthetic
+observations, and result directory, and does not depend on repository examples:
 
 ```bash
-export PYAGES_RESULTS_DIR="$PWD/pyages-results"
-```
-
-In PowerShell:
-
-```powershell
-$env:PYAGES_RESULTS_DIR = Join-Path $PWD "pyages-results"
+pyages new config quickstart
 ```
 
 ## 4. Run the template
 
-From the repository root:
-
 ```bash
-pyages run examples/templates/quickstart_single.yaml
+pyages run quickstart/pyages.yaml
 ```
 
 The command begins with output similar to:
 
 ```text
 Running single-date workflow...
-Config: .../examples/templates/quickstart_single.yaml
+Config: .../quickstart/pyages.yaml
 ```
 
 The template deliberately disables reachable-space exploration and both
@@ -67,12 +57,13 @@ and provenance without claiming that an age distribution has been inferred.
 
 ## 5. Inspect completion and provenance
 
-The result directory is:
+The result directory is local to the generated project:
 
 ```text
-pyages-results/
-  test_cases/
-    ploemeur_F09_2010.txt/
+quickstart/
+  results/
+    quickstart/
+      observations.tsv/
       concentrations.txt
       result_manifest.json
       ...

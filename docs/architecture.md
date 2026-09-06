@@ -39,8 +39,10 @@ receives a tracer and evaluates an LPM; it is not a tracer subclass.
 
 A single-date or temporal workflow performs the same common sequence:
 
-1. Load and validate YAML with the models in `pyages.config`.
-2. Resolve paths relative to the configuration file.
+1. Normalize versioned schema 2 or compatible unversioned 1.x YAML at the
+   `pyages.config.migration` boundary, then validate it with strict models.
+2. Resolve schema-2 paths relative to the configuration file; retain the
+   documented checkout-root rule only for unversioned 1.x files.
 3. Load observations with `Concentrations.from_file()`.
 4. Prepare a `CalibrationProblem` containing the LPM, tracer convolutions, and
    objective function, or define a factory that prepares a fresh problem for
@@ -68,7 +70,7 @@ any directory is created.
 
 | Package | Purpose |
 |---|---|
-| `pyages.config` | User-facing configuration schemas and path resolution |
+| `pyages.config` | Configuration versioning, compatibility, strict schemas, and path resolution |
 | `pyages.concentrations` | Observation tables and temporal reshaping |
 | `pyages.tracer` | Typed tracer configuration and recharge histories |
 | `pyages.lpm` | Model registry, transit-time models, and sample analysis |

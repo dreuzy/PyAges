@@ -6,10 +6,11 @@ inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
 It provides reusable scientific components in `pyages/` and site-specific
 workflows in `sites/`, with examples and regression tests to support validation.
 
-Project status: **stable** (`1.0.1`). Public interfaces, scientific workflows,
-and validation gates are documented and tested. Each public release source is
-identified by its exact annotated Git tag; an untagged checkout must also be
-identified by its exact Git commit.
+Project status: this branch prepares the compatible `1.2.0` minor release. The
+latest distribution currently published on PyPI is `1.0.1`. Public interfaces,
+scientific workflows, and validation gates are documented and tested. Each
+public release source is identified by its exact annotated Git tag; an untagged
+checkout must also be identified by its exact Git commit.
 
 Developing from source? Start with the
 [ten-minute developer setup](docs/dev/getting-started.md) and then follow the
@@ -34,7 +35,8 @@ The complete `1.0` article archive is preserved on Zenodo under the
 version-specific DOI
 [`10.5281/zenodo.22150863`](https://doi.org/10.5281/zenodo.22150863). See the
 [citation guidance](docs/reference/citation.md) for the distinction between
-the archived `1.0` campaign and the current `1.0.1` maintenance release.
+the archived `1.0` campaign, the published `1.0.1` maintenance release, and
+the `1.2.0` source under preparation.
 
 ## Quick start
 
@@ -56,7 +58,7 @@ Or activate it on macOS/Linux:
 source .venv/bin/activate
 ```
 
-Then install the stable release from PyPI:
+Then install the latest published stable release from PyPI:
 
 ```bash
 python -m pip install "pyages==1.0.1"
@@ -78,7 +80,8 @@ The distribution, Python import, and command all use the single identifier
 `pyages`. The wheel contains the reusable library, its CLI,
 and core model data. Repository examples and site studies remain in the Git
 source tree. The `1.0.1` release is available from
-[PyPI](https://pypi.org/project/pyages/1.0.1/).
+[PyPI](https://pypi.org/project/pyages/1.0.1/). To evaluate the forthcoming
+1.2 behavior, install this checkout with `python -m pip install .`.
 
 Use `python -m pip install pyages` when deliberately selecting the newest
 published compatible release. Prerelease artifacts, if any, require an
@@ -88,23 +91,26 @@ explicit prerelease request:
 python -m pip install --pre pyages
 ```
 
-## Quickstart (fast, no interactive plots)
+## Quickstart 1.2 (fast, no source examples required)
 
-From a source checkout, use the minimal templates under `examples/templates/`:
+After installing this checkout, generate a complete local example and run it:
 
 ```
-pyages run examples/templates/quickstart_single.yaml
-pyages run examples/templates/quickstart_temporal.yaml
+pyages new config quickstart
+pyages run quickstart/pyages.yaml
 ```
 
-## Unreleased multi-chain MH qualification
+This creates a schema-2 YAML file and a small synthetic observation table. It
+checks installation, input loading, convolution, output writing, and provenance;
+it is not a calibrated scientific result. Use `--kind temporal` to generate the
+short temporal variant.
 
-The development branch includes opt-in multi-chain Metropolis--Hastings with
+## Multi-chain MH qualification
+
+PyAges 1.2 includes opt-in multi-chain Metropolis--Hastings with
 dispersed starts, a separate pilot that learns one fixed proposal covariance,
 independent production streams, rank-normalized convergence diagnostics, and
-qualification-gated pooling. This feature is **not** present in the
-`pyages==1.0.1` package on PyPI; use an editable source installation and record
-its exact Git commit until the next release.
+qualification-gated pooling.
 
 Two canonical source-checkout profiles are available:
 
@@ -153,6 +159,8 @@ Main commands:
 - `pyages check` : validate installation, data paths, LPM registry, tracers.
 - `pyages list lpms|tracers` : list available models or tracers.
 - `pyages run <config.yaml>` : run the workflow declared by `workflow.kind`.
+- `pyages new config <directory>` : create a self-contained synthetic quickstart.
+- `pyages config migrate <source> <destination>` : copy a 1.x YAML to schema 2.
 - `pyages new lpm|tracer ...` : scaffold a new model or tracer template.
 
 Examples:

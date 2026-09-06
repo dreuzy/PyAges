@@ -109,10 +109,10 @@ Each enabled calibration method has its own directory, normally
 | `concentrations_all_models.txt` | Optional modeled tracer chronicles for selected posterior draws. |
 | `concentration_times.png` | Optional modeled concentration chronicle from workflows or plotting paths that explicitly enable it; the smoke template does not emit it. |
 
-The **Unreleased** multi-chain workflow adds separate chain directories,
-diagnostics, pilot covariance, and seed provenance, and gates the pooled root
-tables. Its normative layout, statuses, and failure behavior are documented in
-{doc}`outputs`; they are not present in the `pyages==1.0.1` package from PyPI.
+The optional multi-chain workflow available in PyAges 1.2 adds separate chain
+directories, diagnostics, pilot covariance, and seed provenance, and gates the
+pooled root tables. Its normative layout, statuses, and failure behavior are
+documented in {doc}`outputs`.
 
 ## Temporal layout
 

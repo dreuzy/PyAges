@@ -7,6 +7,8 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ## Unreleased
 
+## 1.2.0 - 2026-09-06
+
 ### Added
 
 - Added explicit `observation_key` alignment for model-space reference tables,
@@ -49,28 +51,24 @@ Before 1.0, incompatible public changes are identified explicitly below.
   `draft` and `publishable` modes. The extensive CI assembles a four-profile
   draft and checksum sidecar; durable publication still requires a clean,
   annotated version tag and an external deposit.
+- Added versioned configuration schema 2 with common workflow section names,
+  a non-destructive `pyages config migrate` command, and `pyages new config`
+  self-contained synthetic quickstarts that work from an installed wheel.
 
 ### Deprecated
 
-- Deprecated `pyages.data_io.lpm_params.get_calibration_ranges()`,
-  `get_domains()`, and `get_init()` for removal in PyAges 2.0. Use the
+- Retained the deprecated module-level LPM parameter helpers
+  `get_calibration_ranges()`, `get_domains()`, and `get_init()` for 1.x
+  compatibility. New code should use the
   `LPMParameterSchema.calibration_ranges`, `.domains`, and `.initial_values`
   properties returned by `load_parameter_schema()`.
+- Retained the 1.0.1 `LauncherParams`, single-date `load_params*()`, LPM
+  `load_params()` / `get_bounds()`, `params.yaml` `bounds`, temporal
+  `lpm_models.list`, and `pyages run --transient` interfaces as deprecated 1.x
+  compatibility aliases. Their canonical replacements are documented in the
+  1.2 compatibility guide.
 
 ### Removed
-
-- Removed the temporal YAML field `lpm_models.list`; use the clearer
-  `lpm_models.models` field. The pre-1.0 field is rejected rather than retained
-  as a compatibility alias.
-- Removed the ambiguous contributor function
-  `pyages.data_io.lpm_params.load_params`; use `load_parameter_schema()` for
-  typed shared metadata or `load_parameter_document()` for a defensive copy of
-  the complete YAML document.
-- Removed the flattened `LauncherParams`/`load_params*` configuration view and
-  the `pyages run --transient` dispatch flag. Every launcher configuration now
-  requires an explicit `workflow.kind`.
-- Removed the former YAML `bounds` field and bounds-named LPM accessors; use the
-  single `calibration_range` vocabulary throughout.
 - Removed the duplicate-start multi-chain policies `model_default` and
   `prior_map`, the in-place manifest journal path, and the qualification-script
   `_contained_path` compatibility alias. Staged-run journals now use the

@@ -140,16 +140,34 @@ def test_configuration_reference_states_exact_temporal_constraints() -> None:
     assert "does not expose" in document
 
 
-def test_planned_v2_lpm_parameter_migration_keeps_1x_compatibility_explicit() -> None:
-    migration = (ROOT / "docs/reference/api-migration-2.md").read_text(encoding="utf-8")
+def test_1_2_quickstart_and_configuration_migration_are_self_contained() -> None:
+    tutorial = (ROOT / "docs/user-guide/tutorial.md").read_text(encoding="utf-8")
+    configuration = (ROOT / "docs/user-guide/configuration.md").read_text(
+        encoding="utf-8"
+    )
+    cli = (ROOT / "docs/user-guide/cli-flags.md").read_text(encoding="utf-8")
+
+    assert "pyages new config quickstart" in tutorial
+    assert "examples/templates" not in tutorial
+    assert "schema_version: 2" in configuration
+    assert "pyages config migrate legacy.yaml pyages-schema2.yaml" in configuration
+    assert "leaves the source untouched" in cli
+    assert "not scientific" in cli
+    assert "qualification evidence" in cli
+
+
+def test_1_2_lpm_parameter_migration_keeps_1x_compatibility_explicit() -> None:
+    migration = (ROOT / "docs/reference/compatibility-1-2.md").read_text(
+        encoding="utf-8"
+    )
     reference_index = (ROOT / "docs/reference/index.md").read_text(encoding="utf-8")
 
-    assert "api-migration-2" in reference_index
-    assert "not a PyAges 2.0 release announcement" in migration
+    assert "compatibility-1-2" in reference_index
+    assert "not a PyAges 2.0 release" in migration
     assert "`get_calibration_ranges(schema)` | `schema.calibration_ranges`" in migration
     assert "`get_domains(schema)` | `schema.domains`" in migration
     assert "`get_init(schema)` | `schema.initial_values`" in migration
-    assert "must keep warning with `DeprecationWarning`" in migration
+    assert "keeps warning with `DeprecationWarning`" in migration
 
 
 def test_natural_notebooks_use_only_canonical_public_apis() -> None:
@@ -233,6 +251,17 @@ def test_developer_onboarding_is_navigable_and_environment_safe() -> None:
     assert "--require-qualified-versions" in dependencies
     assert ".venv/Scripts/python.exe" in ide
     assert "source roots that do not exist" in ide
+
+
+def test_maintainership_exposes_the_remaining_continuity_gate() -> None:
+    guide = (ROOT / "docs/dev/maintainership.md").read_text(encoding="utf-8")
+    dev_index = (ROOT / "docs/dev/index.md").read_text(encoding="utf-8")
+    release = (ROOT / "docs/dev/releasing.md").read_text(encoding="utf-8")
+
+    assert "maintainership" in dev_index
+    assert "continuity review" in guide
+    assert "fresh clone" in guide
+    assert "second person" in release
 
 
 def test_multichain_contributor_example_uses_the_canonical_dataclass_api() -> None:

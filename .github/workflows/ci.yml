@@ -321,6 +321,9 @@ jobs:
           "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" list lpms
           "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" list tracers
           PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" check
+          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" new config "$smoke_dir/quickstart"
+          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" run "$smoke_dir/quickstart/pyages.yaml"
+          test -f "$smoke_dir/quickstart/results/quickstart/observations.tsv/result_manifest.json"
           PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" run "$GITHUB_WORKSPACE/examples/templates/quickstart_single.yaml"
           test -f "$GITHUB_WORKSPACE/.smoke-results/test_cases/ploemeur_F09_2010.txt/result_manifest.json"
           PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" run "$GITHUB_WORKSPACE/examples/templates/smoke_multichain.yaml"

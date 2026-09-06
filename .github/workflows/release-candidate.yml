@@ -72,6 +72,12 @@ jobs:
       - run: pyages check
       - run: pyages list lpms
       - run: pyages list tracers
+      - name: Run the self-contained installed-package quickstart
+        run: |
+          smoke_dir="$(mktemp -d)"
+          pyages new config "$smoke_dir/quickstart"
+          pyages run "$smoke_dir/quickstart/pyages.yaml"
+          test -f "$smoke_dir/quickstart/results/quickstart/observations.tsv/result_manifest.json"
 
   scientific-qualification:
     name: Extensive scientific qualification

@@ -31,8 +31,7 @@ protocol.
 
 ## Run the multi-chain qualification
 
-The source checkout includes a second, **Unreleased** configuration. It is not
-available in the `pyages==1.0.1` package from PyPI:
+PyAges 1.2 includes a second configuration for multi-chain qualification:
 
 ```bash
 pyages run examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date_multichain.yaml

@@ -95,9 +95,8 @@ retention controls as `mh_nsteps`, `burn_in`, and `nskip`.
 ## Configure independent chains and proposal tuning
 
 ```{note}
-This multi-chain workflow is **Unreleased** and is not included in the
-`pyages==1.0.1` package from PyPI. Use a development-branch source installation
-and record its exact commit until the next release.
+This optional multi-chain workflow is available in PyAges 1.2. Omitting its
+configuration preserves the historical one-chain behavior.
 ```
 
 Multiple chains are opt-in through the presence of a `multichain` mapping. Its

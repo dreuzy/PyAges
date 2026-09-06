@@ -241,6 +241,63 @@ def test_staged_run_promotes_only_the_current_run_artifacts(tmp_path) -> None:
     }
 
 
+def _replace_sealed_manifest(run: ResultRun, content: bytes) -> None:
+    """Replace a terminal manifest and update only its journal seal."""
+    manifest = run.working_directory / "result_manifest.json"
+    manifest.write_bytes(content)
+    journal = run.working_directory / ".pyages-run-state.json"
+    state = json.loads(journal.read_text(encoding="utf-8"))
+    state["terminal_manifest_sha256"] = hashlib.sha256(content).hexdigest()
+    journal.write_text(json.dumps(state), encoding="utf-8")
+
+
+def test_promotion_rejects_missing_or_malformed_terminal_manifests(tmp_path) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+
+    missing = begin_staged_result_run(tmp_path / "missing")
+    with pytest.raises(RuntimeError, match="non-terminal"):
+        promote_result_run(missing)
+
+    malformed = begin_staged_result_run(tmp_path / "malformed")
+    write_result_manifest(
+        malformed.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=malformed.run_id,
+    )
+    _replace_sealed_manifest(malformed, b"not-json")
+    with pytest.raises(RuntimeError, match="Invalid terminal manifest"):
+        promote_result_run(malformed)
+
+
+def test_promotion_rejects_a_resealed_manifest_for_another_run(tmp_path) -> None:
+    config = tmp_path / "case.yaml"
+    config.write_text("model: exp\n", encoding="utf-8")
+    run = begin_staged_result_run(tmp_path / "results")
+    manifest = write_result_manifest(
+        run.working_directory,
+        workflow="single_date",
+        config_path=config,
+        run_id=run.run_id,
+    )
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["run_id"] = "another-run"
+    _replace_sealed_manifest(run, json.dumps(payload).encode("utf-8"))
+
+    with pytest.raises(RuntimeError, match="does not match run"):
+        promote_result_run(run)
+
+
+def test_promotion_rejects_a_public_target_replaced_by_a_file(tmp_path) -> None:
+    result = tmp_path / "results"
+    run = begin_staged_result_run(result)
+    result.write_text("foreign file\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="not a real directory"):
+        promote_result_run(run)
+
+
 def test_result_run_is_an_opaque_non_constructible_handle(tmp_path) -> None:
     run = begin_staged_result_run(tmp_path / "results")
 

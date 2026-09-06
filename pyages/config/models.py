@@ -19,10 +19,13 @@ does not load scientific datasets or execute a calibration.
 from __future__ import annotations
 
 import math
+import warnings
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import (
+    ConfigDict,
     Field,
     field_validator,
     model_validator,
@@ -423,6 +426,40 @@ class LauncherConfig(_BaseCfg):
     results: LauncherResultsCfg = Field(default_factory=LauncherResultsCfg)
 
 
+class LauncherParams(_BaseCfg):
+    """Deprecated flattened 1.x view of a single-date configuration.
+
+    New workflow code should consume :class:`LauncherConfig`. The record stays
+    available throughout the 1.x series so external callers can migrate without
+    a major-version break.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    dataset_name: str
+    dataset_label: str | None
+    dataset_year: int
+    dataset_data_dir: Path
+    verbose: bool
+    missing_error_rel: float
+    lpm_model_name: str
+    directory_lpm: Path
+    tracer_data_dir: Path | None = None
+    run_reachable_concentrations: bool
+    run_objective_function: bool
+    run_calibration_metropolis_hastings: bool
+    run_calibration_simplex: bool
+    reachable_concentration_nmodels: int
+    objective_function_nmodels: int
+    mh_nstep: int
+    mh_prior_option: bool
+    mh_likelihood: bool
+    mh_monitor: bool
+    mh_display_traj: bool
+    simplex_init_multiples_n: int
+    simplex_fuq_n: int
+
+
 # ---------------------------------------------------------------------------
 # Generic temporal workflow (multi-date) config models
 # ---------------------------------------------------------------------------
@@ -532,6 +569,22 @@ class TemporalLpmModelsCfg(_BaseCfg):
     models: list[str] | None = None
     directory: str | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_legacy_list_alias(cls, value: object) -> object:
+        if not isinstance(value, Mapping) or "list" not in value:
+            return value
+        if "models" in value:
+            raise ValueError("lpm_models.list and lpm_models.models cannot be combined")
+        warnings.warn(
+            "lpm_models.list is deprecated; use lpm_models.models instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        normalized = dict(value)
+        normalized["models"] = normalized.pop("list")
+        return normalized
+
     @field_validator("models")
     @classmethod
     def _validate_model_list(cls, value: list[str] | None) -> list[str] | None:
@@ -591,6 +644,7 @@ __all__ = [
     "MHDiagnosticsCfg",
     "MHMultichainCfg",
     "LauncherConfig",
+    "LauncherParams",
     "LauncherResultsCfg",
     "TemporalParams",
     "TEMPORAL_VALID_MODES",

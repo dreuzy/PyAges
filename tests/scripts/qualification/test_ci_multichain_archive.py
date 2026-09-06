@@ -353,6 +353,13 @@ def test_extensive_workflow_builds_archive_before_always_upload() -> None:
         assert f'- "{scientific_path}"' in workflow
 
 
+def test_qualification_tests_write_the_canonical_evidence_yaml_names() -> None:
+    """Keep test-generated YAML names aligned with archive discovery."""
+    for case in ci_archive.CASES:
+        test_source = case.test.read_text(encoding="utf-8")
+        assert case.executed_yaml_name in test_source
+
+
 def test_release_candidate_archives_the_tested_tag_and_distributions() -> None:
     workflow = (ci_archive.ROOT / ".github/workflows/release-candidate.yml").read_text(
         encoding="utf-8"

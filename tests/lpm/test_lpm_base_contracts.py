@@ -57,7 +57,7 @@ def test_scipy_adapter_requires_a_concrete_parameter_mapping() -> None:
     assert LpmScipy.__abstractmethods__ == frozenset({"_scipy_params"})
 
 
-def test_bounds_named_parameter_aliases_are_absent() -> None:
+def test_bounds_compatibility_is_limited_to_the_parameter_file_facade() -> None:
     removed = {
         "get_param_range",
         "get_param_interval",
@@ -67,8 +67,8 @@ def test_bounds_named_parameter_aliases_are_absent() -> None:
         "param_within_bounds_array",
     }
 
-    assert not hasattr(lpm_params, "get_bounds")
-    assert not hasattr(lpm_params.LPMParameterDefinition, "bounds")
+    assert hasattr(lpm_params, "get_bounds")
+    assert hasattr(lpm_params.LPMParameterDefinition, "bounds")
     assert all(not hasattr(LpmBase, name) for name in removed)
     assert all(not hasattr(ParameterManager, name) for name in removed)
 

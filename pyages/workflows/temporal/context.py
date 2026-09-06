@@ -19,12 +19,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+
+from pydantic import ValidationError
 
 from pyages.calibration.problem import resolve_observation_errors
 from pyages.concentrations import Concentrations
 from pyages.concentrations.schema import ERROR_COLUMN
-from pyages.config.loading import resolve_from, validate_yaml_model
+from pyages.config.loading import load_yaml_mapping, resolve_from
+from pyages.config.migration import normalize_configuration_payload
 from pyages.config.models import (
     TemporalLpmModelsCfg,
     TemporalParams,
@@ -61,14 +63,14 @@ class TemporalContext:
 
 def _load_params_validated(path: Path) -> TemporalParams:
     """Load and validate a temporal workflow configuration."""
-    return cast(
-        TemporalParams,
-        validate_yaml_model(
-            path,
-            TemporalParams,
-            label="temporal workflow configuration",
-        ),
-    )
+    try:
+        payload = normalize_configuration_payload(
+            load_yaml_mapping(path),
+            expected_kind="temporal",
+        )
+        return TemporalParams.model_validate(payload)
+    except ValidationError as exc:
+        raise ValueError(f"Invalid temporal workflow configuration:\n{exc}") from exc
 
 
 def _results_root(

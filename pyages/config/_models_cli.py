@@ -35,6 +35,7 @@ class CliRunParams(BaseConfigModel):
 
     config: Path
     inline: bool = False
+    transient: bool = False
     verbose: bool = False
     lpm: str | None = None
     mh_nsteps: int | None = None

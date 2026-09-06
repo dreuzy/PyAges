@@ -1,8 +1,8 @@
 # Ploemeur `ig_shifted` prior-active multi-chain qualification
 
 ```{note}
-This profile uses an **Unreleased** development-branch feature. Use a source
-installation and record the exact Git commit when preserving evidence.
+This opt-in multi-chain profile is available in PyAges 1.2. Record the exact
+package version and Git commit when preserving evidence.
 ```
 
 This maintained profile adds two contracts not covered together by the other

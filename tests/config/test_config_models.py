@@ -453,9 +453,10 @@ def test_temporal_explicit_model_list_must_be_unambiguous(models) -> None:
         TemporalLpmModelsCfg(models=models)
 
 
-def test_temporal_lpm_models_rejects_the_removed_list_field() -> None:
-    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-        TemporalLpmModelsCfg.model_validate({"list": ["exp"]})
+def test_temporal_lpm_models_accepts_the_deprecated_list_field() -> None:
+    with pytest.warns(DeprecationWarning, match="lpm_models.list"):
+        config = TemporalLpmModelsCfg.model_validate({"list": ["exp"]})
+    assert config.models == ["exp"]
 
 
 @pytest.mark.parametrize(

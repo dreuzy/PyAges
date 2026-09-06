@@ -1,9 +1,8 @@
 # Ploemeur temporal multi-chain qualification
 
 ```{note}
-This profile exercises an **Unreleased** development-branch feature. It is not
-included in `pyages==1.0.1`; run it from the source revision that contains this
-page and record that revision with the results.
+This opt-in temporal multi-chain profile is available in PyAges 1.2. Record the
+exact package version and Git commit with qualification results.
 ```
 
 This maintained profile calibrates one shifted-exponential LPM against the

@@ -76,9 +76,8 @@ acceptance and state diversity for posterior interpretation. The fixture is
 therefore qualified as a deterministic software-regression baseline only; it
 is not an independently converged scientific posterior reference.
 
-Four separate opt-in tests now add scientific evidence for the current
-multi-chain examples. They qualify the **Unreleased** development-branch
-implementation, not the `pyages==1.0.1` package from PyPI:
+Four separate opt-in tests add scientific evidence for the multi-chain
+examples included in PyAges 1.2:
 
 - `test_synthetic_recovery_multichain_scientific.py` runs four dispersed
   chains, requires the article R-hat/ESS gates, and checks marginal and joint

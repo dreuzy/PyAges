@@ -40,20 +40,24 @@ pyages list tracers
 
 `pyages check` validates package data, the LPM registry, and tracer definitions.
 
-## Run a small example
+## Generate and run a small example
 
-The templates avoid interactive figures and are suitable for a first check:
+The installed command creates its own schema-2 YAML and synthetic observations,
+so a first run does not depend on files elsewhere in the source checkout:
 
 ```bash
-pyages run examples/templates/quickstart_single.yaml
-pyages run examples/templates/quickstart_temporal.yaml
+pyages new config quickstart
+pyages run quickstart/pyages.yaml
 ```
 
-For a configuration located inside a PyAges source checkout, relative paths are
-resolved from the detected checkout root (the nearest parent containing both
-`pyproject.toml` and `data_core`). For a standalone configuration outside a
-checkout, they are resolved from the configuration directory. Absolute paths
-are accepted in both cases.
+Use `pyages new config temporal-demo --kind temporal` for the short temporal
+variant. These generated observations are illustrative synthetic values, not
+field evidence or a convergence qualification.
+
+Schema-2 configurations always resolve relative paths from their own directory.
+Unversioned 1.x configurations retain the historical behavior: inside a source
+checkout their paths resolve from the checkout root. Absolute paths are
+accepted in both schemas.
 
 Each workflow creates a structured result directory containing tabular results
 and `result_manifest.json`; figures are optional. Continue with

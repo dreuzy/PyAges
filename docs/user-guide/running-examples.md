@@ -134,7 +134,7 @@ from `lpm_histo_calibrated.txt` reads
 ### Qualify the Ploemeur inference with multiple chains
 
 The historical YAML above remains a mono-chain teaching example. The separate
-**Unreleased** source profile runs the F09 2010 MH inference with five chains,
+PyAges 1.2 profile runs the F09 2010 MH inference with five chains,
 a multi-chain pilot, no diagnostic thinning, and convergence-gated pooling:
 
 ```bash

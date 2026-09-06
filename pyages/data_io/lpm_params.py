@@ -113,6 +113,16 @@ def load_parameter_document(
     return copy.deepcopy(_read_cache_entry(model_name, data_dir).document)
 
 
+def load_params(model_name: str, data_dir: str | Path) -> dict[str, Any]:
+    """Return the document through the deprecated 1.x function name."""
+    warnings.warn(
+        "load_params() is deprecated; use load_parameter_document() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return load_parameter_document(model_name, data_dir)
+
+
 def load_parameter_schema(
     model_name: str,
     data_dir: str | Path,
@@ -126,8 +136,19 @@ def get_calibration_ranges(
 ) -> dict[str, tuple[float, float]]:
     """Return calibration ranges; deprecated in favor of the schema property."""
     warnings.warn(
-        "get_calibration_ranges() is deprecated and will be removed in PyAges "
-        "2.0; use schema.calibration_ranges instead",
+        "get_calibration_ranges() is deprecated; use schema.calibration_ranges instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return schema.calibration_ranges
+
+
+def get_bounds(
+    schema: LPMParameterSchema,
+) -> dict[str, tuple[float, float]]:
+    """Return calibration ranges through the deprecated 1.x name."""
+    warnings.warn(
+        "get_bounds() is deprecated; use schema.calibration_ranges instead",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -139,8 +160,7 @@ def get_domains(
 ) -> dict[str, LPMParameterDomain]:
     """Return validity domains; deprecated in favor of the schema property."""
     warnings.warn(
-        "get_domains() is deprecated and will be removed in PyAges 2.0; use "
-        "schema.domains instead",
+        "get_domains() is deprecated; use schema.domains instead",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -152,8 +172,7 @@ def get_init(
 ) -> dict[str, float]:
     """Return initial values; deprecated in favor of the schema property."""
     warnings.warn(
-        "get_init() is deprecated and will be removed in PyAges 2.0; use "
-        "schema.initial_values instead",
+        "get_init() is deprecated; use schema.initial_values instead",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -188,6 +207,7 @@ __all__ = [
     "LPMParameterSchema",
     "LPMParamsError",
     "clear_params_cache",
+    "get_bounds",
     "get_calibration_ranges",
     "get_domains",
     "get_init",
@@ -195,5 +215,6 @@ __all__ = [
     "get_steps",
     "load_parameter_document",
     "load_parameter_schema",
+    "load_params",
     "parse_parameter_schema",
 ]

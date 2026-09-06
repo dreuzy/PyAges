@@ -20,6 +20,7 @@ contributing
 ci
 test-inventory
 documentation-scope
+maintainership
 github-migration
 releasing
 versioning-citation

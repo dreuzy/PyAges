@@ -7,10 +7,55 @@ All user-facing configuration models are strict: an unknown section or field
 is rejected rather than ignored. Type errors and violated numeric bounds are
 reported before the scientific workflow starts.
 
-Relative paths are resolved from the nearest checkout root containing both
-`pyproject.toml` and `data_core` for configurations inside a source checkout.
-For standalone configurations they are resolved from the configuration file's
-directory. Absolute paths are unchanged.
+PyAges 1.2 recommends configuration schema 2. It uses common section names in
+both workflows and always resolves relative paths from the YAML file's
+directory. Generate a complete example with:
+
+```bash
+pyages new config quickstart
+```
+
+A schema-2 file starts with an explicit discriminator and uses the following
+canonical sections:
+
+```yaml
+schema_version: 2
+workflow:
+  kind: single_date
+data: {}
+lpm:
+  models: [exp_shifted]
+calibration:
+  metropolis_hastings: {}
+output: {}
+```
+
+The configuration schema number is independent of both the PyAges package
+version (`1.2.0`) and the result-manifest schema; it versions only YAML syntax.
+
+The established unversioned 1.x layout documented in the detailed sections
+below remains accepted in 1.2. Its workflow-specific names map as follows:
+
+| Schema 2 | Unversioned 1.x |
+|---|---|
+| `data` | `dataset` |
+| `lpm.models` | `lpm.model_name` (single-date) or `lpm_models.models` (temporal) |
+| `calibration.metropolis_hastings.nsteps` | `calibration_metropolis_hastings.nstep` or `calibration.mh_nsteps` |
+| `calibration.metropolis_hastings.thinning` | `nskip` |
+| `calibration.simplex` | `calibration_simplex` (single-date) |
+| `reporting` | `figures` (temporal) |
+| `output` | `results` |
+
+To convert without overwriting the original file, write the destination beside
+it so relative input paths retain their meaning:
+
+```bash
+pyages config migrate legacy.yaml pyages-schema2.yaml
+```
+
+The migration preserves values but not YAML comments. Review and version the
+generated file before a scientific run. Unknown sections and mixed schema-2 /
+legacy names are rejected rather than guessed.
 
 ## Single-date workflow configuration
 
@@ -182,9 +227,8 @@ The operational calibration checklist is in {doc}`calibration`.
 ### Optional Multi-chain MH Configuration
 
 ```{note}
-This section documents an **Unreleased** development-branch feature. It is not
-implemented by the `pyages==1.0.1` package from PyPI. Until the next release,
-use an editable source installation and record its exact Git commit.
+This optional multi-chain configuration is available in PyAges 1.2.
+Configurations without the mapping preserve one-chain execution.
 ```
 
 The same optional `multichain` mapping is accepted below
@@ -352,8 +396,8 @@ lpm_models:
 | `models` | array or null | No | Unique, non-empty LPM identifiers without path separators; `null` selects `exp_shifted`, `ig`, and `ig_shifted`, while an explicit empty array is rejected |
 | `directory` | path or null | No | Existing LPM parameters directory; defaults to packaged `data_core/data_lpm` |
 
-The former field `lpm_models.list` has been removed. Replace it directly with
-`lpm_models.models`; no compatibility alias is retained.
+The former field `lpm_models.list` remains accepted in 1.2 with a
+`DeprecationWarning`. New and migrated files use `lpm_models.models`.
 
 ### Workflow Section
 
@@ -556,8 +600,8 @@ These fields answer three different questions:
 The effective MH support is the intersection of the calibration range and the
 prior support. A normal prior is therefore conditioned on the calibration
 range; a uniform prior may narrow it further. Scientific analyses should
-report all three choices. `calibration_range` is required; the former `bounds`
-field is rejected.
+report all three choices. New files require `calibration_range`; the former
+`bounds` spelling remains accepted in 1.2 with a `DeprecationWarning`.
 
 ---
 

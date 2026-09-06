@@ -78,12 +78,14 @@ def test_quickstart_writes_a_manifest_and_normalized_observations(
     assert any(item["path"].endswith("params.yaml") for item in manifest["inputs"])
 
 
-def test_quickstart_exercised_here_is_the_documented_tutorial_command() -> None:
+def test_tutorial_prefers_the_self_contained_installed_quickstart() -> None:
     tutorial = (ROOT / "docs" / "user-guide" / "tutorial.md").read_text(
         encoding="utf-8"
     )
 
-    assert "pyages run examples/templates/quickstart_single.yaml" in tutorial
+    assert "pyages new config quickstart" in tutorial
+    assert "pyages run quickstart/pyages.yaml" in tutorial
+    assert "examples/templates/quickstart_single.yaml" not in tutorial
     assert '`"status": "complete"`' not in tutorial
     assert '"status": "complete"' in tutorial
 

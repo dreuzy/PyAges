@@ -7,6 +7,10 @@ published reference artifact.
 The test scopes and GitHub jobs referenced below are defined in
 {doc}`testing` and {doc}`ci`.
 
+The role and handoff expectations are defined in {doc}`maintainership`. Before
+a public minor or major release, confirm that a second person has completed the
+continuity drill and is represented in repository ownership routing.
+
 ## Release gate
 
 1. Stop or finish processes that write inside the checkout.
@@ -77,6 +81,19 @@ The test scopes and GitHub jobs referenced below are defined in
 
    Confirm that `dist/` contains exactly one wheel and one source archive and
    that both filenames carry the intended release version.
+
+   Install that wheel in a clean environment outside the checkout, then verify
+   the installed-only first-run contract:
+
+   ```bash
+   pyages check
+   pyages new config quickstart
+   pyages run quickstart/pyages.yaml
+   ```
+
+   Require `quickstart/results/quickstart/observations.tsv/result_manifest.json`
+   with `status: complete`. The CI and release-candidate workflow repeat this
+   check on every supported Python version.
 
 8. Install the wheel in a new virtual environment and, from outside the
    checkout, run:

@@ -26,6 +26,7 @@ import yaml
 from pydantic import ValidationError
 
 from pyages.config.loading import load_yaml_mapping
+from pyages.config.migration import is_legacy_configuration
 from pyages.config.models import CliRunParams
 
 WorkflowKind = Literal["single_date", "temporal"]
@@ -66,10 +67,17 @@ WorkflowKind = Literal["single_date", "temporal"]
     default=None,
     help="Override dataset path (temporal only).",
 )
+@click.option(
+    "--transient",
+    is_flag=True,
+    hidden=True,
+    help="Deprecated 1.x alias selecting the temporal workflow.",
+)
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output.")
 def run(
     config: Path,
     inline: bool,
+    transient: bool,
     lpm: str | None,
     mh_nsteps: int | None,
     data_name: str | None,
@@ -93,6 +101,7 @@ def run(
             {
                 "config": config,
                 "inline": inline,
+                "transient": transient,
                 "lpm": lpm,
                 "mh_nsteps": mh_nsteps,
                 "data_name": data_name,
@@ -107,6 +116,7 @@ def run(
 
     config = params.config
     inline = params.inline
+    transient = params.transient
     verbose = params.verbose
     lpm = params.lpm
     mh_nsteps = params.mh_nsteps
@@ -115,7 +125,12 @@ def run(
     data_file = params.data_file
 
     data = load_yaml_mapping(config)
-    workflow = _detect_workflow(data)
+    if is_legacy_configuration(data):
+        _warn(
+            "Unversioned PyAges 1.x configuration syntax remains supported "
+            "in 1.2; migrate it with 'pyages config migrate SOURCE DESTINATION'."
+        )
+    workflow = _detect_workflow(data, transient=transient)
 
     if verbose:
         click.echo(f"Configuration file: {config}")
@@ -143,10 +158,27 @@ def run(
             config.unlink(missing_ok=True)
 
 
-def _detect_workflow(data: dict) -> WorkflowKind:
+def _detect_workflow(data: dict, *, transient: bool = False) -> WorkflowKind:
     """Return the workflow explicitly declared by the YAML mapping."""
     workflow = data.get("workflow")
     declared = workflow.get("kind") if isinstance(workflow, dict) else None
+    if transient:
+        _warn("--transient is deprecated; declare workflow.kind: temporal instead.")
+        if "schema_version" in data and declared is None:
+            raise click.ClickException(
+                "schema-versioned configurations must declare workflow.kind"
+            )
+        if declared not in {None, "temporal"}:
+            raise click.ClickException(
+                "--transient conflicts with workflow.kind: single_date"
+            )
+        return "temporal"
+    if declared is None and "workflow" not in data and "schema_version" not in data:
+        _warn(
+            "Unversioned configuration without workflow.kind defaults to "
+            "single_date; migrate it with 'pyages config migrate'."
+        )
+        return "single_date"
     if declared not in {"single_date", "temporal"}:
         raise click.ClickException(
             "workflow.kind is required and must be 'single_date' or 'temporal'"
@@ -181,6 +213,15 @@ def _apply_overrides(
 def _apply_temporal_overrides(
     data: dict, lpm: str | None, mh_nsteps: int | None, data_file: Path | None
 ) -> None:
+    if data.get("schema_version") == 2:
+        if data_file:
+            data.setdefault("data", {})["file"] = str(data_file)
+        if lpm:
+            data.setdefault("lpm", {})["models"] = [lpm]
+        if mh_nsteps is not None:
+            calibration = data.setdefault("calibration", {})
+            calibration.setdefault("metropolis_hastings", {})["nsteps"] = int(mh_nsteps)
+        return
     if data_file:
         data.setdefault("dataset", {})["file"] = str(data_file)
     if lpm:
@@ -196,6 +237,17 @@ def _apply_single_date_overrides(
     data_name: str | None,
     data_dir: Path | None,
 ) -> None:
+    if data.get("schema_version") == 2:
+        if data_name:
+            data.setdefault("data", {})["name"] = data_name
+        if data_dir:
+            data.setdefault("data", {})["data_dir"] = str(data_dir)
+        if lpm:
+            data.setdefault("lpm", {})["models"] = [lpm]
+        if mh_nsteps is not None:
+            calibration = data.setdefault("calibration", {})
+            calibration.setdefault("metropolis_hastings", {})["nsteps"] = int(mh_nsteps)
+        return
     if data_name:
         data.setdefault("dataset", {})["name"] = data_name
     if data_dir:

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import copy
 import math
+import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -60,6 +61,17 @@ class LPMParameterDefinition:
     init: float
     step: float | None
     prior: Mapping[str, Any] | None
+
+    @property
+    def bounds(self) -> tuple[float, float]:
+        """Return the calibration range through the deprecated 1.x name."""
+        warnings.warn(
+            "LPMParameterDefinition.bounds is deprecated; use "
+            "calibration_range instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.calibration_range
 
     def __deepcopy__(self, memo: dict[int, Any]) -> LPMParameterDefinition:
         """Reuse this immutable value in deep-copied LPM instances."""
@@ -286,7 +298,20 @@ def _validated_calibration_range(
     parameter_name: str,
 ) -> tuple[float, float]:
     """Return the required operational ``calibration_range``."""
+    if "calibration_range" in raw_parameter and "bounds" in raw_parameter:
+        raise LPMParamsError(
+            f"{model_name}: parameter {parameter_name!r} cannot combine "
+            "calibration_range and deprecated bounds"
+        )
     raw_range = raw_parameter.get("calibration_range")
+    if raw_range is None and "bounds" in raw_parameter:
+        warnings.warn(
+            "The params.yaml field 'bounds' is deprecated; use "
+            "'calibration_range' instead",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        raw_range = raw_parameter["bounds"]
     if not isinstance(raw_range, (list, tuple)) or len(raw_range) != 2:
         raise LPMParamsError(
             f"{model_name}: parameter {parameter_name!r} must define "

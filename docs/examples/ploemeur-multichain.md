@@ -1,9 +1,8 @@
 # Ploemeur F09 2010 multi-chain qualification
 
 ```{note}
-This profile uses an **Unreleased** development-branch feature. It is not
-available in the `pyages==1.0.1` package from PyPI. Use a source installation
-and record the exact Git commit.
+This opt-in multi-chain profile is available in PyAges 1.2. Record the exact
+package version and Git commit when preserving qualification evidence.
 ```
 
 This maintained profile derives a multi-chain inference from the historical

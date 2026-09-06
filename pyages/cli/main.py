@@ -14,6 +14,7 @@ Usage:
     pyages run config.yaml
     pyages list lpms
     pyages list tracers
+    pyages new config quickstart
     pyages new lpm my_model
     pyages new tracer my_tracer
     pyages check
@@ -24,6 +25,7 @@ import click
 
 from pyages import __version__
 from pyages.cli.commands.check import check
+from pyages.cli.commands.config import config_group
 from pyages.cli.commands.list_cmd import list_group
 from pyages.cli.commands.new import new_group
 from pyages.cli.commands.run import run
@@ -43,6 +45,7 @@ def cli():
         pyages check                    # Verify installation
         pyages list lpms                # See available models
         pyages list tracers             # See available tracers
+        pyages new config quickstart    # Create a runnable local example
         pyages run config.yaml          # Run a simulation
     """
     pass
@@ -52,6 +55,7 @@ def cli():
 cli.add_command(run)
 cli.add_command(list_group)
 cli.add_command(new_group)
+cli.add_command(config_group)
 cli.add_command(check)
 cli.add_command(stages_group)
 

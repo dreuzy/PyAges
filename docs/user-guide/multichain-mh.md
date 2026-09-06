@@ -1,10 +1,8 @@
 # Running and qualifying multi-chain MH
 
 ```{note}
-Multi-chain MH is an **Unreleased** feature on the development branch. It is
-not included in the `pyages==1.0.1` package from PyPI. Until the next release,
-install PyAges from the source checkout that contains the configuration and
-implementation described here, and record its Git commit.
+Multi-chain MH is available in PyAges 1.2. It remains opt-in: configurations
+without a `multichain` mapping preserve one-chain execution.
 ```
 
 This guide covers the complete operational path: dispersed initialization,

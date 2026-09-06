@@ -14,7 +14,7 @@ Contributors should start with the {doc}`developer quickstart
 <dev/getting-started>` and then use the {doc}`code tour <dev/code-tour>` to
 locate a focused implementation and test surface.
 
-The development branch also provides an **Unreleased**
+PyAges 1.2 provides a
 {doc}`multi-chain MH qualification workflow <user-guide/multichain-mh>` with
 maintained synthetic, single-date, prior-active, and temporal profiles.
 
