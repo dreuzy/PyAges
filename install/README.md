@@ -1,6 +1,7 @@
 # Installation environments
 
-PyAges deliberately records two different environments.
+PyAges deliberately records two different application environments and one
+small packaging-tool baseline.
 
 `environment.yml` is the Python 3.12 baseline for reproducing the historical
 article campaign. Its recorded scientific core is Python 3.12, NumPy 2.1.2,
@@ -22,10 +23,19 @@ prevents packages installed in the per-user Python directory from shadowing the
 qualified Conda environment. The Windows reproduction wrappers set it
 automatically.
 
+`bootstrap-constraints.txt` pins `pip`, `setuptools`, and `wheel`. These tools
+create, install, and build the application environment, so qualifying them
+avoids silently using whichever versions happened to ship with a local Python
+or CI image. Install them first in a normal virtual environment:
+
+```bash
+python -m pip install --upgrade -r install/bootstrap-constraints.txt
+```
+
 `constraints.txt` is the separately qualified baseline for the PyAges 1.0
 user/development environment. It pins SciPy 1.18.1 and is
 exercised by CI on Python 3.12, 3.13, and 3.14. Create a normal virtual
-environment, then install PyAges with:
+environment, install the bootstrap tools above, then install PyAges with:
 
 ```bash
 python -m pip install -c install/constraints.txt -e .
@@ -42,6 +52,11 @@ Omit `-c install/constraints.txt` only when deliberately testing newer direct
 dependencies against the compatibility ranges declared in `pyproject.toml`.
 The constraints qualify direct dependencies; they are not a bit-for-bit lock
 of platform-specific transitive packages.
+
+Both qualified files record their review date. The Git commit containing a
+given version is the permanent source revision. The detailed distinction among
+compatible declarations, qualified pins, installed packages, and historical
+reproduction is explained in `docs/dev/dependencies.md`.
 
 The package metadata accepts SciPy 1.14.1 through the 1.18 series on Python
 3.12 and 3.13. Python 3.14 requires SciPy 1.16.1 or newer because 1.14.1 has no

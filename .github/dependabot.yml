@@ -4,7 +4,45 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
+    groups:
+      scientific-runtime:
+        patterns:
+          - numpy
+          - scipy
+          - pandas
+          - matplotlib
+      application-runtime:
+        patterns:
+          - pyyaml
+          - click
+          - pydantic
+          - packaging
+      developer-tooling:
+        patterns:
+          - build
+          - pip-audit
+          - pytest
+          - pytest-cov
+          - pyright
+          - ruff
+          - twine
+      documentation:
+        patterns:
+          - sphinx
+          - myst-parser
+          - sphinxcontrib-mermaid
+          - sphinx-rtd-theme
+      examples:
+        patterns:
+          - openpyxl
+          - ipython
+          - jupyterlab
+      bootstrap-packaging:
+        patterns:
+          - pip
+          - setuptools
+          - wheel
   - package-ecosystem: github-actions
     directory: /
     schedule:

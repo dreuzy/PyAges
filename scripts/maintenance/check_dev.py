@@ -25,6 +25,17 @@ class CheckStep(NamedTuple):
 
 QUICK_STEPS = (
     CheckStep("Dependency consistency", (sys.executable, "-m", "pip", "check")),
+    CheckStep(
+        "Project dependency metadata",
+        (
+            sys.executable,
+            "-m",
+            "scripts.maintenance.check_project_metadata",
+            "--check-installed",
+            "--extra",
+            "dev",
+        ),
+    ),
     CheckStep("Ruff lint", (sys.executable, "-m", "ruff", "check", ".")),
     CheckStep(
         "Ruff format",

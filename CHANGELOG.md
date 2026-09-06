@@ -9,6 +9,13 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ### Added
 
+- Added explicit `observation_key` alignment for model-space reference tables,
+  including replicate keys such as `#0` and `#1`, plus a deterministic
+  maintenance benchmark for one-time posterior preparation.
+- Added a pedagogical dependency-maintenance guide, separately qualified
+  `pip`/`setuptools`/`wheel` bootstrap baseline, exact installed-environment
+  metadata checks, grouped Dependabot updates, and a weekly dependency and
+  vulnerability audit.
 - Added a ten-minute contributor quickstart, editor guidance, quick/full local
   check profiles, cross-editor formatting defaults, and a CI-enforced package
   dependency boundary check; expanded the progressive Pyright surface across
@@ -71,6 +78,9 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ### Changed
 
+- Refreshed the qualified direct baseline for Build, Click, IPython, Pydantic,
+  Ruff, and sphinxcontrib-mermaid and aligned local setup, CI, documentation,
+  and release workflows on the same packaging-tool baseline.
 - Added explicit runtime contracts for Dirac, double-Dirac, mixed, and
   piecewise-uniform convolution strategies. A mismatched LPM declaration now
   reports the missing method before numerical work, and the convolution modules

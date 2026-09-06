@@ -11,6 +11,7 @@ git clone https://github.com/dreuzy/PyAges.git
 cd pyages
 python -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade -r install/bootstrap-constraints.txt
 python -m pip install -c install/constraints.txt -e .
 ```
 

@@ -188,19 +188,19 @@ def test_cli_rejects_missing_workflow_kind(payload) -> None:
         run_cmd._detect_workflow(payload)
 
 
-def test_cli_new_lpm_writes_to_current_project() -> None:
+def test_cli_new_lpm_writes_to_current_project(tmp_path, monkeypatch) -> None:
     runner = CliRunner()
-    with runner.isolated_filesystem():
-        result = runner.invoke(new_group, ["lpm", "audit_model"])
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(new_group, ["lpm", "audit_model"])
 
-        assert result.exit_code == 0, result.output
-        model_path = Path("pyages/lpm/models/audit_model.py")
-        assert model_path.is_file()
-        assert Path("data_core/data_lpm/audit_model/params.yaml").is_file()
-        model_source = model_path.read_text(encoding="utf-8")
-        assert "class AuditModelLpm" in model_source
-        assert "def cdf_and_partial_first_moment" in model_source
-        compile(model_source, str(model_path), "exec")
+    assert result.exit_code == 0, result.output
+    model_path = Path("pyages/lpm/models/audit_model.py")
+    assert model_path.is_file()
+    assert Path("data_core/data_lpm/audit_model/params.yaml").is_file()
+    model_source = model_path.read_text(encoding="utf-8")
+    assert "class AuditModelLpm" in model_source
+    assert "def cdf_and_partial_first_moment" in model_source
+    compile(model_source, str(model_path), "exec")
 
 
 def test_cli_new_lpm_rejects_removed_scipy_safe_base() -> None:
@@ -213,11 +213,11 @@ def test_cli_new_lpm_rejects_removed_scipy_safe_base() -> None:
     assert "Invalid value for '--base'" in result.output
 
 
-def test_cli_new_tracer_writes_to_current_project() -> None:
+def test_cli_new_tracer_writes_to_current_project(tmp_path, monkeypatch) -> None:
     runner = CliRunner()
-    with runner.isolated_filesystem():
-        result = runner.invoke(new_group, ["tracer", "audit_tracer"])
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(new_group, ["tracer", "audit_tracer"])
 
-        assert result.exit_code == 0, result.output
-        assert Path("data_core/data_tracer/audit_tracer/audit_tracer.yaml").is_file()
-        assert Path("data_core/data_tracer/audit_tracer/recharge.csv").is_file()
+    assert result.exit_code == 0, result.output
+    assert Path("data_core/data_tracer/audit_tracer/audit_tracer.yaml").is_file()
+    assert Path("data_core/data_tracer/audit_tracer/recharge.csv").is_file()

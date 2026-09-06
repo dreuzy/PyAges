@@ -29,7 +29,7 @@ from matplotlib.tri import TriAnalyzer, Triangulation
 from matplotlib.typing import ColorType
 
 from pyages.concentrations._labels import pretty_tracer_name
-from pyages.concentrations.schema import observation_key
+from pyages.concentrations.schema import OBSERVATION_KEY_COLUMN, observation_key
 
 DEFAULT_METHOD_COLORS = {
     "Metropolis_Hastings": "#1f77b4",
@@ -182,34 +182,56 @@ def _plot_interpolated_objective_surface(ax, x, y, values, vmin: float, vmax: fl
 def _reference_concentration_lookup(
     reference_concentrations: FrameSource | None,
 ) -> pd.Series | None:
-    """Index reference rows with the same position-based keys as observations."""
+    """Index reference rows by explicit or position-derived observation keys."""
     if reference_concentrations is None:
         return None
     frame = _ensure_frame(reference_concentrations)
-    required = {"element", "date", "concentration"}
+    required = {"concentration"}
+    if OBSERVATION_KEY_COLUMN not in frame.columns:
+        required.update(("element", "date"))
     if not required.issubset(frame.columns):
         raise ValueError(
-            "reference_concentrations must contain 'element', 'date' and 'concentration' columns."
+            "reference_concentrations must contain 'concentration' and either "
+            "'observation_key' or both 'element' and 'date' columns"
         )
     if frame.columns.duplicated().any():
         raise ValueError("reference_concentrations must contain unique columns")
     concentrations = frame["concentration"]
-    elements = frame["element"]
-    dates = frame["date"]
     if not isinstance(concentrations, pd.Series):
         raise ValueError(
             "reference_concentrations must contain one concentration column"
         )
-    if not isinstance(elements, pd.Series) or not isinstance(dates, pd.Series):
-        raise ValueError(
-            "reference_concentrations must contain one element and one date column"
-        )
-    keys = [
-        observation_key(str(element), float(date), index)
-        for index, (element, date) in enumerate(
-            zip(elements.to_numpy(copy=False), dates.to_numpy(copy=False), strict=True)
-        )
-    ]
+    if OBSERVATION_KEY_COLUMN in frame.columns:
+        explicit_keys = frame[OBSERVATION_KEY_COLUMN]
+        if (
+            not isinstance(explicit_keys, pd.Series)
+            or not explicit_keys.map(
+                lambda value: isinstance(value, str) and bool(value.strip())
+            ).all()
+        ):
+            raise ValueError(
+                "reference observation_key values must be non-empty strings"
+            )
+        keys = explicit_keys.str.strip().tolist()
+    else:
+        elements = frame["element"]
+        dates = frame["date"]
+        if not isinstance(elements, pd.Series) or not isinstance(dates, pd.Series):
+            raise ValueError(
+                "reference_concentrations must contain one element and one date column"
+            )
+        keys = [
+            observation_key(str(element), float(date), index)
+            for index, (element, date) in enumerate(
+                zip(
+                    elements.to_numpy(copy=False),
+                    dates.to_numpy(copy=False),
+                    strict=True,
+                )
+            )
+        ]
+    if pd.Index(keys).has_duplicates:
+        raise ValueError("reference observation_key values must be unique")
     return pd.Series(
         concentrations.to_numpy(copy=True),
         index=keys,

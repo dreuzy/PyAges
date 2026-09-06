@@ -156,9 +156,10 @@ def plot_single_date_model_space(
     Models with four or more observed quantities are limited to four pairwise
     panels, and posterior clouds larger than 450 rows are reproducibly thinned
     for display only. The input results and selection of best rows are unchanged.
-    Reference rows are matched through the same position-based ``#n`` keys as
-    the observations, so their row order must align when tracer/date pairs are
-    repeated.
+    Reference rows may provide an explicit ``observation_key`` column to remain
+    independent of row order. Otherwise the same position-based ``#n`` keys as
+    the observations are derived, so row order must then align when tracer/date
+    pairs are repeated.
     At least two quantities are required. The figure is optionally saved and is
     returned to the caller.
     """

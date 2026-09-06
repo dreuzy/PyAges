@@ -12,6 +12,7 @@ workflow modifies Git references.
 | Workflow | Triggers | Purpose |
 |---|---|---|
 | [CI](https://github.com/dreuzy/PyAges/actions/workflows/ci.yml) | Pull requests targeting `main`, pushes to `main`, version tags matching `*.*`, and manual dispatch | Fast required checks for every supported Python version, packaging, documentation, and validation infrastructure |
+| [Scheduled dependency audit](https://github.com/dreuzy/PyAges/actions/workflows/dependency-audit.yml) | Every Tuesday at `04:23 UTC` and manual dispatch | Recreate the exact qualified environment, check known vulnerability advisories, and report newer releases for maintainer review |
 | [Extensive tests](https://github.com/dreuzy/PyAges/actions/workflows/extensive-tests.yml) | Manual dispatch, every Monday at `01:17 UTC`, and pull requests changing selected calibration, LPM, workflow, configuration, data, example, test, or workflow paths | Run the opt-in scientific qualifications when their target or executable evidence can change |
 | [Release candidate](https://github.com/dreuzy/PyAges/actions/workflows/release-candidate.yml) | Manual dispatch for an existing release tag matching the package version | Build one candidate, smoke-test the same wheel on all supported Python versions, run the extensive qualification, and archive its evidence from that exact tag |
 | [Publish package](https://github.com/dreuzy/PyAges/actions/workflows/publish-package.yml) | Manual dispatch for an existing GitHub Release tag and a selected package index | Verify the existing release assets and their SHA-256 digests, then publish the unchanged files through the protected `testpypi` or `pypi` environment |
@@ -30,7 +31,7 @@ gate:
 | Job | Main checks | Result or artifact |
 |---|---|---|
 | `Ruff` | `ruff check`, `ruff format --check`, progressive Pyright, scoped qualified-surface docstrings, licensing, architecture boundaries, generated test inventory | Lint, formatting, selected type contracts, API prose, dependency direction, metadata, and test documentation must be current |
-| `Dependency audit` | Qualified install, `pip check`, `pip-audit` | Dependency consistency and known-vulnerability check |
+| `Dependency audit` | Exact direct-pin verification, `pip check`, `pip-audit` | Declared, qualified, and installed dependencies agree; the installed graph is consistent; no published advisory is known |
 | `Conda environment` | Create `install/environment.yml`, install PyAges without dependency replacement, exercise CLI discovery | Conda environment and packaged entry points are usable |
 | `Tests (Python …)` | Standard pytest suite on Python 3.12, 3.13, and 3.14 | Supported-version compatibility |
 | `Coverage` | Standard suite with branch measurement | XML artifact retained for 14 days; total coverage must be at least 75% |
@@ -159,6 +160,7 @@ Install the qualified core contributor environment first; add `docs` for the
 full local profile:
 
 ```bash
+python -m pip install --upgrade -r install/bootstrap-constraints.txt
 python -m pip install -c install/constraints.txt -e ".[dev,docs]"
 ```
 
@@ -173,6 +175,7 @@ The underlying commands used across independent CI jobs are:
 
 ```bash
 python -m pip check
+python -m scripts.maintenance.check_project_metadata --check-installed --extra dev
 python -m ruff check .
 python -m ruff format --check .
 python -m pyright
@@ -186,6 +189,13 @@ python -m scripts.maintenance.generate_test_inventory --check
 python -m sphinx -W --keep-going -b html docs docs/_build/html
 python -m sphinx -W --keep-going -b linkcheck docs docs/_build/linkcheck
 ```
+
+The scheduled audit installs every optional group and adds
+`--require-qualified-versions`. That stricter option checks exact direct and
+packaging-tool pins rather than only accepted compatibility ranges. Its final
+`pip list --outdated` step is informative: a newer release starts a maintainer
+review but does not make a qualified environment fail automatically. See
+{doc}`dependencies` for the meaning and limits of these checks.
 
 The docstring command intentionally covers more than the installed package.
 In addition to the qualified calibration and workflow API, it checks the

@@ -9,9 +9,13 @@ Smoke tests for reusable example plotting helpers.
 
 from pathlib import Path
 
+import matplotlib
+
+matplotlib.use("Agg", force=True)
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pytest
 
 import pyages.reporting.plots.model_space as model_space_module
 from pyages.concentrations import Concentrations
@@ -131,6 +135,75 @@ def test_model_space_pairs_duplicate_references_by_indexed_observation_key() -> 
         )
     finally:
         plt.close(figure)
+
+
+def test_model_space_explicit_reference_keys_are_independent_of_row_order() -> None:
+    observations = Concentrations.from_dataframe(
+        pd.DataFrame(
+            {
+                "element": ["cfc11", "cfc11"],
+                "concentration": [1.0, 2.0],
+                "error": [0.1, 0.1],
+                "unit": ["pptv", "pptv"],
+                "date": [2010.0, 2010.0],
+            }
+        )
+    )
+    first_key, second_key = observations.observation_keys()
+    references = pd.DataFrame(
+        {
+            "observation_key": [second_key, first_key],
+            "concentration": [20.0, 10.0],
+        }
+    )
+
+    figure = plot_single_date_model_space(
+        observations,
+        pd.DataFrame({"cfc11@2010.0": [5.0]}),
+        {},
+        reference_concentrations=references,
+    )
+    try:
+        reference_artist = next(
+            artist
+            for artist in figure.axes[0].collections
+            if artist.get_label() == "Reference model"
+        )
+        np.testing.assert_allclose(
+            np.asarray(reference_artist.get_offsets()),
+            [[10.0, 20.0]],
+        )
+    finally:
+        plt.close(figure)
+
+
+def test_model_space_rejects_duplicate_explicit_reference_keys() -> None:
+    observations = Concentrations.from_dataframe(
+        pd.DataFrame(
+            {
+                "element": ["cfc11", "cfc12"],
+                "concentration": [1.0, 2.0],
+                "error": [0.1, 0.1],
+                "unit": ["pptv", "pptv"],
+                "date": [2010.0, 2010.0],
+            }
+        )
+    )
+    duplicate_key = observations.observation_keys()[0]
+    references = pd.DataFrame(
+        {
+            "observation_key": [duplicate_key, duplicate_key],
+            "concentration": [10.0, 20.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="observation_key values must be unique"):
+        plot_single_date_model_space(
+            observations,
+            pd.DataFrame({"cfc11@2010.0": [1.0], "cfc12@2010.0": [2.0]}),
+            {},
+            reference_concentrations=references,
+        )
 
 
 def test_model_space_prepares_each_posterior_once(monkeypatch) -> None:

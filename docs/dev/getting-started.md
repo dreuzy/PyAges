@@ -95,10 +95,22 @@ closing the terminal.
 Run:
 
 ```bash
+python -m pip install --upgrade -r install/bootstrap-constraints.txt
 python -m pip install -c install/constraints.txt -e ".[dev]"
 ```
 
-Although this command is compact, each part has a purpose:
+The first command installs the project-qualified packaging tools:
+
+- `pip` finds, resolves, downloads, and installs Python packages;
+- `setuptools` reads the project metadata and prepares PyAges for installation
+  or distribution;
+- `wheel` supports Python's standard built-package format;
+- `-r install/bootstrap-constraints.txt` asks `pip` to install the exact
+  versions listed in that file;
+- `--upgrade` replaces older copies already present in `.venv` when needed.
+
+The second command installs PyAges and the normal developer dependencies. Each
+part has a purpose:
 
 - `python -m pip` runs the package installer belonging to the currently
   selected Python. This avoids accidentally using `pip` from another Python
@@ -118,26 +130,28 @@ missing, and installs it under `.venv/`. It also creates the `pyages` terminal
 command. Editable mode stores a link to this working copy, so importing
 `pyages` uses the files you are editing rather than a separate frozen copy.
 
-You normally rerun the installation command only when `pyproject.toml`, the
-constraints file, or the requested extras change. Editing an ordinary `.py`
-file does not require reinstallation because the project is editable.
+You normally rerun these installation commands only when `pyproject.toml`, one
+of the constraints files, or the requested extras change. Editing an ordinary
+`.py` file does not require reinstallation because the project is editable.
 
 Now check the installation:
 
 ```bash
 python -m pip check
+python -m scripts.maintenance.check_project_metadata --check-installed --extra dev
 python -c "import sys; print(sys.executable)"
 pyages --version
 pyages check
 ```
 
-The commands answer four different questions. A successful command returns to
+The commands answer five different questions. A successful command returns to
 the prompt without an error; a failed command exits with a non-zero status and
 prints the reason.
 
 | Command | Question it answers | Evidence of success |
 | --- | --- | --- |
 | `python -m pip check` | Are the installed package versions compatible with one another? | It prints `No broken requirements found.` |
+| `python -m scripts.maintenance.check_project_metadata ...` | Do project declarations, qualified pins, and the selected installed groups agree? | It reports internally consistent metadata and compatible direct dependencies. |
 | `python -c "..."` | Which Python executable is this terminal actually using? | The printed path contains `.venv`. |
 | `pyages --version` | Was the PyAges CLI installed and can the terminal find it? | It prints a PyAges version. |
 | `pyages check` | Can PyAges find the project resources it needs at runtime? | Its individual checks are reported as successful. |
@@ -146,6 +160,7 @@ If PowerShell policy prevents activation, you can address the environment's
 executables directly instead:
 
 ```powershell
+.\.venv\Scripts\python.exe -m pip install --upgrade -r install/bootstrap-constraints.txt
 .\.venv\Scripts\python.exe -m pip install -c install/constraints.txt -e ".[dev]"
 .\.venv\Scripts\pyages.exe check
 ```
@@ -175,6 +190,8 @@ python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
 Installing another extra adds packages to the same `.venv/`; it does not create
 a second environment or enable a mode inside PyAges. For example, `docs` adds
 Sphinx because building the website needs packages that running PyAges does not.
+See {doc}`dependencies` for the difference between a compatibility range, an
+exact qualified pin, and a package actually installed in this environment.
 
 ## 4. Make and check one change
 

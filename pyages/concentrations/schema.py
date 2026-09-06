@@ -15,6 +15,7 @@ CONCENTRATION_COLUMN = "concentration"
 ERROR_COLUMN = "error"
 UNIT_COLUMN = "unit"
 DATE_COLUMN = "date"
+OBSERVATION_KEY_COLUMN = "observation_key"
 
 REFERENCE_COLUMNS = (
     ELEMENT_COLUMN,
@@ -48,6 +49,7 @@ __all__ = [
     "DATE_COLUMN",
     "ELEMENT_COLUMN",
     "ERROR_COLUMN",
+    "OBSERVATION_KEY_COLUMN",
     "observation_key",
     "REFERENCE_COLUMNS",
     "UNIT_COLUMN",

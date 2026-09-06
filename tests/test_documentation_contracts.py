@@ -140,6 +140,18 @@ def test_configuration_reference_states_exact_temporal_constraints() -> None:
     assert "does not expose" in document
 
 
+def test_planned_v2_lpm_parameter_migration_keeps_1x_compatibility_explicit() -> None:
+    migration = (ROOT / "docs/reference/api-migration-2.md").read_text(encoding="utf-8")
+    reference_index = (ROOT / "docs/reference/index.md").read_text(encoding="utf-8")
+
+    assert "api-migration-2" in reference_index
+    assert "not a PyAges 2.0 release announcement" in migration
+    assert "`get_calibration_ranges(schema)` | `schema.calibration_ranges`" in migration
+    assert "`get_domains(schema)` | `schema.domains`" in migration
+    assert "`get_init(schema)` | `schema.initial_values`" in migration
+    assert "must keep warning with `DeprecationWarning`" in migration
+
+
 def test_natural_notebooks_use_only_canonical_public_apis() -> None:
     notebook_paths = (
         ROOT / "examples/natural/albuquerque/exemple_albuquerque.ipynb",
@@ -199,6 +211,7 @@ def test_developer_onboarding_is_navigable_and_environment_safe() -> None:
     contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
     dev_index = (ROOT / "docs/dev/index.md").read_text(encoding="utf-8")
     quickstart = (ROOT / "docs/dev/getting-started.md").read_text(encoding="utf-8")
+    dependencies = (ROOT / "docs/dev/dependencies.md").read_text(encoding="utf-8")
     ide = (ROOT / "docs/dev/ide.md").read_text(encoding="utf-8")
 
     assert "docs/dev/getting-started.md" in readme
@@ -207,10 +220,17 @@ def test_developer_onboarding_is_navigable_and_environment_safe() -> None:
     assert ".[dev]" in contributing
     assert "check_dev quick" in contributing
     assert "check_dev full" in contributing
+    assert "install/bootstrap-constraints.txt" in contributing
     assert dev_index.index("getting-started") < dev_index.index("code-tour")
+    assert dev_index.index("getting-started") < dev_index.index("dependencies")
+    assert dev_index.index("dependencies") < dev_index.index("code-tour")
     assert "Activate.ps1" in quickstart
     assert "source .venv/bin/activate" in quickstart
     assert "successful `import pyages`" in quickstart
+    assert "install/bootstrap-constraints.txt" in quickstart
+    assert "Compatible is not the same as qualified" in dependencies
+    assert "A constraints file is not a complete lock file" in dependencies
+    assert "--require-qualified-versions" in dependencies
     assert ".venv/Scripts/python.exe" in ide
     assert "source roots that do not exist" in ide
 

@@ -1,0 +1,12 @@
+# Packaging tools qualified for creating and installing PyAges environments.
+#
+# Qualification refreshed: 2026-09-06. The authoritative source revision is
+# the Git commit containing this file. Retrieve it after commit with:
+#   git log -1 --format=%H -- install/bootstrap-constraints.txt
+#
+# Install these tools before the project dependencies:
+#   python -m pip install --upgrade -r install/bootstrap-constraints.txt
+
+pip==26.2.1
+setuptools==84.0.0
+wheel==0.48.0

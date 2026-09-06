@@ -181,6 +181,28 @@ the vocabulary of another (MH configuration and results). When debugging this
 boundary, first ask whether the wrong value was supplied to the engine or
 whether the engine handled the right value incorrectly.
 
+### Reporting labels and model-space preparation
+
+Tracer display spelling is centralized in
+`pyages/concentrations/_labels.py::pretty_tracer_name`. Both concentration
+figures and reporting figures call this helper. To add another conventional
+display spelling, extend that function and its focused plotting test instead of
+adding a second mapping in an individual plot.
+
+`pyages/reporting/plots/model_space.py` prepares each posterior result once and
+reuses it across all pairwise panels. The deterministic maintenance benchmark
+compares this path with the former repeated preparation:
+
+```bash
+python -m scripts.maintenance.benchmark_model_space
+```
+
+Keep data alignment separate from display labels. Observation values use
+`tracer@date#index` keys, where `#0`, `#1`, and following suffixes distinguish
+replicates. A reference table with an explicit `observation_key` column is
+independent of row order; the legacy long-table fallback derives those suffixes
+from row position and therefore requires matching order.
+
 ## The scientific calculation
 
 `pyages/calibration/problem.py` brings together four elements:
@@ -367,6 +389,8 @@ while editing usually gives feedback much faster than the complete suite.
 | Add an LPM | `pyages/lpm/models/` and `data_core/data_lpm/` | `python -m pytest -q tests/lpm` |
 | Change concentration calculations | `pyages/convolution/` | `python -m pytest -q tests/convolution` |
 | Change result files | `pyages/data_io/` and `pyages/workflows/runtime/manifest.py` | `python -m pytest -q tests/data_io tests/workflows` |
+| Change tracer display spelling | `pyages/concentrations/_labels.py` | `python -m pytest -q tests/concentrations tests/examples/test_example_summary_plots.py` |
+| Change model-space preparation | `pyages/reporting/plots/model_space.py` | `python -m pytest -q tests/examples/test_example_summary_plots.py tests/scripts/maintenance/test_benchmark_model_space.py` |
 
 The paths are starting points, not ownership walls. A behaviour may have tests
 in more than one directory, especially when it connects configuration,

@@ -11,6 +11,7 @@ Exploratory design notes are retained in {doc}`../archive/index`.
 :maxdepth: 1
 
 getting-started
+dependencies
 code-tour
 ide
 testing

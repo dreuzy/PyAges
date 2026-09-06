@@ -21,6 +21,7 @@ pyages run examples/templates/quickstart_temporal.yaml
 python -m scripts.qualification.run_system_check
 python -m scripts.qualification.run_system_check --params configs/system_check.yaml
 python -m scripts.qualification.run_calibration_benchmark
+python -m scripts.maintenance.benchmark_model_space
 ```
 
 ### Example parameters
@@ -70,11 +71,38 @@ commands and active configuration use the grouped module paths below.
 | Diagnostics and qualification | `scripts.qualification` | Fast environment checks, calibration comparison, MH proposal qualification, and generic qualification archives |
 | Article campaigns, post-processing, and audit | `scripts.article` | Complete or focused campaigns; figures, tables, and audit reports |
 | Publication archives | `scripts.release` | Build and validate publication-facing artifacts |
-| Repository maintenance | `scripts.maintenance` | Run quick/full contributor gates; check architecture, metadata, licensing, and qualified-surface docstrings; clean artifacts; and refresh test documentation |
+| Repository maintenance | `scripts.maintenance` | Run quick/full contributor gates; check architecture, metadata, licensing, and qualified-surface docstrings; benchmark model-space preparation; clean artifacts; and refresh test documentation |
 | Shared helpers | `scripts.common` | Reusable provenance, reporting, plotting, and launcher helpers; not primary CLIs |
 
 Invoke a module as `python -m scripts.<family>.<module> --help` when it exposes a CLI.
 The complete article campaign below is the canonical high-level entry point.
+
+`python -m scripts.maintenance.benchmark_model_space` compares the former
+per-panel posterior preparation with the shared one-time preparation. Its
+deterministic synthetic data and median timings make repeated local comparisons
+straightforward; timings remain specific to the host and are not a scientific
+qualification or a CI pass/fail threshold. Use `--json-output <path>` to retain
+one result with its dimensions.
+
+### Dependency and metadata check
+
+`python -m scripts.maintenance.check_project_metadata` checks that project,
+qualified pip and bootstrap pins, historical Conda runtime declarations,
+documentation installation, naming, and release identity agree. Add
+`--check-installed --extra dev` to inspect the compatible direct packages in
+the running interpreter. After installing all optional groups, the stricter
+CI form is:
+
+```bash
+python -m scripts.maintenance.check_project_metadata \
+  --check-installed --extra dev --extra docs --extra examples \
+  --require-qualified-versions
+```
+
+The final option compares installed direct packages, `pip`, `setuptools`, and
+`wheel` with their exact qualified pins. See `docs/dev/dependencies.md` before
+changing a constraint: a qualified direct baseline is not a complete
+platform-specific lock file.
 
 ### Multi-chain qualification archive
 

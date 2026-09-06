@@ -20,6 +20,22 @@ def test_profiles_keep_slow_checks_out_of_quick_feedback() -> None:
     assert all("pytest" not in step.command for step in quick)
 
 
+def test_quick_profile_checks_the_running_development_environment() -> None:
+    dependency_step = next(
+        step
+        for step in check_dev.QUICK_STEPS
+        if step.label == "Project dependency metadata"
+    )
+
+    assert dependency_step.command[1:] == (
+        "-m",
+        "scripts.maintenance.check_project_metadata",
+        "--check-installed",
+        "--extra",
+        "dev",
+    )
+
+
 def test_checks_stop_at_the_first_failure(monkeypatch) -> None:
     calls: list[tuple[str, ...]] = []
 

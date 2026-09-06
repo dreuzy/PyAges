@@ -32,6 +32,7 @@ maintained synthetic, single-date, prior-active, and temporal profiles.
 For a local build:
 
 ```bash
+python -m pip install --upgrade -r install/bootstrap-constraints.txt
 python -m pip install -c install/constraints.txt -e ".[docs]"
 python -m sphinx -b html docs docs/_build/html
 ```

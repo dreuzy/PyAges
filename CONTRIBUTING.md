@@ -41,23 +41,29 @@ source .venv/bin/activate
 Then install PyAges and the normal contributor tools:
 
 ```bash
+python -m pip install --upgrade -r install/bootstrap-constraints.txt
 python -m pip install -c install/constraints.txt -e ".[dev]"
 python -m pip check
+python -m scripts.maintenance.check_project_metadata --check-installed --extra dev
 pyages --version
 pyages check
 ```
 
-In the installation command, `python -m pip` uses the package installer from
-the active Python environment. `-c install/constraints.txt` selects package
-versions tested by the project, `-e .` connects the installation to the source
-directory so edits take effect immediately, and `[dev]` adds tools used to test
-and inspect the code.
+The first installation command selects the tested versions of `pip`,
+`setuptools`, and `wheel`: the tools that install and package Python projects.
+The second command uses `-c install/constraints.txt` to select application and
+developer versions tested by PyAges. `-e .` connects the installation to the
+source directory so edits take effect immediately, and `[dev]` adds tools used
+to test and inspect the code.
 
-The final three commands verify different parts of the setup: compatible
-dependencies, an installed `pyages` command, and accessible PyAges resources.
+The final four commands verify different parts of the setup: a consistent
+package graph, agreement with PyAges' declarations, an installed `pyages`
+command, and accessible PyAges resources.
 See the [developer quickstart](docs/dev/getting-started.md) for a command-by-
 command explanation, an activation-free PowerShell fallback, and help with
-common failures.
+common failures. The [dependency guide](docs/dev/dependencies.md) explains why
+compatible ranges, qualified pins, installed versions, and the historical
+Conda environment are deliberately distinct.
 
 Some dependencies are optional. Add `docs` when editing documentation and add
 `examples` only for notebooks or spreadsheet-backed examples:
@@ -184,6 +190,7 @@ These tool names can be unfamiliar on a first Python project:
 | Tool or check | What it reads or runs | What a failure asks you to investigate |
 | --- | --- | --- |
 | Pytest | Imports the project, runs test cases, and compares actual results with expected results. | Behaviour changed, an expectation is outdated, or test setup failed. |
+| Dependency metadata check | Compares project declarations, qualified pins, documentation installation, and selected packages in the current environment. | A dependency is missing, incompatible, unqualified, or described inconsistently. |
 | Ruff lint | Reads Python source without running it and applies named rules. This inspection is called *linting*. | A likely mistake, unused import, unclear construct, or project rule at the reported line. |
 | Ruff format | Calculates the project's standard spacing, indentation, and line wrapping. | A file's layout differs from the common style; `ruff format .` can rewrite it. |
 | Pyright | Follows values through the configured code and compares their uses with type annotations. | A value may have a different type from the one an operation requires. |

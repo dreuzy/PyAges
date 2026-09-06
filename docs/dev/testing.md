@@ -12,7 +12,7 @@ Two dependency-free repository commands group the normal checks:
 
 | Profile | Command | Contents |
 |---|---|---|
-| Quick | `python -m scripts.maintenance.check_dev quick` | Environment consistency, Ruff lint/format, progressive Pyright, qualified docstrings, licensing, and architecture boundaries |
+| Quick | `python -m scripts.maintenance.check_dev quick` | Installed dependency and metadata consistency, Ruff lint/format, progressive Pyright, qualified docstrings, licensing, and architecture boundaries |
 | Full | `python -m scripts.maintenance.check_dev full` | Quick profile plus generated inventory, standard tests, and a clean strict Sphinx HTML build |
 
 Run focused pytest paths while implementing; the quick profile deliberately
@@ -20,6 +20,19 @@ contains no test suite. Run the full profile before a pull request. Feedback
 times depend on the machine, but quick should take seconds or tens of seconds,
 full normally takes several minutes, and the opt-in extensive qualification may
 take hours.
+
+For a reproducible microbenchmark of the model-space plotting factorization,
+run:
+
+```bash
+python -m scripts.maintenance.benchmark_model_space
+```
+
+The JSON output compares posterior preparation once per panel with preparation
+once per method. It records the table size, method count, panel count, repeat
+count, median timings, and preparation counts. Compare results only on the same
+host and environment; the benchmark documents a local performance effect and
+does not impose a timing threshold in CI.
 
 ## Test scopes
 

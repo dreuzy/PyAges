@@ -37,9 +37,14 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
+      - name: Verify project and installed dependency metadata
+        run: >-
+          python -m scripts.maintenance.check_project_metadata
+          --check-installed --extra dev --require-qualified-versions
       - run: python -m ruff check .
       - run: python -m ruff format --check .
       - name: Type-check the progressively qualified core contracts
@@ -67,9 +72,15 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
+      - name: Verify every qualified direct dependency
+        run: >-
+          python -m scripts.maintenance.check_project_metadata
+          --check-installed --extra dev --extra docs --extra examples
+          --require-qualified-versions
       - run: python -m pip check
       - run: python -m pip_audit --local --skip-editable --progress-spinner off
 
@@ -113,8 +124,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m pytest -q
 
@@ -142,8 +154,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m pip install --force-reinstall "scipy==${{ matrix.scipy-version }}"
       - run: python -m pytest -q tests/convolution tests/lpm tests/tracer tests/test_public_api.py
@@ -162,8 +175,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - name: Install the supported pandas lower bound and string backend
         run: >-
@@ -197,8 +211,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m pytest -q --cov=pyages --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=75
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -221,8 +236,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m pytest -q validation/tracerlpm/benchmark/tests
 
@@ -258,8 +274,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[docs]"
       - name: Build strict HTML documentation
         run: python -m sphinx -W --keep-going -b html docs docs/_build/html
@@ -287,8 +304,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m build
       - run: python -m twine check dist/*

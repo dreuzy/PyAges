@@ -11,12 +11,16 @@ The test scopes and GitHub jobs referenced below are defined in
 
 1. Stop or finish processes that write inside the checkout.
 2. Confirm that every modified, deleted, and untracked file is intentional.
-   Install the qualified direct dependency set with
+   Install the qualified packaging tools with
+   `python -m pip install --upgrade -r install/bootstrap-constraints.txt`, then
+   install the qualified direct dependency set with
    `python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"`.
-   Run `python -m scripts.maintenance.check_project_metadata` to verify that the qualified
-   pip and Conda pins satisfy the declared compatibility ranges and that the
-   release identity files agree. The article-reproduction environment is
-   stricter: its direct versions must match `install/environment.yml` exactly.
+   Run `python -m scripts.maintenance.check_project_metadata --check-installed
+   --extra dev --extra docs --extra examples --require-qualified-versions` to
+   verify that declarations, pins, documentation installation, release
+   identity, and installed versions agree. The article-reproduction
+   environment is stricter in a different way: its direct versions must match
+   `install/environment.yml` exactly.
 3. Update `pyages/_version.py`, `CITATION.cff`, `CHANGELOG.md`, and the
    development-status classifier together. Confirm that README and Sphinx show
    the same release and follow {doc}`versioning-citation`. The tag must equal
