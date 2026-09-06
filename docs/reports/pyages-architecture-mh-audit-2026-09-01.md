@@ -1,9 +1,9 @@
 # Audit d'architecture et de robustesse MH — 1er septembre 2026
 
-> Mise à jour du 4 septembre 2026 : les recommandations de conservation des
-> alias `bounds` et des départs multichaînes dupliqués ont été dépassées par le
-> refactoring de simplification. Seuls `calibration_range`, `bounds_stratified`,
-> `prior_sample` et `explicit` restent acceptés.
+> Mise à jour du 6 septembre 2026 : la version compatible 1.2 conserve
+> désormais `bounds` comme alias déprécié de `calibration_range`. Les politiques
+> de départ multichaînes dupliquées restent supprimées ; `bounds_stratified`,
+> `prior_sample` et `explicit` sont les stratégies acceptées.
 
 ## Conclusion
 

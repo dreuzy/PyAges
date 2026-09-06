@@ -134,8 +134,10 @@ qualification evidence.
 
 Copies an unversioned 1.x configuration to schema 2, validates the result, and
 leaves the source untouched. The destination must not exist and must be beside
-the source so relative paths retain their meaning. YAML comments are not
-preserved.
+the source. Legacy checkout files and schema-2 files use different bases for
+relative paths, so the command rewrites documented path fields when necessary
+to keep them pointed at the same inputs and output directory. YAML comments
+are not preserved.
 
 ```console
 pyages config migrate legacy.yaml pyages-schema2.yaml

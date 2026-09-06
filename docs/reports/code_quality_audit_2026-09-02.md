@@ -1,9 +1,11 @@
 # Audit complet du code, de la documentation et de la dette technique — 2 septembre 2026
 
-> Mise à jour du 4 septembre 2026 : la couche de migration décrite dans cet
-> audit a depuis été retirée. Les alias `bounds`, le journal manifeste en place,
-> la configuration aplatie et le drapeau CLI historique ne font plus partie du
-> code courant.
+> Mise à jour du 6 septembre 2026 : la préparation de la version compatible
+> 1.2 a rétabli une couche de migration à la frontière de configuration ainsi
+> que les alias 1.x `bounds`, configuration aplatie et `--transient`. Le journal
+> manifeste en place reste supprimé. Les mesures ci-dessous décrivent toujours
+> l'état audité le 2 septembre ; la documentation de compatibilité 1.2 décrit
+> l'interface courante.
 
 ## Conclusion générale
 
