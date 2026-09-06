@@ -101,9 +101,10 @@ pyages run quickstart/pyages.yaml
 ```
 
 This creates a schema-2 YAML file and a small synthetic observation table. It
-checks installation, input loading, convolution, output writing, and provenance;
-it is not a calibrated scientific result. Use `--kind temporal` to generate the
-short temporal variant.
+checks installation, input loading, workflow startup, output writing, and
+provenance. Its scientific steps are disabled so the default run stays fast;
+it is not a calibrated scientific result. Use `--kind temporal` to generate a
+short variant that also exercises the temporal calculation path.
 
 ## Multi-chain MH qualification
 

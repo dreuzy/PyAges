@@ -11,11 +11,11 @@ the complete core node-ID list.
 
 | Scope | Collected cases | Modules |
 |---|---|---|
-| Standard selection | 1652 | 127 |
+| Standard selection | 1655 | 127 |
 | Extensive opt-in | 15 | 8 |
-| Core including extensive | 1667 | 127 |
+| Core including extensive | 1670 | 127 |
 | TracerLPM validation | 65 | 9 |
-| All documented pytest scopes | 1732 | 136 |
+| All documented pytest scopes | 1735 | 136 |
 
 ## Cases by area
 
@@ -23,7 +23,7 @@ the complete core node-ID list.
 |---|---|---|---|---|---|---|
 | Repository-wide contracts | `tests/(root)/` | Contract / integration | Public API, metadata, manifests, paths, and repository documentation | Standard CI | 10 | 147 |
 | Calibration and inference | `tests/calibration/` | Unit / scientific | Objectives, priors, proposals, parameter grids, and calibration APIs | Standard CI; selected extensive cases | 25 | 362 |
-| Command-line interface | `tests/cli/` | Contract / integration | Installed command behavior, validation, discovery, and user-facing errors | Standard CI and package smoke test | 5 | 57 |
+| Command-line interface | `tests/cli/` | Contract / integration | Installed command behavior, validation, discovery, and user-facing errors | Standard CI and package smoke test | 5 | 59 |
 | Concentration handling | `tests/concentrations/` | Unit / data contract | Chronicle loading and concentration-series behavior | Standard CI | 3 | 56 |
 | Configuration | `tests/config/` | Unit / contract | Validated models, runtime options, and portable path resolution | Standard CI | 4 | 98 |
 | Convolution | `tests/convolution/` | Analytical / scientific | Concentration convolution, numerical identities, settings, and tracer coupling | Standard CI | 6 | 265 |
@@ -31,7 +31,7 @@ the complete core node-ID list.
 | Examples and case studies | `tests/examples/` | Integration / golden | Runnable examples, helper contracts, reproduction modes, and accepted outputs | Standard CI | 16 | 53 |
 | Lumped-parameter models | `tests/lpm/` | Analytical / unit / golden | Distributions, moments, mixtures, registries, parameters, and generated values | Standard CI | 15 | 272 |
 | Ploemeur field case | `tests/ploemeur/` | Field integration / golden | Preparation, configuration, reference convolution, paths, and workflow outputs | Standard CI; selected extensive cases | 8 | 54 |
-| Scientific orchestration | `tests/scripts/` | Integration / reproducibility | Article campaigns, qualification scripts, and reproducible execution support | Standard CI | 18 | 121 |
+| Scientific orchestration | `tests/scripts/` | Integration / reproducibility | Article campaigns, qualification scripts, and reproducible execution support | Standard CI | 18 | 122 |
 | Environmental tracers | `tests/tracer/` | Scientific unit / contract | Decay, distributed inputs, tracer configuration, and public tracer behavior | Standard CI | 5 | 53 |
 | Installed workflows | `tests/workflows/` | Integration / contract | Plotting runtime and single-date workflow behavior | Standard CI and package smoke test | 9 | 61 |
 | TracerLPM cross-software validation | `validation/tracerlpm/` | Cross-software validation | Mappings, reference inputs, observations, pilots, comparisons, and summaries | TracerLPM validation job | 9 | 65 |
@@ -68,7 +68,7 @@ the complete core node-ID list.
 | `tests/cli/test_cli.py` | Contract / integration | CLI within command-line interface. | 17 | 0 |
 | `tests/cli/test_cli_diagnostics.py` | Contract / integration | CLI diagnostics within command-line interface. | 17 | 0 |
 | `tests/cli/test_cli_documentation.py` | Contract / integration | CLI documentation within command-line interface. | 15 | 0 |
-| `tests/cli/test_config_commands.py` | Contract / integration | Config commands within command-line interface. | 4 | 0 |
+| `tests/cli/test_config_commands.py` | Contract / integration | Config commands within command-line interface. | 6 | 0 |
 | `tests/cli/test_stages_cli.py` | Contract / integration | Stages CLI within command-line interface. | 4 | 0 |
 | `tests/concentrations/test_concentration_chronicles_smoke.py` | Unit / data contract | Concentration chronicles smoke within concentration handling. | 1 | 0 |
 | `tests/concentrations/test_concentration_contracts.py` | Unit / data contract | Concentration contracts within concentration handling. | 43 | 0 |
@@ -138,7 +138,7 @@ the complete core node-ID list.
 | `tests/scripts/maintenance/test_check_dev.py` | Integration / reproducibility | Check dev within scientific orchestration. | 4 | 0 |
 | `tests/scripts/maintenance/test_generate_test_inventory.py` | Integration / reproducibility | Generate test inventory within scientific orchestration. | 1 | 0 |
 | `tests/scripts/maintenance/test_run_tests.py` | Integration / reproducibility | Run tests within scientific orchestration. | 12 | 0 |
-| `tests/scripts/qualification/test_ci_multichain_archive.py` | Integration / reproducibility | Ci multichain archive within scientific orchestration. | 10 | 0 |
+| `tests/scripts/qualification/test_ci_multichain_archive.py` | Integration / reproducibility | Ci multichain archive within scientific orchestration. | 11 | 0 |
 | `tests/scripts/qualification/test_multichain_archive.py` | Integration / reproducibility | Multichain archive within scientific orchestration. | 16 | 0 |
 | `tests/scripts/qualification/test_qualify_mh_proposals.py` | Integration / reproducibility | Qualify Metropolis-Hastings proposals within scientific orchestration. | 3 | 0 |
 | `tests/scripts/release/test_campaign_promotion.py` | Integration / reproducibility | Campaign promotion within scientific orchestration. | 5 | 0 |

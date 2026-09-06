@@ -47,7 +47,9 @@ below remains accepted in 1.2. Its workflow-specific names map as follows:
 | `output` | `results` |
 
 To convert without overwriting the original file, write the destination beside
-it so relative input paths retain their meaning:
+it. If the legacy file used paths relative to the source-checkout root, the
+command rewrites those paths so the schema-2 file still designates the same
+inputs and output directory from its own location:
 
 ```bash
 pyages config migrate legacy.yaml pyages-schema2.yaml

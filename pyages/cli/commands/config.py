@@ -17,8 +17,10 @@ from pyages.config.loading import load_yaml_mapping
 from pyages.config.migration import (
     configuration_base_directory,
     configuration_workflow_kind,
+    is_legacy_configuration,
     migrate_configuration_payload,
     normalize_configuration_payload,
+    rebase_migrated_configuration_paths,
 )
 from pyages.config.models import LauncherConfig, TemporalParams
 
@@ -34,9 +36,9 @@ def config_group() -> None:
 def migrate_config(source: Path, destination: Path) -> None:
     """Copy legacy SOURCE to schema-2 DESTINATION without changing SOURCE.
 
-    SOURCE and DESTINATION must share a directory so relative scientific input
-    paths retain exactly the same meaning. YAML comments cannot be retained by
-    the semantic migration and should be reviewed in the generated file.
+    SOURCE and DESTINATION must share a directory. Relative scientific paths
+    are rebased when schema 2 changes their resolution base. YAML comments
+    cannot be retained and should be reviewed in the generated file.
     """
     source = source.resolve()
     destination = destination.resolve()
@@ -51,7 +53,15 @@ def migrate_config(source: Path, destination: Path) -> None:
         raise click.ClickException(f"Destination already exists: {destination}")
 
     try:
-        canonical = migrate_configuration_payload(load_yaml_mapping(source))
+        source_payload = load_yaml_mapping(source)
+        legacy_base = configuration_base_directory(source, source_payload)
+        canonical = migrate_configuration_payload(source_payload)
+        if is_legacy_configuration(source_payload):
+            canonical = rebase_migrated_configuration_paths(
+                canonical,
+                legacy_base=legacy_base,
+                schema_base=destination.parent,
+            )
         kind = configuration_workflow_kind(canonical)
         runtime = normalize_configuration_payload(canonical, expected_kind=kind)
         if kind == "single_date":

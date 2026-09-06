@@ -12,7 +12,11 @@ import yaml
 from click.testing import CliRunner
 
 from pyages.cli.main import cli
-from pyages.config.migration import normalize_configuration_payload
+from pyages.config.loading import resolve_from
+from pyages.config.migration import (
+    configuration_base_directory,
+    normalize_configuration_payload,
+)
 from pyages.config.models import LauncherConfig, TemporalParams
 
 
@@ -87,10 +91,117 @@ calibration_metropolis_hastings:
     assert result.exit_code == 0, result.output
     assert source.read_text(encoding="utf-8") == source_text
     canonical = yaml.safe_load(destination.read_text(encoding="utf-8"))
+    legacy_base = configuration_base_directory(
+        source,
+        yaml.safe_load(source_text),
+    )
     assert canonical["schema_version"] == 2
     assert canonical["lpm"]["models"] == ["exp"]
+    assert (
+        resolve_from(destination.parent, canonical["data"]["data_dir"])
+        == (legacy_base / "examples" / "data").resolve()
+    )
+    assert (
+        resolve_from(destination.parent, canonical["lpm"]["directory"])
+        == (legacy_base / "data_core" / "data_lpm").resolve()
+    )
     assert canonical["calibration"]["metropolis_hastings"]["nsteps"] == 500
     assert "comments are not preserved" in result.output
+
+
+def test_config_migrate_rebases_nested_single_date_paths(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    case_directory = checkout / "examples" / "case"
+    case_directory.mkdir(parents=True)
+    (checkout / "data_core").mkdir()
+    (checkout / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    source = case_directory / "legacy.yaml"
+    destination = case_directory / "canonical.yaml"
+    source.write_text(
+        """workflow:
+  kind: single_date
+dataset:
+  name: observations.tsv
+  data_dir: inputs
+lpm:
+  model_name: exp
+  data_directory: models
+tracers:
+  data_directory: tracer-data
+results:
+  use_default: false
+  directory: outputs
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["config", "migrate", str(source), str(destination)],
+    )
+
+    assert result.exit_code == 0, result.output
+    canonical = yaml.safe_load(destination.read_text(encoding="utf-8"))
+    runtime = normalize_configuration_payload(canonical)
+    config = LauncherConfig.model_validate(
+        runtime,
+        context={"root_dir": destination.parent},
+    )
+    assert config.dataset.data_dir.resolve() == (checkout / "inputs").resolve()
+    assert config.lpm.data_directory.resolve() == (checkout / "models").resolve()
+    assert config.tracers.data_directory is not None
+    assert (
+        config.tracers.data_directory.resolve() == (checkout / "tracer-data").resolve()
+    )
+    assert config.results.directory is not None
+    assert config.results.directory.resolve() == (checkout / "outputs").resolve()
+
+
+def test_config_migrate_rebases_nested_temporal_paths(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    case_directory = checkout / "examples" / "temporal"
+    case_directory.mkdir(parents=True)
+    (checkout / "data_core").mkdir()
+    (checkout / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    source = case_directory / "legacy.yaml"
+    destination = case_directory / "canonical.yaml"
+    source.write_text(
+        """workflow:
+  kind: temporal
+dataset:
+  file: inputs/observations.tsv
+lpm_models:
+  models: [exp]
+  directory: models
+results:
+  use_default: false
+  directory: outputs
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["config", "migrate", str(source), str(destination)],
+    )
+
+    assert result.exit_code == 0, result.output
+    canonical = yaml.safe_load(destination.read_text(encoding="utf-8"))
+    config = TemporalParams.model_validate(normalize_configuration_payload(canonical))
+    assert (
+        resolve_from(destination.parent, config.dataset.file)
+        == (checkout / "inputs" / "observations.tsv").resolve()
+    )
+    assert config.lpm_models.directory is not None
+    assert (
+        resolve_from(destination.parent, config.lpm_models.directory)
+        == (checkout / "models").resolve()
+    )
+    assert config.results.directory is not None
+    assert (
+        resolve_from(destination.parent, config.results.directory)
+        == (checkout / "outputs").resolve()
+    )
 
 
 def test_config_migrate_refuses_relocation_and_existing_destination(

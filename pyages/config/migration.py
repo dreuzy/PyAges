@@ -16,6 +16,7 @@ explicitly with the CLI migration command.
 from __future__ import annotations
 
 import copy
+import os
 import warnings
 from collections.abc import Mapping
 from pathlib import Path
@@ -116,6 +117,89 @@ def migrate_configuration_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     kind = _legacy_workflow_kind(data, expected_kind=None)
     _normalize_legacy_aliases(data, kind)
     return _legacy_to_canonical(data, kind)
+
+
+def rebase_migrated_configuration_paths(
+    payload: Mapping[str, Any],
+    *,
+    legacy_base: str | Path,
+    schema_base: str | Path,
+) -> dict[str, Any]:
+    """Preserve legacy path targets after migration to schema 2.
+
+    Legacy files inside a source checkout resolve relative paths from the
+    checkout root, whereas schema-2 files resolve them beside their YAML file.
+    This function rewrites only the documented path fields so both mappings
+    still designate the same files and directories.
+    """
+    data = copy.deepcopy(dict(payload))
+    kind = configuration_workflow_kind(data)
+    if kind == "single_date":
+        source_data = _canonical_section(data, "data")
+        source_data.setdefault("data_dir", "examples/data")
+        lpm = _canonical_section(data, "lpm")
+        lpm.setdefault("directory", "data_core/data_lpm")
+        fields = (
+            (source_data, "data_dir"),
+            (lpm, "directory"),
+            (_optional_canonical_section(data, "tracers"), "data_directory"),
+            (_optional_canonical_section(data, "output"), "directory"),
+        )
+    else:
+        fields = (
+            (_optional_canonical_section(data, "data"), "file"),
+            (_optional_canonical_section(data, "lpm"), "directory"),
+            (_optional_canonical_section(data, "output"), "directory"),
+        )
+    for section, field in fields:
+        if section is not None and field in section:
+            section[field] = _rebase_path_value(
+                section[field],
+                legacy_base=Path(legacy_base),
+                schema_base=Path(schema_base),
+            )
+    return data
+
+
+def _canonical_section(data: dict[str, Any], name: str) -> dict[str, Any]:
+    """Return one canonical mapping section, creating it when absent."""
+    section = data.setdefault(name, {})
+    if not isinstance(section, dict):
+        raise ValueError(f"{name} must be a mapping")
+    return section
+
+
+def _optional_canonical_section(
+    data: dict[str, Any], name: str
+) -> dict[str, Any] | None:
+    """Return one optional canonical mapping section without creating it."""
+    section = data.get(name)
+    if section is None:
+        return None
+    if not isinstance(section, dict):
+        raise ValueError(f"{name} must be a mapping")
+    return section
+
+
+def _rebase_path_value(
+    value: object,
+    *,
+    legacy_base: Path,
+    schema_base: Path,
+) -> object:
+    """Rebase one relative path while leaving invalid values to validation."""
+    if not isinstance(value, (str, Path)) or not str(value).strip():
+        return value
+    path = Path(value)
+    if path.is_absolute():
+        return str(path)
+    target = (legacy_base.resolve() / path).resolve()
+    try:
+        relative = Path(os.path.relpath(target, schema_base.resolve()))
+    except ValueError:
+        # Different Windows drives cannot be represented by one relative path.
+        return str(target)
+    return relative.as_posix()
 
 
 def _mapping_section(
@@ -380,4 +464,5 @@ __all__ = [
     "is_legacy_configuration",
     "migrate_configuration_payload",
     "normalize_configuration_payload",
+    "rebase_migrated_configuration_paths",
 ]
