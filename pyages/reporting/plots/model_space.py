@@ -23,6 +23,7 @@ from math import ceil
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -168,9 +169,11 @@ def plot_single_date_model_space(
     reference_lookup = _reference_concentration_lookup(reference_concentrations)
     prepared_posteriors = _prepare_posterior_results(posterior_results)
     concentration_columns = concentration_sampled.observation_keys()
+    observed_elements = observed["element"].to_numpy()
+    observed_dates = observed["date"].to_numpy(dtype=np.float64)
     reachable_columns = [
-        tracer_date_key(str(row["element"]), float(row["date"]))
-        for _, row in observed.iterrows()
+        tracer_date_key(str(element), float(date))
+        for element, date in zip(observed_elements, observed_dates, strict=True)
     ]
     pairs = list(combinations(range(len(concentration_columns)), 2))
     if not pairs:

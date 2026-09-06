@@ -312,7 +312,8 @@ def _prepare_temporal_tracers(
         raise ValueError(
             "At least one observed tracer is required for a temporal plot."
         )
-    end_year = float(observations.frame["date"].max())
+    observation_dates = observations.frame["date"].to_numpy(dtype=np.float64)
+    end_year = float(observation_dates.max())
     tracers = ConvolutionTracers(names=tracer_names, date=end_year)
     tracers.validate_observation_units(observations)
     return tracer_names, end_year, tracers
