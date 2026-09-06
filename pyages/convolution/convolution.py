@@ -15,7 +15,11 @@ in focused helper modules; point-mass strategies use direct tracer evaluation.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Protocol, cast, runtime_checkable
+
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 from pyages.config.runtime import subdivide_interval
@@ -25,6 +29,7 @@ from pyages.convolution._piecewise_uniform import (
     prepare_piecewise_uniform_basis,
 )
 from pyages.convolution.continuous_integration import (
+    CdfMomentProvider,
     ConvolutionDiagnostics,
     convolve_prepared_grid,
     window_mass_from_provider,
@@ -42,6 +47,36 @@ from pyages.convolution.tracer_grid import (
 from pyages.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyages.lpm.core.lpm_base import LpmBase
 from pyages.tracer.protocols import ConvolutionTracerProtocol
+
+
+@runtime_checkable
+class _DiracTimeProvider(Protocol):
+    """Structural contract for a model containing one exact age."""
+
+    def get_dirac_time(self) -> float:
+        """Return the exact water age in years."""
+        ...
+
+
+@runtime_checkable
+class _DoubleDiracTimeProvider(Protocol):
+    """Structural contract for a model containing two exact ages."""
+
+    def get_dirac_double_time(self) -> Sequence[float]:
+        """Return exactly two water ages in years."""
+        ...
+
+
+@runtime_checkable
+class _ContinuousComponentMomentProvider(Protocol):
+    """Structural contract for the continuous part of a mixed model."""
+
+    def continuous_cdf_and_partial_first_moment(
+        self,
+        ages: npt.NDArray[np.float64],
+    ) -> tuple[npt.ArrayLike, npt.ArrayLike]:
+        """Return cumulative mass and partial first moment at ``ages``."""
+        ...
 
 
 class Convolution:
@@ -170,7 +205,7 @@ class Convolution:
         if isinstance(value, (bool, np.bool_, str, bytes)) or not np.isscalar(value):
             raise ValueError("observation date must be a finite numeric value")
         try:
-            date = float(value)
+            date = float(cast(float, value))
             datemin = float(self._tracer.datemin)
         except (TypeError, ValueError) as exc:
             raise ValueError(
@@ -222,9 +257,9 @@ class Convolution:
     @staticmethod
     def _require_moment_provider(
         lpm: LpmBase,
-        provider,
+        provider: object | None,
         distribution_name: str,
-    ):
+    ) -> CdfMomentProvider:
         """Return a concrete vectorized CDF/partial-moment provider.
 
         Merely inheriting :class:`LpmBase`'s placeholder is not sufficient for
@@ -240,7 +275,47 @@ class Convolution:
                 f"Continuous LPM '{distribution_name}' must implement "
                 "cdf_and_partial_first_moment()"
             )
-        return provider
+        return cast(CdfMomentProvider, provider)
+
+    @staticmethod
+    def _dirac_time(lpm: LpmBase) -> float:
+        """Return one exact age or reject a mismatched strategy contract."""
+        if not isinstance(lpm, _DiracTimeProvider):
+            raise ConvolutionError(
+                f"LPM '{lpm.name}' declares a Dirac strategy but does not "
+                "implement get_dirac_time()"
+            )
+        return lpm.get_dirac_time()
+
+    @staticmethod
+    def _double_dirac_times(lpm: LpmBase) -> tuple[float, float]:
+        """Return two exact ages or reject a mismatched strategy contract."""
+        if not isinstance(lpm, _DoubleDiracTimeProvider):
+            raise ConvolutionError(
+                f"LPM '{lpm.name}' declares a double-Dirac strategy but does not "
+                "implement get_dirac_double_time()"
+            )
+        try:
+            ages = tuple(lpm.get_dirac_double_time())
+        except TypeError as exc:
+            raise ConvolutionError(
+                f"LPM '{lpm.name}' get_dirac_double_time() must return two ages"
+            ) from exc
+        if len(ages) != 2:
+            raise ConvolutionError(
+                f"LPM '{lpm.name}' get_dirac_double_time() must return two ages"
+            )
+        return ages
+
+    @staticmethod
+    def _continuous_component_provider(lpm: LpmBase) -> CdfMomentProvider:
+        """Return the mixed model's continuous provider or reject its contract."""
+        if not isinstance(lpm, _ContinuousComponentMomentProvider):
+            raise ConvolutionError(
+                f"LPM '{lpm.name}' declares a mixed Dirac/continuous strategy "
+                "but does not implement continuous_cdf_and_partial_first_moment()"
+            )
+        return lpm.continuous_cdf_and_partial_first_moment
 
     # -------------------------------------------------------------------------
     # CDF/partial-moment convolution (tracer-driven cached grid)
@@ -300,7 +375,7 @@ class Convolution:
         self,
         lpm: LpmBase,
         *,
-        cdf_moment_provider=None,
+        cdf_moment_provider: CdfMomentProvider | None = None,
         distribution_name: str | None = None,
     ) -> float:
         """Convolve a continuous law using exact bin masses and first moments.
@@ -344,10 +419,10 @@ class Convolution:
         tmax = self._window_upper_age()
         strategy = lpm.convolution_strategy
         if strategy == ConvolutionStrategy.DIRAC:
-            _, represented = self._dirac_age_in_window(lpm.get_dirac_time())
+            _, represented = self._dirac_age_in_window(self._dirac_time(lpm))
             return float(represented)
         if strategy == ConvolutionStrategy.DIRAC_DOUBLE:
-            first, second = lpm.get_dirac_double_time()
+            first, second = self._double_dirac_times(lpm)
             rate = self._mixture_rate(lpm)
             _, first_represented = self._dirac_age_in_window(first)
             _, second_represented = self._dirac_age_in_window(second)
@@ -356,10 +431,10 @@ class Convolution:
             )
         if strategy == ConvolutionStrategy.MIXED_DIRAC_CONTINUOUS:
             rate = self._mixture_rate(lpm)
-            _, represented = self._dirac_age_in_window(lpm.get_dirac_time())
+            _, represented = self._dirac_age_in_window(self._dirac_time(lpm))
             provider = self._require_moment_provider(
                 lpm,
-                getattr(lpm, "continuous_cdf_and_partial_first_moment", None),
+                self._continuous_component_provider(lpm),
                 f"{lpm.name} continuous component",
             )
             continuous_mass = window_mass_from_provider(
@@ -421,7 +496,7 @@ class Convolution:
         float
             Convolution result (tracer concentration).
         """
-        return self._dirac_concentration(lpm.get_dirac_time())
+        return self._dirac_concentration(self._dirac_time(lpm))
 
     def _dirac_concentration(self, time: float) -> float:
         """Return a point-mass contribution only inside the tracer window."""
@@ -450,7 +525,7 @@ class Convolution:
             Weighted sum of two Dirac lookups.
         """
         rate = self._mixture_rate(lpm)
-        [time1, time2] = lpm.get_dirac_double_time()
+        time1, time2 = self._double_dirac_times(lpm)
         convol1 = self._dirac_concentration(time1)
         convol2 = self._dirac_concentration(time2)
         return rate * convol1 + (1.0 - rate) * convol2
@@ -479,13 +554,13 @@ class Convolution:
         # mixture weight exactly once below.
         continuous_part = self._convolve_continuous(
             lpm,
-            cdf_moment_provider=lpm.continuous_cdf_and_partial_first_moment,
+            cdf_moment_provider=self._continuous_component_provider(lpm),
             distribution_name=f"{lpm.name} continuous component",
         )
         continuous_diagnostics = self._last_diagnostics
         if continuous_diagnostics is None:
             raise ConvolutionError("Continuous mixture diagnostics are missing")
-        _, represented = self._dirac_age_in_window(lpm.get_dirac_time())
+        _, represented = self._dirac_age_in_window(self._dirac_time(lpm))
         dirac_mass = float(represented)
         # Diagnostics must describe the full mixture, not just the continuous
         # helper call that populated ``_last_diagnostics`` above.

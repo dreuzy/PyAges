@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from pyages.calibration.methods.mh._immutable import FrozenMapping
-from pyages.calibration.sampling_schedule import strict_retained_sample_count
+from pyages.config.sampling_schedule import strict_retained_sample_count
 
 INITIALIZATION_STRATEGIES = frozenset(
     {

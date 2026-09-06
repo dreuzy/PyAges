@@ -58,8 +58,8 @@ from pyages.calibration.methods.mh.results import (
 )
 from pyages.calibration.methods.mh.sampler import MetropolisHastings
 from pyages.calibration.problem import CalibrationProblem
-from pyages.calibration.sampling_schedule import maximum_split_ess
 from pyages.calibration.target_signature import CalibrationTargetSignature
+from pyages.config.sampling_schedule import maximum_split_ess
 
 _ProblemFactory = Callable[[str, int], CalibrationProblem]
 

@@ -15,7 +15,7 @@ promise is {doc}`../reference/public-api`.
    pyages.calibration.methods.base
    pyages.calibration.outputs
    pyages.calibration.problem
-   pyages.calibration.sampling_schedule
+   pyages.config.sampling_schedule
    pyages.calibration.target_signature
    pyages.calibration.exploration.grid
    pyages.calibration.exploration.systematic

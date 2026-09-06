@@ -11,6 +11,10 @@ and validation gates are documented and tested. Each public release source is
 identified by its exact annotated Git tag; an untagged checkout must also be
 identified by its exact Git commit.
 
+Developing from source? Start with the
+[ten-minute developer setup](docs/dev/getting-started.md) and then follow the
+[code tour](docs/dev/code-tour.md).
+
 Release maturity follows this policy:
 
 - **alpha**: exploratory behavior; features and interfaces may be incomplete;
@@ -34,11 +38,27 @@ the archived `1.0` campaign and the current `1.0.1` maintenance release.
 
 ## Quick start
 
-Create and activate a virtual environment, then install the stable release
-from PyPI:
+Create a virtual environment:
 
-```
+```bash
 python -m venv .venv
+```
+
+Activate it on PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Or activate it on macOS/Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+Then install the stable release from PyPI:
+
+```bash
 python -m pip install "pyages==1.0.1"
 ```
 
@@ -49,8 +69,9 @@ campaign; it is not a bit-for-bit lock or the PyAges 1.0 user environment. See
 
 Installing PyAges enables the `pyages` CLI:
 
-```
+```bash
 pyages --version
+pyages check
 ```
 
 The distribution, Python import, and command all use the single identifier
@@ -65,18 +86,6 @@ explicit prerelease request:
 
 ```
 python -m pip install --pre pyages
-```
-
-Run the standard test suite:
-
-```
-python run_tests.py standard
-```
-
-Update golden values (when intentionally changing outputs):
-
-```
-python run_tests.py standard update
 ```
 
 ## Quickstart (fast, no interactive plots)
@@ -285,6 +294,14 @@ Run extensive tests (opt-in):
 ```
 python run_tests.py extensive
 ```
+
+## Contributing
+
+Start with the
+[ten-minute developer setup](docs/dev/getting-started.md), then use the
+[code tour](docs/dev/code-tour.md) to find the implementation and focused tests
+for a change. The complete contribution policy and scientific-change checklist
+are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Workflows and diagnostics
 

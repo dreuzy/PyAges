@@ -8,7 +8,7 @@ dataset:
   missing_error_rel: 0.01
 
 lpm_models:
-  list: ["exp_shifted"]
+  models: ["exp_shifted"]
   directory: data_core/data_lpm
 
 workflow:

@@ -155,12 +155,26 @@ graph. The following dependency rules are the ones contributors should enforce:
 - a new reverse dependency between two top-level packages requires an explicit
   architecture review rather than a convenience import.
 
-Two bounded edges are currently accepted. Configuration models validate the
-names of registered LPMs and calibration schedules, without running them.
-Domain records may use focused readers or writers from `data_io`; conversely,
-`data_io` may serialize those records, but must not acquire scientific
-behavior. These edges avoid duplicate validation while keeping execution in
-the domain and workflow layers.
+`python -m scripts.maintenance.check_architecture` enforces the high-risk
+direction automatically: configuration cannot import calibration or the upper
+application layers; data and scientific layers cannot import the CLI,
+reporting, or workflows; reporting cannot import the CLI or workflows. The
+check parses absolute and relative imports, runs in the quick developer profile
+and CI, and deliberately leaves the documented bounded domain/data-I/O edges
+available.
+
+Public package facades must also remain safe in a fresh interpreter regardless
+of import order. The dependency-free sample-count helpers live under
+`pyages.config.sampling_schedule`, so the explicit configuration facade does not
+need to enter the calibration graph while convolution is initializing. A
+subprocess contract test protects a convolution-first import.
+
+Configuration models may validate registered LPM names, while the pure MCMC
+schedule calculations they need remain inside `config`. Domain records may use
+focused readers or writers from `data_io`; conversely, `data_io` may serialize
+those records, but must not acquire scientific behavior. These bounded edges
+avoid duplicate validation while keeping execution in the domain and workflow
+layers.
 
 ## Runtime diagram
 

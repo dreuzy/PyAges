@@ -120,6 +120,8 @@ def test_repository_scripts_are_grouped_by_responsibility():
             "promote_article_campaign.py",
         },
         "maintenance": {
+            "check_architecture.py",
+            "check_dev.py",
             "check_licensing.py",
             "check_project_metadata.py",
             "check_qualified_docstrings.py",
@@ -160,6 +162,8 @@ def test_script_tests_mirror_entrypoint_families():
         },
         "release": {"test_campaign_promotion.py", "test_zenodo_bundle.py"},
         "maintenance": {
+            "test_check_architecture.py",
+            "test_check_dev.py",
             "test_generate_test_inventory.py",
             "test_run_tests.py",
         },

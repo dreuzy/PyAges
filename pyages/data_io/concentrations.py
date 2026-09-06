@@ -26,12 +26,13 @@ from pyages.concentrations.series import normalize_series
 
 def save_concentrations_table(table: pd.DataFrame, filepath: str | Path) -> None:
     """
-    Save a wide concentration table to disk as TSV.
+    Save a concentration table to disk as UTF-8 TSV.
 
     Parameters
     ----------
     table : DataFrame
-        Table with 'date' column and tracer/model columns.
+        Long observation table or wide modeled-concentration table. Column
+        names and order are preserved.
     filepath : str or Path
         Output file path.
     """

@@ -341,8 +341,12 @@ def test_run_temporal_manifests_a_multichain_convergence_failure(
         ),
     )
     error = MHConvergenceError("mean did not converge; artifacts preserved")
-    failure_manifest = Mock()
-    promote = Mock(return_value=result_run.result_directory)
+    preserve = Mock()
+
+    def preserve_evidence(_run, *, error, **_kwargs):
+        error.add_note(f"Preserved result evidence: {result_run.result_directory}")
+
+    preserve.side_effect = preserve_evidence
 
     def fail_after_start(*_args, written_case_directories, **_kwargs):
         written_case_directories.append(output / "span_full")
@@ -350,24 +354,21 @@ def test_run_temporal_manifests_a_multichain_convergence_failure(
 
     monkeypatch.setattr(temporal, "prepare_context", lambda _path: context)
     monkeypatch.setattr(temporal, "_run_temporal_cases", fail_after_start)
-    monkeypatch.setattr(temporal, "write_failure_manifest", failure_manifest)
+    monkeypatch.setattr(temporal, "preserve_failure_result", preserve)
     success_manifest = Mock()
     monkeypatch.setattr(temporal, "write_result_manifest", success_manifest)
-    monkeypatch.setattr(temporal, "promote_result_run", promote)
 
     with pytest.raises(MHConvergenceError, match=r"mean.*preserved"):
         temporal.run_temporal(context.config_path)
 
     success_manifest.assert_not_called()
-    assert failure_manifest.call_args.kwargs["error"] is error
-    assert failure_manifest.call_args.kwargs["details"]["case_directories"] == [
-        "span_full"
-    ]
+    assert preserve.call_args.args == (result_run,)
+    assert preserve.call_args.kwargs["error"] is error
+    assert preserve.call_args.kwargs["workflow"] == "temporal"
+    assert preserve.call_args.kwargs["details"]["case_directories"] == ["span_full"]
     assert error.__notes__ == [
         f"Preserved result evidence: {result_run.result_directory}"
     ]
-    assert failure_manifest.call_args.kwargs["run_id"] == result_run.run_id
-    promote.assert_called_once_with(result_run)
 
 
 def test_prepare_temporal_context_does_not_stage_before_missing_dataset_failure(

@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from pyages.calibration.sampling_schedule import (
+from pyages.config.sampling_schedule import (
     maximum_split_ess,
     strict_retained_sample_count,
 )

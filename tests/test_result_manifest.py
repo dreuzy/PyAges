@@ -11,10 +11,13 @@ import os
 import stat
 from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
 from pyages import __version__
+from pyages.workflows.runtime import _failure_publication
 from pyages.workflows.runtime.manifest import (
     RESULT_SCHEMA_VERSION,
     ResultRun,
@@ -28,6 +31,59 @@ from pyages.workflows.runtime.manifest import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_preserve_failure_result_seals_promotes_and_annotates(
+    tmp_path, monkeypatch
+) -> None:
+    run = SimpleNamespace(
+        working_directory=tmp_path / "stage",
+        result_directory=tmp_path / "published",
+        run_id="run-id",
+    )
+    error = RuntimeError("convergence rejected")
+    write_manifest = Mock()
+    promote = Mock(return_value=run.result_directory)
+    monkeypatch.setattr(_failure_publication, "write_failure_manifest", write_manifest)
+    monkeypatch.setattr(_failure_publication, "promote_result_run", promote)
+
+    result = _failure_publication.preserve_failure_result(
+        run,
+        workflow="single_date",
+        config_path=tmp_path / "config.yaml",
+        input_paths=[tmp_path / "observations.tsv"],
+        details={"lpm": "exp"},
+        error=error,
+    )
+
+    assert result == run.result_directory
+    assert write_manifest.call_args.args == (run.working_directory,)
+    assert write_manifest.call_args.kwargs["run_id"] == run.run_id
+    assert write_manifest.call_args.kwargs["error"] is error
+    promote.assert_called_once_with(run)
+    assert error.__notes__ == [f"Preserved result evidence: {run.result_directory}"]
+
+
+def test_preserve_failure_result_keeps_the_original_error_when_sealing_fails(
+    tmp_path, monkeypatch
+) -> None:
+    run = SimpleNamespace(working_directory=tmp_path / "stage", run_id="run-id")
+    error = RuntimeError("convergence rejected")
+    write_manifest = Mock(side_effect=OSError("disk unavailable"))
+    promote = Mock()
+    monkeypatch.setattr(_failure_publication, "write_failure_manifest", write_manifest)
+    monkeypatch.setattr(_failure_publication, "promote_result_run", promote)
+
+    result = _failure_publication.preserve_failure_result(
+        run,
+        workflow="temporal",
+        config_path=tmp_path / "config.yaml",
+        error=error,
+    )
+
+    assert result is None
+    promote.assert_not_called()
+    assert error.__notes__ == ["Could not write failure manifest: disk unavailable"]
 
 
 def test_result_manifest_is_versioned_and_deterministic(tmp_path) -> None:

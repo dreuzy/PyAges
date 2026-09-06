@@ -5,6 +5,8 @@
 """Contracts for package metadata and the intentionally small root API."""
 
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import yaml
@@ -40,6 +42,27 @@ def test_cli_uses_package_version() -> None:
     assert result.output.strip() == f"pyages, version {pyages.__version__}"
 
 
+def test_convolution_is_importable_first_in_a_fresh_interpreter() -> None:
+    """Keep package facades from creating an order-dependent import cycle."""
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from pyages.convolution import Convolution, ConvolutionTracers; "
+                "print(Convolution.__name__, ConvolutionTracers.__name__)"
+            ),
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "Convolution ConvolutionTracers"
+
+
 def test_citation_uses_package_version() -> None:
     """Keep the citable release identity synchronized with runtime metadata."""
     citation = yaml.safe_load((ROOT / "CITATION.cff").read_text(encoding="utf-8"))
@@ -73,6 +96,27 @@ def test_removed_compatibility_facades_are_absent() -> None:
     assert all(not (ROOT / path).exists() for path in removed_paths)
     assert "LauncherParams" not in config_api.__all__
     assert not hasattr(config_api, "LauncherParams")
+
+
+def test_config_facade_uses_explicit_exports() -> None:
+    assert config_api.__all__ == [
+        "CliCheckParams",
+        "CliRunParams",
+        "LauncherConfig",
+        "SystemCheckConfig",
+        "TemporalParams",
+        "DIRECTORY_LPM_DATA",
+        "DIRECTORY_TRACER_DATA",
+        "ROOT_DIRECTORY",
+        "ROOT_DIRECTORY_RESULTS",
+        "result_subdirectory",
+        "timestamp_name",
+        "DisplayOptions",
+        "SimulationTimer",
+        "subdivide_interval",
+    ]
+    assert not hasattr(config_api, "_EXPORTS")
+    assert "__getattr__" not in config_api.__dict__
 
 
 def test_qualification_exposes_the_experiment_without_a_workflow_alias() -> None:

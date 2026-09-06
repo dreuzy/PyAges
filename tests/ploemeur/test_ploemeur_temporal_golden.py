@@ -122,7 +122,7 @@ def test_ploemeur_temporal_golden(update_golden, tmp_path: Path) -> None:
     dataset_file = Path(params["dataset"]["file"])
     dataset_stem = dataset_file.stem
     mode = params["workflow"]["mode"]
-    lpm_list: List[str] = params.get("lpm_models", {}).get("list") or []
+    lpm_list: List[str] = params.get("lpm_models", {}).get("models") or []
 
     results_root = tmp_path / "ploemeur_temporal" / dataset_stem / mode / "span_full"
     record: Dict[str, Dict[str, float]] = {}

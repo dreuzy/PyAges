@@ -26,11 +26,11 @@ import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
 
+from pyages.concentrations._labels import pretty_tracer_name
 from pyages.reporting.plots._common import (
     MEDIAN_COLOR,
     SINGLE_DATE_HIGHLIGHT_COLOR,
     _axis_label,
-    _pretty_tracer_name,
     _save_figure,
     apply_example_style,
 )
@@ -123,7 +123,7 @@ def plot_observations_overview(
             if "unit" in tracer_df.columns and not tracer_df.empty
             else None
         )
-        ax.set_title(_pretty_tracer_name(tracer))
+        ax.set_title(pretty_tracer_name(tracer))
         ax.set_xlabel("Year")
         ax.set_ylabel(_axis_label(tracer, unit))
 

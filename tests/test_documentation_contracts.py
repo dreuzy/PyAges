@@ -194,6 +194,27 @@ def test_contributor_extension_contract_is_navigable_and_compilable() -> None:
     compile(_first_python_block(document), "extending-calibration-workflows", "exec")
 
 
+def test_developer_onboarding_is_navigable_and_environment_safe() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    dev_index = (ROOT / "docs/dev/index.md").read_text(encoding="utf-8")
+    quickstart = (ROOT / "docs/dev/getting-started.md").read_text(encoding="utf-8")
+    ide = (ROOT / "docs/dev/ide.md").read_text(encoding="utf-8")
+
+    assert "docs/dev/getting-started.md" in readme
+    assert "CONTRIBUTING.md" in readme
+    assert "git clone https://github.com/dreuzy/PyAges.git pyages" in contributing
+    assert ".[dev]" in contributing
+    assert "check_dev quick" in contributing
+    assert "check_dev full" in contributing
+    assert dev_index.index("getting-started") < dev_index.index("code-tour")
+    assert "Activate.ps1" in quickstart
+    assert "source .venv/bin/activate" in quickstart
+    assert "successful `import pyages`" in quickstart
+    assert ".venv/Scripts/python.exe" in ide
+    assert "source roots that do not exist" in ide
+
+
 def test_multichain_contributor_example_uses_the_canonical_dataclass_api() -> None:
     document = (ROOT / "docs/user-guide/multichain-mh.md").read_text(encoding="utf-8")
     section = document.split("(multichain-mh-python-contributor-interface)=", 1)[

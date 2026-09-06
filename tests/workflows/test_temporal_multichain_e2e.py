@@ -40,7 +40,7 @@ def test_temporal_workflow_runs_real_pilot_chains_diagnostics_and_pooling(
             "missing_error_rel": 0.01,
         },
         "lpm_models": {
-            "list": ["exp_shifted"],
+            "models": ["exp_shifted"],
             "directory": str(ROOT / "data_core" / "data_lpm"),
         },
         "workflow": {"kind": "temporal", "mode": "span"},

@@ -109,13 +109,26 @@ convention = "numpy"
 
 [tool.pyright]
 include = [
+    "pyages/calibration/__init__.py",
     "pyages/calibration/methods/base.py",
     "pyages/calibration/methods/mh/_prior_support.py",
-    "pyages/calibration/sampling_schedule.py",
+    "pyages/config/models.py",
+    "pyages/config/sampling_schedule.py",
+    "pyages/concentrations/_container.py",
+    "pyages/convolution/continuous_integration.py",
+    "pyages/convolution/convolution.py",
     "pyages/convolution/settings.py",
+    "pyages/data_io/_lpm_parameter_schema.py",
+    "pyages/data_io/lpm_params.py",
+    "pyages/reporting/plots/_common.py",
+    "pyages/reporting/plots/model_space.py",
+    "pyages/reporting/plots/temporal.py",
     "pyages/tracer/protocols.py",
     "pyages/workflows/runtime/_manifest_types.py",
+    "pyages/workflows/single_date/runner.py",
     "scripts/common/provenance.py",
+    "scripts/maintenance/check_architecture.py",
+    "scripts/maintenance/check_dev.py",
 ]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"

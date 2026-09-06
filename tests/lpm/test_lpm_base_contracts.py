@@ -94,6 +94,17 @@ def test_constructor_rejects_inconsistent_or_nonfinite_metadata() -> None:
         _MinimalContinuousLpm({"mu": math.nan}, {"mu": "year"})
 
 
+def test_initial_parameters_are_read_without_mutating_the_model() -> None:
+    model = _lpm("gamma")
+    model.set_param_from_array([3.0, 12.0])
+
+    assert model.param_init() == [2.0, 10.0]
+    assert model.p == {"k": 3.0, "scale": 12.0}
+
+    model.load_initial_parameters()
+    assert model.p == {"k": 2.0, "scale": 10.0}
+
+
 @pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf, "invalid"])
 def test_calibration_ranges_reject_nonfinite_or_nonnumeric_values(value) -> None:
     model = _lpm("exp")
@@ -293,14 +304,19 @@ def test_parameter_manager_requires_parameter_file(tmp_path) -> None:
         ParameterManager("custom", tmp_path, ["mu"])
 
 
-def test_loading_initial_values_requires_exact_target_names() -> None:
-    manager = ParameterManager("exp", test_paths.lpm_data_dir(), ["mu"])
-    target = {"other": 12.0}
+def test_parameter_manager_returns_initial_values_in_constructor_order() -> None:
+    manager = ParameterManager(
+        "gamma",
+        test_paths.lpm_data_dir(),
+        ["scale", "k"],
+    )
 
-    with pytest.raises(ValueError, match="target_params must match"):
-        manager.load_initial_values(target)
+    initial = manager.initial_values()
+    assert list(initial) == ["scale", "k"]
+    assert initial == {"scale": 10.0, "k": 2.0}
 
-    assert target == {"other": 12.0}
+    initial["scale"] = 99.0
+    assert manager.initial_values() == {"scale": 10.0, "k": 2.0}
 
 
 @pytest.mark.parametrize(
@@ -322,35 +338,37 @@ def test_parameter_manager_mapping_checks_reject_invalid_values(params) -> None:
 
 
 @pytest.mark.parametrize(
-    ("values", "order"),
+    "values",
     [
-        ([1.0], ["other"]),
-        (None, ["mu"]),
-        ([], ["mu"]),
-        (["invalid"], ["mu"]),
-        ([math.nan], ["mu"]),
-        ([math.inf], ["mu"]),
-        ([-1.0], ["mu"]),
-        ([101.0], ["mu"]),
+        None,
+        [],
+        ["invalid"],
+        [math.nan],
+        [math.inf],
+        [-1.0],
+        [101.0],
+        [[1.0]],
     ],
 )
-def test_parameter_manager_vector_checks_reject_invalid_values(values, order) -> None:
-    manager = ParameterManager("exp", test_paths.lpm_data_dir(), ["mu"])
+def test_lpm_calibration_vector_checks_reject_invalid_values(values) -> None:
+    model = _lpm("exp")
 
-    assert not manager.param_within_calibration_range_array(values, order)
+    assert not model.param_within_calibration_range_array(values)
 
 
 @pytest.mark.parametrize(
-    ("values", "order"),
+    "values",
     [
-        ([1.0], ["other"]),
-        (None, ["mu"]),
-        ([], ["mu"]),
-        (["invalid"], ["mu"]),
-        ([-1.0], ["mu"]),
+        None,
+        [],
+        ["invalid"],
+        [math.nan],
+        [math.inf],
+        [-1.0],
+        [[1.0]],
     ],
 )
-def test_parameter_manager_domain_vector_rejects_invalid_values(values, order) -> None:
-    manager = ParameterManager("exp", test_paths.lpm_data_dir(), ["mu"])
+def test_lpm_domain_vector_checks_reject_invalid_values(values) -> None:
+    model = _lpm("exp")
 
-    assert not manager.param_within_domain_array(values, order)
+    assert not model.param_within_domain_array(values)

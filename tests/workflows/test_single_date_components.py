@@ -441,31 +441,36 @@ def test_run_single_date_manifests_a_multichain_convergence_failure(
     )
     error = MHConvergenceError("mu did not converge; artifacts preserved")
     success_manifest = Mock()
-    failure_manifest = Mock()
-    promote = Mock(return_value=context.result_run.result_directory)
+    preserve = Mock()
+
+    def preserve_evidence(_run, *, error, **_kwargs):
+        error.add_note(
+            f"Preserved result evidence: {context.result_run.result_directory}"
+        )
+
+    preserve.side_effect = preserve_evidence
     monkeypatch.setattr(
         single_date, "prepare_context", lambda *_args, **_kwargs: context
     )
     monkeypatch.setattr(single_date, "reachable_concentrations", lambda _ctx: None)
     monkeypatch.setattr(single_date, "run_calibrations", Mock(side_effect=error))
     monkeypatch.setattr(single_date, "write_result_manifest", success_manifest)
-    monkeypatch.setattr(single_date, "write_failure_manifest", failure_manifest)
-    monkeypatch.setattr(single_date, "promote_result_run", promote)
+    monkeypatch.setattr(single_date, "preserve_failure_result", preserve)
 
     with pytest.raises(MHConvergenceError, match=r"mu.*preserved"):
         single_date.run_single_date(context.config_path)
 
     success_manifest.assert_not_called()
-    assert failure_manifest.call_args.kwargs["error"] is error
-    assert failure_manifest.call_args.kwargs["details"]["calibrations"] == []
-    assert failure_manifest.call_args.kwargs["details"]["calibrations_attempted"] == [
+    assert preserve.call_args.args == (context.result_run,)
+    assert preserve.call_args.kwargs["error"] is error
+    assert preserve.call_args.kwargs["workflow"] == "single_date"
+    assert preserve.call_args.kwargs["details"]["calibrations"] == []
+    assert preserve.call_args.kwargs["details"]["calibrations_attempted"] == [
         "Metropolis_Hastings"
     ]
     assert error.__notes__ == [
         f"Preserved result evidence: {context.result_run.result_directory}"
     ]
-    assert failure_manifest.call_args.kwargs["run_id"] == context.result_run.run_id
-    promote.assert_called_once_with(context.result_run)
     context.plots.close_all.assert_called_once_with()
     context.plots.finish.assert_not_called()
 
@@ -527,22 +532,19 @@ def test_failure_manifest_keeps_a_completed_simplex_before_mh_rejection(
         run_calibration_metropolis_hastings=True,
     )
     error = MHConvergenceError("MH convergence gate rejected the chains")
-    failure_manifest = Mock()
-    promote = Mock(return_value=context.result_run.result_directory)
+    preserve = Mock()
     monkeypatch.setattr(
         single_date, "prepare_context", lambda *_args, **_kwargs: context
     )
     monkeypatch.setattr(single_date, "reachable_concentrations", lambda _ctx: None)
     monkeypatch.setattr(single_date, "run_calibrations", Mock(side_effect=error))
-    monkeypatch.setattr(single_date, "write_failure_manifest", failure_manifest)
-    monkeypatch.setattr(single_date, "promote_result_run", promote)
+    monkeypatch.setattr(single_date, "preserve_failure_result", preserve)
 
     with pytest.raises(MHConvergenceError):
         single_date.run_single_date(context.config_path)
 
-    assert failure_manifest.call_args.kwargs["details"]["calibrations"] == ["Simplex"]
-    assert failure_manifest.call_args.kwargs["details"]["calibrations_attempted"] == [
+    assert preserve.call_args.args == (context.result_run,)
+    assert preserve.call_args.kwargs["details"]["calibrations"] == ["Simplex"]
+    assert preserve.call_args.kwargs["details"]["calibrations_attempted"] == [
         "Metropolis_Hastings"
     ]
-    assert failure_manifest.call_args.kwargs["run_id"] == context.result_run.run_id
-    promote.assert_called_once_with(context.result_run)

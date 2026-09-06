@@ -48,6 +48,8 @@ jobs:
         run: python -m scripts.maintenance.check_qualified_docstrings
       - name: Verify licensing metadata
         run: python -m scripts.maintenance.check_licensing
+      - name: Verify package dependency boundaries
+        run: python -m scripts.maintenance.check_architecture
       - name: Verify generated test inventory
         run: python -m scripts.maintenance.generate_test_inventory --check
 

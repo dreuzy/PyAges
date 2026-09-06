@@ -2,47 +2,42 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 # This file exposes validated configuration models, standard paths, and runtime
-# helpers through one public API. Symbols are imported only when requested, so
-# basic package imports do not eagerly load every workflow dependency.
+# helpers through one explicit public API that IDEs and type checkers can inspect.
 
-"""Canonical, lazily loaded configuration API for PyAges."""
+"""Canonical configuration API for PyAges."""
 
 from __future__ import annotations
 
-from importlib import import_module
-from typing import Any
+from pyages.config.models import (
+    CliCheckParams,
+    CliRunParams,
+    LauncherConfig,
+    SystemCheckConfig,
+    TemporalParams,
+)
+from pyages.config.paths import (
+    DIRECTORY_LPM_DATA,
+    DIRECTORY_TRACER_DATA,
+    ROOT_DIRECTORY,
+    ROOT_DIRECTORY_RESULTS,
+    result_subdirectory,
+    timestamp_name,
+)
+from pyages.config.runtime import DisplayOptions, SimulationTimer, subdivide_interval
 
-_EXPORTS = {
-    "CliCheckParams": ("pyages.config.models", "CliCheckParams"),
-    "CliRunParams": ("pyages.config.models", "CliRunParams"),
-    "LauncherConfig": ("pyages.config.models", "LauncherConfig"),
-    "SystemCheckConfig": ("pyages.config.models", "SystemCheckConfig"),
-    "TemporalParams": ("pyages.config.models", "TemporalParams"),
-    "DIRECTORY_LPM_DATA": ("pyages.config.paths", "DIRECTORY_LPM_DATA"),
-    "DIRECTORY_TRACER_DATA": ("pyages.config.paths", "DIRECTORY_TRACER_DATA"),
-    "ROOT_DIRECTORY": ("pyages.config.paths", "ROOT_DIRECTORY"),
-    "ROOT_DIRECTORY_RESULTS": ("pyages.config.paths", "ROOT_DIRECTORY_RESULTS"),
-    "result_subdirectory": ("pyages.config.paths", "result_subdirectory"),
-    "timestamp_name": ("pyages.config.paths", "timestamp_name"),
-    "DisplayOptions": ("pyages.config.runtime", "DisplayOptions"),
-    "SimulationTimer": ("pyages.config.runtime", "SimulationTimer"),
-    "subdivide_interval": ("pyages.config.runtime", "subdivide_interval"),
-}
-
-__all__ = list(_EXPORTS)
-
-
-def __getattr__(name: str) -> Any:
-    """Load a public configuration symbol only when it is requested."""
-    try:
-        module_name, attribute_name = _EXPORTS[name]
-    except KeyError as exc:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
-    value = getattr(import_module(module_name), attribute_name)
-    globals()[name] = value
-    return value
-
-
-def __dir__() -> list[str]:
-    """Return module globals together with lazily exported names."""
-    return sorted({*globals(), *__all__})
+__all__ = [
+    "CliCheckParams",
+    "CliRunParams",
+    "LauncherConfig",
+    "SystemCheckConfig",
+    "TemporalParams",
+    "DIRECTORY_LPM_DATA",
+    "DIRECTORY_TRACER_DATA",
+    "ROOT_DIRECTORY",
+    "ROOT_DIRECTORY_RESULTS",
+    "result_subdirectory",
+    "timestamp_name",
+    "DisplayOptions",
+    "SimulationTimer",
+    "subdivide_interval",
+]

@@ -23,6 +23,7 @@ needed by ``LpmBase``.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from pathlib import Path
 
 from pyages.data_io import lpm_params
@@ -126,37 +127,39 @@ class ParameterManager:
                 f"(missing={missing}, extra={extra})"
             )
         self._schema = schema
+        calibration_ranges = schema.calibration_ranges
         self._calibration_min = {
-            parameter.name: parameter.calibration_range[0]
-            for parameter in schema.parameters
+            name: calibration_range[0]
+            for name, calibration_range in calibration_ranges.items()
         }
         self._calibration_max = {
-            parameter.name: parameter.calibration_range[1]
-            for parameter in schema.parameters
+            name: calibration_range[1]
+            for name, calibration_range in calibration_ranges.items()
         }
-        self._domains = {
-            parameter.name: parameter.domain for parameter in schema.parameters
-        }
+        self._domains = schema.domains
 
-    def load_initial_values(self, target_params: dict[str, float]) -> None:
-        """Replace target values with validated initial values from YAML.
+    def initial_values(self) -> dict[str, float]:
+        """Return YAML initial values in constructor-defined parameter order."""
+        values_by_name = self._schema.initial_values
+        return {name: values_by_name[name] for name in self._parameter_names}
 
-        Parameters
-        ----------
-        target_params : dict[str, float]
-            Dictionary to update with loaded values
-        """
-        if set(target_params) != set(self._parameter_names):
-            missing = sorted(set(self._parameter_names) - set(target_params))
-            extra = sorted(set(target_params) - set(self._parameter_names))
-            raise ValueError(
-                "target_params must match the managed parameters "
-                f"(missing={missing}, extra={extra})"
-            )
-        initial_values = {
-            parameter.name: parameter.init for parameter in self._schema.parameters
-        }
-        target_params.update(initial_values)
+    def _finite_parameter_values(
+        self,
+        params: Mapping[str, object],
+    ) -> dict[str, float] | None:
+        """Return one finite value per managed name, or ``None`` if invalid."""
+        if not isinstance(params, Mapping) or set(params) != set(self._parameter_names):
+            return None
+        values: dict[str, float] = {}
+        for name in self._parameter_names:
+            try:
+                value = float(params[name])
+            except (TypeError, ValueError):
+                return None
+            if not math.isfinite(value):
+                return None
+            values[name] = value
+        return values
 
     def param_within_calibration_range(self, params: dict[str, float]) -> bool:
         """Test whether parameters are within their calibration ranges.
@@ -171,94 +174,23 @@ class ParameterManager:
         bool
             True if every parameter is within its calibration range.
         """
-        if set(params) != set(self._parameter_names):
+        values = self._finite_parameter_values(params)
+        if values is None:
             return False
-        for pname in self._parameter_names:
-            try:
-                value = float(params[pname])
-            except (TypeError, ValueError):
-                return False
-            if not math.isfinite(value):
-                return False
+        for name, value in values.items():
             if (
-                value < self._calibration_min[pname]
-                or value > self._calibration_max[pname]
+                value < self._calibration_min[name]
+                or value > self._calibration_max[name]
             ):
                 return False
         return True
 
     def param_within_domain(self, params: dict[str, float]) -> bool:
         """Return whether a complete mapping belongs to the mathematical domain."""
-        if set(params) != set(self._parameter_names):
-            return False
-        for name in self._parameter_names:
-            try:
-                value = float(params[name])
-            except (TypeError, ValueError):
-                return False
-            if not self._domains[name].contains(value):
-                return False
-        return True
-
-    def param_within_calibration_range_array(
-        self, params: list[float], param_order: list[str]
-    ) -> bool:
-        """Test whether an ordered vector is within its calibration ranges.
-
-        Parameters
-        ----------
-        params : list[float]
-            Parameter values in order
-        param_order : list[str]
-            Parameter names in same order as params
-
-        Returns
-        -------
-        bool
-            True if every parameter is within its calibration range.
-        """
-        if param_order != self._parameter_names:
-            return False
-        try:
-            values = list(params)
-        except TypeError:
-            return False
-        if len(values) != len(param_order):
-            return False
-        for value, pname in zip(values, param_order, strict=True):
-            try:
-                numeric_value = float(value)
-            except (TypeError, ValueError):
-                return False
-            if not math.isfinite(numeric_value):
-                return False
-            if (
-                numeric_value < self._calibration_min[pname]
-                or numeric_value > self._calibration_max[pname]
-            ):
-                return False
-        return True
-
-    def param_within_domain_array(
-        self, params: list[float], param_order: list[str]
-    ) -> bool:
-        """Return whether an ordered vector belongs to the mathematical domain."""
-        if param_order != self._parameter_names:
-            return False
-        try:
-            values = list(params)
-        except TypeError:
-            return False
-        if len(values) != len(param_order):
-            return False
-        for value, name in zip(values, param_order, strict=True):
-            try:
-                numeric_value = float(value)
-            except (TypeError, ValueError):
-                return False
-            if not self._domains[name].contains(numeric_value):
-                return False
-        return True
+        values = self._finite_parameter_values(params)
+        return values is not None and all(
+            self._domains[name].contains(value) for name, value in values.items()
+        )
 
     def get_calibration_range_width(self, param_name: str) -> float:
         """Return the width of one parameter's calibration range.

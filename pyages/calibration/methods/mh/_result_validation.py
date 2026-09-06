@@ -28,7 +28,7 @@ from pyages.calibration.methods.mh.ensemble_config import (
     MHSeedPlan,
     build_seed_plan,
 )
-from pyages.calibration.sampling_schedule import strict_retained_sample_count
+from pyages.config.sampling_schedule import strict_retained_sample_count
 
 if TYPE_CHECKING:
     from pyages.calibration.methods.mh.results import (

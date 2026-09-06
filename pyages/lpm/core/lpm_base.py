@@ -32,7 +32,6 @@ plot/sample loading and the moment helpers at the end of the class.
 from __future__ import annotations
 
 import abc
-import copy
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, ClassVar
@@ -187,9 +186,7 @@ class LpmBase(abc.ABC):
         -----
         The current model is not modified.
         """
-        lpm_temp = copy.deepcopy(self)
-        lpm_temp.load_initial_parameters()
-        return lpm_temp.get_parameters_to_array()
+        return list(self._param_manager.initial_values().values())
 
     @property
     def lpm_data_directory(self) -> Path:
@@ -208,7 +205,7 @@ class LpmBase(abc.ABC):
 
     def load_initial_parameters(self) -> None:
         """Replace current parameters with initial values from ``params.yaml``."""
-        self._param_manager.load_initial_values(self.p)
+        self.p.update(self._param_manager.initial_values())
 
     def param_within_calibration_range(self, params: dict[str, float]) -> bool:
         """Return whether values lie in the configured calibration ranges.
@@ -229,6 +226,24 @@ class LpmBase(abc.ABC):
         """Return whether values satisfy the model's mathematical domain."""
         return self._param_manager.param_within_domain(params)
 
+    def _parameter_mapping_from_array(
+        self,
+        params: npt.ArrayLike,
+    ) -> dict[str, float]:
+        """Convert one finite, correctly sized vector to canonical named values."""
+        try:
+            values = np.asarray(params, dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("LPM parameters must be numeric") from exc
+        expected_shape = (len(self.p),)
+        if values.shape != expected_shape:
+            raise ValueError(
+                f"Expected parameter shape {expected_shape}, got {values.shape}"
+            )
+        if not np.all(np.isfinite(values)):
+            raise ValueError("LPM parameters must be finite")
+        return dict(zip(self.p, values.tolist(), strict=True))
+
     def param_within_calibration_range_array(self, params: npt.ArrayLike) -> bool:
         """Return whether an ordered vector lies in the calibration ranges.
 
@@ -243,26 +258,18 @@ class LpmBase(abc.ABC):
             ``True`` only for a correctly sized, finite vector in range.
         """
         try:
-            values = np.asarray(params, dtype=float)
-        except (TypeError, ValueError):
+            candidate = self._parameter_mapping_from_array(params)
+        except ValueError:
             return False
-        if values.shape != (len(self.p),) or not np.all(np.isfinite(values)):
-            return False
-        return self._param_manager.param_within_calibration_range_array(
-            values.tolist(), list(self.p)
-        )
+        return self._param_manager.param_within_calibration_range(candidate)
 
     def param_within_domain_array(self, params: npt.ArrayLike) -> bool:
         """Return whether an ordered vector satisfies the mathematical domain."""
         try:
-            values = np.asarray(params, dtype=float)
-        except (TypeError, ValueError):
+            candidate = self._parameter_mapping_from_array(params)
+        except ValueError:
             return False
-        if values.shape != (len(self.p),) or not np.all(np.isfinite(values)):
-            return False
-        return self._param_manager.param_within_domain_array(
-            values.tolist(), list(self.p)
-        )
+        return self._param_manager.param_within_domain(candidate)
 
     @abc.abstractmethod
     def cdf(self, t: npt.ArrayLike) -> npt.ArrayLike:
@@ -421,18 +428,7 @@ class LpmBase(abc.ABC):
         -----
         Validation completes before :attr:`p` is mutated.
         """
-        try:
-            values = np.asarray(param, dtype=float)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("LPM parameters must be numeric") from exc
-        expected_shape = (len(self.p),)
-        if values.shape != expected_shape:
-            raise ValueError(
-                f"Expected parameter shape {expected_shape}, got {values.shape}"
-            )
-        if not np.all(np.isfinite(values)):
-            raise ValueError("LPM parameters must be finite")
-        candidate = dict(zip(self.p, values.tolist(), strict=True))
+        candidate = self._parameter_mapping_from_array(param)
         if not self._param_manager.param_within_domain(candidate):
             raise ValueError(
                 f"LPM parameters are outside the mathematical domain for {self.name!r}"

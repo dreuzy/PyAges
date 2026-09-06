@@ -23,12 +23,13 @@ from pyages.calibration.methods.mh import MHConvergenceError
 from pyages.concentrations import Concentrations
 from pyages.config.models import TemporalCalibrationCfg, TemporalFiguresCfg
 from pyages.config.paths import result_subdirectory
+from pyages.data_io.concentrations import save_concentrations_table
 from pyages.reporting.plots import plot_observations_overview
 from pyages.workflows.runtime import (
     promote_result_run,
-    write_failure_manifest,
     write_result_manifest,
 )
+from pyages.workflows.runtime._failure_publication import preserve_failure_result
 from pyages.workflows.temporal.calibration import run_model_calibration
 from pyages.workflows.temporal.cases import build_case_frames
 from pyages.workflows.temporal.context import prepare_context, scientific_input_paths
@@ -107,10 +108,9 @@ def run_temporal(params_path: str | Path) -> Path:
     published case directory itself when exactly one case was produced.
     """
     context = prepare_context(params_path)
-    context.observations.frame.to_csv(
+    save_concentrations_table(
+        context.observations.frame,
         context.output_directory / "concentrations.txt",
-        sep="\t",
-        index=False,
     )
     written_case_directories: list[Path] = []
     # Track completed cases incrementally so a convergence-failure manifest can
@@ -127,20 +127,14 @@ def run_temporal(params_path: str | Path) -> Path:
             written_case_directories=written_case_directories,
         )
     except MHConvergenceError as error:
-        try:
-            write_failure_manifest(
-                context.output_directory,
-                workflow="temporal",
-                config_path=context.config_path,
-                input_paths=scientific_input_paths(context),
-                details=_manifest_details(context, written_case_directories),
-                error=error,
-                run_id=context.result_run.run_id,
-            )
-            failure_directory = promote_result_run(context.result_run)
-            error.add_note(f"Preserved result evidence: {failure_directory}")
-        except Exception as manifest_error:
-            error.add_note(f"Could not write failure manifest: {manifest_error}")
+        preserve_failure_result(
+            context.result_run,
+            workflow="temporal",
+            config_path=context.config_path,
+            input_paths=scientific_input_paths(context),
+            details=_manifest_details(context, written_case_directories),
+            error=error,
+        )
         raise
     # Publication occurs only after the root manifest commits every case written
     # by the loop; staged paths are translated to their public equivalents below.

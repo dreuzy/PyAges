@@ -343,14 +343,17 @@ in the result manifest.
 
 ```yaml
 lpm_models:
-  list: ["exp_shifted", "ig", "ig_shifted"]
+  models: ["exp_shifted", "ig", "ig_shifted"]
   directory: data_core/data_lpm
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `list` | array or null | No | Unique, non-empty LPM identifiers without path separators; `null` selects `exp_shifted`, `ig`, and `ig_shifted`, while an explicit empty array is rejected |
+| `models` | array or null | No | Unique, non-empty LPM identifiers without path separators; `null` selects `exp_shifted`, `ig`, and `ig_shifted`, while an explicit empty array is rejected |
 | `directory` | path or null | No | Existing LPM parameters directory; defaults to packaged `data_core/data_lpm` |
+
+The former field `lpm_models.list` has been removed. Replace it directly with
+`lpm_models.models`; no compatibility alias is retained.
 
 ### Workflow Section
 

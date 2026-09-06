@@ -261,7 +261,10 @@ def _lpm_target_signature(lpm: LpmBase) -> LpmTargetSignature:
     )
     strategy = lpm.convolution_strategy
     strategy_name = getattr(strategy, "name", str(strategy))
-    params_document = lpm_params.load_params(lpm.name, lpm.lpm_data_directory)
+    params_document = lpm_params.load_parameter_document(
+        lpm.name,
+        lpm.lpm_data_directory,
+    )
     fixed_state = lpm.fixed_scientific_state()
     return LpmTargetSignature(
         class_name=_qualified_class_name(lpm),

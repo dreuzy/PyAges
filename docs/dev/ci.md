@@ -29,7 +29,7 @@ gate:
 
 | Job | Main checks | Result or artifact |
 |---|---|---|
-| `Ruff` | `ruff check`, `ruff format --check`, progressive Pyright check, scoped qualified-surface docstring check, generated test-inventory check | Lint, formatting, selected core type contracts, API prose, and test documentation must be current |
+| `Ruff` | `ruff check`, `ruff format --check`, progressive Pyright, scoped qualified-surface docstrings, licensing, architecture boundaries, generated test inventory | Lint, formatting, selected type contracts, API prose, dependency direction, metadata, and test documentation must be current |
 | `Dependency audit` | Qualified install, `pip check`, `pip-audit` | Dependency consistency and known-vulnerability check |
 | `Conda environment` | Create `install/environment.yml`, install PyAges without dependency replacement, exercise CLI discovery | Conda environment and packaged entry points are usable |
 | `Tests (Python …)` | Standard pytest suite on Python 3.12, 3.13, and 3.14 | Supported-version compatibility |
@@ -155,20 +155,30 @@ identity and the required TestPyPI-first sequence.
 
 ## Reproducing checks locally
 
-Install the qualified contributor environment first:
+Install the qualified core contributor environment first; add `docs` for the
+full local profile:
 
 ```bash
-python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
+python -m pip install -c install/constraints.txt -e ".[dev,docs]"
 ```
 
-Then use the commands in {doc}`testing`. The closest local equivalent to the
-standard Python checks is:
+The maintained local profiles are:
 
 ```bash
+python -m scripts.maintenance.check_dev quick
+python -m scripts.maintenance.check_dev full
+```
+
+The underlying commands used across independent CI jobs are:
+
+```bash
+python -m pip check
 python -m ruff check .
 python -m ruff format --check .
 python -m pyright
 python -m scripts.maintenance.check_qualified_docstrings
+python -m scripts.maintenance.check_licensing
+python -m scripts.maintenance.check_architecture
 python run_tests.py standard
 python run_tests.py coverage
 python run_tests.py validation

@@ -28,6 +28,7 @@ import pandas as pd
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.paths import result_subdirectory
 from pyages.convolution import ConvolutionTracers
+from pyages.data_io.concentrations import save_concentrations_table
 from pyages.data_io.lpm_results import write_lpm
 from pyages.lpm.factory import build_random_lpm
 from pyages.reporting.chronicles import export_calibrated_chronicles
@@ -271,10 +272,9 @@ class SyntheticRecoveryExperiment:
             os.path.join(display_options_case.directory, "lpm_target.txt"),
         )
         self.__calib_strategy.write_calibrated_lpm(lpm_results)
-        observations.frame.to_csv(
+        save_concentrations_table(
+            observations.frame,
             os.path.join(display_options_case.directory, "concentrations.txt"),
-            sep="\t",
-            index=False,
         )
         # Export the tracer histories and calibrated predictions for inspection.
         export_calibrated_chronicles(

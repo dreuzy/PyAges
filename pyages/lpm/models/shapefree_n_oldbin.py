@@ -90,7 +90,7 @@ def _load_model_spec(directory_lpm: str | Path | None) -> tuple[Path, dict[str, 
     resolved_dir = (
         Path(directory_lpm) if directory_lpm is not None else DIRECTORY_LPM_DATA
     )
-    return resolved_dir, lpm_params.load_params(MODEL_NAME, resolved_dir)
+    return resolved_dir, lpm_params.load_parameter_document(MODEL_NAME, resolved_dir)
 
 
 def _load_shape_spec(spec: dict[str, Any]) -> ShapeFreeSpec:

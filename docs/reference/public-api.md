@@ -92,11 +92,27 @@ builders now use private names.
 LPM parameter metadata uses three distinct canonical concepts: `domain` for
 mathematical formula validity, `calibration_range` for the finite operational
 search interval, and `prior` for probability mass. Contributor code should use
-`get_calibration_ranges()`, `get_calibration_range()`,
+the prepared-LPM methods `get_calibration_ranges()`, `get_calibration_range()`,
 `get_calibration_range_width()`,
 `param_within_calibration_range()`, and
 `param_within_calibration_range_array()`. The schema rejects the former YAML
 field `bounds`; no bounds-named Python aliases are provided.
+
+When contributor code needs parameter metadata, it should normally call
+`load_parameter_schema()`: the returned typed, immutable object exposes the
+shared per-parameter fields (`domain`, `calibration_range`, `init`, `step`, and
+`prior`) and the aggregate `calibration_ranges`, `domains`, and
+`initial_values` properties. The former module-level `get_calibration_ranges()`,
+`get_domains()`, and `get_init()` helpers are deprecated and planned for removal
+in PyAges 2.0. Use
+`load_parameter_document()` only for model-specific YAML fields that are not
+part of that shared schema; it returns a defensive, mutable copy of the raw
+document. The ambiguous former name `load_params()` is removed rather than
+kept as a second spelling.
+
+Temporal workflow configurations select LPMs with `lpm_models.models`. The
+former `lpm_models.list` spelling is removed without an alias; maintained YAML
+files and CLI overrides use the canonical field.
 
 ## Compatibility policy
 

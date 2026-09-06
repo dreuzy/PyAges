@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isfinite
+from numbers import Real
 
 
 @dataclass(frozen=True)
@@ -79,8 +80,8 @@ class ConvolutionSettings:
 
     def __post_init__(self) -> None:
         """Reject non-finite, negative, or non-integral controls."""
-        # Tolerance factors may be zero for strict experiments, but never
-        # negative or non-finite.
+        # Tolerance factors may be zero for strict experiments, but must be
+        # genuine real numbers rather than booleans or coercible strings.
         for name in (
             "absolute_tolerance_factor",
             "relative_tolerance",
@@ -88,6 +89,8 @@ class ConvolutionSettings:
             "floating_weight_epsilon_factor",
         ):
             value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, Real):
+                raise TypeError(f"{name} must be a real number")
             if not isfinite(value) or value < 0.0:
                 raise ValueError(f"{name} must be finite and non-negative")
         # Booleans are integers in Python; reject them explicitly because they

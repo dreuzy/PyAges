@@ -98,7 +98,7 @@ def _scientific_payload(results_root: Path) -> dict:
     multichain = calibration["multichain"]
     assert payload["dataset"]["error_rel"] == 0.20
     assert payload["dataset"]["missing_error_rel"] == 0.01
-    assert payload["lpm_models"]["list"] == ["exp_shifted"]
+    assert payload["lpm_models"]["models"] == ["exp_shifted"]
     assert payload["workflow"]["mode"] == "span"
     assert payload["results"]["study_name"] == "ploemeur_temporal_multichain"
     assert (

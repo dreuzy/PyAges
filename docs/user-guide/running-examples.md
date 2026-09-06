@@ -225,7 +225,7 @@ dataset:
   missing_error_rel: 0.01           # Fallback for remaining zero errors
 
 lpm_models:
-  list: ["exp_shifted", "ig", "ig_shifted"]  # Models to compare
+  models: ["exp_shifted", "ig", "ig_shifted"]  # Models to compare
   directory: data_core/data_lpm
 
 workflow:
@@ -393,7 +393,7 @@ dataset:
   missing_error_rel: 0.01
 
 lpm_models:
-  list: ["exp_shifted", "ig"]
+  models: ["exp_shifted", "ig"]
   directory: data_core/data_lpm
 
 workflow:

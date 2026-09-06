@@ -9,6 +9,10 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ### Added
 
+- Added a ten-minute contributor quickstart, editor guidance, quick/full local
+  check profiles, cross-editor formatting defaults, and a CI-enforced package
+  dependency boundary check; expanded the progressive Pyright surface across
+  data loading, concentrations, reporting, and single-date workflow entry.
 - Added an explicitly exploratory five-chain Albuquerque shape-free profile
   and extensive scientific characterization, while keeping provisional error
   and age-support assumptions outside the canonical release qualification
@@ -39,8 +43,22 @@ Before 1.0, incompatible public changes are identified explicitly below.
   draft and checksum sidecar; durable publication still requires a clean,
   annotated version tag and an external deposit.
 
+### Deprecated
+
+- Deprecated `pyages.data_io.lpm_params.get_calibration_ranges()`,
+  `get_domains()`, and `get_init()` for removal in PyAges 2.0. Use the
+  `LPMParameterSchema.calibration_ranges`, `.domains`, and `.initial_values`
+  properties returned by `load_parameter_schema()`.
+
 ### Removed
 
+- Removed the temporal YAML field `lpm_models.list`; use the clearer
+  `lpm_models.models` field. The pre-1.0 field is rejected rather than retained
+  as a compatibility alias.
+- Removed the ambiguous contributor function
+  `pyages.data_io.lpm_params.load_params`; use `load_parameter_schema()` for
+  typed shared metadata or `load_parameter_document()` for a defensive copy of
+  the complete YAML document.
 - Removed the flattened `LauncherParams`/`load_params*` configuration view and
   the `pyages run --transient` dispatch flag. Every launcher configuration now
   requires an explicit `workflow.kind`.
@@ -53,6 +71,22 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ### Changed
 
+- Added explicit runtime contracts for Dirac, double-Dirac, mixed, and
+  piecewise-uniform convolution strategies. A mismatched LPM declaration now
+  reports the missing method before numerical work, and the convolution modules
+  are covered by the progressive Pyright gate.
+- Typed the reusable single-date and temporal plotting entry points, accepted
+  read-only result mappings, centralized temporal tracer preparation and
+  observation-column handling, and added these plotting modules to the
+  progressive Pyright gate without changing their visual semantics.
+- Replaced the dynamic `pyages.config` and `pyages.calibration` export tables
+  with explicit imports so IDE navigation, autocompletion, and static type
+  checking can see their small public APIs directly. The dependency-free MCMC
+  sample-count calculations now live under `pyages.config.sampling_schedule`,
+  avoiding a configuration-to-calibration import cycle.
+- Simplified LPM parameter handling by reading initial values directly from the
+  immutable parameter schema and by validating each ordered parameter vector
+  through one canonical conversion before range or domain checks.
 - Accelerated piecewise-uniform shape-free calibration by precomputing one
   immutable tracer response per age bin and reducing every later proposal to
   a linear combination. The previous continuous integrator remains the
@@ -335,8 +369,6 @@ Before 1.0, incompatible public changes are identified explicitly below.
   collaborator. Multi-tracer batches expose `convolutions` and
   `tracer_names()` instead of the ambiguous `elements` and `element_names()`,
   and repository consumers no longer retain module or `LPM` type aliases.
-- The top-level calibration package now loads its public problem class lazily,
-  keeping lightweight utility imports independent from the scientific stack.
 - Systematic exploration now uses the same explicit parameter names as
   `CalibrationProblem` (`observations`, `sample_count`, and data directories).
 - Removed the pre-0.1 calibration, obsolete workflow launcher, plotting, and

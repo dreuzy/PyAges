@@ -34,6 +34,7 @@ from pyages.concentrations.schema import (
     ERROR_COLUMN,
     REFERENCE_COLUMNS,
     UNIT_COLUMN,
+    observation_key,
     tracer_date_key,
 )
 
@@ -63,7 +64,8 @@ class Concentrations:
             raise TypeError("frame must be a pandas DataFrame")
         self._error_provenance: list[dict[str, object]] = []
         self.frame = frame.copy().reset_index(drop=True)
-        self.__ensure_column(ERROR_COLUMN, _DEFAULT_ERROR)
+        if ERROR_COLUMN not in self.frame.columns:
+            self.frame[ERROR_COLUMN] = _DEFAULT_ERROR
         self.validate()
 
     @classmethod
@@ -164,13 +166,18 @@ class Concentrations:
     @property
     def error_provenance(self) -> list[dict[str, object]]:
         """Return copies of effective-error transformations in application order."""
-        return [
-            {
-                **event,
-                "row_indices": list(event["row_indices"]),
-            }
-            for event in self._error_provenance
-        ]
+        copied_events: list[dict[str, object]] = []
+        for event in self._error_provenance:
+            row_indices = event["row_indices"]
+            if not isinstance(row_indices, list):
+                raise RuntimeError("invalid internal error-provenance row indices")
+            copied_events.append(
+                {
+                    **event,
+                    "row_indices": list(row_indices),
+                }
+            )
+        return copied_events
 
     @staticmethod
     def _validate_fraction(fraction: float) -> float:
@@ -181,11 +188,6 @@ class Concentrations:
         if not np.isfinite(normalized) or normalized < 0.0:
             raise ValueError("fraction must be finite and non-negative")
         return normalized
-
-    def __ensure_column(self, name: str, default_value) -> None:
-        """Ensure a column exists in the frame; insert a default when missing."""
-        if name not in self.frame.columns:
-            self.frame[name] = default_value
 
     def validate(self) -> None:
         """Validate and replace ``frame`` with its canonical observation table.
@@ -376,7 +378,7 @@ class Concentrations:
     def observation_keys(self) -> list[str]:
         """Return unique tracer/date/index keys in observation-row order."""
         return [
-            f"{tracer_date_key(element, date)}#{index}"
+            observation_key(element, date, index)
             for index, (element, date) in enumerate(
                 zip(
                     self.frame[ELEMENT_COLUMN],

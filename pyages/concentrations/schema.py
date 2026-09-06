@@ -36,11 +36,19 @@ def tracer_date_key(element: str, date: float) -> str:
     return f"{normalized_element}@{normalized_date!r}"
 
 
+def observation_key(element: str, date: float, index: int) -> str:
+    """Return a row-unique tracer/date key using its zero-based row index."""
+    if isinstance(index, bool) or not isinstance(index, int) or index < 0:
+        raise ValueError("observation index must be a non-negative integer")
+    return f"{tracer_date_key(element, date)}#{index}"
+
+
 __all__ = [
     "CONCENTRATION_COLUMN",
     "DATE_COLUMN",
     "ELEMENT_COLUMN",
     "ERROR_COLUMN",
+    "observation_key",
     "REFERENCE_COLUMNS",
     "UNIT_COLUMN",
     "tracer_date_key",

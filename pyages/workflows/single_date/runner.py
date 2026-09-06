@@ -20,11 +20,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from pyages.calibration.methods.mh import MHConvergenceError
+from pyages.data_io.concentrations import save_concentrations_table
 from pyages.workflows.runtime import (
     promote_result_run,
-    write_failure_manifest,
     write_result_manifest,
 )
+from pyages.workflows.runtime._failure_publication import preserve_failure_result
 from pyages.workflows.single_date.calibration import (
     reachable_concentrations,
     run_calibrations,
@@ -71,10 +72,9 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
         raise ValueError("params_path is required for the launcher")
     context = prepare_context(params_path, force_inline=force_inline)
     try:
-        context.observations.frame.to_csv(
+        save_concentrations_table(
+            context.observations.frame,
             context.output_directory / "concentrations.txt",
-            sep="\t",
-            index=False,
         )
         reachable = reachable_concentrations(context)
         calibrated = run_calibrations(context)
@@ -101,20 +101,14 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
         details["calibrations_attempted"] = ["Metropolis_Hastings"]
         # A convergence failure is a terminal scientific result rather than an
         # infrastructure crash, so preserve its completed evidence when possible.
-        try:
-            write_failure_manifest(
-                context.output_directory,
-                workflow="single_date",
-                config_path=context.config_path,
-                input_paths=scientific_input_paths(context),
-                details=details,
-                error=error,
-                run_id=context.result_run.run_id,
-            )
-            failure_directory = promote_result_run(context.result_run)
-            error.add_note(f"Preserved result evidence: {failure_directory}")
-        except Exception as manifest_error:
-            error.add_note(f"Could not write failure manifest: {manifest_error}")
+        preserve_failure_result(
+            context.result_run,
+            workflow="single_date",
+            config_path=context.config_path,
+            input_paths=scientific_input_paths(context),
+            details=details,
+            error=error,
+        )
         context.plots.close_all()
         raise
     except BaseException:

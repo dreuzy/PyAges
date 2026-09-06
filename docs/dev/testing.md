@@ -6,6 +6,21 @@ all of these layers. The generated {doc}`test-inventory` is the current
 collection summary; pytest collection remains the authoritative detailed
 list.
 
+## Contributor feedback profiles
+
+Two dependency-free repository commands group the normal checks:
+
+| Profile | Command | Contents |
+|---|---|---|
+| Quick | `python -m scripts.maintenance.check_dev quick` | Environment consistency, Ruff lint/format, progressive Pyright, qualified docstrings, licensing, and architecture boundaries |
+| Full | `python -m scripts.maintenance.check_dev full` | Quick profile plus generated inventory, standard tests, and a clean strict Sphinx HTML build |
+
+Run focused pytest paths while implementing; the quick profile deliberately
+contains no test suite. Run the full profile before a pull request. Feedback
+times depend on the machine, but quick should take seconds or tens of seconds,
+full normally takes several minutes, and the opt-in extensive qualification may
+take hours.
+
 ## Test scopes
 
 | Scope | Command | When to run |
@@ -20,11 +35,10 @@ list.
 | Golden update | `python run_tests.py standard update` | Only after independently justifying an intentional numerical-contract change |
 
 Static typing is introduced progressively rather than asserted for the whole
-historical repository. `python -m pyright` checks the small set of core
-contracts and stable repository helpers listed in `pyproject.toml`; add a
-module only after its annotations and dependencies pass without suppressing
-real errors. The shared provenance helper is included because archive and
-article scripts now depend on its typed text-versus-binary Git contract.
+historical repository. `python -m pyright` checks the qualified core contracts,
+selected data/container/reporting/workflow boundaries, and stable repository
+helpers listed in `pyproject.toml`; add a module only after its annotations and
+dependencies pass without suppressing real errors.
 
 The direct pytest equivalents used by GitHub Actions are:
 

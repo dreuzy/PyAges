@@ -91,11 +91,12 @@ def _resolve_lpms(
     configuration_directory: Path,
 ) -> tuple[list[str], Path]:
     """Resolve the requested models and their parameter directory."""
-    models = DEFAULT_LPMS.copy() if lpm_cfg.list is None else list(lpm_cfg.list)
+    models = DEFAULT_LPMS.copy() if lpm_cfg.models is None else list(lpm_cfg.models)
     if not models:
-        raise ValueError("lpm_models.list must be a non-empty list.")
+        raise ValueError("lpm_models.models must be a non-empty list.")
     models = [
-        validate_path_component(model, label="lpm_models.list item") for model in models
+        validate_path_component(model, label="lpm_models.models item")
+        for model in models
     ]
     directory = resolve_from(
         configuration_directory,

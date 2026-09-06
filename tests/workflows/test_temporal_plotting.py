@@ -104,3 +104,24 @@ def test_temporal_fit_summary_rejects_an_empty_posterior(monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="No calibrated LPMs"):
         temporal_plots.plot_temporal_fit_summary(_observations(), results, lpm_number=1)
+
+
+@pytest.mark.parametrize("lpm_number", [0, -1, True, 1.5, "2"])
+def test_temporal_plot_entry_points_require_a_positive_integer_model_count(
+    lpm_number,
+) -> None:
+    with pytest.raises(ValueError, match="lpm_number must be a positive integer"):
+        temporal_plots.plot_temporal_fit_summary(
+            _observations(),
+            _PosteriorResults([]),
+            lpm_number=lpm_number,
+        )
+
+    with pytest.raises(ValueError, match="lpm_number must be a positive integer"):
+        temporal_plots.plot_temporal_fit_comparison(
+            observations=_observations(),
+            posterior_frames={},
+            lpm_name="exp",
+            lpm_directory="data_core/data_lpm",
+            lpm_number=lpm_number,
+        )

@@ -1,21 +1,24 @@
 # Developer Documentation
 
-This section defines how contributors document and maintain PyAges. Start with
-the documentation scope before adding pages: the online site follows stable
-responsibilities and contracts rather than reproducing the source tree.
+Start with the developer quickstart, then use the code tour to find the smallest
+implementation and test surface for a change. The remaining pages cover editor
+setup, tests, CI, extension contracts, documentation policy, and maintainer
+procedures.
 
 Exploratory design notes are retained in {doc}`../archive/index`.
 
 ```{toctree}
 :maxdepth: 1
 
-documentation-scope
+getting-started
 code-tour
+ide
+testing
 extending-calibration-workflows
 contributing
 ci
-testing
 test-inventory
+documentation-scope
 github-migration
 releasing
 versioning-citation

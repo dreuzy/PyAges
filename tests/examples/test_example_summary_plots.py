@@ -10,8 +10,10 @@ Smoke tests for reusable example plotting helpers.
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
+import pyages.reporting.plots.model_space as model_space_module
 from pyages.concentrations import Concentrations
 from pyages.reporting.plots import (
     plot_objective_solution_map,
@@ -91,6 +93,104 @@ def test_core_summary_plots_smoke(tmp_path: Path) -> None:
 
     assert len(list(tmp_path.glob("*.png"))) == len(figures)
     for figure in figures:
+        plt.close(figure)
+
+
+def test_model_space_pairs_duplicate_references_by_indexed_observation_key() -> None:
+    observations = Concentrations.from_dataframe(
+        pd.DataFrame(
+            {
+                "element": ["cfc11", "cfc11"],
+                "concentration": [1.0, 2.0],
+                "error": [0.1, 0.1],
+                "unit": ["pptv", "pptv"],
+                "date": [2010.0, 2010.0],
+            }
+        )
+    )
+    references = Concentrations.from_dataframe(
+        observations.frame.assign(concentration=[10.0, 20.0])
+    )
+    reachable = pd.DataFrame({"cfc11@2010.0": [5.0]})
+
+    figure = plot_single_date_model_space(
+        observations,
+        reachable,
+        {},
+        reference_concentrations=references,
+    )
+    try:
+        reference_artist = next(
+            artist
+            for artist in figure.axes[0].collections
+            if artist.get_label() == "Reference model"
+        )
+        np.testing.assert_allclose(
+            np.asarray(reference_artist.get_offsets()),
+            [[10.0, 20.0]],
+        )
+    finally:
+        plt.close(figure)
+
+
+def test_model_space_prepares_each_posterior_once(monkeypatch) -> None:
+    observations = Concentrations.from_dataframe(
+        pd.DataFrame(
+            {
+                "element": ["cfc11", "cfc12", "sf6", "3H"],
+                "concentration": [1.0, 2.0, 3.0, 4.0],
+                "error": [0.1, 0.1, 0.1, 0.1],
+                "unit": ["pptv", "pptv", "pptv", "TU"],
+                "date": [2010.0] * 4,
+            }
+        )
+    )
+    reachable = pd.DataFrame(
+        {
+            "cfc11@2010.0": [1.0],
+            "cfc12@2010.0": [2.0],
+            "sf6@2010.0": [3.0],
+            "3H@2010.0": [4.0],
+        }
+    )
+    posterior = pd.DataFrame(
+        {
+            **{
+                key: [value]
+                for key, value in zip(
+                    observations.observation_keys(),
+                    [1.0, 2.0, 3.0, 4.0],
+                    strict=True,
+                )
+            },
+            "obj_function": [0.0],
+        }
+    )
+    real_ensure_frame = model_space_module._ensure_frame
+    real_best_row = model_space_module._best_row
+    ensure_calls = []
+    best_calls = []
+
+    def counted_ensure_frame(result):
+        ensure_calls.append(result)
+        return real_ensure_frame(result)
+
+    def counted_best_row(frame):
+        best_calls.append(frame)
+        return real_best_row(frame)
+
+    monkeypatch.setattr(model_space_module, "_ensure_frame", counted_ensure_frame)
+    monkeypatch.setattr(model_space_module, "_best_row", counted_best_row)
+
+    figure = plot_single_date_model_space(
+        observations,
+        reachable,
+        {"posterior": posterior},
+    )
+    try:
+        assert ensure_calls == [posterior]
+        assert len(best_calls) == 1
+    finally:
         plt.close(figure)
 
 

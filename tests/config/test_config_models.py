@@ -449,8 +449,13 @@ def test_temporal_relative_error_must_be_strictly_positive() -> None:
 
 @pytest.mark.parametrize("models", [[], ["exp", ""], ["exp", "exp"]])
 def test_temporal_explicit_model_list_must_be_unambiguous(models) -> None:
-    with pytest.raises(ValidationError, match="lpm_models.list"):
-        TemporalLpmModelsCfg(list=models)
+    with pytest.raises(ValidationError, match="lpm_models.models"):
+        TemporalLpmModelsCfg(models=models)
+
+
+def test_temporal_lpm_models_rejects_the_removed_list_field() -> None:
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        TemporalLpmModelsCfg.model_validate({"list": ["exp"]})
 
 
 @pytest.mark.parametrize(
@@ -460,7 +465,7 @@ def test_temporal_explicit_model_list_must_be_unambiguous(models) -> None:
         (LauncherDatasetCfg, {"name": "..\\observations.txt"}),
         (LauncherDatasetCfg, {"name": "D:observations.txt"}),
         (LauncherLpmCfg, {"model_name": "../exp"}),
-        (TemporalLpmModelsCfg, {"list": ["../exp"]}),
+        (TemporalLpmModelsCfg, {"models": ["../exp"]}),
         (LauncherResultsCfg, {"study_name": ".."}),
         (TemporalResultsCfg, {"study_name": ".."}),
     ],

@@ -335,6 +335,20 @@ Available strategies:
 - `DIRAC_DOUBLE`: Two-point mass distributions
 - `MIXED_DIRAC_CONTINUOUS`: Direct point mass plus normalized continuous part
 
+Each non-continuous declaration has a concrete structural contract:
+
+| Strategy | Methods that the model must provide |
+| --- | --- |
+| `DIRAC` | `get_dirac_time()` |
+| `DIRAC_DOUBLE` | `get_dirac_double_time()`, returning exactly two ages |
+| `MIXED_DIRAC_CONTINUOUS` | `get_dirac_time()` and `continuous_cdf_and_partial_first_moment(t)` |
+| `PIECEWISE_UNIFORM` | `bin_edges()` and `fractions()` |
+
+The convolution engine checks these methods before performing the corresponding
+numerical operation. A model that declares the wrong strategy therefore raises
+a focused `ConvolutionError` naming the missing method instead of failing later
+with an attribute or array-unpacking error.
+
 PyAges does not reconstruct a production CDF from sampled PDF values. A
 continuous model without a trustworthy vectorized CDF and partial first moment
 is rejected explicitly.

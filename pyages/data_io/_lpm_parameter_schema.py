@@ -17,7 +17,7 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any
+from typing import Any, SupportsFloat, SupportsIndex
 
 
 class LPMParamsError(ValueError):
@@ -85,6 +85,23 @@ class LPMParameterSchema:
         """Return parameter names in YAML declaration order."""
         return tuple(parameter.name for parameter in self.parameters)
 
+    @property
+    def calibration_ranges(self) -> dict[str, tuple[float, float]]:
+        """Return operational calibration ranges by parameter name."""
+        return {
+            parameter.name: parameter.calibration_range for parameter in self.parameters
+        }
+
+    @property
+    def domains(self) -> dict[str, LPMParameterDomain]:
+        """Return mathematical validity domains by parameter name."""
+        return {parameter.name: parameter.domain for parameter in self.parameters}
+
+    @property
+    def initial_values(self) -> dict[str, float]:
+        """Return initial values by parameter name."""
+        return {parameter.name: parameter.init for parameter in self.parameters}
+
 
 def _freeze(value: Any) -> Any:
     """Recursively convert YAML containers to read-only equivalents."""
@@ -110,6 +127,11 @@ def _thaw(value: Any) -> Any:
 
 def _finite_float(value: object, *, message: str) -> float:
     """Convert one value to a finite float or raise a schema error."""
+    if not isinstance(
+        value,
+        (str, bytes, bytearray, SupportsFloat, SupportsIndex),
+    ):
+        raise LPMParamsError(message)
     try:
         numeric_value = float(value)
     except (TypeError, ValueError) as exc:

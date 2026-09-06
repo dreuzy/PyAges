@@ -19,16 +19,23 @@ and convolution layers.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from math import ceil
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
+from matplotlib.artist import Artist
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from matplotlib.ticker import MaxNLocator
 
+from pyages.concentrations import Concentrations
+from pyages.concentrations._labels import pretty_tracer_name
 from pyages.concentrations.temporal import (
     TemporalPredictionSummary,
     summarize_temporal_predictions,
@@ -43,7 +50,6 @@ from pyages.reporting.plots._common import (
     OBSERVED_COLOR,
     SINGLE_DATE_HIGHLIGHT_COLOR,
     _axis_label,
-    _pretty_tracer_name,
     _save_figure,
     apply_example_style,
 )
@@ -71,10 +77,10 @@ OVERLAY_STYLES = (
 
 
 def _posterior_predictions(
-    posterior_frames: dict[str, pd.DataFrame],
+    posterior_frames: Mapping[str, pd.DataFrame],
     lpm_name: str,
     lpm_directory: str | Path,
-    tracers,
+    tracers: ConvolutionTracers,
     start_year: float,
     end_year: float,
     lpm_number: int,
@@ -106,9 +112,9 @@ def _posterior_predictions(
     return predictions
 
 
-def _comparison_legend(highlighted: bool, highlight_label: str) -> list:
+def _comparison_legend(highlighted: bool, highlight_label: str) -> list[Artist]:
     """Build observation legend entries shared by all temporal panels."""
-    handles = [
+    handles: list[Artist] = [
         Line2D(
             [],
             [],
@@ -138,7 +144,52 @@ def _comparison_legend(highlighted: bool, highlight_label: str) -> list:
     return handles
 
 
-def _plot_prediction_intervals(axs, tracer_names, predictions, legend_handles) -> None:
+def _frame_column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one unambiguous dataframe column."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Observation column {name!r} must occur exactly once")
+    return column
+
+
+def _observations_for_tracer(
+    observations: Concentrations,
+    tracer_name: str,
+) -> pd.DataFrame:
+    """Return one tracer's observations ordered by their numeric dates."""
+    frame = observations.frame
+    elements = _frame_column(frame, "element")
+    selected = frame.loc[elements == tracer_name].copy()
+    dates = np.asarray(
+        pd.to_numeric(_frame_column(selected, "date"), errors="raise"),
+        dtype=float,
+    )
+    return selected.iloc[np.argsort(dates)].copy()
+
+
+def _observation_unit(observed: pd.DataFrame) -> str | None:
+    """Return the first unit label when the tracer has observations."""
+    if "unit" not in observed.columns or observed.empty:
+        return None
+    value = _frame_column(observed, "unit").iloc[0]
+    return None if pd.isna(value) else str(value)
+
+
+def _positive_observation_errors(observed: pd.DataFrame) -> pd.Series | None:
+    """Return error bars only when at least one uncertainty is positive."""
+    if "error" not in observed.columns:
+        return None
+    errors = _frame_column(observed, "error")
+    numeric = np.asarray(pd.to_numeric(errors, errors="coerce"), dtype=float)
+    return errors if np.any(numeric > 0.0) else None
+
+
+def _plot_prediction_intervals(
+    axes: Sequence[Axes],
+    tracer_names: Sequence[str],
+    predictions: Mapping[str, Mapping[str, TemporalPredictionSummary]],
+    legend_handles: list[Artist],
+) -> None:
     """Overlay each source's 90% interval and median on every tracer panel.
 
     A source keeps the same band and line colors across tracers so comparisons
@@ -163,7 +214,7 @@ def _plot_prediction_intervals(axs, tracer_names, predictions, legend_handles) -
                 ),
             ]
         )
-        for ax, tracer_name in zip(axs.flatten(), tracer_names, strict=False):
+        for ax, tracer_name in zip(axes, tracer_names, strict=False):
             if tracer_name not in source:
                 continue
             summary = source[tracer_name]
@@ -183,10 +234,10 @@ def _plot_prediction_intervals(axs, tracer_names, predictions, legend_handles) -
 
 
 def _plot_observed_temporal_panel(
-    ax,
+    ax: Axes,
     observed: pd.DataFrame,
     tracer_name: str,
-    highlight_dates: np.ndarray,
+    highlight_dates: npt.NDArray[np.float64],
     highlight_tolerance: float,
 ) -> bool:
     """Plot one tracer's observations and optionally emphasize selected dates.
@@ -195,13 +246,8 @@ def _plot_observed_temporal_panel(
     selections may have small floating-point differences.  The return value
     tells the caller whether the highlight deserves an entry in the legend.
     """
-    unit = (
-        observed["unit"].iloc[0] if "unit" in observed and not observed.empty else None
-    )
-    has_error = "error" in observed and np.any(
-        pd.to_numeric(observed["error"], errors="coerce") > 0
-    )
-    error = observed["error"] if has_error else None
+    unit = _observation_unit(observed)
+    error = _positive_observation_errors(observed)
     ax.errorbar(
         observed["date"],
         observed["concentration"],
@@ -216,7 +262,10 @@ def _plot_observed_temporal_panel(
     )
     highlighted = False
     if highlight_dates.size:
-        dates = pd.to_numeric(observed["date"], errors="coerce").to_numpy(dtype=float)
+        dates = np.asarray(
+            pd.to_numeric(_frame_column(observed, "date"), errors="coerce"),
+            dtype=float,
+        )
         mask = np.any(
             np.isclose(
                 dates[:, None],
@@ -228,8 +277,9 @@ def _plot_observed_temporal_panel(
         )
         if mask.any():
             highlighted = True
-            selected = observed.loc[mask]
-            selected_error = error.loc[selected.index] if has_error else None
+            indices = np.flatnonzero(mask)
+            selected = observed.iloc[indices]
+            selected_error = error.iloc[indices] if error is not None else None
             ax.errorbar(
                 selected["date"],
                 selected["concentration"],
@@ -253,9 +303,33 @@ def _plot_observed_temporal_panel(
     return highlighted
 
 
+def _prepare_temporal_tracers(
+    observations: Concentrations,
+) -> tuple[list[str], float, ConvolutionTracers]:
+    """Return tracer names, final date, and one validated convolution group."""
+    tracer_names = observations.unique_tracer_names()
+    if not tracer_names:
+        raise ValueError(
+            "At least one observed tracer is required for a temporal plot."
+        )
+    end_year = float(observations.frame["date"].max())
+    tracers = ConvolutionTracers(names=tracer_names, date=end_year)
+    tracers.validate_observation_units(observations)
+    return tracer_names, end_year, tracers
+
+
+def _validate_lpm_number(lpm_number: int) -> int:
+    """Return a positive model count or raise a user-facing error."""
+    if isinstance(lpm_number, bool) or not isinstance(lpm_number, int):
+        raise ValueError("lpm_number must be a positive integer")
+    if lpm_number <= 0:
+        raise ValueError("lpm_number must be a positive integer")
+    return lpm_number
+
+
 def plot_temporal_fit_comparison(
-    observations,
-    posterior_frames: dict[str, pd.DataFrame],
+    observations: Concentrations,
+    posterior_frames: Mapping[str, pd.DataFrame],
     lpm_name: str,
     lpm_directory: str | Path,
     lpm_number: int = 40,
@@ -265,7 +339,7 @@ def plot_temporal_fit_comparison(
     highlight_dates: list[float] | None = None,
     highlight_label: str = "Single-date observation",
     highlight_tolerance: float = 0.02,
-):
+) -> Figure:
     """Compare tracer histories predicted by several posterior distributions.
 
     One panel is created per observed tracer.  For each named posterior source,
@@ -274,7 +348,8 @@ def plot_temporal_fit_comparison(
     top, with optional dates highlighted consistently across all panels.
     """
     apply_example_style()
-    tracer_names = observations.unique_tracer_names()
+    lpm_number = _validate_lpm_number(lpm_number)
+    tracer_names, end_year, tracers = _prepare_temporal_tracers(observations)
     ncols = len(tracer_names) if len(tracer_names) <= 3 else 2
     nrows = ceil(max(len(tracer_names), 1) / ncols)
     fig, axs = plt.subplots(
@@ -282,15 +357,6 @@ def plot_temporal_fit_comparison(
     )
     highlight_array = np.asarray(highlight_dates or [], dtype=float)
     highlighted_any = False
-
-    # All sources use the same tracer definitions and time window, so their
-    # uncertainty bands remain directly comparable.
-    end_year = float(observations.frame["date"].max())
-    tracers = ConvolutionTracers(
-        names=observations.unique_tracer_names(),
-        date=end_year,
-    )
-    tracers.validate_observation_units(observations)
 
     predictions = _posterior_predictions(
         posterior_frames,
@@ -302,14 +368,13 @@ def plot_temporal_fit_comparison(
         lpm_number,
     )
     legend_handles = _comparison_legend(bool(highlight_array.size), highlight_label)
-    _plot_prediction_intervals(axs, tracer_names, predictions, legend_handles)
+    axes = list(axs.flatten())
+    _plot_prediction_intervals(axes, tracer_names, predictions, legend_handles)
 
     # Observations are plotted last so they remain visible above uncertainty
     # bands, including when several posterior sources overlap.
-    for ax, tracer_name in zip(axs.flatten(), tracer_names, strict=False):
-        observed = observations.frame[
-            observations.frame["element"] == tracer_name
-        ].sort_values("date")
+    for ax, tracer_name in zip(axes, tracer_names, strict=False):
+        observed = _observations_for_tracer(observations, tracer_name)
         highlighted_any |= _plot_observed_temporal_panel(
             ax,
             observed,
@@ -318,18 +383,18 @@ def plot_temporal_fit_comparison(
             highlight_tolerance,
         )
 
-    for ax in axs.flatten()[len(tracer_names) :]:
+    for ax in axes[len(tracer_names) :]:
         ax.remove()
 
     legend_items = [
         handle
         for handle in legend_handles
-        if highlighted_any or handle.get_label() != highlight_label
+        if highlighted_any or str(handle.get_label()) != highlight_label
     ]
 
     fig.legend(
         legend_items,
-        [handle.get_label() for handle in legend_items],
+        [str(handle.get_label()) for handle in legend_items],
         loc="upper center",
         bbox_to_anchor=(0.5, 1.02),
         ncol=min(len(legend_items), 3),
@@ -345,13 +410,13 @@ def plot_temporal_fit_comparison(
 
 
 def plot_temporal_fit_summary(
-    observations,
-    lpm_results,
+    observations: Concentrations,
+    lpm_results: LpmSampleTable,
     lpm_number: int,
     filename: str | Path | None = None,
     title: str | None = None,
     start_year: float = 1960,
-):
+) -> Figure:
     """Summarize one calibrated result as modeled tracer histories.
 
     A representative set of calibrated LPMs is propagated over time for every
@@ -360,12 +425,8 @@ def plot_temporal_fit_summary(
     errors.  The nested bands separate typical variation from wider uncertainty.
     """
     apply_example_style()
-    end_year = float(observations.frame["date"].max())
-    tracers = ConvolutionTracers(
-        names=observations.unique_tracer_names(),
-        date=end_year,
-    )
-    tracers.validate_observation_units(observations)
+    lpm_number = _validate_lpm_number(lpm_number)
+    tracer_names, end_year, tracers = _prepare_temporal_tracers(observations)
     lpm_list, _, _ = lpm_results.select(
         count=lpm_number,
         resolution=1000,
@@ -382,7 +443,6 @@ def plot_temporal_fit_summary(
         end_year,
     )
 
-    tracer_names = observations.unique_tracer_names()
     ncols = min(2, max(len(tracer_names), 1))
     nrows = ceil(max(len(tracer_names), 1) / ncols)
     fig, axs = plt.subplots(
@@ -392,15 +452,10 @@ def plot_temporal_fit_summary(
     legend_handles = []
     legend_labels = []
 
-    for ax, tracer_name in zip(axs.flatten(), tracer_names, strict=False):
-        observed = observations.frame[
-            observations.frame["element"] == tracer_name
-        ].sort_values("date")
-        unit = (
-            observed["unit"].iloc[0]
-            if "unit" in observed.columns and not observed.empty
-            else None
-        )
+    axes = list(axs.flatten())
+    for ax, tracer_name in zip(axes, tracer_names, strict=False):
+        observed = _observations_for_tracer(observations, tracer_name)
+        unit = _observation_unit(observed)
 
         summary = summaries[tracer_name]
 
@@ -427,10 +482,7 @@ def plot_temporal_fit_summary(
             linewidth=2.2,
         )
 
-        has_error = "error" in observed.columns and np.any(
-            pd.to_numeric(observed["error"], errors="coerce") > 0
-        )
-        error = observed["error"] if has_error else None
+        error = _positive_observation_errors(observed)
         obs = ax.errorbar(
             observed["date"],
             observed["concentration"],
@@ -443,7 +495,7 @@ def plot_temporal_fit_summary(
             ms=5,
         )
 
-        ax.set_title(_pretty_tracer_name(tracer_name))
+        ax.set_title(pretty_tracer_name(tracer_name))
         ax.set_xlabel("Year")
         ax.set_ylabel(_axis_label(tracer_name, unit))
 
@@ -456,7 +508,7 @@ def plot_temporal_fit_summary(
                 "90% interval",
             ]
 
-    for ax in axs.flatten()[len(tracer_names) :]:
+    for ax in axes[len(tracer_names) :]:
         ax.remove()
 
     if legend_handles:

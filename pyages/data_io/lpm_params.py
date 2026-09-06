@@ -7,13 +7,14 @@
 
 Schema validation is implemented by
 :mod:`pyages.data_io._lpm_parameter_schema`. This module adds filesystem access,
-content-keyed caching, and focused accessors for consumers.
+content-keyed caching, and compatibility accessors for consumers.
 """
 
 from __future__ import annotations
 
 import copy
 import threading
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -100,7 +101,10 @@ def clear_params_cache() -> None:
         _PARAMS_CACHE.clear()
 
 
-def load_params(model_name: str, data_dir: str | Path) -> dict[str, Any]:
+def load_parameter_document(
+    model_name: str,
+    data_dir: str | Path,
+) -> dict[str, Any]:
     """Load a validated ``params.yaml`` document and return a defensive copy.
 
     Cache reuse requires byte-for-byte identical UTF-8 file content; file
@@ -120,24 +124,40 @@ def load_parameter_schema(
 def get_calibration_ranges(
     schema: LPMParameterSchema,
 ) -> dict[str, tuple[float, float]]:
-    """Return explicit operational calibration ranges by parameter name."""
-    return {
-        parameter.name: parameter.calibration_range for parameter in schema.parameters
-    }
+    """Return calibration ranges; deprecated in favor of the schema property."""
+    warnings.warn(
+        "get_calibration_ranges() is deprecated and will be removed in PyAges "
+        "2.0; use schema.calibration_ranges instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return schema.calibration_ranges
 
 
 def get_domains(
     schema: LPMParameterSchema,
 ) -> dict[str, LPMParameterDomain]:
-    """Return mathematical validity domains by parameter name."""
-    return {parameter.name: parameter.domain for parameter in schema.parameters}
+    """Return validity domains; deprecated in favor of the schema property."""
+    warnings.warn(
+        "get_domains() is deprecated and will be removed in PyAges 2.0; use "
+        "schema.domains instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return schema.domains
 
 
 def get_init(
     schema: LPMParameterSchema,
 ) -> dict[str, float]:
-    """Return ``{parameter_name: initial_value}``."""
-    return {parameter.name: parameter.init for parameter in schema.parameters}
+    """Return initial values; deprecated in favor of the schema property."""
+    warnings.warn(
+        "get_init() is deprecated and will be removed in PyAges 2.0; use "
+        "schema.initial_values instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return schema.initial_values
 
 
 def get_steps(
@@ -173,7 +193,7 @@ __all__ = [
     "get_init",
     "get_priors",
     "get_steps",
+    "load_parameter_document",
     "load_parameter_schema",
-    "load_params",
     "parse_parameter_schema",
 ]

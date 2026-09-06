@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from pyages.calibration import target_signature as target_signatures
+import pyages.calibration.target_signature as target_signatures
 from pyages.calibration.exploration.systematic import SystematicSampling
 from pyages.calibration.objective import squared_normalized_residuals
 from pyages.config.paths import DIRECTORY_LPM_DATA

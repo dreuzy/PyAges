@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import pandas as pd
 
+from pyages.concentrations._labels import pretty_tracer_name
 from pyages.concentrations.schema import CONCENTRATION_COLUMN
 from pyages.concentrations.series import ConcentrationSeries, normalize_series
 from pyages.concentrations.temporal import TemporalPredictionSummary
@@ -28,15 +29,6 @@ from pyages.concentrations.temporal import TemporalPredictionSummary
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.collections import PathCollection
-
-
-def _pretty_tracer_name(name: str) -> str:
-    lower = name.lower()
-    if lower.startswith("cfc"):
-        return name.upper()
-    if lower == "sf6":
-        return "SF6"
-    return name
 
 
 def _require_axes(axs, count: int, *, context: str) -> np.ndarray:
@@ -255,7 +247,7 @@ def plot_concentration_chronicles_summary(
             label="Observations",
         )
 
-        pretty_name = _pretty_tracer_name(tracer_name)
+        pretty_name = pretty_tracer_name(tracer_name)
         ax.set_title(pretty_name)
         ax.set_xlabel("Year")
         ylabel = f"{pretty_name} [{unit}]" if unit else pretty_name

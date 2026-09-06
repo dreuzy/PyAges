@@ -24,20 +24,22 @@ def _data_dir() -> Path:
 
 
 @pytest.mark.parametrize("model_name", _models())
-def test_load_params_smoke(model_name):
-    params = lpm_params.load_params(model_name, _data_dir())
+def test_load_parameter_document_smoke(model_name):
+    params = lpm_params.load_parameter_document(model_name, _data_dir())
     assert params["model"] == model_name
 
 
 @pytest.mark.parametrize("model_name", _models())
 def test_calibration_ranges_init_steps_priors(model_name):
     schema = lpm_params.load_parameter_schema(model_name, _data_dir())
-    calibration_ranges = lpm_params.get_calibration_ranges(schema)
-    init = lpm_params.get_init(schema)
+    calibration_ranges = schema.calibration_ranges
+    domains = schema.domains
+    init = schema.initial_values
     steps = lpm_params.get_steps(schema)
     priors = lpm_params.get_priors(schema)
 
     assert calibration_ranges
+    assert domains
     assert init
     assert steps
     assert priors
@@ -72,8 +74,34 @@ def test_load_parameter_schema_is_typed_and_immutable(tmp_path) -> None:
     assert schema.names == ("mu",)
     assert schema.parameters[0].calibration_range == (0.1, 100.0)
     assert schema.parameters[0].init == 10.0
+    returned_ranges = schema.calibration_ranges
+    returned_ranges["mu"] = (1.0, 2.0)
+    assert schema.calibration_ranges["mu"] == (0.1, 100.0)
     with pytest.raises(TypeError):
         schema.parameters[0].prior["type"] = "normal"
+
+
+@pytest.mark.parametrize(
+    ("accessor_name", "property_name"),
+    [
+        ("get_calibration_ranges", "calibration_ranges"),
+        ("get_domains", "domains"),
+        ("get_init", "initial_values"),
+    ],
+)
+def test_deprecated_schema_accessors_delegate_to_properties(
+    tmp_path,
+    accessor_name,
+    property_name,
+) -> None:
+    _write_params(tmp_path)
+    schema = lpm_params.load_parameter_schema("custom", tmp_path)
+    accessor = getattr(lpm_params, accessor_name)
+
+    with pytest.warns(DeprecationWarning, match="removed in PyAges 2.0"):
+        actual = accessor(schema)
+
+    assert actual == getattr(schema, property_name)
 
 
 def test_explicit_domain_is_distinct_from_the_calibration_range() -> None:
@@ -133,13 +161,13 @@ def test_calibration_range_must_be_inside_the_formula_domain() -> None:
         )
 
 
-def test_load_params_returns_a_defensive_copy(tmp_path) -> None:
+def test_load_parameter_document_returns_a_defensive_copy(tmp_path) -> None:
     _write_params(tmp_path)
 
-    first = lpm_params.load_params("custom", tmp_path)
+    first = lpm_params.load_parameter_document("custom", tmp_path)
     first["parameters"][0]["init"] = 99.0
 
-    second = lpm_params.load_params("custom", tmp_path)
+    second = lpm_params.load_parameter_document("custom", tmp_path)
     assert second["parameters"][0]["init"] == 10.0
 
 
@@ -185,11 +213,17 @@ def test_resolved_paths_share_one_cached_parse(tmp_path, monkeypatch) -> None:
         return real_safe_load(stream)
 
     monkeypatch.setattr(lpm_params.yaml, "safe_load", counted_safe_load)
-    lpm_params.load_params("custom", tmp_path.resolve())
+    lpm_params.load_parameter_document("custom", tmp_path.resolve())
     monkeypatch.chdir(tmp_path.parent)
     lpm_params.load_parameter_schema("custom", Path(tmp_path.name))
 
     assert calls == 1
+
+
+def test_ambiguous_load_params_alias_is_absent() -> None:
+    assert "load_parameter_document" in lpm_params.__all__
+    assert "load_parameter_schema" in lpm_params.__all__
+    assert not hasattr(lpm_params, "load_params")
 
 
 @pytest.mark.parametrize(

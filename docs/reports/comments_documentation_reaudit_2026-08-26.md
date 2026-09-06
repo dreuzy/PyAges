@@ -40,7 +40,7 @@ comments.
 | --- | --- |
 | LPM generator | Standardized generated modules on `pyages/lpm/models/<name>.py`, generated a conventional `<Name>Lpm` class, and made the final verification instruction portable. |
 | LPM extension guide | Added complete Weibull and log-normal partial-first-moment implementations required by continuous convolution and replaced deprecated `np.trapz` guidance. |
-| Temporal configuration | Marked `lpm_models.list` and `lpm_models.directory` optional and documented their runtime fallbacks. |
+| Temporal configuration | Marked `lpm_models.models` and `lpm_models.directory` optional and documented their runtime fallbacks. |
 | Result layout | Replaced the fixed `ploemeur_temporal` namespace with configurable `<study_name>` and documented method-specific subdirectories. |
 | Result provenance | Replaced “exact environment” with the actual schema-2 contract: platform plus selected direct-dependency versions; constraint files remain the reproducible environment definition. |
 | Code documentation | Corrected Pydantic parameter types, path-resolution rules, a `Path` return type, stale synthetic-output prose, and public package/object docstrings. |

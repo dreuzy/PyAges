@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 QUALIFIED_PATHS = (
     "pyages/calibration/methods/mh",
     "pyages/calibration/problem.py",
-    "pyages/calibration/sampling_schedule.py",
+    "pyages/config/sampling_schedule.py",
     "pyages/calibration/target_signature.py",
     "pyages/config/models.py",
     "pyages/data_io/mh_results.py",

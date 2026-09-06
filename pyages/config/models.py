@@ -18,7 +18,6 @@ does not load scientific datasets or execute a calibration.
 
 from __future__ import annotations
 
-import builtins
 import math
 from pathlib import Path
 from typing import Literal, Self
@@ -29,10 +28,6 @@ from pydantic import (
     model_validator,
 )
 
-from pyages.calibration.sampling_schedule import (
-    maximum_split_ess,
-    strict_retained_sample_count,
-)
 from pyages.config._models_base import (
     BaseConfigModel as _BaseCfg,
 )
@@ -44,6 +39,10 @@ from pyages.config._models_base import (
 )
 from pyages.config._models_cli import CliCheckParams, CliRunParams, SystemCheckConfig
 from pyages.config.paths import validate_path_component
+from pyages.config.sampling_schedule import (
+    maximum_split_ess,
+    strict_retained_sample_count,
+)
 
 TEMPORAL_VALID_MODES = {"span", "successive"}
 
@@ -381,6 +380,8 @@ class LauncherResultsCfg(_BaseCfg):
     def _resolve_results_directory(cls, value: object, info):
         if value is None or (isinstance(value, str) and not value.strip()):
             return None
+        if not isinstance(value, (str, Path)):
+            raise ValueError("results.directory must be a path or null")
         return _resolve_path(Path(value), info)
 
     @field_validator("study_name")
@@ -528,23 +529,21 @@ class TemporalWorkflowCfg(_BaseCfg):
 class TemporalLpmModelsCfg(_BaseCfg):
     """LPM selection and optional parameter directory override."""
 
-    list: builtins.list[str] | None = None
+    models: list[str] | None = None
     directory: str | None = None
 
-    @field_validator("list")
+    @field_validator("models")
     @classmethod
-    def _validate_model_list(
-        cls, value: builtins.list[str] | None
-    ) -> builtins.list[str] | None:
+    def _validate_model_list(cls, value: list[str] | None) -> list[str] | None:
         if value is None:
             return None
         normalized = [model.strip() for model in value]
         if not normalized or any(not model for model in normalized):
-            raise ValueError("lpm_models.list must contain non-empty model names")
+            raise ValueError("lpm_models.models must contain non-empty model names")
         if len(normalized) != len(set(normalized)):
-            raise ValueError("lpm_models.list must not contain duplicate models")
+            raise ValueError("lpm_models.models must not contain duplicate models")
         return [
-            validate_path_component(model, label="lpm_models.list item")
+            validate_path_component(model, label="lpm_models.models item")
             for model in normalized
         ]
 

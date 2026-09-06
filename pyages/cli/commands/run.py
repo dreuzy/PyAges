@@ -184,7 +184,7 @@ def _apply_temporal_overrides(
     if data_file:
         data.setdefault("dataset", {})["file"] = str(data_file)
     if lpm:
-        data.setdefault("lpm_models", {})["list"] = [lpm]
+        data.setdefault("lpm_models", {})["models"] = [lpm]
     if mh_nsteps is not None:
         data.setdefault("calibration", {})["mh_nsteps"] = int(mh_nsteps)
 

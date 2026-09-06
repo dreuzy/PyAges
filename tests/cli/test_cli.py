@@ -167,7 +167,7 @@ def test_cli_run_dispatch_temporal(tmp_path, monkeypatch):
     assert called["verbose"] is False
     payload = called["payload"]
     assert payload["dataset"]["file"] == str(tmp_path / "data.txt")
-    assert payload["lpm_models"]["list"] == ["ig"]
+    assert payload["lpm_models"]["models"] == ["ig"]
     assert payload["calibration"]["mh_nsteps"] == 987
 
 
