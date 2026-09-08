@@ -38,6 +38,7 @@ from examples.natural.holten.holten_four_bin_plots import (
     plot_fraction_posteriors,
     plot_modeled_vs_observed,
 )
+from pyages._scalar_conversion import scalar_float
 from pyages.tracer.decay import rate_from_config
 
 BIN_DEFINITIONS = (
@@ -76,7 +77,7 @@ LOCAL_4BIN_TRACER_ORDER_WITH_HELIUM = ("3H", "3He_trit", "kr85", "39Ar")
 
 
 def _reference_year(prepared: PreparedHoltenCase) -> float:
-    return float(prepared.observed_aggregated["date"].median())
+    return scalar_float(prepared.observed_aggregated["date"].median())
 
 
 def tritium_parent_daughter(
@@ -695,13 +696,13 @@ def summarize_4bin_mh_posterior(samples: pd.DataFrame) -> pd.DataFrame:
         }
         for col in summary_cols:
             series = group[col].astype(float)
-            row[f"{col}_mean"] = float(series.mean())
-            row[f"{col}_std"] = float(series.std())
-            row[f"{col}_q10"] = float(series.quantile(0.10))
-            row[f"{col}_q25"] = float(series.quantile(0.25))
-            row[f"{col}_median"] = float(series.quantile(0.50))
-            row[f"{col}_q75"] = float(series.quantile(0.75))
-            row[f"{col}_q90"] = float(series.quantile(0.90))
+            row[f"{col}_mean"] = scalar_float(series.mean())
+            row[f"{col}_std"] = scalar_float(series.std())
+            row[f"{col}_q10"] = scalar_float(series.quantile(0.10))
+            row[f"{col}_q25"] = scalar_float(series.quantile(0.25))
+            row[f"{col}_median"] = scalar_float(series.quantile(0.50))
+            row[f"{col}_q75"] = scalar_float(series.quantile(0.75))
+            row[f"{col}_q90"] = scalar_float(series.quantile(0.90))
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -715,10 +716,10 @@ def compare_paper_vs_mh_4bin(
     for _, row in merged.iterrows():
         out = {"well_id": row["well_id"]}
         for frac in BIN_ORDER:
-            out[f"{frac}_paper"] = float(row[frac])
-            out[f"{frac}_posterior_median"] = float(row[f"{frac}_median"])
-            out[f"{frac}_posterior_q10"] = float(row[f"{frac}_q10"])
-            out[f"{frac}_posterior_q90"] = float(row[f"{frac}_q90"])
+            out[f"{frac}_paper"] = scalar_float(row[frac])
+            out[f"{frac}_posterior_median"] = scalar_float(row[f"{frac}_median"])
+            out[f"{frac}_posterior_q10"] = scalar_float(row[f"{frac}_q10"])
+            out[f"{frac}_posterior_q90"] = scalar_float(row[f"{frac}_q90"])
         rows.append(out)
     return pd.DataFrame(rows)
 

@@ -18,6 +18,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from pyages._scalar_conversion import scalar_float
+
 REPO_ROOT = Path(__file__).resolve().parents[5]
 STUDY_RESULTS = REPO_ROOT / "results" / "HYP-26-0172"
 SCENARIO_RE = re.compile(
@@ -86,8 +88,10 @@ def collect_statistics(root: Path) -> pd.DataFrame:
                 }
                 for column in ("p10", "p25", "p50", "p75", "p90", "mean"):
                     if column in samples:
-                        record[f"{column}_mean"] = float(samples[column].mean())
-                        record[f"{column}_std"] = float(samples[column].std(ddof=0))
+                        record[f"{column}_mean"] = scalar_float(samples[column].mean())
+                        record[f"{column}_std"] = scalar_float(
+                            samples[column].std(ddof=0)
+                        )
                 record.update(
                     experiment_id=run_dir.name,
                     scenario=output.parent.name,

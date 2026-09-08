@@ -15,6 +15,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from pyages._scalar_conversion import scalar_float
+
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RUN = ROOT / "results" / "article_non_ploemeur_final"
 TRACERLPM = ROOT / "validation" / "tracerlpm" / "benchmark"
@@ -81,9 +83,9 @@ def _tracerlpm_summary(run: Path) -> tuple[str, str]:
     summary = pd.DataFrame(
         {
             "metric": numeric.columns,
-            "median": [float(numeric[column].median()) for column in numeric],
-            "p95": [float(numeric[column].quantile(0.95)) for column in numeric],
-            "maximum": [float(numeric[column].max()) for column in numeric],
+            "median": [scalar_float(numeric[column].median()) for column in numeric],
+            "p95": [scalar_float(numeric[column].quantile(0.95)) for column in numeric],
+            "maximum": [scalar_float(numeric[column].max()) for column in numeric],
         }
     )
     main = f"Campagne appariée: {counts['cases']} cas; modèles {counts['models']}; niveaux de bruit {counts['noise']}.\n\n"

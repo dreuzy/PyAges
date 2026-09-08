@@ -43,6 +43,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from pyages._scalar_conversion import scalar_float, scalar_int
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.calibration.methods.mh.diagnostics import (
     ess as _ess,
@@ -629,8 +630,8 @@ def _diagnostics(
 
 def _prediction_grid(well: str) -> np.ndarray:
     frame = pd.read_table(_observation_path(well))
-    observed_start = float(frame["date"].min())
-    observed_end = float(frame["date"].max())
+    observed_start = scalar_float(frame["date"].min())
+    observed_end = scalar_float(frame["date"].max())
     smooth = np.linspace(observed_start, observed_end, 180)
     earlier_count = max(
         2,
@@ -658,7 +659,9 @@ def _predict_draws(case: Case, samples: pd.DataFrame) -> pd.DataFrame:
     # One complete samples row is consumed per realization. Never select
     # mu and t0 independently here or in any downstream figure/statistic.
     for draw, row in samples.reset_index(drop=True).iterrows():
-        model.p.update({"mu": float(row["mu"]), "shift": float(row["t0"])})
+        model.p.update(
+            {"mu": scalar_float(row["mu"]), "shift": scalar_float(row["t0"])}
+        )
         predicted = np.asarray(tracers.convolve(model), dtype=float)
         rows.extend(
             {
@@ -666,9 +669,9 @@ def _predict_draws(case: Case, samples: pd.DataFrame) -> pd.DataFrame:
                 "well": case.well,
                 "calibration": case.calibration,
                 "draw": draw,
-                "posterior_row": int(row["posterior_row"]),
-                "mu": float(row["mu"]),
-                "t0": float(row["t0"]),
+                "posterior_row": scalar_int(row["posterior_row"]),
+                "mu": scalar_float(row["mu"]),
+                "t0": scalar_float(row["t0"]),
                 "tracer": tracer,
                 "date": float(year),
                 "predicted_pptv": float(value),

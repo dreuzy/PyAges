@@ -30,6 +30,7 @@ from examples.natural.holten.holten_case import (
     load_yaml,
     tracer_yaml_path,
 )
+from pyages._scalar_conversion import scalar_float
 from pyages.tracer.decay import rate_from_config
 
 VALID_TRACERS = ("3H", "kr85", "39Ar")
@@ -361,10 +362,10 @@ def convert_3h_record(row: pd.Series) -> dict[str, Any]:
     """Convert one non-missing tritium observation to the PyAges schema."""
     return {
         "element": "3H",
-        "concentration": float(row["3H_TU"]),
-        "error": float(row["3H_err"]),
+        "concentration": scalar_float(row["3H_TU"]),
+        "error": scalar_float(row["3H_err"]),
         "unit": "TU",
-        "date": float(row["Date_decimal"]),
+        "date": scalar_float(row["Date_decimal"]),
     }
 
 
@@ -372,10 +373,10 @@ def convert_kr85_record(row: pd.Series) -> dict[str, Any]:
     """Convert one non-missing krypton-85 observation without changing units."""
     return {
         "element": "kr85",
-        "concentration": float(row["Kr85_dpm_ccKr"]),
-        "error": float(row["Kr85_err"]),
+        "concentration": scalar_float(row["Kr85_dpm_ccKr"]),
+        "error": scalar_float(row["Kr85_err"]),
         "unit": "dpm/ccKr",
-        "date": float(row["Date_decimal"]),
+        "date": scalar_float(row["Date_decimal"]),
     }
 
 
@@ -383,10 +384,10 @@ def convert_39ar_record(row: pd.Series) -> dict[str, Any]:
     """Convert one argon-39 observation from percent modern to a fraction."""
     return {
         "element": "39Ar",
-        "concentration": float(row["Ar39_pMC"]) / 100.0,
-        "error": float(row["Ar39_err"]) / 100.0,
+        "concentration": scalar_float(row["Ar39_pMC"]) / 100.0,
+        "error": scalar_float(row["Ar39_err"]) / 100.0,
         "unit": "fraction_modern",
-        "date": float(row["Date_decimal"]),
+        "date": scalar_float(row["Date_decimal"]),
     }
 
 
@@ -475,7 +476,7 @@ def build_helium_diagnostics(frame: pd.DataFrame) -> pd.DataFrame:
         records.append(
             {
                 "well_id": well_id,
-                "date": float(row["Date_decimal"]),
+                "date": scalar_float(row["Date_decimal"]),
                 "3H_TU": tritium,
                 "3H_err": tritium_err,
                 "3He_trit_TU": helium_trit,
@@ -537,7 +538,7 @@ def _convert_sampling_row(
             {
                 "well_id": well_id,
                 "element": element,
-                "raw_value": float(raw_value),
+                "raw_value": scalar_float(raw_value),
                 "raw_unit": raw_unit,
                 "converted_value": float(converted["concentration"]),
                 "converted_unit": converted["unit"],
@@ -703,7 +704,7 @@ def prepare_holten_inputs(config_path: Path | None = None) -> PreparedHoltenCase
 
     sampling_raw = read_sampling_table(context)
     selected = select_v1_wells(sampling_raw, context.selected_wells)
-    reference_year = float(selected["Date_decimal_exact"].median())
+    reference_year = scalar_float(selected["Date_decimal_exact"].median())
     tracer_histories = build_prepared_tracer_directory(
         context, reference_year=reference_year
     )

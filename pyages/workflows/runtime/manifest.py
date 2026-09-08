@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import errno
 import hashlib
+import importlib
 import json
 import os
 import shutil
@@ -35,11 +36,6 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, BinaryIO, Iterable, Iterator, Literal, Mapping
-
-if os.name == "nt":
-    import msvcrt
-else:
-    import fcntl
 
 from pyages import __version__
 from pyages.workflows.runtime._manifest_artifacts import (
@@ -89,6 +85,9 @@ from pyages.workflows.runtime._manifest_types import (
 from pyages.workflows.runtime._manifest_types import (
     new_result_run as _new_result_run,
 )
+
+msvcrt: Any | None = importlib.import_module("msvcrt") if os.name == "nt" else None
+fcntl: Any | None = importlib.import_module("fcntl") if os.name != "nt" else None
 
 RESULT_SCHEMA_VERSION = 2
 _PROMOTION_LOCK_FILENAME = ".pyages-promotion-v1.lock"
@@ -617,6 +616,8 @@ def _open_secure_promotion_lock(lock_path: Path) -> BinaryIO:
 
 def _acquire_windows_promotion_lock(stream: BinaryIO) -> None:
     """Retry Windows lock contention until the one-byte lock is acquired."""
+    if msvcrt is None:
+        raise RuntimeError("Windows file locking is unavailable on this platform")
     while True:
         stream.seek(0)
         try:
@@ -637,6 +638,8 @@ def _acquire_promotion_lock(stream: BinaryIO) -> None:
     if os.name == "nt":
         _acquire_windows_promotion_lock(stream)
     else:
+        if fcntl is None:
+            raise RuntimeError("POSIX file locking is unavailable on this platform")
         fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
 
 
@@ -644,8 +647,12 @@ def _release_promotion_lock(stream: BinaryIO) -> None:
     """Release a lock acquired by :func:`_acquire_promotion_lock`."""
     stream.seek(0)
     if os.name == "nt":
+        if msvcrt is None:
+            raise RuntimeError("Windows file locking is unavailable on this platform")
         msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
     else:
+        if fcntl is None:
+            raise RuntimeError("POSIX file locking is unavailable on this platform")
         fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 

@@ -40,6 +40,8 @@ import matplotlib
 import numpy as np
 import pandas as pd
 import scipy
+
+from pyages._scalar_conversion import scalar_float
 from scipy.stats import invgauss
 
 matplotlib.use("Agg")
@@ -510,11 +512,11 @@ def _full_series_passes(well: str, chains: np.ndarray) -> tuple[bool, dict[str, 
         and diagnostics[["bulk_ess", "tail_ess"]].min().min() >= MIN_ESS
     )
     payload = {
-        "t50_mean": float(new["t50"].mean()),
-        "t50_sd": float(new["t50"].std(ddof=1)),
-        "max_split_rhat": float(diagnostics["split_rhat"].max()),
-        "min_bulk_ess": float(diagnostics["bulk_ess"].min()),
-        "min_tail_ess": float(diagnostics["tail_ess"].min()),
+        "t50_mean": scalar_float(new["t50"].mean()),
+        "t50_sd": scalar_float(new["t50"].std(ddof=1)),
+        "max_split_rhat": scalar_float(diagnostics["split_rhat"].max()),
+        "min_bulk_ess": scalar_float(diagnostics["bulk_ess"].min()),
+        "min_tail_ess": scalar_float(diagnostics["tail_ess"].min()),
         "converged": converged,
     }
     return converged, payload

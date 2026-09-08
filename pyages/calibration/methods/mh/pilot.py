@@ -80,6 +80,10 @@ def pooled_within_chain_covariance(
             raise ValueError("pilot chains must use the same parameter dimension")
 
         centered = values - np.mean(values, axis=0)
+        if scatter is None:
+            raise AssertionError(
+                "parameter initialization must also initialize scatter"
+            )
         scatter += centered.T @ centered
         degrees_of_freedom += values.shape[0] - 1
 

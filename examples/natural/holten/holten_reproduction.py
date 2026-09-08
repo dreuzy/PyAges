@@ -45,6 +45,7 @@ from examples.natural.holten.holten_four_bin import (
     load_paper_4bin_fractions,
 )
 from examples.natural.holten.holten_prepare import prepare_holten_inputs
+from pyages._scalar_conversion import scalar_float
 from pyages.tracer.simple_tracers import SyntheticTracer
 from scripts.common.provenance import git_output
 from scripts.common.provenance import sha256_file as _sha256
@@ -103,7 +104,7 @@ def parent_daughter_response(
 
 
 def _reference_year(prepared: PreparedHoltenCase) -> float:
-    return float(prepared.observed_aggregated["date"].median())
+    return scalar_float(prepared.observed_aggregated["date"].median())
 
 
 def _tritium_configuration(
@@ -160,7 +161,7 @@ def build_coupled_tritium_tracers(
     knots = history["date"].to_numpy(dtype=float) + convention.vadose_years
     common = {
         "unit": "TU",
-        "datemin": float(history["date"].min()),
+        "datemin": scalar_float(history["date"].min()),
         "datemax": float(history["date"].max() + convention.vadose_years),
         "convolution_dates": knots,
     }
@@ -466,19 +467,19 @@ def summarize_samples(samples: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
         diag: dict[str, Any] = {
             "scenario": scenario,
             "well_id": well_id,
-            "acceptance_rate_min": float(
+            "acceptance_rate_min": scalar_float(
                 group.groupby("chain")["acceptance_rate"].last().min()
             ),
-            "acceptance_rate_max": float(
+            "acceptance_rate_max": scalar_float(
                 group.groupby("chain")["acceptance_rate"].last().max()
             ),
         }
         for name in (*BIN_ORDER, "chi2"):
             series = group[name].astype(float)
-            row[f"{name}_mean"] = float(series.mean())
-            row[f"{name}_q10"] = float(series.quantile(0.10))
-            row[f"{name}_median"] = float(series.quantile(0.50))
-            row[f"{name}_q90"] = float(series.quantile(0.90))
+            row[f"{name}_mean"] = scalar_float(series.mean())
+            row[f"{name}_q10"] = scalar_float(series.quantile(0.10))
+            row[f"{name}_median"] = scalar_float(series.quantile(0.50))
+            row[f"{name}_q90"] = scalar_float(series.quantile(0.90))
             pivot = (
                 group.pivot(index="chain", columns="step", values=name)
                 .sort_index()
@@ -508,7 +509,7 @@ def compare_fractions(
                         "scenario": scenario,
                         "well_id": well_id,
                         "fraction": fraction,
-                        "visser": float(reference[fraction]),
+                        "visser": scalar_float(reference[fraction]),
                         "optimizer": float(opt.loc[well_id, fraction]),
                         "posterior_q10": float(post.loc[well_id, f"{fraction}_q10"]),
                         "posterior_median": float(
@@ -591,7 +592,7 @@ def qualify_forward_conventions(
                 ),
                 "fraction_mae_vs_visser": float(np.mean(np.abs(differences))),
                 "chi2_rmse_vs_visser": float(np.sqrt(np.mean(chi2_diff * chi2_diff))),
-                "mean_fitted_chi2": float(fitted["chi2"].mean()),
+                "mean_fitted_chi2": scalar_float(fitted["chi2"].mean()),
             }
         )
     qualification = (

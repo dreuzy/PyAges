@@ -30,6 +30,7 @@ from examples.natural.holten.holten_case import (
     load_yaml,
     tracer_yaml_path,
 )
+from pyages._scalar_conversion import scalar_float
 from pyages.data_io.lpm_distribution import read_statistics
 from pyages.tracer.decay import rate_from_config
 
@@ -130,11 +131,11 @@ def build_article_reference_figures(
 def _history_summary(history: pd.DataFrame) -> dict[str, float]:
     conc = history["concentration"].astype(float)
     return {
-        "min": float(conc.min()),
-        "q05": float(conc.quantile(0.05)),
-        "median": float(conc.median()),
-        "q95": float(conc.quantile(0.95)),
-        "max": float(conc.max()),
+        "min": scalar_float(conc.min()),
+        "q05": scalar_float(conc.quantile(0.05)),
+        "median": scalar_float(conc.median()),
+        "q95": scalar_float(conc.quantile(0.95)),
+        "max": scalar_float(conc.max()),
     }
 
 
@@ -146,7 +147,7 @@ def build_reference_curve(
 ) -> pd.DataFrame:
     """Build the tracer response curve used to compare data and age end-members."""
     display = history.copy()
-    reference_year = float(observed["date"].median())
+    reference_year = scalar_float(observed["date"].median())
     yaml_path = tracer_yaml_path(prepared.context, tracer_name)
     tracer_cfg = load_yaml(yaml_path)
 
@@ -232,7 +233,7 @@ def _plot_value_range_position(
     y_positions = np.linspace(-0.14, 0.14, max(len(observed), 1))
     for y_pos, (_, row) in zip(y_positions, observed.iterrows(), strict=False):
         ax.scatter(
-            [float(row["concentration"])],
+            [scalar_float(row["concentration"])],
             [y_pos],
             s=70,
             color="#c13b31",
@@ -242,7 +243,7 @@ def _plot_value_range_position(
         )
         ax.annotate(
             f"{row['well_id']} ({row['concentration']:.2f})",
-            (float(row["concentration"]), y_pos),
+            (scalar_float(row["concentration"]), y_pos),
             textcoords="offset points",
             xytext=(6, 0),
             va="center",
@@ -586,7 +587,7 @@ def _bootstrap_modeled_value(
     if tracer in {"3H", "kr85"}:
         tracer_cfg = _load_tracer_cfg(prepared, tracer)
         history = prepared.tracer_histories[tracer]
-        recharge = _recharge_value_at_age(history, float(row["date"]), mid_age)
+        recharge = _recharge_value_at_age(history, scalar_float(row["date"]), mid_age)
         decay_rate = rate_from_config(tracer_cfg)
         assert decay_rate is not None
         return float(recharge * np.exp(-decay_rate * mid_age))
@@ -722,7 +723,7 @@ def build_reference_comparison_figures(
     x_positions = np.arange(len(REFERENCE_MODEL_COLUMNS))
     labels = [label for _, label in REFERENCE_MODEL_COLUMNS]
     for ax, (_, row) in zip(axes, reference.iterrows(), strict=False):
-        values = [float(row[column]) for column, _ in REFERENCE_MODEL_COLUMNS]
+        values = [scalar_float(row[column]) for column, _ in REFERENCE_MODEL_COLUMNS]
         ax.bar(x_positions, values, color="#5a7aa6")
         ax.set_xticks(x_positions, labels, rotation=45, ha="right")
         ax.set_title(f"Well {row['Well']}")

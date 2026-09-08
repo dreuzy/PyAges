@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 from pyages import __version__
+from pyages._scalar_conversion import scalar_float, scalar_int
 from scripts.common.provenance import git_output
 from scripts.common.provenance import sha256_file as sha256
 from scripts.common.structured_data import (
@@ -711,9 +712,9 @@ def _column(frame: pd.DataFrame, name: str) -> pd.Series:
 def _standard_diagnostic(path: Path, group: str, ess_column: str) -> dict[str, object]:
     frame = pd.read_csv(path)
     return {
-        "groups": int(frame[group].nunique()),
-        "max_split_rhat": float(frame["split_rhat"].max()),
-        "min_ess": float(frame[ess_column].min()),
+        "groups": scalar_int(frame[group].nunique()),
+        "max_split_rhat": scalar_float(frame["split_rhat"].max()),
+        "min_ess": scalar_float(frame[ess_column].min()),
         "all_converged": bool(_true_mask(_column(frame, "converged")).all()),
     }
 
@@ -776,9 +777,9 @@ def scientific_summary() -> dict[str, object]:
         ),
         "ploemeur_physical_ig": {
             "posterior_sets": len(ig_rows),
-            "max_split_rhat": float(ig["split_rhat"].max()),
-            "min_bulk_ess": float(ig["bulk_ess"].min()),
-            "min_tail_ess": float(ig["tail_ess"].min()),
+            "max_split_rhat": scalar_float(ig["split_rhat"].max()),
+            "min_bulk_ess": scalar_float(ig["bulk_ess"].min()),
+            "min_tail_ess": scalar_float(ig["tail_ess"].min()),
             "all_converged": bool(
                 (ig["split_rhat"] < 1.01).all()
                 and (ig["bulk_ess"] >= 300.0).all()

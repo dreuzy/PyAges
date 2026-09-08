@@ -40,6 +40,7 @@ from examples.natural.holten.holten_four_bin import (  # noqa: E402
     write_4bin_mh_outputs,
 )
 from examples.natural.holten.holten_prepare import prepare_holten_inputs  # noqa: E402
+from pyages._scalar_conversion import scalar_float  # noqa: E402
 from pyages.convolution import ConvolutionTracers  # noqa: E402
 from scripts.article.run_article_non_ploemeur import (  # noqa: E402
     DATE,
@@ -223,20 +224,20 @@ def _holten_long_comparison(h3: pd.DataFrame, h4: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for _, row in merged.iterrows():
         for fraction in BIN_ORDER:
-            paper = float(row[f"{fraction}_paper_h3"])
-            h3_median = float(row[f"{fraction}_posterior_median_h3"])
-            h4_median = float(row[f"{fraction}_posterior_median_h4"])
+            paper = scalar_float(row[f"{fraction}_paper_h3"])
+            h3_median = scalar_float(row[f"{fraction}_posterior_median_h3"])
+            h4_median = scalar_float(row[f"{fraction}_posterior_median_h4"])
             rows.append(
                 {
                     "well": row["well_id"],
                     "fraction": fraction,
                     "visser": paper,
                     "h3_median": h3_median,
-                    "h3_q10": float(row[f"{fraction}_posterior_q10_h3"]),
-                    "h3_q90": float(row[f"{fraction}_posterior_q90_h3"]),
+                    "h3_q10": scalar_float(row[f"{fraction}_posterior_q10_h3"]),
+                    "h3_q90": scalar_float(row[f"{fraction}_posterior_q90_h3"]),
                     "h4_median": h4_median,
-                    "h4_q10": float(row[f"{fraction}_posterior_q10_h4"]),
-                    "h4_q90": float(row[f"{fraction}_posterior_q90_h4"]),
+                    "h4_q10": scalar_float(row[f"{fraction}_posterior_q10_h4"]),
+                    "h4_q90": scalar_float(row[f"{fraction}_posterior_q90_h4"]),
                     "abs_error_h3": abs(h3_median - paper),
                     "abs_error_h4": abs(h4_median - paper),
                     "delta_error": abs(h4_median - paper) - abs(h3_median - paper),
@@ -409,7 +410,7 @@ def run_holten(output: Path) -> dict[str, Path]:
                 "observable_helium_visser": "tritiogenic 3He concentration",
                 "observable_helium_pyages_historical": "3He_trit_TU concentration",
                 "unit": "TU equivalent",
-                "uncertainty": float(row["3He_err"]),
+                "uncertainty": scalar_float(row["3He_err"]),
                 "uncertainty_provenance": source,
                 "equivalent": "yes",
                 "source_field": "visser_data.xlsx:sampling_data:3He_trit_TU",
@@ -557,7 +558,9 @@ def run_mcmc(output: Path) -> dict[str, Path]:
                         "thinning": MCMC_SKIP,
                         "stored_samples": len(frame),
                         "acceptance_rate": float(result_spec["acceptance_rate"]),
-                        "best_sqrt_J_data_over_m": float(frame["obj_function"].min()),
+                        "best_sqrt_J_data_over_m": scalar_float(
+                            frame["obj_function"].min()
+                        ),
                         "runtime_seconds": wall_seconds,
                         "mh_internal_runtime_seconds": mh.runtime_seconds,
                         "chain_file": str(chain_path.relative_to(ROOT)),

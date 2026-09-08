@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.lines import Line2D
 
+from pyages._scalar_conversion import scalar_float
 from pyages.reporting.plots._common import (
     OBSERVED_COLOR,
     _best_row,
@@ -97,7 +98,7 @@ def _plot_solution_objective_axis(
     if reference_params and x_name in reference_params and reference_row is not None:
         ax.scatter(
             float(reference_params[x_name]),
-            float(reference_row[objective_column]),
+            scalar_float(reference_row[objective_column]),
             marker="D",
             s=90,
             color=OBSERVED_COLOR,

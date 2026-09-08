@@ -32,6 +32,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from pyages._scalar_conversion import scalar_float  # noqa: E402
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig  # noqa: E402
 from pyages.calibration.methods.mh.proposals import (  # noqa: E402
     regularize_empirical_covariance,
@@ -984,10 +985,10 @@ def write_report(
             "Published-reference column selection",
         )
         published_display = _markdown(published_display_frame)
-        published_max_standardized = float(
+        published_max_standardized = scalar_float(
             published["abs_median_delta_over_published_sd"].max()
         )
-        published_max_summary_standardized = float(
+        published_max_summary_standardized = scalar_float(
             published["max_abs_summary_delta_over_published_sd"].max()
         )
     runtime = _require_frame(

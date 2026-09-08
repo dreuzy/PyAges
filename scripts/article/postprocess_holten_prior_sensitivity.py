@@ -27,6 +27,8 @@ import numpy as np
 import pandas as pd
 from matplotlib.ticker import PercentFormatter
 
+from pyages._scalar_conversion import scalar_float
+
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -186,8 +188,10 @@ def compare_age_fractions(
 
     for prior in ("baseline", "dirichlet"):
         sums = result.groupby("well", sort=False)[f"{prior}_median"].sum()
+        if not isinstance(sums, pd.Series):
+            raise ValueError("Expected one summed median per well")
         np.testing.assert_allclose(
-            sums.to_numpy(),
+            sums.to_numpy(dtype=float),
             np.ones(len(WELL_ORDER)),
             atol=MEDIAN_SUM_ATOL,
             rtol=0.0,
@@ -361,7 +365,7 @@ def validate_existing_change_of_variables_check(
     ].to_numpy(dtype=float)
     if not np.isfinite(values).all() or (values < 0.0).any():
         raise ValueError(f"{source} contains invalid numerical validation values")
-    if float(validation["relative_error"].max()) >= 1.0e-6:
+    if scalar_float(validation["relative_error"].max()) >= 1.0e-6:
         raise RuntimeError("Existing change-of-variables implementation check failed")
 
 
@@ -428,7 +432,7 @@ def _summary(
             "well": str(largest_row["well"]),
             "age_class": str(largest_row["age_class"]),
         },
-        "median_largest_age_class_change_by_well_percentage_points": float(
+        "median_largest_age_class_change_by_well_percentage_points": scalar_float(
             by_well["largest_age_class_change_percentage_points"].median()
         ),
         "largest_total_fraction_redistributed": {
@@ -440,7 +444,7 @@ def _summary(
             ),
             "well": str(redistributed_row["well"]),
         },
-        "median_total_fraction_redistributed_percentage_points": float(
+        "median_total_fraction_redistributed_percentage_points": scalar_float(
             by_well["total_redistributed_percentage_points"].median()
         ),
         "global_rms_standardized_residual": {

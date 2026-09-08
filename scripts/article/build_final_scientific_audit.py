@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from pyages._scalar_conversion import scalar_float
 from pyages.data_io.lpm_distribution import read_distribution
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -258,7 +259,9 @@ def publication_cases() -> pd.DataFrame:
                         diagnostics, experiment, case_key
                     )
                     < 0.05,
-                    "best_sqrt_J_data_over_m": float(frame["obj_function"].min()),
+                    "best_sqrt_J_data_over_m": scalar_float(
+                        frame["obj_function"].min()
+                    ),
                     "parameter_pairing_in_posterior": "preserved_by_row",
                     "parameter_pairing_in_prediction": (
                         "BROKEN_random_each"

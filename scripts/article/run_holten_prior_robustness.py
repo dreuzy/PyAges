@@ -50,6 +50,7 @@ from examples.natural.holten.holten_reproduction import (  # noqa: E402
     build_reproduction_endmembers,
     optimize_well,
 )
+from pyages._scalar_conversion import scalar_float  # noqa: E402
 from pyages.calibration.methods.mh.diagnostics import mcse_mean_from_ess  # noqa: E402
 from scripts.article.run_final_shifted_exponential import (  # noqa: E402
     _iact_ess,
@@ -186,7 +187,7 @@ def validate_jacobian(output: Path, n_points: int = 256) -> pd.DataFrame:
         )
     frame = pd.DataFrame(rows)
     frame.to_csv(output / "jacobian_validation.csv", index=False)
-    if float(frame["relative_error"].max()) >= 1.0e-6:
+    if scalar_float(frame["relative_error"].max()) >= 1.0e-6:
         raise RuntimeError("Finite-difference Jacobian validation failed")
     return frame
 
@@ -653,13 +654,17 @@ def global_metrics(
                 "rmse_standardized_residual": float(
                     np.sqrt(np.mean(local_residuals**2))
                 ),
-                "max_split_rhat": float(local_convergence["split_rhat"].max()),
-                "min_ess": float(local_convergence["ess_sum_chains"].min()),
-                "min_acceptance_rate": float(local_chains["acceptance_rate"].min()),
-                "median_acceptance_rate": float(
+                "max_split_rhat": scalar_float(local_convergence["split_rhat"].max()),
+                "min_ess": scalar_float(local_convergence["ess_sum_chains"].min()),
+                "min_acceptance_rate": scalar_float(
+                    local_chains["acceptance_rate"].min()
+                ),
+                "median_acceptance_rate": scalar_float(
                     local_chains["acceptance_rate"].median()
                 ),
-                "max_acceptance_rate": float(local_chains["acceptance_rate"].max()),
+                "max_acceptance_rate": scalar_float(
+                    local_chains["acceptance_rate"].max()
+                ),
             }
         )
         for well, local_group in local_convergence.groupby("well", sort=False):
@@ -674,8 +679,8 @@ def global_metrics(
                 {
                     "prior": prior,
                     "well": well,
-                    "max_split_rhat": float(local_group["split_rhat"].max()),
-                    "min_ess": float(local_group["ess_sum_chains"].min()),
+                    "max_split_rhat": scalar_float(local_group["split_rhat"].max()),
+                    "min_ess": scalar_float(local_group["ess_sum_chains"].min()),
                     "all_parameters_converged": bool(local_group["converged"].all()),
                     "min_acceptance_rate": float(acceptances.min()),
                     "median_acceptance_rate": float(acceptances.median()),
@@ -1043,7 +1048,9 @@ def write_manifest(
         },
         "validation": {
             "jacobian_points": len(jacobian),
-            "jacobian_max_relative_error": float(jacobian["relative_error"].max()),
+            "jacobian_max_relative_error": scalar_float(
+                jacobian["relative_error"].max()
+            ),
             "dirichlet_prior_sampling_acceptance": float(
                 prior_comparison.loc[
                     prior_comparison["prior"].str.startswith("dirichlet"),

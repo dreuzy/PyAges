@@ -32,6 +32,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from pyages.config.paths import DIRECTORY_TRACER_DATA
 from pyages.convolution import Convolution
+from pyages._scalar_conversion import scalar_float, scalar_int
 from pyages.data_io.lpm_distribution import read_distribution
 from pyages.lpm.models.inverse_gaussian import scipy_params_from_mean_std
 from pyages.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
@@ -211,7 +212,7 @@ def build_distribution_equivalence() -> tuple[pd.DataFrame, dict[str, float]]:
     for well in WELLS:
         source, selected = selected_historical_samples(well)
         for _, row in selected.iterrows():
-            a, s, shift = (float(row[name]) for name in ("mu", "sigma", "shift"))
+            a, s, shift = (scalar_float(row[name]) for name in ("mu", "sigma", "shift"))
             mean, sd = physical_parameters(a, s)
             new_a, new_s = scipy_params_from_mean_std(mean, sd)
             probabilities = np.array([1e-4, 0.01, 0.10, 0.25, 0.50, 0.75, 0.90])
@@ -235,7 +236,7 @@ def build_distribution_equivalence() -> tuple[pd.DataFrame, dict[str, float]]:
                     "well": well,
                     "sample_id": row["sample_id"],
                     "source_file": source.relative_to(REPO_ROOT).as_posix(),
-                    "archive_row": int(row["archive_row"]),
+                    "archive_row": scalar_int(row["archive_row"]),
                     "old_shape": a,
                     "old_scale": s,
                     "old_shift": shift,
@@ -259,9 +260,9 @@ def build_distribution_equivalence() -> tuple[pd.DataFrame, dict[str, float]]:
     frame = pd.DataFrame(rows)
     frame.to_csv(DIST_CSV, index=False)
     summary = {
-        "max_pdf_abs_error": float(frame["max_pdf_abs_error"].max()),
-        "max_cdf_abs_error": float(frame["max_cdf_abs_error"].max()),
-        "max_quantile_abs_error": float(frame["max_quantile_abs_error"].max()),
+        "max_pdf_abs_error": scalar_float(frame["max_pdf_abs_error"].max()),
+        "max_cdf_abs_error": scalar_float(frame["max_cdf_abs_error"].max()),
+        "max_quantile_abs_error": scalar_float(frame["max_quantile_abs_error"].max()),
         "max_t50_cdf_residual": max(cdf_residuals),
     }
     return frame, summary
@@ -278,7 +279,7 @@ def build_forward_equivalence() -> tuple[pd.DataFrame, dict[str, float]]:
         source, selected = selected_historical_samples(well)
         columns = concentration_columns(selected)
         for _, row in selected.iterrows():
-            a, s, shift = (float(row[name]) for name in ("mu", "sigma", "shift"))
+            a, s, shift = (scalar_float(row[name]) for name in ("mu", "sigma", "shift"))
             mean, sd = physical_parameters(a, s)
             model = InverseGaussianShiftedLpm(
                 mu=mean,
@@ -298,7 +299,7 @@ def build_forward_equivalence() -> tuple[pd.DataFrame, dict[str, float]]:
                         current_tracers[tracer_name], date=date
                     )
                 new_current_data = current_convolvers[key].convolve(model)
-                archived = float(row[archive_column])
+                archived = scalar_float(row[archive_column])
                 absolute = abs(new_value - old_value)
                 relative = absolute / max(abs(old_value), np.finfo(float).tiny)
                 rows.append(
@@ -327,11 +328,13 @@ def build_forward_equivalence() -> tuple[pd.DataFrame, dict[str, float]]:
     frame.to_csv(FORWARD_CSV, index=False)
     summary = {
         "rows": len(frame),
-        "max_abs_error": float(frame["abs_error"].max()),
-        "max_rel_error": float(frame["rel_error"].max()),
-        "median_rel_error": float(frame["rel_error"].median()),
-        "max_archive_reproduction_error": float(frame["old_archive_abs_error"].max()),
-        "max_current_data_effect": float(frame["current_data_effect_abs"].max()),
+        "max_abs_error": scalar_float(frame["abs_error"].max()),
+        "max_rel_error": scalar_float(frame["rel_error"].max()),
+        "median_rel_error": scalar_float(frame["rel_error"].median()),
+        "max_archive_reproduction_error": scalar_float(
+            frame["old_archive_abs_error"].max()
+        ),
+        "max_current_data_effect": scalar_float(frame["current_data_effect_abs"].max()),
     }
     return frame, summary
 
@@ -484,8 +487,8 @@ def data_audit() -> tuple[pd.DataFrame, dict[str, str]]:
                 "historical_rows_seen_by_loader": len(old_frame),
                 "current_rows": len(current),
                 "historical_datemin": old_tracer.datemin,
-                "current_datemin": float(current["date"].min()),
-                "max_common_numeric_difference": float(
+                "current_datemin": scalar_float(current["date"].min()),
+                "max_common_numeric_difference": scalar_float(
                     (common["concentration_old"] - common["concentration_current"])
                     .abs()
                     .max()
@@ -583,7 +586,7 @@ def f11_tracer_behavior_audit() -> pd.DataFrame:
                     raise AssertionError(
                         f"Expected one modeled column for observation {index}, got {columns}"
                     )
-                modeled.append(float(posterior[columns[0]].mean()))
+                modeled.append(scalar_float(posterior[columns[0]].mean()))
             comparison = observations.assign(modeled=modeled)
             for tracer, grouped in comparison.groupby("element"):
                 group = _require_frame(grouped, "tracer comparison group")

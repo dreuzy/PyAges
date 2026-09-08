@@ -17,6 +17,7 @@ Scientific plotting modules remain responsible for figure contents.
 
 from __future__ import annotations
 
+import importlib
 import os
 from dataclasses import dataclass
 from typing import Any
@@ -38,7 +39,7 @@ def configure_backend(force_inline: bool = False) -> bool:
         return False
 
     try:
-        from IPython.core.getipython import get_ipython
+        get_ipython = importlib.import_module("IPython.core.getipython").get_ipython
     except ImportError:
         ipy = None
     else:

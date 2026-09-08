@@ -27,6 +27,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from pyages._scalar_conversion import scalar_float
 from pyages.reporting.plots._common import (
     GRID_CMAP,
     OBSERVED_COLOR,
@@ -131,7 +132,7 @@ def _plot_summary_objective_axis(
     if reference_params and x_name in reference_params and reference_row is not None:
         ax.scatter(
             float(reference_params[x_name]),
-            float(reference_row[objective_column]),
+            scalar_float(reference_row[objective_column]),
             marker="D",
             s=90,
             color=OBSERVED_COLOR,

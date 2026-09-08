@@ -37,6 +37,7 @@ import yaml
 from numpy.polynomial.legendre import leggauss
 from scipy import integrate, stats
 
+from pyages._scalar_conversion import scalar_float, scalar_int
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
@@ -751,8 +752,8 @@ def _error_summary(frame: pd.DataFrame, label: str) -> dict[str, object]:
         "p95_rel_error": float(np.nanpercentile(relative, 95)),
         "p99_rel_error": float(np.nanpercentile(relative, 99)),
         "maximum_rel_error": float(np.nanmax(relative)),
-        "median_n_bins": float(frame["n_bins"].median()),
-        "maximum_n_bins": int(frame["n_bins"].max()),
+        "median_n_bins": scalar_float(frame["n_bins"].median()),
+        "maximum_n_bins": scalar_int(frame["n_bins"].max()),
         "worst_case": f"{worst['tracer']} | {worst['LPM']} | {worst['regime']}",
     }
 
@@ -1089,7 +1090,7 @@ def _summary_row(
     row["posterior_mean_transit_time_median"] = float(
         np.median(frame["mu"] + frame["shift"])
     )
-    row["sqrt_J_data_over_m_best"] = float(frame["obj_function"].min())
+    row["sqrt_J_data_over_m_best"] = scalar_float(frame["obj_function"].min())
     return row
 
 
