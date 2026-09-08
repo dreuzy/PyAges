@@ -45,6 +45,7 @@ from examples.natural.holten.holten_reproduction import (
     build_reproduction_endmembers,
     optimize_well,
 )
+from pyages.calibration.methods.mh.diagnostics import mcse_mean_from_ess
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from scripts.article.run_final_shifted_exponential import (
     _iact_ess,
@@ -52,7 +53,6 @@ from scripts.article.run_final_shifted_exponential import (
     _split_rhat,
     _summary,
 )
-from scripts.common.mcmc_diagnostics import mcse_mean
 from scripts.common.provenance import repository_provenance
 from scripts.common.provenance import sha256_file as _sha256
 from scripts.common.publication_plotting import (
@@ -342,7 +342,7 @@ def collect_diagnostics(
                     "steps_per_chain": steps,
                     "split_rhat": rhat,
                     "ess_sum_chains": total_ess,
-                    "mcse_mean": mcse_mean(pooled, total_ess),
+                    "mcse_mean": mcse_mean_from_ess(pooled, total_ess),
                     "iact_max_chain": float(max(iact_values)),
                     "converged": bool(rhat < 1.01 and total_ess >= 300.0),
                 }
@@ -360,7 +360,7 @@ def collect_diagnostics(
             )
             if diagnostic is None:
                 objective_ess = float(sum(_iact_ess(chain)[2] for chain in chains))
-                mean_mcse = mcse_mean(values, objective_ess)
+                mean_mcse = mcse_mean_from_ess(values, objective_ess)
             else:
                 objective_ess = diagnostic["ess_sum_chains"]
                 mean_mcse = diagnostic["mcse_mean"]

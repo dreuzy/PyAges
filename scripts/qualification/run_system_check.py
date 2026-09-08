@@ -168,7 +168,7 @@ class TestIntegration:
                 prior_option=True,
                 prior_type="parametric",
                 likelihood=True,
-                monitor=False,
+                record_trajectory=False,
             )
             calib_mh = MetropolisHastings(config=mh_config)
             calib = SyntheticRecoveryExperiment(

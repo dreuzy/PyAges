@@ -13,6 +13,7 @@ import pytest
 from sites.ploemeur.config.models import PloemeurCalibrationConfig
 from sites.ploemeur.observations import ploemeur as ploemeur_observations
 from sites.ploemeur.workflows import ploemeur_workflow
+from sites.ploemeur.workflows import single_run as ploemeur_single_run
 
 
 def test_parallel_worker_uses_headless_backend_and_closes_figures(monkeypatch):
@@ -92,7 +93,7 @@ def test_single_run_uses_current_mh_configuration_contract(tmp_path):
             "diagnostics": {"require_convergence": False},
         },
     )
-    runner = ploemeur_workflow.PloemeurSingleRun(
+    runner = ploemeur_single_run.PloemeurSingleRun(
         directory_results=tmp_path,
         well_date="F09_2005_2006",
         error_concentrations=0.2,
@@ -108,6 +109,7 @@ def test_single_run_uses_current_mh_configuration_contract(tmp_path):
     assert runner.chain_config.nsteps == 200
     assert runner.chain_config.seed == 12345
     assert runner.chain_config.prior_option is False
+    assert runner.chain_config.prior_type == "empirical"
     assert runner.run_config.chains == 4
     assert runner.run_config.pilot.enabled is True
     assert runner.run_config.diagnostics.require_convergence is False
@@ -128,7 +130,7 @@ def test_single_run_routes_all_managed_mh_stages_and_exports_pool(
             "diagnostics": {"require_convergence": False},
         },
     )
-    single_run = ploemeur_workflow.PloemeurSingleRun(
+    single_run = ploemeur_single_run.PloemeurSingleRun(
         directory_results=tmp_path,
         well_date="F09_2005_2006",
         error_concentrations=0.2,
@@ -144,7 +146,6 @@ def test_single_run_routes_all_managed_mh_stages_and_exports_pool(
     analyzed = []
     exported = []
     pooled = object()
-    record = SimpleNamespace(diagnostics=(), diagnostics_message=None)
 
     class Template:
         lpm = object()
@@ -165,33 +166,26 @@ def test_single_run_routes_all_managed_mh_stages_and_exports_pool(
         def prepare(self):
             return template
 
-    class ManagedRunner:
-        def __init__(self, chain_config, run_config):
-            assert chain_config is single_run.chain_config
-            assert run_config is single_run.run_config
+    def execute_mh_run(chain_config, run_config, directory, problem_builder):
+        assert chain_config is single_run.chain_config
+        assert run_config is single_run.run_config
+        assert directory == Path(single_run.output_directory) / "Metropolis_Hastings"
+        problem_builder(directory / "initialization")
+        problem_builder(directory / "pilot" / "chain_001")
+        problem_builder(directory / "chains" / "chain_001")
+        problem_builder(directory / "chains" / "chain_002")
+        return pooled
 
-        def run(self, factory):
-            factory("initialization", 0)
-            factory("pilot", 1)
-            factory("production", 1)
-            factory("production", 2)
-            return record
-
-    monkeypatch.setattr(ploemeur_workflow, "CalibrationProblem", Problem)
-    monkeypatch.setattr(ploemeur_workflow, "MetropolisHastingsRunner", ManagedRunner)
+    monkeypatch.setattr(ploemeur_single_run, "CalibrationProblem", Problem)
+    monkeypatch.setattr(ploemeur_single_run, "execute_mh_run", execute_mh_run)
     monkeypatch.setattr(
-        ploemeur_workflow,
-        "write_mh_run_result",
-        lambda actual_record, directory: pooled,
-    )
-    monkeypatch.setattr(
-        ploemeur_workflow,
+        ploemeur_single_run,
         "posterior_directory",
         lambda *args, **kwargs: tmp_path / "prior_distributions",
     )
-    monkeypatch.setattr(ploemeur_workflow, "write_histograms", lambda *args: None)
+    monkeypatch.setattr(ploemeur_single_run, "write_histograms", lambda *args: None)
     monkeypatch.setattr(
-        ploemeur_workflow,
+        ploemeur_single_run,
         "export_calibrated_chronicles",
         lambda *args, **kwargs: exported.append((args, kwargs)),
     )
@@ -229,7 +223,7 @@ def test_single_run_managed_multichain_smoke_end_to_end(monkeypatch, tmp_path):
             "diagnostics": {"require_convergence": False},
         },
     )
-    single_run = ploemeur_workflow.PloemeurSingleRun(
+    single_run = ploemeur_single_run.PloemeurSingleRun(
         directory_results=tmp_path / "results",
         well_date=well_date,
         error_concentrations=0.2,

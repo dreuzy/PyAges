@@ -8,8 +8,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from examples.natural.ploemeur_temporal import reproduction_diagnostics as frozen
+from examples.natural.ploemeur_temporal.article_reproduction import (
+    diagnostics as frozen,
+)
 from pyages.calibration.methods.mh import diagnostics as canonical
+
+
+def test_frozen_diagnostics_are_isolated_from_the_current_workflow_namespace() -> None:
+    assert frozen.__name__.endswith("article_reproduction.diagnostics")
 
 
 def test_frozen_and_canonical_diagnostics_agree_on_mixing_classification() -> None:

@@ -46,7 +46,7 @@ def _strategy_stub(
     strategy.lpm_types_by_well = {}
     strategy.folder = "test"
 
-    monkeypatch.setattr(workflow, "build_jobs", lambda *args: [("job",)])
+    monkeypatch.setattr(workflow.job_builder, "build_jobs", lambda *args: [("job",)])
 
     def record_directory(*args, **kwargs) -> None:
         directory = Path(kwargs["observation_directory"])

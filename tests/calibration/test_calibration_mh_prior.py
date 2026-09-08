@@ -29,7 +29,7 @@ def test_calibration_mh_prior_smoke(tmp_path: Path):
         thinning=5,
         prior_option=True,
         likelihood=False,
-        monitor=False,
+        record_trajectory=False,
         display_traj=False,
         display_text=False,
     )

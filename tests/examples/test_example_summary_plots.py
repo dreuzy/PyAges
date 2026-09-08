@@ -206,6 +206,29 @@ def test_model_space_rejects_duplicate_explicit_reference_keys() -> None:
         )
 
 
+def test_model_space_rejects_position_based_reference_matching() -> None:
+    observations = Concentrations.from_dataframe(
+        pd.DataFrame(
+            {
+                "element": ["cfc11", "cfc12"],
+                "concentration": [1.0, 2.0],
+                "error": [0.1, 0.1],
+                "unit": ["pptv", "pptv"],
+                "date": [2010.0, 2010.0],
+            }
+        )
+    )
+    references = observations.frame.assign(concentration=[10.0, 20.0])
+
+    with pytest.raises(ValueError, match="observation_key"):
+        plot_single_date_model_space(
+            observations,
+            pd.DataFrame({"cfc11@2010.0": [1.0], "cfc12@2010.0": [2.0]}),
+            {},
+            reference_concentrations=references,
+        )
+
+
 def test_model_space_prepares_each_posterior_once(monkeypatch) -> None:
     observations = Concentrations.from_dataframe(
         pd.DataFrame(
@@ -332,7 +355,7 @@ def test_plot_temporal_fit_comparison_smoke(tmp_path: Path) -> None:
         },
         lpm_name="exp_shifted",
         lpm_directory="data_core/data_lpm",
-        lpm_number=6,
+        posterior_draw_count=6,
         filename=out_path,
         title="Temporal fit comparison",
     )

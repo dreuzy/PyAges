@@ -556,10 +556,10 @@ def run_mcmc(output: Path) -> dict[str, Path]:
                         "burn_in_fraction": MCMC_BURN_IN,
                         "thinning": MCMC_SKIP,
                         "stored_samples": len(frame),
-                        "acceptance_rate": float(result_spec["success_rate"]),
+                        "acceptance_rate": float(result_spec["acceptance_rate"]),
                         "best_sqrt_J_data_over_m": float(frame["obj_function"].min()),
                         "runtime_seconds": wall_seconds,
-                        "mh_internal_runtime_seconds": float(mh.time_perform),
+                        "mh_internal_runtime_seconds": mh.runtime_seconds,
                         "chain_file": str(chain_path.relative_to(ROOT)),
                     }
                 )

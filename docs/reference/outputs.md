@@ -262,10 +262,8 @@ Those checks must be registered by a case-specific scientific protocol.
 `run_provenance.txt` is a key/value table containing the realized run seed plus
 the distinct initialization, pilot, and production seed for every
 chain. Each `chain_metadata.txt` records its production seed, initial parameter
-values, retained-row count, `acceptance_rate`, and runtime. The parameter table
-uses `nsteps`, `thinning`, `burn_in`, and `pilot_burn_in`; the former experimental
-`burn-in`, `pilot_burn-in`, and per-chain `success_rate` spellings are not
-written.
+values, retained-row count, `acceptance_rate`, and `runtime_seconds`. The
+parameter table uses `nsteps`, `thinning`, `burn_in`, and `pilot_burn_in`.
 
 `proposal_covariance.tsv` is a square labeled matrix in squared parameter
 units. It is the regularized, pooled within-chain covariance learned from all
@@ -317,7 +315,7 @@ mappings use their Python text representation.
 
 ### `results_calibration.txt`
 
-A headerless two-column key/value table. Simplex/FUQ writes `time_perform` plus
+A headerless two-column key/value table. Simplex/FUQ writes `runtime_seconds` plus
 aggregate optimizer run, iteration, evaluation, and convergence fields.
 
 For every managed MH run this file additionally records
@@ -325,9 +323,7 @@ For every managed MH run this file additionally records
 whether pooling was written, `mean_acceptance_rate`,
 `minimum_acceptance_rate`, `maximum_acceptance_rate`, summed pilot and
 production runtimes, `total_runtime_seconds`, and failed diagnostic counts.
-The redundant MH fields `success_rate` and `time_perform` are not written;
-`mean_acceptance_rate` and `total_runtime_seconds` are their unambiguous
-replacements. Summed sampler runtimes do not prove wall-clock parallelism.
+Summed sampler runtimes do not prove wall-clock parallelism.
 
 ### `lpm_dist_calibrated.txt`
 

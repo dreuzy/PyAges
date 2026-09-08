@@ -83,7 +83,7 @@ def _posterior_predictions(
     tracers: ConvolutionTracers,
     start_year: float,
     end_year: float,
-    lpm_number: int,
+    posterior_draw_count: int,
 ) -> dict[str, dict[str, TemporalPredictionSummary]]:
     """Convert posterior tables into summarized tracer histories.
 
@@ -100,7 +100,7 @@ def _posterior_predictions(
         distribution = LpmSampleTable(template, c_names=[])
         distribution.replace_frame(frame)
         lpms, _, _ = distribution.select(
-            count=lpm_number,
+            count=posterior_draw_count,
             resolution=1000,
         )
         predictions[label] = summarize_temporal_predictions(
@@ -319,13 +319,15 @@ def _prepare_temporal_tracers(
     return tracer_names, end_year, tracers
 
 
-def _validate_lpm_number(lpm_number: int) -> int:
+def _validate_posterior_draw_count(posterior_draw_count: int) -> int:
     """Return a positive model count or raise a user-facing error."""
-    if isinstance(lpm_number, bool) or not isinstance(lpm_number, int):
-        raise ValueError("lpm_number must be a positive integer")
-    if lpm_number <= 0:
-        raise ValueError("lpm_number must be a positive integer")
-    return lpm_number
+    if isinstance(posterior_draw_count, bool) or not isinstance(
+        posterior_draw_count, int
+    ):
+        raise ValueError("posterior_draw_count must be a positive integer")
+    if posterior_draw_count <= 0:
+        raise ValueError("posterior_draw_count must be a positive integer")
+    return posterior_draw_count
 
 
 def plot_temporal_fit_comparison(
@@ -333,7 +335,7 @@ def plot_temporal_fit_comparison(
     posterior_frames: Mapping[str, pd.DataFrame],
     lpm_name: str,
     lpm_directory: str | Path,
-    lpm_number: int = 40,
+    posterior_draw_count: int = 40,
     filename: str | Path | None = None,
     title: str | None = None,
     start_year: float = 1960,
@@ -349,7 +351,7 @@ def plot_temporal_fit_comparison(
     top, with optional dates highlighted consistently across all panels.
     """
     apply_example_style()
-    lpm_number = _validate_lpm_number(lpm_number)
+    posterior_draw_count = _validate_posterior_draw_count(posterior_draw_count)
     tracer_names, end_year, tracers = _prepare_temporal_tracers(observations)
     ncols = len(tracer_names) if len(tracer_names) <= 3 else 2
     nrows = ceil(max(len(tracer_names), 1) / ncols)
@@ -366,7 +368,7 @@ def plot_temporal_fit_comparison(
         tracers,
         start_year,
         end_year,
-        lpm_number,
+        posterior_draw_count,
     )
     legend_handles = _comparison_legend(bool(highlight_array.size), highlight_label)
     axes = list(axs.flatten())
@@ -413,7 +415,7 @@ def plot_temporal_fit_comparison(
 def plot_temporal_fit_summary(
     observations: Concentrations,
     lpm_results: LpmSampleTable,
-    lpm_number: int,
+    posterior_draw_count: int,
     filename: str | Path | None = None,
     title: str | None = None,
     start_year: float = 1960,
@@ -426,10 +428,10 @@ def plot_temporal_fit_summary(
     errors.  The nested bands separate typical variation from wider uncertainty.
     """
     apply_example_style()
-    lpm_number = _validate_lpm_number(lpm_number)
+    posterior_draw_count = _validate_posterior_draw_count(posterior_draw_count)
     tracer_names, end_year, tracers = _prepare_temporal_tracers(observations)
     lpm_list, _, _ = lpm_results.select(
-        count=lpm_number,
+        count=posterior_draw_count,
         resolution=1000,
     )
     if not lpm_list:

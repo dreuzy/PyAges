@@ -33,7 +33,7 @@ def test_study_matrix_validates():
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Validated 13 experiments" in result.stdout
+    assert "Validated 10 experiments" in result.stdout
 
 
 def test_study_configs_enable_managed_multichain_convergence():
@@ -141,6 +141,25 @@ def test_run_matrix_rejects_unsafe_profile():
         check=False,
     )
     assert result.returncode != 0
+
+
+def test_run_matrix_rejects_removed_mh_nsteps_alias():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            f"{MODULE_ROOT}.scripts.run_matrix",
+            "--mh-nsteps",
+            "100",
+        ],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "unrecognized arguments: --mh-nsteps 100" in result.stderr
 
 
 def test_run_all_sequences_simulation_postprocessing_and_validation(monkeypatch):

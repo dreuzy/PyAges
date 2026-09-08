@@ -266,7 +266,7 @@ def build_truth_aware_figures(
             observed,
             reachable_frame=reachable_frame,
             posterior_results=results_by_method,
-            reference_concentrations=true_frame,
+            reference_concentrations=Concentrations.from_dataframe(true_frame),
             reference_label="True synthetic model",
             filename=results_dir / "01_data_model_space.png",
             title=f"{case_label}: observations, prior reachable space and posterior samples",

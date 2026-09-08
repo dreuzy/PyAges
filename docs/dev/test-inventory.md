@@ -11,36 +11,36 @@ the complete core node-ID list.
 
 | Scope | Collected cases | Modules |
 |---|---|---|
-| Standard selection | 1670 | 130 |
+| Standard selection | 1671 | 130 |
 | Extensive opt-in | 16 | 9 |
-| Core including extensive | 1686 | 130 |
+| Core including extensive | 1687 | 130 |
 | TracerLPM validation | 65 | 9 |
-| All documented pytest scopes | 1751 | 139 |
+| All documented pytest scopes | 1752 | 139 |
 
 ## Cases by area
 
 | Area | Location | Primary type | Contract | CI scope | Modules | Cases |
 |---|---|---|---|---|---|---|
 | Repository-wide contracts | `tests/(root)/` | Contract / integration | Public API, metadata, manifests, paths, and repository documentation | Standard CI | 10 | 144 |
-| Calibration and inference | `tests/calibration/` | Unit / scientific | Objectives, priors, proposals, parameter grids, and calibration APIs | Standard CI; selected extensive cases | 25 | 368 |
+| Calibration and inference | `tests/calibration/` | Unit / scientific | Objectives, priors, proposals, parameter grids, and calibration APIs | Standard CI; selected extensive cases | 25 | 369 |
 | Command-line interface | `tests/cli/` | Contract / integration | Installed command behavior, validation, discovery, and user-facing errors | Standard CI and package smoke test | 6 | 61 |
 | Concentration handling | `tests/concentrations/` | Unit / data contract | Chronicle loading and concentration-series behavior | Standard CI | 3 | 56 |
 | Configuration | `tests/config/` | Unit / contract | Validated models, runtime options, and portable path resolution | Standard CI | 4 | 94 |
 | Convolution | `tests/convolution/` | Analytical / scientific | Concentration convolution, numerical identities, settings, and tracer coupling | Standard CI | 6 | 268 |
 | Input/output | `tests/data_io/` | Unit / data contract | LPM parameter parsing and serialization | Standard CI | 3 | 67 |
-| Examples and case studies | `tests/examples/` | Integration / golden | Runnable examples, helper contracts, reproduction modes, and accepted outputs | Standard CI | 16 | 53 |
+| Examples and case studies | `tests/examples/` | Integration / golden | Runnable examples, helper contracts, reproduction modes, and accepted outputs | Standard CI | 16 | 55 |
 | Lumped-parameter models | `tests/lpm/` | Analytical / unit / golden | Distributions, moments, mixtures, registries, parameters, and generated values | Standard CI | 15 | 272 |
-| Ploemeur field case | `tests/ploemeur/` | Field integration / golden | Preparation, configuration, reference convolution, paths, and workflow outputs | Standard CI; selected extensive cases | 8 | 63 |
-| Scientific orchestration | `tests/scripts/` | Integration / reproducibility | Article campaigns, qualification scripts, and reproducible execution support | Standard CI | 20 | 129 |
+| Ploemeur field case | `tests/ploemeur/` | Field integration / golden | Preparation, configuration, reference convolution, paths, and workflow outputs | Standard CI; selected extensive cases | 8 | 61 |
+| Scientific orchestration | `tests/scripts/` | Integration / reproducibility | Article campaigns, qualification scripts, and reproducible execution support | Standard CI | 20 | 128 |
 | Environmental tracers | `tests/tracer/` | Scientific unit / contract | Decay, distributed inputs, tracer configuration, and public tracer behavior | Standard CI | 5 | 53 |
-| Installed workflows | `tests/workflows/` | Integration / contract | Plotting runtime and single-date workflow behavior | Standard CI and package smoke test | 9 | 58 |
+| Installed workflows | `tests/workflows/` | Integration / contract | Plotting runtime and single-date workflow behavior | Standard CI and package smoke test | 9 | 59 |
 | TracerLPM cross-software validation | `validation/tracerlpm/` | Cross-software validation | Mappings, reference inputs, observations, pilots, comparisons, and summaries | TracerLPM validation job | 9 | 65 |
 
 ## Modules
 
 | Module | Type | Purpose | Cases | Extensive |
 |---|---|---|---|---|
-| `tests/calibration/test_calibration_mh.py` | Extensive scientific | Calibration Metropolis-Hastings within calibration and inference. | 18 | 4 |
+| `tests/calibration/test_calibration_mh.py` | Extensive scientific | Calibration Metropolis-Hastings within calibration and inference. | 19 | 4 |
 | `tests/calibration/test_calibration_mh_display.py` | Unit / scientific | Calibration Metropolis-Hastings display within calibration and inference. | 1 | 0 |
 | `tests/calibration/test_calibration_mh_initial_params.py` | Unit / scientific | Calibration Metropolis-Hastings initial params within calibration and inference. | 5 | 0 |
 | `tests/calibration/test_calibration_mh_prior.py` | Unit / scientific | Calibration Metropolis-Hastings prior within calibration and inference. | 1 | 0 |
@@ -89,7 +89,7 @@ the complete core node-ID list.
 | `tests/data_io/test_mh_results.py` | Unit / data contract | Metropolis-Hastings results within input/output. | 15 | 0 |
 | `tests/examples/test_albuquerque_helpers.py` | Integration / golden | Albuquerque helpers within examples and case studies. | 2 | 0 |
 | `tests/examples/test_albuquerque_shapefree_multichain_scientific.py` | Extensive scientific | Albuquerque shapefree multichain scientific within examples and case studies. | 1 | 1 |
-| `tests/examples/test_example_summary_plots.py` | Integration / golden | Example summary plots within examples and case studies. | 7 | 0 |
+| `tests/examples/test_example_summary_plots.py` | Integration / golden | Example summary plots within examples and case studies. | 8 | 0 |
 | `tests/examples/test_holten_golden.py` | Golden regression | Holten golden within examples and case studies. | 1 | 0 |
 | `tests/examples/test_holten_helium.py` | Integration / golden | Holten helium within examples and case studies. | 5 | 0 |
 | `tests/examples/test_holten_helpers.py` | Integration / golden | Holten helpers within examples and case studies. | 10 | 0 |
@@ -100,7 +100,7 @@ the complete core node-ID list.
 | `tests/examples/test_ploemeur_ig_shifted_prior_multichain_scientific.py` | Extensive scientific | Ploemeur inverse Gaussian shifted prior multichain scientific within examples and case studies. | 2 | 1 |
 | `tests/examples/test_ploemeur_multichain_scientific.py` | Extensive scientific | Ploemeur multichain scientific within examples and case studies. | 1 | 1 |
 | `tests/examples/test_ploemeur_temporal_multichain_scientific.py` | Extensive scientific | Ploemeur temporal multichain scientific within examples and case studies. | 2 | 1 |
-| `tests/examples/test_ploemeur_temporal_reproduction_diagnostics.py` | Integration / golden | Ploemeur temporal reproduction diagnostics within examples and case studies. | 2 | 0 |
+| `tests/examples/test_ploemeur_temporal_reproduction_diagnostics.py` | Integration / golden | Ploemeur temporal reproduction diagnostics within examples and case studies. | 3 | 0 |
 | `tests/examples/test_synthetic_recovery_multichain_scientific.py` | Extensive scientific | Synthetic recovery multichain scientific within examples and case studies. | 1 | 1 |
 | `tests/examples/test_synthetic_recovery_runner.py` | Integration / golden | Synthetic recovery runner within examples and case studies. | 1 | 0 |
 | `tests/lpm/test_continuous_partial_moments.py` | Analytical / unit / golden | Continuous partial moments within lumped-parameter models. | 25 | 0 |
@@ -118,8 +118,8 @@ the complete core node-ID list.
 | `tests/lpm/test_posterior_row_pairing.py` | Analytical / unit / golden | Posterior row pairing within lumped-parameter models. | 1 | 0 |
 | `tests/lpm/test_sample_diagnostics_plotting.py` | Analytical / unit / golden | Sample diagnostics plotting within lumped-parameter models. | 5 | 0 |
 | `tests/lpm/test_shapefree_n_oldbin.py` | Analytical / unit / golden | Shapefree n oldbin within lumped-parameter models. | 5 | 0 |
-| `tests/ploemeur/test_hyp_26_0172_study.py` | Field integration / golden | Hyp 26 0172 study within ploemeur field case. | 12 | 0 |
-| `tests/ploemeur/test_ploemeur_config.py` | Field integration / golden | Ploemeur config within ploemeur field case. | 29 | 0 |
+| `tests/ploemeur/test_hyp_26_0172_study.py` | Field integration / golden | Hyp 26 0172 study within ploemeur field case. | 13 | 0 |
+| `tests/ploemeur/test_ploemeur_config.py` | Field integration / golden | Ploemeur config within ploemeur field case. | 26 | 0 |
 | `tests/ploemeur/test_ploemeur_convolution_reference.py` | Field integration / golden | Ploemeur convolution reference within ploemeur field case. | 6 | 0 |
 | `tests/ploemeur/test_ploemeur_f09_workflow_golden.py` | Extensive scientific | Ploemeur F09 workflow golden within ploemeur field case. | 1 | 1 |
 | `tests/ploemeur/test_ploemeur_temporal_golden.py` | Golden regression | Ploemeur temporal golden within ploemeur field case. | 1 | 0 |
@@ -127,7 +127,7 @@ the complete core node-ID list.
 | `tests/ploemeur/test_ploemeur_workflow_paths.py` | Field integration / golden | Ploemeur workflow paths within ploemeur field case. | 4 | 0 |
 | `tests/ploemeur/test_prepare_observations.py` | Field integration / golden | Prepare observations within ploemeur field case. | 4 | 0 |
 | `tests/scripts/article/test_article_campaign.py` | Integration / reproducibility | Article campaign within scientific orchestration. | 16 | 0 |
-| `tests/scripts/article/test_article_support.py` | Integration / reproducibility | Article support within scientific orchestration. | 20 | 0 |
+| `tests/scripts/article/test_article_support.py` | Integration / reproducibility | Article support within scientific orchestration. | 19 | 0 |
 | `tests/scripts/article/test_holten_prior_robustness.py` | Integration / reproducibility | Holten prior robustness within scientific orchestration. | 3 | 0 |
 | `tests/scripts/article/test_ploemeur_shifted_exponential_final.py` | Integration / reproducibility | Ploemeur shifted exponential final within scientific orchestration. | 1 | 0 |
 | `tests/scripts/article/test_ploemeur_targeted_ig_reproduction.py` | Integration / reproducibility | Ploemeur targeted inverse Gaussian reproduction within scientific orchestration. | 1 | 0 |
@@ -162,7 +162,7 @@ the complete core node-ID list.
 | `tests/tracer/test_tracer_protocols.py` | Scientific unit / contract | Tracer protocols within environmental tracers. | 2 | 0 |
 | `tests/tracer/test_tracer_root.py` | Scientific unit / contract | Tracer root within environmental tracers. | 27 | 0 |
 | `tests/workflows/test_reporting_chronicles.py` | Integration / contract | Reporting chronicles within installed workflows. | 1 | 0 |
-| `tests/workflows/test_runtime_mh.py` | Integration / contract | Runtime Metropolis-Hastings within installed workflows. | 12 | 0 |
+| `tests/workflows/test_runtime_mh.py` | Integration / contract | Runtime Metropolis-Hastings within installed workflows. | 13 | 0 |
 | `tests/workflows/test_runtime_plotting.py` | Integration / contract | Runtime plotting within installed workflows. | 1 | 0 |
 | `tests/workflows/test_runtime_plotting_additional.py` | Integration / contract | Runtime plotting additional within installed workflows. | 5 | 0 |
 | `tests/workflows/test_single_date_components.py` | Integration / contract | Single date components within installed workflows. | 15 | 0 |

@@ -274,20 +274,37 @@ def mcse_mean(values: np.ndarray, effective_sample_size: float | None = None) ->
     ):
         raise ValueError("effective_sample_size must be positive and finite")
 
+    if float(np.std(draws, ddof=1)) == 0.0:
+        return 0.0
+    effective = ess(draws) if effective_sample_size is None else effective_sample_size
+    return mcse_mean_from_ess(draws, effective)
+
+
+def mcse_mean_from_ess(values: np.ndarray, effective_sample_size: float) -> float:
+    r"""Estimate a mean's Monte Carlo error from retained draws and their ESS.
+
+    This is the explicit pooled-draw variant of :func:`mcse_mean`. It accepts
+    an array of any shape because the caller has already preserved chain
+    identity while calculating ``effective_sample_size``. The values are
+    pooled only to estimate their sample standard deviation.
+    """
+    draws = np.asarray(values, dtype=float).reshape(-1)
+    if draws.size < 2 or not np.all(np.isfinite(draws)):
+        raise ValueError("values must contain at least two finite retained draws")
+    if not math.isfinite(effective_sample_size) or effective_sample_size <= 0.0:
+        raise ValueError("effective_sample_size must be positive and finite")
+
     sample_sd = float(np.std(draws, ddof=1))
     if sample_sd == 0.0:
         return 0.0
-
-    effective = ess(draws) if effective_sample_size is None else effective_sample_size
-    if not math.isfinite(effective) or effective <= 0.0:
-        raise ValueError("effective_sample_size must be positive and finite")
-    return float(sample_sd / math.sqrt(effective))
+    return float(sample_sd / math.sqrt(effective_sample_size))
 
 
 __all__ = [
     "bulk_ess",
     "ess",
     "mcse_mean",
+    "mcse_mean_from_ess",
     "rank_normalize",
     "split_chains",
     "split_rhat",

@@ -29,7 +29,7 @@ from matplotlib.tri import TriAnalyzer, Triangulation
 from matplotlib.typing import ColorType
 
 from pyages.concentrations._labels import pretty_tracer_name
-from pyages.concentrations.schema import OBSERVATION_KEY_COLUMN, observation_key
+from pyages.concentrations.schema import OBSERVATION_KEY_COLUMN
 
 DEFAULT_METHOD_COLORS = {
     "Metropolis_Hastings": "#1f77b4",
@@ -55,6 +55,18 @@ class _FrameProvider(Protocol):
 
 
 type FrameSource = pd.DataFrame | _FrameProvider
+
+
+@runtime_checkable
+class _ObservationReference(_FrameProvider, Protocol):
+    """Reference concentrations able to identify every observation row."""
+
+    def observation_keys(self) -> list[str]:
+        """Return stable observation identifiers in frame order."""
+        ...
+
+
+type ReferenceConcentrationSource = pd.DataFrame | _ObservationReference
 
 
 def apply_example_style() -> None:
@@ -196,19 +208,15 @@ def _plot_interpolated_objective_surface(ax, x, y, values, vmin: float, vmax: fl
 
 
 def _reference_concentration_lookup(
-    reference_concentrations: FrameSource | None,
+    reference_concentrations: ReferenceConcentrationSource | None,
 ) -> pd.Series | None:
-    """Index reference rows by explicit or position-derived observation keys."""
+    """Index reference rows by explicit, stable observation keys."""
     if reference_concentrations is None:
         return None
     frame = _ensure_frame(reference_concentrations)
-    required = {"concentration"}
-    if OBSERVATION_KEY_COLUMN not in frame.columns:
-        required.update(("element", "date"))
-    if not required.issubset(frame.columns):
+    if "concentration" not in frame.columns:
         raise ValueError(
-            "reference_concentrations must contain 'concentration' and either "
-            "'observation_key' or both 'element' and 'date' columns"
+            "reference_concentrations must contain one 'concentration' column"
         )
     if frame.columns.duplicated().any():
         raise ValueError("reference_concentrations must contain unique columns")
@@ -217,7 +225,12 @@ def _reference_concentration_lookup(
         raise ValueError(
             "reference_concentrations must contain one concentration column"
         )
-    if OBSERVATION_KEY_COLUMN in frame.columns:
+    if isinstance(reference_concentrations, pd.DataFrame):
+        if OBSERVATION_KEY_COLUMN not in frame.columns:
+            raise ValueError(
+                "reference concentration DataFrames must contain an "
+                "'observation_key' column"
+            )
         explicit_keys = frame[OBSERVATION_KEY_COLUMN]
         if (
             not isinstance(explicit_keys, pd.Series)
@@ -230,22 +243,11 @@ def _reference_concentration_lookup(
             )
         keys = explicit_keys.str.strip().tolist()
     else:
-        elements = frame["element"]
-        dates = frame["date"]
-        if not isinstance(elements, pd.Series) or not isinstance(dates, pd.Series):
+        keys = reference_concentrations.observation_keys()
+        if len(keys) != len(frame):
             raise ValueError(
-                "reference_concentrations must contain one element and one date column"
+                "reference observation keys must match the concentration row count"
             )
-        keys = [
-            observation_key(str(element), float(date), index)
-            for index, (element, date) in enumerate(
-                zip(
-                    elements.to_numpy(copy=False),
-                    dates.to_numpy(copy=False),
-                    strict=True,
-                )
-            )
-        ]
     if pd.Index(keys).has_duplicates:
         raise ValueError("reference observation_key values must be unique")
     return pd.Series(

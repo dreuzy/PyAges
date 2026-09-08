@@ -8,6 +8,8 @@ Use this guide by task:
 - {doc}`tutorial` performs a first run and explains what was produced.
 - {doc}`getting-started` installs PyAges and runs a minimal calibration.
 - {doc}`configuration` documents the YAML inputs.
+- {doc}`migrating-to-2.0` gives a field-by-field, scientifically cautious
+  migration procedure for PyAges 1.2 and older configurations.
 - {doc}`concentrations` defines the observation-table schema and validation.
 - {doc}`convolution` explains direct forward calculations, finite histories,
   diagnostics, batches, and numerical controls.
@@ -41,6 +43,7 @@ tutorial
 getting-started
 running-examples
 configuration
+migrating-to-2.0
 concentrations
 convolution
 calibration

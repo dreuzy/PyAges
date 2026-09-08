@@ -62,7 +62,7 @@ class MyMethod:
     def __init__(self, tolerance: float = 1e-6) -> None:
         self.tolerance = tolerance
         self.evaluations = 0
-        self.time_perform = 0.0
+        self.runtime_seconds = 0.0
         self.problem = None
 
     def run(self, problem) -> LpmSampleTable:
@@ -90,7 +90,7 @@ class MyMethod:
             concentrations=modeled,
             param_in_bounds=lpm.param_within_calibration_range_array(parameters),
         )
-        self.time_perform = perf_counter() - started
+        self.runtime_seconds = perf_counter() - started
         return results.add_moments()
 
     def write_parameters(self, file_name: str | Path) -> None:
@@ -102,7 +102,7 @@ class MyMethod:
     def write_results(self, file_name: str | Path) -> None:
         write_key_values(
             file_name,
-            {"time_perform": self.time_perform, "evaluations": self.evaluations},
+            {"runtime_seconds": self.runtime_seconds, "evaluations": self.evaluations},
         )
 ```
 

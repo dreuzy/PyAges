@@ -39,4 +39,5 @@ pyages-architecture-mh-audit-2026-09-01
 code_quality_audit_2026-09-02
 refactoring_2_0_iteration_2026-09-07
 simplification_inheritance_aliases_2026-09-08
+release_readiness_2_0_2026-09-08
 ```

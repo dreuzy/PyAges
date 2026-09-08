@@ -32,6 +32,16 @@ PRIOR_MODES = ["full", "prior_only"]
 REACHCONC_TRACERS = ["cfc11", "cfc12", "cfc113"]
 
 
+def test_mh_exposes_only_current_run_metric_names() -> None:
+    method = MetropolisHastings(MHConfig())
+
+    assert method.acceptance_rate == 0.0
+    assert method.runtime_seconds == 0.0
+    assert method.result_metadata() == {"acceptance_rate": 0.0}
+    assert not hasattr(method, "success_rate")
+    assert not hasattr(method, "time_perform")
+
+
 def _golden_path() -> Path:
     # Golden values for MH calibration
     return test_paths.repo_root() / "tests" / "golden" / "calibration_mh_values.json"
@@ -57,7 +67,7 @@ def _run_mh_one_case(
         prior_option=True,
         prior_type="parametric",
         likelihood=not prior_only,
-        monitor=False,
+        record_trajectory=False,
         display_traj=False,
         display_text=False,
     )
@@ -196,7 +206,7 @@ def test_calibration_mh_extensive(lpm_type, tmp_path):
         prior_option=True,
         prior_type="parametric",
         likelihood=True,
-        monitor=False,
+        record_trajectory=False,
         display_traj=False,
         display_text=False,
     )

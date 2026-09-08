@@ -169,7 +169,6 @@ def test_repository_scripts_are_grouped_by_responsibility():
         "common": {
             "example_case_utils.py",
             "example_single_date_utils.py",
-            "mcmc_diagnostics.py",
             "provenance.py",
             "publication_plotting.py",
             "reporting.py",

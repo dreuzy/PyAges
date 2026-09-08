@@ -119,21 +119,21 @@ def export_concentration_chronicles(
 
             dist = read_distribution(distribution_file)
             array_resolution = 1000
-            lpm_number = 10
+            posterior_draw_count = 10
 
             # The selector supplies a fixed default random seed, keeping
             # repeated exports of the same result table reproducible.
             lpm_list, pdf, lpm_statistics = select_model_realizations(
                 lpm,
                 dist,
-                count=lpm_number,
+                count=posterior_draw_count,
                 resolution=array_resolution,
             )
 
             if plot:
                 fig, axs = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
                 chronicle = ConcentrationChronicle(observations=observations)
-                effective_stride = plot_stride or max(lpm_number // 10, 1)
+                effective_stride = plot_stride or max(posterior_draw_count // 10, 1)
                 final_year = (
                     end_year
                     if end_year is not None
@@ -169,7 +169,7 @@ def export_calibrated_chronicles(
     lpm_results: LpmSampleTable,
     method: str,
     display: DisplayOptions,
-    lpm_number: int,
+    posterior_draw_count: int,
 ) -> None:
     """
     Display tracer chronologies (data + model realizations) and export tables.
@@ -184,17 +184,19 @@ def export_calibrated_chronicles(
         Label used for output folder/filenames.
     display : DisplayOptions
         Display options (save/close behavior).
-    lpm_number : int
+    posterior_draw_count : int
         Number of LPM realizations to sample.
 
     Figures
     -------
     One figure containing tracer subplots.
     """
-    if isinstance(lpm_number, bool) or not isinstance(lpm_number, int):
-        raise TypeError("lpm_number must be an integer")
-    if lpm_number < 1:
-        raise ValueError("lpm_number must be at least 1")
+    if isinstance(posterior_draw_count, bool) or not isinstance(
+        posterior_draw_count, int
+    ):
+        raise TypeError("posterior_draw_count must be an integer")
+    if posterior_draw_count < 1:
+        raise ValueError("posterior_draw_count must be at least 1")
     if display.directory is None:
         raise ValueError("display.directory must be configured for export")
     output_directory = Path(display.directory) / method
@@ -211,7 +213,7 @@ def export_calibrated_chronicles(
     # Selection is reproducible by default and returns independent model copies,
     # so convolution cannot mutate the stored calibration samples.
     lpm_list, pdf, lpm_statistics = lpm_results.select(
-        count=lpm_number,
+        count=posterior_draw_count,
         resolution=1000,
     )
     if not lpm_list:

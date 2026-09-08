@@ -132,7 +132,7 @@ def test_run_mh_builds_fresh_stage_problems_and_pools_exploratory_run(
     )
     chain_config = MHConfig(nsteps=100, burn_in=0.2, thinning=1)
 
-    result = runtime_mh._run_mh(
+    result = runtime_mh.execute_mh_run(
         chain_config,
         runtime_mh.build_mh_run_config(config),
         tmp_path,
@@ -178,7 +178,7 @@ def test_run_mh_raises_only_after_failed_run_is_serialized(
     )
 
     with pytest.raises(MHConvergenceError, match=r"mu.*preserved") as caught:
-        runtime_mh._run_mh(
+        runtime_mh.execute_mh_run(
             MHConfig(nsteps=100, burn_in=0.2, thinning=1),
             runtime_mh.build_mh_run_config(config),
             tmp_path,
@@ -212,10 +212,31 @@ def test_build_mh_config_translates_single_date_controls() -> None:
     assert translated.seed == 456
     assert translated.prior_option is True
     assert translated.likelihood is False
-    # Plotting requires a retained trajectory, which the runtime enables
-    # internally without exposing a second public workflow switch.
-    assert translated.monitor is True
+    # Displaying a trajectory records it internally without exposing a second
+    # workflow switch.
+    assert translated.record_trajectory is False
     assert translated.display_traj is True
+
+
+def test_build_mh_config_applies_an_explicit_empirical_prior_source() -> None:
+    translated = runtime_mh.build_mh_config(
+        MetropolisHastingsCfg(
+            nsteps=20,
+            thinning=1,
+            seed=456,
+            prior_option=False,
+            likelihood=True,
+        ),
+        prior_option=True,
+        likelihood=False,
+        prior_type="empirical",
+        prior_file="prior_samples.txt",
+    )
+
+    assert translated.prior_option is True
+    assert translated.likelihood is False
+    assert translated.prior_type == "empirical"
+    assert translated.prior_file == "prior_samples.txt"
 
 
 def test_run_mh_calibration_routes_one_chain_through_the_common_runner(

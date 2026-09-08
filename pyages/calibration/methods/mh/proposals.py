@@ -51,8 +51,8 @@ class ComponentwiseRandomWalk:
     """Propose a separate Gaussian change for every model parameter.
 
     Each parameter has its own fixed step size. The class draws the random
-    changes one at a time to preserve the historical results produced by a
-    given seed, independently of NumPy's multivariate Gaussian implementation.
+    changes one at a time so a recorded seed defines an explicit scalar draw
+    order, independently of NumPy's multivariate Gaussian implementation.
     """
 
     def __init__(self, source: str, fraction: float) -> None:

@@ -8,6 +8,25 @@ from __future__ import annotations
 
 from sites.ploemeur.config.models import WellDateConfig
 
+TIME_SPAN_AND_PRIOR_MODES = frozenset(
+    {
+        "cumulative",
+        "successive",
+        "span_full",
+        "successive_with_prior",
+        "span_with_prior",
+    }
+)
+
+
+def validate_time_span_and_prior_mode(mode: str) -> None:
+    """Reject a job whose temporal/prior mode is not part of the current model."""
+    if mode not in TIME_SPAN_AND_PRIOR_MODES:
+        allowed = ", ".join(sorted(TIME_SPAN_AND_PRIOR_MODES))
+        raise ValueError(
+            f"Unknown time_span_and_prior mode '{mode}'. Allowed: {allowed}."
+        )
+
 
 def results_root_name(
     folder: str, conc_error_rel: float, time_span_and_prior_mode: str

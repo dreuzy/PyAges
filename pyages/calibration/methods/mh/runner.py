@@ -87,8 +87,8 @@ class MetropolisHastingsRunner:
     evaluation mutates the LPM state and would couple otherwise independent
     chains.
 
-    ``monitor`` and ``display_traj`` apply independently to every production
-    chain. The problem factory should therefore give each stage and chain its
+    ``record_trajectory`` and ``display_traj`` apply independently to every
+    production chain. The problem factory should therefore give each stage and chain its
     own output directory, as the standard workflow integration does.
 
     ``display_text`` remains available and logs one summary per sampler,
@@ -247,8 +247,8 @@ class MetropolisHastingsRunner:
             final_states.append(
                 {name: float(matrix[-1, index]) for index, name in enumerate(names)}
             )
-            acceptance_rates.append(sampler.success_rate)
-            runtimes.append(float(sampler.time_perform))
+            acceptance_rates.append(sampler.acceptance_rate)
+            runtimes.append(sampler.runtime_seconds)
             proposal_snapshots.append(sampler.resolved_proposal_metadata)
             prior_snapshots.append(sampler.resolved_prior_metadata)
 
@@ -288,7 +288,7 @@ class MetropolisHastingsRunner:
                 thinning=1,
                 seed=seed,
                 initial_params=dict(start),
-                monitor=False,
+                record_trajectory=False,
                 display_traj=False,
                 proposal_kind="componentwise",
                 proposal_scales=None,
@@ -395,8 +395,8 @@ class MetropolisHastingsRunner:
                     seed=seed,
                     initial_params=start,
                     samples=samples,
-                    acceptance_rate=sampler.success_rate,
-                    runtime_seconds=float(sampler.time_perform),
+                    acceptance_rate=sampler.acceptance_rate,
+                    runtime_seconds=sampler.runtime_seconds,
                 )
             )
         return (

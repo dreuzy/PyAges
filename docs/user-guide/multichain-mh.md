@@ -156,7 +156,7 @@ chain_config = MHConfig(
     thinning=1,
     prior_option=False,
     likelihood=True,
-    monitor=False,
+    record_trajectory=False,
     display_traj=False,
     componentwise_source="model",
 )

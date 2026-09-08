@@ -7,7 +7,7 @@
 
 The configuration covers the number of transitions, burn-in and thinning,
 random seed, prior and likelihood choices, starting parameters, proposal type,
-and optional monitoring. Values are validated and copied when the object is
+and optional trajectory recording. Values are validated and copied when the object is
 created so that an invalid or later-mutated setting cannot reach the sampler.
 """
 
@@ -143,7 +143,7 @@ class MHConfig:
     prior_option: bool = True
     prior_type: str = "parametric"
     likelihood: bool = True
-    monitor: bool = True
+    record_trajectory: bool = False
     display_traj: bool = False
     display_text: bool = False
     prior_file: str = ""
@@ -188,7 +188,7 @@ class MHConfig:
             (
                 "prior_option",
                 "likelihood",
-                "monitor",
+                "record_trajectory",
                 "display_traj",
                 "display_text",
             ),

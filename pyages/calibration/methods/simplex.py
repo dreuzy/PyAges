@@ -62,7 +62,7 @@ class Simplex:
     ) -> None:
         """Configure one supported Simplex or forward-UQ execution mode."""
         self._binding = CalibrationBinding()
-        self.time_perform = 0.0
+        self.runtime_seconds = 0.0
         if calibration_method not in VALID_METHODS:
             raise ValueError(
                 f"Unknown simplex calibration method: {calibration_method}"
@@ -102,7 +102,7 @@ class Simplex:
             results = self._run_multiple()
         else:
             results = self._run_forward_uncertainty()
-        self.time_perform = perf_counter() - start
+        self.runtime_seconds = perf_counter() - start
         return results.add_moments()
 
     def _run_single(
@@ -263,7 +263,7 @@ class Simplex:
         """Write execution time and optimizer diagnostics."""
         write_key_values(
             file_name,
-            {"time_perform": self.time_perform, **self.result_metadata()},
+            {"runtime_seconds": self.runtime_seconds, **self.result_metadata()},
         )
 
 

@@ -147,7 +147,7 @@ def run_metropolis_hastings(
             thinning=config.mh_skip,
             prior_option=False,
             likelihood=True,
-            monitor=False,
+            record_trajectory=False,
             display_traj=False,
             display_text=False,
             componentwise_source="model",

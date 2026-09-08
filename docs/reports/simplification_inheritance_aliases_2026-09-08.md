@@ -1,11 +1,15 @@
-# Audit de simplification : héritage et alias — 8 septembre 2026
+# Audit de simplification : reliquats des versions passées — 8 septembre 2026
 
 ## Conclusion
 
-Cette itération supprime les couches de compatibilité et les héritages qui ne
-représentaient pas une relation métier. Le code exécutable n'accepte désormais
-qu'un vocabulaire de configuration, et une exécution Metropolis-Hastings (MH)
-d'une seule chaîne est exactement le cas `chains: 1` du moteur commun.
+Ici, « héritage » désigne le **code ancien encore conservé pour continuer à
+accepter d'anciens noms, formats ou chemins d'exécution**. Il ne désigne pas
+l'héritage entre classes Python.
+
+Cette itération retire ces couches de compatibilité actives. Le code exécutable
+n'accepte désormais qu'un vocabulaire de configuration, et une exécution
+Metropolis-Hastings (MH) d'une seule chaîne est exactement le cas `chains: 1`
+du moteur commun.
 
 Ces ruptures justifient une version **2.0**, et non 1.3. Elles retirent des noms,
 des commandes et des classes que du code externe pouvait encore appeler.
@@ -84,7 +88,40 @@ Le post-traitement HYP-26-0172 n'écrit plus simultanément `success_rate` et
 `mean_acceptance_rate`, et ne traduit plus les anciens résumés mono-chaîne. Il
 exige le schéma de résultat courant et échoue en nommant les champs manquants.
 
-## Héritages conservés et raison
+### Derniers adaptateurs de compatibilité actifs
+
+La dernière passe a également supprimé les reliquats suivants :
+
+- le sampler et Simplex utilisent uniquement `acceptance_rate` et
+  `runtime_seconds` ; `success_rate` et `time_perform` ne sont ni écrits ni
+  exposés par des propriétés de transition ;
+- l'enregistrement détaillé d'une trajectoire bas niveau s'appelle
+  `record_trajectory`. Le workflow décide séparément d'afficher ou non une
+  figure avec `display_traj` ;
+- les scripts scientifiques importent directement les diagnostics MCMC du
+  cœur. La façade `scripts/common/mcmc_diagnostics.py`, qui réexportait ces
+  fonctions sous un second chemin, est supprimée ;
+- `posterior_draw_count` est maintenant le seul nom utilisé depuis le YAML
+  jusqu'aux fonctions de sélection et de tracé ; l'ancien nom interne
+  `lpm_number` n'est pas conservé ;
+- une table de concentrations de référence doit contenir `observation_key`.
+  L'appariement implicite par position, qui pouvait devenir faux après un tri,
+  est supprimé ; un objet `Concentrations` reste accepté parce qu'il produit
+  lui-même ces identifiants ;
+- le générateur de l'audit final exige les champs courants `nsteps` et `chains`
+  dans les manifestes et écrit `nsteps`. Il ne devine plus `mh_nsteps` et ne
+  suppose plus silencieusement une chaîne ;
+- le lanceur de matrice HYP-26-0172 accepte seulement `--nsteps` ; son alias
+  `--mh-nsteps` est supprimé ;
+- les trois expériences désactivées décrites comme des alias de `main_F09` ou
+  `main_F11` ont été retirées de la matrice HYP-26-0172, avec leurs fichiers de
+  configuration non référencés. Les exemples utilisent maintenant une
+  expérience principale active.
+
+## Ce qui n'est pas un reliquat de compatibilité
+
+Les relations entre classes Python ne sont plus un objectif de suppression en
+elles-mêmes. Elles restent seulement lorsqu'elles portent un contrat actuel :
 
 | Famille | Pourquoi elle reste |
 |---|---|
@@ -98,31 +135,42 @@ exige le schéma de résultat courant et échoue en nommant les champs manquants
 Supprimer ces relations remplacerait un contrat explicite par des tests de type
 manuels ou du code dupliqué. Ce serait une complication, pas une simplification.
 
+Deux autres catégories restent volontairement présentes :
+
+- les répertoires `archive/`, `docs/archive/`, les rapports datés et les scripts
+  dont la finalité explicite est de comparer une campagne actuelle à une
+  campagne passée constituent des **preuves scientifiques**. Ils ne sont pas
+  chargés comme solutions de repli par le cœur ;
+- les noms de canaux TracerLPM correspondent aux emplacements réellement
+  imposés par le classeur externe. Ce sont des correspondances à la frontière
+  d'un autre logiciel, pas des alias de l'API PyAges.
+
 ## Suite de l'audit de simplification
 
-### Priorité 1 — unifier le dernier orchestrateur MH Ploemeur
+### Priorité 1 — achevée : unifier le dernier orchestrateur MH Ploemeur
 
-`PloemeurSingleRun` utilise le même `MetropolisHastingsRunner`, mais répète
-encore la construction des répertoires de phases, l'écriture et le contrôle de
-qualification déjà présents dans `pyages.workflows.runtime.mh`. La prochaine
-itération devrait étendre proprement ce service pour accepter le prior empirique
-Ploemeur, puis supprimer cette orchestration parallèle.
+`execute_mh_run()` est maintenant l'unique service qui construit les
+répertoires de phases, appelle `MetropolisHastingsRunner`, écrit le résultat et
+transforme un refus de qualification en erreur après conservation des preuves.
+Le constructeur commun `build_mh_config()` accepte aussi la source de prior
+empirique nécessaire à Ploemeur.
 
-Gain attendu : une seule définition des phases `initialization`, `pilot` et
-`production`, et une seule gestion de l'échec de convergence.
+`PloemeurSingleRun` ne reproduit plus aucune de ces étapes. Il prépare le
+problème scientifique, délègue l'exécution commune, puis produit seulement les
+chroniques, histogrammes et comparaisons de prior propres au site.
 
-### Priorité 2 — terminer le vocabulaire des sorties temporelles
+### Priorité 2 — achevée : nettoyer la matrice d'étude courante
 
-Le YAML dit désormais `posterior_draw_count`, mais plusieurs fonctions internes
-de tracé utilisent encore le paramètre `lpm_number`. Ce n'est plus un alias
-public de configuration, mais le nom reste peu explicite. Il peut être renommé
-de bout en bout dans `pyages.reporting` et dans les scripts, sans conserver
-l'ancien nom.
+La matrice HYP-26-0172 ne contient plus les trois expériences désactivées qui
+étaient qualifiées d'alias redondants. Les dix expériences restantes ont une
+fonction scientifique distincte et une configuration directement référencée.
 
-### Priorité 3 — découper les gros modules par responsabilité
+### Priorité 3 — en cours : découper les gros modules par responsabilité
 
-- `sites/ploemeur/workflows/ploemeur_workflow.py` dépasse 900 lignes et réunit
-  sélection des cas, chemins, préparation et exécution ;
+- l'exécution d'un cas a été extraite de
+  `sites/ploemeur/workflows/ploemeur_workflow.py` vers `single_run.py`. Le
+  premier module est passé de 893 à 673 lignes et se concentre davantage sur
+  la sélection et l'enchaînement des cas ;
 - `pyages/config/models.py` dépasse 500 lignes et peut devenir trois modules :
   champs MH communs, schéma single-date et schéma temporel ;
 - les plus grandes fonctions de production sont actuellement les trois tracés
@@ -133,7 +181,13 @@ Le découpage doit suivre les responsabilités et conserver les calculs
 scientifiques visibles. Découper seulement pour réduire un compteur de lignes
 créerait davantage de navigation sans rendre le code plus simple.
 
-### Priorité 4 — traiter séparément les grands scripts de reproduction
+### Priorité 4 — en cours : traiter séparément les reproductions historiques
+
+Les diagnostics figés de la Figure 4 se trouvent maintenant sous
+`examples/natural/ploemeur_temporal/article_reproduction/diagnostics.py`.
+L'ancien chemin n'est pas réexporté. Le nom du répertoire rend visible que ces
+formules servent à retrouver un article et ne doivent pas être choisies pour un
+nouveau workflow, qui utilise `pyages.calibration.methods.mh.diagnostics`.
 
 Plusieurs générateurs de rapports scientifiques font entre 150 et 500 lignes
 par fonction. Ils passent les contrôles de complexité actuels, car leur longueur
@@ -157,8 +211,22 @@ profils Ploemeur passent. La validation finale donne aussi :
 - Ruff : lint et format sans écart ;
 - Pyright : 0 erreur et 0 avertissement ;
 - inventaire des tests à jour ;
-- suite standard : 1 664 tests réussis et 22 ignorés ;
+- suite standard complète : 1 665 tests réussis et 22 ignorés ;
+- après le retrait final des trois entrées de matrice, les 47 tests ciblant
+  l'étude Ploemeur, les scripts d'article et leurs contrats documentaires
+  réussissent ;
+- après l'unification finale de l'orchestrateur, 88 tests ciblés réussissent et
+  2 tests extensifs sont ignorés dans le profil standard ;
+- le smoke test extensif du workflow Ploemeur exécute réellement quatre chaînes
+  puis publie leur résultat regroupé : 1 test réussi ;
 - documentation Sphinx reconstruite en mode strict, sans avertissement.
+
+La passe avec les cas extensifs activés a d'abord donné 1 678 réussites,
+6 tests ignorés et 2 échecs. Les deux échecs provenaient exclusivement de
+cellules de notebooks restées sur `write_calibrated_lpm` et `explo_res`. Après
+leur migration vers `write_calibrated_result` et `exploration_resolution`, la
+réexécution isolée des deux notebooks passe : 4 tests réussis, dont les deux
+exécutions scientifiques complètes.
 
 Le lanceur agrégé `check_dev full` s'arrête néanmoins à `pip check` dans
 l'environnement utilisateur employé pour cet audit : un paquet global non

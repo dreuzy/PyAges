@@ -112,7 +112,7 @@ def test_diagnostic_quantity_contract_rejects_zero_retained_draws_clearly() -> N
 def _record_configs(chain_count: int = 2) -> tuple[MHConfig, MHRunConfig]:
     """Build compact configurations retaining one row per production chain."""
     return (
-        MHConfig(nsteps=2, burn_in=0.0, thinning=1, monitor=False),
+        MHConfig(nsteps=2, burn_in=0.0, thinning=1, record_trajectory=False),
         MHRunConfig(
             chains=chain_count,
             seed=17,

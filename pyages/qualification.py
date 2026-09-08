@@ -314,7 +314,7 @@ class SyntheticRecoveryExperiment:
             lpm_results,
             str(i),
             self.__display_options,
-            lpm_number=10,
+            posterior_draw_count=10,
         )
         # Store per-case recovery summaries before returning detailed objects.
         self.__storage_one_case(lpm_target, lpm_results, i)

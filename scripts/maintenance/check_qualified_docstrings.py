@@ -27,7 +27,6 @@ QUALIFIED_PATHS = (
     "pyages/workflows/runtime",
     "pyages/workflows/single_date/runner.py",
     "pyages/workflows/temporal/runner.py",
-    "scripts/common/mcmc_diagnostics.py",
     "scripts/common/provenance.py",
     "scripts/common/reporting.py",
     "scripts/qualification/_archive_contract.py",
@@ -35,12 +34,13 @@ QUALIFIED_PATHS = (
     "scripts/qualification/_archive_verification.py",
     "scripts/qualification/build_ci_multichain_archive.py",
     "scripts/qualification/build_multichain_archive.py",
-    "examples/natural/ploemeur_temporal/reproduction_diagnostics.py",
+    "examples/natural/ploemeur_temporal/article_reproduction/diagnostics.py",
     "examples/natural/holten/holten_four_bin_plots.py",
     "sites/ploemeur/studies/HYP-26-0172/postprocessing/build_products.py",
     "sites/ploemeur/studies/HYP-26-0172/postprocessing/product_extraction.py",
     "sites/ploemeur/studies/HYP-26-0172/postprocessing/summary_figures.py",
     "sites/ploemeur/studies/HYP-26-0172/scripts/run_matrix.py",
+    "sites/ploemeur/workflows/single_run.py",
 )
 
 

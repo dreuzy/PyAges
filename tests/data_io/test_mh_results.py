@@ -55,7 +55,7 @@ def _configs(
         burn_in=0.1,
         thinning=2,
         prior_option=True,
-        monitor=False,
+        record_trajectory=False,
     )
     run_config = MHRunConfig(
         chains=2,
@@ -382,7 +382,7 @@ def test_writer_preserves_pre_run_file_provenance_after_sources_change(
         prior_option=True,
         prior_type="empirical",
         prior_file=str(prior_prefix),
-        monitor=False,
+        record_trajectory=False,
         display_traj=False,
         display_text=False,
         componentwise_source="model",
@@ -488,7 +488,7 @@ def test_lpm_document_drift_after_initialization_is_rejected_before_transitions(
         thinning=1,
         prior_option=True,
         prior_type="parametric",
-        monitor=False,
+        record_trajectory=False,
         display_traj=False,
         display_text=False,
         componentwise_source="model",

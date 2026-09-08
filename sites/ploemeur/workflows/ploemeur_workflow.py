@@ -13,7 +13,6 @@ and execution of Metropolis-Hastings calibrations for the Ploemeur site.
 
 from __future__ import annotations
 
-import copy
 import multiprocessing as mp
 import tempfile
 from pathlib import Path
@@ -21,53 +20,26 @@ from typing import Any
 
 import yaml
 
-from pyages.calibration.methods.mh import (
-    MetropolisHastingsRunner,
-    MHConfig,
-    MHConvergenceError,
-)
-from pyages.calibration.methods.mh.prior import Prior
-from pyages.calibration.outputs import posterior_directory
-from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
-from pyages.concentrations.schema import ERROR_COLUMN
 from pyages.config.paths import (
     ROOT_DIRECTORY,
     ROOT_DIRECTORY_RESULTS,
-    result_subdirectory,
 )
-from pyages.config.runtime import DisplayOptions
-from pyages.data_io.lpm_distribution import write_histograms
-from pyages.data_io.mh_results import write_mh_run_result
-from pyages.lpm.plotting.sample_diagnostics import plot_prior_comparison
-from pyages.reporting.chronicles import export_calibrated_chronicles
-from pyages.workflows.runtime.mh import build_mh_run_config
 from sites.ploemeur.config.models import (
     ObservationMetadataConfig,
-    PloemeurCalibrationConfig,
     PloemeurWorkflowConfig,
     PriorPipelinePresets,
     WellDateConfig,
 )
 from sites.ploemeur.observations.ploemeur import observation_path
-from sites.ploemeur.workflows.job_builder import build_jobs
+from sites.ploemeur.workflows import job_builder, single_run
 from sites.ploemeur.workflows.path_helpers import (
-    calibrated_prior_name,
     data_file_path,
     data_selection_filename,
     prior_file_path,
-    results_dir_for_case,
     results_folder,
     workflow_temp_folder,
 )
-
-TIME_SPAN_AND_PRIOR_MODES = {
-    "cumulative",
-    "successive",
-    "span_full",
-    "successive_with_prior",
-    "span_with_prior",
-}
 
 
 def load_yaml_file(path: Path) -> dict[str, Any]:
@@ -96,32 +68,6 @@ def resolve_results_directory(path_str: str | Path) -> Path:
     if not path.is_absolute():
         path = ROOT_DIRECTORY / path
     return path.resolve()
-
-
-def validate_time_span_and_prior_mode(mode: str) -> None:
-    """Validate that a time-span mode is recognized."""
-    if mode not in TIME_SPAN_AND_PRIOR_MODES:
-        allowed = ", ".join(sorted(TIME_SPAN_AND_PRIOR_MODES))
-        raise ValueError(
-            f"Unknown time_span_and_prior mode '{mode}'. Allowed: {allowed}."
-        )
-
-
-def load_concentrations(
-    file_path: str | Path,
-    error_concentrations: float,
-    display,
-    output_dir: str | Path,
-) -> Concentrations:
-    """Load concentrations, apply relative errors, display, and write outputs."""
-    cdata = Concentrations.from_file(file_path)
-    if cdata.frame[ERROR_COLUMN].min() == 0:
-        cdata.set_relative_errors(error_concentrations)
-    cdata.display(display)
-    cdata.frame.to_csv(
-        data_file_path(output_dir, "concentrations.txt"), sep="\t", index=False
-    )
-    return cdata
 
 
 def load_observations_well_dates(
@@ -225,11 +171,11 @@ class SimulationStrategy:
         self.workflow_cfg = config.workflows
         self.execution_cfg = config.execution
         self.results_cfg = config.results
-        lpm_number = config.calibration.posterior_draw_count or max(
+        posterior_draw_count = config.calibration.posterior_draw_count or max(
             min(config.calibration.metropolis_hastings.nsteps // 50, 5000), 10
         )
         self.calibration_cfg = config.calibration.model_copy(
-            update={"posterior_draw_count": lpm_number}
+            update={"posterior_draw_count": posterior_draw_count}
         )
         self.lpm_types_default = config.lpm_models.default
         self.lpm_types_by_well = config.lpm_models.by_well
@@ -264,7 +210,7 @@ class SimulationStrategy:
         """
         Execute the workflow across all requested wells, modes, and errors.
         """
-        jobs = build_jobs(
+        jobs = job_builder.build_jobs(
             self.observations_cfg.conc_error_rel,
             self.time_span_and_prior,
             self.prior,
@@ -405,7 +351,7 @@ class SimulationStrategy:
                     )
                 else:
                     prior_file = ""
-                pod = PloemeurSingleRun(
+                pod = single_run.PloemeurSingleRun(
                     dir_out,
                     well_date,
                     conc_error_rel,
@@ -489,7 +435,7 @@ def _periods_years(well, dates, time_span_and_prior_mode, breakups=()):
     time_span_and_prior_mode must be one of:
         cumulative, successive, span_full, successive_with_prior, span_with_prior.
     """
-    validate_time_span_and_prior_mode(time_span_and_prior_mode)
+    job_builder.validate_time_span_and_prior_mode(time_span_and_prior_mode)
     cdata = Concentrations.from_file(observation_path(well, dates))
     sampling_years = sorted({int(value) for value in cdata.frame["date"]})
 
@@ -555,7 +501,7 @@ def _observation_files(
         ['F09_2005_2005', 'F09_2005_2006', 'F09_2005_2007', 'F09_2005_2010', 'F09_2005_2013', 'F09_2005_2014', 'F09_2005_2015', 'F09_2005_2016', 'F09_2005_2017', 'F09_2005_2018', 'F09_2005_2019']
 
     """
-    validate_time_span_and_prior_mode(time_span_and_prior_mode)
+    job_builder.validate_time_span_and_prior_mode(time_span_and_prior_mode)
 
     start, end = _periods_years(well, dates, time_span_and_prior_mode, breakups)[0:2]
     return [
@@ -631,204 +577,6 @@ def _build_prior_correspondence(
         correspondence[filename] = temp
 
     return correspondence
-
-
-def _mh_stage_directory(root: Path, stage: str, chain_id: int) -> Path:
-    """Return the stable audit directory for one managed MH stage."""
-    if stage == "initialization":
-        if chain_id != 0:
-            raise ValueError("the initialization prototype must use chain_id 0")
-        return root / "initialization"
-    if isinstance(chain_id, bool) or not isinstance(chain_id, int) or chain_id < 1:
-        raise ValueError("pilot and production chain_id values must be positive")
-    if stage == "pilot":
-        return root / "pilot" / f"chain_{chain_id:03d}"
-    if stage == "production":
-        return root / "chains" / f"chain_{chain_id:03d}"
-    raise ValueError(f"unknown MH run stage: {stage!r}")
-
-
-class PloemeurSingleRun:
-    """
-    Run a single calibration case for one well and one date range.
-
-    Parameters
-    ----------
-    directory_results: str
-        Base output directory for results.
-    well_date: str
-        Well/date identifier (e.g. "F09_2005_2024").
-    error_concentrations: float
-        Relative concentration error to apply when missing.
-    lpm_type: str
-        LPM model name for the calibration.
-    calibration_config: PloemeurCalibrationConfig
-        Managed MH, convergence, and posterior-export controls.
-    prior: bool
-        Whether to include a prior in the calibration.
-    likelihood: bool
-        Whether to include likelihood in the calibration.
-    prior_file: str
-        Optional prior file path for prior-informed runs.
-    time_span_and_prior_mode: str
-        Mode describing the time span and prior usage for this run.
-
-    """
-
-    def __init__(
-        self,
-        directory_results,
-        well_date,
-        error_concentrations,
-        lpm_type,
-        calibration_config: PloemeurCalibrationConfig,
-        prior,
-        likelihood,
-        directory_lpm,
-        observation_directory=None,
-        prior_file="",
-        time_span_and_prior_mode="",
-    ):
-        """Initialize the single-case workflow runner."""
-        validate_time_span_and_prior_mode(time_span_and_prior_mode)
-        self.time_span_and_prior_mode = time_span_and_prior_mode
-        # ---------------- CONCENTRATIONS DATA ------------------
-        # Concentration data
-        observation_directory = observation_directory or workflow_temp_folder()
-        self.file_ploemeur = data_file_path(observation_directory, well_date)
-        self.file_stem = Path(self.file_ploemeur).name
-        self.error_concentrations = error_concentrations
-
-        # ---------------- LPM MODEL -----------------------------
-        self.lpm_type = lpm_type
-        self.directory_lpm = directory_lpm
-
-        # ---------------- METROPOLIS HASTINGS --------------------
-        # Method and Parameters
-        mh_config = calibration_config.metropolis_hastings
-        self.run_config = build_mh_run_config(mh_config)
-        if self.run_config.seed is None:  # pragma: no cover - realized by config.
-            raise AssertionError("managed Ploemeur MH run has no realized seed")
-        self.chain_config = MHConfig(
-            nsteps=mh_config.nsteps,
-            burn_in=mh_config.burn_in,
-            thinning=mh_config.thinning,
-            prior_option=prior,
-            likelihood=likelihood,
-            monitor=mh_config.display_traj,
-            display_traj=mh_config.display_traj,
-            prior_type="empirical",
-            prior_file=prior_file,
-            componentwise_source="model",
-            seed=self.run_config.seed,
-        )
-        self.nmodels = calibration_config.exploration_resolution
-        self.lpm_number = calibration_config.posterior_draw_count
-
-        self.display = DisplayOptions()
-        self.display.text = False
-        self.display.figure = True
-        self.display.figure_close = True
-        self.display.figure_save = True
-        self.output_directory = results_dir_for_case(
-            directory_results, self.file_stem, lpm_type
-        )
-        self.display.directory = self.output_directory
-
-    def concentration_preparation(self):
-        """
-        Load and prepare concentration data for a single case.
-
-        Applies a relative error when missing, displays data, and writes the
-        normalized file into the results directory.
-        """
-        file_path = self.file_ploemeur
-        return load_concentrations(
-            file_path=file_path,
-            error_concentrations=self.error_concentrations,
-            display=self.display,
-            output_dir=self.output_directory,
-        )
-
-    def calibrate(self, cdata):
-        """Run managed chains, require convergence, and export pooled results."""
-        display_options_case = copy.deepcopy(self.display)
-        display_options_case.directory = result_subdirectory(
-            self.output_directory, "Metropolis_Hastings"
-        )
-
-        template = CalibrationProblem(
-            cdata,
-            self.lpm_type,
-            display_options=display_options_case,
-            lpm_directory=self.directory_lpm,
-            sample_count=self.nmodels,
-            explore_reachable=False,
-        ).prepare()
-        method_directory = Path(display_options_case.directory)
-        runner = MetropolisHastingsRunner(self.chain_config, self.run_config)
-
-        def problem_factory(stage: str, chain_id: int) -> CalibrationProblem:
-            stage_display = copy.deepcopy(display_options_case)
-            stage_display.directory = _mh_stage_directory(
-                method_directory, stage, chain_id
-            )
-            return template.clone_prepared(display_options=stage_display)
-
-        record = runner.run(problem_factory)
-        lpm_results = write_mh_run_result(record, method_directory)
-        if lpm_results is None:
-            failed = ", ".join(
-                diagnostic.parameter
-                for diagnostic in record.diagnostics
-                if diagnostic.included_in_qualification and not diagnostic.qualified
-            )
-            detail = failed or record.diagnostics_message or "diagnostics unavailable"
-            raise MHConvergenceError(
-                "Ploemeur multi-chain MH did not satisfy the configured "
-                f"convergence gates for: {detail}. Chain outputs were preserved."
-            )
-
-        prior_name = calibrated_prior_name(
-            self.file_stem, self.error_concentrations, self.lpm_type
-        )
-        prior_directory = posterior_directory(
-            method_directory,
-            parent_levels=5,
-            subdirectory=self.time_span_and_prior_mode,
-        )
-        write_histograms(lpm_results, prior_directory / f"{prior_name}.txt")
-        template.analyze(lpm_results)
-
-        # Tracers + distributions
-        export_calibrated_chronicles(
-            cdata,
-            lpm_results,
-            "Metropolis_Hastings",
-            self.display,
-            lpm_number=self.lpm_number,
-        )
-        if self.chain_config.prior_option:
-            if template.lpm is None:  # pragma: no cover - guarded by prepare().
-                raise AssertionError("prepared Ploemeur problem has no LPM")
-            empirical_prior = Prior(
-                option=True,
-                typ="empirical",
-                prior_file=self.chain_config.prior_file,
-            )
-            empirical_prior.load(template.lpm)
-            plot_prior_comparison(
-                lpm_results,
-                directory=display_options_case.directory,
-                prior=empirical_prior,
-            )
-
-        return lpm_results
-
-    def perform(self):
-        """Run one managed Metropolis-Hastings calibration case."""
-        cdata = self.concentration_preparation()
-        self.calibrate(cdata)
 
 
 # ----------------------------------------------

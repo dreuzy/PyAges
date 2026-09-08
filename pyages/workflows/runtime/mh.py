@@ -18,6 +18,7 @@ from __future__ import annotations
 import secrets
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 from pyages.calibration.methods.mh.config import MHConfig
 from pyages.calibration.methods.mh.errors import MHConvergenceError
@@ -40,8 +41,12 @@ def build_mh_config(
     config: MetropolisHastingsCfg,
     *,
     seed: int | None = None,
+    prior_option: bool | None = None,
+    likelihood: bool | None = None,
+    prior_type: Literal["parametric", "empirical"] = "parametric",
+    prior_file: str = "",
 ) -> MHConfig:
-    """Translate validated workflow settings into one chain configuration."""
+    """Translate workflow settings and an optional prior source for one chain."""
     effective_seed = config.seed if seed is None else seed
     if effective_seed is None:
         effective_seed = secrets.randbits(64)
@@ -49,9 +54,10 @@ def build_mh_config(
         nsteps=config.nsteps,
         burn_in=config.burn_in,
         thinning=config.thinning,
-        prior_option=config.prior_option,
-        likelihood=config.likelihood,
-        monitor=config.display_traj,
+        prior_option=config.prior_option if prior_option is None else prior_option,
+        likelihood=config.likelihood if likelihood is None else likelihood,
+        prior_type=prior_type,
+        prior_file=prior_file,
         display_traj=config.display_traj,
         componentwise_source="model",
         seed=effective_seed,
@@ -116,13 +122,13 @@ def _mh_stage_directory(
     raise ValueError(f"unknown MH run stage: {stage!r}")
 
 
-def _run_mh(
+def execute_mh_run(
     chain_config: MHConfig,
     run_config: MHRunConfig,
     output_directory: str | Path,
     problem_builder: _ProblemBuilder,
 ) -> LpmSampleTable:
-    """Execute and persist one MH run containing one or more chains.
+    """Execute and persist an MH run from exact chain and run configurations.
 
     Inter-chain qualification is skipped explicitly for a one-chain run. For
     two or more chains, artifacts are written before a required convergence
@@ -167,7 +173,7 @@ def run_mh_calibration(
     if run_config.seed is None:  # defensive; MHRunConfig realizes it
         raise AssertionError("validated MH run config has no seed")
     chain_config = build_mh_config(config, seed=run_config.seed)
-    return _run_mh(
+    return execute_mh_run(
         chain_config,
         run_config,
         output_directory,
@@ -175,4 +181,9 @@ def run_mh_calibration(
     )
 
 
-__all__ = ["build_mh_config", "build_mh_run_config", "run_mh_calibration"]
+__all__ = [
+    "build_mh_config",
+    "build_mh_run_config",
+    "execute_mh_run",
+    "run_mh_calibration",
+]

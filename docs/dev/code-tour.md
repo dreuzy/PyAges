@@ -208,9 +208,10 @@ python -m scripts.maintenance.benchmark_model_space
 
 Keep data alignment separate from display labels. Observation values use
 `tracer@date#index` keys, where `#0`, `#1`, and following suffixes distinguish
-replicates. A reference table with an explicit `observation_key` column is
-independent of row order; the legacy long-table fallback derives those suffixes
-from row position and therefore requires matching order.
+replicates. A reference table must provide an explicit `observation_key`
+column. A `Concentrations` object already knows these keys and can be passed
+directly. Consequently, reordering a plain table cannot silently associate a
+reference value with the wrong observation.
 
 ## The scientific calculation
 
@@ -358,6 +359,14 @@ input contract was violated.
   provide sufficiently stable evidence.
 - `pyages/calibration/methods/mh/results.py` defines the result records returned
   to the workflow.
+- `pyages/workflows/runtime/mh.py` is the single integration service that maps
+  stages to result directories, invokes the runner, writes the complete run,
+  and raises a convergence error only after preserving diagnostic artifacts.
+
+Site workflows reuse that integration service. For example,
+`sites/ploemeur/workflows/single_run.py` prepares one Ploemeur scientific
+problem and creates site-specific reports, but it does not reproduce the MH
+stage orchestration or result-writing policy.
 
 Initialization chooses valid starting values. Pilot runs provide evidence for
 preparing the production run, while production creates the samples intended
@@ -400,6 +409,7 @@ while editing usually gives feedback much faster than the complete suite.
 | Change the order of workflow steps | the relevant `runner.py` | `python -m pytest -q tests/workflows` |
 | Change the proposal/accept loop inside one chain | `pyages/calibration/methods/mh/sampler.py` | `python -m pytest -q tests/calibration` |
 | Change 1..N-chain orchestration or convergence policy | `pyages/calibration/methods/mh/runner.py` and `diagnostics.py` | `python -m pytest -q tests/calibration tests/workflows` |
+| Change Ploemeur preparation or site-specific reporting | `sites/ploemeur/workflows/single_run.py` | `python -m pytest -q tests/ploemeur` |
 | Change LPM parameter loading or caching | `pyages/data_io/lpm_params.py` | `python -m pytest -q tests/data_io/test_lpm_params.py` |
 | Change valid LPM parameter fields or relationships | `pyages/data_io/_lpm_parameter_schema.py` | `python -m pytest -q tests/data_io/test_lpm_params.py` |
 | Change observation normalization or selection | `pyages/concentrations/_container.py` | `python -m pytest -q tests/concentrations` |

@@ -44,22 +44,24 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh.diagnostics import (
+    ess as _ess,
+)
+from pyages.calibration.methods.mh.diagnostics import (
+    mcse_mean_from_ess,
+)
+from pyages.calibration.methods.mh.diagnostics import (
+    rank_normalize as _rank_normalize,
+)
+from pyages.calibration.methods.mh.diagnostics import (
+    split_rhat as _split_rhat,
+)
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
-from scripts.common.mcmc_diagnostics import (
-    ess as _ess,
-)
-from scripts.common.mcmc_diagnostics import mcse_mean
-from scripts.common.mcmc_diagnostics import (
-    rank_normalize as _rank_normalize,
-)
-from scripts.common.mcmc_diagnostics import (
-    split_rhat as _split_rhat,
-)
 from scripts.common.provenance import repository_provenance
 from scripts.common.provenance import sha256_file as _sha256
 from scripts.common.publication_plotting import (
@@ -402,7 +404,7 @@ def _run_mh(
             thinning=1,
             prior_option=False,
             likelihood=True,
-            monitor=False,
+            record_trajectory=False,
             display_traj=False,
             display_text=False,
             seed=seed,
@@ -418,7 +420,7 @@ def _run_mh(
         "posterior column selection",
     ).rename(columns={"shift": "t0", "obj_function": "sqrt_J_over_m"})
     frame["t50"] = frame["t0"] + LN2 * frame["mu"]
-    return frame, mh.success_rate, elapsed
+    return frame, mh.acceptance_rate, elapsed
 
 
 def _pilot_seed(index: int) -> int:
@@ -588,7 +590,7 @@ def _diagnostics(
             rhat = _split_rhat(values)
             ess = _ess(_rank_normalize(values))
             flat = values.reshape(-1)
-            mean_mcse = mcse_mean(flat, ess)
+            mean_mcse = mcse_mean_from_ess(flat, ess)
             diagnostic_rows.append(
                 {
                     "case": case.key,

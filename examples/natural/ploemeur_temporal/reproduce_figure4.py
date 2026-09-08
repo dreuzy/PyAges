@@ -34,16 +34,16 @@ import pandas as pd
 import scipy
 from scipy.integrate import IntegrationWarning, quad
 
-from examples.natural.ploemeur_temporal.reproduction_diagnostics import (
+from examples.natural.ploemeur_temporal.article_reproduction.diagnostics import (
     autocorrelation_table as _autocorrelation_table,
 )
-from examples.natural.ploemeur_temporal.reproduction_diagnostics import (
+from examples.natural.ploemeur_temporal.article_reproduction.diagnostics import (
     chain_diagnostics,
 )
-from examples.natural.ploemeur_temporal.reproduction_diagnostics import (
+from examples.natural.ploemeur_temporal.article_reproduction.diagnostics import (
     joint_indices as _joint_indices,
 )
-from examples.natural.ploemeur_temporal.reproduction_diagnostics import (
+from examples.natural.ploemeur_temporal.article_reproduction.diagnostics import (
     summarize_chains as _summaries,
 )
 from pyages.convolution import DEFAULT_CONVOLUTION_SETTINGS, Convolution

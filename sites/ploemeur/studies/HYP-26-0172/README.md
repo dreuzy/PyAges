@@ -146,14 +146,14 @@ Run one experiment explicitly:
 
 ```powershell
 python -m sites.ploemeur.studies.HYP-26-0172.scripts.run_matrix `
-  --experiment-id regime_F11_exp_3cfc_err20_seed12345 --execute
+  --experiment-id main_F11_exp_ig_3cfc_err20_seed12345 --execute
 ```
 
 Run the same experiment with an isolated 100-step smoke profile:
 
 ```powershell
 python -m sites.ploemeur.studies.HYP-26-0172.scripts.run_matrix `
-  --experiment-id regime_F11_exp_3cfc_err20_seed12345 `
+  --experiment-id main_F11_exp_ig_3cfc_err20_seed12345 `
   --profile smoke --execute
 ```
 

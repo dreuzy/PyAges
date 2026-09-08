@@ -130,7 +130,7 @@ class comparison_MH_fuq:
                 nsteps=self.MH_n,
                 prior_option=False,
                 likelihood=True,
-                monitor=True,
+                record_trajectory=True,
                 display_traj=True,
                 componentwise_source="model",
             )

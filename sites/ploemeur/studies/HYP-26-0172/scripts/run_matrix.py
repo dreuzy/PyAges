@@ -203,8 +203,6 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--nsteps",
-        "--mh-nsteps",
-        dest="nsteps",
         type=int,
         help="override production-chain steps in the resolved configuration",
     )

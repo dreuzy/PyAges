@@ -85,7 +85,7 @@ def _chain_config(*, nsteps: int = 20) -> MHConfig:
         prior_option=True,
         prior_type="parametric",
         likelihood=True,
-        monitor=False,
+        record_trajectory=False,
         display_traj=False,
         display_text=False,
         componentwise_source="model",
@@ -419,7 +419,7 @@ def test_required_ess_threshold_must_be_reachable_from_retained_draws() -> None:
 
 
 def test_multiple_chains_preserve_per_chain_trajectory_options() -> None:
-    chain_config = replace(_chain_config(), monitor=True, display_traj=True)
+    chain_config = replace(_chain_config(), record_trajectory=True, display_traj=True)
     runner = MetropolisHastingsRunner(chain_config, _run_config(pilot=False))
 
     production = runner._production_config(
@@ -428,7 +428,7 @@ def test_multiple_chains_preserve_per_chain_trajectory_options() -> None:
         pilot=None,
     )
 
-    assert production.monitor is True
+    assert production.record_trajectory is True
     assert production.display_traj is True
 
 
@@ -456,8 +456,8 @@ def test_multiple_chains_write_trajectory_figures_in_separate_directories(
         assert (directory / "MH_trajectory_incrementation.png").is_file()
 
 
-def test_one_chain_preserves_its_monitoring_options() -> None:
-    chain_config = replace(_chain_config(), monitor=True, display_traj=True)
+def test_one_chain_preserves_its_trajectory_options() -> None:
+    chain_config = replace(_chain_config(), record_trajectory=True, display_traj=True)
     runner = MetropolisHastingsRunner(
         chain_config,
         MHRunConfig(
@@ -473,7 +473,7 @@ def test_one_chain_preserves_its_monitoring_options() -> None:
         pilot=None,
     )
 
-    assert production.monitor is True
+    assert production.record_trajectory is True
     assert production.display_traj is True
 
 
@@ -483,7 +483,7 @@ def test_runner_preserves_text_summary_option() -> None:
         burn_in=0.0,
         thinning=1,
         prior_option=True,
-        monitor=False,
+        record_trajectory=False,
         display_traj=False,
         display_text=True,
         componentwise_source="model",
@@ -499,7 +499,7 @@ def test_runner_preserves_text_summary_option() -> None:
         pilot=None,
     )
 
-    assert not production.monitor
+    assert not production.record_trajectory
     assert not production.display_traj
     assert production.display_text
 

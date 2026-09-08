@@ -37,6 +37,7 @@ from pyages.reporting.plots._common import (
     OBSERVED_COLOR,
     REACHABLE_COLOR,
     FrameSource,
+    ReferenceConcentrationSource,
     _axis_label,
     _best_row,
     _ensure_frame,
@@ -141,7 +142,7 @@ def plot_single_date_model_space(
     concentration_sampled: Concentrations,
     reachable_frame: pd.DataFrame,
     posterior_results: Mapping[str, FrameSource],
-    reference_concentrations: FrameSource | None = None,
+    reference_concentrations: ReferenceConcentrationSource | None = None,
     reference_label: str = "Reference model",
     filename: str | Path | None = None,
     title: str = "Observed concentrations, reachable space and calibrated models",
@@ -157,10 +158,10 @@ def plot_single_date_model_space(
     Models with four or more observed quantities are limited to four pairwise
     panels, and posterior clouds larger than 450 rows are reproducibly thinned
     for display only. The input results and selection of best rows are unchanged.
-    Reference rows may provide an explicit ``observation_key`` column to remain
-    independent of row order. Otherwise the same position-based ``#n`` keys as
-    the observations are derived, so row order must then align when tracer/date
-    pairs are repeated.
+    References must be a :class:`~pyages.concentrations.Concentrations` object
+    or a table with an explicit ``observation_key`` column. This prevents row
+    order from silently changing which reference value belongs to a measured
+    quantity.
     At least two quantities are required. The figure is optionally saved and is
     returned to the caller.
     """

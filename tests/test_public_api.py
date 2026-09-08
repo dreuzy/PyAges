@@ -151,6 +151,7 @@ def test_mh_facade_exports_only_canonical_objects() -> None:
     assert not hasattr(mh, "build_seed_plan")
     assert not hasattr(mh_runner, "ProblemFactory")
     assert hasattr(runtime_mh, "build_mh_run_config")
+    assert hasattr(runtime_mh, "execute_mh_run")
     assert not hasattr(runtime_mh, "mh_stage_directory")
 
 

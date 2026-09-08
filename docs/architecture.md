@@ -245,6 +245,9 @@ pyages/
     chronicles.py
     plots/         figures split by output product
   qualification.py  synthetic recovery experiment
+sites/ploemeur/workflows/
+  ploemeur_workflow.py  study expansion and scheduling
+  single_run.py         one site's preparation and reporting around shared MH
 ```
 
 `runner.py` is deliberately the orchestration entry point in both workflows.
@@ -260,3 +263,8 @@ classes only centralize validation policy. Site schemas, including Holten,
 compose the generic workflow schema instead of subclassing it. The internal
 qualification object is named `SyntheticRecoveryExperiment`; no historical
 `SyntheticRecoveryWorkflow` symbol is retained.
+
+Ploemeur does not own a second MH orchestrator. Its `single_run.py` builds a
+prepared calibration problem and delegates stage paths, managed execution,
+serialization, and convergence failure handling to
+`pyages.workflows.runtime.mh.execute_mh_run`.

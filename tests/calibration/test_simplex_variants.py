@@ -177,6 +177,8 @@ def test_forward_uncertainty_keeps_the_bound_problem_and_original_observations(
 
 def test_simplex_serializes_variant_settings_and_optimizer_totals(tmp_path) -> None:
     method = Simplex(FORWARD_UNCERTAINTY, init_multiples_n=3, fuq_n=4)
+    assert method.runtime_seconds == 0.0
+    assert not hasattr(method, "time_perform")
     method._optimization_runs = [
         {"iterations": 2, "evaluations": 5},
         {"iterations": 3, "evaluations": 7},

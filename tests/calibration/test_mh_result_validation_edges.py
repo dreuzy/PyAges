@@ -187,7 +187,9 @@ def test_record_validation_checks_configuration_types_first() -> None:
         )
     with pytest.raises(TypeError, match="run_config"):
         _validate_record_configuration(
-            chain_config=MHConfig(nsteps=2, burn_in=0.0, thinning=1, monitor=False),
+            chain_config=MHConfig(
+                nsteps=2, burn_in=0.0, thinning=1, record_trajectory=False
+            ),
             run_config=object(),  # type: ignore[arg-type]
             chains=(),
             pilot=None,

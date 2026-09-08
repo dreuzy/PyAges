@@ -39,12 +39,12 @@ if str(ROOT) not in sys.path:
 
 from pyages._plotting import white_low_colormap
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh.diagnostics import mcse_mean_from_ess
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
-from scripts.common.mcmc_diagnostics import mcse_mean
 from scripts.common.provenance import repository_provenance
 from scripts.common.provenance import sha256_file as _sha256
 from scripts.common.publication_plotting import (
@@ -158,7 +158,7 @@ def _run_chain(
             thinning=1,
             prior_option=False,
             likelihood=True,
-            monitor=False,
+            record_trajectory=False,
             display_traj=False,
             display_text=False,
             seed=seed,
@@ -173,7 +173,7 @@ def _run_chain(
     frame["t0"] = frame["shift"]
     frame["mtt"] = frame["mu"] + frame["t0"]
     spec = mh.result_metadata()
-    return frame, float(spec["success_rate"]), runtime
+    return frame, float(spec["acceptance_rate"]), runtime
 
 
 def _pilot_path(output: Path, case_index: int) -> Path:
@@ -395,7 +395,7 @@ def collect_diagnostics(
                 )
             pooled = np.concatenate(chains)
             total_ess = float(sum(ess_values))
-            mean_mcse = mcse_mean(pooled, total_ess)
+            mean_mcse = mcse_mean_from_ess(pooled, total_ess)
             converged = bool(rh < 1.01 and total_ess >= 300.0)
             local.append(
                 {

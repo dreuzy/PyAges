@@ -10,8 +10,8 @@ It does not certify that a 2.0 distribution is ready to publish.
 ## Decision: this is a 2.0 release
 
 The changes remove 1.x configuration fields, Python names, modules, and
-cardinality-dependent behavior. Existing projects must run an explicit
-configuration migration and may obtain a different MH trajectory. Those are
+cardinality-dependent behavior. Existing projects must perform an explicit,
+reviewed configuration migration and may obtain a different MH trajectory. Those are
 intentional breaking changes, so calling the release 1.3 would understate its
 impact. The appropriate next public version is **2.0**.
 
@@ -59,19 +59,23 @@ identified during the review. In particular, the old ensemble class/config
 names, flat LPM parameter helpers, ambiguous `bounds` spelling, and obsolete
 configuration object names are not parallel entry points in 2.0.
 
-The explicit schema migrator is intentionally retained. It is a conversion
-tool that reads an old file and writes schema 3; it is not a runtime alias and
-does not make the old vocabulary part of the current API.
+The intermediate schema migrator was ultimately removed. Runtime and tooling
+now accept only schema 3, while the user-facing migration guide documents the
+manual mapping and the scientific choices that cannot safely be inferred.
 
 The remaining inheritance has a concrete role and should not be removed merely
 to reduce class counts:
 
-- `CalibrationMethod` centralizes the lifecycle shared by Simplex and MH;
 - `LpmBase` and `LpmScipy` define the common mathematical/model contract;
 - Pydantic base models centralize validation policy;
 - protocols describe structural tracer capabilities without forcing an
   artificial base class;
 - exception inheritance preserves meaningful error categories.
+
+`CalibrationMethod` was removed after this checkpoint's first review. Simplex
+and MH now compose a problem and satisfy a structural
+`CalibrationAlgorithm` protocol; display and serialization are separate
+services.
 
 No deep multiple-inheritance hierarchy or further compatibility-inheritance
 layer was found. Composition is already used for the MH runner, sampler, and

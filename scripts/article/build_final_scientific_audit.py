@@ -49,12 +49,6 @@ def _relative(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
 
 
-def _manifest_nsteps(manifest: dict) -> int:
-    """Read current manifests while retaining archived campaign compatibility."""
-    key = "nsteps" if "nsteps" in manifest else "mh_nsteps"
-    return int(manifest[key])
-
-
 def shifted_table() -> pd.DataFrame:
     source = (
         ROOT
@@ -156,8 +150,8 @@ def campaign_inventory() -> pd.DataFrame:
                     "\\", "/"
                 ),
                 "seed": experiment["seeds"],
-                "chains": int(manifest.get("chains", 1)),
-                "mh_nsteps": _manifest_nsteps(manifest),
+                "chains": int(manifest["chains"]),
+                "nsteps": int(manifest["nsteps"]),
                 "burn_in_fraction": 0.2,
                 "thinning": 10,
                 "status": manifest["status"],
@@ -190,7 +184,7 @@ def _case_acceptance(
     ]
     if len(match) != 1:
         raise RuntimeError(f"Cannot match diagnostics for {experiment}: {case_key}")
-    return float(match.iloc[0]["success_rate"])
+    return float(match.iloc[0]["mean_acceptance_rate"])
 
 
 def publication_cases() -> pd.DataFrame:
@@ -252,8 +246,8 @@ def publication_cases() -> pd.DataFrame:
                     "publication_critical": True,
                     "publication_outputs": matrix.loc[experiment, "article_outputs"],
                     "seed": int(matrix.loc[experiment, "seeds"]),
-                    "chains": int(manifest.get("chains", 1)),
-                    "nsteps": _manifest_nsteps(manifest),
+                    "chains": int(manifest["chains"]),
+                    "nsteps": int(manifest["nsteps"]),
                     "burn_in_fraction": 0.2,
                     "thinning": 10,
                     "stored_samples": len(frame),

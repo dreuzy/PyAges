@@ -67,9 +67,9 @@ def run_model_calibration(
     """
     display = _prepare_display(output_directory, figures_cfg)
     mh_config = calibration_cfg.metropolis_hastings
-    lpm_number = int(calibration_cfg.posterior_draw_count)
-    if lpm_number <= 0:
-        lpm_number = max(min(int(mh_config.nsteps / 50), 5000), 10)
+    posterior_draw_count = int(calibration_cfg.posterior_draw_count)
+    if posterior_draw_count <= 0:
+        posterior_draw_count = max(min(int(mh_config.nsteps / 50), 5000), 10)
 
     # Loading tracer histories and building their adaptive grids is independent
     # of the chain. Prepare that scientific target once, then give every MH
@@ -101,7 +101,7 @@ def run_model_calibration(
             lpm_results,
             method_name,
             display,
-            lpm_number=lpm_number,
+            posterior_draw_count=posterior_draw_count,
         )
 
     if figures_cfg.distributions:

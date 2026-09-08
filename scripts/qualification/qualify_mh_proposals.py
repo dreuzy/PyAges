@@ -224,7 +224,7 @@ def _run_chain(
             thinning=1,
             prior_option=False,
             likelihood=True,
-            monitor=False,
+            record_trajectory=False,
             display_traj=False,
             display_text=False,
             seed=seed,
@@ -243,7 +243,7 @@ def _run_chain(
 
 def _acceptance(mh: MetropolisHastings) -> float:
     payload = mh.result_metadata()
-    return float(payload["success_rate"])
+    return float(payload["acceptance_rate"])
 
 
 def _acf(values: np.ndarray, max_lag: int = MAX_ACF_LAG) -> np.ndarray:

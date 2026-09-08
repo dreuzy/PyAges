@@ -15,6 +15,7 @@ from pyages.calibration.methods.mh.diagnostics import (
     bulk_ess,
     ess,
     mcse_mean,
+    mcse_mean_from_ess,
     rank_normalize,
     split_chains,
     split_rhat,
@@ -180,6 +181,9 @@ def test_mcse_mean_uses_supplied_ess_and_can_estimate_it():
     )
     assert mcse_mean(values) == pytest.approx(
         np.std(values, ddof=1) / math.sqrt(ess(values))
+    )
+    assert mcse_mean_from_ess(values.reshape(-1), supplied_ess) == pytest.approx(
+        np.std(values, ddof=1) / math.sqrt(supplied_ess)
     )
 
 

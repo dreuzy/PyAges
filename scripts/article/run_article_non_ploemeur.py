@@ -952,7 +952,7 @@ def _run_table3_chain(
             thinning=skip,
             prior_option=False,
             likelihood=True,
-            monitor=False,
+            record_trajectory=False,
             display_traj=False,
             display_text=False,
             seed=seed,

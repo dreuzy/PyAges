@@ -86,7 +86,7 @@ class MetropolisHastings:
     ``-inf`` and are rejected.
 
     The immutable :class:`MHConfig` controls sampling, prior, proposal, random
-    seed, and monitoring. :meth:`perform` stores the current state after
+    seed, and trajectory recording. :meth:`perform` stores the current state after
     burn-in/thinning, including repeated states following rejected proposals.
 
     Notes
@@ -114,12 +114,12 @@ class MetropolisHastings:
             prior_file=self.config.prior_file,
         )
         # Run diagnostics are reset here and populated by ``perform``.
-        self._success_rate = 0.0
+        self._acceptance_rate = 0.0
         self._initial_params_used: dict[str, float] = {}
         self._initialization_source = ""
         self.prior_validation_stats = None
         self.trajectory: MHTrajectory | None = None
-        self.time_perform = 0
+        self.runtime_seconds = 0.0
         self._proposal: Proposal | None = None
         self._target: MHTarget | None = None
         self._resolved_proposal_metadata: dict[str, Any] = {}
@@ -379,7 +379,7 @@ class MetropolisHastings:
         self._target = None
         # Prior-only validation requires retained trajectory values.
         record_trajectory = (
-            self.config.monitor
+            self.config.record_trajectory
             or self.config.display_traj
             or (self.config.likelihood is False and self.prior.option is True)
         )
@@ -476,7 +476,7 @@ class MetropolisHastings:
         current state for zero-based iterations satisfying the strict burn-in
         rule ``i > burn_in * nsteps`` and ``i % thinning == 0``. The acceptance
         fraction is computed over all transitions and is available through
-        :attr:`success_rate`.
+        :attr:`acceptance_rate`.
 
         Returns
         -------
@@ -544,7 +544,7 @@ class MetropolisHastings:
                     n += 1
 
         # Consolidate retained joint states without re-evaluating the chain.
-        self._success_rate = nsuccess / self.config.nsteps
+        self._acceptance_rate = nsuccess / self.config.nsteps
         lpm_results = LpmSampleTable(
             deepcopy(self.lpm), c_names=self.observations.observation_keys()
         )
@@ -565,13 +565,13 @@ class MetropolisHastings:
         # A likelihood-free run is an executable check that the chain recovers
         # the configured prior moments; it is not an observational calibration.
         if self.config.likelihood is False and self.prior.option is True:
-            if traj is None:  # pragma: no cover - _prepare_mcmc enables monitoring.
+            if traj is None:  # pragma: no cover - preparation records this trajectory.
                 raise RuntimeError("Prior validation requires a retained trajectory.")
             self.prior_validation_stats = self.prior.validate_chain_moments(
                 traj.path, self.lpm
             )
 
-        self.time_perform = perf_counter() - start
+        self.runtime_seconds = perf_counter() - start
 
         return lpm_results
 
@@ -587,7 +587,7 @@ class MetropolisHastings:
         data["prior_type"] = self.config.prior_type
         data["prior_file"] = self.config.prior_file
         data["likelihood_option"] = self.config.likelihood
-        data["monitor"] = self.config.monitor
+        data["record_trajectory"] = self.config.record_trajectory
         data.update(self._resolved_proposal_metadata)
         data["seed"] = self.config.seed
         data["initialization_source"] = self._initialization_source
@@ -607,16 +607,16 @@ class MetropolisHastings:
 
     def result_metadata(self) -> dict[str, Any]:
         """Return transition-level scalar diagnostics."""
-        return {"success_rate": self._success_rate}
+        return {"acceptance_rate": self._acceptance_rate}
 
     def write_results(self, file_name: str | Path) -> None:
         """Write execution time and transition diagnostics."""
         write_key_values(
             file_name,
-            {"time_perform": self.time_perform, **self.result_metadata()},
+            {"runtime_seconds": self.runtime_seconds, **self.result_metadata()},
         )
 
     @property
-    def success_rate(self) -> float:
+    def acceptance_rate(self) -> float:
         """Fraction of accepted proposals in the completed chain."""
-        return float(self._success_rate)
+        return float(self._acceptance_rate)

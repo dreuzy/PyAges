@@ -18,7 +18,7 @@ class CalibrationAlgorithm(Protocol):
     """Operations required by calibration orchestration and output services."""
 
     method: str
-    time_perform: float
+    runtime_seconds: float
 
     @property
     def problem(self) -> CalibrationProblem:

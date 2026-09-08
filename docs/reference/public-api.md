@@ -163,6 +163,10 @@ runtime vocabulary. The flattened `LauncherParams`, `LauncherConfig`,
 removed in 2.0. Older field spellings are rejected; runtime and tooling expose
 only the schema-3 vocabulary.
 
+The user-facing {doc}`../user-guide/migrating-to-2.0` guide maps the removed
+configuration and Python names to their supported replacements and calls out
+changes that can alter stochastic results.
+
 ## Compatibility policy
 
 - A public Python symbol or configuration field is deprecated before removal.

@@ -39,6 +39,9 @@ an old study, generate a fresh schema-3 file, then copy and review its scientifi
 values field by field. Runtime loading rejects unknown sections instead of
 guessing what they mean.
 
+For the complete section and field mappings, path rules, random-seed changes,
+and Python API replacements, follow {doc}`migrating-to-2.0`.
+
 ## Single-date workflow configuration
 
 Used with `pyages run <config.yaml>`.
@@ -323,13 +326,11 @@ is unchanged when `chains` grows from 1 to a larger value, so adding chains does
 not silently replace the original trajectory.
 
 `display_traj: true` creates trajectory figures separately inside every
-`chains/chain_<N>/` directory. The former public `monitor` flag was removed:
-under the managed runner it retained an in-memory object that was immediately
-discarded and therefore had no observable workflow result. Per-chain sample
-tables remain the stable input for trace diagnostics; trajectory figures are a
-visual aid, not convergence qualification. The lower-level direct-Python
-`display_text` and `monitor` controls remain implementation/contributor options
-and are not part of the YAML workflow.
+`chains/chain_<N>/` directory. Per-chain sample tables remain the stable input
+for trace diagnostics; trajectory figures are a visual aid, not convergence
+qualification. Direct Python callers may use `record_trajectory` to retain an
+in-memory trajectory without creating a figure. This lower-level control and
+`display_text` are not part of the YAML workflow.
 
 ### Simplex Section
 
@@ -599,8 +600,9 @@ These fields answer three different questions:
 The effective MH support is the intersection of the calibration range and the
 prior support. A normal prior is therefore conditioned on the calibration
 range; a uniform prior may narrow it further. Scientific analyses should
-report all three choices. New files require `calibration_range`; the former
-`bounds` spelling remains accepted in 1.2 with a `DeprecationWarning`.
+report all three choices. Schema 3 requires `calibration_range`; the former
+`bounds` spelling is rejected. See {doc}`migrating-to-2.0` before updating an
+old parameter file.
 
 ---
 

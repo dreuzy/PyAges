@@ -11,14 +11,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pyages.calibration.methods.mh import diagnostics as core_mcmc_diagnostics
+from pyages.calibration.methods.mh.diagnostics import (
+    ess,
+    mcse_mean_from_ess,
+    split_rhat,
+)
 from scripts.article import build_article_non_ploemeur_report as non_ploemeur_report
 from scripts.article import postprocess_holten_prior_sensitivity as prior_postprocess
 from scripts.article import run_ploemeur_shifted_exponential_final as ploemeur_runner
 from scripts.article import run_ploemeur_targeted_ig_reproduction as ig_runner
-from scripts.common import mcmc_diagnostics as script_mcmc_diagnostics
 from scripts.common import provenance
-from scripts.common.mcmc_diagnostics import ess, mcse_mean, split_rhat
 from scripts.common.reporting import markdown_table
 from scripts.release import build_article_package as package
 
@@ -67,23 +69,15 @@ def test_shared_mcmc_diagnostics_distinguish_mixed_and_shifted_chains():
     assert split_rhat(shifted) > 1.1
 
 
-def test_repository_scripts_use_the_canonical_core_mcmc_diagnostics():
-    """Prevent article helpers from drifting from the maintained MH formulas."""
-    assert script_mcmc_diagnostics.split_chains is core_mcmc_diagnostics.split_chains
-    assert (
-        script_mcmc_diagnostics.rank_normalize is core_mcmc_diagnostics.rank_normalize
-    )
-    assert script_mcmc_diagnostics.split_rhat is core_mcmc_diagnostics.split_rhat
-    assert script_mcmc_diagnostics.ess is core_mcmc_diagnostics.ess
-
-
 def test_mcse_mean_uses_ess_and_preserves_constant_limit():
     values = np.asarray([1.0, 2.0, 3.0, 4.0])
 
-    assert mcse_mean(values, 4.0) == pytest.approx(np.std(values, ddof=1) / 2.0)
-    assert mcse_mean(np.ones(10), 3.0) == 0.0
+    assert mcse_mean_from_ess(values, 4.0) == pytest.approx(
+        np.std(values, ddof=1) / 2.0
+    )
+    assert mcse_mean_from_ess(np.ones(10), 3.0) == 0.0
     with pytest.raises(ValueError, match="effective_sample_size"):
-        mcse_mean(values, 0.0)
+        mcse_mean_from_ess(values, 0.0)
 
 
 def test_markdown_table_rounds_and_escapes_without_tabulate():

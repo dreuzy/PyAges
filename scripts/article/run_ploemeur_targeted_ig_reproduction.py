@@ -57,7 +57,7 @@ from pyages.calibration.methods.mh.ig_coordinates import (
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
-from scripts.common.mcmc_diagnostics import (
+from pyages.calibration.methods.mh.diagnostics import (
     ess as _ess,
     rank_normalize as _rank_normalize,
     split_rhat as _split_rhat,

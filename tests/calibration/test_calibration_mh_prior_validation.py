@@ -29,7 +29,7 @@ def test_calibration_mh_prior_validation_tolerances(tmp_path: Path, lpm_type: st
         thinning=5,
         prior_option=True,
         likelihood=False,
-        monitor=False,
+        record_trajectory=False,
         display_traj=False,
         display_text=False,
     )

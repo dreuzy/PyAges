@@ -50,12 +50,12 @@ from examples.natural.holten.holten_reproduction import (  # noqa: E402
     build_reproduction_endmembers,
     optimize_well,
 )
+from pyages.calibration.methods.mh.diagnostics import mcse_mean_from_ess  # noqa: E402
 from scripts.article.run_final_shifted_exponential import (  # noqa: E402
     _iact_ess,
     _split_rhat,
     _summary,
 )
-from scripts.common.mcmc_diagnostics import mcse_mean  # noqa: E402
 from scripts.common.provenance import (  # noqa: E402
     repository_provenance,
 )
@@ -462,7 +462,7 @@ def collect_diagnostics(
                 "steps_per_chain": FINAL_STEPS[well],
                 "split_rhat": _split_rhat(chains),
                 "ess_sum_chains": total_ess,
-                "mcse_mean": mcse_mean(pooled, total_ess),
+                "mcse_mean": mcse_mean_from_ess(pooled, total_ess),
             }
             row["converged"] = bool(
                 row["split_rhat"] < 1.01 and row["ess_sum_chains"] >= 300.0
@@ -484,7 +484,7 @@ def collect_diagnostics(
             if diagnostic is None:
                 chains = [np.asarray(data[parameter]) for data in loaded]
                 total_ess = float(sum(_iact_ess(chain)[2] for chain in chains))
-                mean_mcse = mcse_mean(values, total_ess)
+                mean_mcse = mcse_mean_from_ess(values, total_ess)
             else:
                 total_ess = diagnostic["ess_sum_chains"]
                 mean_mcse = diagnostic["mcse_mean"]

@@ -14,6 +14,9 @@ Before 1.0, incompatible public changes are identified explicitly below.
   meaning.
 - Added configuration schema 3. It uses the same `data`, `lpm`, `calibration`,
   `reporting`, and `output` section names in YAML and in Python models.
+- Added a field-by-field 1.2-to-2.0 migration guide covering schema changes,
+  paths, seeds, temporal priors, Python API replacements, and expected
+  stochastic differences.
 
 ### Changed
 
@@ -23,8 +26,8 @@ Before 1.0, incompatible public changes are identified explicitly below.
   writes the standard posterior files at the calibration root.
 - Derived production seeds uniformly for every chain count, so the first chain
   remains stable when more chains are added. Trajectory figures are now written
-  independently per chain; the ineffective workflow-level `monitor` switch was
-  removed in favor of the observable `display_traj` switch.
+  independently per chain. The low-level storage control is now the explicit
+  `record_trajectory`, while workflows use `display_traj` only for figures.
 - Made `bounds_stratified` the single default initialization rule for one or
   several chains. Removed the cardinality-dependent `auto` and `chain_default`
   strategies; fixed study starts now use the existing `explicit` strategy.
@@ -65,6 +68,18 @@ Before 1.0, incompatible public changes are identified explicitly below.
   packaged with PyAges. Self-contained projects created by `pyages new config`
   now run from an installed wheel instead of accidentally looking for a
   checkout-local `data_core` directory beside the generated YAML.
+- Aligned posterior rendering on the single name `posterior_draw_count` from
+  configuration through selection and plotting, and made reference-table
+  alignment require explicit `observation_key` values instead of row order.
+- Routed article MCMC diagnostics directly through the maintained core module
+  and named pooled-draw MCSE calculation explicitly as `mcse_mean_from_ess`.
+- Routed Ploemeur through the same `execute_mh_run` integration service as the
+  generic workflows. Its dedicated `single_run` module now owns only site
+  preparation and reporting, while stage paths, serialization, and convergence
+  failure handling have one implementation.
+- Isolated the frozen Figure 4 diagnostic formulas under the explicit
+  `article_reproduction` namespace; current workflows continue to use only the
+  canonical MH diagnostics.
 
 ### Removed
 
@@ -84,6 +99,12 @@ Before 1.0, incompatible public changes are identified explicitly below.
   `write_calibrated_lpm()` and `write_results_spec()`.
 - Removed redundant MH output fields (`execution_mode`, `master_seed`,
   `success_rate`, `time_perform`, and the duplicate proposal-kind field).
+- Removed the repository-only `scripts.common.mcmc_diagnostics` re-export
+  facade, position-derived reference-table matching, archived-manifest
+  `mh_nsteps`/single-chain fallbacks in the final scientific audit, and the
+  HYP-26-0172 matrix launcher's `--mh-nsteps` alias.
+- Removed three disabled HYP-26-0172 experiment aliases and their unreferenced
+  configurations; maintained examples now select an active primary experiment.
 
 ## 1.2.0 - 2026-09-06
 

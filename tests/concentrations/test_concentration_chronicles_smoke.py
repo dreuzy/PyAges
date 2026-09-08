@@ -98,7 +98,7 @@ def test_concentration_chronicles_smoke(tmp_path, update_golden, monkeypatch):
         lpm_results,
         "smoke",
         display,
-        lpm_number=1,
+        posterior_draw_count=1,
     )
     assert convolution_calls == 1
 
