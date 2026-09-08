@@ -24,9 +24,11 @@ doi:https://doi.org/10.1029/2000RG000101.
 import numpy as np
 import numpy.typing as npt
 from scipy.special import log_ndtr, ndtr
+from scipy.stats import invgauss
 
+from pyages.lpm.core.lpm_scipy import LpmScipy
 from pyages.lpm.core.registry import register_lpm
-from pyages.lpm.models._inverse_gaussian_numerics import _InverseGaussianLpmBase
+from pyages.lpm.models._inverse_gaussian_numerics import inverse_gaussian_quantiles
 
 
 def scipy_params_from_mean_std(mean_age: float, std_age: float) -> tuple[float, float]:
@@ -100,7 +102,7 @@ def cdf_and_partial_first_moment_from_mean_std(
 
 
 @register_lpm("ig")
-class InverseGaussianLpm(_InverseGaussianLpmBase):
+class InverseGaussianLpm(LpmScipy):
     r"""Inverse-Gaussian LPM parameterized by physical moments.
 
     ``mu`` is mean transit time and ``sigma`` is its standard deviation, both
@@ -113,6 +115,8 @@ class InverseGaussianLpm(_InverseGaussianLpmBase):
     interpretation are documented in ``docs/scientific-methods.md`` and
     ``docs/scientific-migration-ig-decay.md``.
     """
+
+    scipy_dist = invgauss
 
     def __init__(self, mu=10, sigma=2, directory_lpm=None):
         """
@@ -134,6 +138,12 @@ class InverseGaussianLpm(_InverseGaussianLpmBase):
     def _scipy_params(self):
         shape, scale = scipy_params_from_mean_std(self.p["mu"], self.p["sigma"])
         return (shape,), 0, scale
+
+    def cdf_inv(self, p: npt.ArrayLike) -> npt.ArrayLike:
+        """Return robust inverse-Gaussian quantiles."""
+        return inverse_gaussian_quantiles(
+            self._validated_probabilities(p), self._scipy_params()
+        )
 
     def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
         """Return ``F(t)`` and ``E[T 1(T <= t)]`` for convolution."""

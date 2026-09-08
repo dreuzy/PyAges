@@ -9,61 +9,21 @@ from pathlib import Path
 import pytest
 
 import pyages.workflows.single_date.paths as single_date_paths
-from pyages.config.paths import configuration_root
+from pyages.config.paths import configuration_directory
 from pyages.workflows.single_date.paths import dataset_results_directory
 
 
-def test_configuration_root_finds_checkout_from_nested_config(tmp_path: Path) -> None:
-    (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
-    (tmp_path / "data_core").mkdir()
-    config = tmp_path / "examples" / "case" / "config.yaml"
-    config.parent.mkdir(parents=True)
-    config.write_text("dataset: {}\n", encoding="utf-8")
-
-    assert configuration_root(config) == tmp_path
-
-
-def test_versioned_configuration_is_self_contained_inside_checkout(
-    tmp_path: Path,
-) -> None:
+def test_configuration_directory_is_always_the_yaml_parent(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
     (tmp_path / "data_core").mkdir()
     config = tmp_path / "examples" / "generated" / "pyages.yaml"
     config.parent.mkdir(parents=True)
     config.write_text(
-        "schema_version: 2\nworkflow:\n  kind: single_date\n",
+        "schema_version: 3\nworkflow:\n  kind: single_date\n",
         encoding="utf-8",
     )
 
-    assert configuration_root(config) == config.parent
-
-
-def test_configuration_root_falls_back_to_config_directory(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    config = tmp_path / "standalone" / "config.yaml"
-    config.parent.mkdir()
-    config.write_text("dataset: {}\n", encoding="utf-8")
-
-    assert configuration_root(config) == config.parent
-
-
-def test_configuration_root_accepts_checkout_working_directory(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    checkout = tmp_path / "checkout"
-    checkout.mkdir()
-    (checkout / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
-    (checkout / "data_core").mkdir()
-    config = tmp_path / "copied" / "config.yaml"
-    config.parent.mkdir()
-    config.write_text("dataset: {}\n", encoding="utf-8")
-    monkeypatch.chdir(checkout)
-
-    assert configuration_root(config) == checkout
+    assert configuration_directory(config) == config.parent
 
 
 @pytest.mark.parametrize(
@@ -75,7 +35,7 @@ def test_dataset_results_directory_rejects_path_components(dataset_name: str) ->
         dataset_results_directory(dataset_name)
 
 
-def test_dataset_results_directory_keeps_the_historical_default(
+def test_dataset_results_directory_uses_the_default_root(
     tmp_path: Path,
     monkeypatch,
 ) -> None:

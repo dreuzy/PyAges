@@ -30,7 +30,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from pyages.calibration.methods.base import CalibrationMethod
+from pyages.calibration.methods._binding import CalibrationBinding
 from pyages.calibration.methods.mh._sampler_target import MHTarget
 from pyages.calibration.methods.mh.config import MHConfig
 from pyages.calibration.methods.mh.prior import Prior
@@ -42,6 +42,7 @@ from pyages.calibration.methods.mh.proposals import (
 from pyages.calibration.methods.mh.trajectory import MHTrajectory
 from pyages.calibration.objective import normalized_residual_norm
 from pyages.calibration.outputs import write_key_values
+from pyages.calibration.problem import CalibrationProblem
 from pyages.lpm.samples.table import LpmSampleTable
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,7 @@ class _MHState:
     concentrations: list[float]
 
 
-class MetropolisHastings(CalibrationMethod):
+class MetropolisHastings:
     r"""Sample an LPM posterior with a Metropolis-Hastings chain.
 
     For parameters :math:`\theta` within the configured calibration ranges, the target
@@ -100,7 +101,7 @@ class MetropolisHastings(CalibrationMethod):
 
     def __init__(self, config: MHConfig) -> None:
         """Initialize the sampler from one immutable scientific configuration."""
-        super().__init__()
+        self._binding = CalibrationBinding()
         # Immutable controls and proposal-step policy are resolved once per run.
         self.method = "Metropolis_Hastings"
         if not isinstance(config, MHConfig):
@@ -125,6 +126,35 @@ class MetropolisHastings(CalibrationMethod):
         self._resolved_prior_metadata: dict[str, Any] = {}
         self._expected_proposal_metadata: dict[str, Any] | None = None
         self._expected_prior_metadata: dict[str, Any] | None = None
+
+    @property
+    def problem(self) -> CalibrationProblem:
+        """Return the problem bound by :meth:`run`."""
+        return self._binding.problem
+
+    @property
+    def lpm(self):
+        """Return the LPM owned by the bound problem."""
+        return self._binding.lpm
+
+    @property
+    def observations(self):
+        """Return observations owned by the bound problem."""
+        return self._binding.observations
+
+    @property
+    def display_options(self):
+        """Return rendering choices owned by the bound problem."""
+        return self._binding.display_options
+
+    def observation_arrays(self) -> tuple[np.ndarray, np.ndarray]:
+        """Return observations and errors in canonical order."""
+        return self._binding.observation_arrays()
+
+    def run(self, problem: CalibrationProblem) -> LpmSampleTable:
+        """Bind a prepared problem and execute this chain."""
+        self._binding.bind(problem)
+        return self.perform()
 
     def _draw_proposal(self, p0: list[float], rng: np.random.Generator) -> list[float]:
         """Draw one unbounded proposal from the configured random walk."""
@@ -348,16 +378,18 @@ class MetropolisHastings(CalibrationMethod):
         self._resolved_prior_metadata = {}
         self._target = None
         # Prior-only validation requires retained trajectory values.
-        monitor = self.config.monitor or (
-            self.config.likelihood is False and self.prior.option is True
+        record_trajectory = (
+            self.config.monitor
+            or self.config.display_traj
+            or (self.config.likelihood is False and self.prior.option is True)
         )
         rng = np.random.default_rng(self.config.seed)
         data_conc, data_error = self.observation_arrays()
         self._prepare_proposal()
-        # Monitoring stores retained states only; it is not a second chain.
+        # Trajectory recording stores retained states only; it is not a second chain.
         traj = (
             MHTrajectory(self.lpm.p.keys(), self.config.retained_sample_count())
-            if monitor
+            if record_trajectory
             else None
         )
         # Priors depend on the bound model's names and calibration ranges.
@@ -440,9 +472,9 @@ class MetropolisHastings(CalibrationMethod):
     def perform(self) -> LpmSampleTable:
         """Run and thin the configured Markov chain.
 
-        The loop executes exactly ``config.nstep`` transitions. It stores the
+        The loop executes exactly ``config.nsteps`` transitions. It stores the
         current state for zero-based iterations satisfying the strict burn-in
-        rule ``i > burn_in * nstep`` and ``i % nskip == 0``. The acceptance
+        rule ``i > burn_in * nsteps`` and ``i % thinning == 0``. The acceptance
         fraction is computed over all transitions and is available through
         :attr:`success_rate`.
 
@@ -479,7 +511,7 @@ class MetropolisHastings(CalibrationMethod):
 
         # Transition loop: update the current state, then retain by schedule.
         line = 0
-        for i in range(self.config.nstep):
+        for i in range(self.config.nsteps):
             state, success = self._mcmc_step(
                 state,
                 data_conc,
@@ -512,11 +544,13 @@ class MetropolisHastings(CalibrationMethod):
                     n += 1
 
         # Consolidate retained joint states without re-evaluating the chain.
-        self._success_rate = nsuccess / self.config.nstep
+        self._success_rate = nsuccess / self.config.nsteps
         lpm_results = LpmSampleTable(
             deepcopy(self.lpm), c_names=self.observations.observation_keys()
         )
-        lpm_results.replace_frame(pd.DataFrame(array_results, columns=array_col_names))
+        lpm_results.replace_frame(
+            pd.DataFrame(array_results, columns=pd.Index(array_col_names))
+        )
 
         # Derive LPM moments row-wise to preserve posterior parameter pairing.
         lpm_results.add_moments()
@@ -531,6 +565,8 @@ class MetropolisHastings(CalibrationMethod):
         # A likelihood-free run is an executable check that the chain recovers
         # the configured prior moments; it is not an observational calibration.
         if self.config.likelihood is False and self.prior.option is True:
+            if traj is None:  # pragma: no cover - _prepare_mcmc enables monitoring.
+                raise RuntimeError("Prior validation requires a retained trajectory.")
             self.prior_validation_stats = self.prior.validate_chain_moments(
                 traj.path, self.lpm
             )
@@ -543,9 +579,9 @@ class MetropolisHastings(CalibrationMethod):
         """Build complete sampler metadata for output."""
         data = {}
         data["method"] = self.method
-        data["nstep"] = self.config.nstep
+        data["nsteps"] = self.config.nsteps
         data["burn-in"] = self.config.burn_in
-        data["nskip"] = self.config.nskip
+        data["thinning"] = self.config.thinning
         data["retained_sample_count"] = self.config.retained_sample_count()
         data["prior_option"] = self.prior.option
         data["prior_type"] = self.config.prior_type
@@ -569,9 +605,16 @@ class MetropolisHastings(CalibrationMethod):
         data = self._parameters_payload()
         write_key_values(file_name, data)
 
-    def write_results_spec(self, data: dict[str, Any]) -> None:
-        """Record the transition-level acceptance fraction."""
-        data["success_rate"] = self._success_rate
+    def result_metadata(self) -> dict[str, Any]:
+        """Return transition-level scalar diagnostics."""
+        return {"success_rate": self._success_rate}
+
+    def write_results(self, file_name: str | Path) -> None:
+        """Write execution time and transition diagnostics."""
+        write_key_values(
+            file_name,
+            {"time_perform": self.time_perform, **self.result_metadata()},
+        )
 
     @property
     def success_rate(self) -> float:

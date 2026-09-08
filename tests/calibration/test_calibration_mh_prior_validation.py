@@ -24,9 +24,9 @@ def test_calibration_mh_prior_validation_tolerances(tmp_path: Path, lpm_type: st
     display.directory = tmp_path / lpm_type
 
     mh_config = MHConfig(
-        nstep=2000,
+        nsteps=2000,
         burn_in=0.2,
-        nskip=5,
+        thinning=5,
         prior_option=True,
         likelihood=False,
         monitor=False,

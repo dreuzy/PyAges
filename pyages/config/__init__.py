@@ -8,19 +8,13 @@
 
 from __future__ import annotations
 
-from pyages.config.migration import (
-    CONFIGURATION_SCHEMA_VERSION,
-    LegacyConfigurationWarning,
-    migrate_configuration_payload,
-    normalize_configuration_payload,
-)
 from pyages.config.models import (
+    CONFIGURATION_SCHEMA_VERSION,
     CliCheckParams,
     CliRunParams,
-    LauncherConfig,
-    LauncherParams,
+    SingleDateConfig,
     SystemCheckConfig,
-    TemporalParams,
+    TemporalConfig,
 )
 from pyages.config.paths import (
     DIRECTORY_LPM_DATA,
@@ -36,13 +30,9 @@ __all__ = [
     "CliCheckParams",
     "CliRunParams",
     "CONFIGURATION_SCHEMA_VERSION",
-    "LegacyConfigurationWarning",
-    "LauncherConfig",
-    "LauncherParams",
+    "SingleDateConfig",
     "SystemCheckConfig",
-    "TemporalParams",
-    "migrate_configuration_payload",
-    "normalize_configuration_payload",
+    "TemporalConfig",
     "DIRECTORY_LPM_DATA",
     "DIRECTORY_TRACER_DATA",
     "ROOT_DIRECTORY",

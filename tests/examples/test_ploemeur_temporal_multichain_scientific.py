@@ -23,7 +23,7 @@ import yaml
 
 from pyages.calibration.problem import CalibrationProblem, resolve_observation_errors
 from pyages.concentrations import Concentrations
-from pyages.config.models import TemporalParams
+from pyages.config.models import TemporalConfig
 from pyages.data_io.lpm_distribution import read_distribution
 from pyages.workflows.temporal import run_temporal
 
@@ -85,44 +85,43 @@ def _read_key_values(path: Path) -> dict[str, str]:
 def _scientific_payload(results_root: Path) -> dict:
     """Load and relocate the maintained temporal qualification profile."""
     teaching = yaml.safe_load(TEACHING_CONFIG.read_text(encoding="utf-8"))
-    assert "multichain" not in teaching["calibration"]
+    assert "multichain" not in teaching["calibration"]["metropolis_hastings"]
     payload = yaml.safe_load(MULTICHAIN_CONFIG.read_text(encoding="utf-8"))
-    payload["dataset"]["file"] = str(DATA)
-    payload["lpm_models"]["directory"] = str(LPM_DIRECTORY)
-    payload["results"] = {
+    payload["data"]["file"] = str(DATA)
+    payload["lpm"]["directory"] = str(LPM_DIRECTORY)
+    payload["output"] = {
         "use_default": False,
         "directory": str(results_root),
         "study_name": "ploemeur_temporal_multichain",
     }
-    calibration = payload["calibration"]
-    multichain = calibration["multichain"]
-    assert payload["dataset"]["error_rel"] == 0.20
-    assert payload["dataset"]["missing_error_rel"] == 0.01
-    assert payload["lpm_models"]["models"] == ["exp_shifted"]
+    calibration = payload["calibration"]["metropolis_hastings"]
+    assert payload["data"]["error_rel"] == 0.20
+    assert payload["data"]["missing_error_rel"] == 0.01
+    assert payload["lpm"]["models"] == ["exp_shifted"]
     assert payload["workflow"]["mode"] == "span"
-    assert payload["results"]["study_name"] == "ploemeur_temporal_multichain"
+    assert payload["output"]["study_name"] == "ploemeur_temporal_multichain"
     assert (
-        calibration["mh_nsteps"],
+        calibration["nsteps"],
         calibration["burn_in"],
-        calibration["nskip"],
+        calibration["thinning"],
     ) == (PRODUCTION_STEPS, BURN_IN, 1)
-    assert (multichain["chains"], multichain["master_seed"]) == (
+    assert (calibration["chains"], calibration["seed"]) == (
         CHAIN_COUNT,
         20260831,
     )
-    assert multichain["initialization"] == {
+    assert calibration["initialization"] == {
         "strategy": "bounds_stratified",
         "max_attempts": 100,
     }
-    assert multichain["pilot"] == {
+    assert calibration["pilot"] == {
         "enabled": True,
-        "nstep": 2_000,
+        "nsteps": 2_000,
         "burn_in": 0.50,
         "relative_ridge": 1.0e-6,
         "proposal_multiplier": "auto",
         "save_samples": False,
     }
-    assert multichain["diagnostics"] == {
+    assert calibration["diagnostics"] == {
         "max_rhat": MAX_RHAT,
         "min_bulk_ess": MIN_ESS,
         "min_tail_ess": MIN_ESS,
@@ -134,11 +133,10 @@ def _scientific_payload(results_root: Path) -> dict:
 def test_ploemeur_temporal_multichain_profile_contract(tmp_path: Path) -> None:
     """Validate the maintained profile and its field/prior inputs quickly."""
     payload = _scientific_payload(tmp_path / "unused-results")
-    params = TemporalParams.model_validate(payload)
+    params = TemporalConfig.model_validate(payload)
 
     assert params.workflow.mode == "span"
-    assert params.calibration.multichain is not None
-    assert params.calibration.multichain.enabled
+    assert params.calibration.metropolis_hastings.chains == 4
     observations = Concentrations.from_file(DATA)
     assert len(observations.frame) == 58
     assert observations.frame["date"].nunique() == 20

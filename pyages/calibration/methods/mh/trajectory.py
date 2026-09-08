@@ -30,10 +30,10 @@ class MHTrajectory:
     part of the Markov chain and are not removed.
     """
 
-    def __init__(self, params: Iterable[str], nstep: int) -> None:
+    def __init__(self, params: Iterable[str], nsteps: int) -> None:
         """Preallocate numeric trajectory columns and diagnostics."""
-        if isinstance(nstep, bool) or not isinstance(nstep, int) or nstep < 0:
-            raise ValueError("nstep must be a non-negative integer")
+        if isinstance(nsteps, bool) or not isinstance(nsteps, int) or nsteps < 0:
+            raise ValueError("nsteps must be a non-negative integer")
         parameter_names = tuple(params)
         if (
             not parameter_names
@@ -43,8 +43,8 @@ class MHTrajectory:
             raise ValueError("trajectory parameters must be unique non-empty strings")
         columns = [*parameter_names, "-log_posterior", "incrementation"]
         self.path = pd.DataFrame(
-            np.full((nstep, len(columns)), np.nan, dtype=float),
-            columns=columns,
+            np.full((nsteps, len(columns)), np.nan, dtype=float),
+            columns=pd.Index(columns),
         )
 
     def update(

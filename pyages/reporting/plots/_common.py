@@ -86,6 +86,22 @@ def _ensure_frame(result: FrameSource) -> pd.DataFrame:
     raise TypeError("Expected a pandas DataFrame or an object exposing .frame.")
 
 
+def _series_column(frame: pd.DataFrame, column: str) -> pd.Series:
+    """Return one uniquely named DataFrame column as a Series."""
+    selected = frame.loc[:, column]
+    if not isinstance(selected, pd.Series):
+        raise ValueError(f"Expected one column named {column!r}")
+    return selected
+
+
+def _numeric_series(frame: pd.DataFrame, column: str) -> pd.Series:
+    """Return one column converted to numeric values, with failures as NaN."""
+    converted = pd.to_numeric(_series_column(frame, column), errors="coerce")
+    if not isinstance(converted, pd.Series):  # Defensive pandas API boundary.
+        raise TypeError(f"Numeric conversion of column {column!r} was not a Series")
+    return converted
+
+
 def _best_row(frame: pd.DataFrame) -> pd.Series | None:
     if frame.empty:
         return None
@@ -164,7 +180,7 @@ def _plot_interpolated_objective_surface(ax, x, y, values, vmin: float, vmax: fl
             alpha=0.92,
             extend="both",
         )
-    except Exception:
+    except (RuntimeError, ValueError):
         return ax.scatter(
             x,
             y,

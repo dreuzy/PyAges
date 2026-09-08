@@ -216,6 +216,51 @@ def test_problem_rejects_observation_mutation_after_preparation(tmp_path):
         problem.ensure_prepared()
 
 
+def test_prepared_problem_clone_is_independent_without_rebuilding_grids(
+    tmp_path,
+) -> None:
+    problem = _prepared_problem(tmp_path / "source")
+    display = DisplayOptions()
+    display.directory = tmp_path / "clone"
+
+    with patch(
+        "pyages.calibration.problem.resolve_observation_errors",
+        side_effect=AssertionError("clone repeated scientific preparation"),
+    ):
+        clone = problem.clone_prepared(display_options=display)
+
+    assert clone is not problem
+    assert clone.lpm is not problem.lpm
+    assert clone.tracers is not problem.tracers
+    assert clone.display_options is not display
+    assert clone.display_options.directory == tmp_path / "clone"
+    assert clone.target_signature() == problem.target_signature()
+    assert clone.tracers is not None
+    assert problem.tracers is not None
+    assert all(
+        cloned is not original
+        for original, cloned in zip(
+            problem.tracers.convolutions,
+            clone.tracers.convolutions,
+            strict=True,
+        )
+    )
+    assert all(
+        cloned.prepared_grid is original.prepared_grid
+        for original, cloned in zip(
+            problem.tracers.convolutions,
+            clone.tracers.convolutions,
+            strict=True,
+        )
+    )
+
+    original_parameters = problem.lpm.get_parameters_to_array()
+    clone.lpm.set_param_from_array([20.0])
+
+    assert problem.lpm.get_parameters_to_array() == original_parameters
+    assert clone.lpm.get_parameters_to_array() == [20.0]
+
+
 def test_candidate_objective_does_not_mutate_committed_lpm(tmp_path):
     problem = _prepared_problem(tmp_path)
     committed = problem.lpm.get_parameters_to_array()

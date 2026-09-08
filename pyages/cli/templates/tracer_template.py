@@ -21,6 +21,8 @@ from pathlib import Path
 
 import click
 
+from pyages.cli._atomic import atomic_write_text
+
 TRACER_CONFIG_TEMPLATE = """\
 # {name_upper} Tracer Configuration
 #
@@ -161,12 +163,13 @@ def generate_tracer_template(
     # Write config file
     config_file = tracer_dir / f"{name}.yaml"
 
-    if config_file.exists():
+    overwrite_config = config_file.exists()
+    if overwrite_config:
         if not click.confirm(f"File {config_file} already exists. Overwrite?"):
             click.echo("Aborted.")
             return
 
-    config_file.write_text(config_content, encoding="utf-8")
+    atomic_write_text(config_file, config_content, overwrite=overwrite_config)
     click.echo(click.style("Created:", fg="green") + f" {config_file}")
 
     # Generate recharge chronicle if requested
@@ -185,14 +188,15 @@ def generate_tracer_template(
 
         csv_file = tracer_dir / "recharge.csv"
 
-        if csv_file.exists():
+        overwrite_csv = csv_file.exists()
+        if overwrite_csv:
             if not click.confirm(f"File {csv_file} already exists. Overwrite?"):
                 click.echo("Skipping recharge.csv")
             else:
-                csv_file.write_text(csv_content, encoding="utf-8")
+                atomic_write_text(csv_file, csv_content, overwrite=True)
                 click.echo(click.style("Created:", fg="green") + f" {csv_file}")
         else:
-            csv_file.write_text(csv_content, encoding="utf-8")
+            atomic_write_text(csv_file, csv_content)
             click.echo(click.style("Created:", fg="green") + f" {csv_file}")
 
     # Show next steps

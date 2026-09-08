@@ -96,10 +96,10 @@ def test_objective_only_run_uses_resolved_errors_without_calibration(
 ) -> None:
     source_config = ROOT / "examples" / "templates" / "quickstart_single.yaml"
     payload = yaml.safe_load(source_config.read_text(encoding="utf-8"))
-    payload["dataset"]["data_dir"] = str(
+    payload["data"]["data_dir"] = str(
         ROOT / "examples" / "natural" / "ploemeur" / "data"
     )
-    payload["lpm"]["data_directory"] = str(ROOT / "data_core" / "data_lpm")
+    payload["lpm"]["directory"] = str(ROOT / "data_core" / "data_lpm")
     payload["run"]["objective_function"] = True
     payload["objective_function"]["nmodels"] = 4
     config = tmp_path / "objective_only.yaml"
@@ -172,13 +172,13 @@ def test_multichain_smoke_runs_end_to_end_from_its_versioned_config(
     assert {"mu", "shift"}.issubset(set(diagnostics["parameter"]))
     parameters = _read_key_values(mh_directory / "parameters_calibration.txt")
     run_results = _read_key_values(mh_directory / "results_calibration.txt")
-    provenance = _read_key_values(mh_directory / "ensemble_provenance.txt")
-    assert parameters["execution_mode"] == "multi_chain"
+    provenance = _read_key_values(mh_directory / "run_provenance.txt")
+    assert parameters["chain_count"] == "2"
     assert parameters["pilot_covariance_mode"] == "pooled_within_chain"
     assert parameters["retained_sample_count_per_chain"] == "10"
     assert run_results["qualification_status"] == "not_qualified"
     assert run_results["pooling_written"] == "True"
-    assert provenance["master_seed"] == "20260831"
+    assert provenance["seed"] == "20260831"
     assert provenance["production_seed_001"] != provenance["production_seed_002"]
 
     manifest = json.loads((output / "result_manifest.json").read_text(encoding="utf-8"))

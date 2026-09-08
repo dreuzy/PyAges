@@ -19,8 +19,6 @@ from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
 
-import yaml
-
 # -------------------------------------------------------
 # Root directories
 # -------------------------------------------------------
@@ -52,31 +50,9 @@ DIRECTORY_LPM_DATA = _DATA_CORE_DIRECTORY / "data_lpm"
 # -------------------------------------------------------
 
 
-def configuration_root(config_path: str | Path) -> Path:
-    """Resolve the path base promised by legacy and versioned configurations.
-
-    Versioned configurations are self-contained and resolve beside their YAML
-    file. Unversioned 1.x files keep the historical checkout-root behavior.
-    """
-    path = Path(config_path).resolve()
-    if path.is_file():
-        try:
-            payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except yaml.YAMLError:
-            payload = None
-        if isinstance(payload, dict) and "schema_version" in payload:
-            return path.parent
-    for candidate in (path.parent, *path.parents):
-        if (candidate / "pyproject.toml").is_file() and (
-            candidate / "data_core"
-        ).is_dir():
-            return candidate
-    current_directory = Path.cwd().resolve()
-    if (current_directory / "pyproject.toml").is_file() and (
-        current_directory / "data_core"
-    ).is_dir():
-        return current_directory
-    return path.parent
+def configuration_directory(config_path: str | Path) -> Path:
+    """Return the directory containing a schema-3 configuration file."""
+    return Path(config_path).resolve().parent
 
 
 def result_subdirectory(directory: str | Path, sub_directory: str) -> Path:
@@ -113,7 +89,7 @@ __all__ = [
     "DIRECTORY_TRACER_DATA",
     "ROOT_DIRECTORY",
     "ROOT_DIRECTORY_RESULTS",
-    "configuration_root",
+    "configuration_directory",
     "result_subdirectory",
     "timestamp_name",
     "validate_path_component",

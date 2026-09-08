@@ -25,6 +25,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any, cast
 
 from pyages.data_io import lpm_params
 
@@ -153,7 +154,7 @@ class ParameterManager:
         values: dict[str, float] = {}
         for name in self._parameter_names:
             try:
-                value = float(params[name])
+                value = float(cast(Any, params[name]))
             except (TypeError, ValueError):
                 return None
             if not math.isfinite(value):

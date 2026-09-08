@@ -120,6 +120,37 @@ def test_piecewise_uniform_basis_is_built_once_until_date_changes(monkeypatch) -
     assert calls == [2010.0, 2009.0]
 
 
+def test_prepared_clone_reuses_piecewise_basis_with_private_diagnostics(
+    monkeypatch,
+) -> None:
+    model = _shape_free_lpm()
+    convolution = Convolution(
+        SyntheticTracer(
+            datemin=1900.0,
+            concentration_fn=lambda _date, age: 1.0 + 0.01 * np.asarray(age),
+        ),
+        date=2010.0,
+    )
+    convolution.prepare(model)
+    expected = convolution.convolve(model)
+    source_diagnostics = convolution.diagnostics
+    clone = convolution.clone_prepared()
+    assert clone.diagnostics is None
+
+    def fail_prepare(*_args, **_kwargs):
+        raise AssertionError("clone rebuilt the prepared piecewise basis")
+
+    monkeypatch.setattr(
+        convolution_module,
+        "prepare_piecewise_uniform_basis",
+        fail_prepare,
+    )
+
+    assert clone.convolve(model) == pytest.approx(expected)
+    assert clone.diagnostics is not None
+    assert convolution.diagnostics is source_diagnostics
+
+
 def test_prepared_piecewise_uniform_basis_owns_read_only_arrays() -> None:
     """Prevent mutation of a cached response through caller-owned arrays."""
     grid = Convolution(

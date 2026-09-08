@@ -302,6 +302,52 @@ Pyright error may reveal either a real bug or incomplete type information; the
 appropriate response is to understand which case applies, not simply to hide
 the warning.
 
+Pyright was introduced progressively in PyAges. Its guaranteed scope now
+contains the whole installed package (`pyages/`), every executable example
+helper (`examples/`), the maintained site studies (`sites/`), the TracerLPM
+validation code (`validation/`), and the shared and maintenance tools under
+`scripts/common/` and `scripts/maintenance/`, plus the article, scientific
+qualification, and release tooling under `scripts/article/`,
+`scripts/qualification/`, and `scripts/release/`. The `[tool.pyright]` `include` list in
+`pyproject.toml` records that boundary. The usual command checks this whole
+maintained surface:
+
+```bash
+python -m pyright
+```
+
+Because directories are listed rather than individual files, a new Python
+module below any of them is checked automatically. This prevents a newly added
+article or release script from silently falling outside the type check. The
+gate was expanded only after every existing diagnostic had been understood and
+corrected; no broad ignore was used to admit these directories.
+
+The direct whole-package audit is also green:
+
+```bash
+python -m pyright pyages
+```
+
+Both commands currently report zero errors. The first is the daily maintained-
+surface check; the second is useful when a developer wants to isolate the
+installed package.
+
+A diagnostic is not automatically a runtime bug. For example, pandas can
+return several related container types and its type definitions may be wider
+than the value PyAges actually expects. The correction may be a more precise
+local annotation or an explicit validation boundary. Other diagnostics, such
+as accessing an attribute on a possible `None`, a missing return path, or a
+possibly uninitialized variable, can expose a real failure path. Each message
+must therefore be understood before it is corrected or suppressed.
+
+When correcting a diagnostic, follow the value back to the boundary that
+establishes its type. For a pandas column, for example, PyAges verifies that the
+selection really is one `Series` before applying numeric operations. Avoid a
+broad `ignore` merely to obtain green output: it removes the protection without
+clarifying the runtime contract. After changing a type boundary, run the nearby
+Pytest tests as well, because Pyright reads code but does not execute the
+scientific calculation.
+
 ### The everyday edit-and-check loop
 
 Development is normally a short repeated loop rather than one large edit:

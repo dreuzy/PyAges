@@ -26,8 +26,10 @@ Usage
 
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from pyages.config.paths import DIRECTORY_LPM_DATA
 from pyages.lpm.core.registry import (
@@ -38,7 +40,15 @@ from pyages.lpm.core.registry import (
 )
 
 if TYPE_CHECKING:
-    from pyages.lpm.core.lpm_base import LpmBase as LPM
+    from pyages.lpm.core.lpm_base import LpmBase
+
+
+class _LpmConstructor(Protocol):
+    """Constructor shape shared by concrete registry entries."""
+
+    def __call__(self, *, directory_lpm: str | Path) -> LpmBase:
+        """Build one concrete model from its resolved parameter directory."""
+        ...
 
 
 def _resolve_directory(
@@ -63,7 +73,7 @@ def _resolve_directory(
 def build_lpm(
     lpm_type: str,
     directory_lpm: str | Path | None = None,
-) -> "LPM":
+) -> LpmBase:
     """
     Construct an LPM instance for a given model type.
 
@@ -81,7 +91,7 @@ def build_lpm(
 
     Returns
     -------
-    LPM
+    LpmBase
         Lumped parameter model instance.
 
     Raises
@@ -98,7 +108,7 @@ def build_lpm(
         ConvolutionStrategy.CONTINUOUS
     """
     # Resolve the requested model class from the registry.
-    lpm_class = get_lpm_class(lpm_type)
+    lpm_class = cast(_LpmConstructor, get_lpm_class(lpm_type))
     # Resolve the data directory (caller override or configured default).
     resolved_dir = _resolve_directory(directory_lpm)
     # Instantiate the model with its data directory.
@@ -109,7 +119,7 @@ def build_random_lpm(
     lpm_type: str,
     rng: Any | None = None,
     directory_lpm: str | Path | None = None,
-) -> "LPM":
+) -> LpmBase:
     """
     Construct an LPM instance and sample its parameters uniformly.
 
@@ -124,7 +134,7 @@ def build_random_lpm(
 
     Returns
     -------
-    LPM
+    LpmBase
         Lumped parameter model instance with randomized parameters.
     """
     # Build the model first, then randomize its parameters uniformly.

@@ -54,6 +54,14 @@ def _table(path: Path, limit: int | None = None) -> str:
     return _markdown(frame)
 
 
+def _column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one named column and reject duplicate column labels."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Expected exactly one {name!r} column")
+    return column
+
+
 def _tracerlpm_summary(run: Path) -> tuple[str, str]:
     results_path = run / "robustness_480" / "new" / "results.csv"
     if not results_path.exists():
@@ -61,8 +69,8 @@ def _tracerlpm_summary(run: Path) -> tuple[str, str]:
     if not results_path.exists():
         return "Résultats de robustesse manquants.", "Résultats détaillés manquants."
     frame = pd.read_csv(results_path)
-    model_names = frame["model"]
-    if model_names.isna().any():
+    model_names = _column(frame, "model")
+    if bool(model_names.isna().any()):
         raise RuntimeError("TracerLPM results contain missing model names")
     counts = {
         "cases": int(len(frame)),

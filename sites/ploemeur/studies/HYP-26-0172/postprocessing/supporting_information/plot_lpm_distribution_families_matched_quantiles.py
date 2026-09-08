@@ -80,7 +80,10 @@ def inverse_gaussian_model(
 
 
 def quantiles(model) -> tuple[float, float, float, float]:
-    q1, median, q3 = (float(value) for value in model.cdf_inv([0.25, 0.5, 0.75]))
+    values = np.asarray(model.cdf_inv([0.25, 0.5, 0.75]), dtype=float).reshape(-1)
+    if values.size != 3:
+        raise ValueError("Expected three quartiles from the LPM")
+    q1, median, q3 = float(values[0]), float(values[1]), float(values[2])
     return q1, median, q3, q3 - q1
 
 

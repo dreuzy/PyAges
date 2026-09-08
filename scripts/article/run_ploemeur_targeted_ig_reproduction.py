@@ -26,6 +26,7 @@ import shutil
 import subprocess
 import sys
 import time
+from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -156,6 +157,17 @@ def _bootstrap_samples(well: str, interval: tuple[float, float] | None) -> pd.Da
     return candidates.head(120).reset_index(drop=True)
 
 
+def _matrix_frame(values: np.ndarray, columns: Sequence[str]) -> pd.DataFrame:
+    """Build a numeric table while validating its declared column shape."""
+    matrix = np.asarray(values, dtype=float)
+    if matrix.ndim != 2 or matrix.shape[1] != len(columns):
+        raise ValueError(
+            f"Expected a two-dimensional matrix with {len(columns)} columns, "
+            f"got shape {matrix.shape}"
+        )
+    return pd.DataFrame({name: matrix[:, index] for index, name in enumerate(columns)})
+
+
 def _augment(frame: pd.DataFrame) -> pd.DataFrame:
     result = frame.copy()
     result["a"] = result["S"] ** 2 / result["M"] ** 2
@@ -210,12 +222,15 @@ def _run_chain_worker(payload: dict[str, Any]) -> ChainResult:
 
     def evaluate(params: np.ndarray) -> tuple[float, float]:
         if conditional is None:
-            log_prior = article_prior_logpdf(params)
+            log_prior = article_prior_logpdf(params.tolist())
         else:
             log_prior = _conditional_log_prior(params, conditional)
         if not math.isfinite(log_prior):
             return -math.inf, math.inf
-        objective = problem.objective_function(params, observed, errors)
+        objective_result = problem.objective_function(params, observed, errors)
+        if isinstance(objective_result, tuple):
+            raise TypeError("Scalar objective evaluation unexpectedly returned details")
+        objective = float(objective_result)
         return log_prior - 0.5 * objective, objective
 
     rng = np.random.default_rng(payload["seed"])
@@ -400,7 +415,7 @@ def _run_adapted_stage(
     run_rows = []
     for index, item in enumerate(production):
         chain = _augment(
-            pd.DataFrame(item.samples[PRODUCTION_WARMUP:], columns=["M", "S", "t0"])
+            _matrix_frame(item.samples[PRODUCTION_WARMUP:], ("M", "S", "t0"))
         )
         chain["objective_J"] = item.objectives[PRODUCTION_WARMUP:]
         chain["log_posterior"] = item.log_posteriors[PRODUCTION_WARMUP:]
@@ -432,7 +447,7 @@ def _augmented_chains(chains: np.ndarray) -> np.ndarray:
     augmented = []
     for chain in chains:
         augmented.append(
-            _augment(pd.DataFrame(chain, columns=["M", "S", "t0"]))[
+            _augment(_matrix_frame(chain, ("M", "S", "t0")))[
                 list(PARAMETERS)
             ].to_numpy()
         )
@@ -441,7 +456,7 @@ def _augmented_chains(chains: np.ndarray) -> np.ndarray:
 
 def _write_posterior_products(directory: Path, chains: np.ndarray) -> None:
     augmented = _augmented_chains(chains)
-    flat = pd.DataFrame(augmented.reshape(-1, len(PARAMETERS)), columns=PARAMETERS)
+    flat = _matrix_frame(augmented.reshape(-1, len(PARAMETERS)), PARAMETERS)
     summary = flat.describe(percentiles=[0.025, 0.1, 0.25, 0.5, 0.75, 0.9, 0.975]).T
     summary.to_csv(directory / "posterior_summary.csv")
     diagnostic_rows = []
@@ -486,7 +501,7 @@ def _load_stage_chains(stage: str, well: str) -> np.ndarray:
 
 
 def _full_series_passes(well: str, chains: np.ndarray) -> tuple[bool, dict[str, float]]:
-    new = _augment(pd.DataFrame(chains.reshape(-1, 3), columns=["M", "S", "t0"]))
+    new = _augment(_matrix_frame(chains.reshape(-1, 3), ("M", "S", "t0")))
     diagnostics = pd.read_csv(
         OUTPUT / "full_series" / well / "convergence_diagnostics.csv"
     )
@@ -597,7 +612,7 @@ def extend_full_series(well: str, extension_steps: int) -> bool:
     extension_rows = []
     combined_rows = []
     for index, item in enumerate(continuation):
-        chain = _augment(pd.DataFrame(combined[index], columns=["M", "S", "t0"]))
+        chain = _augment(_matrix_frame(combined[index], ("M", "S", "t0")))
         chain["objective_J"] = combined_objectives[index]
         chain["log_posterior"] = combined_log_posteriors[index]
         chain.to_csv(
@@ -694,9 +709,9 @@ def run_conditioned(*, resume: bool = False) -> None:
         )
     for well in ("F09", "F11"):
         full = _augment(
-            pd.DataFrame(
+            _matrix_frame(
                 _load_stage_chains("full_series", well).reshape(-1, 3),
-                columns=["M", "S", "t0"],
+                ("M", "S", "t0"),
             )
         )
         full_prior = _empirical_prior_spec(full)
@@ -711,9 +726,7 @@ def run_conditioned(*, resume: bool = False) -> None:
             span_chains = _run_adapted_stage(
                 well, span_name, (2012.0, 2025.0), full, full_prior
             )
-        span = _augment(
-            pd.DataFrame(span_chains.reshape(-1, 3), columns=["M", "S", "t0"])
-        )
+        span = _augment(_matrix_frame(span_chains.reshape(-1, 3), ("M", "S", "t0")))
         span_prior = _empirical_prior_spec(span)
         window_name = "window_2014_2015_conditioned"
         window_path = OUTPUT / window_name / well / "production_chains.npz"
@@ -726,7 +739,7 @@ def run_conditioned(*, resume: bool = False) -> None:
 
 
 def _result_row(well: str, workflow: str, chains: np.ndarray) -> dict[str, Any]:
-    new = _augment(pd.DataFrame(chains.reshape(-1, 3), columns=["M", "S", "t0"]))
+    new = _augment(_matrix_frame(chains.reshape(-1, 3), ("M", "S", "t0")))
     diagnostics = pd.read_csv(OUTPUT / workflow / well / "convergence_diagnostics.csv")
     return {
         "well": well,
@@ -755,7 +768,7 @@ def _distribution_verification() -> pd.DataFrame:
     age_grid = np.linspace(0.0, 500.0, 2001)
     for well in ("F09", "F11"):
         chains = _load_stage_chains("window_2014_2015_conditioned", well)
-        frame = _augment(pd.DataFrame(chains.reshape(-1, 3), columns=["M", "S", "t0"]))
+        frame = _augment(_matrix_frame(chains.reshape(-1, 3), ("M", "S", "t0")))
         ordered = frame.sort_values("t50").reset_index(drop=True)
         for quantile in (0.1, 0.5, 0.9):
             row = ordered.iloc[int(round(quantile * (len(ordered) - 1)))]
@@ -778,15 +791,25 @@ def _distribution_verification() -> pd.DataFrame:
             problem, observations = _prepare_problem(well, (2014.0, 2016.0))
             observed = observations.frame["concentration"].to_numpy(dtype=float)
             errors = observations.frame["error"].to_numpy(dtype=float)
-            _, concentrations = problem.objective_function(
+            concentration_result = problem.objective_function(
                 [row.M, row.S, row.t0], observed, errors, return_concentrations=True
             )
-            _, concentrations_roundtrip = problem.objective_function(
+            if not isinstance(concentration_result, tuple):
+                raise TypeError(
+                    "Detailed objective evaluation must return concentrations"
+                )
+            _, concentrations = concentration_result
+            roundtrip_result = problem.objective_function(
                 [roundtrip_mean, roundtrip_std, row.t0],
                 observed,
                 errors,
                 return_concentrations=True,
             )
+            if not isinstance(roundtrip_result, tuple):
+                raise TypeError(
+                    "Detailed objective evaluation must return concentrations"
+                )
+            _, concentrations_roundtrip = roundtrip_result
             rows.append(
                 {
                     "well": well,

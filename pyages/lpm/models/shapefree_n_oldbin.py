@@ -296,7 +296,7 @@ class ShapeFreeNOldBinLpm(LpmBase):
         result = self._pdf_array(t_arr, self.bin_edges())
         return float(result) if np.isscalar(t) else result
 
-    def _cdf_scalar(self, value: float, edges: np.ndarray) -> float:
+    def _cdf_from_edges_scalar(self, value: float, edges: np.ndarray) -> float:
         """Evaluate cumulative mass at one age using exact within-bin interpolation."""
 
         if value <= edges[0]:
@@ -323,9 +323,10 @@ class ShapeFreeNOldBinLpm(LpmBase):
         t_arr = np.asarray(t, dtype=float)
         edges = self.bin_edges()
         if t_arr.ndim == 0:
-            return self._cdf_scalar(float(t_arr), edges)
+            return self._cdf_from_edges_scalar(float(t_arr), edges)
         return np.asarray(
-            [self._cdf_scalar(float(value), edges) for value in t_arr], dtype=float
+            [self._cdf_from_edges_scalar(float(value), edges) for value in t_arr],
+            dtype=float,
         )
 
     def cdf_and_partial_first_moment(

@@ -24,6 +24,13 @@ import pandas as pd
 from pyages import __version__
 from scripts.common.provenance import git_output
 from scripts.common.provenance import sha256_file as sha256
+from scripts.common.structured_data import (
+    integer_field,
+    list_field,
+    mapping_field,
+    require_mapping,
+    string_field,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = ROOT / "results" / "article_package"
@@ -693,13 +700,21 @@ def _true_mask(values: pd.Series) -> pd.Series:
     )
 
 
+def _column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one unambiguous column from an article table."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Expected exactly one {name!r} column")
+    return column
+
+
 def _standard_diagnostic(path: Path, group: str, ess_column: str) -> dict[str, object]:
     frame = pd.read_csv(path)
     return {
         "groups": int(frame[group].nunique()),
         "max_split_rhat": float(frame["split_rhat"].max()),
         "min_ess": float(frame[ess_column].min()),
-        "all_converged": bool(_true_mask(frame["converged"]).all()),
+        "all_converged": bool(_true_mask(_column(frame, "converged")).all()),
     }
 
 
@@ -720,20 +735,23 @@ def scientific_summary() -> dict[str, object]:
             ig_rows.append(frame)
     ig = pd.concat(ig_rows, ignore_index=True)
     tracerlpm = pd.read_csv(_artifact_source("table3_cases"))
-    forward = json.loads(
-        _artifact_source("forward_summary").read_text(encoding="utf-8")
+    forward = require_mapping(
+        json.loads(_artifact_source("forward_summary").read_text(encoding="utf-8")),
+        "forward summary",
     )
     return {
         "thresholds": {"split_rhat_lt": 1.01, "ess_gte": 300.0},
         "pyages_tracerlpm": {
             "paired_cases": int(len(tracerlpm)),
-            "pyages_successful": int(_true_mask(tracerlpm["pyages_success"]).sum()),
+            "pyages_successful": int(
+                _true_mask(_column(tracerlpm, "pyages_success")).sum()
+            ),
             "tracerlpm_successful": int(
-                _true_mask(tracerlpm["tracerlpm_success"]).sum()
+                _true_mask(_column(tracerlpm, "tracerlpm_success")).sum()
             ),
         },
         "forward_verification": {
-            "case_count": int(forward["case_count"]),
+            "case_count": integer_field(forward, "case_count"),
             "status": forward["status"],
         },
         "shifted_exponential": _standard_diagnostic(
@@ -776,13 +794,13 @@ def scientific_summary() -> dict[str, object]:
 
 
 def _readme(summary: dict[str, object]) -> str:
-    shifted = summary["shifted_exponential"]
-    tracerlpm = summary["pyages_tracerlpm"]
-    forward = summary["forward_verification"]
-    holten = summary["holten_h4"]
-    holten_prior = summary["holten_prior_dirichlet1"]
-    ploemeur = summary["ploemeur_shifted_exponential"]
-    ig = summary["ploemeur_physical_ig"]
+    shifted = mapping_field(summary, "shifted_exponential")
+    tracerlpm = mapping_field(summary, "pyages_tracerlpm")
+    forward = mapping_field(summary, "forward_verification")
+    holten = mapping_field(summary, "holten_h4")
+    holten_prior = mapping_field(summary, "holten_prior_dirichlet1")
+    ploemeur = mapping_field(summary, "ploemeur_shifted_exponential")
+    ig = mapping_field(summary, "ploemeur_physical_ig")
     ig_campaign_converged = ig["stabilized_campaign_converged"]
     return f"""# PyAges — paquet de résultats pour l'article
 
@@ -878,16 +896,21 @@ def _validated_artifacts(artifacts: Iterable[Artifact]) -> tuple[Artifact, ...]:
 def validate_package(output: Path) -> dict[str, object]:
     output = output.resolve()
     manifest_path = output / "provenance" / "article_package_manifest.json"
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    payload = require_mapping(
+        json.loads(manifest_path.read_text(encoding="utf-8")),
+        "article package manifest",
+    )
     failures = []
-    for artifact in payload["artifacts"]:
-        path = output / artifact["packaged_path"]
+    for raw_artifact in list_field(payload, "artifacts"):
+        artifact = require_mapping(raw_artifact, "article package artifact")
+        packaged_path = string_field(artifact, "packaged_path")
+        path = output / packaged_path
         if not path.is_file():
-            failures.append(f"missing: {artifact['packaged_path']}")
+            failures.append(f"missing: {packaged_path}")
         elif sha256(path) != artifact["sha256"]:
-            failures.append(f"hash: {artifact['packaged_path']}")
+            failures.append(f"hash: {packaged_path}")
         elif path.stat().st_size != artifact["bytes"]:
-            failures.append(f"size: {artifact['packaged_path']}")
+            failures.append(f"size: {packaged_path}")
     if failures:
         raise RuntimeError("Invalid article package: " + ", ".join(failures))
     return payload
@@ -1028,11 +1051,13 @@ def main() -> int:
         SOURCE_MANIFESTS = source_manifests_for_campaign(args.campaign_root)
     if args.validate_only is not None:
         payload = validate_package(args.validate_only)
-        print(f"Validated {len(payload['artifacts'])} packaged artifacts")
+        print(f"Validated {len(list_field(payload, 'artifacts'))} packaged artifacts")
         return 0
     if args.reuse_valid and args.output.exists():
         payload = validate_package(args.output)
-        print(f"Reused valid package with {len(payload['artifacts'])} artifacts")
+        print(
+            f"Reused valid package with {len(list_field(payload, 'artifacts'))} artifacts"
+        )
         return 0
     output = (
         replace_package(args.output, ARTIFACTS)
@@ -1040,7 +1065,9 @@ def main() -> int:
         else build_package(args.output, ARTIFACTS)
     )
     payload = validate_package(output)
-    print(f"Built {output} with {len(payload['artifacts'])} verified artifacts")
+    print(
+        f"Built {output} with {len(list_field(payload, 'artifacts'))} verified artifacts"
+    )
     return 0
 
 

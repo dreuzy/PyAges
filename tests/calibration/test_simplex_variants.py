@@ -88,12 +88,15 @@ def test_simplex_rejects_an_inconsistent_reported_objective(
 
 def _recording_single_run(captured):
     def fake_run_single(self, parameters=None, *, observations=None):
-        source = self.observations if observations is None else observations
+        source = self._binding.observations if observations is None else observations
         values = np.asarray(parameters, dtype=float)
         captured.append(tuple(values))
-        sample = LpmSampleTable(self.lpm, c_names=source.observation_keys())
+        sample = LpmSampleTable(
+            self._binding.lpm,
+            c_names=source.observation_keys(),
+        )
         sample.append_sample(
-            dict(zip(self.lpm.get_param_names(), values, strict=True)),
+            dict(zip(self._binding.lpm.get_param_names(), values, strict=True)),
             obj_function=0.0,
             concentrations=source.frame["concentration"].to_numpy(),
             param_in_bounds=True,
@@ -109,7 +112,7 @@ def _recording_single_run(captured):
 def _multi_start_sequence(problem, count):
     captured = []
     method = Simplex(MULTI_START, init_multiples_n=count)
-    method._bind_problem(problem)
+    method._binding.bind(problem)  # noqa: SLF001
     method._run_single = MethodType(_recording_single_run(captured), method)
 
     results = method._run_multiple()
@@ -136,7 +139,7 @@ def test_forward_uncertainty_runs_the_cartesian_sample_and_start_count(
     captured = []
     monkeypatch.setattr(Simplex, "_run_single", _recording_single_run(captured))
     method = Simplex(FORWARD_UNCERTAINTY, init_multiples_n=2, fuq_n=3)
-    method._bind_problem(problem)
+    method._binding.bind(problem)  # noqa: SLF001
 
     results = method._run_forward_uncertainty()
 
@@ -163,7 +166,7 @@ def test_forward_uncertainty_keeps_the_bound_problem_and_original_observations(
 
     monkeypatch.setattr(Simplex, "_run_single", fake_run_single)
     method = Simplex(FORWARD_UNCERTAINTY, init_multiples_n=1, fuq_n=2)
-    method._bind_problem(problem)
+    method._binding.bind(problem)  # noqa: SLF001
 
     method._run_forward_uncertainty()
 
@@ -180,9 +183,7 @@ def test_simplex_serializes_variant_settings_and_optimizer_totals(tmp_path) -> N
     ]
     parameters = tmp_path / "simplex-parameters.txt"
     method.write_parameters(parameters)
-    diagnostics = {}
-
-    method.write_results_spec(diagnostics)
+    diagnostics = method.result_metadata()
 
     contents = parameters.read_text(encoding="utf-8")
     assert "method\tforward_uncertainty_quantification" in contents

@@ -15,7 +15,7 @@ Use this guide by task:
   reproducibility.
 - {doc}`multichain-mh` gives the end-to-end multi-chain MH procedure, including
   qualification, failure handling, and trace inspection; its
-  {ref}`in-memory ensemble map <multichain-mh-in-memory-record>` shows where
+  {ref}`in-memory run map <multichain-mh-in-memory-record>` shows where
   pilot chains, production chains, diagnostic matrices, and pooled samples
   live.
 - {doc}`cli-flags` lists command-line overrides.

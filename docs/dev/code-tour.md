@@ -123,14 +123,12 @@ command line, and calls the selected workflow. Keeping this decision near the
 CLI means that the scientific calculation does not need to understand command-
 line syntax.
 
-Configuration compatibility has one boundary. `pyages/config/migration.py`
-recognizes schema 2 or normalizes an unversioned 1.x mapping before either
-workflow's strict Pydantic model sees it. `pyages/config/paths.py` then applies
-the schema's path rule: schema 2 is relative to its YAML file, while legacy
-source examples keep checkout-relative behavior. Change this boundary when a
-user-facing field is renamed; do not duplicate aliases inside scientific
-calibration code. The focused contracts are in
-`tests/config/test_configuration_migration.py` and
+Configuration has one execution boundary: `pyages/config/loading.py` reads a
+mapping, the workflow discriminator selects one strict schema-3 model, and
+`pyages/config/paths.py` resolves relative paths from the YAML directory.
+There is no legacy-name translation. A removed or misspelled field fails at
+validation, making the effective scientific configuration unambiguous. The
+focused contracts are in `tests/config/test_configuration_schema.py` and
 `tests/test_workflow_paths.py`.
 
 ### Single-date route
@@ -181,9 +179,10 @@ The temporal workflow uses a parallel structure:
 
 Both routes call `pyages/workflows/runtime/mh.py` for MH runs. This module is an
 **adapter**: it translates workflow configuration into the objects expected by
-the calibration package. It also decides whether to run one sampling chain or
-several chains. Keeping that translation in one place prevents the two
-workflows from implementing subtly different versions of the same policy.
+the calibration package. It passes the requested number of chains to the same
+1..N-chain runner; one chain is not a separate execution path. Keeping that
+translation in one place prevents the two workflows from implementing subtly
+different versions of the same policy.
 
 An adapter generally should not reimplement the algorithm it calls. Its input
 uses the vocabulary of one layer (workflow configuration), and its output uses
@@ -352,9 +351,9 @@ input contract was violated.
   produced by that loop.
 - `pyages/calibration/methods/mh/prior.py` and `_prior_marginals.py` evaluate the
   configured prior distributions.
-- `pyages/calibration/methods/mh/ensemble.py` coordinates initialization, pilot
-  runs, and production when several chains are requested. Here, an **ensemble**
-  simply means a group of independently started chains.
+- `pyages/calibration/methods/mh/runner.py` coordinates initialization,
+  optional pilot runs, and production for one or more chains. One chain is the
+  `chains: 1` case of this same runner, not a separate execution path.
 - `pyages/calibration/methods/mh/diagnostics.py` decides whether those chains
   provide sufficiently stable evidence.
 - `pyages/calibration/methods/mh/results.py` defines the result records returned
@@ -365,6 +364,14 @@ preparing the production run, while production creates the samples intended
 for downstream results. Keeping these stages explicit makes it possible to
 test that temporary or mutable state from one stage is not accidentally reused
 by another.
+
+The workflow prepares the expensive common scientific inputs once. Calling
+`CalibrationProblem.clone_prepared()` then creates a new LPM and new
+convolution evaluators for each stage or chain. The clones share only the
+read-only tracer histories and immutable numerical grids; their latest
+diagnostics and all model parameters remain independent. In other words,
+â€œfresh problemâ€ means fresh mutable calculation state, not repeated disk reads
+and repeated construction of identical grids.
 
 The diagnostics use several standard statistical measures:
 
@@ -391,8 +398,8 @@ while editing usually gives feedback much faster than the complete suite.
 | Add or change a YAML option | `pyages/config/models.py` | `python -m pytest -q tests/config` |
 | Change CLI selection or overrides | `pyages/cli/commands/run.py` | `python -m pytest -q tests/cli` |
 | Change the order of workflow steps | the relevant `runner.py` | `python -m pytest -q tests/workflows` |
-| Change one-chain MH behaviour | `pyages/calibration/methods/mh/sampler.py` | `python -m pytest -q tests/calibration` |
-| Change multi-chain policy | `pyages/calibration/methods/mh/ensemble.py` and `diagnostics.py` | `python -m pytest -q tests/calibration tests/workflows` |
+| Change the proposal/accept loop inside one chain | `pyages/calibration/methods/mh/sampler.py` | `python -m pytest -q tests/calibration` |
+| Change 1..N-chain orchestration or convergence policy | `pyages/calibration/methods/mh/runner.py` and `diagnostics.py` | `python -m pytest -q tests/calibration tests/workflows` |
 | Change LPM parameter loading or caching | `pyages/data_io/lpm_params.py` | `python -m pytest -q tests/data_io/test_lpm_params.py` |
 | Change valid LPM parameter fields or relationships | `pyages/data_io/_lpm_parameter_schema.py` | `python -m pytest -q tests/data_io/test_lpm_params.py` |
 | Change observation normalization or selection | `pyages/concentrations/_container.py` | `python -m pytest -q tests/concentrations` |
@@ -420,7 +427,7 @@ the contract, its tests, and its documentation:
 
 - Configuration models reject unknown YAML keys. A misspelling therefore stops
   the run instead of silently selecting a default value.
-- Each ensemble stage and chain receives a fresh calibration problem. Mutable
+- Each runner stage and chain receives a fresh calibration problem. Mutable
   state from one chain cannot leak into another.
 - Information about failed convergence is saved before an error is raised. A
   user can inspect why the run failed rather than receiving only an exception.
@@ -433,6 +440,109 @@ the contract, its tests, and its documentation:
 - The **public API** is the deliberately supported set of Python imports for
   users. It is smaller than the internal file tree so implementation details can
   change safely. Check `tests/test_public_api.py` before exposing a new name.
+
+### How the CLI publishes generated files safely
+
+The result workflow stages and publishes complete scientific output trees. The
+configuration, LPM, and tracer template generators apply the same idea to their
+smaller text files through `pyages/cli/_atomic.py`.
+
+Here is the same issue without filesystem terminology. Suppose the command
+must create a 50-line `new.yaml` file:
+
+- with a direct write, `new.yaml` becomes visible as soon as writing starts;
+  if Python stops after line 17, the user is left with a 17-line broken file;
+- with an atomic write, Python first writes all 50 lines to a private draft such
+  as `.new.yaml.tmp`; only after that draft is complete does it publish the
+  draft under the name `new.yaml` in one final operation.
+
+If Python stops while preparing the draft, the public `new.yaml` is still
+absent or still contains its previous complete content. The temporary draft
+can be removed later. This is similar to preparing a replacement page beside a
+binder and swapping the complete page at the end, instead of erasing the page
+already in the binder and rewriting it line by line.
+
+Consider a template generator creating `new.yaml`. A naive sequence would be:
+
+1. confirm that `new.yaml` does not exist;
+2. prepare the complete template in memory;
+3. write `new.yaml`.
+
+There is a small interval between steps 1 and 3. If another process creates
+`new.yaml` during that interval, the first process can open and truncate the
+other process's file. This is a **time-of-check/time-of-use race**, often
+shortened to TOCTOU: the fact checked at step 1 is no longer guaranteed to be
+true when the path is used at step 3.
+
+A separate failure is possible without any second process. A power loss, a
+full disk, or a terminated Python process can interrupt `write_text()` after
+the destination has been created or truncated but before all YAML text has
+been written. The source remains untouched, but the new destination may be an
+empty or incomplete file.
+
+These examples reveal two different promises:
+
+| Promise | What the user expects | Suitable filesystem strategy |
+| --- | --- | --- |
+| **No overwrite** | If the destination already exists, fail without changing it. | Use an exclusive create operation whose check and creation are one filesystem action. |
+| **Complete publication** | Readers see either no new file, or the entire valid new file. | Write and close a temporary file in the same directory, then publish it with one atomic filesystem operation. |
+
+Exclusive mode alone solves the overwrite race, but an interruption can still
+leave the newly created file incomplete. Conversely, `os.replace()` publishes
+a complete temporary file atomically, but deliberately replaces an existing
+destination. A reusable CLI helper must therefore select a publication method
+that matches the command's overwrite policy; combining the two guarantees for
+create-only output needs a tested, cross-platform no-clobber publication
+primitive rather than a second `exists()` check.
+
+“Atomic” does not mean that validation, conversion, and writing all occur at
+the same instant. It means that the final publication has no externally visible
+halfway state: another reader observes the complete old state or the complete
+new state, never half of each.
+
+The helper performs the operation in this order:
+
+1. serialize and validate the complete content before touching the destination;
+2. write it to a uniquely named temporary sibling, ask the operating system to
+   flush the bytes, and close the file;
+3. for an allowed replacement, use `os.replace()`, which swaps complete files;
+4. for create-only output, use `os.link()`, which gives the completed temporary
+   file its public name only if that name is still free;
+5. remove the private temporary name, including after an ordinary failure.
+
+The distinction in steps 3 and 4 matters. `os.replace()` deliberately replaces
+an old file. `os.link()` refuses an existing public name, even if that name was
+created by another process after the command's earlier check. Commands therefore
+cannot silently change from “create” to “overwrite” because of a race.
+
+The callers add their own domain-specific promises:
+
+1. LPM and tracer generators only replace files when the user explicitly asks
+   for overwrite behaviour;
+2. every caller shares the helper instead of maintaining a slightly different
+   write sequence.
+
+`pyages new config` creates both `pyages.yaml` and
+`data/observations.tsv`. Making each file atomic separately would not make the
+pair atomic: a failure between them could still leave half a quickstart. The
+command consequently uses a directory-level transaction:
+
+1. it refuses a destination that already exists, including an empty directory;
+2. it prepares both complete files in a private sibling directory;
+3. it publishes that directory under the requested name in one rename;
+4. if preparation or publication fails, it removes the private directory and
+   leaves no public quickstart.
+
+Refusing even an empty existing directory is deliberate. Merging into an
+existing tree would require a rollback policy for every pre-existing entry and
+would make “what is preserved?” ambiguous. A caller that wants another
+quickstart chooses a new destination name instead.
+
+Focused tests simulate interruption during a file write, a destination created
+by a competing process, observation during replacement, failure while preparing
+the second quickstart file, and publication of the complete quickstart pair.
+They check that pre-existing public data stays unchanged and that an incomplete
+public result is never left behind.
 
 ## Checking the change
 

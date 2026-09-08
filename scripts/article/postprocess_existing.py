@@ -203,21 +203,26 @@ def main() -> int:
         )
     else:
         output = DEFAULT_OUTPUTS.get(args.case)
-    actions = {
-        "s3_1_tracerlpm": lambda: report(),
-        "s3_2_shifted_exponential": lambda: shifted(output),
-        "s4_1_holten": lambda: holten(output),
-        "s4_2_ploemeur": lambda: ploemeur(output),
-        "holten_prior_dirichlet1": lambda: robustness(
-            output,
+    if args.case == "s3_1_tracerlpm":
+        report()
+        return 0
+    if output is None:
+        parser.error("an output directory is required for this case")
+    if args.case == "s3_2_shifted_exponential":
+        shifted(output)
+    elif args.case == "s4_1_holten":
+        holten(output)
+    elif args.case == "s4_2_ploemeur":
+        ploemeur(output)
+    elif args.case == "holten_prior_dirichlet1":
+        canonical = (
             args.canonical_holten.resolve()
             if args.canonical_holten is not None
-            else None,
-        ),
-    }
-    if output is None and args.case != "s3_1_tracerlpm":
-        parser.error("an output directory is required for this case")
-    actions[args.case]()
+            else None
+        )
+        robustness(output, canonical)
+    else:
+        raise AssertionError(f"Unhandled article case: {args.case}")
     return 0
 
 

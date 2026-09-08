@@ -209,17 +209,19 @@ pyages run examples/my_site/my_config.yaml
 
 Minimal YAML:
 ```yaml
+schema_version: 3
+
 workflow:
   kind: single_date
 
-dataset:
+data:
   name: my_site_2010.txt
   year: 2010
   data_dir: examples/my_site/data
 
 lpm:
-  model_name: exp_shifted
-  data_directory: data_core/data_lpm
+  models: [exp_shifted]
+  directory: data_core/data_lpm
 ```
 
 4) If the data contains multiple dates, use the temporal workflow:
@@ -229,12 +231,14 @@ pyages run examples/my_site/my_temporal.yaml
 ```
 
 ```yaml
-dataset:
+schema_version: 3
+
+data:
   file: examples/my_site/data/ori_my_site_2005_2024.txt
   error_rel: 0.2
 
-lpm_models:
-  list: ["exp_shifted", "ig"]
+lpm:
+  models: ["exp_shifted", "ig"]
   directory: data_core/data_lpm
 
 workflow:

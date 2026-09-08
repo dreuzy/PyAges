@@ -12,7 +12,7 @@ Two dependency-free repository commands group the normal checks:
 
 | Profile | Command | Contents |
 |---|---|---|
-| Quick | `python -m scripts.maintenance.check_dev quick` | Installed dependency and metadata consistency, Ruff lint/format, progressive Pyright, qualified docstrings, licensing, and architecture boundaries |
+| Quick | `python -m scripts.maintenance.check_dev quick` | Installed dependency and metadata consistency, Ruff lint/format, package-wide Pyright, qualified docstrings, licensing, and architecture boundaries |
 | Full | `python -m scripts.maintenance.check_dev full` | Quick profile plus generated inventory, standard tests, and a clean strict Sphinx HTML build |
 
 Run focused pytest paths while implementing; the quick profile deliberately
@@ -47,11 +47,15 @@ does not impose a timing threshold in CI.
 | Test collection | `python run_tests.py collect` | Inspecting the exact standard-suite node IDs without executing them |
 | Golden update | `python run_tests.py standard update` | Only after independently justifying an intentional numerical-contract change |
 
-Static typing is introduced progressively rather than asserted for the whole
-historical repository. `python -m pyright` checks the qualified core contracts,
-selected data/container/reporting/workflow boundaries, and stable repository
-helpers listed in `pyproject.toml`; add a module only after its annotations and
-dependencies pass without suppressing real errors.
+Static typing covers the complete `pyages` package, all Python helpers under
+`examples/`, maintained study code under `sites/`, the TracerLPM code under
+`validation/`, and the shared and maintenance tools under `scripts/common/`
+and `scripts/maintenance/`, plus the article, qualification, and release tools
+under `scripts/article/`, `scripts/qualification/`, and `scripts/release/`.
+`python -m pyright` checks exactly this configured surface. New modules below
+those directories are included automatically. Correct diagnostics by
+clarifying the relevant runtime contract or annotation; do not silence them
+with broad ignores merely to make the command pass.
 
 The direct pytest equivalents used by GitHub Actions are:
 

@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: CECILL-2.1
 
 """
-Shared helpers for generated single-date launcher configurations.
+Shared helpers for generated single-date workflow configurations.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import copy
 from pathlib import Path
 from typing import Any
 
-from pyages.config.models import LauncherConfig
+from pyages.config.models import SingleDateConfig
 from scripts.common.example_case_utils import deep_update
 
 
@@ -21,25 +21,25 @@ def _tokenize(value: str) -> str:
     return value.replace("\\", "_").replace("/", "_")
 
 
-def generated_launcher_config_path(
+def generated_single_date_config_path(
     output_dir: Path,
     *,
     dataset_name: str,
     lpm_model_name: str | None = None,
 ) -> Path:
     """
-    Build a stable output filename for a generated launcher YAML.
+    Build a stable output filename for a generated single-date YAML.
     """
     dataset_token = _tokenize(dataset_name)
     if lpm_model_name:
         lpm_token = _tokenize(lpm_model_name)
-        filename = f"{dataset_token}_{lpm_token}_launcher.yaml"
+        filename = f"{dataset_token}_{lpm_token}_single_date.yaml"
     else:
-        filename = f"{dataset_token}_launcher.yaml"
+        filename = f"{dataset_token}_single_date.yaml"
     return output_dir / filename
 
 
-def build_effective_launcher_config(
+def build_effective_single_date_config(
     base_config: dict[str, Any],
     *,
     dataset_name: str | None = None,
@@ -54,12 +54,13 @@ def build_effective_launcher_config(
     overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
-    Apply common single-date launcher overrides on top of a base YAML payload.
+    Apply common single-date overrides on top of a schema-3 YAML payload.
     """
     payload = copy.deepcopy(base_config)
-    dataset_cfg = payload.setdefault("dataset", {})
+    dataset_cfg = payload.setdefault("data", {})
     lpm_cfg = payload.setdefault("lpm", {})
-    mh_cfg = payload.setdefault("calibration_metropolis_hastings", {})
+    calibration_cfg = payload.setdefault("calibration", {})
+    mh_cfg = calibration_cfg.setdefault("metropolis_hastings", {})
 
     _update_defined(
         dataset_cfg,
@@ -71,10 +72,8 @@ def build_effective_launcher_config(
     )
     _update_defined(
         lpm_cfg,
-        model_name=lpm_model_name,
-        data_directory=(
-            None if lpm_data_directory is None else str(lpm_data_directory)
-        ),
+        models=None if lpm_model_name is None else [lpm_model_name],
+        directory=(None if lpm_data_directory is None else str(lpm_data_directory)),
     )
 
     if tracer_data_dir is not None:
@@ -82,11 +81,11 @@ def build_effective_launcher_config(
         tracer_cfg["data_directory"] = str(tracer_data_dir)
 
     if mh_nstep is not None:
-        mh_cfg["nstep"] = int(mh_nstep)
+        mh_cfg["nsteps"] = int(mh_nstep)
 
     if overrides:
         deep_update(payload, copy.deepcopy(overrides))
-    LauncherConfig.model_validate(payload)
+    SingleDateConfig.model_validate(payload)
     return payload
 
 
@@ -96,6 +95,6 @@ def _update_defined(target: dict[str, Any], **values: Any) -> None:
 
 
 __all__ = [
-    "build_effective_launcher_config",
-    "generated_launcher_config_path",
+    "build_effective_single_date_config",
+    "generated_single_date_config_path",
 ]

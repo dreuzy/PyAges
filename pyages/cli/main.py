@@ -25,7 +25,6 @@ import click
 
 from pyages import __version__
 from pyages.cli.commands.check import check
-from pyages.cli.commands.config import config_group
 from pyages.cli.commands.list_cmd import list_group
 from pyages.cli.commands.new import new_group
 from pyages.cli.commands.run import run
@@ -55,7 +54,6 @@ def cli():
 cli.add_command(run)
 cli.add_command(list_group)
 cli.add_command(new_group)
-cli.add_command(config_group)
 cli.add_command(check)
 cli.add_command(stages_group)
 

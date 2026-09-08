@@ -41,12 +41,12 @@ from pyages.workflows.single_date.reporting import (
 def _manifest_details(context, calibrations: list[str]) -> dict[str, object]:
     """Return the shared single-date terminal-state metadata."""
     return {
-        "dataset": context.params.dataset.name,
-        "dataset_year": context.params.dataset.year,
-        "lpm": context.params.lpm.model_name,
+        "dataset": context.params.data.name,
+        "dataset_year": context.params.data.year,
+        "lpm": context.params.lpm.models[0],
         "calibrations": calibrations,
         "observation_error_policy": {
-            "missing_error_rel": context.params.dataset.missing_error_rel,
+            "missing_error_rel": context.params.data.missing_error_rel,
             "transformations": context.observations.error_provenance,
         },
     }
@@ -69,7 +69,7 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
     figures and propagate without publishing an unsealed stage.
     """
     if params_path is None:
-        raise ValueError("params_path is required for the launcher")
+        raise ValueError("params_path is required for the single-date workflow")
     context = prepare_context(params_path, force_inline=force_inline)
     try:
         save_concentrations_table(
@@ -96,7 +96,7 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
     except MHConvergenceError as error:
         # ``run_calibrations`` executes Simplex first. Reaching its MH-specific
         # exception therefore proves that an enabled Simplex run completed.
-        completed = ["Simplex"] if context.params.run.calibration_simplex else []
+        completed = ["Simplex"] if context.params.run.simplex else []
         details = _manifest_details(context, completed)
         details["calibrations_attempted"] = ["Metropolis_Hastings"]
         # A convergence failure is a terminal scientific result rather than an

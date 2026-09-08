@@ -17,9 +17,9 @@ probability density changes when it moves between the two parameter systems.
 from __future__ import annotations
 
 import math
-from typing import Sequence
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 
 def physical_moments_to_scipy(mean: float, std: float) -> tuple[float, float]:
@@ -51,7 +51,7 @@ def scipy_to_physical_abs_det_jacobian(shape: float, scale: float) -> float:
     return std / 2.0
 
 
-def physical_to_scipy_coordinates(theta: Sequence[float]) -> np.ndarray:
+def physical_to_scipy_coordinates(theta: ArrayLike) -> np.ndarray:
     """Return ``(shape, scale, shift)`` from physical ``(M, S, t0)``."""
     values = np.asarray(theta, dtype=float)
     if values.shape != (3,):
@@ -60,7 +60,7 @@ def physical_to_scipy_coordinates(theta: Sequence[float]) -> np.ndarray:
     return np.array([shape, scale, values[2]], dtype=float)
 
 
-def scipy_to_physical_coordinates(theta: Sequence[float]) -> np.ndarray:
+def scipy_to_physical_coordinates(theta: ArrayLike) -> np.ndarray:
     """Return physical ``(M, S, t0)`` from ``(shape, scale, shift)``."""
     values = np.asarray(theta, dtype=float)
     if values.shape != (3,):

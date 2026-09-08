@@ -24,9 +24,9 @@ from pyages.cli.commands.list_cmd import list_group
 
 def _config(tmp_path: Path, workflow: str = "single_date") -> Path:
     path = tmp_path / "config.yaml"
-    dataset = "\n  file: observations.txt" if workflow == "temporal" else " {}"
+    data = "\n  file: observations.txt" if workflow == "temporal" else " {}"
     path.write_text(
-        f"workflow:\n  kind: {workflow}\ndataset:{dataset}\n",
+        f"schema_version: 3\nworkflow:\n  kind: {workflow}\ndata:{data}\n",
         encoding="utf-8",
     )
     return path
@@ -302,7 +302,7 @@ def test_cli_run_reports_returned_result_paths(tmp_path, monkeypatch) -> None:
     single = runner.invoke(run_cmd.run, [str(config)])
     temporal_config = tmp_path / "temporal.yaml"
     temporal_config.write_text(
-        "workflow:\n  kind: temporal\ndataset:\n  file: data.txt\n",
+        "schema_version: 3\nworkflow:\n  kind: temporal\ndata:\n  file: data.txt\n",
         encoding="utf-8",
     )
     temporal = runner.invoke(run_cmd.run, [str(temporal_config)])

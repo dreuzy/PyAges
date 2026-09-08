@@ -14,10 +14,10 @@ import pandas as pd
 import pytest
 
 from pyages.config.models import (
-    MHMultichainCfg,
+    MetropolisHastingsCfg,
     TemporalCalibrationCfg,
-    TemporalFiguresCfg,
-    TemporalResultsCfg,
+    TemporalOutputCfg,
+    TemporalReportingCfg,
 )
 from pyages.workflows.runtime import begin_staged_result_run
 from pyages.workflows.runtime import mh as runtime_mh
@@ -27,17 +27,14 @@ from pyages.workflows.temporal import context as temporal_context
 from pyages.workflows.temporal import runner as temporal
 
 
-@pytest.mark.parametrize(
-    "multichain",
-    [None, MHMultichainCfg(enabled=False)],
-    ids=["absent", "disabled"],
-)
-def test_temporal_mh_delegates_shared_runner_without_enabled_multichain(
-    tmp_path, monkeypatch, multichain
+def test_temporal_mh_delegates_one_chain_to_shared_runner(
+    tmp_path, monkeypatch
 ) -> None:
     prepared_problem = object()
-    problem = SimpleNamespace(prepare=Mock(return_value=prepared_problem))
-    problem_class = Mock(return_value=problem)
+    template = SimpleNamespace()
+    template.prepare = Mock(return_value=template)
+    template.clone_prepared = Mock(return_value=prepared_problem)
+    problem_class = Mock(return_value=template)
     samples = object()
     calibration_runner = Mock(return_value=samples)
     monkeypatch.setattr(temporal_calibration, "CalibrationProblem", problem_class)
@@ -53,18 +50,20 @@ def test_temporal_mh_delegates_shared_runner_without_enabled_multichain(
         "exp",
         output,
         tmp_path / "lpm",
-        TemporalCalibrationCfg(
-            seed_enabled=True,
-            seed=42,
-            multichain=multichain,
-        ),
-        TemporalFiguresCfg(),
+        TemporalCalibrationCfg(metropolis_hastings=MetropolisHastingsCfg(seed=42)),
+        TemporalReportingCfg(),
     )
 
     calibration_runner.assert_called_once()
-    assert calibration_runner.call_args.args[1] is multichain
-    assert calibration_runner.call_args.args[2] == output
-    assert calibration_runner.call_args.args[3](output) is prepared_problem
+    assert calibration_runner.call_args.args[0].chains == 1
+    assert calibration_runner.call_args.args[1] == output
+    assert calibration_runner.call_args.args[2](output) is prepared_problem
+    problem_class.assert_called_once()
+    template.prepare.assert_called_once_with()
+    assert (
+        Path(template.clone_prepared.call_args.kwargs["display_options"].directory)
+        == output
+    )
 
 
 def test_temporal_enabled_multichain_delegates_with_fresh_stage_problems(
@@ -72,14 +71,19 @@ def test_temporal_enabled_multichain_delegates_with_fresh_stage_problems(
 ) -> None:
     created: list[tuple[object, object]] = []
 
-    def build_problem(*_args, display_options, **_kwargs):
+    def clone_prepared(*, display_options):
         prepared = object()
         created.append((display_options.directory, prepared))
-        return SimpleNamespace(prepare=Mock(return_value=prepared))
+        return prepared
+
+    template = SimpleNamespace()
+    template.prepare = Mock(return_value=template)
+    template.clone_prepared = Mock(side_effect=clone_prepared)
+    problem_class = Mock(return_value=template)
 
     pooled = object()
 
-    def run(_chain_config, _multichain, output_directory, problem_builder):
+    def run(_config, output_directory, problem_builder):
         problems = [
             problem_builder(output_directory / "initialization"),
             problem_builder(output_directory / "pilot" / "chain_001"),
@@ -89,7 +93,7 @@ def test_temporal_enabled_multichain_delegates_with_fresh_stage_problems(
         return pooled
 
     calibration_runner = Mock(side_effect=run)
-    monkeypatch.setattr(temporal_calibration, "CalibrationProblem", build_problem)
+    monkeypatch.setattr(temporal_calibration, "CalibrationProblem", problem_class)
     monkeypatch.setattr(
         temporal_calibration,
         "run_mh_calibration",
@@ -103,15 +107,13 @@ def test_temporal_enabled_multichain_delegates_with_fresh_stage_problems(
         output,
         tmp_path / "lpm",
         TemporalCalibrationCfg(
-            seed_enabled=True,
-            seed=42,
-            multichain=MHMultichainCfg(
-                enabled=True,
+            metropolis_hastings=MetropolisHastingsCfg(
+                seed=42,
                 chains=2,
                 diagnostics={"require_convergence": False},
-            ),
+            )
         ),
-        TemporalFiguresCfg(),
+        TemporalReportingCfg(),
     )
 
     assert [Path(directory) for directory, _problem in created] == [
@@ -120,8 +122,11 @@ def test_temporal_enabled_multichain_delegates_with_fresh_stage_problems(
         output / "chains" / "chain_001",
     ]
     assert len({id(problem) for _directory, problem in created}) == 3
+    problem_class.assert_called_once()
+    template.prepare.assert_called_once_with()
+    assert template.clone_prepared.call_count == 3
     calibration_runner.assert_called_once()
-    assert calibration_runner.call_args.args[2] == output
+    assert calibration_runner.call_args.args[1] == output
 
 
 def test_temporal_propagates_multichain_qualification_failure(
@@ -137,6 +142,13 @@ def test_temporal_propagates_multichain_qualification_failure(
         "run_mh_calibration",
         calibration_runner,
     )
+    template = SimpleNamespace()
+    template.prepare = Mock(return_value=template)
+    monkeypatch.setattr(
+        temporal_calibration,
+        "CalibrationProblem",
+        Mock(return_value=template),
+    )
 
     with pytest.raises(
         MHConvergenceError,
@@ -148,52 +160,53 @@ def test_temporal_propagates_multichain_qualification_failure(
             tmp_path / "results",
             tmp_path / "lpm",
             TemporalCalibrationCfg(
-                mh_nsteps=5000,
-                seed_enabled=True,
-                seed=42,
-                multichain=MHMultichainCfg(enabled=True, chains=2),
+                metropolis_hastings=MetropolisHastingsCfg(
+                    nsteps=5000,
+                    seed=42,
+                    chains=2,
+                )
             ),
-            TemporalFiguresCfg(),
+            TemporalReportingCfg(),
         )
 
     calibration_runner.assert_called_once()
 
 
-def test_temporal_mh_uses_an_explicit_fresh_seed_when_fixed_seed_is_disabled(
+def test_temporal_mh_uses_an_explicit_fresh_seed_when_seed_is_null(
     monkeypatch,
 ) -> None:
     random_seed = Mock(return_value=987654321)
     monkeypatch.setattr(runtime_mh.secrets, "randbits", random_seed)
 
-    config = runtime_mh.build_mh_config(TemporalCalibrationCfg(seed_enabled=False))
+    config = runtime_mh.build_mh_config(MetropolisHastingsCfg(seed=None))
 
     assert config.seed == 987654321
-    random_seed.assert_called_once_with(63)
+    random_seed.assert_called_once_with(64)
 
 
-def test_temporal_mh_preserves_an_enabled_fixed_seed(monkeypatch) -> None:
+def test_temporal_mh_preserves_a_fixed_seed(monkeypatch) -> None:
     random_seed = Mock(side_effect=AssertionError("fresh seed must not be requested"))
     monkeypatch.setattr(runtime_mh.secrets, "randbits", random_seed)
 
-    config = runtime_mh.build_mh_config(
-        TemporalCalibrationCfg(seed_enabled=True, seed=42)
-    )
+    config = runtime_mh.build_mh_config(MetropolisHastingsCfg(seed=42))
 
     assert config.seed == 42
     random_seed.assert_not_called()
 
 
-def test_temporal_multichain_does_not_consume_the_legacy_seed_stream(
+def test_temporal_multiple_chains_use_the_same_run_seed_field(
     monkeypatch,
 ) -> None:
-    random_seed = Mock(side_effect=AssertionError("legacy seed must not be drawn"))
+    random_seed = Mock(side_effect=AssertionError("fresh seed must not be drawn"))
     monkeypatch.setattr(runtime_mh.secrets, "randbits", random_seed)
 
     config = runtime_mh.build_mh_config(
-        TemporalCalibrationCfg(multichain={"enabled": True})
+        MetropolisHastingsCfg(
+            seed=81, chains=2, diagnostics={"require_convergence": False}
+        )
     )
 
-    assert config.seed == 0
+    assert config.seed == 81
     random_seed.assert_not_called()
 
 
@@ -273,9 +286,11 @@ def test_run_temporal_writes_effective_observations_and_manifest(
         result_run=result_run,
         output_directory=output,
         params=SimpleNamespace(
-            dataset=SimpleNamespace(error_rel=None, missing_error_rel=0.01),
-            calibration=TemporalCalibrationCfg(seed_enabled=True, seed=1),
-            figures=SimpleNamespace(),
+            data=SimpleNamespace(error_rel=None, missing_error_rel=0.01),
+            calibration=SimpleNamespace(
+                metropolis_hastings=MetropolisHastingsCfg(seed=1)
+            ),
+            reporting=SimpleNamespace(),
         ),
     )
     manifest = Mock()
@@ -335,9 +350,11 @@ def test_run_temporal_manifests_a_multichain_convergence_failure(
         result_run=result_run,
         output_directory=output,
         params=SimpleNamespace(
-            dataset=SimpleNamespace(error_rel=None, missing_error_rel=0.01),
-            calibration=TemporalCalibrationCfg(seed_enabled=True, seed=1),
-            figures=SimpleNamespace(),
+            data=SimpleNamespace(error_rel=None, missing_error_rel=0.01),
+            calibration=SimpleNamespace(
+                metropolis_hastings=MetropolisHastingsCfg(seed=1)
+            ),
+            reporting=SimpleNamespace(),
         ),
     )
     error = MHConvergenceError("mean did not converge; artifacts preserved")
@@ -377,8 +394,8 @@ def test_prepare_temporal_context_does_not_stage_before_missing_dataset_failure(
     config_path = tmp_path / "config.yaml"
     results_root = tmp_path / "results"
     params = SimpleNamespace(
-        dataset=SimpleNamespace(file="missing.txt"),
-        results=TemporalResultsCfg(
+        data=SimpleNamespace(file="missing.txt"),
+        output=TemporalOutputCfg(
             use_default=False,
             directory=str(results_root),
             study_name="audit",
@@ -387,7 +404,9 @@ def test_prepare_temporal_context_does_not_stage_before_missing_dataset_failure(
     )
     begin = Mock()
     expected_output = results_root / "audit" / "missing" / "span"
-    monkeypatch.setattr(temporal_context, "configuration_root", lambda _path: tmp_path)
+    monkeypatch.setattr(
+        temporal_context, "configuration_directory", lambda _path: tmp_path
+    )
     monkeypatch.setattr(
         temporal_context,
         "_load_params_validated",
@@ -410,18 +429,18 @@ def test_prepare_temporal_context_does_not_precreate_public_leaf(
     dataset_path.write_text("unused\n", encoding="utf-8")
     results_root = tmp_path / "results"
     params = SimpleNamespace(
-        dataset=SimpleNamespace(
+        data=SimpleNamespace(
             file=dataset_path.name,
             error_rel=None,
             missing_error_rel=0.01,
         ),
-        results=TemporalResultsCfg(
+        output=TemporalOutputCfg(
             use_default=False,
             directory=str(results_root),
             study_name="audit",
         ),
         workflow=SimpleNamespace(mode="span"),
-        lpm_models=SimpleNamespace(),
+        lpm=SimpleNamespace(),
     )
     expected_public = results_root / "audit" / dataset_path.stem / "span"
     handle = SimpleNamespace(working_directory=tmp_path / "stage")
@@ -431,7 +450,9 @@ def test_prepare_temporal_context_does_not_precreate_public_leaf(
         assert not directory.exists()
         return handle
 
-    monkeypatch.setattr(temporal_context, "configuration_root", lambda _path: tmp_path)
+    monkeypatch.setattr(
+        temporal_context, "configuration_directory", lambda _path: tmp_path
+    )
     monkeypatch.setattr(
         temporal_context,
         "_load_params_validated",

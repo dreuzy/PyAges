@@ -20,9 +20,11 @@ import re
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from dataclasses import asdict
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal, TypedDict, overload
 
 import matplotlib
 
@@ -85,6 +87,14 @@ def _guard_output(path: Path) -> Path:
         raise ValueError(f"Refusing excluded output path: {resolved}")
     resolved.mkdir(parents=True, exist_ok=True)
     return resolved
+
+
+@overload
+def _git(*args: str, binary: Literal[True]) -> bytes: ...
+
+
+@overload
+def _git(*args: str, binary: Literal[False] = False) -> str: ...
 
 
 def _git(*args: str, binary: bool = False) -> bytes | str:
@@ -226,6 +236,19 @@ MODEL_CASES = (
     ("dirac", {"mu": 20.0}, "discrete"),
     ("dirac_double", {"mu1": 8.0, "mu2": 35.0, "rate": 0.4}, "discrete"),
 )
+
+
+class InvariantValues(TypedDict):
+    """Independent scalar expectations for one LPM implementation."""
+
+    probe_age: float
+    cdf_at_probe: float
+    cdf_expected: float
+    partial_first_moment_at_probe: float
+    partial_first_moment_expected: float
+    mean_expected: float
+    std_expected: float
+    support_consistent: bool
 
 
 def _model(name: str, parameters: dict[str, float]):
@@ -385,15 +408,30 @@ def _quantile_reference(
     return float(total)
 
 
-def _support_description(name: str, parameters: dict[str, object]) -> str:
+def _number(parameters: Mapping[str, object], name: str) -> float:
+    """Return one required finite numeric model parameter."""
+    value = parameters.get(name)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"Model parameter {name!r} must be numeric")
+    result = float(value)
+    if not math.isfinite(result):
+        raise ValueError(f"Model parameter {name!r} must be finite")
+    return result
+
+
+def _support_description(name: str, parameters: Mapping[str, object]) -> str:
     if name in {"exp", "gamma", "weibull", "ig"}:
         return "[0,+infinity)"
     if name in {"exp_shifted", "ig_shifted"}:
         return f"[{parameters['shift']},+infinity)"
     if name == "uniform":
-        return f"[{parameters['tmin']},{float(parameters['tmin']) + float(parameters['delta'])}]"
+        minimum = _number(parameters, "tmin")
+        return f"[{minimum},{minimum + _number(parameters, 'delta')}]"
     if name == "shapefree":
-        return f"[{parameters['edges'][0]},{parameters['edges'][-1]}] piecewise uniform"
+        edges = parameters.get("edges")
+        if not isinstance(edges, (list, tuple)) or not edges:
+            raise ValueError("Shape-free support requires a non-empty edges sequence")
+        return f"[{edges[0]},{edges[-1]}] piecewise uniform"
     if name == "shapefree_n_oldbin":
         return "[0,200] piecewise uniform (0-20, 20-40, 40-60, 60-200 yr)"
     if name == "mix_exp_shifted":
@@ -405,7 +443,22 @@ def _support_description(name: str, parameters: dict[str, object]) -> str:
     return "declared by LPM"
 
 
-def _independent_invariant_values(model) -> dict[str, float | bool]:
+def _scalar_float(value: object, context: str) -> float:
+    """Return one scalar scientific result and reject accidental arrays."""
+    array = np.asarray(value)
+    if array.size != 1:
+        raise TypeError(f"{context} must be scalar, got shape {array.shape}")
+    return float(array.reshape(-1)[0])
+
+
+def _pair(value: object, context: str) -> tuple[object, object]:
+    """Return a required two-item result from a structurally checked method."""
+    if not isinstance(value, tuple) or len(value) != 2:
+        raise TypeError(f"{context} must return exactly two values")
+    return value
+
+
+def _independent_invariant_values(model) -> InvariantValues:
     """Return independent finite-CDF, moment, mean, and spread checks."""
     name, p = model.name, model.p
     distribution = _independent_distribution(name, p)
@@ -427,9 +480,11 @@ def _independent_invariant_values(model) -> dict[str, float | bool]:
         cdf_below_support = float(model.cdf(np.nextafter(support_lower, -np.inf)))
         return {
             "probe_age": probe,
-            "cdf_at_probe": float(cdf_actual),
+            "cdf_at_probe": _scalar_float(cdf_actual, "CDF at probe"),
             "cdf_expected": probability,
-            "partial_first_moment_at_probe": float(moment_actual),
+            "partial_first_moment_at_probe": _scalar_float(
+                moment_actual, "partial first moment at probe"
+            ),
             "partial_first_moment_expected": moment_expected,
             "mean_expected": float(mean_expected),
             "std_expected": float(np.sqrt(variance_expected)),
@@ -461,9 +516,11 @@ def _independent_invariant_values(model) -> dict[str, float | bool]:
         cdf_actual, moment_actual = model.cdf_and_partial_first_moment(probe)
         return {
             "probe_age": probe,
-            "cdf_at_probe": float(cdf_actual),
+            "cdf_at_probe": _scalar_float(cdf_actual, "CDF at probe"),
             "cdf_expected": float(cdf_expected),
-            "partial_first_moment_at_probe": float(moment_actual),
+            "partial_first_moment_at_probe": _scalar_float(
+                moment_actual, "partial first moment at probe"
+            ),
             "partial_first_moment_expected": float(moment_expected),
             "mean_expected": mean_expected,
             "std_expected": float(
@@ -479,9 +536,14 @@ def _independent_invariant_values(model) -> dict[str, float | bool]:
         support = float(p["mu1"] + p["shift"])
         probability = 0.6
         probe = float(stats.expon(loc=support, scale=scale).ppf(probability))
-        tail_cdf, tail_moment = model.continuous_cdf_and_partial_first_moment(probe)
-        cdf_actual = rate + (1.0 - rate) * float(tail_cdf)
-        moment_actual = rate * float(p["mu1"]) + (1.0 - rate) * float(tail_moment)
+        continuous = getattr(model, "continuous_cdf_and_partial_first_moment", None)
+        if not callable(continuous):
+            raise TypeError("Mixed shifted exponential lacks its continuous moment API")
+        tail_cdf, tail_moment = _pair(continuous(probe), "continuous moment API")
+        cdf_actual = rate + (1.0 - rate) * _scalar_float(tail_cdf, "tail CDF")
+        moment_actual = rate * float(p["mu1"]) + (1.0 - rate) * _scalar_float(
+            tail_moment, "tail partial first moment"
+        )
         q = (probe - support) / scale
         tail_moment_expected = support * probability + scale * (
             1.0 - np.exp(-q) * (1.0 + q)
@@ -521,7 +583,14 @@ def _independent_invariant_values(model) -> dict[str, float | bool]:
         }
 
     if name == "dirac_double":
-        first, second = map(float, model.get_dirac_double_time())
+        get_times = getattr(model, "get_dirac_double_time", None)
+        if not callable(get_times):
+            raise TypeError("Double-Dirac model lacks its atom-time API")
+        first_raw, second_raw = _pair(get_times(), "double-Dirac atom-time API")
+        first, second = (
+            _scalar_float(first_raw, "first atom time"),
+            _scalar_float(second_raw, "second atom time"),
+        )
         rate = float(p["rate"])
         probe = 0.5 * (first + second)
         mean_expected = rate * first + (1.0 - rate) * second
@@ -560,53 +629,74 @@ def _analytical_rows() -> list[dict[str, object]]:
             "mean": float(model.mean()),
             "std": float(model.std()),
         }
-        row.update(_independent_invariant_values(model))
+        invariants = _independent_invariant_values(model)
+        row.update(invariants)
         row.update(
-            mean_abs_error=abs(float(row["mean"]) - float(row["mean_expected"])),
-            std_abs_error=abs(float(row["std"]) - float(row["std_expected"])),
-            cdf_abs_error=abs(float(row["cdf_at_probe"]) - float(row["cdf_expected"])),
+            mean_abs_error=abs(float(model.mean()) - invariants["mean_expected"]),
+            std_abs_error=abs(float(model.std()) - invariants["std_expected"]),
+            cdf_abs_error=abs(invariants["cdf_at_probe"] - invariants["cdf_expected"]),
             partial_first_moment_abs_error=abs(
-                float(row["partial_first_moment_at_probe"])
-                - float(row["partial_first_moment_expected"])
+                invariants["partial_first_moment_at_probe"]
+                - invariants["partial_first_moment_expected"]
             ),
         )
         if name not in {"dirac", "dirac_double", "mix_exp_shifted"}:
             cdf_inf, moment_inf = model.cdf_and_partial_first_moment(np.inf)
-            normalization = float(cdf_inf - model.cdf(-np.inf))
+            normalization = _scalar_float(cdf_inf, "CDF at infinity") - _scalar_float(
+                model.cdf(-np.inf), "CDF below support"
+            )
             row.update(
                 normalization=normalization,
-                cdf_infinity=float(cdf_inf),
-                partial_first_moment_infinity=float(moment_inf),
+                cdf_infinity=_scalar_float(cdf_inf, "CDF at infinity"),
+                partial_first_moment_infinity=_scalar_float(
+                    moment_inf, "partial first moment at infinity"
+                ),
             )
         else:
             moment = float(model.mean())
             row.update(
                 normalization=1.0,
-                cdf_infinity=float(model.cdf(np.inf)),
+                cdf_infinity=_scalar_float(model.cdf(np.inf), "CDF at infinity"),
                 partial_first_moment_infinity=moment,
             )
         constant_value = float(Convolution(constant, 2020.0).convolve(model))
         affine_value = float(Convolution(affine, 2020.0).convolve(model))
         window = float(Convolution(constant, 2020.0).window_mass(model))
         if name == "dirac":
-            affine_expected = 2.5 + 0.03 * model.p["mu"]
+            affine_expected = 2.5 + 0.03 * _number(model.p, "mu")
         elif name == "dirac_double":
-            first, second = model.get_dirac_double_time()
-            affine_expected = model.p["rate"] * (2.5 + 0.03 * first) + (
-                1.0 - model.p["rate"]
-            ) * (2.5 + 0.03 * second)
-        elif name == "mix_exp_shifted":
-            continuous_mass, continuous_moment = (
-                model.continuous_cdf_and_partial_first_moment(320.0)
+            get_times = getattr(model, "get_dirac_double_time", None)
+            if not callable(get_times):
+                raise TypeError("Double-Dirac model lacks its atom-time API")
+            first_raw, second_raw = _pair(get_times(), "double-Dirac atom-time API")
+            first = _scalar_float(first_raw, "first atom time")
+            second = _scalar_float(second_raw, "second atom time")
+            rate = _number(model.p, "rate")
+            affine_expected = rate * (2.5 + 0.03 * first) + (1.0 - rate) * (
+                2.5 + 0.03 * second
             )
-            affine_expected = model.p["rate"] * (
-                2.5 + 0.03 * model.get_dirac_time()
-            ) + (1.0 - model.p["rate"]) * (
-                2.5 * continuous_mass + 0.03 * continuous_moment
+        elif name == "mix_exp_shifted":
+            continuous = getattr(model, "continuous_cdf_and_partial_first_moment", None)
+            get_time = getattr(model, "get_dirac_time", None)
+            if not callable(continuous) or not callable(get_time):
+                raise TypeError("Mixed shifted exponential lacks its component APIs")
+            continuous_mass, continuous_moment = _pair(
+                continuous(320.0), "continuous moment API"
+            )
+            mass = _scalar_float(continuous_mass, "continuous component mass")
+            moment = _scalar_float(
+                continuous_moment, "continuous component partial first moment"
+            )
+            rate = _number(model.p, "rate")
+            dirac_time = _scalar_float(get_time(), "Dirac component time")
+            affine_expected = rate * (2.5 + 0.03 * dirac_time) + (1.0 - rate) * (
+                2.5 * mass + 0.03 * moment
             )
         else:
             _, partial = model.cdf_and_partial_first_moment(320.0)
-            affine_expected = 2.5 * window + 0.03 * float(partial)
+            affine_expected = 2.5 * window + 0.03 * _scalar_float(
+                partial, "partial first moment"
+            )
         row.update(
             window_mass=window,
             constant_value=constant_value,
@@ -708,10 +798,12 @@ def _performance(output: Path) -> pd.DataFrame:
             for _ in range(1000):
                 group.convolve(model)
             repeated_seconds = time.perf_counter() - start
-            bins = [
-                convolution.prepared_grid.edges.size - 1
-                for convolution in group.convolutions
-            ]
+            bins = []
+            for convolution in group.convolutions:
+                grid = convolution.prepared_grid
+                if grid is None:
+                    raise RuntimeError("Convolution preparation did not create a grid")
+                bins.append(grid.edges.size - 1)
             rows.append(
                 {
                     "LPM": name,
@@ -856,8 +948,8 @@ def _run_table3_chain(
     ).prepare()
     mh = MetropolisHastings(
         config=MHConfig(
-            nstep=steps,
-            nskip=skip,
+            nsteps=steps,
+            thinning=skip,
             prior_option=False,
             likelihood=True,
             monitor=False,
@@ -960,7 +1052,7 @@ def _summary_row(
     index: int,
     mu: float,
     shift: float,
-    observations: Concentrations,
+    observations: Concentrations | np.ndarray,
     frame: pd.DataFrame,
     steps: int,
 ) -> dict[str, object]:
@@ -974,7 +1066,10 @@ def _summary_row(
         "steps": steps,
         "stored_samples": len(frame),
     }
-    observed_values = observations.frame["concentration"].to_numpy(dtype=float)
+    if isinstance(observations, Concentrations):
+        observed_values = observations.frame["concentration"].to_numpy(dtype=float)
+    else:
+        observed_values = np.asarray(observations, dtype=float)
     for tracer_name, concentration in zip(
         TABLE3_TRACERS, observed_values, strict=False
     ):

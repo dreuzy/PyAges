@@ -70,15 +70,14 @@ pyages list tracers --verbose
 ## `pyages run <config.yaml>`
 
 Runs the workflow selected by `workflow.kind` in the YAML configuration.
-Schema-2 files require the field to be `single_date` or `temporal`.
-Unversioned 1.x files without it retain the historical `single_date` default
-and print a migration warning.
+Schema-3 files require the field to be `single_date` or `temporal`. Older
+layouts and unknown fields are rejected before execution.
 
 | Flag | Type | Description |
 | --- | --- | --- |
 | `--inline` | flag | Force the inline matplotlib backend for the single-date workflow; accepted but unused for temporal workflows. |
 | `--lpm <name>` | option | Override the single-date model or replace a temporal model list with this one model. |
-| `--mh-nsteps <int>` | option | Override Metropolis-Hastings transitions; must be positive, and the temporal configuration additionally requires a value greater than 100. |
+| `--mh-nsteps <int>` | option | Override Metropolis-Hastings transitions; must be positive and leave at least one retained draw with the configured burn-in and thinning. |
 | `--data-name <file>` | option | Override dataset filename (single-date only). |
 | `--data-dir <path>` | option | Override dataset directory (single-date only). |
 | `--data-file <path>` | option | Override dataset path (temporal only). |
@@ -112,7 +111,7 @@ archived result.
 
 ## `pyages new config <directory>`
 
-Creates a self-contained schema-2 quickstart with synthetic observations. It
+Creates a self-contained schema-3 quickstart with synthetic observations. It
 does not overwrite an existing generated YAML or observation table.
 
 | Flag | Type | Description |
@@ -129,19 +128,6 @@ pyages run quickstart/pyages.yaml
 The short example checks the installed data and workflow plumbing. Its
 synthetic values and deliberately small sampling settings are not scientific
 qualification evidence.
-
-## `pyages config migrate <source> <destination>`
-
-Copies an unversioned 1.x configuration to schema 2, validates the result, and
-leaves the source untouched. The destination must not exist and must be beside
-the source. Legacy checkout files and schema-2 files use different bases for
-relative paths, so the command rewrites documented path fields when necessary
-to keep them pointed at the same inputs and output directory. YAML comments
-are not preserved.
-
-```console
-pyages config migrate legacy.yaml pyages-schema2.yaml
-```
 
 ## `pyages stages inspect <root>`
 

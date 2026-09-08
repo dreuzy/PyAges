@@ -525,7 +525,9 @@ def posterior_predictions(output: Path) -> pd.DataFrame:
     for well in prepared.context.selected_wells:
         observations = build_observations(prepared, well, True)
         elements = observations["element"]
-        if elements.isna().any():
+        if not isinstance(elements, pd.Series):
+            raise ValueError("Expected exactly one 'element' observation column")
+        if bool(elements.isna().any()):
             raise RuntimeError(f"Missing tracer name in observations for {well}")
         tracer_names = elements.map(str).tolist()
         matrix = _matrix(endmembers, tracer_names)
@@ -559,6 +561,8 @@ def posterior_predictions(output: Path) -> pd.DataFrame:
     canonical.insert(0, "prior", "uniform_z")
     columns = list(alternative.columns)
     combined = pd.concat([canonical[columns], alternative], ignore_index=True)
+    if not isinstance(combined, pd.DataFrame):
+        raise TypeError("Concatenating posterior predictions must produce a DataFrame")
     combined.to_csv(output / "standardized_residuals.csv", index=False)
     return combined
 
@@ -823,13 +827,13 @@ def make_figure(
     )
 
     with plt.rc_context(PUBLICATION_RC):
-        tab10 = plt.get_cmap("tab10").colors
+        tab10 = plt.get_cmap("tab10")
         styles = (
-            ("reference", -0.09, tab10[0], "o", "Latent-uniform prior"),
+            ("reference", -0.09, tab10(0), "o", "Latent-uniform prior"),
             (
                 "dirichlet",
                 0.09,
-                tab10[1],
+                tab10(1),
                 "D",
                 "Dirichlet(1,1,1,1) prior",
             ),

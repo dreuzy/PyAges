@@ -545,7 +545,8 @@ def _validate_private_lock_directory(directory: Path) -> os.stat_result:
 
 def _promotion_lock_path() -> Path:
     """Return the process-independent lock in a real user-private directory."""
-    user_suffix = f"-{os.getuid()}" if getattr(os, "getuid", None) is not None else ""
+    getuid = getattr(os, "getuid", None)
+    user_suffix = f"-{getuid()}" if getuid is not None else ""
     lock_directory = Path(tempfile.gettempdir()) / f".pyages-locks-v1{user_suffix}"
     try:
         lock_directory.mkdir(mode=0o700)

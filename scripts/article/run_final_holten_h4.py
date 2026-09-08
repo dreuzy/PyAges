@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy
+from matplotlib.figure import Figure
 from matplotlib.ticker import FormatStrFormatter
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -422,7 +423,9 @@ def _posterior_predictions(
             continue
         observations = build_observations(prepared, well, True)
         elements = observations["element"]
-        if elements.isna().any():
+        if not isinstance(elements, pd.Series):
+            raise ValueError("Expected exactly one 'element' observation column")
+        if bool(elements.isna().any()):
             raise RuntimeError(f"Missing tracer name in observations for {well}")
         tracer_names = elements.map(str).tolist()
         matrix = _matrix(endmembers, tracer_names)
@@ -514,13 +517,13 @@ def _draw_figure3(
     comparison: pd.DataFrame,
     *,
     layout: tuple[int, int],
-) -> tuple[plt.Figure, np.ndarray]:
+) -> tuple[Figure, np.ndarray]:
     """Draw one publication layout of the canonical Holten comparison."""
 
     wells = comparison["well"].drop_duplicates().tolist()
-    tab10 = plt.get_cmap("tab10").colors
-    pyages_color = tab10[0]
-    visser_color = tab10[1]
+    tab10 = plt.get_cmap("tab10")
+    pyages_color = tab10(0)
+    visser_color = tab10(1)
     rows, columns = layout
     height_mm = 78 if layout == (1, 4) else 118
     fig, axes = plt.subplots(
@@ -739,6 +742,8 @@ def analyze_and_extend(output: Path) -> dict[str, pd.DataFrame]:
             converged=("converged", "all"),
         )
     )
+    if not isinstance(summary, pd.DataFrame):
+        raise TypeError("Convergence aggregation must produce a DataFrame")
     report = (
         "# Holten H4 final multi-chain\n\n"
         "Observables : ³H, ³He tritiogénique corrigé, ⁸⁵Kr et ³⁹Ar. "

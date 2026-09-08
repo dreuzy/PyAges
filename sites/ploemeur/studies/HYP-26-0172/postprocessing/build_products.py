@@ -103,15 +103,17 @@ def plot_figure3(
 def _figure3_payload(root: Path, window: tuple[int, int]) -> dict | None:
     payload = {}
     for well in ("F09", "F11"):
-        outputs = {
-            "independent": _find_main_output(root, well, "successive"),
-            "conditioned": _find_main_output(root, well, "successive_with_prior"),
-            "full": _find_main_output(root, well, "span_full"),
-        }
-        if not all(outputs.values()):
+        independent_output = _find_main_output(root, well, "successive")
+        conditioned_output = _find_main_output(root, well, "successive_with_prior")
+        full_output = _find_main_output(root, well, "span_full")
+        if (
+            independent_output is None
+            or conditioned_output is None
+            or full_output is None
+        ):
             return None
         full_cases = sorted(
-            outputs["full"].glob(f"{well}_????_????"),
+            full_output.glob(f"{well}_????_????"),
             key=lambda path: (
                 int(path.name.rsplit("_", 1)[1]) - int(path.name.rsplit("_", 2)[1])
             ),
@@ -119,18 +121,27 @@ def _figure3_payload(root: Path, window: tuple[int, int]) -> dict | None:
         )
         if not full_cases:
             return None
-        files = {
-            "independent": _prediction_file(outputs["independent"], well, window),
-            "conditioned": _prediction_file(outputs["conditioned"], well, window),
-            "full": full_cases[0]
+        independent_file = _prediction_file(independent_output, well, window)
+        conditioned_file = _prediction_file(conditioned_output, well, window)
+        full_file = (
+            full_cases[0]
             / "exp_shifted"
             / "Metropolis_Hastings"
-            / "concentrations_all_models.txt",
-        }
-        if not all(path and path.is_file() for path in files.values()):
+            / "concentrations_all_models.txt"
+        )
+        if (
+            independent_file is None
+            or conditioned_file is None
+            or not full_file.is_file()
+        ):
             return None
+        files = {
+            "independent": independent_file,
+            "conditioned": conditioned_file,
+            "full": full_file,
+        }
         observations = (
-            outputs["independent"]
+            independent_output
             / f"{well}_{window[0]}_{window[1]}"
             / "exp_shifted"
             / "concentrations.txt"

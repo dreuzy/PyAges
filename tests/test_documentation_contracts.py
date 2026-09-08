@@ -5,6 +5,7 @@
 """Cross-check prose contracts that are not exercised by Sphinx."""
 
 import ast
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +54,12 @@ def test_readmes_describe_configurable_temporal_result_layout() -> None:
         assert "<study_name>" in document
         assert "Metropolis_Hastings/" in document
         assert "<results_root>/ploemeur_temporal" not in document
+
+    scripts_readme = (ROOT / "scripts/README.md").read_text(encoding="utf-8")
+    assert scripts_readme.count("schema_version: 3") >= 2
+    assert "\ndataset:" not in scripts_readme
+    assert "\nlpm_models:" not in scripts_readme
+    assert "model_name:" not in scripts_readme
 
 
 def test_site_studies_are_discoverable_without_becoming_packaged_api() -> None:
@@ -126,21 +133,21 @@ def test_workflow_output_reference_covers_stable_artifacts_and_manifest() -> Non
     assert "`failed` after rejection" in document
 
 
-def test_configuration_reference_states_exact_temporal_constraints() -> None:
+def test_configuration_reference_states_exact_common_mh_constraints() -> None:
     document = (ROOT / "docs/user-guide/configuration.md").read_text(encoding="utf-8")
 
-    assert "strictly greater than 100" in document
-    assert "`[0, 0.5)`" in document
+    assert "complete schedule required to retain at least one draw" in document
+    assert "Fraction in `[0, 1)`" in document
     assert "Relative error in `(0, 1)`" in document
-    assert "iteration > burn_in * mh_nsteps" in document
+    assert "iteration > burn_in * nsteps" in document
     assert "unknown section or field" in document
     assert "exact bounded quantile" in document
     assert "perform rejection sampling or consume `max_attempts`" in document
-    assert "currently always enables the parametric priors" in document
-    assert "does not expose" in document
+    assert "must say `prior_option: true`" in document
+    assert "no longer injected silently" in document
 
 
-def test_1_2_quickstart_and_configuration_migration_are_self_contained() -> None:
+def test_2_0_quickstart_and_strict_configuration_are_self_contained() -> None:
     tutorial = (ROOT / "docs/user-guide/tutorial.md").read_text(encoding="utf-8")
     configuration = (ROOT / "docs/user-guide/configuration.md").read_text(
         encoding="utf-8"
@@ -149,25 +156,22 @@ def test_1_2_quickstart_and_configuration_migration_are_self_contained() -> None
 
     assert "pyages new config quickstart" in tutorial
     assert "examples/templates" not in tutorial
-    assert "schema_version: 2" in configuration
-    assert "pyages config migrate legacy.yaml pyages-schema2.yaml" in configuration
-    assert "leaves the source untouched" in cli
+    assert "schema_version: 3" in configuration
+    assert "there is no implicit conversion" in configuration
+    assert "Older layouts and unknown fields are rejected" in " ".join(cli.split())
     assert "not scientific" in cli
     assert "qualification evidence" in cli
 
 
-def test_1_2_lpm_parameter_migration_keeps_1x_compatibility_explicit() -> None:
-    migration = (ROOT / "docs/reference/compatibility-1-2.md").read_text(
-        encoding="utf-8"
-    )
+def test_2_0_reference_exposes_only_canonical_apis() -> None:
+    public_api = (ROOT / "docs/reference/public-api.md").read_text(encoding="utf-8")
     reference_index = (ROOT / "docs/reference/index.md").read_text(encoding="utf-8")
 
-    assert "compatibility-1-2" in reference_index
-    assert "not a PyAges 2.0 release" in migration
-    assert "`get_calibration_ranges(schema)` | `schema.calibration_ranges`" in migration
-    assert "`get_domains(schema)` | `schema.domains`" in migration
-    assert "`get_init(schema)` | `schema.initial_values`" in migration
-    assert "keeps warning with `DeprecationWarning`" in migration
+    assert "migration-2-0" not in reference_index
+    assert "Older field spellings are rejected" in public_api
+    assert "SingleDateConfig" in public_api
+    assert "TemporalConfig" in public_api
+    assert "calibration_range" in public_api
 
 
 def test_natural_notebooks_use_only_canonical_public_apis() -> None:
@@ -202,12 +206,23 @@ def test_natural_notebooks_use_only_canonical_public_apis() -> None:
         "reachconc=",
         "display_concentration_times",
         ".proposal_step",
+        "params.dataset",
+        "params.lpm.model_name",
+        "params.lpm.data_directory",
+        '["calibration_metropolis_hastings"]',
+        '["calibration_simplex"]',
+        "run.calibration_metropolis_hastings",
+        "run.calibration_simplex",
     )
 
     for notebook_path in notebook_paths:
         notebook = notebook_path.read_text(encoding="utf-8")
+        payload = json.loads(notebook)
+        notebook_source = "\n".join(
+            "".join(cell.get("source", ())) for cell in payload.get("cells", ())
+        )
         assert "from pyages.concentrations import Concentrations" in notebook
-        assert all(marker not in notebook for marker in removed_api_markers)
+        assert all(marker not in notebook_source for marker in removed_api_markers)
 
 
 def test_contributor_extension_contract_is_navigable_and_compilable() -> None:

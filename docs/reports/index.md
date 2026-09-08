@@ -37,4 +37,6 @@ multichain-mh-refactoring-audit-2026-08-31
 multichain-mh-qualification-2026-08-31
 pyages-architecture-mh-audit-2026-09-01
 code_quality_audit_2026-09-02
+refactoring_2_0_iteration_2026-09-07
+simplification_inheritance_aliases_2026-09-08
 ```

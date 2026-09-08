@@ -113,6 +113,49 @@ def infer_well(experiment_id: str) -> str:
     return "multiple"
 
 
+def _read_key_values(path: Path) -> dict[str, str]:
+    """Read the canonical tab-separated PyAges scalar metadata format."""
+    return dict(
+        line.split("\t", maxsplit=1)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if "\t" in line
+    )
+
+
+def _boolean_series(series: pd.Series) -> pd.Series:
+    """Normalize persisted boolean diagnostics without relying on CSV inference."""
+    return series.map(
+        lambda value: (
+            value
+            if isinstance(value, (bool, np.bool_))
+            else str(value).strip().lower() == "true"
+        )
+    )
+
+
+def _column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one unambiguous named column from a diagnostic table."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Expected exactly one {name!r} diagnostic column")
+    return column
+
+
+def _diagnostic_extreme(
+    diagnostics: pd.DataFrame, column: str, operation: str
+) -> float:
+    """Return a finite diagnostic extreme, or NaN when it is unavailable."""
+    if column not in diagnostics:
+        return float("nan")
+    numeric = pd.to_numeric(_column(diagnostics, column), errors="coerce")
+    if not isinstance(numeric, pd.Series):  # pragma: no cover - pandas contract.
+        raise TypeError("diagnostic numeric conversion must return a Series")
+    numeric = numeric.dropna()
+    if numeric.empty:
+        return float("nan")
+    return float(getattr(numeric, operation)())
+
+
 def save_derived_tables(stats: pd.DataFrame, derived: Path) -> dict[str, Path]:
     """Write the complete statistics table and declared figure subsets."""
     derived.mkdir(parents=True, exist_ok=True)
@@ -165,20 +208,39 @@ def save_derived_tables(stats: pd.DataFrame, derived: Path) -> dict[str, Path]:
 
 
 def collect_diagnostics(root: Path, derived: Path) -> Path:
-    """Write a compact execution-health table for every discovered case."""
+    """Write acceptance and convergence summaries for every discovered case."""
     records = []
     for run_dir in run_directories(root):
         for result_file in (run_dir / "workflow").glob(
             "**/Metropolis_Hastings/results_calibration.txt"
         ):
-            frame = pd.read_csv(result_file, sep="\t")
-            values = (
-                dict(zip(frame.iloc[:, 0], frame.iloc[:, 1], strict=False))
-                if len(frame.columns) >= 2
-                else {}
+            values = _read_key_values(result_file)
+            required_fields = {
+                "chain_count",
+                "mean_acceptance_rate",
+                "qualification_status",
+            }
+            missing_fields = sorted(required_fields.difference(values))
+            if missing_fields:
+                missing = ", ".join(missing_fields)
+                raise ValueError(
+                    f"{result_file} does not follow the current MH result schema; "
+                    f"missing: {missing}"
+                )
+            diagnostics_file = result_file.with_name("mcmc_diagnostics.tsv")
+            diagnostics = (
+                pd.read_csv(diagnostics_file, sep="\t")
+                if diagnostics_file.is_file()
+                else pd.DataFrame()
             )
+            qualified_diagnostics = diagnostics
+            if "included_in_qualification" in diagnostics:
+                qualified_diagnostics = diagnostics.loc[
+                    _boolean_series(_column(diagnostics, "included_in_qualification"))
+                ]
+
             stats_file = result_file.with_name("distributions_stats.txt")
-            finite = True
+            finite = False
             if stats_file.is_file():
                 samples = pd.read_csv(stats_file, sep="\t")
                 finite = bool(
@@ -186,22 +248,58 @@ def collect_diagnostics(root: Path, derived: Path) -> Path:
                         samples.select_dtypes(include="number").to_numpy()
                     ).all()
                 )
+            diagnostics_qualified = False
+            if "qualified" in qualified_diagnostics and not qualified_diagnostics.empty:
+                diagnostics_qualified = bool(
+                    _boolean_series(_column(qualified_diagnostics, "qualified")).all()
+                )
             records.append(
                 {
                     "experiment_id": run_dir.name,
                     "case": str(
                         result_file.parent.parent.relative_to(run_dir / "workflow")
                     ),
-                    "success_rate": pd.to_numeric(
-                        values.get("success_rate"), errors="coerce"
+                    "qualification_status": values["qualification_status"],
+                    "chain_count": pd.to_numeric(
+                        values["chain_count"],
+                        errors="coerce",
                     ),
+                    "mean_acceptance_rate": pd.to_numeric(
+                        values["mean_acceptance_rate"], errors="coerce"
+                    ),
+                    "max_rhat": _diagnostic_extreme(
+                        qualified_diagnostics, "rhat", "max"
+                    ),
+                    "min_bulk_ess": _diagnostic_extreme(
+                        qualified_diagnostics, "bulk_ess", "min"
+                    ),
+                    "min_tail_ess": _diagnostic_extreme(
+                        qualified_diagnostics, "tail_ess", "min"
+                    ),
+                    "max_mcse_mean": _diagnostic_extreme(
+                        qualified_diagnostics, "mcse_mean", "max"
+                    ),
+                    "diagnostics_qualified": diagnostics_qualified,
                     "finite_posterior": finite,
                 }
             )
     path = derived / "mcmc_diagnostics.csv"
+    derived.mkdir(parents=True, exist_ok=True)
     pd.DataFrame.from_records(
         records,
-        columns=["experiment_id", "case", "success_rate", "finite_posterior"],
+        columns=[
+            "experiment_id",
+            "case",
+            "qualification_status",
+            "chain_count",
+            "mean_acceptance_rate",
+            "max_rhat",
+            "min_bulk_ess",
+            "min_tail_ess",
+            "max_mcse_mean",
+            "diagnostics_qualified",
+            "finite_posterior",
+        ],
     ).to_csv(path, index=False)
     return path
 

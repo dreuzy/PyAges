@@ -24,9 +24,9 @@ def test_calibration_mh_prior_smoke(tmp_path: Path):
     display.directory = tmp_path
 
     mh_config = MHConfig(
-        nstep=50,
+        nsteps=50,
         burn_in=0.2,
-        nskip=5,
+        thinning=5,
         prior_option=True,
         likelihood=False,
         monitor=False,

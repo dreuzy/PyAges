@@ -23,8 +23,8 @@ from pathlib import Path
 
 from pyages.calibration.problem import resolve_observation_errors
 from pyages.concentrations import Concentrations
-from pyages.config.models import LauncherConfig
-from pyages.config.paths import DIRECTORY_TRACER_DATA, configuration_root
+from pyages.config.models import SingleDateConfig
+from pyages.config.paths import DIRECTORY_TRACER_DATA, configuration_directory
 from pyages.config.runtime import DisplayOptions
 from pyages.workflows.runtime import ResultRun, begin_staged_result_run
 from pyages.workflows.runtime.plotting import PlotSession
@@ -38,7 +38,7 @@ class SingleDateContext:
 
     config_path: Path
     root: Path
-    params: LauncherConfig
+    params: SingleDateConfig
     result_run: ResultRun
     output_directory: Path
     live_display: DisplayOptions
@@ -63,17 +63,17 @@ def _display_options(
 
 
 def _load_observations(
-    params: LauncherConfig,
+    params: SingleDateConfig,
     display: DisplayOptions,
 ) -> Concentrations:
-    path = params.dataset.data_dir / params.dataset.name
-    if params.dataset.verbose:
+    path = params.data.data_dir / params.data.name
+    if params.data.verbose:
         print(f"Observation file: {path}")
     observations = Concentrations.from_file(path)
     resolve_observation_errors(
         observations,
         tracer_data_directory=params.tracers.data_directory,
-        missing_error_relative_fraction=params.dataset.missing_error_rel,
+        missing_error_relative_fraction=params.data.missing_error_rel,
     )
     observations.display(display)
     return observations
@@ -86,18 +86,18 @@ def prepare_context(
 ) -> SingleDateContext:
     """Resolve configuration, inputs, outputs, and plotting runtime."""
     config_path = Path(params_path).resolve()
-    root = configuration_root(config_path)
+    root = configuration_directory(config_path)
     params = load_config(root, config_path)
     result_directory = Path(
         dataset_results_directory(
-            params.dataset.name,
-            use_default=params.results.use_default,
-            directory=params.results.directory,
-            study_name=params.results.study_name,
+            params.data.name,
+            use_default=params.output.use_default,
+            directory=params.output.directory,
+            study_name=params.output.study_name,
             create=False,
         )
     )
-    live_display = _display_options(None, save=False, text=params.dataset.verbose)
+    live_display = _display_options(None, save=False, text=params.data.verbose)
     plots = PlotSession.start(force_inline=force_inline)
     try:
         observations = _load_observations(params, live_display)
@@ -126,8 +126,8 @@ def scientific_input_paths(context: SingleDateContext) -> list[Path]:
     """Return every observation, model, and tracer resource used by the run."""
     tracer_root = context.params.tracers.data_directory or DIRECTORY_TRACER_DATA
     return [
-        context.params.dataset.data_dir / context.params.dataset.name,
-        context.params.lpm.data_directory / context.params.lpm.model_name,
+        context.params.data.data_dir / context.params.data.name,
+        context.params.lpm.directory / context.params.lpm.models[0],
         *(
             Path(tracer_root) / tracer
             for tracer in context.observations.observation_tracer_names()

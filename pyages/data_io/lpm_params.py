@@ -6,15 +6,14 @@
 """Load and cache validated LPM parameter definitions.
 
 Schema validation is implemented by
-:mod:`pyages.data_io._lpm_parameter_schema`. This module adds filesystem access,
-content-keyed caching, and compatibility accessors for consumers.
+:mod:`pyages.data_io._lpm_parameter_schema`. This module adds filesystem access
+and content-keyed caching for validated documents and schemas.
 """
 
 from __future__ import annotations
 
 import copy
 import threading
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -22,9 +21,7 @@ from typing import Any
 import yaml
 
 from pyages.data_io._lpm_parameter_schema import (
-    LPMParameterDefinition as LPMParameterDefinition,
-)
-from pyages.data_io._lpm_parameter_schema import (
+    LPMParameterDefinition,
     LPMParameterDomain,
     LPMParameterSchema,
     LPMParamsError,
@@ -113,70 +110,12 @@ def load_parameter_document(
     return copy.deepcopy(_read_cache_entry(model_name, data_dir).document)
 
 
-def load_params(model_name: str, data_dir: str | Path) -> dict[str, Any]:
-    """Return the document through the deprecated 1.x function name."""
-    warnings.warn(
-        "load_params() is deprecated; use load_parameter_document() instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return load_parameter_document(model_name, data_dir)
-
-
 def load_parameter_schema(
     model_name: str,
     data_dir: str | Path,
 ) -> LPMParameterSchema:
     """Load one validated, immutable LPM parameter schema."""
     return _read_cache_entry(model_name, data_dir).schema
-
-
-def get_calibration_ranges(
-    schema: LPMParameterSchema,
-) -> dict[str, tuple[float, float]]:
-    """Return calibration ranges; deprecated in favor of the schema property."""
-    warnings.warn(
-        "get_calibration_ranges() is deprecated; use schema.calibration_ranges instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return schema.calibration_ranges
-
-
-def get_bounds(
-    schema: LPMParameterSchema,
-) -> dict[str, tuple[float, float]]:
-    """Return calibration ranges through the deprecated 1.x name."""
-    warnings.warn(
-        "get_bounds() is deprecated; use schema.calibration_ranges instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return schema.calibration_ranges
-
-
-def get_domains(
-    schema: LPMParameterSchema,
-) -> dict[str, LPMParameterDomain]:
-    """Return validity domains; deprecated in favor of the schema property."""
-    warnings.warn(
-        "get_domains() is deprecated; use schema.domains instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return schema.domains
-
-
-def get_init(
-    schema: LPMParameterSchema,
-) -> dict[str, float]:
-    """Return initial values; deprecated in favor of the schema property."""
-    warnings.warn(
-        "get_init() is deprecated; use schema.initial_values instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return schema.initial_values
 
 
 def get_steps(
@@ -207,14 +146,9 @@ __all__ = [
     "LPMParameterSchema",
     "LPMParamsError",
     "clear_params_cache",
-    "get_bounds",
-    "get_calibration_ranges",
-    "get_domains",
-    "get_init",
     "get_priors",
     "get_steps",
     "load_parameter_document",
     "load_parameter_schema",
-    "load_params",
     "parse_parameter_schema",
 ]

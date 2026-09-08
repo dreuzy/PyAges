@@ -27,7 +27,8 @@ def test_temporal_workflow_runs_real_pilot_chains_diagnostics_and_pooling(
     monkeypatch.setenv("MPLBACKEND", "Agg")
     results_root = tmp_path / "results"
     payload = {
-        "dataset": {
+        "schema_version": 3,
+        "data": {
             "file": str(
                 ROOT
                 / "examples"
@@ -39,26 +40,25 @@ def test_temporal_workflow_runs_real_pilot_chains_diagnostics_and_pooling(
             "error_rel": 0.2,
             "missing_error_rel": 0.01,
         },
-        "lpm_models": {
+        "lpm": {
             "models": ["exp_shifted"],
             "directory": str(ROOT / "data_core" / "data_lpm"),
         },
         "workflow": {"kind": "temporal", "mode": "span"},
         "calibration": {
-            "explo_res": 2,
-            "mh_nsteps": 120,
-            "burn_in": 0.1,
-            "nskip": 10,
-            "lpm_number": 0,
-            "seed_enabled": False,
-            "multichain": {
-                "enabled": True,
+            "exploration_resolution": 2,
+            "posterior_draw_count": 0,
+            "metropolis_hastings": {
+                "nsteps": 120,
+                "burn_in": 0.1,
+                "thinning": 10,
                 "chains": 2,
-                "master_seed": 20260831,
+                "seed": 20260831,
+                "prior_option": True,
                 "initialization": {"strategy": "bounds_stratified"},
                 "pilot": {
                     "enabled": True,
-                    "nstep": 40,
+                    "nsteps": 40,
                     "burn_in": 0.25,
                     "relative_ridge": 1.0e-6,
                     "proposal_multiplier": "auto",
@@ -74,12 +74,12 @@ def test_temporal_workflow_runs_real_pilot_chains_diagnostics_and_pooling(
                 },
             },
         },
-        "figures": {
+        "reporting": {
             "temporal": False,
             "distributions": False,
             "concentrations_2d": False,
         },
-        "results": {
+        "output": {
             "use_default": False,
             "directory": str(results_root),
             "study_name": "temporal_multichain_e2e",
@@ -119,6 +119,4 @@ def test_temporal_workflow_runs_real_pilot_chains_diagnostics_and_pooling(
     )
     assert manifest["status"] == "complete"
     assert manifest["details"]["lpms"] == ["exp_shifted"]
-    assert (
-        "span_full/exp_shifted/ensemble_provenance.txt" in manifest["artifacts_sha256"]
-    )
+    assert "span_full/exp_shifted/run_provenance.txt" in manifest["artifacts_sha256"]

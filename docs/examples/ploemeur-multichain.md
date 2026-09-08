@@ -38,7 +38,7 @@ the run as qualification evidence.
 | Production chains | 5 |
 | Production transitions per chain | 5,000 |
 | Production burn-in | 0.20 |
-| Thinning | none (`nskip: 1`) |
+| Thinning | none (`thinning: 1`) |
 | Retained rows per chain | 3,999 |
 | Pilot transitions per chain | 2,000 |
 | Pilot burn-in | 0.50 |

@@ -230,10 +230,13 @@ def plot_concentration_chronicles_summary(
             label="Median model",
         )
 
-        has_error = "error" in observed.columns and np.any(
-            pd.to_numeric(observed["error"], errors="coerce") > 0
+        error_values = (
+            np.asarray(pd.to_numeric(observed["error"], errors="coerce"), dtype=float)
+            if "error" in observed.columns
+            else np.asarray([], dtype=float)
         )
-        yerr = observed["error"] if has_error else None
+        has_error = bool(np.any(error_values > 0))
+        yerr = error_values if has_error else None
         ax.errorbar(
             observed["date"],
             observed["concentration"],

@@ -21,6 +21,30 @@ capable of performing the continuity review independently.
 reviewer's GitHub identity there once that person has completed the drill; do
 not add an account solely to make the file appear redundant.
 
+### Why a second person matters
+
+Automated checks answer questions such as “do the tests pass?” They cannot show
+that another person understands how to obtain the data, choose the correct
+command, interpret a scientific failure, or publish the intended artifact. A
+project can therefore be technically green while depending on undocumented
+knowledge held by one maintainer. This is often called a **bus-factor risk**:
+work stops if that one person is temporarily unavailable.
+
+The continuity reviewer is not merely a second name on an approval rule. The
+reviewer should be able to start from an empty machine, notice missing
+instructions, and explain what each release check establishes. The useful
+outcome is a reproducible handoff, not an administrative checkbox.
+
+A practical way to introduce this role is:
+
+1. choose a contributor who did not prepare the release candidate;
+2. give that person only the repository URL and the documented prerequisites;
+3. let the person follow the drill below without private messages or copied
+   shell history;
+4. turn every question that required oral help into a documentation change;
+5. record the successful drill in an issue or pull request, then add the
+   reviewer to `CODEOWNERS`.
+
 ## Continuity drill
 
 The reviewer starts from a fresh clone and follows only repository documents:
@@ -37,13 +61,14 @@ The reviewer starts from a fresh clone and follows only repository documents:
 The drill succeeds only if the reviewer can identify the generated result
 manifest, explain which scientific checks are standard versus extensive, and
 locate the exact version/citation update points without help from the primary
-maintainer.
+maintainer. A failed drill is useful evidence: it identifies knowledge that
+must be written down before the release process is truly transferable.
 
 ## Change ownership map
 
 | Change | Start here | Minimum focused evidence |
 |---|---|---|
-| YAML or CLI compatibility | `pyages/config/migration.py`, `pyages/cli/commands/` | configuration migration, CLI, and workflow-path tests |
+| YAML or CLI contract | `pyages/config/models.py`, `pyages/config/loading.py`, `pyages/cli/commands/` | schema, CLI, and workflow-path tests |
 | Observation or LPM semantics | `pyages/concentrations/`, `pyages/lpm/`, `pyages/calibration/problem.py` | unit tests plus relevant analytical or golden qualification |
 | MH or multi-chain behavior | `pyages/calibration/methods/mh/` | sampler/result tests and the applicable extensive qualification profiles |
 | Result lifecycle or provenance | `pyages/workflows/runtime/manifest.py` | manifest, staging, failure, and quarantine tests |

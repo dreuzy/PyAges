@@ -22,16 +22,16 @@ from pathlib import Path
 import pandas as pd
 
 from pyages.calibration.exploration.systematic import SystematicSampling
-from pyages.config.models import LauncherConfig
+from pyages.config.models import SingleDateConfig
 from pyages.lpm.factory import build_lpm
 from pyages.lpm.samples import LpmSampleTable
 from pyages.reporting.chronicles import export_concentration_chronicles
 from pyages.workflows.single_date.context import SingleDateContext
 
 
-def case_label(params: LauncherConfig) -> str:
+def case_label(params: SingleDateConfig) -> str:
     """Return the explicit case label or a readable dataset filename stem."""
-    return params.dataset.label or Path(params.dataset.name).stem.replace("_", " ")
+    return params.data.label or Path(params.data.name).stem.replace("_", " ")
 
 
 def render_summary(
@@ -79,7 +79,7 @@ def run_objective_analysis(
     from pyages.reporting.plots import plot_objective_summary
 
     sampling = SystematicSampling(
-        context.params.lpm.model_name,
+        context.params.lpm.models[0],
         context.observations.observation_tracer_names(),
         date=context.observations.frame["date"],
         observations=context.observations,
@@ -87,7 +87,7 @@ def run_objective_analysis(
         display_options=context.live_display,
         explore_objective=True,
         explore_reachable=False,
-        lpm_directory=context.params.lpm.data_directory,
+        lpm_directory=context.params.lpm.directory,
         tracer_data_directory=context.params.tracers.data_directory,
     )
     sampling.compute_concentrations()
@@ -112,8 +112,8 @@ def run_objective_analysis(
 def write_concentration_outputs(context: SingleDateContext) -> None:
     """Write posterior distribution tables and concentration chronicles."""
     model = build_lpm(
-        context.params.lpm.model_name,
-        directory_lpm=context.params.lpm.data_directory,
+        context.params.lpm.models[0],
+        directory_lpm=context.params.lpm.directory,
     )
     export_concentration_chronicles(
         [context.output_directory],

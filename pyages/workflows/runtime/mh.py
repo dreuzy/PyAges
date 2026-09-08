@@ -9,8 +9,8 @@
 The inference engine deliberately knows nothing about workflow result paths.
 This module is the integration boundary: it translates validated YAML, gives
 every stage a fresh :class:`~pyages.calibration.problem.CalibrationProblem`,
-handles the single/ensemble branch, serializes the audit trail, and enforces the
-qualification policy.
+runs the same orchestration for one or many chains, serializes the audit trail,
+and enforces the qualification policy when inter-chain diagnostics apply.
 """
 
 from __future__ import annotations
@@ -20,75 +20,46 @@ from collections.abc import Callable
 from pathlib import Path
 
 from pyages.calibration.methods.mh.config import MHConfig
-from pyages.calibration.methods.mh.ensemble import MultiChainMetropolisHastings
-from pyages.calibration.methods.mh.ensemble_config import (
+from pyages.calibration.methods.mh.errors import MHConvergenceError
+from pyages.calibration.methods.mh.run_config import (
     MHDiagnosticsConfig,
-    MHEnsembleConfig,
     MHInitializationConfig,
     MHPilotConfig,
+    MHRunConfig,
 )
-from pyages.calibration.methods.mh.errors import MHConvergenceError
-from pyages.calibration.methods.mh.sampler import MetropolisHastings
+from pyages.calibration.methods.mh.runner import MetropolisHastingsRunner
 from pyages.calibration.problem import CalibrationProblem
-from pyages.config.models import (
-    LauncherMetropolisCfg,
-    MHMultichainCfg,
-    TemporalCalibrationCfg,
-)
-from pyages.data_io.mh_results import (
-    clear_mh_ensemble_artifacts,
-    write_mh_ensemble_result,
-)
+from pyages.config.models import MetropolisHastingsCfg
+from pyages.data_io.mh_results import write_mh_run_result
 from pyages.lpm.samples import LpmSampleTable
 
 _ProblemBuilder = Callable[[Path], CalibrationProblem]
 
 
 def build_mh_config(
-    config: LauncherMetropolisCfg | TemporalCalibrationCfg,
+    config: MetropolisHastingsCfg,
+    *,
+    seed: int | None = None,
 ) -> MHConfig:
-    """Translate either workflow's validated settings into one chain config."""
-    if isinstance(config, LauncherMetropolisCfg):
-        return MHConfig(
-            nstep=config.nstep,
-            burn_in=config.burn_in,
-            nskip=config.nskip,
-            prior_option=config.prior_option,
-            likelihood=config.likelihood,
-            monitor=config.monitor,
-            display_traj=config.display_traj,
-            componentwise_source="model",
-            seed=config.seed,
-        )
-    if isinstance(config, TemporalCalibrationCfg):
-        multichain_enabled = config.multichain is not None and config.multichain.enabled
-        seed = (
-            0
-            if multichain_enabled
-            else config.seed
-            if config.seed_enabled
-            else secrets.randbits(63)
-        )
-        if seed is None:
-            raise ValueError("calibration.seed is required when seed_enabled is true")
-        return MHConfig(
-            nstep=config.mh_nsteps,
-            burn_in=config.burn_in,
-            nskip=config.nskip,
-            prior_option=True,
-            prior_type="parametric",
-            likelihood=True,
-            monitor=False,
-            display_traj=False,
-            display_text=False,
-            componentwise_source="model",
-            seed=seed,
-        )
-    raise TypeError("config must be a validated single-date or temporal MH config")
+    """Translate validated workflow settings into one chain configuration."""
+    effective_seed = config.seed if seed is None else seed
+    if effective_seed is None:
+        effective_seed = secrets.randbits(64)
+    return MHConfig(
+        nsteps=config.nsteps,
+        burn_in=config.burn_in,
+        thinning=config.thinning,
+        prior_option=config.prior_option,
+        likelihood=config.likelihood,
+        monitor=config.display_traj,
+        display_traj=config.display_traj,
+        componentwise_source="model",
+        seed=effective_seed,
+    )
 
 
-def _build_mh_ensemble_config(config: MHMultichainCfg) -> MHEnsembleConfig:
-    """Return immutable scientific controls from a validated YAML section."""
+def build_mh_run_config(config: MetropolisHastingsCfg) -> MHRunConfig:
+    """Return immutable one-to-many-chain controls from validated YAML."""
     explicit_starts = config.initialization.explicit_starts
     initialization = MHInitializationConfig(
         strategy=config.initialization.strategy,
@@ -102,7 +73,7 @@ def _build_mh_ensemble_config(config: MHMultichainCfg) -> MHEnsembleConfig:
     pilot_multiplier = config.pilot.proposal_multiplier
     pilot = MHPilotConfig(
         enabled=config.pilot.enabled,
-        nstep=config.pilot.nstep,
+        nsteps=config.pilot.nsteps,
         burn_in=config.pilot.burn_in,
         relative_ridge=config.pilot.relative_ridge,
         proposal_multiplier=(
@@ -116,9 +87,9 @@ def _build_mh_ensemble_config(config: MHMultichainCfg) -> MHEnsembleConfig:
         min_tail_ess=config.diagnostics.min_tail_ess,
         require_convergence=config.diagnostics.require_convergence,
     )
-    return MHEnsembleConfig(
+    return MHRunConfig(
         chains=config.chains,
-        master_seed=config.master_seed,
+        seed=config.seed,
         initialization=initialization,
         pilot=pilot,
         diagnostics=diagnostics,
@@ -130,7 +101,7 @@ def _mh_stage_directory(
     stage: str,
     chain_id: int,
 ) -> Path:
-    """Return the stable audit directory for one ensemble-engine stage."""
+    """Return the stable audit directory for one MH run stage."""
     root = Path(output_directory)
     if stage == "initialization":
         if chain_id != 0:
@@ -142,35 +113,32 @@ def _mh_stage_directory(
         return root / "pilot" / f"chain_{chain_id:03d}"
     if stage == "production":
         return root / "chains" / f"chain_{chain_id:03d}"
-    raise ValueError(f"unknown MH ensemble stage: {stage!r}")
+    raise ValueError(f"unknown MH run stage: {stage!r}")
 
 
-def run_mh_ensemble(
+def _run_mh(
     chain_config: MHConfig,
-    multichain_config: MHMultichainCfg,
+    run_config: MHRunConfig,
     output_directory: str | Path,
     problem_builder: _ProblemBuilder,
 ) -> LpmSampleTable:
-    """Execute, persist, qualify, and finally pool one multi-chain run.
+    """Execute and persist one MH run containing one or more chains.
 
-    Chain and diagnostic artifacts are written before a required convergence
-    failure is raised. Consequently, a rejected run remains fully auditable
-    while unqualified draws cannot silently become a posterior distribution.
+    Inter-chain qualification is skipped explicitly for a one-chain run. For
+    two or more chains, artifacts are written before a required convergence
+    failure is raised, so a rejected run remains fully auditable.
     """
-    if not multichain_config.enabled:
-        raise ValueError("multichain_config must be enabled")
     if not callable(problem_builder):
         raise TypeError("problem_builder must be callable")
 
     root = Path(output_directory)
-    ensemble_config = _build_mh_ensemble_config(multichain_config)
-    ensemble = MultiChainMetropolisHastings(chain_config, ensemble_config)
+    runner = MetropolisHastingsRunner(chain_config, run_config)
 
     def problem_factory(stage: str, chain_id: int) -> CalibrationProblem:
         return problem_builder(_mh_stage_directory(root, stage, chain_id))
 
-    record = ensemble.run(problem_factory)
-    pooled = write_mh_ensemble_result(
+    record = runner.run(problem_factory)
+    pooled = write_mh_run_result(
         record,
         root,
     )
@@ -190,26 +158,21 @@ def run_mh_ensemble(
 
 
 def run_mh_calibration(
-    chain_config: MHConfig,
-    multichain_config: MHMultichainCfg | None,
+    config: MetropolisHastingsCfg,
     output_directory: str | Path,
     problem_builder: _ProblemBuilder,
 ) -> LpmSampleTable:
-    """Run one chain or a qualified ensemble behind one workflow boundary."""
-    root = Path(output_directory)
-    if multichain_config is not None and multichain_config.enabled:
-        return run_mh_ensemble(
-            chain_config,
-            multichain_config,
-            root,
-            problem_builder,
-        )
-
-    clear_mh_ensemble_artifacts(root)
-    calibration = MetropolisHastings(config=chain_config)
-    results = calibration.run(problem_builder(root))
-    calibration.write_calibrated_lpm(results)
-    return results
+    """Run one or many chains through the same auditable MH orchestration."""
+    run_config = build_mh_run_config(config)
+    if run_config.seed is None:  # defensive; MHRunConfig realizes it
+        raise AssertionError("validated MH run config has no seed")
+    chain_config = build_mh_config(config, seed=run_config.seed)
+    return _run_mh(
+        chain_config,
+        run_config,
+        output_directory,
+        problem_builder,
+    )
 
 
-__all__ = ["build_mh_config", "run_mh_calibration", "run_mh_ensemble"]
+__all__ = ["build_mh_config", "build_mh_run_config", "run_mh_calibration"]

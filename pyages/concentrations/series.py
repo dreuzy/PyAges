@@ -116,7 +116,8 @@ def _normalize_long_frame(concentrations: pd.DataFrame) -> ConcentrationSeries:
         )
     if concentrations.empty:
         raise ValueError("Concentration series must contain at least one row")
-    if concentrations[ELEMENT_COLUMN].isna().any():
+    element_frame = concentrations.loc[:, [ELEMENT_COLUMN]]
+    if element_frame.isna().to_numpy().any():
         raise ValueError("Concentration elements must not be missing")
 
     series_by_tracer: ConcentrationSeries = {}
@@ -177,7 +178,7 @@ def merge_model_into_table(
         raise ValueError("series_by_tracer must contain at least one tracer series")
 
     if merged is None:
-        result = pd.DataFrame(columns=[DATE_COLUMN])
+        result = pd.DataFrame(columns=pd.Index([DATE_COLUMN]))
     else:
         if not isinstance(merged, pd.DataFrame):
             raise TypeError("merged must be a pandas DataFrame or None")
@@ -196,9 +197,8 @@ def merge_model_into_table(
         output_column = f"{tracer}_{model_id}"
         if output_column in result.columns:
             raise ValueError(f"Concentration column already exists: {output_column}")
-        temp = frame[[DATE_COLUMN, CONCENTRATION_COLUMN]].rename(
-            columns={CONCENTRATION_COLUMN: output_column}
-        )
+        temp = frame.loc[:, [DATE_COLUMN, CONCENTRATION_COLUMN]].copy()
+        temp.columns = pd.Index([DATE_COLUMN, output_column])
         result = pd.merge(
             result,
             temp,
@@ -231,7 +231,12 @@ class ConcentrationChronicle:
             raise TypeError("observations must be a Concentrations instance")
 
         self.observations = observations
-        source = observations.frame if observations is not None else series
+        if observations is not None:
+            source = observations.frame
+        else:
+            if series is None:  # Guarded by the exactly-one check above.
+                raise RuntimeError("Concentration chronicle has no source")
+            source = series
         self.series = normalize_series(source)
 
     def plot(

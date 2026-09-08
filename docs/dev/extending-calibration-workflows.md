@@ -10,30 +10,25 @@ This page documents the current contributor contract. Presence in the selected
 API reference does not make these objects part of the public compatibility
 surface defined in {doc}`../reference/public-api`.
 
-Multi-chain MH is deliberately composition-based rather than a
-`CalibrationMethod` subclass. For a complete direct-Python example using its
-canonical contributor facade, fresh problem factory, `MHRunRecord`, and guarded
-pooling, see {ref}`multichain-mh-python-contributor-interface`. The resulting
-object topology, per-chain sample tables, diagnostic matrix axes, and pooling
-boundary are illustrated in
-{ref}`the in-memory ensemble map <multichain-mh-in-memory-record>`.
+All calibration algorithms are composition-based. For a complete MH example
+using fresh problem factories, `MHRunRecord`, and guarded pooling, see
+{ref}`multichain-mh-python-contributor-interface`.
 
 ## Calibration method contract
 
-Subclass {py:class}`pyages.calibration.methods.base.CalibrationMethod` and:
+Do not subclass another calibration algorithm. Implement the structural
+{py:class}`pyages.calibration.methods.protocols.CalibrationAlgorithm` contract:
 
-1. call `super().__init__()`;
-2. set a stable `method` string suitable for an output-directory name;
-3. implement `perform()` and return a valid
+1. set a stable `method` string suitable for an output-directory name;
+2. implement `run(problem)` and return a valid
    {py:class}`pyages.lpm.samples.table.LpmSampleTable`;
-4. implement `write_parameters(path)` for the resolved algorithm settings;
-5. implement `write_results_spec(data)` by adding scalar diagnostics to the
-   supplied mapping.
+3. implement `write_parameters(path)` for the resolved settings;
+4. implement `write_results(path)` for elapsed time and scalar diagnostics.
 
-Callers use `method.run(problem)`, not `perform()` directly. `run()` verifies
-that the {py:class}`pyages.calibration.problem.CalibrationProblem` is prepared
-and binds it to the method. The inherited `problem`, `observations`, `lpm`,
-`tracers`, and `display_options` properties are unavailable before that bind.
+This is a typing contract, not a parent class: Python accepts any object with
+these operations. Each implementation explicitly receives and validates its
+{py:class}`pyages.calibration.problem.CalibrationProblem`. It neither copies
+the problem nor acquires hidden state through inheritance.
 
 A returned sample table must preserve these semantics:
 
@@ -56,40 +51,44 @@ The smallest useful structural example is:
 from pathlib import Path
 from time import perf_counter
 
-from pyages.calibration.methods.base import CalibrationMethod
-from pyages.calibration.outputs import write_key_values
+from pyages.calibration.outputs import write_calibrated_result, write_key_values
 from pyages.calibration.objective import normalized_residual_norm
 from pyages.lpm.samples import LpmSampleTable
 
 
-class MyMethod(CalibrationMethod):
+class MyMethod:
     method = "my_method"
 
     def __init__(self, tolerance: float = 1e-6) -> None:
-        super().__init__()
         self.tolerance = tolerance
         self.evaluations = 0
+        self.time_perform = 0.0
+        self.problem = None
 
-    def perform(self) -> LpmSampleTable:
+    def run(self, problem) -> LpmSampleTable:
+        problem.ensure_prepared()
+        self.problem = problem
         started = perf_counter()
-        observed, errors = self.observation_arrays()
+        observed, errors = problem.prepared_observation_arrays()
+        lpm = problem.lpm
+        assert lpm is not None
 
         # Replace this initial point with the new search algorithm.
-        parameters = self.lpm.param_init()
-        chi_square, modeled = self.objective_function(
-            parameters, observed, errors, conc=True
+        parameters = lpm.param_init()
+        chi_square, modeled = problem.objective_function(
+            parameters, observed, errors, return_concentrations=True
         )
         self.evaluations = 1
 
         results = LpmSampleTable(
-            self.lpm,
-            c_names=self.observations.observation_keys(),
+            lpm,
+            c_names=problem.observations.observation_keys(),
         )
         results.append_sample(
-            self.lpm.p.copy(),
+            lpm.p.copy(),
             obj_function=normalized_residual_norm(chi_square, len(observed)),
             concentrations=modeled,
-            param_in_bounds=self.lpm.param_within_calibration_range_array(parameters),
+            param_in_bounds=lpm.param_within_calibration_range_array(parameters),
         )
         self.time_perform = perf_counter() - started
         return results.add_moments()
@@ -100,17 +99,20 @@ class MyMethod(CalibrationMethod):
             {"method": self.method, "tolerance": self.tolerance},
         )
 
-    def write_results_spec(self, data: dict) -> None:
-        data["evaluations"] = self.evaluations
+    def write_results(self, file_name: str | Path) -> None:
+        write_key_values(
+            file_name,
+            {"time_perform": self.time_perform, "evaluations": self.evaluations},
+        )
 ```
 
 The example evaluates one point only; it demonstrates the interface rather
 than a scientifically useful optimizer.
 
 After `results = method.run(problem)`, call
-`method.write_calibrated_lpm(results)` to write the standard tables documented
-in {doc}`../reference/outputs`. Do not create a competing table schema inside
-the method.
+`write_calibrated_result(method, problem, results)` to write the standard tables
+documented in {doc}`../reference/outputs`. Output is a separate service, not an
+inherited method of the numerical algorithm.
 
 ### Method qualification checklist
 

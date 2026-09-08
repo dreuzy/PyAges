@@ -64,9 +64,8 @@ def save_tracer_series_table(
                 f"Concentration series {tracer!r} contains duplicate dates; "
                 "wide-table export requires one value per tracer and date"
             )
-        temp = df[[DATE_COLUMN, "concentration"]].rename(
-            columns={"concentration": tracer}
-        )
+        temp = df.loc[:, [DATE_COLUMN, "concentration"]].copy()
+        temp.columns = pd.Index([DATE_COLUMN, tracer])
         if merged is None:
             merged = temp
         else:
@@ -79,7 +78,7 @@ def save_tracer_series_table(
                 validate="one_to_one",
             )
     if merged is None:
-        merged = pd.DataFrame(columns=[DATE_COLUMN])
+        merged = pd.DataFrame(columns=pd.Index([DATE_COLUMN]))
     else:
         merged = merged.sort_values(DATE_COLUMN).reset_index(drop=True)
     save_concentrations_table(merged, filepath)

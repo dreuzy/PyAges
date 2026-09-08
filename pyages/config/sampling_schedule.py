@@ -25,30 +25,30 @@ def _positive_integer(value: object, name: str) -> int:
 
 
 def strict_retained_sample_count(
-    nstep: int,
+    nsteps: int,
     burn_in: float,
-    nskip: int,
+    thinning: int,
 ) -> int:
     """Return the exact number of states retained by an MCMC chain.
 
     Iteration indices are zero based. An iteration ``i`` is retained exactly
-    when ``i > burn_in * nstep`` and ``i % nskip == 0``. The strict inequality
+    when ``i > burn_in * nsteps`` and ``i % thinning == 0``. The strict inequality
     is important when the burn-in threshold itself is a multiple of
-    ``nskip``.
+    ``thinning``.
     """
-    nstep = _positive_integer(nstep, "nstep")
-    nskip = _positive_integer(nskip, "nskip")
+    nsteps = _positive_integer(nsteps, "nsteps")
+    thinning = _positive_integer(thinning, "thinning")
     if isinstance(burn_in, bool) or not isinstance(burn_in, (int, float)):
         raise ValueError("burn_in must be a finite number in [0, 1)")
     burn_in = float(burn_in)
     if not math.isfinite(burn_in) or not 0.0 <= burn_in < 1.0:
         raise ValueError("burn_in must be a finite number in [0, 1)")
 
-    threshold = burn_in * nstep
-    first = (math.floor(threshold / nskip) + 1) * nskip
-    if first >= nstep:
+    threshold = burn_in * nsteps
+    first = (math.floor(threshold / thinning) + 1) * thinning
+    if first >= nsteps:
         return 0
-    return 1 + (nstep - 1 - first) // nskip
+    return 1 + (nsteps - 1 - first) // thinning
 
 
 def maximum_split_ess(chains: int, retained_sample_count: int) -> float:

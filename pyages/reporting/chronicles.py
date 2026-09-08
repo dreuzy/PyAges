@@ -195,6 +195,9 @@ def export_calibrated_chronicles(
         raise TypeError("lpm_number must be an integer")
     if lpm_number < 1:
         raise ValueError("lpm_number must be at least 1")
+    if display.directory is None:
+        raise ValueError("display.directory must be configured for export")
+    output_directory = Path(display.directory) / method
     tracer_names = observations.unique_tracer_names()
 
     # All unique tracers share the latest observation date because this export
@@ -226,6 +229,7 @@ def export_calibrated_chronicles(
     # Starting without a date grid lets validated outer merges construct the
     # deterministic union produced by every tracer and realization.
     merged_all_models = None
+    fig = None
     if display.figure:
         n_tracers = len(tracer_names)
         ncols = min(3, max(n_tracers, 1))
@@ -247,7 +251,7 @@ def export_calibrated_chronicles(
             merged_all_models, series_by_tracer, model_id=i
         )
 
-    if display.figure:
+    if fig is not None:
         fig.tight_layout()
         finalize_figure(
             fig,
@@ -255,10 +259,12 @@ def export_calibrated_chronicles(
             close=display.figure_close,
         )
 
-    outfile_data = Path(display.directory) / method / "concentrations_all_models.txt"
+    if merged_all_models is None:
+        raise RuntimeError("Temporal realizations produced no concentration table")
+    outfile_data = output_directory / "concentrations_all_models.txt"
     save_concentrations_table(merged_all_models, outfile_data)
 
-    save_distributions_tables(pdf, lpm_statistics, Path(display.directory) / method)
+    save_distributions_tables(pdf, lpm_statistics, output_directory)
 
 
 __all__ = ["export_calibrated_chronicles", "export_concentration_chronicles"]

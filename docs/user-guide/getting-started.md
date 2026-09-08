@@ -42,7 +42,7 @@ pyages list tracers
 
 ## Generate and run a small example
 
-The installed command creates its own schema-2 YAML and synthetic observations,
+The installed command creates its own schema-3 YAML and synthetic observations,
 so a first run does not depend on files elsewhere in the source checkout:
 
 ```bash
@@ -54,7 +54,7 @@ Use `pyages new config temporal-demo --kind temporal` for the short temporal
 variant. These generated observations are illustrative synthetic values, not
 field evidence or a convergence qualification.
 
-Schema-2 configurations always resolve relative paths from their own directory.
+Schema-3 configurations always resolve relative paths from their own directory.
 Unversioned 1.x configurations retain the historical behavior: inside a source
 checkout their paths resolve from the checkout root. Absolute paths are
 accepted in both schemas.

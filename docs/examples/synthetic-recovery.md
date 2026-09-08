@@ -38,7 +38,7 @@ pyages run examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date_
 ```
 
 This profile uses four `bounds_stratified` starts, 1,500 pilot transitions and
-4,000 production transitions per chain, `nskip: 1`, master seed `20260831`, and
+4,000 production transitions per chain, `thinning: 1`, master seed `20260831`, and
 required R-hat `< 1.01` plus bulk/tail ESS `>= 300`. It retains 2,999 rows per
 chain, or 11,996 rows after qualification and pooling. The current sequential
 runner performs 22,000 MH transitions.

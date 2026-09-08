@@ -71,7 +71,7 @@ def select_model_realizations(
         pdf_names.append(f"p{selected_row}")
         statistics.iloc[position] = model.moments()
 
-    pdf = pd.DataFrame(pdf_values.T, columns=pdf_names)
+    pdf = pd.DataFrame(pdf_values.T, columns=pd.Index(pdf_names))
     return selected, pdf, statistics
 
 

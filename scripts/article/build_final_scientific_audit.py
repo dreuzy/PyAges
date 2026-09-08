@@ -29,8 +29,30 @@ SCENARIO_RE = re.compile(
 CASE_RE = re.compile(r"(?P<well>.+)_(?P<start>\d{4})_(?P<end>\d{4})")
 
 
+def _column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one named column and reject duplicate column labels."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Expected exactly one {name!r} column")
+    return column
+
+
+def _numeric_column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Convert one table column to numeric values with a stable Series shape."""
+    converted = pd.to_numeric(_column(frame, name), errors="coerce")
+    if not isinstance(converted, pd.Series):
+        raise TypeError(f"Numeric conversion of {name!r} must produce a Series")
+    return converted
+
+
 def _relative(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
+
+
+def _manifest_nsteps(manifest: dict) -> int:
+    """Read current manifests while retaining archived campaign compatibility."""
+    key = "nsteps" if "nsteps" in manifest else "mh_nsteps"
+    return int(manifest[key])
 
 
 def shifted_table() -> pd.DataFrame:
@@ -81,12 +103,17 @@ def holten_tables() -> tuple[pd.DataFrame, pd.DataFrame]:
                 convergence.loc[convergence["well"].eq(well), "converged"].all()
             ),
         }
-        for item in group.itertuples(index=False):
-            name = str(item.fraction)
-            row[f"{name}_visser"] = item.visser
-            row[f"{name}_median"] = item.pyages_median
-            row[f"{name}_q10"] = item.pyages_q10
-            row[f"{name}_q90"] = item.pyages_q90
+        fraction_columns = group.loc[
+            :, ["fraction", "visser", "pyages_median", "pyages_q10", "pyages_q90"]
+        ]
+        for fraction, visser, median, q10, q90 in fraction_columns.itertuples(
+            index=False, name=None
+        ):
+            name = str(fraction)
+            row[f"{name}_visser"] = visser
+            row[f"{name}_median"] = median
+            row[f"{name}_q10"] = q10
+            row[f"{name}_q90"] = q90
         records.append(row)
     wells = pd.DataFrame(records)
     residuals = pd.read_csv(directory / "posterior_modeled_concentrations.csv")
@@ -129,10 +156,10 @@ def campaign_inventory() -> pd.DataFrame:
                     "\\", "/"
                 ),
                 "seed": experiment["seeds"],
-                "chains": 1,
-                "mh_nsteps": manifest["mh_nsteps"],
+                "chains": int(manifest.get("chains", 1)),
+                "mh_nsteps": _manifest_nsteps(manifest),
                 "burn_in_fraction": 0.2,
-                "nskip": 10,
+                "thinning": 10,
                 "status": manifest["status"],
                 "runtime_hours": (finished - started).total_seconds() / 3600.0,
                 "manifest": _relative(manifest_path),
@@ -225,10 +252,10 @@ def publication_cases() -> pd.DataFrame:
                     "publication_critical": True,
                     "publication_outputs": matrix.loc[experiment, "article_outputs"],
                     "seed": int(matrix.loc[experiment, "seeds"]),
-                    "chains": 1,
-                    "nsteps": int(manifest["mh_nsteps"]),
+                    "chains": int(manifest.get("chains", 1)),
+                    "nsteps": _manifest_nsteps(manifest),
                     "burn_in_fraction": 0.2,
-                    "nskip": 10,
+                    "thinning": 10,
                     "stored_samples": len(frame),
                     "acceptance_rate": _case_acceptance(
                         diagnostics, experiment, case_key
@@ -249,7 +276,7 @@ def publication_cases() -> pd.DataFrame:
                 for parameter in ("mu", "sigma", "shift", "mean"):
                     if parameter not in frame:
                         continue
-                    values = pd.to_numeric(frame[parameter], errors="coerce")
+                    values = _numeric_column(frame, parameter)
                     for stat, value in {
                         "mean": values.mean(),
                         "median": values.median(),
@@ -344,7 +371,7 @@ def f11_prediction_check(cases: pd.DataFrame) -> pd.DataFrame:
                 raise RuntimeError(
                     f"Observation header mismatch in {case.posterior_file}: {column}"
                 )
-            values = pd.to_numeric(frame[column], errors="coerce")
+            values = _numeric_column(frame, column)
             median = float(values.median())
             records.append(
                 {

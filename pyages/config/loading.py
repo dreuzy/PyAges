@@ -9,11 +9,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 import yaml
 from pydantic import BaseModel, ValidationError
+
+from pyages.config.models import CONFIGURATION_SCHEMA_VERSION
 
 
 def load_yaml_mapping(path: str | Path) -> dict[str, Any]:
@@ -25,6 +28,22 @@ def load_yaml_mapping(path: str | Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"Expected a YAML mapping in {source}")
     return payload
+
+
+def workflow_kind(payload: Mapping[str, Any]) -> Literal["single_date", "temporal"]:
+    """Return the schema-3 workflow kind declared by a YAML mapping."""
+    version = payload.get("schema_version")
+    if version != CONFIGURATION_SCHEMA_VERSION:
+        raise ValueError(
+            f"schema_version must be the integer {CONFIGURATION_SCHEMA_VERSION}"
+        )
+    workflow = payload.get("workflow")
+    declared = workflow.get("kind") if isinstance(workflow, Mapping) else None
+    if declared not in {"single_date", "temporal"}:
+        raise ValueError(
+            "workflow.kind is required and must be 'single_date' or 'temporal'"
+        )
+    return cast(Literal["single_date", "temporal"], declared)
 
 
 def validate_yaml_model(
@@ -49,4 +68,4 @@ def resolve_from(base_directory: str | Path, value: str | Path) -> Path:
     return path.resolve()
 
 
-__all__ = ["load_yaml_mapping", "resolve_from", "validate_yaml_model"]
+__all__ = ["load_yaml_mapping", "resolve_from", "validate_yaml_model", "workflow_kind"]

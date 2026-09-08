@@ -180,10 +180,11 @@ def strict_tree_entries(
         directory_names.sort()
         filenames.sort()
         current_path = Path(current)
-        for name, expected_kind in (
+        expected_entries: list[tuple[str, Literal["directory", "file"]]] = [
             *((name, "directory") for name in directory_names),
             *((name, "file") for name in filenames),
-        ):
+        ]
+        for name, expected_kind in expected_entries:
             entry = current_path / name
             metadata = os.lstat(entry)
             if stat.S_ISLNK(metadata.st_mode) or is_link_or_junction(entry):

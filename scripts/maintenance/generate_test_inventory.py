@@ -16,6 +16,7 @@ import argparse
 import subprocess
 import sys
 from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
 from typing import NamedTuple
 
@@ -217,7 +218,9 @@ def _module_purpose(module: str) -> str:
 
 
 def _table(
-    lines: list[str], headers: tuple[str, ...], rows: list[tuple[object, ...]]
+    lines: list[str],
+    headers: Sequence[str],
+    rows: Sequence[Sequence[object]],
 ) -> None:
     lines.append("| " + " | ".join(headers) + " |")
     lines.append("|" + "|".join("---" for _ in headers) + "|")

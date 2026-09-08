@@ -166,6 +166,15 @@ def test_data_core_separates_runtime_resources_from_sources():
 def test_repository_scripts_are_grouped_by_responsibility():
     scripts = ROOT / "scripts"
     expected_modules = {
+        "common": {
+            "example_case_utils.py",
+            "example_single_date_utils.py",
+            "mcmc_diagnostics.py",
+            "provenance.py",
+            "publication_plotting.py",
+            "reporting.py",
+            "structured_data.py",
+        },
         "article": {
             "audit_ploemeur_article_nonregression.py",
             "build_article_non_ploemeur_report.py",
@@ -231,6 +240,7 @@ def test_repository_scripts_are_grouped_by_responsibility():
 def test_script_tests_mirror_entrypoint_families():
     tests = ROOT / "tests" / "scripts"
     expected_tests = {
+        "common": {"test_structured_data.py"},
         "article": {
             "test_article_campaign.py",
             "test_article_support.py",
@@ -245,6 +255,7 @@ def test_script_tests_mirror_entrypoint_families():
             "test_ci_multichain_archive.py",
             "test_multichain_archive.py",
             "test_qualify_mh_proposals.py",
+            "test_run_calibration_benchmark.py",
         },
         "release": {"test_campaign_promotion.py", "test_zenodo_bundle.py"},
         "maintenance": {

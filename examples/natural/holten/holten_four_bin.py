@@ -71,7 +71,6 @@ BIN_DEFINITIONS = (
     },
 )
 BIN_ORDER = [item["name"] for item in BIN_DEFINITIONS]
-FRACTION_COLUMNS = BIN_ORDER
 LOCAL_4BIN_TRACER_ORDER = ("3H", "kr85", "39Ar")
 LOCAL_4BIN_TRACER_ORDER_WITH_HELIUM = ("3H", "3He_trit", "kr85", "39Ar")
 
@@ -145,8 +144,8 @@ def _local_4bin_observations(
         tracer_order = LOCAL_4BIN_TRACER_ORDER_WITH_HELIUM
 
     order_map = {name: idx for idx, name in enumerate(tracer_order)}
-    obs["_local_order"] = obs["element"].map(order_map)
-    if obs["_local_order"].isna().any():
+    obs["_local_order"] = obs["element"].map(lambda value: order_map.get(str(value)))
+    if obs["_local_order"].isna().to_numpy().any():
         unknown = sorted(
             obs.loc[obs["_local_order"].isna(), "element"].astype(str).unique()
         )
@@ -551,13 +550,13 @@ def _extract_4bin_cumulative(raw_table: pd.DataFrame) -> pd.DataFrame:
         )
 
     age_col = raw_table.columns[1]
-    current_model = None
+    current_model: str | None = None
     model_rows: list[dict[str, Any]] = []
     for _, row in raw_table.iterrows():
         label = row.iloc[0]
         if isinstance(label, str) and label.strip():
             current_model = label.strip()
-        age_value = row[age_col]
+        age_value: Any = row.at[age_col]
         if (
             current_model == "4-bins"
             and pd.notna(age_value)
@@ -567,9 +566,9 @@ def _extract_4bin_cumulative(raw_table: pd.DataFrame) -> pd.DataFrame:
                 {
                     "age": float(age_value),
                     **{
-                        str(col): float(row[col])
+                        str(col): float(row.at[col])
                         for col in raw_table.columns[2:]
-                        if pd.notna(row[col])
+                        if pd.notna(row.at[col])
                     },
                 }
             )
@@ -606,7 +605,7 @@ def sample_well_4bin_mh(
     prepared: PreparedHoltenCase,
     well_id: str,
     endmembers: pd.DataFrame,
-    nstep: int = 4000,
+    nsteps: int = 4000,
     burn_in: float = 0.2,
     proposal_scale: float = 0.18,
     seed: int = 12345,
@@ -619,11 +618,11 @@ def sample_well_4bin_mh(
     )
     current_obj = float(best.fun)
     rng = np.random.default_rng(seed)
-    burn_count = int(nstep * burn_in)
+    burn_count = int(nsteps * burn_in)
     records: list[dict[str, Any]] = []
     accepted = 0
 
-    for step in range(nstep):
+    for step in range(nsteps):
         proposal = z_current + rng.normal(scale=proposal_scale, size=len(z_current))
         proposal_obj = _objective_from_matrix(matrix, y, sigma, proposal)
         log_alpha = -0.5 * (proposal_obj - current_obj)
@@ -660,7 +659,7 @@ def sample_well_4bin_mh(
 def sample_all_wells_4bin_mh(
     prepared: PreparedHoltenCase,
     endmembers: pd.DataFrame,
-    nstep: int = 4000,
+    nsteps: int = 4000,
     burn_in: float = 0.2,
     proposal_scale: float = 0.18,
     seed: int = 12345,
@@ -674,7 +673,7 @@ def sample_all_wells_4bin_mh(
                 prepared,
                 well_id,
                 endmembers,
-                nstep=nstep,
+                nsteps=nsteps,
                 burn_in=burn_in,
                 proposal_scale=proposal_scale,
                 seed=seed + 101 * idx,
@@ -687,7 +686,7 @@ def sample_all_wells_4bin_mh(
 def summarize_4bin_mh_posterior(samples: pd.DataFrame) -> pd.DataFrame:
     """Compute posterior quantiles for fractions, age, and objective values."""
     rows: list[dict[str, Any]] = []
-    summary_cols = [*FRACTION_COLUMNS, "mean_age_local_4bin", "chi2_local_4bin"]
+    summary_cols = [*BIN_ORDER, "mean_age_local_4bin", "chi2_local_4bin"]
     for well_id, group in samples.groupby("well_id"):
         row: dict[str, Any] = {
             "well_id": well_id,
@@ -715,7 +714,7 @@ def compare_paper_vs_mh_4bin(
     rows: list[dict[str, Any]] = []
     for _, row in merged.iterrows():
         out = {"well_id": row["well_id"]}
-        for frac in FRACTION_COLUMNS:
+        for frac in BIN_ORDER:
             out[f"{frac}_paper"] = float(row[frac])
             out[f"{frac}_posterior_median"] = float(row[f"{frac}_median"])
             out[f"{frac}_posterior_q10"] = float(row[f"{frac}_q10"])
@@ -796,7 +795,7 @@ def run_local_4bin(
 def run_local_4bin_mh(
     prepared: PreparedHoltenCase,
     output_dir: Path,
-    nstep: int = 4000,
+    nsteps: int = 4000,
     burn_in: float = 0.2,
     proposal_scale: float = 0.18,
     seed: int = 12345,
@@ -808,7 +807,7 @@ def run_local_4bin_mh(
     samples = sample_all_wells_4bin_mh(
         prepared,
         endmembers,
-        nstep=nstep,
+        nsteps=nsteps,
         burn_in=burn_in,
         proposal_scale=proposal_scale,
         seed=seed,

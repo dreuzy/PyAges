@@ -1,50 +1,51 @@
 # Minimal temporal quickstart (fast, no plots).
 
-dataset:
-  file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
+schema_version: 3
+
+data:
+  # Schema 3 resolves this path from the directory containing this YAML file.
+  file: ../natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
   error_rel: 0.2
   missing_error_rel: 0.01
 
-lpm_models:
+lpm:
   models: ["exp_shifted"]
-  directory: data_core/data_lpm
+  directory: ../../data_core/data_lpm
 
 workflow:
   kind: temporal
   mode: span
 
 calibration:
-  explo_res: 10
-  mh_nsteps: 200
-  burn_in: 0.2
-  nskip: 10
-  lpm_number: 10
-  seed_enabled: true
-  seed: 12345
-  # Multi-chain MH is opt-in. Uncomment this block for an ensemble; leaving it
-  # absent preserves the one-chain quickstart. For meaningful ESS headroom,
-  # raise mh_nsteps (for example to 5000) before a qualification run.
-  # multichain:
-  #   enabled: true
-  #   chains: 4
-  #   master_seed: 12345
-  #   initialization:
-  #     strategy: bounds_stratified
-  #   pilot:
-  #     enabled: true
-  #     nstep: 2000
-  #     proposal_multiplier: auto
-  #   diagnostics:
-  #     max_rhat: 1.01
-  #     min_bulk_ess: 300
-  #     min_tail_ess: 300
-  #     require_convergence: true
+  # These two controls affect temporal preparation and plots, not MH itself.
+  exploration_resolution: 10
+  posterior_draw_count: 10
+  metropolis_hastings:
+    nsteps: 200
+    burn_in: 0.2
+    thinning: 10
+    seed: 12345
+    prior_option: true
+    # One and many chains use these same fields. Set chains to 4 and enable the
+    # pilot for a convergence study; also raise nsteps (for example to 5000).
+    chains: 1
+    initialization:
+      strategy: bounds_stratified
+    pilot:
+      enabled: false
+      nsteps: 2000
+      proposal_multiplier: auto
+    diagnostics:
+      max_rhat: 1.01
+      min_bulk_ess: 300
+      min_tail_ess: 300
+      require_convergence: true
 
-figures:
+reporting:
   temporal: false
   distributions: false
 
-results:
+output:
   study_name: temporal
   use_default: true
   directory: ""

@@ -175,9 +175,9 @@ def summarize_temporal_realizations(
             values_by_tracer.setdefault(tracer_name, []).append(values)
 
     summaries = {}
-    for tracer_name, realizations in values_by_tracer.items():
+    for tracer_name, realization_values in values_by_tracer.items():
         q10, q25, median, q75, q90 = np.quantile(
-            np.vstack(realizations),
+            np.vstack(realization_values),
             [0.10, 0.25, 0.50, 0.75, 0.90],
             axis=0,
         )

@@ -17,6 +17,7 @@ objects independently.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -191,6 +192,50 @@ class CalibrationProblem:
                 "Observations changed after CalibrationProblem.initialize(); "
                 "prepare a new problem from the modified observations."
             )
+
+    def clone_prepared(
+        self,
+        *,
+        display_options: DisplayOptions | None = None,
+    ) -> CalibrationProblem:
+        """Create an independent problem over the same prepared target.
+
+        The returned problem owns a deep copy of the mutable LPM, fresh
+        convolution evaluators, a fresh observation snapshot, and no lazily
+        allocated systematic sampling. Immutable tracer grids and their loaded
+        tracer inputs are reused, avoiding repeated file reads and numerical
+        preparation when several chains target the same data.
+
+        ``display_options`` may select a chain-specific output directory. When
+        omitted, the current display settings are copied. The observations
+        remain the common input object and are protected by the same mutation
+        check as an ordinarily prepared problem.
+        """
+        self.ensure_prepared()
+        assert self.lpm is not None
+        assert self.tracers is not None
+        assert self._prepared_observations_frame is not None
+
+        clone = CalibrationProblem(
+            self.observations,
+            self.lpm_type,
+            display_options=deepcopy(
+                self.display_options if display_options is None else display_options
+            ),
+            lpm_directory=self.lpm_directory,
+            tracer_data_directory=self.tracer_data_directory,
+            missing_error_relative_fraction=self.missing_error_relative_fraction,
+            sample_count=self.sample_count,
+            explore_objective=self.explore_objective,
+            explore_reachable=self.explore_reachable,
+        )
+        clone.lpm = deepcopy(self.lpm)
+        clone.tracers = self.tracers.clone_prepared()
+        clone._prepared_observations_frame = self._prepared_observations_frame.copy(
+            deep=True
+        )
+        clone._prepared = True
+        return clone
 
     def prepared_observation_arrays(self) -> tuple[np.ndarray, np.ndarray]:
         """Return detached values and errors from the prepared observation snapshot."""

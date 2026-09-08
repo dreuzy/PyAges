@@ -13,7 +13,7 @@ from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 def test_trajectory_plot_uses_problem_display_directory(tmp_path):
     """Trajectory plots use the display options owned by the problem."""
     sampler = MetropolisHastings(config=MHConfig(display_traj=True))
-    sampler._problem = SimpleNamespace(
+    sampler._binding._problem = SimpleNamespace(  # noqa: SLF001
         display_options=SimpleNamespace(directory=tmp_path)
     )
     trajectory = Mock()

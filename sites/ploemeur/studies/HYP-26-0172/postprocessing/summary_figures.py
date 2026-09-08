@@ -21,22 +21,46 @@ from .export import export_figure
 from .style import CONDITIONED, MODEL_COLORS, UNCONSTRAINED, WELL_COLORS
 
 
+def _column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one unambiguous column from a derived figure table."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Expected exactly one {name!r} column")
+    return column
+
+
+def _matching_rows(frame: pd.DataFrame, name: str, value: object) -> pd.DataFrame:
+    """Select rows by one column while preserving the DataFrame contract."""
+    selected = frame.loc[_column(frame, name).eq(value)]
+    if not isinstance(selected, pd.DataFrame):
+        raise TypeError("Boolean row selection must produce a DataFrame")
+    return selected
+
+
+def _masked_rows(frame: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:
+    """Apply an already computed row mask and retain a DataFrame."""
+    selected = frame.loc[mask]
+    if not isinstance(selected, pd.DataFrame):
+        raise TypeError("Boolean row selection must produce a DataFrame")
+    return selected
+
+
 def plot_figure4(frame: pd.DataFrame, figures: Path) -> list[Path]:
     """Compare conditioned and unconstrained median transit times."""
     if frame.empty:
         return []
     fig, axes = plt.subplots(2, 1, figsize=(8, 7), sharex=True, constrained_layout=True)
     for ax, well in zip(axes, ("F11", "F09"), strict=False):
-        subset = frame[frame["well"].eq(well)]
+        subset = _matching_rows(frame, "well", well)
         for mode, color, label in (
             ("successive_with_prior", CONDITIONED, "Conditioned"),
             ("successive", UNCONSTRAINED, "Unconstrained"),
         ):
-            data = subset[subset["mode"].eq(mode)].sort_values("date")
+            data = _matching_rows(subset, "mode", mode).sort_values(by="date")
             ax.errorbar(
-                data["date"],
-                data["p50_mean"],
-                yerr=data["p50_std"],
+                _column(data, "date").to_numpy(dtype=float),
+                _column(data, "p50_mean").to_numpy(dtype=float),
+                yerr=_column(data, "p50_std").to_numpy(dtype=float),
                 fmt="o",
                 capsize=3,
                 color=color,
@@ -56,16 +80,16 @@ def plot_figure5(frame: pd.DataFrame, figures: Path) -> list[Path]:
         return []
     fig, axes = plt.subplots(2, 1, figsize=(8, 7), sharex=True, constrained_layout=True)
     for ax, well in zip(axes, ("F11", "F09"), strict=False):
-        subset = frame[frame["well"].eq(well)]
+        subset = _matching_rows(frame, "well", well)
         for model, label in (
             ("exp_shifted", "Shifted exponential"),
             ("ig_shifted", "Shifted inverse Gaussian"),
         ):
-            data = subset[subset["lpm"].eq(model)].sort_values("date")
+            data = _matching_rows(subset, "lpm", model).sort_values(by="date")
             ax.errorbar(
-                data["date"],
-                data["p50_mean"],
-                yerr=data["p50_std"],
+                _column(data, "date").to_numpy(dtype=float),
+                _column(data, "p50_mean").to_numpy(dtype=float),
+                yerr=_column(data, "p50_std").to_numpy(dtype=float),
                 fmt="o--",
                 capsize=3,
                 color=MODEL_COLORS[model],
@@ -87,13 +111,15 @@ def plot_figure6(
     if frame.empty:
         return []
     frame = frame.copy()
-    present = set(frame["well"].dropna())
+    present = set(_column(frame, "well").dropna())
     required = set(WELL_COLORS)
     if not allow_partial and present != required:
         return []
-    low = frame[frame["p50_mean"] < 25]
-    high = frame[frame["p50_mean"] >= 25]
+    p50_mean = _column(frame, "p50_mean")
+    low = _masked_rows(frame, p50_mean.lt(25))
+    high = _masked_rows(frame, p50_mean.ge(25))
     broken = not low.empty and not high.empty
+    bottom = None
     if broken:
         fig, (top, bottom) = plt.subplots(
             2,
@@ -107,35 +133,39 @@ def plot_figure6(
         fig, top = plt.subplots(figsize=(8, 5))
         axes = (top,)
     for well, color in WELL_COLORS.items():
-        data = frame[frame["well"].eq(well)].sort_values("date")
+        data = _matching_rows(frame, "well", well).sort_values(by="date")
         if data.empty:
             continue
         for ax in axes:
             ax.errorbar(
-                data["date"],
-                data["p50_mean"],
-                yerr=data["p50_std"],
+                _column(data, "date").to_numpy(dtype=float),
+                _column(data, "p50_mean").to_numpy(dtype=float),
+                yerr=_column(data, "p50_std").to_numpy(dtype=float),
                 fmt="o--",
                 capsize=3,
                 color=color,
                 label=well,
             )
-    if broken:
-        top.set_ylim(max(25, high["p50_mean"].min() - 8), high["p50_mean"].max() + 8)
-        bottom.set_ylim(0, max(12, low["p50_mean"].max() + 3))
+    if bottom is not None:
+        high_values = _column(high, "p50_mean").to_numpy(dtype=float)
+        low_values = _column(low, "p50_mean").to_numpy(dtype=float)
+        top.set_ylim(
+            max(25, float(high_values.min()) - 8), float(high_values.max()) + 8
+        )
+        bottom.set_ylim(0, max(12, float(low_values.max()) + 3))
         top.spines.bottom.set_visible(False)
         bottom.spines.top.set_visible(False)
         top.tick_params(labeltop=False, bottom=False)
         bottom.xaxis.tick_bottom()
-        break_marks = dict(
-            marker=[(-1, -0.5), (1, 0.5)],
-            markersize=8,
-            linestyle="none",
-            color="k",
-            mec="k",
-            mew=1,
-            clip_on=False,
-        )
+        break_marks = {
+            "marker": ((-1, -0.5), (1, 0.5)),
+            "markersize": 8,
+            "linestyle": "none",
+            "color": "k",
+            "mec": "k",
+            "mew": 1,
+            "clip_on": False,
+        }
         top.plot([0, 1], [0, 0], transform=top.transAxes, **break_marks)
         bottom.plot([0, 1], [1, 1], transform=bottom.transAxes, **break_marks)
     top.set_title("Shifted Exponential | error=20%", fontweight="bold")
@@ -153,12 +183,19 @@ def plot_figure_a1(frame: pd.DataFrame, figures: Path) -> list[Path]:
         return []
     fig, axes = plt.subplots(2, 1, figsize=(8, 7), sharex=True, constrained_layout=True)
     for ax, well in zip(axes, ("F11", "F09"), strict=False):
-        subset = frame[frame["well"].eq(well)]
-        grouped = subset.groupby(["relative_error", "lpm"], as_index=False)[
-            "p50_mean"
-        ].mean()
+        subset = _matching_rows(frame, "well", well)
+        grouped = subset.groupby(["relative_error", "lpm"], as_index=False).agg(
+            p50_mean=("p50_mean", "mean")
+        )
         for model, data in grouped.groupby("lpm"):
-            ax.plot(100 * data["relative_error"], data["p50_mean"], "o-", label=model)
+            if not isinstance(data, pd.DataFrame):
+                raise TypeError("Grouped figure rows must be a DataFrame")
+            ax.plot(
+                100 * _column(data, "relative_error").to_numpy(dtype=float),
+                _column(data, "p50_mean").to_numpy(dtype=float),
+                "o-",
+                label=str(model),
+            )
         ax.set_title(well, loc="left", fontweight="bold")
         ax.grid(alpha=0.25)
     axes[0].legend(frameon=False)

@@ -6,7 +6,9 @@ inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
 It provides reusable scientific components in `pyages/` and site-specific
 workflows in `sites/`, with examples and regression tests to support validation.
 
-Project status: this branch prepares the compatible `1.2.0` minor release. The
+Project status: development after the versioned `1.2.0` source now targets `2.0.0`.
+The major version is required because configuration and Python compatibility
+aliases are deliberately removed instead of being carried forward. The
 latest distribution currently published on PyPI is `1.0.1`. Public interfaces,
 scientific workflows, and validation gates are documented and tested. Each
 public release source is identified by its exact annotated Git tag; an untagged
@@ -36,7 +38,9 @@ version-specific DOI
 [`10.5281/zenodo.22150863`](https://doi.org/10.5281/zenodo.22150863). See the
 [citation guidance](docs/reference/citation.md) for the distinction between
 the archived `1.0` campaign, the published `1.0.1` maintenance release, and
-the `1.2.0` source under preparation.
+the versioned `1.2.0` source. Unreleased breaking changes are recorded in the
+[changelog](CHANGELOG.md) and the current
+[configuration reference](docs/user-guide/configuration.md).
 
 ## Quick start
 
@@ -161,7 +165,6 @@ Main commands:
 - `pyages list lpms|tracers` : list available models or tracers.
 - `pyages run <config.yaml>` : run the workflow declared by `workflow.kind`.
 - `pyages new config <directory>` : create a self-contained synthetic quickstart.
-- `pyages config migrate <source> <destination>` : copy a 1.x YAML to schema 2.
 - `pyages new lpm|tracer ...` : scaffold a new model or tracer template.
 
 Examples:

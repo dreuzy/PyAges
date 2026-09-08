@@ -1,26 +1,28 @@
+schema_version: 3
+
 workflow:
   kind: single_date
 
-dataset:
+data:
   # Generated synthetic observations created from generation/generation_settings.yaml.
   name: synthetic_exp_shifted_2010.txt
   label: Synthetic exp_shifted recovery
   year: 2010
-  data_dir: examples/synthetic/lpm_recovery_single_date/data
+  data_dir: data
   verbose: true
   missing_error_rel: 0.01
 
 lpm:
   # Re-estimate the same LPM family used to generate the synthetic data.
-  model_name: exp_shifted
-  data_directory: data_core/data_lpm
+  models: [exp_shifted]
+  directory: ../../../data_core/data_lpm
 
 run:
   # Beginner mode: focus on one calibration strategy.
   reachable_concentrations: true
   objective_function: true
-  calibration_metropolis_hastings: true
-  calibration_simplex: false
+  metropolis_hastings: true
+  simplex: false
 
 reachable_concentrations:
   nmodels: 4000
@@ -28,9 +30,9 @@ reachable_concentrations:
 objective_function:
   nmodels: 6000
 
-calibration_metropolis_hastings:
-  nstep: 5000
-  prior_option: false
-  likelihood: true
-  monitor: false
-  display_traj: false
+calibration:
+  metropolis_hastings:
+    nsteps: 5000
+    prior_option: false
+    likelihood: true
+    display_traj: false

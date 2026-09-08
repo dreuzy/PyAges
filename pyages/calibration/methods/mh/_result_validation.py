@@ -1,9 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# This file validates relationships within immutable multi-chain MH results.
+# This file validates relationships within immutable managed MH results.
 
-"""Validate cross-object invariants of a complete multi-chain MH run.
+"""Validate cross-object invariants of a complete one-to-many-chain MH run.
 
 Result dataclasses remain in :mod:`pyages.calibration.methods.mh.results`.
 Keeping their cross-record consistency checks here shortens that public module
@@ -22,9 +22,9 @@ from pyages.calibration.methods.mh._diagnostic_contract import (
     build_diagnostic_quantities,
 )
 from pyages.calibration.methods.mh.config import MHConfig
-from pyages.calibration.methods.mh.ensemble_config import (
+from pyages.calibration.methods.mh.run_config import (
     MHDiagnosticsConfig,
-    MHEnsembleConfig,
+    MHRunConfig,
     MHSeedPlan,
     build_seed_plan,
 )
@@ -40,9 +40,10 @@ if TYPE_CHECKING:
 
 _QUALIFIED = "qualified"
 _NOT_QUALIFIED = "not_qualified"
+_NOT_APPLICABLE = "not_applicable"
 _DIAGNOSTICS_UNAVAILABLE = "diagnostics_unavailable"
 _QUALIFICATION_STATUSES = frozenset(
-    {_QUALIFIED, _NOT_QUALIFIED, _DIAGNOSTICS_UNAVAILABLE}
+    {_QUALIFIED, _NOT_QUALIFIED, _NOT_APPLICABLE, _DIAGNOSTICS_UNAVAILABLE}
 )
 
 
@@ -66,7 +67,7 @@ def _metrics_are_qualified(
     )
 
 
-def _validate_ensemble_chains(chains: tuple[MHChainResult, ...]) -> None:
+def _validate_run_chains(chains: tuple[MHChainResult, ...]) -> None:
     """Validate production-chain types and canonical identifiers."""
     from pyages.calibration.methods.mh.results import MHChainResult
 
@@ -104,10 +105,8 @@ def _validate_seed_plan(
     """Require complete phase streams coherent with recorded production chains."""
     if not isinstance(seed_plan, MHSeedPlan):
         raise TypeError("seed_plan must be an MHSeedPlan")
-    if isinstance(seed_plan.master_seed, bool) or not isinstance(
-        seed_plan.master_seed, int
-    ):
-        raise ValueError("seed_plan.master_seed must be an integer")
+    if isinstance(seed_plan.seed, bool) or not isinstance(seed_plan.seed, int):
+        raise ValueError("seed_plan.seed must be an integer")
     chain_count = len(chains)
     if not (
         len(seed_plan.initialization_seeds)
@@ -143,16 +142,49 @@ def _validate_target_signature(version: int, sha256: str) -> None:
         raise ValueError("target_sha256 must be a lowercase SHA-256 hexadecimal digest")
 
 
+def _validate_status_without_diagnostics(
+    diagnostics: tuple[MHParameterDiagnostics, ...],
+    qualification_status: QualificationStatus,
+    message: str | None,
+    *,
+    chain_count: int,
+) -> bool:
+    """Validate a status that intentionally carries no diagnostic rows."""
+    if qualification_status == _NOT_APPLICABLE:
+        if chain_count != 1:
+            raise ValueError("not_applicable diagnostics require exactly one chain")
+        if diagnostics:
+            raise ValueError("one-chain runs must not contain inter-chain diagnostics")
+        if message is not None:
+            raise ValueError("not_applicable diagnostics must not contain a message")
+        return True
+    if qualification_status != _DIAGNOSTICS_UNAVAILABLE:
+        return False
+    if diagnostics:
+        raise ValueError(
+            "diagnostics_unavailable ensembles must not contain partial diagnostics"
+        )
+    if message is None:
+        raise ValueError(
+            "diagnostics_unavailable ensembles require diagnostics_message"
+        )
+    return True
+
+
 def _validate_diagnostic_status(
     diagnostics: tuple[MHParameterDiagnostics, ...],
     qualification_status: QualificationStatus,
     message: str | None,
+    *,
+    chain_count: int,
 ) -> None:
     """Enforce the state machine linking diagnostics and qualification status.
 
-    ``diagnostics_unavailable`` represents a calculation failure: it must carry
-    an explanatory message and no partial diagnostic records. ``qualified`` and
-    ``not_qualified`` represent completed calculations: they require diagnostics,
+    ``not_applicable`` is reserved for exactly one chain, where inter-chain
+    convergence cannot be measured. ``diagnostics_unavailable`` represents a
+    calculation failure: it must carry an explanatory message and no partial
+    diagnostic records. ``qualified`` and ``not_qualified`` represent completed
+    calculations: they require at least two chains and complete diagnostics,
     forbid an error message, and must contain at least one quantity included in
     the convergence gate.
 
@@ -168,15 +200,16 @@ def _validate_diagnostic_status(
         )
     if message is not None and (not isinstance(message, str) or not message.strip()):
         raise ValueError("diagnostics_message must be a non-empty string or None")
-    if qualification_status == _DIAGNOSTICS_UNAVAILABLE:
-        if diagnostics:
-            raise ValueError(
-                "diagnostics_unavailable ensembles must not contain partial diagnostics"
-            )
-        if message is None:
-            raise ValueError(
-                "diagnostics_unavailable ensembles require diagnostics_message"
-            )
+    if chain_count < 2 and qualification_status != _NOT_APPLICABLE:
+        raise ValueError(
+            "one-chain runs must use qualification_status='not_applicable'"
+        )
+    if _validate_status_without_diagnostics(
+        diagnostics,
+        qualification_status,
+        message,
+        chain_count=chain_count,
+    ):
         return
     if message is not None:
         raise ValueError(
@@ -199,26 +232,26 @@ def _validate_diagnostic_status(
 
 def _validate_record_config_types_and_counts(
     chain_config: MHConfig,
-    ensemble_config: MHEnsembleConfig,
+    run_config: MHRunConfig,
     chains: tuple[MHChainResult, ...],
     seed_plan: MHSeedPlan,
 ) -> None:
     """Bind chain counts, retained draws, and random streams to configuration."""
     if not isinstance(chain_config, MHConfig):
         raise TypeError("chain_config must be an MHConfig")
-    if not isinstance(ensemble_config, MHEnsembleConfig):
-        raise TypeError("ensemble_config must be an MHEnsembleConfig")
-    if len(chains) != ensemble_config.chains:
-        raise ValueError("production chain count does not match ensemble_config")
+    if not isinstance(run_config, MHRunConfig):
+        raise TypeError("run_config must be an MHRunConfig")
+    if len(chains) != run_config.chains:
+        raise ValueError("production chain count does not match run_config")
     expected_draws = chain_config.retained_sample_count()
     if any(len(chain.samples.frame) != expected_draws for chain in chains):
         raise ValueError("production retained counts do not match chain_config")
-    if seed_plan != build_seed_plan(ensemble_config):
-        raise ValueError("seed_plan does not match ensemble_config")
+    if seed_plan != build_seed_plan(run_config):
+        raise ValueError("seed_plan does not match run_config")
 
 
 def _initialization_states_from_pilot_contract(
-    ensemble_config: MHEnsembleConfig,
+    run_config: MHRunConfig,
     chains: tuple[MHChainResult, ...],
     pilot: MHPilotResult | None,
 ) -> tuple[Mapping[str, float], ...]:
@@ -237,14 +270,14 @@ def _initialization_states_from_pilot_contract(
     """
     from pyages.calibration.methods.mh.results import MHPilotResult
 
-    if ensemble_config.pilot.enabled != (pilot is not None):
-        raise ValueError("pilot presence does not match ensemble_config")
+    if run_config.pilot.enabled != (pilot is not None):
+        raise ValueError("pilot presence does not match run_config")
     if pilot is None:
         return tuple(chain.initial_params for chain in chains)
     if not isinstance(pilot, MHPilotResult):
         raise TypeError("pilot must be an MHPilotResult or None")
-    if len(pilot.final_states) != ensemble_config.chains:
-        raise ValueError("pilot chain count does not match ensemble_config")
+    if len(pilot.final_states) != run_config.chains:
+        raise ValueError("pilot chain count does not match run_config")
     if pilot.initial_states is None:
         raise ValueError("complete run records require pilot initial_states")
     if pilot.runtime_seconds is None:
@@ -252,14 +285,14 @@ def _initialization_states_from_pilot_contract(
     # Pilot chains retain without thinning, so their expected sample count is
     # derived independently from the production-chain schedule.
     expected_draws = strict_retained_sample_count(
-        ensemble_config.pilot.nstep,
-        ensemble_config.pilot.burn_in,
+        run_config.pilot.nsteps,
+        run_config.pilot.burn_in,
         1,
     )
     if any(count != expected_draws for count in pilot.retained_counts):
-        raise ValueError("pilot retained counts do not match ensemble_config")
-    if ensemble_config.pilot.save_samples != (pilot.samples is not None):
-        raise ValueError("saved pilot samples do not match ensemble_config")
+        raise ValueError("pilot retained counts do not match run_config")
+    if run_config.pilot.save_samples != (pilot.samples is not None):
+        raise ValueError("saved pilot samples do not match run_config")
     if any(
         dict(chain.initial_params) != dict(final_state)
         for chain, final_state in zip(chains, pilot.final_states, strict=True)
@@ -269,14 +302,14 @@ def _initialization_states_from_pilot_contract(
 
 
 def _validate_explicit_initialization(
-    ensemble_config: MHEnsembleConfig,
+    run_config: MHRunConfig,
     initialization_states: tuple[Mapping[str, float], ...],
 ) -> None:
     """Bind recorded starts to explicit user configuration when selected."""
-    explicit_starts = ensemble_config.initialization.explicit_starts
+    explicit_starts = run_config.initialization.explicit_starts
     if explicit_starts is None:
         return
-    if len(explicit_starts) != ensemble_config.chains:
+    if len(explicit_starts) != run_config.chains:
         raise ValueError("explicit_starts must contain one state per chain")
     if any(
         dict(actual) != dict(expected)
@@ -290,7 +323,7 @@ def _validate_explicit_initialization(
 
 
 def _validate_diagnostics_against_config(
-    ensemble_config: MHEnsembleConfig,
+    run_config: MHRunConfig,
     chains: tuple[MHChainResult, ...],
     diagnostics: tuple[MHParameterDiagnostics, ...],
 ) -> None:
@@ -320,7 +353,7 @@ def _validate_diagnostics_against_config(
             "diagnostics must follow exactly the sampled parameters and expected "
             f"moments {list(expected_names)}"
         )
-    thresholds = ensemble_config.diagnostics
+    thresholds = run_config.diagnostics
     for diagnostic, quantity in zip(diagnostics, quantities, strict=True):
         values = quantity.values
         if not np.all(np.isfinite(values)):
@@ -344,14 +377,14 @@ def _validate_diagnostics_against_config(
         if diagnostic.qualified != expected:
             raise ValueError(
                 f"diagnostic qualification for {diagnostic.parameter!r} does not "
-                "match ensemble_config thresholds"
+                "match run_config thresholds"
             )
 
 
 def _validate_record_configuration(
     *,
     chain_config: MHConfig,
-    ensemble_config: MHEnsembleConfig,
+    run_config: MHRunConfig,
     chains: tuple[MHChainResult, ...],
     pilot: MHPilotResult | None,
     diagnostics: tuple[MHParameterDiagnostics, ...],
@@ -360,23 +393,23 @@ def _validate_record_configuration(
     """Bind every recorded result invariant to the configuration that produced it."""
     _validate_record_config_types_and_counts(
         chain_config,
-        ensemble_config,
+        run_config,
         chains,
         seed_plan,
     )
     initialization_states = _initialization_states_from_pilot_contract(
-        ensemble_config,
+        run_config,
         chains,
         pilot,
     )
-    _validate_explicit_initialization(ensemble_config, initialization_states)
-    _validate_diagnostics_against_config(ensemble_config, chains, diagnostics)
+    _validate_explicit_initialization(run_config, initialization_states)
+    _validate_diagnostics_against_config(run_config, chains, diagnostics)
 
 
 __all__ = [
     "_metrics_are_qualified",
     "_validate_diagnostic_status",
-    "_validate_ensemble_chains",
+    "_validate_run_chains",
     "_validate_record_configuration",
     "_validate_seed_plan",
     "_validate_target_signature",

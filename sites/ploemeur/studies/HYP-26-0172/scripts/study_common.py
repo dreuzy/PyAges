@@ -31,6 +31,7 @@ REQUIRED_COLUMNS = {
     "prior_pipeline",
     "relative_errors",
     "seeds",
+    "chains",
     "params_path",
     "article_outputs",
     "notes",

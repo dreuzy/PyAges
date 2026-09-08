@@ -16,11 +16,15 @@ providing an LPM-compatible shifted inverse-Gaussian PDF.
 
 """
 
+from pathlib import Path
+
 import numpy as np
 import numpy.typing as npt
+from scipy.stats import invgauss
 
+from pyages.lpm.core.lpm_scipy import LpmScipy
 from pyages.lpm.core.registry import register_lpm
-from pyages.lpm.models._inverse_gaussian_numerics import _InverseGaussianLpmBase
+from pyages.lpm.models._inverse_gaussian_numerics import inverse_gaussian_quantiles
 from pyages.lpm.models.inverse_gaussian import (
     cdf_and_partial_first_moment_from_mean_std,
     scipy_params_from_mean_std,
@@ -28,7 +32,7 @@ from pyages.lpm.models.inverse_gaussian import (
 
 
 @register_lpm("ig_shifted")
-class InverseGaussianShiftedLpm(_InverseGaussianLpmBase):
+class InverseGaussianShiftedLpm(LpmScipy):
     r"""Shifted inverse-Gaussian LPM in physical moment coordinates.
 
     If :math:`X` has mean ``mu`` and standard deviation ``sigma`` in years,
@@ -41,7 +45,15 @@ class InverseGaussianShiftedLpm(_InverseGaussianLpmBase):
     implications.
     """
 
-    def __init__(self, mu=10, sigma=2, shift=5, directory_lpm=None):
+    scipy_dist = invgauss
+
+    def __init__(
+        self,
+        mu: float = 10.0,
+        sigma: float = 2.0,
+        shift: float = 5.0,
+        directory_lpm: str | Path | None = None,
+    ) -> None:
         """
         Initialize a shifted inverse-Gaussian transit-time distribution.
 
@@ -64,6 +76,12 @@ class InverseGaussianShiftedLpm(_InverseGaussianLpmBase):
     def _scipy_params(self):
         shape, scale = scipy_params_from_mean_std(self.p["mu"], self.p["sigma"])
         return (shape,), self.p["shift"], scale
+
+    def cdf_inv(self, p: npt.ArrayLike) -> npt.ArrayLike:
+        """Return robust shifted inverse-Gaussian quantiles."""
+        return inverse_gaussian_quantiles(
+            self._validated_probabilities(p), self._scipy_params()
+        )
 
     def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
         r"""Return the shifted CDF and raw partial first moment.

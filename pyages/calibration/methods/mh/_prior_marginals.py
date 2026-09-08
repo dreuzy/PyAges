@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
-from typing import Protocol, Sequence
+from typing import Any, Protocol, Sequence, cast
 
 import numpy as np
 from scipy.stats import truncnorm
@@ -380,7 +380,7 @@ def parametric_marginal(
 ) -> PriorMarginal:
     """Build one named parametric marginal from validated scalar parameters."""
     try:
-        first, second = (float(item) for item in parameters)
+        first, second = (float(cast(Any, item)) for item in parameters)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Parametric prior is invalid for {name}") from exc
     if distribution == "normal":

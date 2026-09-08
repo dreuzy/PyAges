@@ -10,10 +10,10 @@ import pytest
 from pyages.calibration.methods.mh.trajectory import MHTrajectory
 
 
-@pytest.mark.parametrize("nstep", [True, -1, 1.5])
-def test_trajectory_rejects_invalid_capacity(nstep) -> None:
+@pytest.mark.parametrize("nsteps", [True, -1, 1.5])
+def test_trajectory_rejects_invalid_capacity(nsteps) -> None:
     with pytest.raises(ValueError, match="non-negative integer"):
-        MHTrajectory(["mu"], nstep)
+        MHTrajectory(["mu"], nsteps)
 
 
 @pytest.mark.parametrize("params", [[], [""], ["mu", "mu"]])

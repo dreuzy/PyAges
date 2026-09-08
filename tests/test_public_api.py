@@ -18,10 +18,10 @@ import pyages.qualification as qualification
 import pyages.workflows.runtime as workflow_runtime
 from pyages.calibration.methods import mh
 from pyages.calibration.methods.mh import config as mh_config
-from pyages.calibration.methods.mh import ensemble as mh_ensemble
-from pyages.calibration.methods.mh import ensemble_config as mh_ensemble_config
 from pyages.calibration.methods.mh import errors as mh_errors
 from pyages.calibration.methods.mh import results as mh_results
+from pyages.calibration.methods.mh import run_config as mh_run_config
+from pyages.calibration.methods.mh import runner as mh_runner
 from pyages.calibration.methods.mh import sampler as mh_sampler
 from pyages.cli.main import cli
 from pyages.workflows.runtime import manifest as runtime_manifest
@@ -91,11 +91,16 @@ def test_removed_compatibility_facades_are_absent() -> None:
         "pyages/workflows/single_date_config.py",
         "pyages/workflows/single_date_paths.py",
         "pyages/workflows/synthetic_recovery.py",
+        "pyages/calibration/methods/mh/ensemble.py",
+        "pyages/calibration/methods/mh/ensemble_config.py",
+        "pyages/calibration/methods/base.py",
+        "pyages/config/migration.py",
+        "pyages/cli/commands/config.py",
     )
 
     assert all(not (ROOT / path).exists() for path in removed_paths)
-    assert "LauncherParams" in config_api.__all__
-    assert config_api.LauncherParams.__name__ == "LauncherParams"
+    assert "LauncherParams" not in config_api.__all__
+    assert not hasattr(config_api, "LauncherParams")
 
 
 def test_config_facade_uses_explicit_exports() -> None:
@@ -103,13 +108,9 @@ def test_config_facade_uses_explicit_exports() -> None:
         "CliCheckParams",
         "CliRunParams",
         "CONFIGURATION_SCHEMA_VERSION",
-        "LegacyConfigurationWarning",
-        "LauncherConfig",
-        "LauncherParams",
+        "SingleDateConfig",
         "SystemCheckConfig",
-        "TemporalParams",
-        "migrate_configuration_payload",
-        "normalize_configuration_payload",
+        "TemporalConfig",
         "DIRECTORY_LPM_DATA",
         "DIRECTORY_TRACER_DATA",
         "ROOT_DIRECTORY",
@@ -133,13 +134,13 @@ def test_mh_facade_exports_only_canonical_objects() -> None:
     expected = {
         "MHConfig": mh_config.MHConfig,
         "MHConvergenceError": mh_errors.MHConvergenceError,
-        "MHDiagnosticsConfig": mh_ensemble_config.MHDiagnosticsConfig,
-        "MHEnsembleConfig": mh_ensemble_config.MHEnsembleConfig,
-        "MHInitializationConfig": mh_ensemble_config.MHInitializationConfig,
-        "MHPilotConfig": mh_ensemble_config.MHPilotConfig,
+        "MHDiagnosticsConfig": mh_run_config.MHDiagnosticsConfig,
+        "MHRunConfig": mh_run_config.MHRunConfig,
+        "MHInitializationConfig": mh_run_config.MHInitializationConfig,
+        "MHPilotConfig": mh_run_config.MHPilotConfig,
         "MHRunRecord": mh_results.MHRunRecord,
         "MetropolisHastings": mh_sampler.MetropolisHastings,
-        "MultiChainMetropolisHastings": (mh_ensemble.MultiChainMetropolisHastings),
+        "MetropolisHastingsRunner": mh_runner.MetropolisHastingsRunner,
     }
 
     assert mh.__all__ == list(expected)
@@ -148,8 +149,8 @@ def test_mh_facade_exports_only_canonical_objects() -> None:
     assert not hasattr(mh, "MHChainResult")
     assert not hasattr(mh, "MHSeedPlan")
     assert not hasattr(mh, "build_seed_plan")
-    assert not hasattr(mh_ensemble, "ProblemFactory")
-    assert not hasattr(runtime_mh, "build_mh_ensemble_config")
+    assert not hasattr(mh_runner, "ProblemFactory")
+    assert hasattr(runtime_mh, "build_mh_run_config")
     assert not hasattr(runtime_mh, "mh_stage_directory")
 
 

@@ -90,9 +90,9 @@ class LpmBase(abc.ABC):
     def __init__(
         self,
         name: str,
-        parameter_values: dict[str, float],
-        parameter_units: dict[str, str],
-        directory_lpm: str | Path,
+        parameter_values: Mapping[str, float],
+        parameter_units: Mapping[str, str],
+        directory_lpm: str | Path | None,
     ) -> None:
         """Initialize shared LPM state and validate parameter metadata."""
         if directory_lpm is None:
@@ -355,7 +355,7 @@ class LpmBase(abc.ABC):
             raise ValueError(f"Probabilities must be finite and in [0, 1], got {p!r}")
         return probabilities
 
-    def cdf_inv(self, p: float) -> float:
+    def cdf_inv(self, p: npt.ArrayLike) -> npt.ArrayLike:
         """Evaluate a scalar quantile by numerically inverting the CDF.
 
         The default implementation brackets the requested quantile on
@@ -406,9 +406,10 @@ class LpmBase(abc.ABC):
                 f"'{self.name}' before t={upper}"
             )
 
-        return float(
-            optimize.brentq(self._cdf_minus_p, lower, upper, args=(probability,))
-        )
+        root = optimize.brentq(self._cdf_minus_p, lower, upper, args=(probability,))
+        if isinstance(root, tuple):
+            root = root[0]
+        return float(root)
 
     def set_param_from_array(self, param: npt.ArrayLike) -> None:
         """Atomically replace all parameters from an ordered one-dimensional array.
@@ -473,7 +474,16 @@ class LpmBase(abc.ABC):
     def _plot_range(self) -> tuple[float, float]:
         """Return an approximate age window intended only for visualization."""
         # Extending Q(0.98) keeps plots compact while showing most of the tail.
-        return 0.0, 1.2 * float(self.cdf_inv(0.98))
+        return 0.0, 1.2 * self._quantile_scalar(0.98)
+
+    def _quantile_scalar(self, probability: float) -> float:
+        """Return one scalar quantile from a scalar-or-vector implementation."""
+        value = np.asarray(self.cdf_inv(probability), dtype=float)
+        if value.size != 1:
+            raise ValueError(
+                f"Expected one quantile for p={probability}, got shape {value.shape}"
+            )
+        return float(value.reshape(-1)[0])
 
     def sample_curve(self, kind: str, count: int) -> tuple[np.ndarray, npt.ArrayLike]:
         """Sample the PDF or CDF over a model-specific plotting window.
@@ -595,9 +605,9 @@ class LpmBase(abc.ABC):
         return [
             self.mean(),
             self.std(),
-            self.cdf_inv(0.10),
-            self.cdf_inv(0.25),
-            self.cdf_inv(0.5),
-            self.cdf_inv(0.75),
-            self.cdf_inv(0.90),
+            self._quantile_scalar(0.10),
+            self._quantile_scalar(0.25),
+            self._quantile_scalar(0.5),
+            self._quantile_scalar(0.75),
+            self._quantile_scalar(0.90),
         ]

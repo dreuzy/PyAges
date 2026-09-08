@@ -19,6 +19,12 @@ from zoneinfo import ZoneInfo
 import yaml
 
 from scripts.common.provenance import sha256_file as sha256
+from scripts.common.structured_data import (
+    list_field,
+    mapping_field,
+    require_mapping,
+    string_field,
+)
 from scripts.release import build_reproduction_archive
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -68,9 +74,10 @@ def _extract_source_documents(source_zip: Path, destination: Path) -> dict[str, 
 
 def _creators(citation: dict[str, object]) -> list[dict[str, str]]:
     creators = []
-    for author in citation.get("authors", []):
-        family = str(author["family-names"])
-        given = str(author["given-names"])
+    for raw_author in list_field(citation, "authors"):
+        author = require_mapping(raw_author, "CITATION.cff author")
+        family = string_field(author, "family-names")
+        given = string_field(author, "given-names")
         creator = {"name": f"{family}, {given}"}
         if author.get("orcid"):
             creator["orcid"] = str(author["orcid"])
@@ -105,7 +112,10 @@ def _tracerlpm_dependencies(
     archive: Path, workbook: Path, xll: Path
 ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     config_path = archive / "campaign/tracerlpm/runner-config.yaml"
-    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    config = require_mapping(
+        yaml.safe_load(config_path.read_text(encoding="utf-8")),
+        "TracerLPM runner configuration",
+    )
     workbook_entry = _verify_tracerlpm_dependency(
         workbook, str(config["workbook_sha256"]), "workbook"
     )
@@ -117,7 +127,11 @@ def _scientific_summary(archive: Path) -> dict[str, object]:
     manifest = (
         archive / "campaign/article_package/provenance/article_package_manifest.json"
     )
-    return json.loads(manifest.read_text(encoding="utf-8"))["scientific_summary"]
+    payload = require_mapping(
+        json.loads(manifest.read_text(encoding="utf-8")),
+        "article package manifest",
+    )
+    return mapping_field(payload, "scientific_summary")
 
 
 def _require_complete_campaign_scope(manifest: dict[str, object]) -> None:
@@ -142,12 +156,13 @@ def _readme(
     doi_text = (
         doi or "not reserved yet (reserve it in the Zenodo draft before publication)"
     )
-    shifted = scientific["shifted_exponential"]
-    holten = scientific["holten_h4"]
-    holten_prior = scientific["holten_prior_dirichlet1"]
-    ploemeur = scientific["ploemeur_shifted_exponential"]
-    ig = scientific["ploemeur_physical_ig"]
-    tracer = scientific["pyages_tracerlpm"]
+    shifted = mapping_field(scientific, "shifted_exponential")
+    holten = mapping_field(scientific, "holten_h4")
+    holten_prior = mapping_field(scientific, "holten_prior_dirichlet1")
+    ploemeur = mapping_field(scientific, "ploemeur_shifted_exponential")
+    ig = mapping_field(scientific, "ploemeur_physical_ig")
+    tracer = mapping_field(scientific, "pyages_tracerlpm")
+    forward = mapping_field(scientific, "forward_verification")
     return f"""# {title}
 
 Version: `{version}`  
@@ -191,8 +206,8 @@ distincte; elle ne remplace pas les résultats Holten canoniques.
 
 ## Scientific status
 
-- Independent forward verification: {scientific["forward_verification"]["case_count"]} cases
-  (`{scientific["forward_verification"]["status"]}`).
+- Independent forward verification: {forward["case_count"]} cases
+  (`{forward["status"]}`).
 - PyAges--TracerLPM: {tracer["paired_cases"]} paired cases,
   {tracer["pyages_successful"]} PyAges successes and
   {tracer["tracerlpm_successful"]} TracerLPM successes.
@@ -253,7 +268,7 @@ python verify_bundle.py
 ```
 
 This verifies every file listed in `{ZENODO_CHECKSUMS}`. The core archive was
-also independently validated against {len(core_manifest["files"])} entries in
+also independently validated against {len(list_field(core_manifest, "files"))} entries in
 `ARCHIVE_MANIFEST.json` before this bundle was assembled.
 
 ## Rights and citation
@@ -425,7 +440,7 @@ def _write_zenodo_inventory(
         "doi": doi,
         "core_archive_git_head": core_manifest["git_head"],
         "core_archive_manifest": "ARCHIVE_MANIFEST.json",
-        "core_archive_files": len(core_manifest["files"]),
+        "core_archive_files": len(list_field(core_manifest, "files")),
         "scope": (
             "reader-facing Zenodo bundle and complete GMD reproduction evidence, "
             "including the distinct Holten Dirichlet prior-sensitivity campaign"
@@ -459,16 +474,21 @@ def validate_bundle(root: Path) -> dict[str, object]:
     """Validate the core archive and all files added for Zenodo."""
     root = root.resolve()
     build_reproduction_archive.validate_archive(root)
-    manifest = json.loads((root / ZENODO_MANIFEST).read_text(encoding="utf-8"))
+    manifest = require_mapping(
+        json.loads((root / ZENODO_MANIFEST).read_text(encoding="utf-8")),
+        "Zenodo manifest",
+    )
     failures = []
-    for item in manifest["files"]:
-        path = root / item["path"]
+    for raw_item in list_field(manifest, "files"):
+        item = require_mapping(raw_item, "Zenodo file entry")
+        relative_path = string_field(item, "path")
+        path = root / relative_path
         if not path.is_file():
-            failures.append(f"missing: {item['path']}")
+            failures.append(f"missing: {relative_path}")
         elif path.stat().st_size != item["bytes"]:
-            failures.append(f"size: {item['path']}")
+            failures.append(f"size: {relative_path}")
         elif sha256(path) != item["sha256"]:
-            failures.append(f"hash: {item['path']}")
+            failures.append(f"hash: {relative_path}")
 
     checksums = {}
     for raw in (root / ZENODO_CHECKSUMS).read_text(encoding="ascii").splitlines():
@@ -584,7 +604,8 @@ def build_bundle(
             "Core archive release tag and software version differ: "
             f"{core_manifest.get('release_tag')!r} != {version!r}"
         )
-    if version not in core_manifest.get("git_tags_at_head", []):
+    release_tags = [str(tag) for tag in list_field(core_manifest, "git_tags_at_head")]
+    if version not in release_tags:
         raise RuntimeError(
             f"Core archive source commit is not identified by release tag {version!r}"
         )
@@ -599,7 +620,8 @@ def build_bundle(
         external = staging / "external/tracerlpm"
         external.mkdir(parents=True)
         for entry in (workbook_entry, xll_entry):
-            shutil.copy2(entry["source"], external / Path(str(entry["source"])).name)
+            source = Path(str(entry["source"]))
+            shutil.copy2(source, external / source.name)
         (external / "README.md").write_text(
             _tracerlpm_readme(workbook_entry, xll_entry),
             encoding="utf-8",
@@ -681,7 +703,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.validate_only is not None:
         manifest = validate_bundle(args.validate_only)
-        count = len(manifest["files"])
+        count = len(list_field(manifest, "files"))
         if args.zip_output is not None:
             count = validate_zip(
                 args.validate_only.resolve(), args.zip_output.resolve()
@@ -712,7 +734,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     manifest = validate_bundle(output)
     print(
-        f"Built Zenodo bundle with {len(manifest['files'])} payload files: "
+        f"Built Zenodo bundle with {len(list_field(manifest, 'files'))} payload files: "
         f"{output} and {zip_output}"
     )
     return 0

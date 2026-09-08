@@ -12,7 +12,7 @@ from unittest.mock import Mock
 import pytest
 
 from pyages.calibration.methods.mh import MHConfig, MHConvergenceError
-from pyages.config.models import LauncherMetropolisCfg, MHMultichainCfg
+from pyages.config.models import MetropolisHastingsCfg
 from pyages.workflows.runtime import mh as runtime_mh
 
 
@@ -48,11 +48,10 @@ def test_mh_stage_directory_rejects_invalid_engine_requests(
         runtime_mh._mh_stage_directory(tmp_path, stage, chain_id)
 
 
-def test_build_mh_ensemble_config_translates_all_nested_scientific_controls() -> None:
-    config = MHMultichainCfg(
-        enabled=True,
+def test_build_mh_run_config_translates_all_nested_scientific_controls() -> None:
+    config = MetropolisHastingsCfg(
         chains=3,
-        master_seed=987,
+        seed=987,
         initialization={
             "strategy": "explicit",
             "explicit_starts": [{"mu": 1.0}, {"mu": 2.0}, {"mu": 3.0}],
@@ -60,7 +59,7 @@ def test_build_mh_ensemble_config_translates_all_nested_scientific_controls() ->
         },
         pilot={
             "enabled": True,
-            "nstep": 123,
+            "nsteps": 123,
             "burn_in": 0.4,
             "relative_ridge": 2.0e-6,
             "proposal_multiplier": 0.75,
@@ -74,10 +73,10 @@ def test_build_mh_ensemble_config_translates_all_nested_scientific_controls() ->
         },
     )
 
-    translated = runtime_mh._build_mh_ensemble_config(config)
+    translated = runtime_mh.build_mh_run_config(config)
 
     assert translated.chains == 3
-    assert translated.master_seed == 987
+    assert translated.seed == 987
     assert translated.initialization.strategy == "explicit"
     assert translated.initialization.explicit_starts == (
         {"mu": 1.0},
@@ -85,7 +84,7 @@ def test_build_mh_ensemble_config_translates_all_nested_scientific_controls() ->
         {"mu": 3.0},
     )
     assert translated.initialization.max_attempts == 44
-    assert translated.pilot.nstep == 123
+    assert translated.pilot.nsteps == 123
     assert translated.pilot.burn_in == 0.4
     assert translated.pilot.relative_ridge == 2.0e-6
     assert translated.pilot.proposal_multiplier == 0.75
@@ -96,7 +95,7 @@ def test_build_mh_ensemble_config_translates_all_nested_scientific_controls() ->
     assert translated.diagnostics.require_convergence is False
 
 
-def test_run_mh_ensemble_builds_fresh_stage_problems_and_pools_exploratory_run(
+def test_run_mh_builds_fresh_stage_problems_and_pools_exploratory_run(
     tmp_path, monkeypatch
 ) -> None:
     ensemble_result = SimpleNamespace(diagnostics=(), diagnostics_message=None)
@@ -122,18 +121,20 @@ def test_run_mh_ensemble_builds_fresh_stage_problems_and_pools_exploratory_run(
         built.append((directory, problem))
         return problem
 
-    monkeypatch.setattr(runtime_mh, "MultiChainMetropolisHastings", engine_class)
-    monkeypatch.setattr(runtime_mh, "write_mh_ensemble_result", writer)
-    config = MHMultichainCfg(
-        enabled=True,
+    monkeypatch.setattr(runtime_mh, "MetropolisHastingsRunner", engine_class)
+    monkeypatch.setattr(runtime_mh, "write_mh_run_result", writer)
+    config = MetropolisHastingsCfg(
+        nsteps=100,
+        thinning=1,
         chains=2,
+        pilot={"enabled": True, "nsteps": 40},
         diagnostics={"require_convergence": False},
     )
-    chain_config = MHConfig(nstep=100, burn_in=0.2, nskip=1)
+    chain_config = MHConfig(nsteps=100, burn_in=0.2, thinning=1)
 
-    result = runtime_mh.run_mh_ensemble(
+    result = runtime_mh._run_mh(
         chain_config,
-        config,
+        runtime_mh.build_mh_run_config(config),
         tmp_path,
         problem_builder,
     )
@@ -148,7 +149,7 @@ def test_run_mh_ensemble_builds_fresh_stage_problems_and_pools_exploratory_run(
     writer.assert_called_once_with(ensemble_result, tmp_path)
 
 
-def test_run_mh_ensemble_raises_only_after_failed_run_is_serialized(
+def test_run_mh_raises_only_after_failed_run_is_serialized(
     tmp_path, monkeypatch
 ) -> None:
     ensemble_result = SimpleNamespace(
@@ -165,16 +166,21 @@ def test_run_mh_ensemble_raises_only_after_failed_run_is_serialized(
     writer = Mock(return_value=None)
     monkeypatch.setattr(
         runtime_mh,
-        "MultiChainMetropolisHastings",
+        "MetropolisHastingsRunner",
         Mock(return_value=engine),
     )
-    monkeypatch.setattr(runtime_mh, "write_mh_ensemble_result", writer)
-    config = MHMultichainCfg(enabled=True, chains=2)
+    monkeypatch.setattr(runtime_mh, "write_mh_run_result", writer)
+    config = MetropolisHastingsCfg(
+        nsteps=100,
+        thinning=1,
+        chains=2,
+        diagnostics={"require_convergence": False},
+    )
 
     with pytest.raises(MHConvergenceError, match=r"mu.*preserved") as caught:
-        runtime_mh.run_mh_ensemble(
-            MHConfig(nstep=100, burn_in=0.2, nskip=1),
-            config,
+        runtime_mh._run_mh(
+            MHConfig(nsteps=100, burn_in=0.2, thinning=1),
+            runtime_mh.build_mh_run_config(config),
             tmp_path,
             Mock(),
         )
@@ -187,66 +193,77 @@ def test_run_mh_ensemble_raises_only_after_failed_run_is_serialized(
     assert not writer.call_args.kwargs
 
 
-def test_run_mh_ensemble_rejects_disabled_configuration(tmp_path) -> None:
-    with pytest.raises(ValueError, match="must be enabled"):
-        runtime_mh.run_mh_ensemble(
-            MHConfig(nstep=100),
-            MHMultichainCfg(enabled=False),
-            tmp_path,
-            Mock(),
-        )
-
-
 def test_build_mh_config_translates_single_date_controls() -> None:
     translated = runtime_mh.build_mh_config(
-        LauncherMetropolisCfg(
-            nstep=321,
+        MetropolisHastingsCfg(
+            nsteps=321,
             burn_in=0.3,
-            nskip=7,
+            thinning=7,
             seed=456,
             prior_option=True,
             likelihood=False,
-            monitor=True,
             display_traj=True,
         )
     )
 
-    assert translated.nstep == 321
+    assert translated.nsteps == 321
     assert translated.burn_in == 0.3
-    assert translated.nskip == 7
+    assert translated.thinning == 7
     assert translated.seed == 456
     assert translated.prior_option is True
     assert translated.likelihood is False
+    # Plotting requires a retained trajectory, which the runtime enables
+    # internally without exposing a second public workflow switch.
     assert translated.monitor is True
     assert translated.display_traj is True
 
 
-def test_run_mh_calibration_owns_the_single_chain_lifecycle(
+def test_run_mh_calibration_routes_one_chain_through_the_common_runner(
     tmp_path, monkeypatch
 ) -> None:
-    prepared_problem = object()
     samples = object()
-    problem_builder = Mock(return_value=prepared_problem)
-    method = SimpleNamespace(
-        run=Mock(return_value=samples),
-        write_calibrated_lpm=Mock(),
+    record = SimpleNamespace(diagnostics=(), diagnostics_message=None)
+
+    def run(factory):
+        factory("initialization", 0)
+        factory("production", 1)
+        return record
+
+    engine = SimpleNamespace(run=Mock(side_effect=run))
+    engine_class = Mock(return_value=engine)
+    writer = Mock(return_value=samples)
+    problem_builder = Mock()
+    monkeypatch.setattr(
+        runtime_mh,
+        "MetropolisHastingsRunner",
+        engine_class,
     )
-    method_class = Mock(return_value=method)
-    clear = Mock()
-    monkeypatch.setattr(runtime_mh, "MetropolisHastings", method_class)
-    monkeypatch.setattr(runtime_mh, "clear_mh_ensemble_artifacts", clear)
-    chain_config = MHConfig(nstep=100)
+    monkeypatch.setattr(runtime_mh, "write_mh_run_result", writer)
+    config = MetropolisHastingsCfg(
+        nsteps=11,
+        burn_in=0.0,
+        thinning=1,
+        seed=456,
+    )
 
     result = runtime_mh.run_mh_calibration(
-        chain_config,
-        None,
+        config,
         tmp_path,
         problem_builder,
     )
 
     assert result is samples
-    clear.assert_called_once_with(tmp_path)
-    method_class.assert_called_once_with(config=chain_config)
-    problem_builder.assert_called_once_with(tmp_path)
-    method.run.assert_called_once_with(prepared_problem)
-    method.write_calibrated_lpm.assert_called_once_with(samples)
+    run_config = engine_class.call_args.args[1]
+    chain_config = engine_class.call_args.args[0]
+    assert chain_config.nsteps == 11
+    assert chain_config.seed == 456
+    assert run_config.chains == 1
+    assert run_config.seed == 456
+    assert run_config.initialization.strategy == "bounds_stratified"
+    assert run_config.pilot.enabled is False
+    engine.run.assert_called_once()
+    assert [call.args[0] for call in problem_builder.call_args_list] == [
+        tmp_path / "initialization",
+        tmp_path / "chains" / "chain_001",
+    ]
+    writer.assert_called_once_with(record, tmp_path)

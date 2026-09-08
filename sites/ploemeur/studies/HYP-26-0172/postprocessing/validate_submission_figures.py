@@ -33,8 +33,9 @@ def validate(directory: Path) -> list[str]:
                 )
             if "A" in image.getbands():
                 errors.append(f"{path.name}: contains an alpha channel")
-            if getattr(image, "n_frames", 1) != 1:
-                errors.append(f"{path.name}: contains {image.n_frames} frames")
+            frame_count = int(getattr(image, "n_frames", 1))
+            if frame_count != 1:
+                errors.append(f"{path.name}: contains {frame_count} frames")
             if image.info.get("compression") != "tiff_lzw":
                 errors.append(
                     f"{path.name}: compression is {image.info.get('compression')}, expected tiff_lzw"

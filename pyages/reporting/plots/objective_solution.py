@@ -31,6 +31,7 @@ from pyages.reporting.plots._common import (
     OBSERVED_COLOR,
     _best_row,
     _nearest_reference_objective_row,
+    _numeric_series,
     _plot_interpolated_objective_surface,
     _save_figure,
     apply_example_style,
@@ -238,6 +239,32 @@ def _solution_legend(reference_params, reference_label: str) -> list[Line2D]:
     return handles
 
 
+def _objective_columns(
+    objective_frame: pd.DataFrame,
+    posterior_frame: pd.DataFrame,
+) -> tuple[str, str]:
+    """Resolve and validate objective-column names for both sampling stages."""
+    objective_column = (
+        "half_log_chi_square"
+        if "half_log_chi_square" in objective_frame.columns
+        else "obj_function"
+    )
+    posterior_column = (
+        "obj_function"
+        if "obj_function" in posterior_frame.columns
+        else objective_column
+    )
+    if objective_column not in objective_frame.columns:
+        raise ValueError(
+            "Objective frame must contain 'half_log_chi_square' or 'obj_function'."
+        )
+    if posterior_column not in posterior_frame.columns:
+        raise ValueError(
+            "Posterior frame must contain 'obj_function' or 'half_log_chi_square'."
+        )
+    return objective_column, posterior_column
+
+
 def plot_objective_solution_map(
     objective_frame: pd.DataFrame,
     posterior_frame: pd.DataFrame,
@@ -263,22 +290,9 @@ def plot_objective_solution_map(
 
     # Accept both names used by the objective-grid and calibration pipelines,
     # then normalize their visual meaning through a shared color scale.
-    objective_col = (
-        "half_log_chi_square"
-        if "half_log_chi_square" in objective_frame.columns
-        else "obj_function"
+    objective_col, posterior_objective_col = _objective_columns(
+        objective_frame, posterior_frame
     )
-    posterior_objective_col = (
-        "obj_function" if "obj_function" in posterior_frame.columns else objective_col
-    )
-    if objective_col not in objective_frame.columns:
-        raise ValueError(
-            "Objective frame must contain 'half_log_chi_square' or 'obj_function'."
-        )
-    if posterior_objective_col not in posterior_frame.columns:
-        raise ValueError(
-            "Posterior frame must contain 'obj_function' or 'half_log_chi_square'."
-        )
 
     # A single parameter needs an objective axis.  Higher-dimensional models
     # use pairwise projections, capped at three to keep the figure readable.
@@ -302,10 +316,8 @@ def plot_objective_solution_map(
     if len(post_frame) > 2500:
         post_frame = post_frame.sample(2500, random_state=12345)
 
-    grid_values = pd.to_numeric(grid_frame[objective_col], errors="coerce")
-    posterior_values = pd.to_numeric(
-        post_frame[posterior_objective_col], errors="coerce"
-    )
+    grid_values = _numeric_series(grid_frame, objective_col)
+    posterior_values = _numeric_series(post_frame, posterior_objective_col)
     combined_values = pd.concat(
         [grid_values.dropna(), posterior_values.dropna()], ignore_index=True
     )
@@ -325,6 +337,7 @@ def plot_objective_solution_map(
         param_names,
     )
 
+    scalar = None
     for xname, yname in pairs:
         ax = axs[pairs.index((xname, yname))]
         if yname == objective_col:
@@ -358,17 +371,19 @@ def plot_objective_solution_map(
                 vmax,
             )
 
+    if scalar is None:  # Guarded by the non-empty parameter check above.
+        raise RuntimeError("Objective solution plot contains no parameter panel")
     plot_right = 0.80 if ncols == 1 else 0.84
     colorbar_left = 0.88 if ncols == 1 else 0.90
     fig.subplots_adjust(left=0.10, right=plot_right, bottom=0.12, top=0.78, wspace=0.28)
-    cax = fig.add_axes([colorbar_left, 0.18, 0.024, 0.58])
+    cax = fig.add_axes((colorbar_left, 0.18, 0.024, 0.58))
     cbar = fig.colorbar(scalar, cax=cax)
     cbar.set_label("Objective value (lower is better)")
 
     legend_handles = _solution_legend(reference_params, reference_label)
     fig.legend(
         legend_handles,
-        [handle.get_label() for handle in legend_handles],
+        [str(handle.get_label()) for handle in legend_handles],
         loc="upper center",
         bbox_to_anchor=(0.48, 1.0),
         ncol=min(len(legend_handles), 3),

@@ -71,7 +71,7 @@ states, and retained samples are part of the reproducibility record.
 
 One master seed generates distinct initialization, pilot, and production
 streams through a stable `SeedSequence` hierarchy. A draw added to a pilot
-therefore cannot advance a production stream. `master_seed: null` realizes a
+therefore cannot advance a production stream. `seed: null` realizes a
 fresh root seed and records it; replay requires reusing that realized value.
 Random-stream separation does not imply parallel execution: the current
 workflow runner executes the chains sequentially.

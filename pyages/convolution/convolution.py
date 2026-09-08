@@ -479,6 +479,28 @@ class Convolution:
         """Return the immutable tracer-grid settings used by this instance."""
         return self._grid_settings
 
+    def clone_prepared(self) -> Convolution:
+        """Return a fresh evaluator that reuses immutable prepared artifacts.
+
+        The clone keeps the same read-only tracer input, observation date, grid
+        settings, prepared tracer grid, and optional piecewise-uniform basis.
+        It receives its own mutable diagnostic slot, so evaluating one clone
+        cannot overwrite the diagnostics of another chain. Changing a clone's
+        date still invalidates only that clone's cached artifacts.
+
+        This operation is intended for independent calibration workers that
+        target exactly the same scientific inputs. It avoids rebuilding grids
+        while preserving the per-worker mutable state required by samplers.
+        """
+        clone = Convolution(
+            self._tracer,
+            date=self._date,
+            grid_settings=self._grid_settings,
+        )
+        clone._prepared_grid = self._prepared_grid
+        clone._prepared_piecewise_uniform_basis = self._prepared_piecewise_uniform_basis
+        return clone
+
     # -------------------------------------------------------------------------
     # Dirac convolution (direct lookup)
     # -------------------------------------------------------------------------

@@ -42,25 +42,27 @@ pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
 ```yaml
 # examples/natural/ploemeur/exemple_ploemeur.yaml
 
+schema_version: 3
+
 workflow:
   kind: single_date
 
-dataset:
+data:
   name: ploemeur_F09_2010.txt      # Input data file
   year: 2010                        # Reference year
-  data_dir: examples/natural/ploemeur/data  # Data directory
+  data_dir: data                    # Relative to this YAML file
   verbose: true
   missing_error_rel: 0.01
 
 lpm:
-  model_name: exp_shifted           # LPM model used by the maintained example
-  data_directory: data_core/data_lpm
+  models: [exp_shifted]              # LPM model used by this example
+  directory: ../../../data_core/data_lpm
 
 run:
   reachable_concentrations: true    # Explore feasible domain
   objective_function: true          # Map objective function
-  calibration_metropolis_hastings: true  # Run MCMC
-  calibration_simplex: true         # Run simplex optimization
+  metropolis_hastings: true  # Run MCMC
+  simplex: true         # Run simplex optimization
 
 reachable_concentrations:
   nmodels: 5000                     # Number of samples
@@ -68,16 +70,16 @@ reachable_concentrations:
 objective_function:
   nmodels: 10000                    # Grid resolution
 
-calibration_metropolis_hastings:
-  nstep: 5000                       # MCMC iterations
-  prior_option: false
-  likelihood: true
-  monitor: false
-  display_traj: false
+calibration:
+  metropolis_hastings:
+    nsteps: 5000                    # MCMC iterations
+    prior_option: false
+    likelihood: true
+    display_traj: false
 
-calibration_simplex:
-  init_multiples_n: 3               # Initial simplex size
-  fuq_n: 30                         # Forward UQ samples
+  simplex:
+    init_multiples_n: 3             # Initial simplex size
+    fuq_n: 30                       # Forward UQ samples
 ```
 
 ### Output Files
@@ -219,34 +221,37 @@ This extensive profile is documented in
 ```yaml
 # examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 
-dataset:
-  file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
+schema_version: 3
+
+data:
+  file: data/ori_ploemeur_F09_2005_2024.txt  # Relative to this YAML file
   error_rel: 0.2                    # 20% relative error
   missing_error_rel: 0.01           # Fallback for remaining zero errors
 
-lpm_models:
+lpm:
   models: ["exp_shifted", "ig", "ig_shifted"]  # Models to compare
-  directory: data_core/data_lpm
+  directory: ../../../data_core/data_lpm
 
 workflow:
   kind: temporal
   mode: span                        # 'span' or 'successive'
 
 calibration:
-  explo_res: 20                     # Systematic sampling resolution
-  mh_nsteps: 3000                   # MCMC steps
-  burn_in: 0.2                      # Burn-in fraction
-  nskip: 10                         # Thinning interval
-  lpm_number: 0                     # Automatic plotted-posterior sample count
-  seed_enabled: true
-  seed: 12345                       # For reproducibility
+  exploration_resolution: 20       # Forward-model preparation sample count
+  posterior_draw_count: 0           # Automatic plotted-posterior sample count
+  metropolis_hastings:
+    nsteps: 3000                    # MCMC steps
+    burn_in: 0.2                    # Burn-in fraction
+    thinning: 10                    # Keep one draw in ten
+    seed: 12345                     # Supplying a seed makes the run reproducible
+    prior_option: true              # Include the LPM priors explicitly
 
-figures:
+reporting:
   temporal: true                    # Generate time series plots
   distributions: true               # Generate distribution plots
   concentrations_2d: false          # Disable 2D concentration pair plots
 
-results:
+output:
   study_name: ploemeur_temporal
   use_default: true
   directory: ""
@@ -320,11 +325,11 @@ sf6         9.0            0.5     pptv    2015.0
 
 ### Change the LPM Model
 
-Edit the `lpm.model_name` field:
+Edit the single item in `lpm.models`:
 
 ```yaml
 lpm:
-  model_name: ig  # Use inverse Gaussian instead
+  models: [ig]  # Use inverse Gaussian instead
 ```
 
 Run `pyages list lpms` for the installed registry. The current source tree
@@ -360,21 +365,26 @@ ensure its parameter files exist under `data_core/data_lpm/<model>/params.yaml`.
 
 ### 3) Create a YAML config (single-date)
 
-```
-dataset:
+```yaml
+schema_version: 3
+
+workflow:
+  kind: single_date
+
+data:
   name: my_site_2010.txt
   year: 2010
-  data_dir: examples/my_site/data
+  data_dir: data
   missing_error_rel: 0.01
 
 lpm:
-  model_name: exp_shifted
-  data_directory: data_core/data_lpm
+  models: [exp_shifted]
+  directory: ../../data_core/data_lpm
 
 run:
   reachable_concentrations: true
-  calibration_metropolis_hastings: true
-  calibration_simplex: false
+  metropolis_hastings: true
+  simplex: false
 ```
 
 Run:
@@ -387,14 +397,16 @@ pyages run examples/my_site/my_config.yaml
 If your file contains multiple dates, use the temporal launcher:
 
 ```
-dataset:
-  file: examples/my_site/data/ori_my_site_2005_2024.txt
+schema_version: 3
+
+data:
+  file: data/ori_my_site_2005_2024.txt
   error_rel: 0.2
   missing_error_rel: 0.01
 
-lpm_models:
+lpm:
   models: ["exp_shifted", "ig"]
-  directory: data_core/data_lpm
+  directory: ../../data_core/data_lpm
 
 workflow:
   kind: temporal
@@ -417,9 +429,10 @@ those tracer names.
 For a longer exploratory one-chain result (slower):
 
 ```yaml
-calibration_metropolis_hastings:
-  nstep: 20000      # More iterations
-  monitor: true     # Enable trajectory/acceptance monitoring
+calibration:
+  metropolis_hastings:
+    nsteps: 20000   # More iterations
+    display_traj: true  # Save trajectory figures for every production chain
 ```
 
 Treat this as a candidate run, not as a convergence certificate. For
@@ -431,8 +444,9 @@ seeds, proposal covariance, and per-chain acceptance as described in
 For quick testing (faster):
 
 ```yaml
-calibration_metropolis_hastings:
-  nstep: 1000       # Fewer iterations
+calibration:
+  metropolis_hastings:
+    nsteps: 1000    # Fewer iterations
 ```
 
 ### Disable Specific Analyses
@@ -441,8 +455,8 @@ calibration_metropolis_hastings:
 run:
   reachable_concentrations: false   # Skip this step
   objective_function: false         # Skip this step
-  calibration_metropolis_hastings: true
-  calibration_simplex: false        # Skip this step
+  metropolis_hastings: true
+  simplex: false        # Skip this step
 ```
 
 ---
@@ -452,9 +466,8 @@ run:
 ### "FileNotFoundError: data file not found"
 
 Check that:
-1. The `data_dir` path is correct (relative to the detected checkout root for
-   repository examples, or to the configuration directory for a standalone
-   project)
+1. The `data_dir` path is correct. In schema 3 it starts from the directory
+   containing the YAML file, not from the terminal's current directory.
 2. The input file exists in the specified location
 
 ### "Unknown LPM type"

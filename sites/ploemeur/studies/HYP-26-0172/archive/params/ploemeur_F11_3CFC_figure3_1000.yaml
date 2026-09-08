@@ -17,11 +17,11 @@ lpm_models:
     F11: ["exp_shifted"]
 
 calibration:
-  explo_res: 20
-  mh_nsteps: 1000
-  seed_enabled: true
-  seed: 12345
-  lpm_number: 0
+  exploration_resolution: 20
+  posterior_draw_count: 0
+  metropolis_hastings:
+    nsteps: 1000
+    seed: 12345
 
 execution:
   parallel: true

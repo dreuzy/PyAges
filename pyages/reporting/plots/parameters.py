@@ -17,26 +17,28 @@ these plots summarize stored results and do not recompute a posterior density.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from math import ceil
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from matplotlib.ticker import MaxNLocator
 
 from pyages.reporting.plots._common import (
     OBSERVED_COLOR,
+    FrameSource,
     _best_row,
     _ensure_frame,
     _method_color,
+    _numeric_series,
     _save_figure,
     apply_example_style,
 )
 
 
 def plot_parameter_summary(
-    results_by_method: dict[str, object],
+    results_by_method: Mapping[str, FrameSource],
     param_names: list[str],
     reference_params: dict[str, float] | None = None,
     reference_label: str = "Reference parameters",
@@ -69,7 +71,7 @@ def plot_parameter_summary(
             if param_name not in frame.columns:
                 continue
             color = _method_color(method_name, method_index)
-            values = pd.to_numeric(frame[param_name], errors="coerce").dropna()
+            values = _numeric_series(frame, param_name).dropna()
             if values.empty:
                 continue
             bins = min(max(int(np.sqrt(len(values))), 12), 30)
@@ -116,7 +118,7 @@ def plot_parameter_summary(
 
 
 def plot_parameter_distribution_comparison(
-    distributions: dict[str, object],
+    distributions: Mapping[str, FrameSource],
     param_names: list[str],
     param_labels: dict[str, str] | None = None,
     param_density_labels: dict[str, str] | None = None,
@@ -149,7 +151,7 @@ def plot_parameter_distribution_comparison(
             frame = _ensure_frame(result)
             if param_name not in frame.columns:
                 continue
-            values = pd.to_numeric(frame[param_name], errors="coerce").dropna()
+            values = _numeric_series(frame, param_name).dropna()
             if values.empty:
                 continue
             bins = min(max(int(np.sqrt(len(values))), 12), 32)

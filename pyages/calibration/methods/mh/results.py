@@ -1,9 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# This file stores every output of a multi-chain MH run and checks consistency.
+# This file stores every output of a managed MH run and checks consistency.
 
-"""Store the complete, auditable result of a multi-chain MH run.
+"""Store the complete, auditable result of an MH run with one or more chains.
 
 Separate result objects hold pilot information, each production chain, and the
 diagnostics for each sampled or derived quantity. The final run record links
@@ -12,7 +12,7 @@ resolved prior and proposal settings that produced them.
 
 The classes copy mutable inputs and validate their relationships. Production
 chains can be combined into one sample table only after the record has passed
-its integrity and, by default, convergence checks.
+its integrity and, when at least two chains exist, convergence checks.
 """
 
 from __future__ import annotations
@@ -41,25 +41,33 @@ from pyages.calibration.methods.mh._result_fingerprint import (
 from pyages.calibration.methods.mh._result_validation import (
     _metrics_are_qualified,
     _validate_diagnostic_status,
-    _validate_ensemble_chains,
     _validate_record_configuration,
+    _validate_run_chains,
     _validate_seed_plan,
     _validate_target_signature,
 )
 from pyages.calibration.methods.mh.config import MHConfig
-from pyages.calibration.methods.mh.ensemble_config import (
+from pyages.calibration.methods.mh.errors import MHConvergenceError
+from pyages.calibration.methods.mh.run_config import (
     MHDiagnosticsConfig,
-    MHEnsembleConfig,
+    MHRunConfig,
     MHSeedPlan,
 )
-from pyages.calibration.methods.mh.errors import MHConvergenceError
 from pyages.lpm.samples.table import LpmSampleTable
 
-QUALIFIED = "qualified"
-NOT_QUALIFIED = "not_qualified"
-DIAGNOSTICS_UNAVAILABLE = "diagnostics_unavailable"
-QUALIFICATION_STATUSES = frozenset({QUALIFIED, NOT_QUALIFIED, DIAGNOSTICS_UNAVAILABLE})
-QualificationStatus = Literal["qualified", "not_qualified", "diagnostics_unavailable"]
+QualificationStatus = Literal[
+    "qualified",
+    "not_qualified",
+    "not_applicable",
+    "diagnostics_unavailable",
+]
+QUALIFIED: Literal["qualified"] = "qualified"
+NOT_QUALIFIED: Literal["not_qualified"] = "not_qualified"
+NOT_APPLICABLE: Literal["not_applicable"] = "not_applicable"
+DIAGNOSTICS_UNAVAILABLE: Literal["diagnostics_unavailable"] = "diagnostics_unavailable"
+QUALIFICATION_STATUSES = frozenset(
+    {QUALIFIED, NOT_QUALIFIED, NOT_APPLICABLE, DIAGNOSTICS_UNAVAILABLE}
+)
 
 
 def _readonly_metadata(metadata: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -476,7 +484,7 @@ class MHRunRecord:
     """
 
     chain_config: MHConfig
-    ensemble_config: MHEnsembleConfig
+    run_config: MHRunConfig
     chains: tuple[MHChainResult, ...]
     pilot: MHPilotResult | None
     diagnostics: tuple[MHParameterDiagnostics, ...]
@@ -495,7 +503,7 @@ class MHRunRecord:
             raise TypeError("pilot must be an MHPilotResult or None")
         if self.pilot is not None:
             self.pilot.validate_snapshot()
-        _validate_ensemble_chains(chains)
+        _validate_run_chains(chains)
         _validate_seed_plan(self.seed_plan, chains)
         _validate_target_signature(
             self.target_signature_version,
@@ -512,6 +520,7 @@ class MHRunRecord:
             diagnostics,
             self.qualification_status,
             self.diagnostics_message,
+            chain_count=len(chains),
         )
         object.__setattr__(self, "chains", chains)
         object.__setattr__(self, "diagnostics", diagnostics)
@@ -522,7 +531,7 @@ class MHRunRecord:
         )
         _validate_record_configuration(
             chain_config=self.chain_config,
-            ensemble_config=self.ensemble_config,
+            run_config=self.run_config,
             chains=chains,
             pilot=self.pilot,
             diagnostics=diagnostics,
@@ -531,13 +540,13 @@ class MHRunRecord:
 
     def validate_integrity(self) -> None:
         """Revalidate mutable table snapshots before consuming this record."""
-        _validate_ensemble_chains(self.chains)
+        _validate_run_chains(self.chains)
         if self.pilot is not None:
             self.pilot.validate_snapshot()
         _validate_seed_plan(self.seed_plan, self.chains)
         _validate_record_configuration(
             chain_config=self.chain_config,
-            ensemble_config=self.ensemble_config,
+            run_config=self.run_config,
             chains=self.chains,
             pilot=self.pilot,
             diagnostics=self.diagnostics,
@@ -547,6 +556,7 @@ class MHRunRecord:
             self.diagnostics,
             self.qualification_status,
             self.diagnostics_message,
+            chain_count=len(self.chains),
         )
 
     def pooled_samples(self, require_qualified: bool = True) -> LpmSampleTable:
@@ -556,8 +566,10 @@ class MHRunRecord:
         ----------
         require_qualified : bool, default=True
             Refuse pooling unless :attr:`qualification_status` is
-            ``"qualified"``. Passing ``False`` explicitly permits exploratory
-            pooling while retaining the non-qualified status on this result.
+            ``"qualified"`` or the run contains exactly one chain, for which
+            inter-chain qualification is not applicable. Passing ``False``
+            explicitly permits exploratory pooling while retaining the
+            non-qualified status on this result.
 
         Returns
         -------
@@ -575,7 +587,14 @@ class MHRunRecord:
         if not isinstance(require_qualified, bool):
             raise ValueError("require_qualified must be a boolean")
         self.validate_integrity()
-        if require_qualified and self.qualification_status != QUALIFIED:
+        accepted_without_diagnostics = (
+            self.qualification_status == NOT_APPLICABLE and len(self.chains) == 1
+        )
+        if (
+            require_qualified
+            and self.qualification_status != QUALIFIED
+            and not accepted_without_diagnostics
+        ):
             raise MHConvergenceError(
                 "MCMC samples cannot be pooled as qualified: ensemble status is "
                 f"{self.qualification_status!r}"
@@ -597,6 +616,7 @@ __all__ = [
     "MHParameterDiagnostics",
     "MHPilotResult",
     "MHRunRecord",
+    "NOT_APPLICABLE",
     "NOT_QUALIFIED",
     "QUALIFICATION_STATUSES",
     "QUALIFIED",

@@ -171,13 +171,12 @@ def plot_histogram_scatter(
         if scatter_label:
             legend_handles.append(points)
 
-    reference_is_finite = (
+    if (
         reference_x is not None
         and reference_y is not None
         and np.isfinite(reference_x)
         and np.isfinite(reference_y)
-    )
-    if reference_is_finite:
+    ):
         reference = axis.scatter(
             reference_x,
             reference_y,

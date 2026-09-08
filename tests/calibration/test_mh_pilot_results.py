@@ -18,14 +18,6 @@ from pyages.calibration.methods.mh._diagnostic_contract import (
     build_diagnostic_quantities,
 )
 from pyages.calibration.methods.mh.config import MHConfig
-from pyages.calibration.methods.mh.ensemble_config import (
-    MHDiagnosticsConfig,
-    MHEnsembleConfig,
-    MHInitializationConfig,
-    MHPilotConfig,
-    MHSeedPlan,
-    build_seed_plan,
-)
 from pyages.calibration.methods.mh.errors import MHConvergenceError
 from pyages.calibration.methods.mh.pilot import (
     automatic_proposal_multiplier,
@@ -36,6 +28,14 @@ from pyages.calibration.methods.mh.results import (
     MHParameterDiagnostics,
     MHPilotResult,
     MHRunRecord,
+)
+from pyages.calibration.methods.mh.run_config import (
+    MHDiagnosticsConfig,
+    MHInitializationConfig,
+    MHPilotConfig,
+    MHRunConfig,
+    MHSeedPlan,
+    build_seed_plan,
 )
 from pyages.lpm import build_lpm
 from pyages.lpm.samples.table import LpmSampleTable
@@ -109,13 +109,13 @@ def test_diagnostic_quantity_contract_rejects_zero_retained_draws_clearly() -> N
         build_diagnostic_quantities((first, second))
 
 
-def _record_configs(chain_count: int = 2) -> tuple[MHConfig, MHEnsembleConfig]:
+def _record_configs(chain_count: int = 2) -> tuple[MHConfig, MHRunConfig]:
     """Build compact configurations retaining one row per production chain."""
     return (
-        MHConfig(nstep=2, burn_in=0.0, nskip=1, monitor=False),
-        MHEnsembleConfig(
+        MHConfig(nsteps=2, burn_in=0.0, thinning=1, monitor=False),
+        MHRunConfig(
             chains=chain_count,
-            master_seed=17,
+            seed=17,
             initialization=MHInitializationConfig(strategy="bounds_stratified"),
             pilot=MHPilotConfig(enabled=False),
             diagnostics=MHDiagnosticsConfig(
@@ -133,7 +133,7 @@ def _ensemble_result(
     status: str,
 ) -> MHRunRecord:
     """Construct an ensemble with valid compact scientific provenance."""
-    chain_config, ensemble_config = _record_configs(len(chains))
+    chain_config, run_config = _record_configs(len(chains))
     if len(diagnostics) == 1 and diagnostics[0].parameter == "mu":
         names = tuple(
             dict.fromkeys(
@@ -142,7 +142,7 @@ def _ensemble_result(
             )
         )
         diagnostics = tuple(replace(diagnostics[0], parameter=name) for name in names)
-    seed_plan = build_seed_plan(ensemble_config)
+    seed_plan = build_seed_plan(run_config)
     bound_chains = tuple(
         MHChainResult(
             chain_id=chain.chain_id,
@@ -156,7 +156,7 @@ def _ensemble_result(
     )
     return MHRunRecord(
         chain_config=chain_config,
-        ensemble_config=ensemble_config,
+        run_config=run_config,
         chains=bound_chains,
         pilot=None,
         diagnostics=diagnostics,
@@ -357,8 +357,8 @@ def test_ensemble_rejects_same_named_parameters_from_different_templates() -> No
 
 
 def test_run_record_validates_seed_and_target_provenance() -> None:
-    chain_config, ensemble_config = _record_configs()
-    seed_plan = build_seed_plan(ensemble_config)
+    chain_config, run_config = _record_configs()
+    seed_plan = build_seed_plan(run_config)
     chains = tuple(
         MHChainResult(
             index,
@@ -374,7 +374,7 @@ def test_run_record_validates_seed_and_target_provenance() -> None:
         )
     )
     wrong_seed_plan = MHSeedPlan(
-        master_seed=seed_plan.master_seed,
+        seed=seed_plan.seed,
         initialization_seeds=seed_plan.initialization_seeds,
         pilot_seeds=seed_plan.pilot_seeds,
         production_seeds=(999, seed_plan.production_seeds[1]),
@@ -382,7 +382,7 @@ def test_run_record_validates_seed_and_target_provenance() -> None:
     with pytest.raises(ValueError, match="production chain seeds"):
         MHRunRecord(
             chain_config=chain_config,
-            ensemble_config=ensemble_config,
+            run_config=run_config,
             chains=chains,
             pilot=None,
             diagnostics=(_diagnostic(),),
@@ -394,7 +394,7 @@ def test_run_record_validates_seed_and_target_provenance() -> None:
     with pytest.raises(ValueError, match="SHA-256"):
         MHRunRecord(
             chain_config=chain_config,
-            ensemble_config=ensemble_config,
+            run_config=run_config,
             chains=chains,
             pilot=None,
             diagnostics=(_diagnostic(),),
@@ -490,7 +490,7 @@ def test_run_record_rejects_qualification_inconsistent_with_thresholds() -> None
         qualified=False,
     )
 
-    with pytest.raises(ValueError, match="does not match ensemble_config thresholds"):
+    with pytest.raises(ValueError, match="does not match run_config thresholds"):
         _ensemble_result(chains, (inconsistent,), "not_qualified")
 
 

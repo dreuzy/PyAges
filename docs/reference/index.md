@@ -14,7 +14,6 @@ results
 data-provenance
 outputs
 public-api
-compatibility-1-2
 citation
 changelog
 scripts

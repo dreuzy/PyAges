@@ -78,7 +78,10 @@ def _project_requirement_groups(
 
 
 def _environment_for(python_version: str, group: str = "") -> dict[str, str]:
-    environment = default_environment()
+    # ``default_environment`` returns a precise TypedDict.  Copy it into the
+    # more general mapping accepted by ``Marker.evaluate`` before adding the
+    # metadata-only ``extra`` key.
+    environment = {str(key): str(value) for key, value in default_environment().items()}
     environment.update(
         {
             "python_version": python_version,

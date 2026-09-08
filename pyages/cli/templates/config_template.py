@@ -3,17 +3,22 @@
 # SPDX-License-Identifier: CECILL-2.1
 # This file generates self-contained installed-package quickstart projects.
 
-"""Create editable schema-2 quickstarts without requiring a source checkout."""
+"""Create editable schema-3 quickstarts without requiring a source checkout."""
 
 from __future__ import annotations
 
+import os
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Literal, TypeAlias
+
+from pyages.cli._atomic import atomic_write_text
 
 QuickstartKind: TypeAlias = Literal["single_date", "temporal"]
 
 _SINGLE_DATE_CONFIG = """
-schema_version: 2
+schema_version: 3
 
 workflow:
   kind: single_date
@@ -31,8 +36,8 @@ lpm:
 run:
   reachable_concentrations: false
   objective_function: false
-  calibration_metropolis_hastings: false
-  calibration_simplex: false
+  metropolis_hastings: false
+  simplex: false
 
 calibration:
   metropolis_hastings:
@@ -53,7 +58,7 @@ output:
 """.lstrip()
 
 _TEMPORAL_CONFIG = """
-schema_version: 2
+schema_version: 3
 
 workflow:
   kind: temporal
@@ -68,13 +73,14 @@ lpm:
   models: [exp_shifted]
 
 calibration:
+  exploration_resolution: 10
+  posterior_draw_count: 10
   metropolis_hastings:
     nsteps: 200
     burn_in: 0.2
     thinning: 10
-    lpm_number: 10
-    explo_res: 10
     seed: 12345
+    prior_option: true
 
 reporting:
   temporal: false
@@ -107,20 +113,8 @@ def generate_config_quickstart(
     destination: str | Path,
     kind: QuickstartKind,
 ) -> tuple[Path, Path]:
-    """Create one configuration and synthetic observation table safely."""
+    """Publish one complete configuration-and-observation quickstart tree."""
     root = Path(destination).resolve()
-    if root.exists() and not root.is_dir():
-        raise FileExistsError(f"Quickstart destination is not a directory: {root}")
-    config_path = root / "pyages.yaml"
-    data_path = root / "data" / "observations.tsv"
-    existing = [path for path in (config_path, data_path) if path.exists()]
-    if existing:
-        raise FileExistsError(
-            "Quickstart files already exist: "
-            + ", ".join(str(path) for path in existing)
-        )
-
-    data_path.parent.mkdir(parents=True, exist_ok=True)
     if kind == "single_date":
         config_text = _SINGLE_DATE_CONFIG
         data_text = _SINGLE_DATE_DATA
@@ -129,9 +123,34 @@ def generate_config_quickstart(
         data_text = _TEMPORAL_DATA
     else:  # pragma: no cover - Click and the public type reject this path.
         raise ValueError(f"Unsupported quickstart kind: {kind}")
-    config_path.write_text(config_text, encoding="utf-8")
-    data_path.write_text(data_text, encoding="utf-8")
-    return config_path, data_path
+
+    if root.exists():
+        raise FileExistsError(f"Quickstart destination already exists: {root}")
+    root.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(
+        tempfile.mkdtemp(
+            dir=root.parent,
+            prefix=f".{root.name}.",
+            suffix=".tmp",
+        )
+    )
+    try:
+        staged_config = staging / "pyages.yaml"
+        staged_data = staging / "data" / "observations.tsv"
+        staged_data.parent.mkdir()
+        atomic_write_text(staged_config, config_text)
+        atomic_write_text(staged_data, data_text)
+
+        # A second check protects against a destination created while the
+        # private tree was being prepared. os.rename then publishes both files
+        # together because source and destination share a parent filesystem.
+        if root.exists():
+            raise FileExistsError(f"Quickstart destination already exists: {root}")
+        os.rename(staging, root)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    return root / "pyages.yaml", root / "data" / "observations.tsv"
 
 
 __all__ = ["QuickstartKind", "generate_config_quickstart"]

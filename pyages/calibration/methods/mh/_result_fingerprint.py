@@ -21,10 +21,10 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from hashlib import sha256
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
-import pandas as pd
+from pandas.util import hash_pandas_object
 
 from pyages.lpm.samples.table import LpmSampleTable
 
@@ -125,7 +125,13 @@ def sample_table_sha256(samples: LpmSampleTable) -> str:
             separators=(",", ":"),
         ).encode("utf-8")
     )
-    hashed_rows = pd.util.hash_pandas_object(frame, index=True, categorize=False)
+    # pandas-stubs does not currently expose the public helper's keyword
+    # signature precisely, so keep this dynamic boundary local to the call.
+    hashed_rows = cast(Any, hash_pandas_object)(
+        frame,
+        index=True,
+        categorize=False,
+    )
     digest.update(hashed_rows.to_numpy(dtype=np.uint64, copy=False).tobytes())
     return digest.hexdigest()
 

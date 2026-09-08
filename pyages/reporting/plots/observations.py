@@ -23,7 +23,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from matplotlib.lines import Line2D
 
 from pyages.concentrations._labels import pretty_tracer_name
@@ -31,6 +30,7 @@ from pyages.reporting.plots._common import (
     MEDIAN_COLOR,
     SINGLE_DATE_HIGHLIGHT_COLOR,
     _axis_label,
+    _numeric_series,
     _save_figure,
     apply_example_style,
 )
@@ -72,10 +72,13 @@ def plot_observations_overview(
     # and highlighted dates cannot be mixed across tracers.
     for ax, tracer in zip(axs.flatten(), tracers, strict=False):
         tracer_df = df[df["element"] == tracer].sort_values("date")
-        has_error = "error" in tracer_df.columns and np.any(
-            pd.to_numeric(tracer_df["error"], errors="coerce") > 0
+        error_values = (
+            _numeric_series(tracer_df, "error").to_numpy(dtype=float)
+            if "error" in tracer_df.columns
+            else np.asarray([], dtype=float)
         )
-        yerr = tracer_df["error"] if has_error else None
+        has_error = bool(np.any(error_values > 0))
+        yerr = error_values if has_error else None
         ax.errorbar(
             tracer_df["date"],
             tracer_df["concentration"],
@@ -88,9 +91,7 @@ def plot_observations_overview(
             capsize=2,
         )
         if highlight_array.size:
-            dates = pd.to_numeric(tracer_df["date"], errors="coerce").to_numpy(
-                dtype=float
-            )
+            dates = _numeric_series(tracer_df, "date").to_numpy(dtype=float)
             highlight_mask = np.any(
                 np.isclose(
                     dates[:, None],
@@ -103,7 +104,7 @@ def plot_observations_overview(
             if highlight_mask.any():
                 highlighted_any = True
                 highlight_df = tracer_df.loc[highlight_mask]
-                highlight_yerr = yerr.loc[highlight_df.index] if has_error else None
+                highlight_yerr = error_values[highlight_mask] if has_error else None
                 ax.errorbar(
                     highlight_df["date"],
                     highlight_df["concentration"],

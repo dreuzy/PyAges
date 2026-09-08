@@ -239,12 +239,19 @@ def _plot_param_histogram(
     bins = _parameter_bins(distribution, name, values)
     if bins.size < 2:
         return
+    bin_edges = [float(edge) for edge in bins]
     figure, axis = plotting.create_figure(
         x_label=name,
         y_label="Count",
         title=model.name,
     )
-    axis.hist(values, density=True, bins=bins, histtype="barstacked", label=self_method)
+    axis.hist(
+        values,
+        density=True,
+        bins=bin_edges,
+        histtype="barstacked",
+        label=self_method,
+    )
     if lpm_reference is not None:
         axis.axvline(lpm_reference.p[name], c="k", linewidth=2.0, label="reference")
     if lpm_2nd is not None:
@@ -253,7 +260,7 @@ def _plot_param_histogram(
             axis.hist(
                 values_2nd,
                 density=True,
-                bins=bins,
+                bins=bin_edges,
                 histtype="barstacked",
                 label=lpm_2nd_method,
             )
@@ -374,13 +381,14 @@ def _plot_param_histogram_apriori(
     bins = _parameter_bins(distribution, name, values)
     if bins.size < 2:
         return
+    bin_edges = [float(edge) for edge in bins]
     figure, axis = plotting.create_figure(
         x_label=name,
         y_label="Count",
         title=model.name,
     )
     histogram = axis.hist(
-        values, density=True, bins=bins, histtype="barstacked", label="MH"
+        values, density=True, bins=bin_edges, histtype="barstacked", label="MH"
     )
     nonzero_hist = histogram[0][histogram[0] != 0]
     prior_density = prior.density_grid(name)
@@ -398,7 +406,7 @@ def _plot_param_histogram_apriori(
             axis.hist(
                 values_2nd,
                 density=True,
-                bins=bins,
+                bins=bin_edges,
                 histtype="barstacked",
                 label=lpm_2nd_method,
             )

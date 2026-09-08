@@ -25,7 +25,9 @@ def plot_model_curve(lpm: "LpmBase", kind: str, display_options: Any) -> None:
     if not display_options.figure:
         return
 
-    times, values = lpm.sample_curve(kind, 1000)
+    raw_times, raw_values = lpm.sample_curve(kind, 1000)
+    times = np.asarray(raw_times, dtype=float)
+    values = np.asarray(raw_values, dtype=float)
     if len(times) != len(values):
         raise ValueError(
             f"Dimension mismatch: len(t)={len(times)} != len(values)={len(values)}"

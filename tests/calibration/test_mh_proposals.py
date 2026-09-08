@@ -167,7 +167,7 @@ def test_target_and_bounds_do_not_depend_on_proposal_choice():
             objective_function_for_lpm=objective_function_for_lpm,
             ensure_prepared=lambda: None,
         )
-        sampler._bind_problem(problem)
+        sampler._binding.bind(problem)  # noqa: SLF001
         sampler._target = MHTarget(  # noqa: SLF001
             problem,
             sampler.prior,

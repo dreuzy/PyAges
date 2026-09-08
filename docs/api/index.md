@@ -12,7 +12,7 @@ promise is {doc}`../reference/public-api`.
 
    pyages.config
    pyages.config.loading
-   pyages.calibration.methods.base
+   pyages.calibration.methods.protocols
    pyages.calibration.outputs
    pyages.calibration.problem
    pyages.config.sampling_schedule
@@ -33,8 +33,8 @@ promise is {doc}`../reference/public-api`.
    pyages.concentrations.series
    pyages.concentrations.temporal
    pyages.calibration.methods.mh
-   pyages.calibration.methods.mh.ensemble
-   pyages.calibration.methods.mh.ensemble_config
+   pyages.calibration.methods.mh.runner
+   pyages.calibration.methods.mh.run_config
    pyages.calibration.methods.mh.diagnostics
    pyages.calibration.methods.mh.prior
    pyages.calibration.methods.mh.proposals

@@ -1,25 +1,28 @@
 # Minimal single-date quickstart (fast, no interactive plots).
 
+schema_version: 3
+
 workflow:
   kind: single_date
 
-dataset:
+data:
   name: ploemeur_F09_2010.txt
   year: 2010
-  data_dir: examples/natural/ploemeur/data
+  # Schema 3 resolves this path from the directory containing this YAML file.
+  data_dir: ../natural/ploemeur/data
   verbose: false
   missing_error_rel: 0.01  # Fill only zero errors from tracer means
 
 lpm:
-  model_name: exp_shifted
-  data_directory: data_core/data_lpm
+  models: [exp_shifted]
+  directory: ../../data_core/data_lpm
 
 # Turn analyses on/off. Keep all false for a fast smoke run.
 run:
   reachable_concentrations: false
   objective_function: false
-  calibration_metropolis_hastings: false
-  calibration_simplex: false
+  metropolis_hastings: false
+  simplex: false
 
 # If you enable the sections above, these values will be used.
 reachable_concentrations:
@@ -28,34 +31,31 @@ reachable_concentrations:
 objective_function:
   nmodels: 500
 
-calibration_metropolis_hastings:
-  nstep: 200
-  burn_in: 0.2
-  nskip: 10
-  seed: 12345
-  prior_option: false
-  likelihood: true
-  monitor: false
-  display_traj: false
-  # Multi-chain MH is opt-in. Uncomment this block for an ensemble; leaving it
-  # absent preserves the one-chain quickstart. Also raise nstep (for example
-  # to 5000): the configured ESS gates must be reachable from retained draws.
-  # multichain:
-  #   enabled: true
-  #   chains: 4
-  #   master_seed: 12345
-  #   initialization:
-  #     strategy: bounds_stratified
-  #   pilot:
-  #     enabled: true
-  #     nstep: 2000
-  #     proposal_multiplier: auto
-  #   diagnostics:
-  #     max_rhat: 1.01
-  #     min_bulk_ess: 300
-  #     min_tail_ess: 300
-  #     require_convergence: true
+calibration:
+  metropolis_hastings:
+    nsteps: 200
+    burn_in: 0.2
+    thinning: 10
+    seed: 12345
+    prior_option: false
+    likelihood: true
+    display_traj: false
+    # One and many chains use these same fields. The default above is one chain.
+    # For a convergence study, set chains to 4, enable the pilot, and raise
+    # nsteps (for example to 5000) so the ESS thresholds can be reached.
+    chains: 1
+    initialization:
+      strategy: bounds_stratified
+    pilot:
+      enabled: false
+      nsteps: 2000
+      proposal_multiplier: auto
+    diagnostics:
+      max_rhat: 1.01
+      min_bulk_ess: 300
+      min_tail_ess: 300
+      require_convergence: true
 
-calibration_simplex:
-  init_multiples_n: 2
-  fuq_n: 5
+  simplex:
+    init_multiples_n: 2
+    fuq_n: 5

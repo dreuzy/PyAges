@@ -1,14 +1,12 @@
 # Running and qualifying multi-chain MH
 
-```{note}
-Multi-chain MH is available in PyAges 1.2. It remains opt-in: configurations
-without a `multichain` mapping preserve one-chain execution.
-```
+PyAges 2.0 has one MH execution model: `chains: 1` is the smallest valid run,
+and larger values use the same runner, result record, and writer.
 
 This guide covers the complete operational path: dispersed initialization,
 pilot tuning, independent production streams, diagnostics, qualification,
 pooling, and inspection. The exhaustive field reference is in
-{ref}`optional-multi-chain-mh-configuration`; the statistical definitions are
+{ref}`one-to-many-chain-mh-configuration`; the statistical definitions are
 in {doc}`../science/inference`.
 
 ## Start from a reproducible profile
@@ -44,7 +42,7 @@ result first when it must be retained as qualification evidence.
 
 ## Understand the stages
 
-An enabled ensemble follows this sequence:
+A run with several chains and an enabled pilot follows this sequence:
 
 1. `bounds_stratified` draws one dispersed Latin-hypercube start per chain
    inside the LPM calibration ranges, or within the effective marginal prior mass
@@ -54,7 +52,8 @@ An enabled ensemble follows this sequence:
    within-chain covariance. A scale-aware ridge makes it positive definite.
 4. The covariance and proposal multiplier are frozen before production.
 5. Production uses a fresh mutable calibration problem and a distinct random
-   stream for every chain.
+   stream for every chain. The LPM and convolution diagnostics are private to
+   that chain; only the already prepared, immutable tracer grids are shared.
 6. PyAges calculates folded rank-normalized split-R-hat, bulk ESS, tail ESS,
    and the Monte Carlo standard error of the mean before pooling.
 7. Root posterior tables are written only after the configured gate passes, or
@@ -66,7 +65,7 @@ covariance is not a prior covariance and is not learned from the first
 production chain. The pooled-within-chain estimator is the only supported
 method, so there is no covariance-method selector in the configuration.
 
-Prior-based ensemble starts use the prior's bounded marginal interface. A
+Prior-based run starts use the prior's bounded marginal interface. A
 normal marginal is conditioned on the calibration interval before its
 quantile is inverted; a uniform marginal uses the overlap between its own
 support and that interval; and an empirical marginal integrates its
@@ -80,43 +79,44 @@ tested scientific definition.
 A typical qualification block is:
 
 ```yaml
-multichain:
-  enabled: true
-  chains: 4
-  master_seed: 12345
-  initialization:
-    strategy: bounds_stratified
-  pilot:
-    enabled: true
-    nstep: 2000
-    burn_in: 0.5
-    relative_ridge: 1.0e-6
-    proposal_multiplier: auto
-  diagnostics:
-    max_rhat: 1.01
-    min_bulk_ess: 300
-    min_tail_ess: 300
-    require_convergence: true
+calibration:
+  metropolis_hastings:
+    nsteps: 5000
+    thinning: 1
+    chains: 4
+    seed: 12345
+    initialization:
+      strategy: bounds_stratified
+    pilot:
+      enabled: true
+      nsteps: 2000
+      burn_in: 0.5
+      relative_ridge: 1.0e-6
+      proposal_multiplier: auto
+    diagnostics:
+      max_rhat: 1.01
+      min_bulk_ess: 300
+      min_tail_ess: 300
+      require_convergence: true
 ```
 
-The presence of `multichain:` activates the ensemble because `enabled`
-defaults to `true`. The explicit value above makes the intended scientific
-profile visible; use `enabled: false` to keep a block in a file without running
-it. Omitting the mapping or setting it to `null` selects the historical
-one-chain path.
+The integer `chains` alone selects the chain count. Its default is 1, and the
+pilot is disabled by default. A one-chain run has qualification status
+`not_applicable`, because between-chain convergence cannot be measured; its
+sole chain is still written as the root posterior.
 
-`chains` is the number of pilot and production chains. `master_seed` is the
-root of separate initialization, pilot, and production streams. A fixed value
-replays the ensemble; `null` realizes and records a fresh root seed. The
-ordinary one-chain `seed` is ignored while the ensemble is enabled.
+`chains` is the number of pilot and production chains and accepts any integer
+from one upward. `seed` is the root of separate initialization, pilot,
+and production streams. A fixed value
+replays the run; `null` realizes and records a fresh root seed.
 
-Use `nskip: 1` for diagnostic runs unless storage is a demonstrated constraint.
+Use `thinning: 1` for diagnostic runs unless storage is a demonstrated constraint.
 Thinning discards information and cannot improve mixing. Increase production
 length when ESS is insufficient. Do not weaken a gate merely to obtain a
 pooled file.
 
 (multichain-mh-python-contributor-interface)=
-## Embed the ensemble in contributor code
+## Embed the runner in contributor code
 
 ```{important}
 The YAML workflow and `pyages run` are the supported user interfaces. The
@@ -126,7 +126,7 @@ public compatibility surface defined in {doc}`../reference/public-api`.
 ```
 
 The following source-checkout example constructs synthetic observations, uses
-only the canonical MH facade for ensemble objects, creates a fresh prepared
+only the canonical MH facade for run objects, creates a fresh prepared
 `CalibrationProblem` for every requested stage and chain, and pools only after
 the configured qualification gate passes:
 
@@ -134,11 +134,11 @@ the configured qualification gate passes:
 from pyages.calibration.methods.mh import (
     MHConfig,
     MHDiagnosticsConfig,
-    MHEnsembleConfig,
+    MHRunConfig,
     MHInitializationConfig,
     MHPilotConfig,
     MHRunRecord,
-    MultiChainMetropolisHastings,
+    MetropolisHastingsRunner,
 )
 from pyages.calibration.problem import CalibrationProblem
 from pyages.convolution import ConvolutionTracers
@@ -151,22 +151,22 @@ observations = tracers.convolve(target, return_type="concentrations")
 observations.set_relative_errors(0.20)
 
 chain_config = MHConfig(
-    nstep=4000,
+    nsteps=4000,
     burn_in=0.25,
-    nskip=1,
+    thinning=1,
     prior_option=False,
     likelihood=True,
     monitor=False,
     display_traj=False,
     componentwise_source="model",
 )
-ensemble_config = MHEnsembleConfig(
+run_config = MHRunConfig(
     chains=4,
-    master_seed=20260831,
+    seed=20260831,
     initialization=MHInitializationConfig(strategy="bounds_stratified"),
     pilot=MHPilotConfig(
         enabled=True,
-        nstep=1500,
+        nsteps=1500,
         burn_in=0.5,
         relative_ridge=1.0e-6,
         proposal_multiplier=None,  # None selects 2.38 / sqrt(dimension).
@@ -190,8 +190,8 @@ def problem_factory(_stage: str, _chain_id: int) -> CalibrationProblem:
     ).prepare()
 
 
-ensemble = MultiChainMetropolisHastings(chain_config, ensemble_config)
-record: MHRunRecord = ensemble.run(problem_factory)
+runner = MetropolisHastingsRunner(chain_config, run_config)
+record: MHRunRecord = runner.run(problem_factory)
 if record.qualification_status == "qualified":
     pooled = record.pooled_samples()
     print(record.qualification_status, len(pooled.frame))
@@ -216,9 +216,9 @@ when those operational guarantees are required. Contributor workflow wiring is
 discussed in {doc}`../dev/extending-calibration-workflows`.
 
 (multichain-mh-in-memory-record)=
-## Inspect the in-memory ensemble structure
+## Inspect the in-memory run structure
 
-The ensemble does not retain four long-lived `MetropolisHastings` objects. It
+The runner does not retain four long-lived `MetropolisHastings` objects. It
 creates one temporary sampler for each pilot or production chain, runs it, and
 keeps the resulting values and provenance. The durable in-memory result is the
 `MHRunRecord` returned by `run()`:
@@ -242,13 +242,13 @@ record
 |   |   `-- samples.frame          retained production table for chain 2
 |   `-- ...
 |-- diagnostics                    one row-like object per diagnostic quantity
-`-- qualification_status           qualified, not_qualified, or diagnostics_unavailable
+`-- qualification_status           qualified, not_qualified, not_applicable, or diagnostics_unavailable
 ```
 
 The prototype requested as `problem_factory("initialization", 0)` is not an
 extra chain. It supplies the common parameter names, calibration ranges, prior, and target
 signature used to construct the dispersed starts. Pilot and production then
-receive fresh mutable problems numbered from 1 through `ensemble_config.chains`.
+receive fresh mutable problems numbered from 1 through `run_config.chains`.
 Those problems and their temporary samplers are not stored on `record`.
 
 ### Locate pilot and production chains
@@ -332,7 +332,7 @@ mu_by_chain = np.vstack(
 )
 
 assert mu_by_chain.shape == (
-    ensemble_config.chains,
+    run_config.chains,
     chain_config.retained_sample_count(),
 )
 ```
@@ -465,8 +465,8 @@ work = Path(".artifacts/mh-recovery-drill").resolve()
 work.mkdir(parents=True, exist_ok=True)
 
 reviewed = yaml.safe_load(source.read_text(encoding="utf-8"))
-diagnostic_key = "calibration_metropolis_hastings"
-reviewed_gate = reviewed[diagnostic_key]["multichain"]["diagnostics"]
+reviewed_mh = reviewed["calibration"]["metropolis_hastings"]
+reviewed_gate = reviewed_mh["diagnostics"]
 assert reviewed_gate["require_convergence"] is True
 assert reviewed_gate["max_rhat"] == 1.01
 
@@ -478,11 +478,11 @@ common_results = {
 strict_rhat = 1.0000000000000002
 
 rejected = deepcopy(reviewed)
-rejected["results"] = common_results
-rejected[diagnostic_key]["multichain"]["diagnostics"]["max_rhat"] = strict_rhat
+rejected["output"] = common_results
+rejected["calibration"]["metropolis_hastings"]["diagnostics"]["max_rhat"] = strict_rhat
 
 retry = deepcopy(reviewed)
-retry["results"] = common_results
+retry["output"] = common_results
 
 for name, payload in (("reject.yaml", rejected), ("retry.yaml", retry)):
     (work / name).write_text(
@@ -568,8 +568,10 @@ permits exploratory pooling and would not repair the failed qualification.
 
 ## Inspect chains and traces
 
-The stable input for trace inspection is the set of per-chain tables, not the
-one-chain `monitor` or `display_traj` options. For a single-date run:
+The stable input for trace inspection is the set of per-chain tables. Setting
+`display_traj: true` can additionally generate convenience figures in each
+chain directory, but the tables below remain the auditable source. For a
+single-date run:
 
 ```python
 from pathlib import Path
@@ -608,7 +610,7 @@ inspection; they do not replace it.
 
 ## Budget the calculation
 
-The current ensemble runner executes chains sequentially. Approximate cost is
+The current runner executes chains sequentially. Approximate cost is
 therefore the sum of all pilot and production transitions:
 
 | Profile | Pilot transitions | Production transitions | Retained production rows |
@@ -622,6 +624,13 @@ therefore the sum of all pilot and production transitions:
 Wall time depends strongly on tracer histories, LPM, convolution cache,
 processor, and dependency versions. These profiles are extensive scientific
 checks, not fast smoke tests.
+
+The standard workflows load each distinct tracer history and prepare each
+tracer/date grid once per model and observation case. Pilot and production
+chains then receive fresh mutable LPM and diagnostic state over those common
+immutable inputs. Increasing `chains` therefore still multiplies the MH
+transitions shown above, but it no longer multiplies tracer file loading or
+adaptive-grid construction.
 
 ## Reproduce the executable qualifications
 

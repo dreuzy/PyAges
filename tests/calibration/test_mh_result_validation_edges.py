@@ -13,18 +13,18 @@ import pytest
 from pyages.calibration.methods.mh._result_validation import (
     _metrics_are_qualified,
     _validate_diagnostic_status,
-    _validate_ensemble_chains,
     _validate_record_configuration,
+    _validate_run_chains,
     _validate_seed_plan,
     _validate_target_signature,
 )
 from pyages.calibration.methods.mh.config import MHConfig
-from pyages.calibration.methods.mh.ensemble_config import (
-    MHEnsembleConfig,
+from pyages.calibration.methods.mh.results import MHParameterDiagnostics
+from pyages.calibration.methods.mh.run_config import (
     MHPilotConfig,
+    MHRunConfig,
     MHSeedPlan,
 )
-from pyages.calibration.methods.mh.results import MHParameterDiagnostics
 
 
 def _diagnostic(*, qualified: bool, included: bool = True) -> MHParameterDiagnostics:
@@ -42,7 +42,7 @@ def _diagnostic(*, qualified: bool, included: bool = True) -> MHParameterDiagnos
 
 def _seed_plan() -> MHSeedPlan:
     return MHSeedPlan(
-        master_seed=1,
+        seed=1,
         initialization_seeds=(2, 3),
         pilot_seeds=(4, 5),
         production_seeds=(6, 7),
@@ -74,11 +74,11 @@ def test_target_signature_rejects_noncanonical_digests(digest: object) -> None:
         _validate_target_signature(1, digest)  # type: ignore[arg-type]
 
 
-def test_ensemble_chain_collection_rejects_empty_and_foreign_values() -> None:
+def test_run_chain_collection_rejects_empty_and_foreign_values() -> None:
     with pytest.raises(ValueError, match="at least one"):
-        _validate_ensemble_chains(())
+        _validate_run_chains(())
     with pytest.raises(TypeError, match="only MHChainResult"):
-        _validate_ensemble_chains((object(),))  # type: ignore[arg-type]
+        _validate_run_chains((object(),))  # type: ignore[arg-type]
 
 
 def test_seed_plan_validation_defends_against_corrupted_deserialization() -> None:
@@ -87,8 +87,8 @@ def test_seed_plan_validation_defends_against_corrupted_deserialization() -> Non
         _validate_seed_plan(object(), chains)  # type: ignore[arg-type]
 
     invalid_master = _seed_plan()
-    object.__setattr__(invalid_master, "master_seed", True)
-    with pytest.raises(ValueError, match="master_seed"):
+    object.__setattr__(invalid_master, "seed", True)
+    with pytest.raises(ValueError, match="seed"):
         _validate_seed_plan(invalid_master, chains)  # type: ignore[arg-type]
 
     invalid_phase = _seed_plan()
@@ -146,25 +146,49 @@ def test_diagnostic_status_state_machine_rejects_incoherent_records(
             diagnostics,
             status,  # type: ignore[arg-type]
             message,
+            chain_count=2,
+        )
+
+
+def test_not_applicable_diagnostics_are_reserved_for_one_chain() -> None:
+    _validate_diagnostic_status((), "not_applicable", None, chain_count=1)
+
+    with pytest.raises(ValueError, match="exactly one chain"):
+        _validate_diagnostic_status((), "not_applicable", None, chain_count=2)
+    with pytest.raises(ValueError, match="must not contain inter-chain"):
+        _validate_diagnostic_status(
+            (_diagnostic(qualified=True),),
+            "not_applicable",
+            None,
+            chain_count=1,
+        )
+    with pytest.raises(ValueError, match="must use qualification_status"):
+        _validate_diagnostic_status((), "qualified", None, chain_count=1)
+    with pytest.raises(ValueError, match="must use qualification_status"):
+        _validate_diagnostic_status(
+            (),
+            "diagnostics_unavailable",
+            "failed",
+            chain_count=1,
         )
 
 
 def test_record_validation_checks_configuration_types_first() -> None:
-    ensemble = MHEnsembleConfig(chains=2, pilot=MHPilotConfig(enabled=False))
+    run_config = MHRunConfig(chains=2, pilot=MHPilotConfig(enabled=False))
     plan = _seed_plan()
     with pytest.raises(TypeError, match="chain_config"):
         _validate_record_configuration(
             chain_config=object(),  # type: ignore[arg-type]
-            ensemble_config=ensemble,
+            run_config=run_config,
             chains=(),
             pilot=None,
             diagnostics=(),
             seed_plan=plan,
         )
-    with pytest.raises(TypeError, match="ensemble_config"):
+    with pytest.raises(TypeError, match="run_config"):
         _validate_record_configuration(
-            chain_config=MHConfig(nstep=2, burn_in=0.0, nskip=1, monitor=False),
-            ensemble_config=object(),  # type: ignore[arg-type]
+            chain_config=MHConfig(nsteps=2, burn_in=0.0, thinning=1, monitor=False),
+            run_config=object(),  # type: ignore[arg-type]
             chains=(),
             pilot=None,
             diagnostics=(),

@@ -153,9 +153,9 @@ def _run_chain(
         }
     mh = MetropolisHastings(
         config=MHConfig(
-            nstep=steps,
+            nsteps=steps,
             burn_in=BURN_IN,
-            nskip=1,
+            thinning=1,
             prior_option=False,
             likelihood=True,
             monitor=False,
@@ -172,8 +172,7 @@ def _run_chain(
     frame = posterior.frame.copy()
     frame["t0"] = frame["shift"]
     frame["mtt"] = frame["mu"] + frame["t0"]
-    spec: dict[str, Any] = {}
-    mh.write_results_spec(spec)
+    spec = mh.result_metadata()
     return frame, float(spec["success_rate"]), runtime
 
 
@@ -756,6 +755,8 @@ def analyze_and_extend(output: Path, workers: int) -> dict[str, pd.DataFrame]:
             converged=("converged", "all"),
         )
     )
+    if not isinstance(report_table, pd.DataFrame):
+        raise TypeError("Convergence aggregation must produce a DataFrame")
     (output / "shifted_exponential_final.md").write_text(
         "# Production finale shifted-exponential\n\n"
         + _markdown(report_table)

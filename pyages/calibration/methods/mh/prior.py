@@ -103,14 +103,17 @@ class Prior:
             raise ValueError("strategy must be 'map' or 'sample'")
         if rng is None:
             rng = np.random.default_rng()
-        parameters = [
-            self._marginal(name).initial_value(
-                *lpm.get_calibration_range(name),
-                rng,
-                strategy,
+        parameters = []
+        for name in lpm.p:
+            minimum, maximum = lpm.get_calibration_range(name)
+            parameters.append(
+                self._marginal(name).initial_value(
+                    minimum,
+                    maximum,
+                    rng,
+                    strategy,
+                )
             )
-            for name in lpm.p
-        ]
         lpm.set_param_from_array(parameters)
 
     def _load_parametric_priors(self, lpm: Any) -> None:

@@ -32,7 +32,12 @@ def reject_boolean_number(value: object, info):
 class BaseConfigModel(BaseModel):
     """Strict base for all user-facing configuration models."""
 
-    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+    model_config = ConfigDict(
+        allow_inf_nan=False,
+        extra="forbid",
+        protected_namespaces=(),
+        validate_default=True,
+    )
 
 
 __all__ = ["BaseConfigModel", "reject_boolean_number", "resolve_path"]

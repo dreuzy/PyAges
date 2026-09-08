@@ -21,7 +21,7 @@ The following interfaces are intended for users:
 - documented YAML configuration fields and the result files defined in
   {doc}`outputs`.
 
-`LauncherConfig` is the canonical single-date model and preserves the nested
+`SingleDateConfig` is the canonical single-date model and preserves the nested
 YAML sections used by the workflow.
 
 Modules below `core`, `utils`, private names beginning with `_`, site-specific
@@ -78,12 +78,12 @@ imports the signature records and
 schema-version constant have this single canonical module; the problem module
 does not provide compatibility aliases.
 
-The contributor facade `pyages.calibration.methods.mh` exposes the high-level
-chain and ensemble configurations, the one-chain and multi-chain samplers,
-`MHConvergenceError`, and the immutable `MHRunRecord` produced by the ensemble
-engine. Leaf chain, pilot, diagnostic, and seed records stay in their defining
+The contributor facade `pyages.calibration.methods.mh` exposes the primitive
+one-chain kernel, the common 1..N-chain runner and its configurations,
+`MHConvergenceError`, and the immutable `MHRunRecord` produced by the managed
+run. Leaf chain, pilot, diagnostic, and seed records stay in their defining
 contributor modules instead of enlarging the facade. `MHRunRecord` owns the
-exact chain and ensemble configurations consumed by serialization; writers do
+exact chain and run configurations consumed by serialization; writers do
 not accept a second configuration source. The experimental `MHEnsembleResult`,
 `ProblemFactory`, and workflow builder aliases were removed before release of
 the multi-chain feature. Internal callable protocols and path/configuration
@@ -95,30 +95,73 @@ search interval, and `prior` for probability mass. Contributor code should use
 the prepared-LPM methods `get_calibration_ranges()`, `get_calibration_range()`,
 `get_calibration_range_width()`,
 `param_within_calibration_range()`, and
-`param_within_calibration_range_array()`. The former YAML field `bounds`, the
-`LPMParameterDefinition.bounds` property, and `get_bounds()` remain deprecated
-1.x aliases; new definitions and code use `calibration_range` consistently.
+`param_within_calibration_range_array()`. Parameter files, runtime objects, and
+Python helpers all use `calibration_range`; the former ambiguous name `bounds`
+is no longer accepted.
 
 When contributor code needs parameter metadata, it should normally call
 `load_parameter_schema()`: the returned typed, immutable object exposes the
 shared per-parameter fields (`domain`, `calibration_range`, `init`, `step`, and
 `prior`) and the aggregate `calibration_ranges`, `domains`, and
-`initial_values` properties. PyAges 1.2 retains the former module-level
-`get_calibration_ranges()`, `get_domains()`, and `get_init()` helpers for 1.x
-compatibility, but new code should use
-`load_parameter_document()` only for model-specific YAML fields that are not
-part of that shared schema; it returns a defensive, mutable copy of the raw
-document. The former `load_params()` name remains a deprecated alias in 1.2.
+`initial_values` properties. The next major-version source no longer exposes
+the former module-level `get_calibration_ranges()`, `get_domains()`,
+`get_init()`, or `load_params()` aliases. Use `load_parameter_document()` only
+for model-specific YAML fields that are not part of the shared schema; it
+returns a defensive, mutable copy of the raw document.
 
-The nested `LauncherConfig`, `load_config()`, and `load_config_payload()` APIs
-are canonical for single-date configurations. The flattened `LauncherParams`,
-`load_params()`, and `load_params_payload()` view remains importable with a
-deprecation warning for 1.0.1 consumers.
+### One unambiguous parameter-definition API
 
-Temporal workflow configurations select LPMs with `lpm_models.models`. The
-former `lpm_models.list` spelling remains a deprecated compatibility alias in
-1.2; maintained YAML files, migrated configurations, and CLI overrides use the
-canonical field.
+`LPMParameterDefinition` now has one vocabulary at every entry point:
+
+| Concept | Canonical name | Meaning |
+| --- | --- | --- |
+| Formula validity | `domain` | Every value for which the LPM formula is mathematically defined. It may be open-ended or exclude an endpoint. |
+| Calibration search | `calibration_range` | The finite closed interval explored by calibration. It must lie inside `domain`. |
+
+The former word `bounds` was ambiguous because it did not say which of those
+two intervals it described. It is therefore rejected in parameter YAML, absent
+from `LPMParameterDefinition`, and absent from the module-level helpers. A
+misspelling or an old file now fails with a message directing the contributor
+to `calibration_range`, instead of being interpreted differently depending on
+the route used.
+
+Most code should let `load_parameter_schema()` construct validated definitions
+from YAML. Direct construction remains available when a contributor genuinely
+needs an in-memory definition, but both concepts must be stated explicitly:
+
+```python
+from pyages.data_io.lpm_params import (
+    LPMParameterDefinition,
+    LPMParameterDomain,
+)
+
+parameter = LPMParameterDefinition(
+    name="mu",
+    domain=LPMParameterDomain(
+        minimum=0.0,
+        maximum=None,
+        minimum_inclusive=False,
+    ),
+    calibration_range=(0.1, 100.0),
+    init=10.0,
+    step=1.0,
+    prior=None,
+)
+```
+
+In YAML only, omitting `domain` has one documented shorthand: the closed
+`calibration_range` is also used as the mathematical domain. Direct Python
+construction deliberately has no such implicit default, because it is the
+lower-level API and should make the scientific contract visible at the call
+site.
+
+`SingleDateConfig`, `TemporalConfig`, `load_config()`, and
+`load_config_payload()` use exactly the schema-3 section names: `data`, `lpm`,
+`calibration`, `reporting` when applicable, and `output`. There is no separate
+runtime vocabulary. The flattened `LauncherParams`, `LauncherConfig`,
+`TemporalParams`, `load_params()`, and `load_params_payload()` views are
+removed in 2.0. Older field spellings are rejected; runtime and tooling expose
+only the schema-3 vocabulary.
 
 ## Compatibility policy
 

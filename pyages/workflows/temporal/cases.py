@@ -30,13 +30,13 @@ def build_case_frames(
     """Partition observations into the cases required by a temporal mode."""
     if mode == "span":
         return [("span_full", observations.frame)]
-    cases = [
-        (
-            f"date_{format_date_label(date)}",
-            observations.frame[observations.frame["date"] == date],
-        )
-        for date in sorted(observations.frame["date"].unique())
-    ]
+    frame = observations.frame
+    cases: list[tuple[str, pd.DataFrame]] = []
+    for date in sorted(frame["date"].unique()):
+        selected = frame[frame["date"] == date]
+        if not isinstance(selected, pd.DataFrame):
+            raise TypeError("Date selection did not produce a pandas DataFrame")
+        cases.append((f"date_{format_date_label(date)}", selected.copy()))
     labels = [label for label, _frame in cases]
     if len(labels) != len(set(labels)):
         raise ValueError("Distinct observation dates produce colliding case labels")

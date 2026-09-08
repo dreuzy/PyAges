@@ -18,9 +18,9 @@ not draw samples or evaluate an MH acceptance probability.
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
 
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 from scipy.interpolate import interp1d
 
 EMPIRICAL_GRID_POINTS = 101
@@ -28,9 +28,9 @@ EMPIRICAL_RELATIVE_TAIL_DECAY = 500.0
 
 
 def _validated_empirical_inputs(
-    x_data: Sequence[float],
-    y_data: Sequence[float],
-) -> tuple[np.ndarray, np.ndarray]:
+    x_data: ArrayLike,
+    y_data: ArrayLike,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     values = np.asarray(x_data, dtype=float)
     density = np.asarray(y_data, dtype=float)
     if values.ndim != 1 or density.ndim != 1 or values.shape != density.shape:
@@ -69,36 +69,36 @@ def _validate_grid_controls(
 
 
 def build_empirical_prior_grid(
-    x_data: Sequence[float],
-    y_data: Sequence[float],
+    x_data: ArrayLike,
+    y_data: ArrayLike,
     xmin: float = 0.0,
     xmax: float = 70.0,
     n_points: int = 2000,
     decay_left: float = 10.0,
     decay_right: float = 10.0,
     normalize: bool = True,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Interpolate histogram points over one bounded, normalized density grid."""
-    x_data, y_data = _validated_empirical_inputs(x_data, y_data)
+    values, density = _validated_empirical_inputs(x_data, y_data)
     _validate_grid_controls(xmin, xmax, n_points, decay_left, decay_right)
     interpolate = interp1d(
-        x_data,
-        y_data,
+        values,
+        density,
         kind="linear",
         bounds_error=False,
         fill_value=0,
     )
     x_cont = np.linspace(xmin, xmax, n_points)
     y_cont = interpolate(x_cont)
-    left_mask = x_cont < x_data.min()
-    right_mask = x_cont > x_data.max()
-    if y_data[0] > 0:
-        y_cont[left_mask] = y_data[0] * np.exp(
-            -decay_left * (x_data[0] - x_cont[left_mask])
+    left_mask = x_cont < values.min()
+    right_mask = x_cont > values.max()
+    if density[0] > 0:
+        y_cont[left_mask] = density[0] * np.exp(
+            -decay_left * (values[0] - x_cont[left_mask])
         )
-    if y_data[-1] > 0:
-        y_cont[right_mask] = y_data[-1] * np.exp(
-            -decay_right * (x_cont[right_mask] - x_data[-1])
+    if density[-1] > 0:
+        y_cont[right_mask] = density[-1] * np.exp(
+            -decay_right * (x_cont[right_mask] - values[-1])
         )
     if normalize:
         area = np.trapezoid(y_cont, x_cont)

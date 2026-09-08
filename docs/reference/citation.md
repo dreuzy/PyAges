@@ -1,7 +1,8 @@
 # Citing PyAges
 
 For software functionality, cite the exact PyAges release used. This source
-tree prepares the compatible `1.2.0` release; its machine-readable citation is
+tree records the current `1.2.0` source identity while development targets `2.0.0`;
+its machine-readable citation is
 `CITATION.cff` at the repository root and is kept synchronized with the package
 version and changelog by automated tests. Until 1.2 is published, calculations
 from this tree must also identify their exact Git commit.

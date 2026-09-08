@@ -23,7 +23,7 @@ import tarfile
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, cast
 
 import matplotlib
 
@@ -139,8 +139,10 @@ class PreparedForward:
             name: Tracer(ROOT / TRACER_DIR, name=name) for name in TRACERS
         }
         self.convolutions = [
-            Convolution(tracer_objects[row.element], date=float(row.date))
-            for row in observations.itertuples()
+            Convolution(tracer_objects[str(element)], date=float(date))
+            for element, date in observations.loc[:, ["element", "date"]].itertuples(
+                index=False, name=None
+            )
         ]
         grids = [item.prepare() for item in self.convolutions]
         all_edges = np.concatenate([grid.edges for grid in grids])
@@ -184,7 +186,9 @@ class PreparedForward:
     def predict(self, theta: np.ndarray) -> np.ndarray:
         mu, sigma, t0 = np.asarray(theta, dtype=float)
         self.model.p.update(mu=mu, sigma=sigma, shift=t0)
-        cdf, moment = self.model.cdf_and_partial_first_moment(self.edges)
+        raw_cdf, raw_moment = self.model.cdf_and_partial_first_moment(self.edges)
+        cdf = np.asarray(raw_cdf, dtype=float)
+        moment = np.asarray(raw_moment, dtype=float)
         weights = cdf[self.right] - cdf[self.left]
         centered = moment[self.right] - moment[self.left] - self.edge_left * weights
         weight_tolerance = (
@@ -216,9 +220,14 @@ class PreparedForward:
         mu, sigma, t0 = np.asarray(theta, dtype=float)
         self.model.p.update(mu=mu, sigma=sigma, shift=t0)
         tmax = np.array(
-            [max(0.0, conv.date - conv.datemin) for conv in self.convolutions]
+            [
+                max(0.0, conv.date - float(conv.tracer.datemin))
+                for conv in self.convolutions
+            ]
         )
-        return np.asarray(self.model.cdf(tmax) - self.model.cdf(0.0), dtype=float)
+        upper_mass = np.asarray(self.model.cdf(tmax), dtype=float)
+        lower_mass = np.asarray(self.model.cdf(0.0), dtype=float)
+        return upper_mass - lower_mass
 
 
 class LogPosterior:
@@ -392,20 +401,21 @@ def posterior_diagnostics(
 
 def _quadrature_reference(conv: Convolution, model: InverseGaussianShiftedLpm) -> float:
     tracer = conv.tracer
-    p0 = float(model.cdf(0.0))
-    p1 = float(model.cdf(conv.date - conv.datemin))
+    datemin = float(tracer.datemin)
+    p0 = float(np.asarray(model.cdf(0.0), dtype=float).item())
+    p1 = float(np.asarray(model.cdf(conv.date - datemin), dtype=float).item())
     if p1 <= p0:
         return 0.0
     breaks: list[float] = []
     dates = tracer.convolution_dates
     if dates is not None:
         ages = conv.date - np.asarray(dates, dtype=float)
-        ages = ages[(ages > 0.0) & (ages < conv.date - conv.datemin)]
+        ages = ages[(ages > 0.0) & (ages < conv.date - datemin)]
         candidate = np.asarray(model.cdf(ages), dtype=float)
         breaks = np.unique(candidate[(candidate > p0) & (candidate < p1)]).tolist()
 
     def integrand(probability: float) -> float:
-        age = float(model.cdf_inv(probability))
+        age = float(np.asarray(model.cdf_inv(probability), dtype=float).item())
         return float(tracer.get_concentration(conv.date - age, age))
 
     import warnings
@@ -512,6 +522,10 @@ def calibrate_experiment(
     the configured draw limit is reached. Intermediate evidence is written
     below ``output`` for later reporting and audit.
     """
+    if not seeds:
+        raise ValueError("at least one chain seed is required")
+    if production_chunk <= 0 or max_production <= 0:
+        raise ValueError("production_chunk and max_production must be positive")
     target = LogPosterior(observations)
     starts = np.array(
         [[0.15, 0.20, 0.20], [0.80, 0.20, 0.70], [0.25, 0.80, 0.75], [0.75, 0.75, 0.25]]
@@ -546,7 +560,8 @@ def calibrate_experiment(
     logp_parts: list[list[np.ndarray]] = [[] for _ in seeds]
     objective_parts: list[list[np.ndarray]] = [[] for _ in seeds]
     accept_parts: list[list[np.ndarray]] = [[] for _ in seeds]
-    diagnostics = None
+    chains: np.ndarray | None = None
+    diagnostics: pd.DataFrame | None = None
     retained = 0
     while retained < max_production:
         count = min(production_chunk, max_production - retained)
@@ -579,6 +594,8 @@ def calibrate_experiment(
             and diagnostics.tail_ess.min() >= min_ess
         ):
             break
+    if chains is None or diagnostics is None:
+        raise RuntimeError("production finished without any retained chain")
     logps = np.asarray([np.concatenate(parts) for parts in logp_parts])
     objectives = np.asarray([np.concatenate(parts) for parts in objective_parts])
     accepted = np.asarray([np.concatenate(parts) for parts in accept_parts])
@@ -603,7 +620,7 @@ def calibrate_experiment(
     summary = _summaries(chains, experiment)
     summary.to_csv(output / f"{experiment}_posterior_summary.csv", index=False)
     flat = chains.reshape(-1, 3)
-    corr = pd.DataFrame(flat, columns=PARAMETERS).corr()
+    corr = pd.DataFrame(flat, columns=pd.Index(PARAMETERS)).corr()
     corr.to_csv(output / f"{experiment}_posterior_correlations.csv")
     acf = _autocorrelation_table(chains)
     acf.to_csv(output / f"{experiment}_autocorrelation.csv", index=False)
@@ -619,9 +636,12 @@ def _prediction_frame(
     seed: int,
     draws: int,
 ) -> pd.DataFrame:
+    prediction_points = [(tracer, float(date)) for tracer in TRACERS for date in dates]
     rows = pd.DataFrame(
-        [(tracer, date) for tracer in TRACERS for date in dates],
-        columns=["element", "date"],
+        {
+            "element": [tracer for tracer, _ in prediction_points],
+            "date": [date for _, date in prediction_points],
+        }
     )
     rows["concentration"] = 1.0
     rows["error"] = 0.2
@@ -635,7 +655,10 @@ def _prediction_frame(
     rows["median"] = np.median(prediction, axis=0)
     rows["q05"] = np.quantile(prediction, 0.05, axis=0)
     rows["q95"] = np.quantile(prediction, 0.95, axis=0)
-    return rows[["experiment", "element", "date", "median", "q05", "q95"]]
+    return cast(
+        pd.DataFrame,
+        rows.loc[:, ["experiment", "element", "date", "median", "q05", "q95"]],
+    )
 
 
 def create_figure(output: Path, prediction_draws: int, prediction_seed: int) -> None:
@@ -682,10 +705,10 @@ def create_figure(output: Path, prediction_draws: int, prediction_seed: int) -> 
             label="observations ±20%" if row == 0 else None,
             zorder=3,
         )
-        focus = obs[np.isclose(obs.date, SINGLE_DATE)]
+        focus = obs.loc[np.isclose(obs["date"], SINGLE_DATE)]
         axis.scatter(
-            focus.date,
-            focus.concentration,
+            focus["date"].to_numpy(dtype=float),
+            focus["concentration"].to_numpy(dtype=float),
             s=65,
             facecolors="none",
             edgecolors="#c62828",
@@ -816,7 +839,8 @@ def _write_manifest(
 
 
 def _markdown_table(frame: pd.DataFrame, columns: list[str], digits: int = 3) -> str:
-    return markdown_table(frame.loc[:, columns], float_format=f".{digits}f")
+    selected = cast(pd.DataFrame, frame.loc[:, columns])
+    return markdown_table(selected, float_format=f".{digits}f")
 
 
 def write_report(output: Path) -> None:
@@ -843,20 +867,24 @@ def write_report(output: Path) -> None:
             }
         )
     convergence = pd.DataFrame(convergence_rows)
-    posterior = summary[
-        [
-            "experiment",
-            "parameter",
-            "mean",
-            "median",
-            "sd",
-            "q05",
-            "q10",
-            "q50",
-            "q90",
-            "q95",
-        ]
-    ]
+    posterior = cast(
+        pd.DataFrame,
+        summary.loc[
+            :,
+            [
+                "experiment",
+                "parameter",
+                "mean",
+                "median",
+                "sd",
+                "q05",
+                "q10",
+                "q50",
+                "q90",
+                "q95",
+            ],
+        ],
+    )
     comparison_rows = []
     for parameter in ("mu", "sigma", "t0", "mu_plus_t0"):
         left = single.loc[parameter, "median"]
@@ -1033,7 +1061,10 @@ def calibrate(args: argparse.Namespace, output: Path) -> None:
     """Execute both calibrated experiments and write their common manifest."""
     observations = load_observations()
     observations.to_csv(output / "validated_observations_20pct_pptv.csv", index=False)
-    single = observations[np.isclose(observations.date, SINGLE_DATE)].copy()
+    single = cast(
+        pd.DataFrame,
+        observations.loc[np.isclose(observations["date"], SINGLE_DATE)].copy(),
+    )
     if len(single) != 3:
         raise ValueError(f"Expected three observations at 2010.9, found {len(single)}")
     all_summary = []

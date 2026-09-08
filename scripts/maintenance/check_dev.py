@@ -41,7 +41,7 @@ QUICK_STEPS = (
         "Ruff format",
         (sys.executable, "-m", "ruff", "format", "--check", "."),
     ),
-    CheckStep("Progressive typing", (sys.executable, "-m", "pyright")),
+    CheckStep("Package typing", (sys.executable, "-m", "pyright")),
     CheckStep(
         "Qualified docstrings",
         (sys.executable, "-m", "scripts.maintenance.check_qualified_docstrings"),

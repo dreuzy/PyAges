@@ -21,7 +21,7 @@ from pathlib import Path
 
 from pyages.calibration.methods.mh import MHConvergenceError
 from pyages.concentrations import Concentrations
-from pyages.config.models import TemporalCalibrationCfg, TemporalFiguresCfg
+from pyages.config.models import TemporalCalibrationCfg, TemporalReportingCfg
 from pyages.config.paths import result_subdirectory
 from pyages.data_io.concentrations import save_concentrations_table
 from pyages.reporting.plots import plot_observations_overview
@@ -42,7 +42,7 @@ def _run_temporal_cases(
     models: list[str],
     lpm_directory: Path,
     calibration_cfg: TemporalCalibrationCfg,
-    figures_cfg: TemporalFiguresCfg,
+    figures_cfg: TemporalReportingCfg,
     *,
     written_case_directories: list[Path] | None = None,
 ) -> list[Path]:
@@ -81,8 +81,8 @@ def _manifest_details(context, case_directories: list[Path]) -> dict[str, object
         "mode": context.mode,
         "lpms": context.models,
         "observation_error_policy": {
-            "error_rel": context.params.dataset.error_rel,
-            "missing_error_rel": context.params.dataset.missing_error_rel,
+            "error_rel": context.params.data.error_rel,
+            "missing_error_rel": context.params.data.missing_error_rel,
             "transformations": context.observations.error_provenance,
         },
         "case_directories": [
@@ -123,7 +123,7 @@ def run_temporal(params_path: str | Path) -> Path:
             context.models,
             context.lpm_directory,
             context.params.calibration,
-            context.params.figures,
+            context.params.reporting,
             written_case_directories=written_case_directories,
         )
     except MHConvergenceError as error:

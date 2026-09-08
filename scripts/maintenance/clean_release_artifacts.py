@@ -42,7 +42,7 @@ PYTHON_CACHE_ROOTS = (
 
 def _artifact_candidates(repository: Path, *, include_caches: bool) -> list[Path]:
     """Return explicit and recursively discovered cleanup candidates."""
-    names = list(ARTIFACT_DIRECTORIES)
+    names: list[str] = list(ARTIFACT_DIRECTORIES)
     if not include_caches:
         return [repository / name for name in names]
 

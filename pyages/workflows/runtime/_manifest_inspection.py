@@ -13,7 +13,7 @@ import os
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeGuard
 
 from pyages.workflows.runtime._manifest_artifacts import (
     _RUN_STATE_FILENAME,
@@ -58,7 +58,7 @@ _RUN_STATE_FIELDS = {
 }
 
 
-def _is_sha256_digest(value: object) -> bool:
+def _is_sha256_digest(value: object) -> TypeGuard[str]:
     """Return whether ``value`` is one canonical lowercase SHA-256 digest."""
     return (
         isinstance(value, str)

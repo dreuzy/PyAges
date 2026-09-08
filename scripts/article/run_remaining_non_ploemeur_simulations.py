@@ -23,6 +23,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.lines import Line2D
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -97,6 +98,21 @@ def _markdown(frame: pd.DataFrame, *, index: bool = False) -> str:
             rendered.append(text.replace("|", "\\|"))
         lines.append("| " + " | ".join(rendered) + " |")
     return "\n".join(lines)
+
+
+def _require_frame(value: object, context: str) -> pd.DataFrame:
+    """Require a DataFrame at a Pandas operation with a broad stub type."""
+    if not isinstance(value, pd.DataFrame):
+        raise TypeError(f"{context} must produce a DataFrame")
+    return value
+
+
+def _missing_scalar(value: object, context: str) -> bool:
+    """Test one scalar for missingness and reject array-shaped values."""
+    missing = pd.isna(value)
+    if not isinstance(missing, (bool, np.bool_)):
+        raise TypeError(f"{context} must be a scalar value")
+    return bool(missing)
 
 
 def _git(*args: str) -> str:
@@ -236,10 +252,14 @@ def _representative_diagnostics(
 ) -> pd.DataFrame:
     rows = []
     for well, group in samples.groupby("well_id", sort=False):
-        medians = group[list(BIN_ORDER)].median().to_numpy(float)
-        distance = np.square(group[list(BIN_ORDER)].to_numpy(float) - medians).sum(
-            axis=1
+        parameters = _require_frame(
+            group.loc[:, list(BIN_ORDER)], "Holten parameter selection"
         )
+        median_series = parameters.median()
+        if not isinstance(median_series, pd.Series):
+            raise TypeError("Holten parameter medians must produce a Series")
+        medians = median_series.to_numpy(float)
+        distance = np.square(parameters.to_numpy(float) - medians).sum(axis=1)
         draw = group.iloc[int(np.argmin(distance))]
         total = 0.0
         local = []
@@ -296,7 +316,7 @@ def _figure3(comparison: pd.DataFrame, path: Path) -> None:
     axes[0].set_yticks(y, comparison["well_id"].tolist())
     axes[0].invert_yaxis()
     handles = [
-        plt.Line2D(
+        Line2D(
             [],
             [],
             color="#b03a2e",
@@ -304,7 +324,7 @@ def _figure3(comparison: pd.DataFrame, path: Path) -> None:
             linestyle="None",
             label="Visser et al. (2013)",
         ),
-        plt.Line2D(
+        Line2D(
             [],
             [],
             color="#173f73",
@@ -312,7 +332,7 @@ def _figure3(comparison: pd.DataFrame, path: Path) -> None:
             linewidth=4,
             label="PyAges H4 median and q10–q90",
         ),
-        plt.Line2D(
+        Line2D(
             [],
             [],
             color="none",
@@ -346,7 +366,7 @@ def run_holten(output: Path) -> dict[str, Path]:
         samples = sample_all_wells_4bin_mh(
             prepared,
             endmembers,
-            nstep=HOLTEN_STEPS,
+            nsteps=HOLTEN_STEPS,
             burn_in=HOLTEN_BURN_IN,
             proposal_scale=HOLTEN_PROPOSAL_SCALE,
             seed=HOLTEN_SEED,
@@ -380,7 +400,7 @@ def run_holten(output: Path) -> dict[str, Path]:
         reported = row["3He_err_raw"]
         source = (
             "reported by Visser"
-            if pd.notna(reported)
+            if not _missing_scalar(reported, "reported helium uncertainty")
             else "0.5 TU imputed as median of six reported values"
         )
         audit_rows.append(
@@ -524,8 +544,7 @@ def run_mcmc(output: Path) -> dict[str, Path]:
                 frame["mu_plus_t0"] = frame["mu"] + frame["shift"]
                 chain_path = chain_dir / f"{case_name}_n{steps}_seed{seed}.csv"
                 frame.to_csv(chain_path, index=False)
-                result_spec: dict[str, Any] = {}
-                mh.write_results_spec(result_spec)
+                result_spec = mh.result_metadata()
                 run_rows.append(
                     {
                         "case": case_name,
@@ -535,7 +554,7 @@ def run_mcmc(output: Path) -> dict[str, Path]:
                         "seed": seed,
                         "is_reference": steps == 10_000,
                         "burn_in_fraction": MCMC_BURN_IN,
-                        "nskip": MCMC_SKIP,
+                        "thinning": MCMC_SKIP,
                         "stored_samples": len(frame),
                         "acceptance_rate": float(result_spec["success_rate"]),
                         "best_sqrt_J_data_over_m": float(frame["obj_function"].min()),
@@ -565,10 +584,11 @@ def run_mcmc(output: Path) -> dict[str, Path]:
     runs = pd.DataFrame(run_rows)
     summaries = pd.DataFrame(summary_rows)
     differences = _comparison_metrics(summaries)
-    run_pass = (
-        differences.groupby(["case", "steps", "seed"], as_index=False)["parameter_pass"]
-        .all()
-        .rename(columns={"parameter_pass": "all_criteria_pass"})
+    run_pass = _require_frame(
+        differences.groupby(["case", "steps", "seed"], as_index=False).agg(
+            all_criteria_pass=("parameter_pass", "all")
+        ),
+        "MCMC run-level pass aggregation",
     )
     run_pass = run_pass.merge(
         runs.loc[~runs["is_reference"]], on=["case", "steps", "seed"], how="left"
@@ -580,15 +600,14 @@ def run_mcmc(output: Path) -> dict[str, Path]:
     run_pass["runtime_ratio_case_reference"] = (
         run_pass["runtime_seconds"] / run_pass["reference_runtime_seconds"]
     )
-    pass_summary = (
-        run_pass.groupby("steps", as_index=False)
-        .agg(
+    pass_summary = _require_frame(
+        run_pass.groupby("steps", as_index=False).agg(
             runs=("all_criteria_pass", "size"),
             passes=("all_criteria_pass", "sum"),
             median_runtime_ratio=("runtime_ratio_case_reference", "median"),
-        )
-        .sort_values("steps", ascending=False)
-    )
+        ),
+        "MCMC pass summary aggregation",
+    ).sort_values(by="steps", ascending=False)
     cases_with_any_pass = (
         run_pass.loc[run_pass["all_criteria_pass"]]
         .groupby("steps")["case"]
@@ -600,16 +619,15 @@ def run_mcmc(output: Path) -> dict[str, Path]:
         pass_summary["cases_with_any_pass"].fillna(0).astype(int)
     )
     pass_summary["pass_rate"] = pass_summary["passes"] / pass_summary["runs"]
-    runtime_summary = (
-        runs.groupby("steps", as_index=False)
-        .agg(
+    runtime_summary = _require_frame(
+        runs.groupby("steps", as_index=False).agg(
             n_runs=("runtime_seconds", "size"),
             runtime_mean_seconds=("runtime_seconds", "mean"),
             runtime_median_seconds=("runtime_seconds", "median"),
             runtime_sd_seconds=("runtime_seconds", "std"),
-        )
-        .sort_values("steps", ascending=False)
-    )
+        ),
+        "MCMC runtime summary aggregation",
+    ).sort_values(by="steps", ascending=False)
     reference_mean = float(
         runtime_summary.loc[
             runtime_summary["steps"] == 10_000, "runtime_mean_seconds"
@@ -749,9 +767,8 @@ def write_reports(output: Path) -> dict[str, Path]:
     h3 = holten_metrics.set_index("configuration").loc["H3"]
     h4 = holten_metrics.set_index("configuration").loc["H4"]
     h4_better = bool(h4["mae"] < h3["mae"])
-    run_diagnostics = (
-        runs.groupby("steps", as_index=False)
-        .agg(
+    run_diagnostics = _require_frame(
+        runs.groupby("steps", as_index=False).agg(
             runs=("seed", "size"),
             acceptance_min=("acceptance_rate", "min"),
             acceptance_mean=("acceptance_rate", "mean"),
@@ -759,46 +776,57 @@ def write_reports(output: Path) -> dict[str, Path]:
             best_sqrt_J_min=("best_sqrt_J_data_over_m", "min"),
             best_sqrt_J_median=("best_sqrt_J_data_over_m", "median"),
             best_sqrt_J_max=("best_sqrt_J_data_over_m", "max"),
-        )
-        .sort_values("steps", ascending=False)
+        ),
+        "MCMC diagnostic aggregation",
+    ).sort_values(by="steps", ascending=False)
+    posterior_display = _require_frame(
+        summaries.loc[
+            :,
+            [
+                "case",
+                "target_mu",
+                "target_t0",
+                "steps",
+                "seed",
+                "is_reference",
+                "parameter",
+                "mean",
+                "median",
+                "sd",
+                "q025",
+                "q10",
+                "q25",
+                "q75",
+                "q90",
+                "q975",
+                "acf1_stored",
+                "ess_approx",
+            ],
+        ],
+        "MCMC posterior display selection",
     )
-    posterior_display = summaries[
-        [
-            "case",
-            "target_mu",
-            "target_t0",
-            "steps",
-            "seed",
-            "is_reference",
-            "parameter",
-            "mean",
-            "median",
-            "sd",
-            "q025",
-            "q10",
-            "q25",
-            "q75",
-            "q90",
-            "q975",
-            "acf1_stored",
-            "ess_approx",
-        ]
-    ]
 
-    audit_display = audit[
-        [
-            "well",
-            "observable_helium_visser",
-            "observable_helium_pyages_historical",
-            "unit",
-            "uncertainty",
-            "uncertainty_provenance",
-            "equivalent",
-        ]
-    ]
-    objective = diagnostics.groupby(["configuration", "well"], as_index=False)[
-        "objective_total"
-    ].first()
+    audit_display = _require_frame(
+        audit.loc[
+            :,
+            [
+                "well",
+                "observable_helium_visser",
+                "observable_helium_pyages_historical",
+                "unit",
+                "uncertainty",
+                "uncertainty_provenance",
+                "equivalent",
+            ],
+        ],
+        "Holten audit display selection",
+    )
+    objective = _require_frame(
+        diagnostics.groupby(["configuration", "well"], as_index=False).agg(
+            objective_total=("objective_total", "first")
+        ),
+        "Holten objective aggregation",
+    )
     holten_report = f"""# Requalification du ³He tritiogénique dans le benchmark Holten
 
 ## Décision
@@ -819,7 +847,7 @@ Chaîne de traçabilité : `visser_data.xlsx` / feuille `sampling_data` / champ 
 
 ## Protocole H3/H4
 
-Les deux configurations utilisent les classes 0–20, 20–40, 40–60 et >60 ans, le même paramétrage stick-breaking, les mêmes contraintes, la même mesure implicite dans l'espace `z` sans prior paramétrique additionnel, `nstep={HOLTEN_STEPS}`, burn-in {HOLTEN_BURN_IN:.0%}, proposal scale {HOLTEN_PROPOSAL_SCALE}, seed de base {HOLTEN_SEED} et décalage de seed +101 par puits. Les erreurs des observables communes sont strictement identiques. H3 ajuste ³H, ⁸⁵Kr, ³⁹Ar; H4 ajuste ³H, ³He tritiogénique, ⁸⁵Kr, ³⁹Ar.
+Les deux configurations utilisent les classes 0–20, 20–40, 40–60 et >60 ans, le même paramétrage stick-breaking, les mêmes contraintes, la même mesure implicite dans l'espace `z` sans prior paramétrique additionnel, `nsteps={HOLTEN_STEPS}`, burn-in {HOLTEN_BURN_IN:.0%}, proposal scale {HOLTEN_PROPOSAL_SCALE}, seed de base {HOLTEN_SEED} et décalage de seed +101 par puits. Les erreurs des observables communes sont strictement identiques. H3 ajuste ³H, ⁸⁵Kr, ³⁹Ar; H4 ajuste ³H, ³He tritiogénique, ⁸⁵Kr, ³⁹Ar.
 
 ## Comparaison aux 28 fractions Visser
 

@@ -37,7 +37,7 @@ def new_group():
 def new_config(destination: Path, kind: str) -> None:
     """Create a self-contained quickstart project in DESTINATION.
 
-    The generated schema-2 configuration and synthetic observations run from
+    The generated schema-3 configuration and synthetic observations run from
     an installed PyAges package; a Git source checkout is not required.
 
     \b

@@ -15,23 +15,23 @@ import numpy as np
 import pytest
 from scipy.stats import truncnorm
 
-from pyages.calibration.methods.mh import ensemble_config
+from pyages.calibration.methods.mh import run_config
 from pyages.calibration.methods.mh._prior_marginals import (
     EmpiricalMarginal,
     NormalMarginal,
     PriorMarginal,
     UniformMarginal,
 )
-from pyages.calibration.methods.mh.ensemble_config import (
+from pyages.calibration.methods.mh.initialization import build_initial_states
+from pyages.calibration.methods.mh.prior import Prior
+from pyages.calibration.methods.mh.run_config import (
     MHDiagnosticsConfig,
-    MHEnsembleConfig,
     MHInitializationConfig,
     MHPilotConfig,
+    MHRunConfig,
     MHSeedPlan,
     build_seed_plan,
 )
-from pyages.calibration.methods.mh.initialization import build_initial_states
-from pyages.calibration.methods.mh.prior import Prior
 
 
 class _TwoParameterModel:
@@ -81,30 +81,57 @@ def _parametric_prior() -> Prior:
     )
 
 
-@pytest.mark.parametrize("chains", [True, 1, 0, -2, 2.5])
-def test_ensemble_config_requires_at_least_two_integer_chains(chains) -> None:
+@pytest.mark.parametrize("chains", [True, 0, -2, 2.5])
+def test_run_config_requires_a_positive_integer_chain_count(chains) -> None:
     with pytest.raises(ValueError, match="chains"):
-        MHEnsembleConfig(chains=chains)
+        MHRunConfig(chains=chains)
+
+
+def test_first_production_seed_is_stable_when_chain_count_changes() -> None:
+    one_chain = MHRunConfig(chains=1, seed=7123)
+    multiple_chains = MHRunConfig(chains=4, seed=7123)
+
+    one_plan = build_seed_plan(one_chain)
+    multiple_plan = build_seed_plan(multiple_chains)
+
+    assert one_plan.chain_count == 1
+    assert one_plan.production_seeds == multiple_plan.production_seeds[:1]
+    assert one_plan.production_seeds != (7123,)
+    assert (
+        len(
+            set(
+                one_plan.initialization_seeds
+                + one_plan.pilot_seeds
+                + one_plan.production_seeds
+            )
+        )
+        == 3
+    )
+
+
+def test_removed_chain_default_initialization_is_rejected() -> None:
+    with pytest.raises(ValueError, match="Unknown initialization strategy"):
+        MHInitializationConfig(strategy="chain_default")
 
 
 @pytest.mark.parametrize("seed", [True, -1, 1.5, "12"])
-def test_ensemble_config_rejects_invalid_master_seed(seed) -> None:
-    with pytest.raises(ValueError, match="master_seed"):
-        MHEnsembleConfig(master_seed=seed)
+def test_run_config_rejects_invalid_seed(seed) -> None:
+    with pytest.raises(ValueError, match="seed"):
+        MHRunConfig(seed=seed)
 
 
-def test_omitted_master_seed_is_realized_and_recorded(monkeypatch) -> None:
-    monkeypatch.setattr(ensemble_config.secrets, "randbits", lambda bits: 987_654)
+def test_omitted_seed_is_realized_and_recorded(monkeypatch) -> None:
+    monkeypatch.setattr(run_config.secrets, "randbits", lambda bits: 987_654)
 
-    config = MHEnsembleConfig(master_seed=None)
+    config = MHRunConfig(seed=None)
     plan = build_seed_plan(config)
 
-    assert config.master_seed == 987_654
-    assert plan.master_seed == 987_654
+    assert config.seed == 987_654
+    assert plan.seed == 987_654
 
 
 def test_seed_plan_is_reproducible_distinct_and_phase_separated() -> None:
-    config = MHEnsembleConfig(chains=4, master_seed=20260830)
+    config = MHRunConfig(chains=4, seed=20260830)
 
     first = build_seed_plan(config)
     second = build_seed_plan(config)
@@ -132,7 +159,7 @@ def test_seed_plan_detaches_mutable_phase_sequences() -> None:
 
 
 def test_configuration_objects_are_frozen() -> None:
-    config = MHEnsembleConfig()
+    config = MHRunConfig()
 
     assert config.initialization.strategy == "bounds_stratified"
     with pytest.raises(FrozenInstanceError):
@@ -173,7 +200,10 @@ def test_explicit_initialization_rejects_invalid_states(start, message) -> None:
         (lambda: MHInitializationConfig(max_attempts=0), "max_attempts"),
         (lambda: MHPilotConfig(burn_in=1.0), "burn_in"),
         (lambda: MHPilotConfig(burn_in=False), "burn_in"),
-        (lambda: MHPilotConfig(nstep=4, burn_in=0.5), "two covariance draws"),
+        (
+            lambda: MHPilotConfig(enabled=True, nsteps=4, burn_in=0.5),
+            "two covariance draws",
+        ),
         (lambda: MHPilotConfig(relative_ridge=-1.0), "relative_ridge"),
         (lambda: MHDiagnosticsConfig(max_rhat=0.99), "max_rhat"),
         (lambda: MHDiagnosticsConfig(min_tail_ess=0.0), "min_tail_ess"),

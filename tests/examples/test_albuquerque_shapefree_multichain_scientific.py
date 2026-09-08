@@ -55,34 +55,33 @@ def _read_key_values(path: Path) -> dict[str, str]:
 def _scientific_payload() -> dict:
     """Load and pin the maintained exploratory protocol used by this test."""
     teaching = yaml.safe_load(TEACHING_CONFIG.read_text(encoding="utf-8"))
-    assert "multichain" not in teaching["calibration_metropolis_hastings"]
+    assert "multichain" not in teaching["calibration"]["metropolis_hastings"]
 
     payload = yaml.safe_load(MULTICHAIN_CONFIG.read_text(encoding="utf-8"))
-    payload["dataset"]["data_dir"] = str(OBSERVATIONS.parent)
-    payload["dataset"]["verbose"] = False
-    payload["lpm"]["data_directory"] = str(LPM_DIRECTORY)
-    mh = payload["calibration_metropolis_hastings"]
-    multichain = mh["multichain"]
-    assert (mh["nstep"], mh["burn_in"], mh["nskip"]) == (
+    payload["data"]["data_dir"] = str(OBSERVATIONS.parent)
+    payload["data"]["verbose"] = False
+    payload["lpm"]["directory"] = str(LPM_DIRECTORY)
+    mh = payload["calibration"]["metropolis_hastings"]
+    assert (mh["nsteps"], mh["burn_in"], mh["thinning"]) == (
         PRODUCTION_STEPS,
         BURN_IN,
         1,
     )
     assert mh["prior_option"] is True
-    assert (multichain["chains"], multichain["master_seed"]) == (
+    assert (mh["chains"], mh["seed"]) == (
         CHAIN_COUNT,
         20260904,
     )
-    assert multichain["initialization"]["strategy"] == "bounds_stratified"
-    assert multichain["pilot"] == {
+    assert mh["initialization"]["strategy"] == "bounds_stratified"
+    assert mh["pilot"] == {
         "enabled": True,
-        "nstep": 1_000,
+        "nsteps": 1_000,
         "burn_in": 0.5,
         "relative_ridge": 1.0e-6,
         "proposal_multiplier": "auto",
         "save_samples": False,
     }
-    assert multichain["diagnostics"] == {
+    assert mh["diagnostics"] == {
         "max_rhat": 1.10,
         "min_bulk_ess": 50,
         "min_tail_ess": 50,
@@ -272,10 +271,10 @@ def test_albuquerque_shapefree_multichain_scientific_characterization(
     assert pooled["obj_function"].median() < 0.5 * default_objective
 
     results = _read_key_values(mh_directory / "results_calibration.txt")
-    provenance = _read_key_values(mh_directory / "ensemble_provenance.txt")
+    provenance = _read_key_values(mh_directory / "run_provenance.txt")
     assert results["qualification_status"] == "not_qualified"
     assert results["pooling_written"] == "True"
-    assert provenance["master_seed"] == "20260904"
+    assert provenance["seed"] == "20260904"
     assert provenance["qualification_status"] == "not_qualified"
 
     manifest = json.loads((output / "result_manifest.json").read_text("utf-8"))

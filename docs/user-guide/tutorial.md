@@ -31,7 +31,7 @@ the installed version.
 
 ## 3. Generate a self-contained example
 
-Create a local project. It contains its own schema-2 configuration, synthetic
+Create a local project. It contains its own schema-3 configuration, synthetic
 observations, and result directory, and does not depend on repository examples:
 
 ```bash

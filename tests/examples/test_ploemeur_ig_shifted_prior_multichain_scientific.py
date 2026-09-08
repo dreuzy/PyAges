@@ -64,33 +64,32 @@ def _read_key_values(path: Path) -> dict[str, str]:
 def _scientific_payload() -> dict:
     """Load and check the exact maintained prior-active protocol."""
     payload = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
-    payload["dataset"]["data_dir"] = str(DATA.parent)
-    payload["dataset"]["verbose"] = False
-    payload["lpm"]["data_directory"] = str(LPM_DIRECTORY)
-    assert payload["dataset"]["missing_error_rel"] == 0.20
-    assert payload["lpm"]["model_name"] == "ig_shifted"
-    mh = payload["calibration_metropolis_hastings"]
-    assert (mh["nstep"], mh["burn_in"], mh["nskip"]) == (
+    payload["data"]["data_dir"] = str(DATA.parent)
+    payload["data"]["verbose"] = False
+    payload["lpm"]["directory"] = str(LPM_DIRECTORY)
+    assert payload["data"]["missing_error_rel"] == 0.20
+    assert payload["lpm"]["models"] == ["ig_shifted"]
+    mh = payload["calibration"]["metropolis_hastings"]
+    assert (mh["nsteps"], mh["burn_in"], mh["thinning"]) == (
         PRODUCTION_STEPS,
         BURN_IN,
         1,
     )
     assert mh["prior_option"] is True
-    multichain = mh["multichain"]
-    assert (multichain["chains"], multichain["master_seed"]) == (
+    assert (mh["chains"], mh["seed"]) == (
         CHAIN_COUNT,
         20260831,
     )
-    assert multichain["initialization"]["strategy"] == "prior_sample"
-    assert multichain["pilot"] == {
+    assert mh["initialization"]["strategy"] == "prior_sample"
+    assert mh["pilot"] == {
         "enabled": True,
-        "nstep": 5_000,
+        "nsteps": 5_000,
         "burn_in": 0.75,
         "relative_ridge": 1.0e-6,
         "proposal_multiplier": "auto",
         "save_samples": False,
     }
-    assert multichain["diagnostics"] == {
+    assert mh["diagnostics"] == {
         "max_rhat": MAX_RHAT,
         "min_bulk_ess": MIN_ESS,
         "min_tail_ess": MIN_ESS,
@@ -101,13 +100,13 @@ def _scientific_payload() -> dict:
 
 def test_ploemeur_ig_shifted_prior_multichain_protocol() -> None:
     """Keep the maintained YAML on the validated prior-sampling path."""
-    config = load_config_payload(ROOT, _scientific_payload())
-    mh = config.calibration_metropolis_hastings
-    assert config.lpm.model_name == "ig_shifted"
+    config = load_config_payload(CONFIG.parent, _scientific_payload())
+    mh = config.calibration.metropolis_hastings
+    assert config.lpm.models == ["ig_shifted"]
     assert mh.prior_option is True
-    assert mh.multichain.initialization.strategy == "prior_sample"
-    assert mh.multichain.pilot.nstep == 5_000
-    assert mh.multichain.pilot.burn_in == 0.75
+    assert mh.initialization.strategy == "prior_sample"
+    assert mh.pilot.nsteps == 5_000
+    assert mh.pilot.burn_in == 0.75
 
 
 @pytest.mark.extensive
@@ -293,10 +292,10 @@ def test_ploemeur_ig_shifted_prior_multichain_qualification(
     assert np.all((lower_prediction <= observed) & (observed <= upper_prediction))
 
     results = _read_key_values(mh_directory / "results_calibration.txt")
-    provenance = _read_key_values(mh_directory / "ensemble_provenance.txt")
+    provenance = _read_key_values(mh_directory / "run_provenance.txt")
     assert results["qualification_status"] == "qualified"
     assert results["pooling_written"] == "True"
-    assert provenance["master_seed"] == "20260831"
+    assert provenance["seed"] == "20260831"
     assert provenance["qualification_status"] == "qualified"
     assert (
         len(

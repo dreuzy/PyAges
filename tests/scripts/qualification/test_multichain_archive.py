@@ -37,8 +37,8 @@ def _qualified_result(root: Path, config: Path) -> Path:
         method / "results_calibration.txt": (
             "qualification_status\tqualified\npooling_written\tTrue\n"
         ),
-        method / "ensemble_provenance.txt": (
-            "execution_mode\tmulti_chain\nqualification_status\tqualified\n"
+        method / "run_provenance.txt": (
+            "chain_count\t2\nqualification_status\tqualified\n"
         ),
         method / "chains/chain_001/lpm_dist_calibrated.txt": "mu\n1.0\n",
         method / "chains/chain_002/lpm_dist_calibrated.txt": "mu\n2.0\n",

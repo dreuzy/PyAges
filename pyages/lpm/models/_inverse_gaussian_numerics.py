@@ -17,97 +17,84 @@ moment and does not use this numerical fallback.
 import warnings
 
 import numpy as np
-import numpy.typing as npt
 from scipy.optimize import brentq
 from scipy.stats import invgauss
 
-from pyages.lpm.core.lpm_scipy import LpmScipy
 
+def inverse_gaussian_quantiles(
+    probabilities: np.ndarray,
+    scipy_params: tuple[tuple, float, float],
+):
+    """Return exact endpoints and robust interior IG quantiles."""
+    args, loc, scale = scipy_params
+    flat_probabilities = probabilities.reshape(-1)
+    quantiles = np.empty_like(flat_probabilities)
 
-class _InverseGaussianLpmBase(LpmScipy):
-    """Share inverse-Gaussian-specific quantile handling between LPMs."""
+    lower_endpoint = flat_probabilities == 0.0
+    upper_endpoint = flat_probabilities == 1.0
+    interior = ~(lower_endpoint | upper_endpoint)
+    quantiles[lower_endpoint] = loc
+    quantiles[upper_endpoint] = np.inf
 
-    scipy_dist = invgauss
-
-    def cdf_inv(self, p: npt.ArrayLike) -> npt.ArrayLike:
-        """Return exact endpoints and robust interior IG quantiles.
-
-        SciPy's PPF is preserved for every probability strictly between zero
-        and one. A scalar CDF inversion is used only when that PPF returns a
-        non-finite value, which can occur for extreme inverse-Gaussian
-        parameters or probabilities.
-        """
-        args, loc, scale = self._scipy_params()
-        probabilities = self._validated_probabilities(p)
-        flat_probabilities = probabilities.reshape(-1)
-        quantiles = np.empty_like(flat_probabilities)
-
-        lower_endpoint = flat_probabilities == 0.0
-        upper_endpoint = flat_probabilities == 1.0
-        interior = ~(lower_endpoint | upper_endpoint)
-        quantiles[lower_endpoint] = loc
-        quantiles[upper_endpoint] = np.inf
-
-        if np.any(interior):
-            interior_probabilities = flat_probabilities[interior]
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore",
-                    message=".*inverse_gaussian_distribution.*",
-                    category=RuntimeWarning,
-                )
-                interior_quantiles = np.asarray(
-                    self.scipy_dist.ppf(
-                        interior_probabilities,
-                        *args,
-                        loc=loc,
-                        scale=scale,
-                    ),
-                    dtype=float,
-                )
-
-            non_finite = ~np.isfinite(interior_quantiles)
-            if np.any(non_finite):
-                interior_quantiles[non_finite] = [
-                    self._invert_cdf(float(probability), args, loc, scale)
-                    for probability in interior_probabilities[non_finite]
-                ]
-            quantiles[interior] = interior_quantiles
-
-        if probabilities.ndim == 0:
-            return float(quantiles[0])
-        return quantiles.reshape(probabilities.shape)
-
-    def _invert_cdf(
-        self,
-        probability: float,
-        args: tuple,
-        loc: float,
-        scale: float,
-    ) -> float:
-        """Invert one interior probability after a non-finite SciPy PPF."""
-        mean = float(self.scipy_dist.mean(*args, loc=loc, scale=scale))
-        std = float(self.scipy_dist.std(*args, loc=loc, scale=scale))
-        upper = loc + max(mean - loc, std, 1.0)
-
-        while (
-            float(self.scipy_dist.cdf(upper, *args, loc=loc, scale=scale)) < probability
-        ):
-            width = upper - loc
-            if not np.isfinite(width) or width >= np.finfo(float).max / 2.0:
-                raise RuntimeError(
-                    "Could not bracket an inverse-Gaussian quantile for "
-                    f"probability {probability}"
-                )
-            upper = loc + 2.0 * width
-
-        return float(
-            brentq(
-                lambda age: (
-                    float(self.scipy_dist.cdf(age, *args, loc=loc, scale=scale))
-                    - probability
-                ),
-                loc,
-                upper,
+    if np.any(interior):
+        interior_probabilities = flat_probabilities[interior]
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=".*inverse_gaussian_distribution.*",
+                category=RuntimeWarning,
             )
-        )
+            interior_quantiles = np.asarray(
+                invgauss.ppf(
+                    interior_probabilities,
+                    *args,
+                    loc=loc,
+                    scale=scale,
+                ),
+                dtype=float,
+            )
+
+        non_finite = ~np.isfinite(interior_quantiles)
+        if np.any(non_finite):
+            interior_quantiles[non_finite] = [
+                _invert_cdf(float(probability), args, loc, scale)
+                for probability in interior_probabilities[non_finite]
+            ]
+        quantiles[interior] = interior_quantiles
+
+    if probabilities.ndim == 0:
+        return float(quantiles[0])
+    return quantiles.reshape(probabilities.shape)
+
+
+def _invert_cdf(
+    probability: float,
+    args: tuple,
+    loc: float,
+    scale: float,
+) -> float:
+    """Invert one interior probability after a non-finite SciPy PPF."""
+    mean = float(np.asarray(invgauss.mean(*args, loc=loc, scale=scale), dtype=float))
+    std = float(np.asarray(invgauss.std(*args, loc=loc, scale=scale), dtype=float))
+    upper = loc + max(mean - loc, std, 1.0)
+
+    while float(invgauss.cdf(upper, *args, loc=loc, scale=scale)) < probability:
+        width = upper - loc
+        if not np.isfinite(width) or width >= np.finfo(float).max / 2.0:
+            raise RuntimeError(
+                "Could not bracket an inverse-Gaussian quantile for "
+                f"probability {probability}"
+            )
+        upper = loc + 2.0 * width
+
+    root = brentq(
+        lambda age: float(invgauss.cdf(age, *args, loc=loc, scale=scale)) - probability,
+        loc,
+        upper,
+    )
+    if isinstance(root, tuple):
+        root = root[0]
+    return float(root)
+
+
+__all__ = ["inverse_gaussian_quantiles"]

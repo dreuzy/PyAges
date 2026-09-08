@@ -81,28 +81,16 @@ def test_load_parameter_schema_is_typed_and_immutable(tmp_path) -> None:
         schema.parameters[0].prior["type"] = "normal"
 
 
-@pytest.mark.parametrize(
-    ("accessor_name", "property_name"),
-    [
-        ("get_calibration_ranges", "calibration_ranges"),
-        ("get_bounds", "calibration_ranges"),
-        ("get_domains", "domains"),
-        ("get_init", "initial_values"),
-    ],
-)
-def test_deprecated_schema_accessors_delegate_to_properties(
-    tmp_path,
-    accessor_name,
-    property_name,
-) -> None:
+def test_removed_schema_accessor_aliases_are_absent(tmp_path) -> None:
     _write_params(tmp_path)
     schema = lpm_params.load_parameter_schema("custom", tmp_path)
-    accessor = getattr(lpm_params, accessor_name)
 
-    with pytest.warns(DeprecationWarning, match="deprecated"):
-        actual = accessor(schema)
-
-    assert actual == getattr(schema, property_name)
+    assert schema.calibration_ranges["mu"] == (0.1, 100.0)
+    assert schema.domains["mu"].minimum == 0.1
+    assert schema.initial_values["mu"] == 10.0
+    for name in ("get_calibration_ranges", "get_domains", "get_init"):
+        assert name not in lpm_params.__all__
+        assert not hasattr(lpm_params, name)
 
 
 def test_explicit_domain_is_distinct_from_the_calibration_range() -> None:
@@ -131,29 +119,22 @@ def test_explicit_domain_is_distinct_from_the_calibration_range() -> None:
     assert parameter.calibration_range == (0.1, 100.0)
 
 
-def test_bounds_alias_remains_compatible_and_cannot_be_ambiguous() -> None:
-    with pytest.warns(DeprecationWarning, match="bounds"):
-        schema = lpm_params.parse_parameter_schema(
-            {
-                "model": "custom",
-                "parameters": [{"name": "mu", "bounds": [0.1, 100.0], "init": 10.0}],
-            }
-        )
-    with pytest.warns(DeprecationWarning, match="bounds"):
-        assert schema.parameters[0].bounds == (0.1, 100.0)
+@pytest.mark.parametrize("with_calibration_range", [False, True])
+def test_bounds_vocabulary_is_rejected_unambiguously(
+    with_calibration_range: bool,
+) -> None:
+    parameter = {"name": "mu", "bounds": [0.1, 100.0], "init": 10.0}
+    if with_calibration_range:
+        parameter["calibration_range"] = [0.1, 100.0]
 
-    with pytest.raises(lpm_params.LPMParamsError, match="cannot combine"):
+    with pytest.raises(
+        lpm_params.LPMParamsError,
+        match="unsupported 'bounds'; define 'calibration_range' instead",
+    ):
         lpm_params.parse_parameter_schema(
             {
                 "model": "custom",
-                "parameters": [
-                    {
-                        "name": "mu",
-                        "bounds": [0.1, 100.0],
-                        "calibration_range": [0.1, 100.0],
-                        "init": 10.0,
-                    }
-                ],
+                "parameters": [parameter],
             }
         )
 
@@ -238,13 +219,12 @@ def test_resolved_paths_share_one_cached_parse(tmp_path, monkeypatch) -> None:
     assert calls == 1
 
 
-def test_deprecated_load_params_alias_delegates_to_document_loader(tmp_path) -> None:
+def test_parameter_loaders_are_the_only_public_loading_functions(tmp_path) -> None:
     _write_params(tmp_path)
     assert "load_parameter_document" in lpm_params.__all__
     assert "load_parameter_schema" in lpm_params.__all__
-    with pytest.warns(DeprecationWarning, match="load_parameter_document"):
-        document = lpm_params.load_params("custom", tmp_path)
-    assert document == lpm_params.load_parameter_document("custom", tmp_path)
+    assert "load_params" not in lpm_params.__all__
+    assert not hasattr(lpm_params, "load_params")
 
 
 @pytest.mark.parametrize(

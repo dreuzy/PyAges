@@ -202,16 +202,16 @@ case below it. `figures.concentrations_2d` has an effect only when
 subdirectory is produced only when `figures.temporal` is true; it is distinct
 from the LPM directory that holds the calibration tables.
 
-## Multi-chain MH artifacts
+## MH chain artifacts
 
 ```{note}
-These optional multi-chain artifacts are available in PyAges 1.2. One-chain
-runs retain their historical output layout.
+In the next-major development source, one-chain and multi-chain runs use the
+same auditable layout. The standard root posterior files remain available for
+one chain, so downstream readers do not need to open the chain subdirectory.
 ```
 
-When a present `multichain` block is enabled (the default for that block), the
-MH calibration directory keeps every production chain separate before any
-pooling. For a single-date run this is
+The MH calibration directory keeps every production chain separate before any
+multi-chain pooling. For a single-date run this is
 the existing `Metropolis_Hastings/` directory; for a temporal run it is the
 LPM directory shown above.
 
@@ -219,7 +219,7 @@ LPM directory shown above.
 <mh_calibration_directory>/
 |-- parameters_calibration.txt
 |-- results_calibration.txt
-|-- ensemble_provenance.txt
+|-- run_provenance.txt
 |-- mcmc_diagnostics.tsv
 |-- proposal_covariance.tsv                    # pilot enabled
 |-- chains/
@@ -249,6 +249,7 @@ error message; the workflow manifest is then complete.
 
 | Value | Meaning and pooling consequence |
 |---|---|
+| `not_applicable` | The run contains one chain, so inter-chain diagnostics cannot be calculated; the sole chain is the root posterior. |
 | `qualified` | All applicable diagnostic rows pass; qualified root pooling is allowed. |
 | `not_qualified` | Diagnostics exist but at least one applicable row fails; pooling is blocked unless `require_convergence: false` explicitly selects exploratory output. |
 | `diagnostics_unavailable` | No complete diagnostic table could be calculated; the reason is stored in `diagnostics_message`, and qualified pooling is impossible. |
@@ -258,11 +259,11 @@ finite MCSE. It does not impose an acceptance interval, relative-MCSE limit,
 residual criterion, parameter-recovery criterion, or model-adequacy decision.
 Those checks must be registered by a case-specific scientific protocol.
 
-`ensemble_provenance.txt` is a key/value table containing the realized master
-seed plus the distinct initialization, pilot, and production seed for every
+`run_provenance.txt` is a key/value table containing the realized run seed plus
+the distinct initialization, pilot, and production seed for every
 chain. Each `chain_metadata.txt` records its production seed, initial parameter
-values, retained-row count, `acceptance_rate`, and runtime. The multi-chain
-parameter table uses `burn_in` and `pilot_burn_in`; the former experimental
+values, retained-row count, `acceptance_rate`, and runtime. The parameter table
+uses `nsteps`, `thinning`, `burn_in`, and `pilot_burn_in`; the former experimental
 `burn-in`, `pilot_burn-in`, and per-chain `success_rate` spellings are not
 written.
 
@@ -316,21 +317,17 @@ mappings use their Python text representation.
 
 ### `results_calibration.txt`
 
-A headerless two-column key/value table. All methods write `time_perform` in
-seconds. Metropolis-Hastings also writes `success_rate`, the fraction of
-accepted transitions. Simplex/FUQ writes aggregate optimizer run, iteration,
-evaluation, and convergence fields.
+A headerless two-column key/value table. Simplex/FUQ writes `time_perform` plus
+aggregate optimizer run, iteration, evaluation, and convergence fields.
 
-For a multi-chain run this file additionally records
+For every managed MH run this file additionally records
 `qualification_status`, `diagnostics_message`, `chain_count`, retained counts,
 whether pooling was written, `mean_acceptance_rate`,
 `minimum_acceptance_rate`, `maximum_acceptance_rate`, summed pilot and
-production runtimes, and failed diagnostic counts. The historical root
-`success_rate` remains the mean transition acceptance fraction because it is a
-stable result-file field; no additional multi-chain success-rate aliases are
-created. Interpret
-`time_perform` as the sum of recorded pilot and production sampler runtimes,
-not proof of wall-clock parallelism.
+production runtimes, `total_runtime_seconds`, and failed diagnostic counts.
+The redundant MH fields `success_rate` and `time_perform` are not written;
+`mean_acceptance_rate` and `total_runtime_seconds` are their unambiguous
+replacements. Summed sampler runtimes do not prove wall-clock parallelism.
 
 ### `lpm_dist_calibrated.txt`
 

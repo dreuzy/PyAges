@@ -75,7 +75,7 @@ def test_explicit_initial_state_takes_precedence_over_prior_initialization(monke
         )
     )
     problem = SimpleNamespace(lpm=_FakeLpm(), ensure_prepared=lambda: None)
-    mh._bind_problem(problem)
+    mh._binding.bind(problem)  # noqa: SLF001
     monkeypatch.setattr(
         mh.prior,
         "param_init",
@@ -114,9 +114,9 @@ def test_trajectory_records_negative_log_posterior_and_acceptance_state():
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"nstep": 0}, "nstep"),
+        ({"nsteps": 0}, "nsteps"),
         ({"burn_in": 1.0}, "burn_in"),
-        ({"nskip": 0}, "nskip"),
+        ({"thinning": 0}, "thinning"),
         ({"prior_type": "unknown"}, "prior_type"),
         ({"proposal_kind": "unknown"}, "proposal_kind"),
         ({"componentwise_fraction": 0.0}, "componentwise_fraction"),
@@ -134,7 +134,7 @@ def test_trajectory_records_negative_log_posterior_and_acceptance_state():
             "correlated requires proposal_covariance",
         ),
         (
-            {"nstep": 5, "burn_in": 0.9, "nskip": 5},
+            {"nsteps": 5, "burn_in": 0.9, "thinning": 5},
             "retain no samples",
         ),
     ],
@@ -145,10 +145,10 @@ def test_mh_config_rejects_invalid_scientific_controls(kwargs, message):
 
 
 def test_mh_retained_sample_count_matches_the_documented_rule() -> None:
-    config = MHConfig(nstep=17, burn_in=0.2, nskip=3)
+    config = MHConfig(nsteps=17, burn_in=0.2, thinning=3)
     retained = [
         iteration
-        for iteration in range(config.nstep)
+        for iteration in range(config.nsteps)
         if config.should_retain(iteration)
     ]
 

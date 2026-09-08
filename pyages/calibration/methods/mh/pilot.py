@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
+from typing import cast
 
 import numpy as np
 
@@ -73,7 +74,7 @@ def pooled_within_chain_covariance(
         if not np.all(np.isfinite(values)):
             raise ValueError("pilot chains must contain only finite values")
         if parameter_count is None:
-            parameter_count = values.shape[1]
+            parameter_count = cast(int, values.shape[1])
             scatter = np.zeros((parameter_count, parameter_count), dtype=float)
         elif values.shape[1] != parameter_count:
             raise ValueError("pilot chains must use the same parameter dimension")

@@ -78,7 +78,7 @@ class LpmScipy(LpmBase):
     This eliminates repetitive pdf/cdf/cdf_inv/mean/std implementations.
     """
 
-    scipy_dist: rv_continuous = None  # Override in subclass
+    scipy_dist: rv_continuous  # Set by every concrete subclass.
 
     @abc.abstractmethod
     def _scipy_params(self) -> tuple[tuple, float, float]:
@@ -119,7 +119,10 @@ class LpmScipy(LpmBase):
         non-negative transit-time contract and is rejected explicitly.
         """
         args, loc, scale = self._scipy_params()
-        mean = float(self.scipy_dist.stats(*args, loc=loc, scale=scale, moments="m"))
+        raw_mean = self.scipy_dist.stats(*args, loc=loc, scale=scale, moments="m")
+        if isinstance(raw_mean, tuple):
+            raise TypeError("SciPy returned several statistics for one requested mean")
+        mean = float(np.asarray(raw_mean, dtype=float))
         if not np.isfinite(mean) or mean < 0.0:
             raise ValueError(
                 f"SciPy-backed LPM '{self.name}' must have a finite, "
@@ -130,4 +133,9 @@ class LpmScipy(LpmBase):
     def std(self) -> float:
         """Return standard deviation of distribution."""
         args, loc, scale = self._scipy_params()
-        return np.sqrt(self.scipy_dist.stats(*args, loc=loc, scale=scale, moments="v"))
+        raw_variance = self.scipy_dist.stats(*args, loc=loc, scale=scale, moments="v")
+        if isinstance(raw_variance, tuple):
+            raise TypeError(
+                "SciPy returned several statistics for one requested variance"
+            )
+        return float(np.sqrt(np.asarray(raw_variance, dtype=float)))

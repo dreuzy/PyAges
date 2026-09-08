@@ -38,7 +38,7 @@ def configure_backend(force_inline: bool = False) -> bool:
         return False
 
     try:
-        from IPython import get_ipython
+        from IPython.core.getipython import get_ipython
     except ImportError:
         ipy = None
     else:

@@ -45,35 +45,40 @@ This example enables both calibration routes while disabling the two optional
 parameter-space explorations:
 
 ```yaml
-dataset:
+schema_version: 3
+
+workflow:
+  kind: single_date
+
+data:
   name: ploemeur_F09_2010.txt
   year: 2010
-  data_dir: examples/natural/ploemeur/data
+  data_dir: data
   verbose: false
 
 lpm:
-  model_name: exp_shifted
-  data_directory: data_core/data_lpm
+  models: [exp_shifted]
+  directory: ../../../data_core/data_lpm
 
 run:
   reachable_concentrations: false
   objective_function: false
-  calibration_metropolis_hastings: true
-  calibration_simplex: true
+  metropolis_hastings: true
+  simplex: true
 
-calibration_metropolis_hastings:
-  nstep: 5000
-  burn_in: 0.2
-  nskip: 10
-  seed: 12345
-  prior_option: false
-  likelihood: true
-  monitor: false
-  display_traj: false
+calibration:
+  metropolis_hastings:
+    nsteps: 5000
+    burn_in: 0.2
+    thinning: 10
+    seed: 12345
+    prior_option: false
+    likelihood: true
+    display_traj: false
 
-calibration_simplex:
-  init_multiples_n: 3
-  fuq_n: 30
+  simplex:
+    init_multiples_n: 3
+    fuq_n: 30
 ```
 
 Run it with:
@@ -87,47 +92,40 @@ Cartesian product: the example runs 90 optimizations. Every uncertainty draw
 uses all configured starts. A failed or inconsistent optimizer result stops
 the workflow instead of being serialized as a calibrated model.
 
-The single-date launcher exposes the production length, burn-in fraction,
-thinning interval, and one-chain seed. With no `multichain` mapping, it keeps
-the historical one-chain behavior. The temporal workflow exposes the same
-retention controls as `mh_nsteps`, `burn_in`, and `nskip`.
+Both workflows expose the same `nsteps`, `burn_in`, `thinning`, `seed`, and
+`chains` controls. One production chain is simply `chains: 1`.
 
 ## Configure independent chains and proposal tuning
 
-```{note}
-This optional multi-chain workflow is available in PyAges 1.2. Omitting its
-configuration preserves the historical one-chain behavior.
-```
-
-Multiple chains are opt-in through the presence of a `multichain` mapping. Its
-`enabled` field defaults to `true`; `enabled: false` explicitly disables a
-retained block. Add the following mapping below
-`calibration_metropolis_hastings` for a single-date run, or below `calibration`
-for a temporal run:
+Set `chains` above one in the common MH section. There is no separate enable
+switch or nested multi-chain configuration:
 
 ```yaml
-multichain:
-  enabled: true
-  chains: 4
-  master_seed: 12345
-  initialization:
-    strategy: bounds_stratified
-  pilot:
-    enabled: true
-    nstep: 2000
-    burn_in: 0.5
-    relative_ridge: 1.0e-6
-    proposal_multiplier: auto
-  diagnostics:
-    max_rhat: 1.01
-    min_bulk_ess: 300
-    min_tail_ess: 300
-    require_convergence: true
+calibration:
+  metropolis_hastings:
+    nsteps: 5000
+    thinning: 1
+    chains: 4
+    seed: 12345
+    initialization:
+      strategy: bounds_stratified
+    pilot:
+      enabled: true
+      nsteps: 2000
+      burn_in: 0.5
+      relative_ridge: 1.0e-6
+      proposal_multiplier: auto
+    diagnostics:
+      max_rhat: 1.01
+      min_bulk_ess: 300
+      min_tail_ess: 300
+      require_convergence: true
 ```
 
-`chains` is the additional parameter that controls how many independent
-production chains are run. The default ensemble start policy,
-`bounds_stratified`, randomly disperses those starts with a Latin hypercube
+`chains` controls how many independent production chains are run and may be
+one or greater. Inter-chain diagnostics and their qualification gate apply
+only from two chains upward. The default `bounds_stratified` policy applies the
+same rule for one or several chains. It randomly disperses starts with a Latin hypercube
 over the finite parameter calibration ranges. `prior_sample` instead draws
 independently from each enabled prior marginal conditioned on its calibration
 range.
@@ -135,11 +133,11 @@ range.
 duplicate-start policies are not supported because they do not provide an
 independent convergence check.
 
-`master_seed` makes the entire ensemble replayable. PyAges derives distinct
+`seed` makes the entire run replayable. PyAges derives distinct
 streams for every chain and for initialization, pilot, and production. Set it
 to `null` to generate a fresh root seed; the realized value is recorded so the
-run can still be replayed. The ordinary `seed` fields apply only to one-chain
-execution.
+run can still be replayed. The same field applies for every chain count; a sole
+production chain uses that exact seed.
 
 The pilot phase estimates one proposal covariance from all pilot chains after
 centering each chain separately. It therefore measures within-chain movement,
@@ -154,20 +152,20 @@ This proposal covariance is separate from the prior. An independent prior is
 still evaluated only when `prior_option` is enabled; no production chain is
 used to define either the prior or its covariance. The complete field and
 strategy reference is in
-{ref}`optional-multi-chain-mh-configuration`.
+{ref}`one-to-many-chain-mh-configuration`.
 The complete execution, qualification, failure, cost, and trace-inspection
 procedure is in {doc}`multichain-mh`.
 
 ## Understand MH retention
 
-`nstep` counts transitions, including rejected proposals. With a zero-based
+`nsteps` counts transitions, including rejected proposals. With a zero-based
 transition index $i$, a state is retained only when
 
 ```{math}
 i > bN \quad\text{and}\quad i \bmod k = 0,
 ```
 
-where $N$ is `nstep`, $b$ is `burn_in`, and $k$ is `nskip`. The first retained
+where $N$ is `nsteps`, $b$ is `burn_in`, and $k$ is `thinning`. The first retained
 index is therefore
 
 ```{math}
@@ -180,7 +178,7 @@ retained; deleting those repeats biases the sample. Thinning reduces stored
 rows but does not improve the underlying chain or replace effective sample
 size (ESS).
 
-Parameter files record `nstep`, `burn_in`, `nskip`, and the derived
+Parameter files record `nsteps`, `burn_in`, `thinning`, and the derived
 `retained_sample_count`. They also record the seed, initialization source,
 proposal definition, and resolved prior metadata.
 
@@ -196,7 +194,7 @@ appropriate for a particular aquifer.
 The core MH interface supports componentwise, diagonal, correlated,
 sum/difference, and inverse-Gaussian transformed proposals. Scale and
 covariance fields are mutually exclusive and are validated against the chosen
-proposal. In the workflow-level ensemble, all pilot chains contribute to one
+proposal. In the workflow-level run, all pilot chains contribute to one
 common covariance, which is fixed before production starts; pilot draws are
 not production posterior draws.
 
@@ -207,7 +205,7 @@ In particular:
 
 - `obj_function` is $\sqrt{\chi^2/n}$, not raw $\chi^2$ or a log posterior;
 - every table row is one joint parameter and modeled-concentration state;
-- `success_rate` is a transition acceptance fraction, not a convergence test;
+- `acceptance_rate` is a transition acceptance fraction, not a convergence test;
 - marginal summaries must not be recombined to construct derived quantities.
 
 For MH, run multiple independent chains and inspect trace behavior, boundary

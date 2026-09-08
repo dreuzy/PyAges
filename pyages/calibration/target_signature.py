@@ -23,8 +23,8 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
+from dataclasses import asdict, dataclass, is_dataclass
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import numpy as np
 
@@ -34,9 +34,23 @@ if TYPE_CHECKING:
     from pyages.concentrations import Concentrations
     from pyages.convolution import ConvolutionTracers
     from pyages.lpm.core.lpm_base import LpmBase
+    from pyages.tracer.tracer_root import TracerScientificSignature
 
 
 CALIBRATION_TARGET_SIGNATURE_VERSION = 1
+
+
+class _TargetSignatureTracer(Protocol):
+    """Additional tracer state required by calibration target fingerprints."""
+
+    name: str
+    unit: str
+    datemin: float
+    datemax: float
+
+    def scientific_signature(self) -> TracerScientificSignature:
+        """Return the tracer's stable scientific identity."""
+        ...
 
 
 def _qualified_class_name(value: object) -> str:
@@ -48,7 +62,7 @@ def _qualified_class_name(value: object) -> str:
 def _finite_float_hex(value: object, *, context: str) -> str:
     """Return one finite numeric value in an exact platform-stable form."""
     try:
-        numeric = float(value)
+        numeric = float(cast(Any, value))
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{context} must be numeric") from exc
     if not np.isfinite(numeric):
@@ -307,10 +321,9 @@ def _observation_target_signatures(
 
 def _grid_settings_signature(settings: object) -> tuple[tuple[str, str | int], ...]:
     """Return immutable exact scalar controls for one convolution grid."""
-    try:
-        values = asdict(settings)
-    except TypeError as exc:
-        raise TypeError("convolution grid settings must be a dataclass") from exc
+    if not is_dataclass(settings) or isinstance(settings, type):
+        raise TypeError("convolution grid settings must be a dataclass")
+    values = asdict(cast(Any, settings))
     signature: list[tuple[str, str | int]] = []
     for name, value in values.items():
         if isinstance(value, bool):
@@ -339,7 +352,14 @@ def _tracer_grid_target_signatures(
     """Capture every tracer and prepared numerical grid in execution order."""
     signatures: list[TracerGridTargetSignature] = []
     for convolution in tracers.convolutions:
-        tracer = convolution.tracer
+        raw_tracer = convolution.tracer
+        if not hasattr(raw_tracer, "scientific_signature") or not hasattr(
+            raw_tracer, "unit"
+        ):
+            raise TypeError(
+                "calibration target tracers must expose unit and scientific_signature"
+            )
+        tracer = cast(_TargetSignatureTracer, raw_tracer)
         scientific_signature = tracer.scientific_signature()
         grid = convolution.prepared_grid
         if grid is None:

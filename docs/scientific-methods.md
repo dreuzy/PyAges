@@ -242,9 +242,9 @@ parametric center or a direct draw, then clips it to the calibration range.
 Multi-chain execution permits only dispersed prior samples, stratified starts,
 or explicit per-chain starts; none of these rules changes the posterior target.
 
-``nstep`` counts accepted and rejected transitions. With zero-based iteration
+``nsteps`` counts accepted and rejected transitions. With zero-based iteration
 ``i``, PyAges retains the current state when
-``i > burn_in * nstep`` and ``i % nskip == 0``. Rejected proposals therefore
+``i > burn_in * nsteps`` and ``i % thinning == 0``. Rejected proposals therefore
 appear as repeated states, as required for an unbiased chain sample. The seed
 initializes NumPy ``default_rng``. A configuration retaining no state is
 rejected before chain allocation, and the derived row count is recorded with
@@ -287,7 +287,7 @@ $LL^\mathsf{T}=\widehat\Sigma$, each fixed production proposal is
 ```
 
 Pilot samples do not enter the posterior. The covariance is frozen before
-production and is unrelated to the prior covariance. One `master_seed` feeds
+production and is unrelated to the prior covariance. One `seed` feeds
 three child `SeedSequence` branches for initialization, pilot, and production,
 then one child per chain. All realized seeds and starts are serialized. A null
 master seed is generated once and must be recovered from provenance to replay
@@ -308,7 +308,7 @@ quantity, and qualification conventions are defined in
 | IG physical moments and shift | ``pyages/lpm/models/inverse_gaussian*.py`` | this page; {doc}`user-guide/adding-lpm` | ``tests/lpm/test_inverse_gaussian_analytics.py``; {doc}`scientific-migration-ig-decay` |
 | normalized-residual objective | ``pyages/calibration/problem.py`` and ``pyages/calibration/objective.py`` | this page | ``tests/calibration/test_calibration_problem.py`` |
 | MH target, priors, proposals, and retention | ``pyages/calibration/methods/mh/sampler.py``, ``prior.py``, ``proposals.py``, and ``config.py`` | {doc}`user-guide/configuration`; this page | ``tests/calibration/test_calibration_scientific_contracts.py`` and ``test_mh_proposals.py``; {doc}`reports/mh_proposal_qualification` |
-| multi-chain initialization, pilot covariance, diagnostics, and pooling gate | ``pyages/calibration/methods/mh/initialization.py``, ``pilot.py``, ``diagnostics.py``, ``ensemble.py``, and ``pyages/data_io/mh_results.py`` | {doc}`user-guide/multichain-mh`; this page | ``tests/calibration/test_mh_*.py`` and the four extensive example tests; {doc}`reports/multichain-mh-qualification-2026-08-31` |
+| one-to-many-chain initialization, pilot covariance, diagnostics, and pooling gate | ``pyages/calibration/methods/mh/initialization.py``, ``pilot.py``, ``diagnostics.py``, ``runner.py``, and ``pyages/data_io/mh_results.py`` | {doc}`user-guide/multichain-mh`; this page | ``tests/calibration/test_mh_*.py`` and the four extensive example tests; {doc}`reports/multichain-mh-qualification-2026-08-31` |
 
 For every published result, archive the PyAges release or commit, configuration,
 input checksums, random seeds, dependency versions, numerical settings, and raw

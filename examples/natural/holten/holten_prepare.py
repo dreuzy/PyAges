@@ -14,8 +14,9 @@ model fitting and comparison with the article live in neighboring modules.
 
 from __future__ import annotations
 
+from collections.abc import Hashable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -226,11 +227,22 @@ def _parse_history_file(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, sep="\t")
 
 
+def _column_series(frame: pd.DataFrame, column: Hashable) -> pd.Series:
+    """Return one unambiguous column and reject duplicate column labels."""
+    selected = frame[column]
+    if not isinstance(selected, pd.Series):
+        raise ValueError(f"Expected one column named {column!r}, found duplicates")
+    return selected
+
+
 def _coerce_numeric_series(series: pd.Series, label: str) -> pd.Series:
     cleaned = series.astype(str).str.replace("..", ".", regex=False).str.strip()
-    values = pd.to_numeric(cleaned, errors="coerce")
-    if values.isna().any():
-        bad = cleaned.loc[values.isna()].head(5).tolist()
+    values = pd.Series(
+        pd.to_numeric(cleaned, errors="coerce"), index=series.index, dtype=float
+    )
+    missing = values.isna()
+    if missing.to_numpy().any():
+        bad = cleaned.loc[missing].head(5).tolist()
         raise ValueError(f"Could not parse numeric values in {label}: {bad}")
     return values
 
@@ -261,7 +273,9 @@ def _prepare_kr85_history(
     raw = _parse_history_file(path)
     value_col = next(col for col in raw.columns if "[Bq/cbm air]" in col)
     factor = float(prep["conversion_factor"])
-    values = _coerce_numeric_series(raw[value_col], f"{path}:{value_col}")
+    values = _coerce_numeric_series(
+        _column_series(raw, value_col), f"{path}:{value_col}"
+    )
     history = pd.DataFrame(
         {
             "date": raw["Date"].astype(str).map(decimal_year_from_sampling_date),
@@ -271,7 +285,8 @@ def _prepare_kr85_history(
     )
     if "Kr85_error [Bq/cbm air]" in raw.columns:
         errors = _coerce_numeric_series(
-            raw["Kr85_error [Bq/cbm air]"], f"{path}:Kr85_error [Bq/cbm air]"
+            _column_series(raw, "Kr85_error [Bq/cbm air]"),
+            f"{path}:Kr85_error [Bq/cbm air]",
         )
         history["error"] = errors * factor
     return history.sort_values("date").reset_index(drop=True)
@@ -383,7 +398,7 @@ OBSERVATION_CONVERSION_SPECS = (
 
 
 def _optional_float(row: pd.Series, field: str) -> float:
-    value = row.get(field, np.nan)
+    value: Any = row.get(field, np.nan)
     if _is_missing(value):
         return np.nan
     return float(value)
@@ -401,8 +416,13 @@ def _delta_ne_screening(delta_ne_pct: float) -> str:
 
 
 def _infer_default_3he_error(frame: pd.DataFrame) -> float:
-    values = pd.to_numeric(frame.get("3He_err"), errors="coerce")
-    values = values.loc[np.isfinite(values) & (values > 0.0)]
+    if "3He_err" not in frame.columns:
+        return np.nan
+    source = _column_series(frame, "3He_err")
+    values = pd.Series(
+        pd.to_numeric(source, errors="coerce"), index=source.index, dtype=float
+    )
+    values = values.loc[np.isfinite(values.to_numpy()) & (values.to_numpy() > 0.0)]
     if values.empty:
         return np.nan
     return float(values.median())
@@ -566,13 +586,21 @@ def validate_converted_dataset(
 def _validate_converted_values(frame: pd.DataFrame) -> None:
     if set(frame["element"]) != set(VALID_TRACERS):
         raise ValueError(f"Unexpected tracer set: {sorted(set(frame['element']))}")
-    if frame["concentration"].isna().any() or frame["error"].isna().any():
+    if (
+        frame["concentration"].isna().to_numpy().any()
+        or frame["error"].isna().to_numpy().any()
+    ):
         raise ValueError("Converted dataset contains missing numeric values")
-    if (frame["error"].astype(float) <= 0).any():
+    if (frame["error"].astype(float) <= 0).to_numpy().any():
         raise ValueError("Converted dataset contains non-positive errors")
-    if (frame["concentration"].astype(float) < 0).any():
+    if (frame["concentration"].astype(float) < 0).to_numpy().any():
         raise ValueError("Converted dataset contains negative concentrations")
-    if frame.loc[frame["element"] == "39Ar", "concentration"].astype(float).max() > 10:
+    if (
+        float(
+            frame.loc[frame["element"] == "39Ar", "concentration"].astype(float).max()
+        )
+        > 10
+    ):
         raise ValueError(
             "39Ar values appear to still be in pMC, not fraction of modern"
         )
@@ -613,11 +641,14 @@ def _validate_per_well_rows(frame: pd.DataFrame) -> None:
 def write_aggregated_dataset(frame: pd.DataFrame, context: HoltenContext) -> Path:
     """Write one deterministic, tracer-ordered table for all selected wells."""
     context.paths.data_dir.mkdir(parents=True, exist_ok=True)
-    ordered = frame[
-        ["well_id", "element", "concentration", "error", "unit", "date"]
-    ].copy()
+    ordered = cast(
+        pd.DataFrame,
+        frame.loc[:, ["well_id", "element", "concentration", "error", "unit", "date"]],
+    ).copy()
     order_map = {"3H": 0, "kr85": 1, "39Ar": 2}
-    ordered["_element_order"] = ordered["element"].map(order_map)
+    ordered["_element_order"] = ordered["element"].map(
+        lambda value: order_map.get(str(value))
+    )
     ordered = ordered.sort_values(["well_id", "date", "_element_order"]).reset_index(
         drop=True
     )
@@ -631,8 +662,12 @@ def write_per_well_files(
 ) -> dict[str, Path]:
     """Write the validated five-column PyAges input table for each well."""
     paths: dict[str, Path] = {}
-    for well_id, group in frame.groupby("well_id"):
-        payload = group[["element", "concentration", "error", "unit", "date"]].copy()
+    for raw_well_id, group in frame.groupby("well_id"):
+        well_id = str(raw_well_id)
+        payload = cast(
+            pd.DataFrame,
+            group.loc[:, ["element", "concentration", "error", "unit", "date"]],
+        ).copy()
         validate_converted_dataset(payload, [well_id], aggregated_file=False)
         out_path = context.paths.data_dir / f"holten_2010_{well_id}.txt"
         payload.to_csv(out_path, sep="\t", index=False)
@@ -643,9 +678,13 @@ def write_per_well_files(
 def build_observed_by_well(frame: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """Return in-memory calibration observations keyed by well identifier."""
     observed_by_well: dict[str, pd.DataFrame] = {}
-    for well_id, group in frame.groupby("well_id"):
+    for raw_well_id, group in frame.groupby("well_id"):
+        well_id = str(raw_well_id)
         observed_by_well[well_id] = (
-            group[["element", "concentration", "error", "unit", "date"]]
+            cast(
+                pd.DataFrame,
+                group.loc[:, ["element", "concentration", "error", "unit", "date"]],
+            )
             .copy()
             .reset_index(drop=True)
         )

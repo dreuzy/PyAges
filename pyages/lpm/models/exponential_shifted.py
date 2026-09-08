@@ -16,6 +16,8 @@ providing an LPM-compatible shifted exponential PDF.
 
 """
 
+from pathlib import Path
+
 import numpy.typing as npt
 from scipy.stats import expon
 
@@ -34,7 +36,12 @@ class ExponentialShiftedLpm(LpmScipy):
     scipy_dist = expon
     convolution_strategy = ConvolutionStrategy.CONTINUOUS
 
-    def __init__(self, mu=10, shift=10, directory_lpm=None):
+    def __init__(
+        self,
+        mu: float = 10.0,
+        shift: float = 10.0,
+        directory_lpm: str | Path | None = None,
+    ) -> None:
         """
         Initialize a shifted-exponential transit-time distribution.
 

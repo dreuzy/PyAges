@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol, Sequence
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from pyages.calibration.methods.mh._immutable import immutable_float_array
 from pyages.calibration.methods.mh.ig_coordinates import (
@@ -37,11 +38,13 @@ class Proposal(Protocol):
 
     def draw(self, current: Sequence[float], rng: np.random.Generator) -> np.ndarray:
         """Return candidate parameters in the model's parameter order."""
+        ...
 
     def log_hastings_ratio(
         self, current: Sequence[float], proposed: Sequence[float]
     ) -> float:
         """Return the correction for unequal forward and reverse probabilities."""
+        ...
 
 
 class ComponentwiseRandomWalk:
@@ -118,7 +121,7 @@ class ComponentwiseRandomWalk:
             data[f"MH_delta_{name}"] = float(value)
 
 
-def native_to_sum_difference(theta: Sequence[float]) -> np.ndarray:
+def native_to_sum_difference(theta: ArrayLike) -> np.ndarray:
     """Return ``(m, d) = (mu + t0, mu - t0)``."""
     values = np.asarray(theta, dtype=float)
     if values.shape != (2,):
@@ -127,7 +130,7 @@ def native_to_sum_difference(theta: Sequence[float]) -> np.ndarray:
     return np.array([mu + t0, mu - t0], dtype=float)
 
 
-def sum_difference_to_native(coordinates: Sequence[float]) -> np.ndarray:
+def sum_difference_to_native(coordinates: ArrayLike) -> np.ndarray:
     """Return ``(mu, t0) = ((m + d)/2, (m - d)/2)``."""
     values = np.asarray(coordinates, dtype=float)
     if values.shape != (2,):
@@ -245,7 +248,7 @@ class GaussianRandomWalk:
 
     @classmethod
     def diagonal(
-        cls, scales: Sequence[float], coordinate_system: str = "native"
+        cls, scales: ArrayLike, coordinate_system: str = "native"
     ) -> "GaussianRandomWalk":
         """Build a diagonal covariance from coordinate standard deviations."""
         values = np.asarray(scales, dtype=float)

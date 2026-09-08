@@ -21,7 +21,7 @@ import platform
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -75,7 +75,7 @@ class ForwardConvention:
 class SamplingConfig:
     """Control the local MH chains used for the Holten comparison."""
 
-    nstep: int = 10_000
+    nsteps: int = 10_000
     burn_in: float = 0.2
     proposal_scale: float = 0.18
     nchains: int = 4
@@ -223,7 +223,7 @@ def build_reproduction_endmembers(
     coupled = pd.DataFrame(rows)
     order = {name: idx for idx, name in enumerate(TRACERS_4)}
     result = pd.concat([coupled, baseline], ignore_index=True)
-    result["_order"] = result["tracer"].map(order)
+    result["_order"] = result["tracer"].map(lambda value: order.get(str(value)))
     return (
         result.sort_values(["_order", "age_min"])
         .drop(columns="_order")
@@ -261,7 +261,7 @@ def build_observations(
         )
     tracer_order = TRACERS_4 if include_helium else TRACERS_3
     order = {name: idx for idx, name in enumerate(tracer_order)}
-    obs["_order"] = obs["element"].map(order)
+    obs["_order"] = obs["element"].map(lambda value: order.get(str(value)))
     return obs.sort_values("_order").drop(columns="_order").reset_index(drop=True)
 
 
@@ -393,7 +393,7 @@ def sample_scenario(
     """Sample the likelihood with the same local stick-breaking MH scheme."""
 
     records: list[dict[str, Any]] = []
-    burn_count = int(config.nstep * config.burn_in)
+    burn_count = int(config.nsteps * config.burn_in)
     for well_idx, well_id in enumerate(prepared.context.selected_wells):
         obs = build_observations(prepared, well_id, include_helium)
         optimum = optimize_well(obs, endmembers)
@@ -409,7 +409,7 @@ def sample_scenario(
                 optimum["matrix"], optimum["values"], optimum["errors"], current
             )
             accepted = 0
-            for step in range(config.nstep):
+            for step in range(config.nsteps):
                 proposal = current + rng.normal(scale=config.proposal_scale, size=3)
                 proposal_obj = _objective(
                     optimum["matrix"], optimum["values"], optimum["errors"], proposal
@@ -454,9 +454,10 @@ def summarize_samples(samples: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
     """Summarize marginal fractions and chain convergence by scenario and well."""
     summaries: list[dict[str, Any]] = []
     diagnostics: list[dict[str, Any]] = []
-    for (scenario, well_id), group in samples.groupby(
-        ["scenario", "well_id"], sort=False
-    ):
+    for keys, group in samples.groupby(["scenario", "well_id"], sort=False):
+        if not isinstance(keys, tuple) or len(keys) != 2:
+            raise RuntimeError(f"unexpected sample group key: {keys!r}")
+        scenario, well_id = (str(value) for value in keys)
         row: dict[str, Any] = {
             "scenario": scenario,
             "well_id": well_id,
@@ -518,9 +519,12 @@ def compare_fractions(
                 )
     comparison = pd.DataFrame(rows)
     metric_rows: list[dict[str, Any]] = []
-    for (scenario, estimate), values in comparison.assign(
+    for keys, values in comparison.assign(
         estimate="optimizer", difference=comparison["optimizer"] - comparison["visser"]
     ).groupby(["scenario", "estimate"]):
+        if not isinstance(keys, tuple) or len(keys) != 2:
+            raise RuntimeError(f"unexpected comparison group key: {keys!r}")
+        scenario, estimate = (str(value) for value in keys)
         diff = values["difference"].to_numpy(dtype=float)
         metric_rows.append(
             {
@@ -945,9 +949,13 @@ def run_reproduction(output_dir: Path, sampling: SamplingConfig) -> dict[str, Pa
     concentrations = pd.concat([concentrations3, concentrations4], ignore_index=True)
     comparison, metrics = compare_fractions(paper, optimizers, posterior)
 
-    reference_chi2 = pd.read_csv(
+    reference_chi2_source = pd.read_csv(
         prepared.context.paths.reference_results_path, sep="\t"
-    )[["Well", "4bin_chi2", "4bin_pchi2"]].rename(
+    )
+    reference_chi2 = cast(
+        pd.DataFrame,
+        reference_chi2_source.loc[:, ["Well", "4bin_chi2", "4bin_pchi2"]],
+    ).rename(
         columns={
             "Well": "well_id",
             "4bin_chi2": "visser_chi2",
@@ -1008,14 +1016,14 @@ def main() -> None:
         / "holten"
         / "helium_reproduction",
     )
-    parser.add_argument("--nstep", type=int, default=10_000)
+    parser.add_argument("--nsteps", type=int, default=10_000)
     parser.add_argument("--nchains", type=int, default=4)
     parser.add_argument("--burn-in", type=float, default=0.2)
     parser.add_argument("--proposal-scale", type=float, default=0.18)
     parser.add_argument("--seed", type=int, default=12_345)
     args = parser.parse_args()
     config = SamplingConfig(
-        nstep=args.nstep,
+        nsteps=args.nsteps,
         burn_in=args.burn_in,
         proposal_scale=args.proposal_scale,
         nchains=args.nchains,

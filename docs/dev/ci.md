@@ -30,7 +30,7 @@ gate:
 
 | Job | Main checks | Result or artifact |
 |---|---|---|
-| `Ruff` | `ruff check`, `ruff format --check`, progressive Pyright, scoped qualified-surface docstrings, licensing, architecture boundaries, generated test inventory | Lint, formatting, selected type contracts, API prose, dependency direction, metadata, and test documentation must be current |
+| `Ruff` | `ruff check`, `ruff format --check`, maintained-surface Pyright, scoped qualified-surface docstrings, licensing, architecture boundaries, generated test inventory | Lint, formatting, package/example/validation/helper type contracts, API prose, dependency direction, metadata, and test documentation must be current |
 | `Dependency audit` | Exact direct-pin verification, `pip check`, `pip-audit` | Declared, qualified, and installed dependencies agree; the installed graph is consistent; no published advisory is known |
 | `Conda environment` | Create `install/environment.yml`, install PyAges without dependency replacement, exercise CLI discovery | Conda environment and packaged entry points are usable |
 | `Tests (Python …)` | Standard pytest suite on Python 3.12, 3.13, and 3.14 | Supported-version compatibility |

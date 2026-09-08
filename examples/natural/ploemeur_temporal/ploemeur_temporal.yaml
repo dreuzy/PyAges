@@ -1,18 +1,20 @@
 # Temporal MH example (multi-date concentrations).
 
-dataset:
+schema_version: 3
+
+data:
   # Input concentrations file (multi-date).
-  file: examples/natural/ploemeur_temporal/data/ori_ploemeur_F09_2005_2024.txt
+  file: data/ori_ploemeur_F09_2005_2024.txt
   # Relative concentration error (applied if error column is zero).
   error_rel: 0.2
   # Fallback relative to tracer means for any error still equal to zero.
   missing_error_rel: 0.01
 
-lpm_models:
+lpm:
   # LPMs to evaluate (defaults to exp_shifted, ig, ig_shifted).
   models: ["exp_shifted", "ig", "ig_shifted"]
   # LPM parameter files location.
-  directory: data_core/data_lpm
+  directory: ../../../data_core/data_lpm
 
 workflow:
   kind: temporal
@@ -22,19 +24,20 @@ workflow:
 
 calibration:
   # Systematic sampling resolution (forward models).
-  explo_res: 20
-  # Metropolis-Hastings steps.
-  mh_nsteps: 3000
-  # Burn-in fraction and thinning.
-  burn_in: 0.2
-  nskip: 10
-  # Number of accepted samples for outputs (0 => auto).
-  lpm_number: 0
-  # Reproducible RNG.
-  seed_enabled: true
-  seed: 12345
+  exploration_resolution: 20
+  # Number of posterior draws for outputs (0 => automatic).
+  posterior_draw_count: 0
+  metropolis_hastings:
+    # Metropolis-Hastings steps.
+    nsteps: 3000
+    # Burn-in fraction and thinning.
+    burn_in: 0.2
+    thinning: 10
+    # Supplying a seed makes the run reproducible.
+    seed: 12345
+    prior_option: true
 
-figures:
+reporting:
   # Temporal chronicle plots.
   temporal: true
   # Distribution plots (parameters + concentrations).
@@ -42,7 +45,7 @@ figures:
   # 2D concentration pair plots (concentrations2D_*.png).
   concentrations_2d: false
 
-results:
+output:
   # Site/example namespace; the reusable workflow defaults to "temporal".
   study_name: ploemeur_temporal
   # Use default results root (PYAGES_RESULTS_DIR or <home>/results/PyAges).

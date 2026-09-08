@@ -17,11 +17,11 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from typing import Protocol
+from typing import Any, Protocol, cast
 
 import numpy as np
 
-from pyages.calibration.methods.mh.ensemble_config import MHInitializationConfig
+from pyages.calibration.methods.mh.run_config import MHInitializationConfig
 
 
 class _LpmInitializationView(Protocol):
@@ -31,8 +31,8 @@ class _LpmInitializationView(Protocol):
         """Return parameter names in canonical calibration order."""
         ...
 
-    def get_calibration_range(self, name: str) -> tuple[float, float]:
-        """Return the operational calibration range for ``name``."""
+    def get_calibration_range(self, key: str) -> tuple[float, float]:
+        """Return the operational calibration range for ``key``."""
         ...
 
 
@@ -137,7 +137,9 @@ def _validate_state(
         if isinstance(raw_value, (bool, np.bool_)):
             raise ValueError(f"initial value for {name!r} must be a finite number")
         try:
-            value = float(raw_value)
+            # Explicit starts come from dynamically typed YAML. ``float`` is
+            # the validation boundary; failed conversions are reported below.
+            value = float(cast(Any, raw_value))
         except (TypeError, ValueError) as exc:
             raise ValueError(
                 f"initial value for {name!r} must be a finite number"
@@ -307,7 +309,7 @@ def build_initial_states(
     config
         Initialization strategy and its controls.
     chain_count
-        Number of states to construct; must be at least two.
+        Number of states to construct; must be at least one.
     seeds
         One distinct non-negative seed per chain. Separate seeds ensure that a
         random draw for one chain cannot change another chain's start.
@@ -324,9 +326,9 @@ def build_initial_states(
     if (
         isinstance(chain_count, bool)
         or not isinstance(chain_count, int)
-        or chain_count < 2
+        or chain_count < 1
     ):
-        raise ValueError("chain_count must be an integer greater than or equal to two")
+        raise ValueError("chain_count must be a positive integer")
     normalized_seeds = _validated_seeds(seeds, chain_count)
     names = _parameter_names(lpm)
     lower, upper = _parameter_calibration_ranges(lpm, names)

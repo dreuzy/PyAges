@@ -21,7 +21,7 @@ from pyages.cli.commands.new import new_group
 def _write_minimal_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
-        "workflow:\n  kind: single_date\ndataset: {}\n",
+        "schema_version: 3\nworkflow:\n  kind: single_date\ndata: {}\n",
         encoding="utf-8",
     )
     return config_path
@@ -124,16 +124,16 @@ def test_cli_run_dispatch_single_date(tmp_path, monkeypatch):
     assert called["inline"] is True
     assert called["verbose"] is True
     payload = called["payload"]
-    assert payload["dataset"]["name"] == "custom.txt"
-    assert payload["dataset"]["data_dir"] == str(tmp_path)
-    assert payload["lpm"]["model_name"] == "exp_shifted"
-    assert payload["calibration_metropolis_hastings"]["nstep"] == 1234
+    assert payload["data"]["name"] == "custom.txt"
+    assert payload["data"]["data_dir"] == str(tmp_path)
+    assert payload["lpm"]["models"] == ["exp_shifted"]
+    assert payload["calibration"]["metropolis_hastings"]["nsteps"] == 1234
 
 
 def test_cli_run_dispatch_temporal(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
-        "workflow:\n  kind: temporal\ndataset:\n  file: data.txt\n",
+        "schema_version: 3\nworkflow:\n  kind: temporal\ndata:\n  file: data.txt\n",
         encoding="utf-8",
     )
     called = {}
@@ -166,45 +166,47 @@ def test_cli_run_dispatch_temporal(tmp_path, monkeypatch):
     assert not Path(called["config"]).exists()
     assert called["verbose"] is False
     payload = called["payload"]
-    assert payload["dataset"]["file"] == str(tmp_path / "data.txt")
-    assert payload["lpm_models"]["models"] == ["ig"]
-    assert payload["calibration"]["mh_nsteps"] == 987
+    assert payload["data"]["file"] == str(tmp_path / "data.txt")
+    assert payload["lpm"]["models"] == ["ig"]
+    assert payload["calibration"]["metropolis_hastings"]["nsteps"] == 987
 
 
 @pytest.mark.parametrize(
     ("payload", "expected"),
     [
-        ({"workflow": {"kind": "single_date"}}, "single_date"),
-        ({"workflow": {"kind": "temporal"}}, "temporal"),
+        ({"schema_version": 3, "workflow": {"kind": "single_date"}}, "single_date"),
+        ({"schema_version": 3, "workflow": {"kind": "temporal"}}, "temporal"),
     ],
 )
 def test_cli_detects_declared_workflows(payload, expected) -> None:
     assert run_cmd._detect_workflow(payload) == expected
 
 
-@pytest.mark.parametrize("payload", [{"workflow": {}}])
+@pytest.mark.parametrize("payload", [{"schema_version": 3, "workflow": {}}])
 def test_cli_rejects_missing_workflow_kind(payload) -> None:
     with pytest.raises(click.ClickException, match="workflow.kind is required"):
         run_cmd._detect_workflow(payload)
 
 
-@pytest.mark.parametrize("payload", [{}, {"dataset": {}}])
-def test_cli_legacy_config_without_workflow_defaults_to_single_date(payload) -> None:
-    assert run_cmd._detect_workflow(payload) == "single_date"
+@pytest.mark.parametrize("payload", [{}, {"schema_version": 2}])
+def test_cli_rejects_non_schema_3_configurations(payload) -> None:
+    with pytest.raises(click.ClickException, match="schema_version"):
+        run_cmd._detect_workflow(payload)
 
 
-def test_cli_transient_alias_selects_temporal_and_rejects_conflicts() -> None:
-    assert run_cmd._detect_workflow({}, transient=True) == "temporal"
-    with pytest.raises(click.ClickException, match="conflicts"):
-        run_cmd._detect_workflow(
-            {"workflow": {"kind": "single_date"}},
-            transient=True,
-        )
+def test_cli_transient_option_has_been_removed(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        run_cmd.run, [str(_write_minimal_config(tmp_path)), "--transient"]
+    )
+
+    assert result.exit_code == 2
+    assert "No such option" in result.output
+    assert "--transient" in result.output
 
 
-def test_schema_2_cli_overrides_use_canonical_fields(tmp_path) -> None:
+def test_schema_3_cli_overrides_use_canonical_fields(tmp_path) -> None:
     payload = {
-        "schema_version": 2,
+        "schema_version": 3,
         "workflow": {"kind": "temporal"},
         "data": {"file": "old.tsv"},
     }

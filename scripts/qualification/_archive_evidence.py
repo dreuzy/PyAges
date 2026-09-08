@@ -112,7 +112,7 @@ def validate_result_tree(  # noqa: C901 - validates all nested evidence layers
     for diagnostics in diagnostic_paths:
         method_directory = diagnostics.parent
         results_path = method_directory / "results_calibration.txt"
-        provenance_path = method_directory / "ensemble_provenance.txt"
+        provenance_path = method_directory / "run_provenance.txt"
         if not results_path.is_file() or not provenance_path.is_file():
             raise RuntimeError(
                 f"Incomplete multi-chain qualification artifacts beside {diagnostics}"
@@ -123,9 +123,9 @@ def validate_result_tree(  # noqa: C901 - validates all nested evidence layers
             raise RuntimeError(f"Multi-chain result is not qualified: {results_path}")
         if results.get("pooling_written") != "True":
             raise RuntimeError(f"Qualified pooling is absent: {results_path}")
-        if provenance.get("execution_mode") != "multi_chain":
+        if int(provenance.get("chain_count", "0")) < 2:
             raise RuntimeError(
-                f"Result is not a multi-chain execution: {provenance_path}"
+                f"Result contains fewer than two chains: {provenance_path}"
             )
         if provenance.get("qualification_status") != "qualified":
             raise RuntimeError(f"Provenance is not qualified: {provenance_path}")

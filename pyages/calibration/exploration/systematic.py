@@ -102,7 +102,7 @@ class SystematicSampling:
         for index, parameters in enumerate(points):
             self._lpm.set_param_from_array(parameters)
             values[index, :] = self._tracers.convolve(self._lpm)
-        self._concentrations = pd.DataFrame(values, columns=columns)
+        self._concentrations = pd.DataFrame(values, columns=pd.Index(columns))
         self._objective = None
         return self.concentrations_frame()
 
@@ -176,7 +176,7 @@ class SystematicSampling:
         data = np.column_stack((self._grid.points(), half_log_norm))
         self._objective = pd.DataFrame(
             data,
-            columns=[*self._grid.names, "half_log_chi_square"],
+            columns=pd.Index([*self._grid.names, "half_log_chi_square"]),
         )
         return self.objective_function_frame()
 

@@ -1,13 +1,13 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# This file checks settings shared by an MH run with several chains.
+# This file checks settings shared by an MH run containing one or more chains.
 
-"""Define configuration objects shared by a multi-chain MH run.
+"""Define configuration objects shared by any managed MH run.
 
 These objects describe how many chains to run, how to choose their starting
 states, whether to run a pilot stage, and which diagnostic limits must pass.
-The module also turns one master seed into separate reproducible seeds for
+The module also turns one run seed into separate reproducible seeds for
 initialization, pilot chains, and production chains.
 """
 
@@ -105,7 +105,7 @@ class MHInitializationConfig:
 class MHPilotConfig:
     """Controls for pilot chains used to learn a fixed proposal covariance.
 
-    ``nstep`` and fractional ``burn_in`` define pilot transitions retained with
+    ``nsteps`` and fractional ``burn_in`` define pilot transitions retained with
     no thinning.
 
     Each chain is centered separately before estimating the shared
@@ -117,8 +117,8 @@ class MHPilotConfig:
     ``save_samples`` is true.
     """
 
-    enabled: bool = True
-    nstep: int = 2_000
+    enabled: bool = False
+    nsteps: int = 2_000
     burn_in: float = 0.5
     relative_ridge: float = 1.0e-6
     proposal_multiplier: float | None = None
@@ -128,18 +128,18 @@ class MHPilotConfig:
         """Reject unusable pilot lengths and covariance controls."""
         if not isinstance(self.enabled, bool):
             raise ValueError("enabled must be a boolean")
-        if not _is_positive_integer(self.nstep):
-            raise ValueError("nstep must be a positive integer")
+        if not _is_positive_integer(self.nsteps):
+            raise ValueError("nsteps must be a positive integer")
         if (
             isinstance(self.burn_in, (bool, np.bool_))
             or not math.isfinite(self.burn_in)
             or not 0.0 <= self.burn_in < 1.0
         ):
             raise ValueError("burn_in must be finite and in [0, 1)")
-        retained_count = strict_retained_sample_count(self.nstep, self.burn_in, 1)
+        retained_count = strict_retained_sample_count(self.nsteps, self.burn_in, 1)
         if self.enabled and retained_count < 2:
             raise ValueError(
-                "pilot nstep and burn_in must retain at least two covariance draws"
+                "pilot nsteps and burn_in must retain at least two covariance draws"
             )
         if (
             isinstance(self.relative_ridge, bool)
@@ -192,18 +192,18 @@ class MHDiagnosticsConfig:
 
 
 @dataclass(frozen=True)
-class MHEnsembleConfig:
-    """Configuration shared by one reproducible ensemble of MH chains.
+class MHRunConfig:
+    """Configuration shared by one reproducible run of one or more MH chains.
 
-    Set ``master_seed=None`` to realize a cryptographically generated seed on
+    Set ``seed=None`` to realize a cryptographically generated seed on
     this immutable object. The default is the deterministic seed ``12345``.
 
     In both cases, the realized seed is stored so that every run can record and
     replay its random streams.
     """
 
-    chains: int = 4
-    master_seed: int | None = 12_345
+    chains: int = 1
+    seed: int | None = 12_345
     initialization: MHInitializationConfig = field(
         default_factory=MHInitializationConfig
     )
@@ -211,23 +211,19 @@ class MHEnsembleConfig:
     diagnostics: MHDiagnosticsConfig = field(default_factory=MHDiagnosticsConfig)
 
     def __post_init__(self) -> None:
-        """Validate the chain count and realize an omitted master seed."""
+        """Validate the chain count and realize an omitted run seed."""
         if (
             isinstance(self.chains, bool)
             or not isinstance(self.chains, int)
-            or self.chains < 2
+            or self.chains < 1
         ):
-            raise ValueError("chains must be an integer greater than or equal to two")
-        master_seed = self.master_seed
-        if master_seed is None:
-            master_seed = secrets.randbits(64)
-            object.__setattr__(self, "master_seed", master_seed)
-        if (
-            isinstance(master_seed, bool)
-            or not isinstance(master_seed, int)
-            or master_seed < 0
-        ):
-            raise ValueError("master_seed must be a non-negative integer or None")
+            raise ValueError("chains must be a positive integer")
+        seed = self.seed
+        if seed is None:
+            seed = secrets.randbits(64)
+            object.__setattr__(self, "seed", seed)
+        if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+            raise ValueError("seed must be a non-negative integer or None")
         if not isinstance(self.initialization, MHInitializationConfig):
             raise ValueError("initialization must be an MHInitializationConfig")
         if not isinstance(self.pilot, MHPilotConfig):
@@ -240,7 +236,7 @@ class MHEnsembleConfig:
 class MHSeedPlan:
     """Concrete independent seeds for initialization, pilot, and production."""
 
-    master_seed: int
+    seed: int
     initialization_seeds: tuple[int, ...]
     pilot_seeds: tuple[int, ...]
     production_seeds: tuple[int, ...]
@@ -248,11 +244,11 @@ class MHSeedPlan:
     def __post_init__(self) -> None:
         """Freeze and validate complete, non-overlapping phase streams."""
         if (
-            isinstance(self.master_seed, bool)
-            or not isinstance(self.master_seed, int)
-            or self.master_seed < 0
+            isinstance(self.seed, bool)
+            or not isinstance(self.seed, int)
+            or self.seed < 0
         ):
-            raise ValueError("master_seed must be a non-negative integer")
+            raise ValueError("seed must be a non-negative integer")
         phase_seeds: list[tuple[int, ...]] = []
         for name in (
             "initialization_seeds",
@@ -293,25 +289,29 @@ def _child_seeds(parent: np.random.SeedSequence, count: int) -> tuple[int, ...]:
     )
 
 
-def build_seed_plan(config: MHEnsembleConfig) -> MHSeedPlan:
-    """Build distinct phase and per-chain streams from ``config.master_seed``.
+def build_seed_plan(config: MHRunConfig) -> MHSeedPlan:
+    """Build distinct phase and per-chain streams from ``config.seed``.
 
     The hierarchy is stable: adding random draws inside initialization or a
-    pilot does not advance or otherwise alter any production-chain stream.
+    pilot does not advance or otherwise alter any production-chain stream. The
+    first production stream is also identical for ``chains=1`` and
+    ``chains>1``; changing only the chain count therefore adds streams without
+    changing the first chain.
     """
-    if not isinstance(config, MHEnsembleConfig):
-        raise TypeError("config must be an MHEnsembleConfig")
-    if config.master_seed is None:  # defensive; ``__post_init__`` realizes it
-        raise AssertionError("validated ensemble config has no master seed")
+    if not isinstance(config, MHRunConfig):
+        raise TypeError("config must be an MHRunConfig")
+    if config.seed is None:  # defensive; ``__post_init__`` realizes it
+        raise AssertionError("validated run config has no seed")
 
-    root = np.random.SeedSequence(config.master_seed)
+    root = np.random.SeedSequence(config.seed)
     initialization_root, pilot_root, production_root = root.spawn(3)
+    production_seeds = _child_seeds(production_root, config.chains)
 
     plan = MHSeedPlan(
-        master_seed=config.master_seed,
+        seed=config.seed,
         initialization_seeds=_child_seeds(initialization_root, config.chains),
         pilot_seeds=_child_seeds(pilot_root, config.chains),
-        production_seeds=_child_seeds(production_root, config.chains),
+        production_seeds=production_seeds,
     )
 
     all_seeds = plan.initialization_seeds + plan.pilot_seeds + plan.production_seeds
@@ -322,7 +322,7 @@ def build_seed_plan(config: MHEnsembleConfig) -> MHSeedPlan:
 
 __all__ = [
     "MHDiagnosticsConfig",
-    "MHEnsembleConfig",
+    "MHRunConfig",
     "MHInitializationConfig",
     "MHPilotConfig",
     "MHSeedPlan",

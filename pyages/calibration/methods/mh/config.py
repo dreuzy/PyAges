@@ -107,10 +107,10 @@ def _validated_covariance(
 class MHConfig:
     """Reproducibility controls for one Metropolis--Hastings chain.
 
-    ``nstep`` counts transitions, including rejected proposals. Samples are
+    ``nsteps`` counts transitions, including rejected proposals. Samples are
     retained when the zero-based iteration ``i`` satisfies both
-    ``i > burn_in * nstep`` and ``i % nskip == 0``; rejected transitions retain
-    the previous state. ``burn_in`` is a fraction, ``nskip`` is the thinning
+    ``i > burn_in * nsteps`` and ``i % thinning == 0``; rejected transitions
+    retain the previous state. ``burn_in`` is a fraction, ``thinning`` is the
     interval, and ``seed`` initializes NumPy's ``default_rng``.
 
     With ``likelihood=True``, the target contains
@@ -137,9 +137,9 @@ class MHConfig:
 
     """
 
-    nstep: int = 10000
+    nsteps: int = 10000
     burn_in: float = 0.2
-    nskip: int = 10
+    thinning: int = 10
     prior_option: bool = True
     prior_type: str = "parametric"
     likelihood: bool = True
@@ -199,11 +199,11 @@ class MHConfig:
     def _validate_schedule(self) -> None:
         """Validate chain length, burn-in, thinning, and seed."""
         if (
-            isinstance(self.nstep, bool)
-            or not isinstance(self.nstep, int)
-            or self.nstep <= 0
+            isinstance(self.nsteps, bool)
+            or not isinstance(self.nsteps, int)
+            or self.nsteps <= 0
         ):
-            raise ValueError("nstep must be a positive integer")
+            raise ValueError("nsteps must be a positive integer")
         if (
             isinstance(self.burn_in, bool)
             or not isinstance(self.burn_in, (int, float))
@@ -212,11 +212,11 @@ class MHConfig:
         ):
             raise ValueError("burn_in must be finite and in [0, 1)")
         if (
-            isinstance(self.nskip, bool)
-            or not isinstance(self.nskip, int)
-            or self.nskip <= 0
+            isinstance(self.thinning, bool)
+            or not isinstance(self.thinning, int)
+            or self.thinning <= 0
         ):
-            raise ValueError("nskip must be a positive integer")
+            raise ValueError("thinning must be a positive integer")
         if (
             isinstance(self.seed, bool)
             or not isinstance(self.seed, int)
@@ -225,7 +225,7 @@ class MHConfig:
             raise ValueError("seed must be a non-negative integer")
         if self.retained_sample_count() == 0:
             raise ValueError(
-                "nstep, burn_in, and nskip retain no samples under the strict "
+                "nsteps, burn_in, and thinning retain no samples under the strict "
                 "burn-in rule"
             )
 
@@ -312,14 +312,14 @@ class MHConfig:
     def should_retain(self, iteration: int) -> bool:
         """Return whether one zero-based transition is retained."""
         return (
-            0 <= iteration < self.nstep
-            and iteration > self.burn_in * self.nstep
-            and iteration % self.nskip == 0
+            0 <= iteration < self.nsteps
+            and iteration > self.burn_in * self.nsteps
+            and iteration % self.thinning == 0
         )
 
     def retained_sample_count(self) -> int:
         """Return the retained row count in constant time."""
-        return strict_retained_sample_count(self.nstep, self.burn_in, self.nskip)
+        return strict_retained_sample_count(self.nsteps, self.burn_in, self.thinning)
 
 
 __all__ = ["MHConfig"]

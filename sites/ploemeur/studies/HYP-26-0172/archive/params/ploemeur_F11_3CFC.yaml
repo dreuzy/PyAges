@@ -19,14 +19,14 @@ lpm_models:
     F11: ["exp_shifted"]
 
 calibration:
-  explo_res: 20
-  mh_nsteps: 40000
-  seed_enabled: true
-  seed: 12345
+  exploration_resolution: 20
+  posterior_draw_count: 0
+  metropolis_hastings:
+    nsteps: 40000
+    seed: 12345
   # Optional explicit start for calibrations without an empirical prior.
   # Conditioned stages keep their existing prior-MAP initialization.
-  # initial_params: {mu: 35.0, shift: 35.0}
-  lpm_number: 0
+    # initialization: {strategy: explicit, explicit_starts: [{mu: 35.0, shift: 35.0}]}
 
 execution:
   parallel: true

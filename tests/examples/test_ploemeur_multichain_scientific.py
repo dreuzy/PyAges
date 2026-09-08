@@ -58,30 +58,29 @@ def _read_key_values(path: Path) -> dict[str, str]:
 def _scientific_payload() -> dict:
     """Load the same versioned protocol exposed to users and documentation."""
     teaching_payload = yaml.safe_load(PLOEMEUR_CONFIG.read_text(encoding="utf-8"))
-    assert "multichain" not in teaching_payload["calibration_metropolis_hastings"]
+    assert "multichain" not in teaching_payload["calibration"]["metropolis_hastings"]
     payload = yaml.safe_load(PLOEMEUR_MULTICHAIN_CONFIG.read_text(encoding="utf-8"))
-    payload["dataset"]["data_dir"] = str(PLOEMEUR_DATA.parent)
-    payload["dataset"]["verbose"] = False
-    payload["lpm"]["data_directory"] = str(LPM_DIRECTORY)
+    payload["data"]["data_dir"] = str(PLOEMEUR_DATA.parent)
+    payload["data"]["verbose"] = False
+    payload["lpm"]["directory"] = str(LPM_DIRECTORY)
     assert payload["run"] == {
         "reachable_concentrations": False,
         "objective_function": False,
-        "calibration_metropolis_hastings": True,
-        "calibration_simplex": False,
+        "metropolis_hastings": True,
+        "simplex": False,
     }
-    mh = payload["calibration_metropolis_hastings"]
-    multichain = mh["multichain"]
-    assert (mh["nstep"], mh["burn_in"], mh["nskip"]) == (
+    mh = payload["calibration"]["metropolis_hastings"]
+    assert (mh["nsteps"], mh["burn_in"], mh["thinning"]) == (
         PRODUCTION_STEPS,
         BURN_IN,
         1,
     )
-    assert (multichain["chains"], multichain["master_seed"]) == (
+    assert (mh["chains"], mh["seed"]) == (
         CHAIN_COUNT,
         20260831,
     )
-    assert multichain["pilot"]["nstep"] == 2_000
-    assert multichain["diagnostics"] == {
+    assert mh["pilot"]["nsteps"] == 2_000
+    assert mh["diagnostics"] == {
         "max_rhat": MAX_RHAT,
         "min_bulk_ess": MIN_ESS,
         "min_tail_ess": MIN_ESS,
@@ -284,10 +283,10 @@ def test_ploemeur_f09_multichain_scientific_qualification(
     assert pooled["obj_function"].median() < 0.5 * default_objective
 
     results = _read_key_values(mh_directory / "results_calibration.txt")
-    provenance = _read_key_values(mh_directory / "ensemble_provenance.txt")
+    provenance = _read_key_values(mh_directory / "run_provenance.txt")
     assert results["qualification_status"] == "qualified"
     assert results["pooling_written"] == "True"
-    assert provenance["master_seed"] == "20260831"
+    assert provenance["seed"] == "20260831"
     assert provenance["qualification_status"] == "qualified"
 
     manifest = json.loads((output / "result_manifest.json").read_text("utf-8"))

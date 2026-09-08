@@ -213,7 +213,14 @@ def _qualification_summary(
     qualified_count = sum(bool(row["qualified"]) for row in rows)
 
     def maximum(items: list[dict[str, object]], field: str) -> float:
-        values = [float(item[field]) for item in items if item[field] is not None]
+        values: list[float] = []
+        for item in items:
+            value = item[field]
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise TypeError(f"{field} must contain only numeric values or None")
+            values.append(float(value))
         return max(values, default=0.0)
 
     return {

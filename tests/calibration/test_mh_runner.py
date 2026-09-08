@@ -16,25 +16,26 @@ import pandas as pd
 import pytest
 import yaml
 
-from pyages.calibration.methods.mh import ensemble as ensemble_module
+from pyages.calibration.methods.mh import runner as runner_module
 from pyages.calibration.methods.mh.config import MHConfig
-from pyages.calibration.methods.mh.ensemble import MultiChainMetropolisHastings
-from pyages.calibration.methods.mh.ensemble_config import (
-    MHDiagnosticsConfig,
-    MHEnsembleConfig,
-    MHInitializationConfig,
-    MHPilotConfig,
-    build_seed_plan,
-)
 from pyages.calibration.methods.mh.errors import (
     MHConvergenceError,
     MHDiagnosticsUnavailableError,
 )
 from pyages.calibration.methods.mh.results import (
     DIAGNOSTICS_UNAVAILABLE,
+    NOT_APPLICABLE,
     NOT_QUALIFIED,
     QUALIFIED,
 )
+from pyages.calibration.methods.mh.run_config import (
+    MHDiagnosticsConfig,
+    MHInitializationConfig,
+    MHPilotConfig,
+    MHRunConfig,
+    build_seed_plan,
+)
+from pyages.calibration.methods.mh.runner import MetropolisHastingsRunner
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
 from pyages.config.paths import DIRECTORY_LPM_DATA, DIRECTORY_TRACER_DATA
@@ -75,12 +76,12 @@ def exp_problem_factory(
     return factory, calls
 
 
-def _chain_config(*, nstep: int = 20) -> MHConfig:
+def _chain_config(*, nsteps: int = 20) -> MHConfig:
     """Build a short, reproducible production configuration."""
     return MHConfig(
-        nstep=nstep,
+        nsteps=nsteps,
         burn_in=0.0,
-        nskip=1,
+        thinning=1,
         prior_option=True,
         prior_type="parametric",
         likelihood=True,
@@ -91,12 +92,12 @@ def _chain_config(*, nstep: int = 20) -> MHConfig:
     )
 
 
-def _ensemble_config(
+def _run_config(
     *,
-    master_seed: int = 20260830,
+    seed: int = 20260830,
     pilot: bool,
     qualified: bool = True,
-) -> MHEnsembleConfig:
+) -> MHRunConfig:
     """Build two explicitly dispersed chains with selectable qualification."""
     diagnostics = (
         MHDiagnosticsConfig(
@@ -112,16 +113,16 @@ def _ensemble_config(
             require_convergence=False,
         )
     )
-    return MHEnsembleConfig(
+    return MHRunConfig(
         chains=2,
-        master_seed=master_seed,
+        seed=seed,
         initialization=MHInitializationConfig(
             strategy="explicit",
             explicit_starts=({"mu": 8.0}, {"mu": 12.0}),
         ),
         pilot=MHPilotConfig(
             enabled=pilot,
-            nstep=18,
+            nsteps=18,
             burn_in=0.0,
             relative_ridge=1.0e-6,
             save_samples=True,
@@ -136,7 +137,7 @@ def test_pilot_uses_fresh_problems_and_freezes_one_production_covariance(
 ) -> None:
     factory, calls = exp_problem_factory
     constructed_configs: list[MHConfig] = []
-    sampler_class = ensemble_module.MetropolisHastings
+    sampler_class = runner_module.MetropolisHastings
 
     class RecordingMetropolisHastings(sampler_class):
         def __init__(self, config: MHConfig) -> None:
@@ -144,13 +145,13 @@ def test_pilot_uses_fresh_problems_and_freezes_one_production_covariance(
             super().__init__(config)
 
     monkeypatch.setattr(
-        ensemble_module,
+        runner_module,
         "MetropolisHastings",
         RecordingMetropolisHastings,
     )
-    result = MultiChainMetropolisHastings(
-        _chain_config(), _ensemble_config(pilot=True)
-    ).run(factory)
+    result = MetropolisHastingsRunner(_chain_config(), _run_config(pilot=True)).run(
+        factory
+    )
 
     assert [(stage, chain_id) for stage, chain_id, _ in calls] == [
         ("initialization", 0),
@@ -177,7 +178,7 @@ def test_pilot_uses_fresh_problems_and_freezes_one_production_covariance(
         == production_configs[1].proposal_covariance
     )
     assert result.chains[0].seed != result.chains[1].seed
-    assert result.seed_plan == build_seed_plan(_ensemble_config(pilot=True))
+    assert result.seed_plan == build_seed_plan(_run_config(pilot=True))
     assert result.target_signature_version == 1
     assert len(result.target_sha256) == 64
     assert not result.chains[0].samples.frame.equals(result.chains[1].samples.frame)
@@ -199,12 +200,65 @@ def test_pilot_uses_fresh_problems_and_freezes_one_production_covariance(
     )
 
 
+def test_one_chain_uses_the_common_runner_without_inter_chain_diagnostics(
+    exp_problem_factory,
+) -> None:
+    factory, calls = exp_problem_factory
+    chain_config = _chain_config(nsteps=7)
+    run_config = MHRunConfig(
+        chains=1,
+        seed=chain_config.seed,
+        initialization=MHInitializationConfig(strategy="bounds_stratified"),
+        pilot=MHPilotConfig(enabled=False),
+    )
+
+    result = MetropolisHastingsRunner(chain_config, run_config).run(factory)
+
+    assert [(stage, chain_id) for stage, chain_id, _ in calls] == [
+        ("initialization", 0),
+        ("production", 1),
+    ]
+    assert result.qualification_status == NOT_APPLICABLE
+    assert result.diagnostics == ()
+    assert result.diagnostics_message is None
+    assert result.chains[0].seed == result.seed_plan.production_seeds[0]
+    assert result.chains[0].seed != chain_config.seed
+    assert len(result.pooled_samples().frame) == chain_config.retained_sample_count()
+
+
+def test_one_chain_can_use_the_same_optional_pilot_stage(
+    exp_problem_factory,
+) -> None:
+    factory, calls = exp_problem_factory
+    chain_config = _chain_config(nsteps=7)
+    run_config = MHRunConfig(
+        chains=1,
+        seed=chain_config.seed,
+        initialization=MHInitializationConfig(
+            strategy="explicit",
+            explicit_starts=({"mu": 10.0},),
+        ),
+        pilot=MHPilotConfig(enabled=True, nsteps=6, burn_in=0.0),
+    )
+
+    result = MetropolisHastingsRunner(chain_config, run_config).run(factory)
+
+    assert [(stage, chain_id) for stage, chain_id, _ in calls] == [
+        ("initialization", 0),
+        ("pilot", 1),
+        ("production", 1),
+    ]
+    assert result.pilot is not None
+    assert result.qualification_status == NOT_APPLICABLE
+    assert result.diagnostics == ()
+
+
 def test_no_pilot_replays_each_distinct_production_stream(
     exp_problem_factory,
 ) -> None:
     first_factory, first_calls = exp_problem_factory
-    config = _ensemble_config(master_seed=77123, pilot=False)
-    first = MultiChainMetropolisHastings(_chain_config(), config).run(first_factory)
+    config = _run_config(seed=77123, pilot=False)
+    first = MetropolisHastingsRunner(_chain_config(), config).run(first_factory)
 
     observations = first_calls[0][2].observations
     replay_calls: list[CalibrationProblem] = []
@@ -219,7 +273,7 @@ def test_no_pilot_replays_each_distinct_production_stream(
         replay_calls.append(problem)
         return problem
 
-    replay = MultiChainMetropolisHastings(_chain_config(), config).run(replay_factory)
+    replay = MetropolisHastingsRunner(_chain_config(), config).run(replay_factory)
 
     assert first.pilot is None
     assert replay.pilot is None
@@ -239,14 +293,14 @@ def test_no_pilot_replays_each_distinct_production_stream(
     assert first.target_sha256 == replay.target_sha256
 
 
-def test_pilot_run_is_fully_replayable_from_the_master_seed(
+def test_pilot_run_is_fully_replayable_from_the_run_seed(
     exp_problem_factory,
 ) -> None:
     factory, _calls = exp_problem_factory
-    config = _ensemble_config(master_seed=99173, pilot=True)
+    config = _run_config(seed=99173, pilot=True)
 
-    first = MultiChainMetropolisHastings(_chain_config(), config).run(factory)
-    replay = MultiChainMetropolisHastings(_chain_config(), config).run(factory)
+    first = MetropolisHastingsRunner(_chain_config(), config).run(factory)
+    replay = MetropolisHastingsRunner(_chain_config(), config).run(factory)
 
     assert first.seed_plan == replay.seed_plan == build_seed_plan(config)
     assert first.target_sha256 == replay.target_sha256
@@ -280,8 +334,8 @@ def test_nonqualified_ensemble_refuses_qualified_pooling(
     exp_problem_factory,
 ) -> None:
     factory, _ = exp_problem_factory
-    result = MultiChainMetropolisHastings(
-        _chain_config(), _ensemble_config(pilot=False, qualified=False)
+    result = MetropolisHastingsRunner(
+        _chain_config(), _run_config(pilot=False, qualified=False)
     ).run(factory)
 
     assert result.qualification_status == NOT_QUALIFIED
@@ -305,9 +359,9 @@ def test_constant_derived_moment_does_not_make_qualification_impossible() -> Non
             explore_reachable=False,
         ).prepare()
 
-    config = MHEnsembleConfig(
+    config = MHRunConfig(
         chains=2,
-        master_seed=8102,
+        seed=8102,
         initialization=MHInitializationConfig(
             strategy="explicit",
             explicit_starts=({"mu": 8.0}, {"mu": 12.0}),
@@ -320,7 +374,7 @@ def test_constant_derived_moment_does_not_make_qualification_impossible() -> Non
         ),
     )
 
-    result = MultiChainMetropolisHastings(_chain_config(), config).run(factory)
+    result = MetropolisHastingsRunner(_chain_config(), config).run(factory)
 
     std_diagnostic = next(
         item for item in result.diagnostics if item.parameter == "std"
@@ -343,13 +397,13 @@ def test_factory_reusing_the_same_problem_is_rejected() -> None:
     ).prepare()
 
     with pytest.raises(ValueError, match="fresh CalibrationProblem"):
-        MultiChainMetropolisHastings(
-            _chain_config(), _ensemble_config(pilot=False)
-        ).run(lambda stage, chain_id: problem)
+        MetropolisHastingsRunner(_chain_config(), _run_config(pilot=False)).run(
+            lambda stage, chain_id: problem
+        )
 
 
 def test_required_ess_threshold_must_be_reachable_from_retained_draws() -> None:
-    config = MHEnsembleConfig(
+    config = MHRunConfig(
         chains=2,
         initialization=MHInitializationConfig(strategy="bounds_stratified"),
         pilot=MHPilotConfig(enabled=False),
@@ -361,40 +415,82 @@ def test_required_ess_threshold_must_be_reachable_from_retained_draws() -> None:
     )
 
     with pytest.raises(ValueError, match="maximum split-draw ESS"):
-        MultiChainMetropolisHastings(_chain_config(nstep=20), config)
+        MetropolisHastingsRunner(_chain_config(nsteps=20), config)
 
 
-@pytest.mark.parametrize(
-    ("override", "option"),
-    [
-        ({"monitor": True}, "monitor"),
-        ({"display_traj": True}, "display_traj"),
-    ],
-)
-def test_ensemble_rejects_one_chain_trajectory_options(override, option) -> None:
-    chain_config = replace(_chain_config(), **override)
+def test_multiple_chains_preserve_per_chain_trajectory_options() -> None:
+    chain_config = replace(_chain_config(), monitor=True, display_traj=True)
+    runner = MetropolisHastingsRunner(chain_config, _run_config(pilot=False))
 
-    with pytest.raises(ValueError, match=option):
-        MultiChainMetropolisHastings(
-            chain_config,
-            _ensemble_config(pilot=False),
-        )
+    production = runner._production_config(
+        initial_params={"mu": 10.0},
+        seed=7,
+        pilot=None,
+    )
+
+    assert production.monitor is True
+    assert production.display_traj is True
 
 
-def test_ensemble_preserves_text_summary_option() -> None:
+def test_multiple_chains_write_trajectory_figures_in_separate_directories(
+    exp_problem_factory,
+) -> None:
+    factory, calls = exp_problem_factory
+    chain_config = replace(_chain_config(), display_traj=True)
+
+    MetropolisHastingsRunner(
+        chain_config,
+        _run_config(pilot=False),
+    ).run(factory)
+
+    production_problems = [
+        problem for stage, _chain_id, problem in calls if stage == "production"
+    ]
+    assert len(production_problems) == 2
+    for problem in production_problems:
+        display_directory = problem.display_options.directory
+        assert display_directory is not None
+        directory = Path(display_directory)
+        assert (directory / "MH_trajectory_mu.png").is_file()
+        assert (directory / "MH_trajectory_-log_posterior.png").is_file()
+        assert (directory / "MH_trajectory_incrementation.png").is_file()
+
+
+def test_one_chain_preserves_its_monitoring_options() -> None:
+    chain_config = replace(_chain_config(), monitor=True, display_traj=True)
+    runner = MetropolisHastingsRunner(
+        chain_config,
+        MHRunConfig(
+            chains=1,
+            initialization=MHInitializationConfig(strategy="bounds_stratified"),
+            pilot=MHPilotConfig(enabled=False),
+        ),
+    )
+
+    production = runner._production_config(
+        initial_params={"mu": 10.0},
+        seed=chain_config.seed,
+        pilot=None,
+    )
+
+    assert production.monitor is True
+    assert production.display_traj is True
+
+
+def test_runner_preserves_text_summary_option() -> None:
     chain_config = MHConfig(
-        nstep=20,
+        nsteps=20,
         burn_in=0.0,
-        nskip=1,
+        thinning=1,
         prior_option=True,
         monitor=False,
         display_traj=False,
         display_text=True,
         componentwise_source="model",
     )
-    runner = MultiChainMetropolisHastings(
+    runner = MetropolisHastingsRunner(
         chain_config,
-        _ensemble_config(pilot=False),
+        _run_config(pilot=False),
     )
 
     production = runner._production_config(
@@ -419,14 +515,14 @@ def test_pilot_requires_componentwise_adaptation_but_disabled_pilot_does_not(
     )
 
     with pytest.raises(ValueError, match="requires proposal_kind='componentwise'"):
-        MultiChainMetropolisHastings(
+        MetropolisHastingsRunner(
             correlated,
-            _ensemble_config(pilot=True),
+            _run_config(pilot=True),
         )
 
-    result = MultiChainMetropolisHastings(
+    result = MetropolisHastingsRunner(
         correlated,
-        _ensemble_config(pilot=False),
+        _run_config(pilot=False),
     ).run(factory)
     assert result.pilot is None
     assert len(result.chains) == 2
@@ -483,9 +579,9 @@ def test_scientific_target_drift_is_rejected_before_any_sampling(
     def unexpected_sampling(*_args, **_kwargs):
         raise AssertionError("sampling started before target preflight completed")
 
-    monkeypatch.setattr(MultiChainMetropolisHastings, "_diagnose", unexpected_sampling)
+    monkeypatch.setattr(MetropolisHastingsRunner, "_diagnose", unexpected_sampling)
     monkeypatch.setattr(
-        ensemble_module.MetropolisHastings,
+        runner_module.MetropolisHastings,
         "run",
         unexpected_sampling,
     )
@@ -494,9 +590,9 @@ def test_scientific_target_drift_is_rejected_before_any_sampling(
         ValueError,
         match=(f"stage='production', chain_id=2, category='{category}'"),
     ):
-        MultiChainMetropolisHastings(
+        MetropolisHastingsRunner(
             _chain_config(),
-            _ensemble_config(pilot=False),
+            _run_config(pilot=False),
         ).run(factory)
 
 
@@ -541,7 +637,7 @@ def test_direct_tracer_content_drift_is_rejected_without_a_prepared_grid(
         raise AssertionError("sampling started before direct-tracer preflight")
 
     monkeypatch.setattr(
-        ensemble_module.MetropolisHastings,
+        runner_module.MetropolisHastings,
         "run",
         unexpected_sampling,
     )
@@ -550,9 +646,9 @@ def test_direct_tracer_content_drift_is_rejected_without_a_prepared_grid(
         ValueError,
         match=("stage='production', chain_id=2, category='tracer_grids'"),
     ):
-        MultiChainMetropolisHastings(
+        MetropolisHastingsRunner(
             _chain_config(),
-            _ensemble_config(pilot=False),
+            _run_config(pilot=False),
         ).run(factory)
 
     assert prepared_grids
@@ -597,13 +693,13 @@ def test_shapefree_document_drift_is_rejected_before_any_sampling(
         raise AssertionError("sampling started before shape-free target preflight")
 
     monkeypatch.setattr(
-        ensemble_module.MetropolisHastings,
+        runner_module.MetropolisHastings,
         "run",
         unexpected_sampling,
     )
-    ensemble_config = MHEnsembleConfig(
+    run_config = MHRunConfig(
         chains=2,
-        master_seed=7654,
+        seed=7654,
         initialization=MHInitializationConfig(
             strategy="explicit",
             explicit_starts=(
@@ -619,17 +715,17 @@ def test_shapefree_document_drift_is_rejected_before_any_sampling(
         ValueError,
         match="stage='production', chain_id=2, category='lpm'",
     ):
-        MultiChainMetropolisHastings(
+        MetropolisHastingsRunner(
             _chain_config(),
-            ensemble_config,
+            run_config,
         ).run(factory)
 
 
 def test_too_few_production_draws_are_rejected_before_running() -> None:
-    config = _ensemble_config(pilot=False)
+    config = _run_config(pilot=False)
 
     with pytest.raises(ValueError, match="at least eight draws"):
-        MultiChainMetropolisHastings(_chain_config(nstep=8), config)
+        MetropolisHastingsRunner(_chain_config(nsteps=8), config)
 
 
 def test_unavailable_diagnostics_preserve_completed_chain_results(
@@ -637,9 +733,9 @@ def test_unavailable_diagnostics_preserve_completed_chain_results(
     monkeypatch,
 ) -> None:
     factory, _calls = exp_problem_factory
-    runner = MultiChainMetropolisHastings(
+    runner = MetropolisHastingsRunner(
         _chain_config(),
-        _ensemble_config(pilot=False),
+        _run_config(pilot=False),
     )
 
     def fail_diagnostics(_chains):
@@ -662,9 +758,9 @@ def test_unexpected_diagnostic_value_error_is_not_reclassified(
     monkeypatch,
 ) -> None:
     factory, _calls = exp_problem_factory
-    runner = MultiChainMetropolisHastings(
+    runner = MetropolisHastingsRunner(
         _chain_config(),
-        _ensemble_config(pilot=False),
+        _run_config(pilot=False),
     )
 
     def fail_diagnostics(_chains):
@@ -681,15 +777,15 @@ def test_unexpected_mcse_value_error_is_not_masked(
     monkeypatch,
 ) -> None:
     factory, _calls = exp_problem_factory
-    runner = MultiChainMetropolisHastings(
+    runner = MetropolisHastingsRunner(
         _chain_config(),
-        _ensemble_config(pilot=False),
+        _run_config(pilot=False),
     )
 
     def fail_mcse(*_args, **_kwargs):
         raise ValueError("mcse programming defect")
 
-    monkeypatch.setattr(ensemble_module, "mcse_mean", fail_mcse)
+    monkeypatch.setattr(runner_module, "mcse_mean", fail_mcse)
 
     with pytest.raises(ValueError, match="mcse programming defect"):
         runner.run(factory)

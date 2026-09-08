@@ -9,10 +9,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from PIL import Image
 
 
-def export_figure(fig: plt.Figure, directory: Path, stem: str) -> list[Path]:
+def export_figure(fig: Figure, directory: Path, stem: str) -> list[Path]:
     """Write review and journal formats from the same Matplotlib figure."""
     directory.mkdir(parents=True, exist_ok=True)
     png_path = directory / f"{stem}.png"

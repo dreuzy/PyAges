@@ -490,7 +490,7 @@ def build_pre_model_figures(
             if len(frame) == 1:
                 axes = [axes]
             for ax, (_, row) in zip(axes, frame.iterrows(), strict=False):
-                tracer_name = row["element"]
+                tracer_name = str(row["element"])
                 raw_history = prepared.tracer_histories[tracer_name]
                 display_history = build_reference_curve(
                     prepared,
@@ -731,7 +731,7 @@ def build_reference_comparison_figures(
         ax.text(
             0.98,
             0.98,
-            f"Best: {row['reference_best_model'].replace('_chi2', '')}",
+            f"Best: {str(row['reference_best_model']).replace('_chi2', '')}",
             transform=ax.transAxes,
             ha="right",
             va="top",

@@ -22,6 +22,8 @@ from pathlib import Path
 
 import click
 
+from pyages.cli._atomic import atomic_write_text
+
 LPM_MODEL_TEMPLATE = '''\
 # Copyright (c) {year} [Copyright holder]
 # SPDX-License-Identifier: CECILL-2.1
@@ -202,12 +204,13 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
 
     model_file = model_output / f"{name}.py"
 
-    if model_file.exists():
+    overwrite_model = model_file.exists()
+    if overwrite_model:
         if not click.confirm(f"File {model_file} already exists. Overwrite?"):
             click.echo("Aborted.")
             return
 
-    model_file.write_text(model_content, encoding="utf-8")
+    atomic_write_text(model_file, model_content, overwrite=overwrite_model)
     click.echo(click.style("Created:", fg="green") + f" {model_file}")
 
     # Generate params.yaml
@@ -217,14 +220,15 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
     params_content = LPM_PARAMS_TEMPLATE.format(name=name)
     params_file = lpm_data_dir / "params.yaml"
 
-    if params_file.exists():
+    overwrite_params = params_file.exists()
+    if overwrite_params:
         if not click.confirm(f"File {params_file} already exists. Overwrite?"):
             click.echo("Skipping params.yaml")
         else:
-            params_file.write_text(params_content, encoding="utf-8")
+            atomic_write_text(params_file, params_content, overwrite=True)
             click.echo(click.style("Created:", fg="green") + f" {params_file}")
     else:
-        params_file.write_text(params_content, encoding="utf-8")
+        atomic_write_text(params_file, params_content)
         click.echo(click.style("Created:", fg="green") + f" {params_file}")
 
     # Show next steps

@@ -39,7 +39,7 @@ def test_synthetic_example_multichain_recovers_known_parameters(
     monkeypatch.setenv("MPLBACKEND", "Agg")
     teaching_source = EXAMPLE / "lpm_recovery_single_date.yaml"
     teaching_payload = yaml.safe_load(teaching_source.read_text(encoding="utf-8"))
-    assert "multichain" not in teaching_payload["calibration_metropolis_hastings"]
+    assert "multichain" not in teaching_payload["calibration"]["metropolis_hastings"]
     source = EXAMPLE / "lpm_recovery_single_date_multichain.yaml"
     payload = yaml.safe_load(source.read_text(encoding="utf-8"))
 
@@ -51,21 +51,20 @@ def test_synthetic_example_multichain_recovers_known_parameters(
     }
     assert truth == {"mu": 28.0, "shift": 4.0}
 
-    payload["dataset"]["data_dir"] = str(EXAMPLE / "data")
-    payload["dataset"]["verbose"] = False
-    payload["lpm"]["data_directory"] = str(ROOT / "data_core" / "data_lpm")
-    mh = payload["calibration_metropolis_hastings"]
-    multichain = mh["multichain"]
+    payload["data"]["data_dir"] = str(EXAMPLE / "data")
+    payload["data"]["verbose"] = False
+    payload["lpm"]["directory"] = str(ROOT / "data_core" / "data_lpm")
+    mh = payload["calibration"]["metropolis_hastings"]
     assert payload["run"] == {
         "reachable_concentrations": False,
         "objective_function": False,
-        "calibration_metropolis_hastings": True,
-        "calibration_simplex": False,
+        "metropolis_hastings": True,
+        "simplex": False,
     }
-    assert (mh["nstep"], mh["burn_in"], mh["nskip"]) == (4_000, 0.25, 1)
-    assert (multichain["chains"], multichain["master_seed"]) == (4, 20260831)
-    assert multichain["pilot"]["nstep"] == 1_500
-    assert multichain["diagnostics"] == {
+    assert (mh["nsteps"], mh["burn_in"], mh["thinning"]) == (4_000, 0.25, 1)
+    assert (mh["chains"], mh["seed"]) == (4, 20260831)
+    assert mh["pilot"]["nsteps"] == 1_500
+    assert mh["diagnostics"] == {
         "max_rhat": 1.01,
         "min_bulk_ess": 300,
         "min_tail_ess": 300,

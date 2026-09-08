@@ -13,7 +13,7 @@ import pandas as pd
 import pytest
 
 import pyages.reporting.plots as workflow_plots
-from pyages.config.models import MHMultichainCfg
+from pyages.config.models import MetropolisHastingsCfg
 from pyages.workflows.runtime import begin_staged_result_run
 from pyages.workflows.single_date import calibration as single_calibration
 from pyages.workflows.single_date import context as single_context
@@ -33,23 +33,22 @@ def _context(tmp_path, *, staged=False, **overrides):
         "tracer_data_dir": tmp_path / "tracers",
         "run_reachable_concentrations": False,
         "reachable_concentration_nmodels": 10,
-        "run_calibration_simplex": False,
-        "run_calibration_metropolis_hastings": False,
+        "run_simplex": False,
+        "run_metropolis_hastings": False,
         "run_objective_function": False,
         "objective_function_nmodels": 10,
-        "mh_nstep": 5000,
+        "mh_nsteps": 5000,
         "mh_burn_in": 0.2,
-        "mh_nskip": 10,
+        "mh_thinning": 10,
         "mh_seed": 12345,
         "mh_prior_option": False,
         "mh_likelihood": True,
-        "mh_monitor": False,
         "mh_display_traj": False,
-        "mh_multichain": None,
+        "mh_chains": 1,
     }
     parameters.update(overrides)
     params = SimpleNamespace(
-        dataset=SimpleNamespace(
+        data=SimpleNamespace(
             label=parameters["dataset_label"],
             name=parameters["dataset_name"],
             year=parameters["dataset_year"],
@@ -58,16 +57,14 @@ def _context(tmp_path, *, staged=False, **overrides):
             verbose=False,
         ),
         lpm=SimpleNamespace(
-            model_name=parameters["lpm_model_name"],
-            data_directory=parameters["directory_lpm"],
+            models=[parameters["lpm_model_name"]],
+            directory=parameters["directory_lpm"],
         ),
         tracers=SimpleNamespace(data_directory=parameters["tracer_data_dir"]),
         run=SimpleNamespace(
             reachable_concentrations=parameters["run_reachable_concentrations"],
-            calibration_simplex=parameters["run_calibration_simplex"],
-            calibration_metropolis_hastings=parameters[
-                "run_calibration_metropolis_hastings"
-            ],
+            simplex=parameters["run_simplex"],
+            metropolis_hastings=parameters["run_metropolis_hastings"],
             objective_function=parameters["run_objective_function"],
         ),
         reachable_concentrations=SimpleNamespace(
@@ -76,18 +73,20 @@ def _context(tmp_path, *, staged=False, **overrides):
         objective_function=SimpleNamespace(
             nmodels=parameters["objective_function_nmodels"]
         ),
-        calibration_metropolis_hastings=SimpleNamespace(
-            nstep=parameters["mh_nstep"],
-            burn_in=parameters["mh_burn_in"],
-            nskip=parameters["mh_nskip"],
-            seed=parameters["mh_seed"],
-            prior_option=parameters["mh_prior_option"],
-            likelihood=parameters["mh_likelihood"],
-            monitor=parameters["mh_monitor"],
-            display_traj=parameters["mh_display_traj"],
-            multichain=parameters["mh_multichain"],
+        calibration=SimpleNamespace(
+            metropolis_hastings=MetropolisHastingsCfg(
+                nsteps=parameters["mh_nsteps"],
+                burn_in=parameters["mh_burn_in"],
+                thinning=parameters["mh_thinning"],
+                seed=parameters["mh_seed"],
+                prior_option=parameters["mh_prior_option"],
+                likelihood=parameters["mh_likelihood"],
+                display_traj=parameters["mh_display_traj"],
+                chains=parameters["mh_chains"],
+                diagnostics={"require_convergence": False},
+            ),
+            simplex=SimpleNamespace(init_multiples_n=3, fuq_n=30),
         ),
-        calibration_simplex=SimpleNamespace(init_multiples_n=3, fuq_n=30),
     )
     output_directory = tmp_path / "results"
     result_run = None
@@ -116,23 +115,16 @@ def _context(tmp_path, *, staged=False, **overrides):
     return context
 
 
-@pytest.mark.parametrize(
-    "multichain",
-    [None, MHMultichainCfg(enabled=False)],
-    ids=["absent", "disabled"],
-)
-def test_single_date_mh_delegates_without_enabled_multichain(
-    tmp_path, monkeypatch, multichain
+def test_single_date_mh_delegates_one_chain_to_common_runner(
+    tmp_path, monkeypatch
 ) -> None:
-    context = _context(tmp_path, mh_multichain=multichain)
+    context = _context(tmp_path)
     problem = object()
+    template = SimpleNamespace(clone_prepared=Mock(return_value=problem))
     samples = object()
-    chain_config = object()
-    problem_builder = Mock(return_value=problem)
-    config_builder = Mock(return_value=chain_config)
+    problem_builder = Mock(return_value=template)
     calibration_runner = Mock(return_value=samples)
     monkeypatch.setattr(single_calibration, "_calibration_problem", problem_builder)
-    monkeypatch.setattr(single_calibration, "build_mh_config", config_builder)
     monkeypatch.setattr(
         single_calibration,
         "run_mh_calibration",
@@ -142,42 +134,41 @@ def test_single_date_mh_delegates_without_enabled_multichain(
     result = single_calibration._run_metropolis_hastings(context)
 
     assert result == ("Metropolis_Hastings", samples)
-    workflow_config = context.params.calibration_metropolis_hastings
-    config_builder.assert_called_once_with(workflow_config)
+    workflow_config = context.params.calibration.metropolis_hastings
     output = context.output_directory / "Metropolis_Hastings"
-    assert calibration_runner.call_args.args[:3] == (chain_config, multichain, output)
-    assert calibration_runner.call_args.args[3](output) is problem
+    assert calibration_runner.call_args.args[:2] == (workflow_config, output)
+    assert calibration_runner.call_args.args[2](output) is problem
     problem_builder.assert_called_once_with(context, output)
+    assert (
+        template.clone_prepared.call_args.kwargs["display_options"].directory == output
+    )
 
 
-def test_single_date_enabled_multichain_delegates_with_a_fresh_problem_builder(
+def test_single_date_multiple_chains_delegate_with_a_fresh_problem_builder(
     tmp_path, monkeypatch
 ) -> None:
-    multichain = MHMultichainCfg(
-        enabled=True,
-        chains=2,
-        diagnostics={"require_convergence": False},
-    )
-    context = _context(tmp_path, mh_multichain=multichain)
+    context = _context(tmp_path, mh_chains=2)
     created_problems: list[SimpleNamespace] = []
 
-    def build_problem(_context, directory):
-        problem = SimpleNamespace(directory=directory)
+    def clone_prepared(*, display_options):
+        problem = SimpleNamespace(directory=display_options.directory)
         created_problems.append(problem)
         return problem
 
+    template = SimpleNamespace(
+        clone_prepared=Mock(side_effect=clone_prepared),
+    )
+    build_problem = Mock(return_value=template)
+
     pooled = object()
 
-    def run(_chain_config, _multichain, output_directory, problem_builder):
+    def run(_config, output_directory, problem_builder):
         problem_builder(output_directory / "initialization")
         problem_builder(output_directory / "chains" / "chain_001")
         return pooled
 
     calibration_runner = Mock(side_effect=run)
     monkeypatch.setattr(single_calibration, "_calibration_problem", build_problem)
-    monkeypatch.setattr(
-        single_calibration, "build_mh_config", Mock(return_value=object())
-    )
     monkeypatch.setattr(
         single_calibration,
         "run_mh_calibration",
@@ -193,9 +184,11 @@ def test_single_date_enabled_multichain_delegates_with_a_fresh_problem_builder(
         output / "initialization",
         output / "chains" / "chain_001",
     ]
+    build_problem.assert_called_once_with(context, output)
+    assert template.clone_prepared.call_count == 2
     calibration_runner.assert_called_once()
-    assert calibration_runner.call_args.args[1] is multichain
-    assert calibration_runner.call_args.args[2] == output
+    assert calibration_runner.call_args.args[0].chains == 2
+    assert calibration_runner.call_args.args[1] == output
 
 
 def test_single_date_propagates_multichain_qualification_failure(
@@ -203,19 +196,21 @@ def test_single_date_propagates_multichain_qualification_failure(
 ) -> None:
     context = _context(
         tmp_path,
-        mh_multichain=MHMultichainCfg(enabled=True, chains=2),
+        mh_chains=2,
     )
     from pyages.calibration.methods.mh import MHConvergenceError
 
     failure = MHConvergenceError("mu did not converge; artifacts preserved")
     calibration_runner = Mock(side_effect=failure)
     monkeypatch.setattr(
-        single_calibration, "build_mh_config", Mock(return_value=object())
-    )
-    monkeypatch.setattr(
         single_calibration,
         "run_mh_calibration",
         calibration_runner,
+    )
+    monkeypatch.setattr(
+        single_calibration,
+        "_calibration_problem",
+        Mock(return_value=SimpleNamespace()),
     )
 
     with pytest.raises(MHConvergenceError, match=r"mu.*preserved"):
@@ -229,8 +224,8 @@ def test_run_calibrations_respects_independent_enable_flags(
 ) -> None:
     context = _context(
         tmp_path,
-        run_calibration_simplex=True,
-        run_calibration_metropolis_hastings=True,
+        run_simplex=True,
+        run_metropolis_hastings=True,
     )
     simplex_result = object()
     mh_result = object()
@@ -256,14 +251,14 @@ def test_case_label_prefers_explicit_label_and_normalizes_filename() -> None:
     assert (
         single_reporting.case_label(
             SimpleNamespace(
-                dataset=SimpleNamespace(label="Published case", name="ignored.txt")
+                data=SimpleNamespace(label="Published case", name="ignored.txt")
             )
         )
         == "Published case"
     )
     assert (
         single_reporting.case_label(
-            SimpleNamespace(dataset=SimpleNamespace(label=None, name="audit_case.txt"))
+            SimpleNamespace(data=SimpleNamespace(label=None, name="audit_case.txt"))
         )
         == "audit case"
     )
@@ -343,9 +338,7 @@ def test_concentration_output_builds_model_and_exports_result_directory(
 
     single_reporting.write_concentration_outputs(context)
 
-    build.assert_called_once_with(
-        "exp", directory_lpm=context.params.lpm.data_directory
-    )
+    build.assert_called_once_with("exp", directory_lpm=context.params.lpm.directory)
     export.assert_called_once_with(
         [context.output_directory],
         model,
@@ -437,7 +430,7 @@ def test_run_single_date_manifests_a_multichain_convergence_failure(
     context = _context(
         tmp_path,
         staged=True,
-        run_calibration_metropolis_hastings=True,
+        run_metropolis_hastings=True,
     )
     error = MHConvergenceError("mu did not converge; artifacts preserved")
     success_manifest = Mock()
@@ -481,8 +474,8 @@ def test_prepare_context_does_not_stage_when_observations_cannot_be_loaded(
     output = tmp_path / "results"
     session = SimpleNamespace(close_all=Mock())
     params = SimpleNamespace(
-        dataset=SimpleNamespace(name="case.txt", verbose=False),
-        results=SimpleNamespace(
+        data=SimpleNamespace(name="case.txt", verbose=False),
+        output=SimpleNamespace(
             use_default=False,
             directory=tmp_path / "custom-results",
             study_name="audit",
@@ -490,7 +483,9 @@ def test_prepare_context_does_not_stage_when_observations_cannot_be_loaded(
     )
     begin = Mock()
     results_directory = Mock(return_value=output)
-    monkeypatch.setattr(single_context, "configuration_root", lambda _path: tmp_path)
+    monkeypatch.setattr(
+        single_context, "configuration_directory", lambda _path: tmp_path
+    )
     monkeypatch.setattr(single_context, "load_config", lambda *_args: params)
     monkeypatch.setattr(
         single_context,
@@ -528,8 +523,8 @@ def test_failure_manifest_keeps_a_completed_simplex_before_mh_rejection(
     context = _context(
         tmp_path,
         staged=True,
-        run_calibration_simplex=True,
-        run_calibration_metropolis_hastings=True,
+        run_simplex=True,
+        run_metropolis_hastings=True,
     )
     error = MHConvergenceError("MH convergence gate rejected the chains")
     preserve = Mock()

@@ -40,7 +40,7 @@ def _problem() -> CalibrationProblem:
 
 def _prepared_sampler(problem: CalibrationProblem, config: MHConfig):
     sampler = MetropolisHastings(config)
-    sampler._bind_problem(problem)  # noqa: SLF001
+    sampler._binding.bind(problem)  # noqa: SLF001
     sampler.prior.load(problem.lpm)
     sampler._target = MHTarget(  # noqa: SLF001
         problem,

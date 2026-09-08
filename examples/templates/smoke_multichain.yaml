@@ -5,43 +5,43 @@
 # scientific convergence qualification; use one of the maintained extensive
 # profiles documented in docs/user-guide/multichain-mh.md for that purpose.
 
+schema_version: 3
+
 workflow:
   kind: single_date
 
-dataset:
+data:
   name: ploemeur_F09_2010.txt
   year: 2010
-  data_dir: examples/natural/ploemeur/data
+  data_dir: ../natural/ploemeur/data
   verbose: false
   missing_error_rel: 0.01
 
 lpm:
-  model_name: exp_shifted
-  data_directory: data_core/data_lpm
+  models: [exp_shifted]
+  directory: ../../data_core/data_lpm
 
 run:
   reachable_concentrations: false
   objective_function: false
-  calibration_metropolis_hastings: true
-  calibration_simplex: false
+  metropolis_hastings: true
+  simplex: false
 
-calibration_metropolis_hastings:
-  nstep: 120
-  burn_in: 0.1
-  nskip: 10
-  prior_option: false
-  likelihood: true
-  monitor: false
-  display_traj: false
-  multichain:
-    enabled: true
+calibration:
+  metropolis_hastings:
+    nsteps: 120
+    burn_in: 0.1
+    thinning: 10
+    prior_option: false
+    likelihood: true
+    display_traj: false
     chains: 2
-    master_seed: 20260831
+    seed: 20260831
     initialization:
       strategy: bounds_stratified
     pilot:
       enabled: true
-      nstep: 40
+      nsteps: 40
       burn_in: 0.25
       relative_ridge: 1.0e-6
       proposal_multiplier: auto
@@ -52,5 +52,5 @@ calibration_metropolis_hastings:
       min_tail_ess: 300
       require_convergence: false
 
-results:
+output:
   study_name: smoke_multichain

@@ -6,12 +6,14 @@
 # Each table or metadata file is replaced atomically, and a failed qualification
 # still retains the individual chains needed to diagnose the run.
 
-"""Auditable serialization of multi-chain Metropolis--Hastings results.
+"""Auditable serialization of one-to-many-chain Metropolis--Hastings results.
 
-Production chains are always kept as separate files.  Pooling is an explicit
-last step and therefore cannot hide failed or unavailable convergence
-diagnostics.  Every individual file is replaced atomically so an interrupted
-write never exposes a partially serialized table or metadata file.
+Production chains are always kept as separate files. With one chain, that
+chain is also the root posterior and inter-chain diagnostics are explicitly
+not applicable. With several chains, pooling is an explicit last step and
+therefore cannot hide failed or unavailable convergence diagnostics. Every
+individual file is replaced atomically so an interrupted write never exposes
+a partially serialized table or metadata file.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from typing import Any
 import pandas as pd
 
 from pyages.calibration.methods.mh.results import (
+    NOT_APPLICABLE,
     QUALIFIED,
     MHRunRecord,
 )
@@ -65,12 +68,12 @@ def _json(value: object) -> str:
 def _chain_parameters_payload(
     record: MHRunRecord,
 ) -> dict[str, Any]:
-    """Build the root compatibility configuration and ensemble metadata."""
+    """Build the canonical configuration metadata for a managed MH run."""
     chain_config = record.chain_config
-    ensemble_config = record.ensemble_config
-    initialization = ensemble_config.initialization
-    pilot = ensemble_config.pilot
-    diagnostics = ensemble_config.diagnostics
+    run_config = record.run_config
+    initialization = run_config.initialization
+    pilot = run_config.pilot
+    diagnostics = run_config.diagnostics
     proposal_kind = (
         "correlated" if record.pilot is not None else chain_config.proposal_kind
     )
@@ -81,12 +84,11 @@ def _chain_parameters_payload(
     )
     payload = {
         "method": "Metropolis_Hastings",
-        "execution_mode": "multi_chain",
-        "nstep": chain_config.nstep,
+        "nsteps": chain_config.nsteps,
         "burn_in": chain_config.burn_in,
-        "nskip": chain_config.nskip,
+        "thinning": chain_config.thinning,
         "retained_sample_count": (
-            chain_config.retained_sample_count() * ensemble_config.chains
+            chain_config.retained_sample_count() * run_config.chains
         ),
         "retained_sample_count_per_chain": chain_config.retained_sample_count(),
         "prior_option": chain_config.prior_option,
@@ -94,7 +96,6 @@ def _chain_parameters_payload(
         "prior_file": chain_config.prior_file,
         "likelihood_option": chain_config.likelihood,
         "proposal_kind": proposal_kind,
-        "production_proposal_kind": proposal_kind,
         "proposal_multiplier": proposal_multiplier,
         "componentwise_source": chain_config.componentwise_source,
         "componentwise_fraction": chain_config.componentwise_fraction,
@@ -103,9 +104,8 @@ def _chain_parameters_payload(
         "proposal_covariance_file": (
             "proposal_covariance.tsv" if record.pilot is not None else ""
         ),
-        "chain_count": ensemble_config.chains,
-        "seed": ensemble_config.master_seed,
-        "master_seed": ensemble_config.master_seed,
+        "chain_count": run_config.chains,
+        "seed": run_config.seed,
         "initialization_strategy": initialization.strategy,
         "initialization_max_attempts": initialization.max_attempts,
         "initialization_explicit_starts": _json(
@@ -114,7 +114,7 @@ def _chain_parameters_payload(
             else None
         ),
         "pilot_enabled": pilot.enabled,
-        "pilot_nstep": pilot.nstep,
+        "pilot_nsteps": pilot.nsteps,
         "pilot_burn_in": pilot.burn_in,
         "pilot_covariance_mode": "pooled_within_chain",
         "pilot_relative_ridge": pilot.relative_ridge,
@@ -134,16 +134,15 @@ def _chain_parameters_payload(
 def _provenance_payload(
     record: MHRunRecord,
 ) -> dict[str, Any]:
-    """Record replayable phase seeds and the realized ensemble status."""
+    """Record replayable phase seeds and the realized run status."""
     seed_plan = record.seed_plan
     payload: dict[str, Any] = {
-        "format_version": 1,
+        "format_version": 2,
         "method": "Metropolis_Hastings",
-        "execution_mode": "multi_chain",
         "qualification_status": record.qualification_status,
         "diagnostics_message": record.diagnostics_message or "",
         "chain_count": len(record.chains),
-        "master_seed": seed_plan.master_seed,
+        "seed": seed_plan.seed,
         "target_signature_version": record.target_signature_version,
         "target_sha256": record.target_sha256,
     }
@@ -165,7 +164,7 @@ def _results_payload(
     record: MHRunRecord,
     pooled: LpmSampleTable | None,
 ) -> dict[str, Any]:
-    """Build scalar run diagnostics for the root compatibility file."""
+    """Build canonical scalar diagnostics for the whole MH run."""
     rates = [chain.acceptance_rate for chain in record.chains]
     failed = sum(
         diagnostic.included_in_qualification and not diagnostic.qualified
@@ -184,8 +183,6 @@ def _results_payload(
     )
     total_runtime = production_runtime + pilot_runtime
     return {
-        "time_perform": total_runtime,
-        "success_rate": mean_rate,
         "qualification_status": record.qualification_status,
         "diagnostics_message": record.diagnostics_message or "",
         "chain_count": len(record.chains),
@@ -256,7 +253,7 @@ def _write_diagnostics(record: MHRunRecord, output_directory: Path) -> None:
             }
             for diagnostic in record.diagnostics
         ),
-        columns=columns,
+        columns=pd.Index(columns),
     )
     write_frame(frame, output_directory / "mcmc_diagnostics.tsv", index=False)
 
@@ -269,8 +266,8 @@ def _write_pilot(record: MHRunRecord, output_directory: Path) -> None:
     parameter_names = list(pilot.final_states[0])
     covariance = pd.DataFrame(
         pilot.covariance,
-        index=parameter_names,
-        columns=parameter_names,
+        index=pd.Index(parameter_names),
+        columns=pd.Index(parameter_names),
     )
     covariance.index.name = "parameter"
     write_frame(
@@ -311,7 +308,7 @@ def _write_pilot(record: MHRunRecord, output_directory: Path) -> None:
     if pilot.samples is None:
         return
     for index, samples in enumerate(pilot.samples, start=1):
-        frame = pd.DataFrame(samples, columns=parameter_names)
+        frame = pd.DataFrame(samples, columns=pd.Index(parameter_names))
         write_frame(
             frame,
             output_directory / "pilot" / f"chain_{index:03d}_samples.tsv",
@@ -326,12 +323,12 @@ def _validate_record(record: MHRunRecord) -> None:
     record.validate_integrity()
 
 
-def clear_mh_ensemble_artifacts(output_directory: str | Path) -> None:
-    """Remove multi-chain-only artifacts before a one-chain rerun.
+def clear_mh_run_artifacts(output_directory: str | Path) -> None:
+    """Remove artifacts owned by a previous managed MH run.
 
     Standard root posterior files are intentionally preserved because the
     one-chain writer replaces them. Only directories and files exclusively
-    owned by the ensemble implementation are removed.
+    owned by the managed runner are removed.
     """
     destination = Path(output_directory)
     for directory_name in ("chains", "initialization", "pilot"):
@@ -341,16 +338,16 @@ def clear_mh_ensemble_artifacts(output_directory: str | Path) -> None:
         elif directory.is_dir():
             shutil.rmtree(directory)
     for filename in (
-        "ensemble_provenance.txt",
+        "run_provenance.txt",
         "mcmc_diagnostics.tsv",
         "proposal_covariance.tsv",
     ):
         (destination / filename).unlink(missing_ok=True)
 
 
-def _clear_previous_ensemble_artifacts(output_directory: Path) -> None:
-    """Remove all files and directories owned by a prior ensemble run."""
-    clear_mh_ensemble_artifacts(output_directory)
+def _clear_previous_run_artifacts(output_directory: Path) -> None:
+    """Remove all files and directories owned by a prior managed run."""
+    clear_mh_run_artifacts(output_directory)
     for filename in (
         "lpm_dist_calibrated.txt",
         "lpm_stats_calibrated.txt",
@@ -363,17 +360,18 @@ def _clear_previous_ensemble_artifacts(output_directory: Path) -> None:
             histogram.unlink()
 
 
-def write_mh_ensemble_result(
+def write_mh_run_result(
     record: MHRunRecord,
     output_directory: str | Path,
 ) -> LpmSampleTable | None:
-    """Serialize a complete MH ensemble without premature chain pooling.
+    """Serialize a complete one-to-many-chain MH run.
 
     Chain samples, their metadata, convergence diagnostics, seed provenance,
-    and pilot information are written for every result status.  The standard
-    root distribution, histograms, and statistics are produced only for a
-    qualified ensemble. Exploratory pooling is enabled only by the immutable
-    run configuration's ``diagnostics.require_convergence=False`` policy.
+    and pilot information are written for every result status. For one chain,
+    the standard root distribution, histograms, and statistics represent that
+    sole chain. For several chains, they are produced only after qualification,
+    unless the immutable run configuration explicitly permits exploratory
+    pooling with ``diagnostics.require_convergence=False``.
 
     Returns
     -------
@@ -383,17 +381,17 @@ def write_mh_ensemble_result(
 
     """
     _validate_record(record)
-    ensemble_config = record.ensemble_config
-    allow_unqualified_pooling = not ensemble_config.diagnostics.require_convergence
+    run_config = record.run_config
+    allow_unqualified_pooling = not run_config.diagnostics.require_convergence
     destination = Path(output_directory)
     destination.mkdir(parents=True, exist_ok=True)
-    _clear_previous_ensemble_artifacts(destination)
+    _clear_previous_run_artifacts(destination)
 
     _write_chains(record, destination)
     _write_diagnostics(record, destination)
     _write_pilot(record, destination)
     _write_key_values_atomic(
-        destination / "ensemble_provenance.txt",
+        destination / "run_provenance.txt",
         _provenance_payload(record),
     )
     _write_key_values_atomic(
@@ -402,7 +400,9 @@ def write_mh_ensemble_result(
     )
 
     pooled: LpmSampleTable | None = None
-    if record.qualification_status == QUALIFIED or allow_unqualified_pooling:
+    if record.qualification_status in {QUALIFIED, NOT_APPLICABLE} or (
+        allow_unqualified_pooling
+    ):
         pooled = record.pooled_samples(require_qualified=not allow_unqualified_pooling)
         write_distribution(pooled, destination / "lpm_dist_calibrated.txt")
         write_histograms(pooled, destination / "lpm_histo_calibrated.txt")
@@ -415,4 +415,4 @@ def write_mh_ensemble_result(
     return pooled
 
 
-__all__ = ["clear_mh_ensemble_artifacts", "write_mh_ensemble_result"]
+__all__ = ["clear_mh_run_artifacts", "write_mh_run_result"]

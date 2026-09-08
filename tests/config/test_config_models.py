@@ -12,23 +12,22 @@ import yaml
 from pydantic import ValidationError
 
 from pyages.config.models import (
-    LauncherConfig,
-    LauncherDatasetCfg,
-    LauncherLpmCfg,
-    LauncherMetropolisCfg,
-    LauncherObjectiveCfg,
-    LauncherReachableCfg,
-    LauncherResultsCfg,
-    LauncherRunCfg,
-    LauncherSimplexCfg,
-    MHMultichainCfg,
+    MetropolisHastingsCfg,
     MHPilotCfg,
+    SingleDateConfig,
+    SingleDateDataCfg,
+    SingleDateLpmCfg,
+    SingleDateObjectiveCfg,
+    SingleDateOutputCfg,
+    SingleDateReachableCfg,
+    SingleDateRunCfg,
+    SingleDateSimplexCfg,
     TemporalCalibrationCfg,
-    TemporalDatasetCfg,
-    TemporalFiguresCfg,
-    TemporalLpmModelsCfg,
-    TemporalParams,
-    TemporalResultsCfg,
+    TemporalConfig,
+    TemporalDataCfg,
+    TemporalLpmCfg,
+    TemporalOutputCfg,
+    TemporalReportingCfg,
 )
 from pyages.lpm import list_available_lpms
 from pyages.workflows.single_date.config import load_config_payload
@@ -66,7 +65,19 @@ def _defaults_after_heading(document: str, heading: str) -> dict:
 
 
 def _model_defaults(model) -> dict:
-    return {name: field.default for name, field in model.model_fields.items()}
+    return {
+        name: {} if field.default_factory is not None else field.default
+        for name, field in model.model_fields.items()
+    }
+
+
+def _deep_update(target: dict, values: dict) -> None:
+    """Merge nested documentation fragments without losing sibling sections."""
+    for name, value in values.items():
+        if isinstance(value, dict) and isinstance(target.get(name), dict):
+            _deep_update(target[name], value)
+        else:
+            target[name] = value
 
 
 def _required_after_heading(document: str, heading: str) -> dict[str, bool]:
@@ -102,6 +113,8 @@ def _model_required(model) -> dict[str, bool]:
         "examples/natural/ploemeur/exemple_ploemeur.yaml",
         "examples/natural/ploemeur/exemple_ploemeur_ig_shifted_prior_multichain.yaml",
         "examples/natural/ploemeur/exemple_ploemeur_multichain.yaml",
+        "examples/natural/ploemeur_temporal/_single_date_compare/"
+        "exemple_ploemeur_ig_shifted.yaml",
         "examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date.yaml",
         "examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date_multichain.yaml",
     ],
@@ -110,7 +123,11 @@ def test_shipped_single_date_configs_are_strictly_valid(relative_path):
     path = ROOT / relative_path
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
 
-    LauncherConfig.model_validate(payload, context={"root_dir": ROOT})
+    assert payload["schema_version"] == 3
+    config = load_config_payload(path.parent, payload)
+
+    assert (config.data.data_dir / config.data.name).is_file()
+    assert (config.lpm.directory / config.lpm.models[0] / "params.yaml").is_file()
 
 
 @pytest.mark.parametrize(
@@ -125,22 +142,36 @@ def test_shipped_temporal_configs_are_strictly_valid(relative_path):
     path = ROOT / relative_path
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
 
-    TemporalParams.model_validate(payload)
+    assert payload["schema_version"] == 3
+    config = TemporalConfig.model_validate(payload)
+
+    dataset_path = Path(config.data.file)
+    if not dataset_path.is_absolute():
+        dataset_path = path.parent / dataset_path
+    assert config.lpm.directory is not None
+    lpm_directory = Path(config.lpm.directory)
+    if not lpm_directory.is_absolute():
+        lpm_directory = path.parent / lpm_directory
+    assert dataset_path.is_file()
+    assert config.lpm.models is not None
+    assert all(
+        (lpm_directory / model / "params.yaml").is_file() for model in config.lpm.models
+    )
 
 
 def test_workflow_discriminators_are_required_and_reject_crossed_modes():
     with pytest.raises(ValidationError, match="workflow"):
-        LauncherConfig.model_validate({})
+        SingleDateConfig.model_validate({})
     with pytest.raises(ValidationError, match="workflow"):
-        TemporalParams.model_validate({"dataset": {"file": "sample.txt"}})
+        TemporalConfig.model_validate({"data": {"file": "sample.txt"}})
 
     with pytest.raises(ValidationError, match="single_date"):
-        LauncherConfig.model_validate({"workflow": {"kind": "temporal"}})
+        SingleDateConfig.model_validate({"workflow": {"kind": "temporal"}})
     with pytest.raises(ValidationError, match="temporal"):
-        TemporalParams.model_validate(
+        TemporalConfig.model_validate(
             {
                 "workflow": {"kind": "single_date"},
-                "dataset": {"file": "sample.txt"},
+                "data": {"file": "sample.txt"},
             }
         )
 
@@ -148,19 +179,19 @@ def test_workflow_discriminators_are_required_and_reject_crossed_modes():
 @pytest.mark.parametrize(
     ("model", "payload"),
     [
-        (LauncherConfig, {"dataset": {}, "obsolete_option": True}),
+        (SingleDateConfig, {"data": {}, "obsolete_option": True}),
         (
-            LauncherConfig,
-            {"dataset": {"name": "sample.txt", "obsolete_option": True}},
+            SingleDateConfig,
+            {"data": {"name": "sample.txt", "obsolete_option": True}},
         ),
-        (LauncherConfig, {"results": {"obsolete_option": True}}),
+        (SingleDateConfig, {"output": {"obsolete_option": True}}),
         (
-            TemporalParams,
-            {"dataset": {"file": "sample.txt"}, "obsolete_option": True},
+            TemporalConfig,
+            {"data": {"file": "sample.txt"}, "obsolete_option": True},
         ),
         (
-            TemporalParams,
-            {"dataset": {"file": "sample.txt", "obsolete_option": True}},
+            TemporalConfig,
+            {"data": {"file": "sample.txt", "obsolete_option": True}},
         ),
     ],
 )
@@ -173,7 +204,7 @@ def test_documented_single_date_yaml_sections_form_a_valid_configuration():
     document = CONFIGURATION_DOC.read_text(encoding="utf-8")
     headings = (
         "### Workflow Section",
-        "### Dataset Section",
+        "### Data Section",
         "### LPM Section",
         "### Tracer Data Override",
         "### Run Section",
@@ -181,37 +212,38 @@ def test_documented_single_date_yaml_sections_form_a_valid_configuration():
         "### Objective Function Section",
         "### Metropolis-Hastings Section",
         "### Simplex Section",
+        "### Output Section",
     )
-    payload = {}
+    payload = {"schema_version": 3}
     for heading in headings:
-        payload.update(_yaml_after_heading(document, heading))
+        _deep_update(payload, _yaml_after_heading(document, heading))
 
-    LauncherConfig.model_validate(payload, context={"root_dir": ROOT})
+    SingleDateConfig.model_validate(payload, context={"root_dir": ROOT})
 
 
 def test_documented_temporal_yaml_sections_form_a_valid_configuration():
     document = CONFIGURATION_DOC.read_text(encoding="utf-8")
     temporal = document.split("## Temporal Workflow Configuration", maxsplit=1)[1]
     headings = (
-        "### Dataset Section",
-        "### LPM Models Section",
+        "### Data Section",
+        "### LPM Section",
         "### Workflow Section",
         "### Calibration Section",
-        "### Figures Section",
-        "### Results Section",
+        "### Reporting Section",
+        "### Output Section",
     )
-    payload = {}
+    payload = {"schema_version": 3}
     for heading in headings:
-        payload.update(_yaml_after_heading(temporal, heading))
+        _deep_update(payload, _yaml_after_heading(temporal, heading))
 
-    TemporalParams.model_validate(payload)
+    TemporalConfig.model_validate(payload)
 
 
-def test_documented_multichain_yaml_is_strictly_valid() -> None:
+def test_documented_one_to_many_chain_yaml_is_strictly_valid() -> None:
     document = CONFIGURATION_DOC.read_text(encoding="utf-8")
-    payload = _yaml_after_heading(document, "### Optional Multi-chain MH Configuration")
+    payload = _yaml_after_heading(document, "### One-to-many-chain MH controls")
 
-    MHMultichainCfg.model_validate(payload["multichain"])
+    MetropolisHastingsCfg.model_validate(payload["metropolis_hastings"])
 
 
 def test_documented_lpm_table_matches_runtime_registry():
@@ -227,13 +259,14 @@ def test_documented_lpm_table_matches_runtime_registry():
 @pytest.mark.parametrize(
     ("heading", "model", "temporal_only"),
     [
-        ("### Reachable Concentrations Section", LauncherReachableCfg, False),
-        ("### Objective Function Section", LauncherObjectiveCfg, False),
-        ("### Metropolis-Hastings Section", LauncherMetropolisCfg, False),
-        ("### Simplex Section", LauncherSimplexCfg, False),
+        ("### Reachable Concentrations Section", SingleDateReachableCfg, False),
+        ("### Objective Function Section", SingleDateObjectiveCfg, False),
+        ("### Metropolis-Hastings Section", MetropolisHastingsCfg, False),
+        ("### Simplex Section", SingleDateSimplexCfg, False),
+        ("### Output Section", SingleDateOutputCfg, False),
         ("### Calibration Section", TemporalCalibrationCfg, True),
-        ("### Figures Section", TemporalFiguresCfg, True),
-        ("### Results Section", TemporalResultsCfg, True),
+        ("### Reporting Section", TemporalReportingCfg, True),
+        ("### Output Section", TemporalOutputCfg, True),
     ],
 )
 def test_documented_default_tables_match_pydantic_models(heading, model, temporal_only):
@@ -247,10 +280,9 @@ def test_documented_default_tables_match_pydantic_models(heading, model, tempora
 @pytest.mark.parametrize(
     ("heading", "model", "temporal_only"),
     [
-        ("### Dataset Section", LauncherDatasetCfg, False),
-        ("### LPM Section", LauncherLpmCfg, False),
-        ("### Dataset Section", TemporalDatasetCfg, True),
-        ("### LPM Models Section", TemporalLpmModelsCfg, True),
+        ("### Data Section", SingleDateDataCfg, False),
+        ("### Data Section", TemporalDataCfg, True),
+        ("### LPM Section", TemporalLpmCfg, True),
     ],
 )
 def test_documented_required_fields_match_pydantic_models(
@@ -264,90 +296,84 @@ def test_documented_required_fields_match_pydantic_models(
 
 
 def test_documented_single_date_run_defaults_remain_all_enabled():
-    defaults = _model_defaults(LauncherRunCfg)
+    defaults = _model_defaults(SingleDateRunCfg)
 
     assert defaults
     assert all(value is True for value in defaults.values())
 
 
-def test_single_date_mh_requires_at_least_one_retained_state() -> None:
-    with pytest.raises(ValidationError, match="greater than or equal to 11"):
-        LauncherMetropolisCfg(nstep=10)
-
-    assert LauncherMetropolisCfg(nstep=11).nstep == 11
+def test_mh_requires_at_least_one_retained_state() -> None:
+    assert MetropolisHastingsCfg(nsteps=11).nsteps == 11
     with pytest.raises(ValidationError, match="at least one MH draw"):
-        LauncherMetropolisCfg(nstep=20, burn_in=0.9, nskip=100)
+        MetropolisHastingsCfg(nsteps=20, burn_in=0.9, thinning=100)
     with pytest.raises(ValidationError, match="at least one MH draw"):
-        TemporalCalibrationCfg(mh_nsteps=101, burn_in=0.4, nskip=1000)
+        MetropolisHastingsCfg(nsteps=101, burn_in=0.4, thinning=1000)
 
 
-def test_temporal_fixed_seed_requires_a_non_negative_value() -> None:
-    with pytest.raises(ValidationError, match="seed is required"):
-        TemporalCalibrationCfg(seed_enabled=True)
+def test_mh_seed_is_single_and_nullable() -> None:
     with pytest.raises(ValidationError, match="greater than or equal to 0"):
-        TemporalCalibrationCfg(seed_enabled=True, seed=-1)
+        MetropolisHastingsCfg(seed=-1)
 
-    assert TemporalCalibrationCfg(seed_enabled=True, seed=0).seed == 0
-    assert (
-        TemporalCalibrationCfg(
-            seed_enabled=True,
-            multichain={"enabled": True},
-        ).seed
-        is None
-    )
+    assert MetropolisHastingsCfg(seed=0).seed == 0
+    assert MetropolisHastingsCfg(seed=None).seed is None
 
 
-def test_multichain_configuration_is_presence_activated_and_strict() -> None:
-    assert LauncherMetropolisCfg().multichain is None
-    single_date = LauncherMetropolisCfg(multichain={})
-    temporal = TemporalCalibrationCfg(multichain={})
-    assert single_date.multichain is not None
-    assert single_date.multichain.enabled is True
-    assert temporal.multichain is not None
-    assert temporal.multichain.enabled is True
-    assert MHMultichainCfg(enabled=False).enabled is False
+def test_mh_configuration_uses_one_common_strict_surface() -> None:
+    defaults = MetropolisHastingsCfg()
+    assert defaults.chains == 1
+    assert defaults.seed == 12345
+    assert defaults.initialization.strategy == "bounds_stratified"
+    assert defaults.pilot.enabled is False
 
-    config = MHMultichainCfg.model_validate(
+    config = MetropolisHastingsCfg.model_validate(
         {
-            "enabled": True,
+            "nsteps": 1000,
+            "thinning": 1,
             "chains": 4,
-            "master_seed": 42,
+            "seed": 42,
             "initialization": {"strategy": "bounds_stratified"},
-            "pilot": {"nstep": 100, "proposal_multiplier": "auto"},
+            "pilot": {
+                "enabled": True,
+                "nsteps": 100,
+                "proposal_multiplier": "auto",
+            },
             "diagnostics": {
                 "max_rhat": 1.01,
-                "min_bulk_ess": 300,
-                "min_tail_ess": 300,
+                "min_bulk_ess": 30,
+                "min_tail_ess": 30,
             },
         }
     )
 
-    assert config.enabled is True
     assert config.chains == 4
-    assert config.master_seed == 42
+    assert config.seed == 42
     assert config.pilot.proposal_multiplier == "auto"
 
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        MetropolisHastingsCfg(monitor=True)
+    with pytest.raises(ValidationError, match="bounds_stratified"):
+        MetropolisHastingsCfg(initialization={"strategy": "auto"})
 
-def test_multichain_configuration_rejects_boolean_master_seed() -> None:
-    with pytest.raises(ValidationError, match="master_seed"):
-        MHMultichainCfg(master_seed=True)
+
+def test_mh_configuration_rejects_boolean_seed() -> None:
+    with pytest.raises(ValidationError, match="boolean"):
+        MetropolisHastingsCfg(seed=True)
 
 
 @pytest.mark.parametrize(
     "factory",
     [
-        lambda: LauncherMetropolisCfg(seed=True),
-        lambda: LauncherMetropolisCfg(nskip=True),
-        lambda: MHMultichainCfg(chains=True),
-        lambda: MHMultichainCfg(initialization={"max_attempts": True}),
-        lambda: MHMultichainCfg(pilot={"nstep": True}),
-        lambda: MHMultichainCfg(pilot={"burn_in": True}),
-        lambda: MHMultichainCfg(pilot={"relative_ridge": True}),
-        lambda: MHMultichainCfg(pilot={"proposal_multiplier": True}),
-        lambda: MHMultichainCfg(diagnostics={"max_rhat": True}),
-        lambda: MHMultichainCfg(diagnostics={"min_bulk_ess": True}),
-        lambda: TemporalCalibrationCfg(mh_nsteps=True),
-        lambda: TemporalCalibrationCfg(seed=True),
+        lambda: MetropolisHastingsCfg(seed=True),
+        lambda: MetropolisHastingsCfg(thinning=True),
+        lambda: MetropolisHastingsCfg(chains=True),
+        lambda: MetropolisHastingsCfg(initialization={"max_attempts": True}),
+        lambda: MetropolisHastingsCfg(pilot={"nsteps": True}),
+        lambda: MetropolisHastingsCfg(pilot={"burn_in": True}),
+        lambda: MetropolisHastingsCfg(pilot={"relative_ridge": True}),
+        lambda: MetropolisHastingsCfg(pilot={"proposal_multiplier": True}),
+        lambda: MetropolisHastingsCfg(diagnostics={"max_rhat": True}),
+        lambda: MetropolisHastingsCfg(diagnostics={"min_bulk_ess": True}),
+        lambda: MetropolisHastingsCfg(nsteps=True),
     ],
 )
 def test_multichain_numeric_controls_reject_yaml_booleans(factory) -> None:
@@ -357,8 +383,11 @@ def test_multichain_numeric_controls_reject_yaml_booleans(factory) -> None:
 
 def test_explicit_initialization_rejects_boolean_parameter_values() -> None:
     with pytest.raises(ValidationError, match="boolean parameter values"):
-        MHMultichainCfg(
+        MetropolisHastingsCfg(
+            nsteps=100,
+            thinning=1,
             chains=2,
+            diagnostics={"require_convergence": False},
             initialization={
                 "strategy": "explicit",
                 "explicit_starts": [{"mu": True}, {"mu": 2.0}],
@@ -368,19 +397,21 @@ def test_explicit_initialization_rejects_boolean_parameter_values() -> None:
 
 def test_multichain_configuration_rejects_ambiguous_initialization() -> None:
     with pytest.raises(ValidationError, match="explicit_starts is required"):
-        MHMultichainCfg(initialization={"strategy": "explicit"})
+        MetropolisHastingsCfg(initialization={"strategy": "explicit"})
     with pytest.raises(ValidationError, match="accepted only"):
-        MHMultichainCfg(
+        MetropolisHastingsCfg(
             initialization={
                 "strategy": "bounds_stratified",
                 "explicit_starts": [{"mu": 1.0}],
             }
         )
-    with pytest.raises(ValidationError, match="greater than or equal to 2"):
-        MHMultichainCfg(chains=1)
+    assert MetropolisHastingsCfg(chains=1).chains == 1
     with pytest.raises(ValidationError, match="one state per chain"):
-        MHMultichainCfg(
+        MetropolisHastingsCfg(
+            nsteps=100,
+            thinning=1,
             chains=3,
+            diagnostics={"require_convergence": False},
             initialization={
                 "strategy": "explicit",
                 "explicit_starts": [{"mu": 1.0}, {"mu": 2.0}],
@@ -389,49 +420,53 @@ def test_multichain_configuration_rejects_ambiguous_initialization() -> None:
 
 
 def test_multichain_configuration_requires_enough_diagnostic_draws() -> None:
+    one_chain = MetropolisHastingsCfg(
+        nsteps=11,
+        burn_in=0.2,
+        thinning=10,
+        chains=1,
+    )
+    assert one_chain.chains == 1
+
     with pytest.raises(ValidationError, match="at least eight draws"):
-        LauncherMetropolisCfg(
-            nstep=20,
+        MetropolisHastingsCfg(
+            nsteps=20,
             burn_in=0.2,
-            nskip=10,
-            multichain={"enabled": True},
+            thinning=5,
+            chains=4,
         )
     with pytest.raises(ValidationError, match="at least eight draws"):
-        TemporalCalibrationCfg(
-            mh_nsteps=101,
+        MetropolisHastingsCfg(
+            nsteps=101,
             burn_in=0.2,
-            nskip=100,
-            multichain={"enabled": True},
+            thinning=20,
+            chains=4,
         )
     with pytest.raises(ValidationError, match="maximum split-draw ESS"):
-        LauncherMetropolisCfg(nstep=200, multichain={"enabled": True})
-    exploratory = LauncherMetropolisCfg(
-        nstep=200,
-        multichain={
-            "enabled": True,
-            "diagnostics": {"require_convergence": False},
-        },
+        MetropolisHastingsCfg(nsteps=200, chains=4)
+    exploratory = MetropolisHastingsCfg(
+        nsteps=200,
+        chains=4,
+        diagnostics={"require_convergence": False},
     )
-    assert exploratory.multichain is not None
-    assert not exploratory.multichain.diagnostics.require_convergence
-    with pytest.raises(ValidationError, match="one-chain options"):
-        LauncherMetropolisCfg(
-            display_traj=True,
-            multichain={"enabled": True},
-        )
+    assert not exploratory.diagnostics.require_convergence
+    monitored = MetropolisHastingsCfg(
+        display_traj=True,
+        chains=4,
+        diagnostics={"require_convergence": False},
+    )
+    assert monitored.display_traj is True
     with pytest.raises(ValidationError, match="requires prior_option=true"):
-        LauncherMetropolisCfg(
+        MetropolisHastingsCfg(
             prior_option=False,
-            multichain={
-                "enabled": True,
-                "initialization": {"strategy": "prior_sample"},
-            },
+            chains=4,
+            initialization={"strategy": "prior_sample"},
         )
 
 
 def test_pilot_configuration_requires_covariance_draws_and_finite_scale() -> None:
     with pytest.raises(ValidationError, match="two covariance draws"):
-        MHPilotCfg(nstep=4, burn_in=0.5)
+        MHPilotCfg(enabled=True, nsteps=4, burn_in=0.5)
     with pytest.raises(ValidationError, match="positive or 'auto'"):
         MHPilotCfg(proposal_multiplier=float("nan"))
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
@@ -440,35 +475,34 @@ def test_pilot_configuration_requires_covariance_draws_and_finite_scale() -> Non
 
 def test_temporal_relative_error_must_be_strictly_positive() -> None:
     with pytest.raises(ValidationError, match="greater than 0"):
-        TemporalDatasetCfg(file="observations.txt", error_rel=0.0)
+        TemporalDataCfg(file="observations.txt", error_rel=0.0)
     with pytest.raises(ValidationError, match="greater than 0"):
-        TemporalDatasetCfg(file="observations.txt", missing_error_rel=0.0)
+        TemporalDataCfg(file="observations.txt", missing_error_rel=0.0)
     with pytest.raises(ValidationError, match="greater than 0"):
-        LauncherDatasetCfg(missing_error_rel=0.0)
+        SingleDateDataCfg(missing_error_rel=0.0)
 
 
 @pytest.mark.parametrize("models", [[], ["exp", ""], ["exp", "exp"]])
 def test_temporal_explicit_model_list_must_be_unambiguous(models) -> None:
-    with pytest.raises(ValidationError, match="lpm_models.models"):
-        TemporalLpmModelsCfg(models=models)
+    with pytest.raises(ValidationError, match="lpm.models"):
+        TemporalLpmCfg(models=models)
 
 
-def test_temporal_lpm_models_accepts_the_deprecated_list_field() -> None:
-    with pytest.warns(DeprecationWarning, match="lpm_models.list"):
-        config = TemporalLpmModelsCfg.model_validate({"list": ["exp"]})
-    assert config.models == ["exp"]
+def test_temporal_lpm_models_rejects_the_removed_list_field() -> None:
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        TemporalLpmCfg.model_validate({"list": ["exp"]})
 
 
 @pytest.mark.parametrize(
     ("model", "payload"),
     [
-        (LauncherDatasetCfg, {"name": "../observations.txt"}),
-        (LauncherDatasetCfg, {"name": "..\\observations.txt"}),
-        (LauncherDatasetCfg, {"name": "D:observations.txt"}),
-        (LauncherLpmCfg, {"model_name": "../exp"}),
-        (TemporalLpmModelsCfg, {"models": ["../exp"]}),
-        (LauncherResultsCfg, {"study_name": ".."}),
-        (TemporalResultsCfg, {"study_name": ".."}),
+        (SingleDateDataCfg, {"name": "../observations.txt"}),
+        (SingleDateDataCfg, {"name": "..\\observations.txt"}),
+        (SingleDateDataCfg, {"name": "D:observations.txt"}),
+        (SingleDateLpmCfg, {"models": ["../exp"]}),
+        (TemporalLpmCfg, {"models": ["../exp"]}),
+        (SingleDateOutputCfg, {"study_name": ".."}),
+        (TemporalOutputCfg, {"study_name": ".."}),
     ],
 )
 def test_result_path_components_cannot_escape_their_parent(model, payload) -> None:
@@ -478,8 +512,8 @@ def test_result_path_components_cannot_escape_their_parent(model, payload) -> No
 
 @pytest.mark.parametrize("directory", [None, "", "   "])
 def test_custom_temporal_results_require_a_directory(directory) -> None:
-    with pytest.raises(ValidationError, match="results.directory must be set"):
-        TemporalResultsCfg(use_default=False, directory=directory)
+    with pytest.raises(ValidationError, match="output.directory must be set"):
+        TemporalOutputCfg(use_default=False, directory=directory)
 
 
 def test_single_date_results_defaults_and_relative_directory_are_resolved(
@@ -487,18 +521,19 @@ def test_single_date_results_defaults_and_relative_directory_are_resolved(
 ) -> None:
     defaults = load_config_payload(
         tmp_path,
-        {"workflow": {"kind": "single_date"}},
+        {"schema_version": 3, "workflow": {"kind": "single_date"}},
     )
 
-    assert defaults.results.use_default is True
-    assert defaults.results.directory is None
-    assert defaults.results.study_name == "test_cases"
+    assert defaults.output.use_default is True
+    assert defaults.output.directory is None
+    assert defaults.output.study_name == "test_cases"
 
     custom = load_config_payload(
         tmp_path,
         {
+            "schema_version": 3,
             "workflow": {"kind": "single_date"},
-            "results": {
+            "output": {
                 "use_default": False,
                 "directory": "relative-results",
                 "study_name": "profile_a",
@@ -506,15 +541,15 @@ def test_single_date_results_defaults_and_relative_directory_are_resolved(
         },
     )
 
-    assert custom.results.use_default is False
-    assert custom.results.directory == tmp_path / "relative-results"
-    assert custom.results.study_name == "profile_a"
+    assert custom.output.use_default is False
+    assert custom.output.directory == tmp_path / "relative-results"
+    assert custom.output.study_name == "profile_a"
 
 
 @pytest.mark.parametrize("directory", [None, "", "   "])
 def test_custom_single_date_results_require_a_directory(directory) -> None:
-    with pytest.raises(ValidationError, match="results.directory must be set"):
-        LauncherResultsCfg(use_default=False, directory=directory)
+    with pytest.raises(ValidationError, match="output.directory must be set"):
+        SingleDateOutputCfg(use_default=False, directory=directory)
 
 
 def test_multichain_example_profiles_isolate_existing_datasets() -> None:
@@ -542,18 +577,18 @@ def test_multichain_example_profiles_isolate_existing_datasets() -> None:
     ]
     multichain_studies = set()
     for single_path, multichain_path in profile_pairs:
-        single = LauncherConfig.model_validate(
+        single = load_config_payload(
+            single_path.parent,
             yaml.safe_load(single_path.read_text(encoding="utf-8")),
-            context={"root_dir": ROOT},
         )
-        multichain = LauncherConfig.model_validate(
+        multichain = load_config_payload(
+            multichain_path.parent,
             yaml.safe_load(multichain_path.read_text(encoding="utf-8")),
-            context={"root_dir": ROOT},
         )
-        assert single.dataset.name == multichain.dataset.name
-        assert single.results.study_name == "test_cases"
-        assert multichain.results.study_name != single.results.study_name
-        multichain_studies.add(multichain.results.study_name)
+        assert single.data.name == multichain.data.name
+        assert single.output.study_name == "test_cases"
+        assert multichain.output.study_name != single.output.study_name
+        multichain_studies.add(multichain.output.study_name)
 
     assert len(multichain_studies) == 4
 

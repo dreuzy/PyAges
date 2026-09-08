@@ -1,14 +1,15 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
-# This file runs several independent MH chains and checks their convergence.
+# This file orchestrates one or more MH chains and checks convergence when possible.
 
-"""Run and qualify an ensemble of independent Metropolis--Hastings chains.
+"""Run one or more independently configured Metropolis--Hastings chains.
 
 The run first chooses a separate starting state for each chain. If pilot chains
 are enabled, it runs them to estimate one proposal covariance. It then freezes
 that covariance, runs the production chains, and calculates convergence
-diagnostics before any samples may be combined.
+diagnostics before multiple chains may be combined. A one-chain run follows
+the same orchestration but records that inter-chain diagnostics do not apply.
 
 Every pilot and production chain receives its own random seed and its own
 :class:`~pyages.calibration.problem.CalibrationProblem`. This prevents random
@@ -18,7 +19,7 @@ draws or mutable model state from leaking from one chain into another.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from typing import Any
 from weakref import WeakSet
@@ -36,10 +37,6 @@ from pyages.calibration.methods.mh.diagnostics import (
     split_rhat,
     tail_ess,
 )
-from pyages.calibration.methods.mh.ensemble_config import (
-    MHEnsembleConfig,
-    build_seed_plan,
-)
 from pyages.calibration.methods.mh.errors import MHDiagnosticsUnavailableError
 from pyages.calibration.methods.mh.initialization import build_initial_states
 from pyages.calibration.methods.mh.pilot import (
@@ -49,12 +46,18 @@ from pyages.calibration.methods.mh.pilot import (
 from pyages.calibration.methods.mh.prior import Prior
 from pyages.calibration.methods.mh.results import (
     DIAGNOSTICS_UNAVAILABLE,
+    NOT_APPLICABLE,
     NOT_QUALIFIED,
     QUALIFIED,
     MHChainResult,
     MHParameterDiagnostics,
     MHPilotResult,
     MHRunRecord,
+    QualificationStatus,
+)
+from pyages.calibration.methods.mh.run_config import (
+    MHRunConfig,
+    build_seed_plan,
 )
 from pyages.calibration.methods.mh.sampler import MetropolisHastings
 from pyages.calibration.problem import CalibrationProblem
@@ -64,17 +67,17 @@ from pyages.config.sampling_schedule import maximum_split_ess
 _ProblemFactory = Callable[[str, int], CalibrationProblem]
 
 
-class MultiChainMetropolisHastings:
-    """Run pilot and production MH chains with auditable random streams.
+class MetropolisHastingsRunner:
+    """Run one or more production MH chains with auditable random streams.
 
     Parameters
     ----------
     chain_config : MHConfig
-        Scientific controls for each production chain. The ensemble always
+        Scientific controls for each production chain. The run always
         supplies ``seed`` and ``initial_params``. With a pilot, this config
         must request the componentwise kernel used for adaptation; production
         then uses the learned covariance as one frozen correlated kernel.
-    ensemble_config : pyages.calibration.methods.mh.ensemble_config.MHEnsembleConfig
+    run_config : pyages.calibration.methods.mh.run_config.MHRunConfig
         Chain count, initialization, optional pilot, and qualification rules.
 
     Notes
@@ -84,10 +87,9 @@ class MultiChainMetropolisHastings:
     evaluation mutates the LPM state and would couple otherwise independent
     chains.
 
-    ``monitor`` and ``display_traj`` are rejected because those one-chain
-    trajectory facilities do not identify the chain that produced their
-    transient output. Complete chain tables are returned for external trace
-    plots.
+    ``monitor`` and ``display_traj`` apply independently to every production
+    chain. The problem factory should therefore give each stage and chain its
+    own output directory, as the standard workflow integration does.
 
     ``display_text`` remains available and logs one summary per sampler,
     including pilot samplers when enabled.
@@ -97,46 +99,39 @@ class MultiChainMetropolisHastings:
     def __init__(
         self,
         chain_config: MHConfig,
-        ensemble_config: MHEnsembleConfig,
+        run_config: MHRunConfig,
     ) -> None:
-        """Store validated immutable chain and ensemble configurations."""
+        """Store validated immutable chain and run configurations."""
         if not isinstance(chain_config, MHConfig):
             raise TypeError("chain_config must be an MHConfig")
-        if not isinstance(ensemble_config, MHEnsembleConfig):
-            raise TypeError("ensemble_config must be an MHEnsembleConfig")
-        if chain_config.monitor or chain_config.display_traj:
-            raise ValueError(
-                "monitor and display_traj are one-chain options; use the saved "
-                "per-chain tables for multi-chain trace diagnostics"
-            )
-        if (
-            ensemble_config.pilot.enabled
-            and chain_config.proposal_kind != "componentwise"
-        ):
+        if not isinstance(run_config, MHRunConfig):
+            raise TypeError("run_config must be an MHRunConfig")
+        if run_config.pilot.enabled and chain_config.proposal_kind != "componentwise":
             raise ValueError(
                 "pilot-enabled multi-chain MH requires "
                 "proposal_kind='componentwise'; the pilot learns the correlated "
                 "production covariance"
             )
         retained_count = chain_config.retained_sample_count()
-        if retained_count < 8:
+        if run_config.chains > 1 and retained_count < 8:
             raise ValueError(
                 "each production chain must retain at least eight draws for "
                 "multi-chain diagnostics"
             )
-        maximum_ess = maximum_split_ess(ensemble_config.chains, retained_count)
-        diagnostics = ensemble_config.diagnostics
-        if diagnostics.require_convergence and (
-            diagnostics.min_bulk_ess > maximum_ess
-            or diagnostics.min_tail_ess > maximum_ess
-        ):
-            raise ValueError(
-                "diagnostic ESS thresholds exceed the maximum split-draw ESS "
-                f"of {maximum_ess:.6g}; retain more production draws or disable "
-                "required convergence for an exploratory run"
-            )
+        diagnostics = run_config.diagnostics
+        if run_config.chains > 1 and diagnostics.require_convergence:
+            maximum_ess = maximum_split_ess(run_config.chains, retained_count)
+            if (
+                diagnostics.min_bulk_ess > maximum_ess
+                or diagnostics.min_tail_ess > maximum_ess
+            ):
+                raise ValueError(
+                    "diagnostic ESS thresholds exceed the maximum split-draw ESS "
+                    f"of {maximum_ess:.6g}; retain more production draws or disable "
+                    "required convergence for an exploratory run"
+                )
         self.chain_config = chain_config
-        self.ensemble_config = ensemble_config
+        self.run_config = run_config
 
     @staticmethod
     def _fresh_problem(
@@ -207,14 +202,14 @@ class MultiChainMetropolisHastings:
         )
         if (
             self.chain_config.prior_option
-            or self.ensemble_config.initialization.strategy.startswith("prior_")
+            or self.run_config.initialization.strategy.startswith("prior_")
         ):
             prior.load(prototype.lpm)
         states = build_initial_states(
             prototype.lpm,
             prior,
-            self.ensemble_config.initialization,
-            self.ensemble_config.chains,
+            self.run_config.initialization,
+            self.run_config.chains,
             initialization_seeds,
         )
         return (
@@ -284,13 +279,13 @@ class MultiChainMetropolisHastings:
         seeds: tuple[int, ...],
     ) -> tuple[MHConfig, ...]:
         """Build componentwise pilot configs on their independent streams."""
-        pilot_control = self.ensemble_config.pilot
+        pilot_control = self.run_config.pilot
         configs = tuple(
             replace(
                 self.chain_config,
-                nstep=pilot_control.nstep,
+                nsteps=pilot_control.nsteps,
                 burn_in=pilot_control.burn_in,
-                nskip=1,
+                thinning=1,
                 seed=seed,
                 initial_params=dict(start),
                 monitor=False,
@@ -304,7 +299,7 @@ class MultiChainMetropolisHastings:
         )
         if any(config.retained_sample_count() < 2 for config in configs):
             raise ValueError(
-                "pilot nstep and burn_in must retain at least two draws per chain"
+                "pilot nsteps and burn_in must retain at least two draws per chain"
             )
         return configs
 
@@ -318,7 +313,7 @@ class MultiChainMetropolisHastings:
         starts: tuple[dict[str, float], ...],
     ) -> MHPilotResult:
         """Freeze learned pilot adaptation and its complete provenance."""
-        pilot_control = self.ensemble_config.pilot
+        pilot_control = self.run_config.pilot
         covariance = pooled_within_chain_covariance(
             matrices,
             relative_ridge=pilot_control.relative_ridge,
@@ -342,7 +337,7 @@ class MultiChainMetropolisHastings:
     def _production_config(
         self,
         *,
-        initial_params: dict[str, float],
+        initial_params: Mapping[str, float],
         seed: int,
         pilot: MHPilotResult | None,
     ) -> MHConfig:
@@ -350,8 +345,6 @@ class MultiChainMetropolisHastings:
         replacements: dict[str, object] = {
             "seed": seed,
             "initial_params": dict(initial_params),
-            "monitor": False,
-            "display_traj": False,
         }
         if pilot is not None:
             replacements.update(
@@ -367,7 +360,7 @@ class MultiChainMetropolisHastings:
     def _run_production(
         self,
         problems: tuple[CalibrationProblem, ...],
-        starts: tuple[dict[str, float], ...],
+        starts: tuple[Mapping[str, float], ...],
         seeds: tuple[int, ...],
         pilot: MHPilotResult | None,
         expected_prior_metadata: dict[str, Any],
@@ -434,7 +427,7 @@ class MultiChainMetropolisHastings:
                 "rank-normalized diagnostics"
             )
 
-        thresholds = self.ensemble_config.diagnostics
+        thresholds = self.run_config.diagnostics
         diagnostics: list[MHParameterDiagnostics] = []
         for quantity in quantities:
             name = quantity.name
@@ -488,7 +481,7 @@ class MultiChainMetropolisHastings:
                 seen_problems,
                 target_signature,
             )
-            for chain_id in range(1, self.ensemble_config.chains + 1)
+            for chain_id in range(1, self.run_config.chains + 1)
         )
 
     @staticmethod
@@ -514,10 +507,12 @@ class MultiChainMetropolisHastings:
         chains: tuple[MHChainResult, ...],
     ) -> tuple[
         tuple[MHParameterDiagnostics, ...],
-        str,
+        QualificationStatus,
         str | None,
     ]:
         """Return complete diagnostics, qualification status, and failure detail."""
+        if len(chains) == 1:
+            return (), NOT_APPLICABLE, None
         try:
             diagnostics = self._diagnose(chains)
         except MHDiagnosticsUnavailableError as exc:
@@ -553,7 +548,7 @@ class MultiChainMetropolisHastings:
         if not callable(problem_factory):
             raise TypeError("problem_factory must be callable")
         seen_problems: WeakSet[CalibrationProblem] = WeakSet()
-        seeds = build_seed_plan(self.ensemble_config)
+        seeds = build_seed_plan(self.run_config)
         (
             starts,
             initialization_prior_metadata,
@@ -570,7 +565,7 @@ class MultiChainMetropolisHastings:
                 seen_problems,
                 target_signature,
             )
-            if self.ensemble_config.pilot.enabled
+            if self.run_config.pilot.enabled
             else ()
         )
         production_problems = self._stage_problems(
@@ -621,7 +616,7 @@ class MultiChainMetropolisHastings:
         )
         return MHRunRecord(
             chain_config=self.chain_config,
-            ensemble_config=self.ensemble_config,
+            run_config=self.run_config,
             chains=chains,
             pilot=pilot,
             diagnostics=diagnostics,
@@ -635,5 +630,5 @@ class MultiChainMetropolisHastings:
 
 
 __all__ = [
-    "MultiChainMetropolisHastings",
+    "MetropolisHastingsRunner",
 ]
