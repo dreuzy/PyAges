@@ -28,9 +28,9 @@ environment, Git state, and hashes of generated artifacts.
 
 ## Project status
 
-The current source identity is PyAges `1.2.0`; development now targets
-the intentionally breaking `2.0.0` line. `1.0.1`
-remains the latest distribution currently published on PyPI. Supported
+The current source identity is the intentionally breaking PyAges `2.0.0`.
+`1.0.1` remains the latest distribution currently published on PyPI until the
+2.0 release process is complete. Supported
 interfaces are documented in {doc}`reference/public-api` and compatibility is
 managed through {doc}`reference/changelog`. The article campaign and its
 immutable scientific archive retain the `1.0` identity and exact reviewed

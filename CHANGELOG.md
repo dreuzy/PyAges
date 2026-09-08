@@ -7,6 +7,8 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ## Unreleased
 
+## 2.0.0 - 2026-09-09
+
 ### Added
 
 - Added an explicit `not_applicable` MH qualification status for a run with one

@@ -1,7 +1,7 @@
 # Ploemeur F09 2010 multi-chain qualification
 
 ```{note}
-This opt-in multi-chain profile is available in PyAges 1.2. Record the exact
+This opt-in multi-chain profile is available in PyAges 2.0. Record the exact
 package version and Git commit when preserving qualification evidence.
 ```
 

@@ -31,7 +31,7 @@ protocol.
 
 ## Run the multi-chain qualification
 
-PyAges 1.2 includes a second configuration for multi-chain qualification:
+PyAges 2.0 includes a second configuration for multi-chain qualification:
 
 ```bash
 pyages run examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date_multichain.yaml

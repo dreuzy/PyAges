@@ -90,7 +90,7 @@ python -m pip install "pyages==1.0.1"
 pyages check
 ```
 
-This repository prepares the compatible `1.2.0` release. Use the editable
+This repository prepares the intentionally breaking `2.0.0` release. Use the editable
 commands above to exercise that version before publication or to qualify an
 exact source checkout. The `--pre` flag is needed only when deliberately
 installing a published beta or release-candidate version. Python code continues

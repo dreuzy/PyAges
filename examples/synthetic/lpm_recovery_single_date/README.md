@@ -35,7 +35,7 @@ The development branch also contains a canonical multi-chain profile:
 pyages run examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date_multichain.yaml
 ```
 
-This **Unreleased** profile is not part of `pyages==1.0.1`. It runs four
+This PyAges 2.0 profile is not part of `pyages==1.0.1`. It runs four
 dispersed chains, a 1,500-transition pilot per chain, and 4,000 production
 transitions per chain without thinning. It requires R-hat below `1.01` and
 bulk/tail ESS of at least `300` before pooling. The current runner executes its

@@ -1,12 +1,17 @@
 # PyAges 2.0 release-readiness checkpoint — 2026-09-08
 
-**Status:** locally qualified engineering checkpoint; not yet a release
-candidate.
+**Status:** technically qualified `2.0.0` release-identity candidate;
+independent review, protected-main qualification, and the release tag are still
+required.
 
-This report separates what has been demonstrated on the current working tree
-from what still requires a committed Git revision and the external CI
-platforms. It prevents a successful test run on one developer machine from
-being mistaken for complete release evidence.
+**Updated 9 September 2026:** the source and citation metadata now carry the
+`2.0.0` candidate identity. Its release date must be refreshed if the final tag
+is created after 9 September.
+
+This report separates what has been demonstrated locally and on GitHub from the
+human and protected-branch gates that still remain. A green feature branch is
+strong technical evidence, but it is not by itself authorization to tag and
+publish a public release.
 
 ## What this iteration stabilized
 
@@ -53,9 +58,10 @@ A distribution was also tested independently of the checkout:
 8. `pip-audit` found no known vulnerability in the installed third-party
    environment.
 
-The artifacts built during this checkpoint still identify themselves as
-version `1.2.0`. This is intentional: their purpose was to test packaging, not
-to create a publishable 2.0 artifact before the final release identity exists.
+The provisional artifacts used for the first local packaging check identified
+themselves as version `1.2.0`; they are qualification evidence only and must
+not be published. The source tree now carries the `2.0.0` identity so the next
+build can verify the real candidate metadata.
 
 The developer's pre-existing global Python environment contains several older
 but compatible libraries and therefore does not satisfy the stricter
@@ -64,36 +70,54 @@ This distinction is useful: an editable working environment can remain usable,
 while release evidence must be produced in a reproducible qualified
 environment.
 
+## Evidence obtained on GitHub
+
+The committed revision `6d5d6b4` passed both external qualification layers on
+8 September 2026:
+
+- [standard CI run 34279473131](https://github.com/dreuzy/PyAges/actions/runs/34279473131):
+  Ruff, portable Pyright, dependency audit, Conda, Python 3.12 through 3.14,
+  lower-bound SciPy, pandas 2.2, coverage, TracerLPM, .NET, package, docs, and
+  the aggregate CI gate;
+- [extensive scientific run 34279473134](https://github.com/dreuzy/PyAges/actions/runs/34279473134):
+  complete extensive tests, distributions, draft multi-chain qualification
+  archive, and preserved scientific evidence.
+
+The portable typing correction introduced immediately before those runs is
+therefore exercised on Linux as well as by the local Windows checks. The
+`2.0.0` identity commit must pass the same gates because version metadata and
+release-facing documentation are part of the candidate.
+
 ## What remains before release
 
-The remaining work is release qualification, not another general source-code
-cleanup.
+The remaining work is release governance and final qualification, not another
+general source-code cleanup.
 
-1. **Create and push a reviewable commit.** CI evidence must refer to an exact
-   Git revision. Results obtained from an uncommitted working tree cannot serve
-   as durable release evidence.
-2. **Run the GitHub CI matrix.** The local Python 3.12 result does not establish
-   Python 3.13 or 3.14 compatibility, the Conda environment, the Linux .NET
-   build, or packaging on a clean GitHub runner.
-3. **Run the extensive scientific workflow for that revision.** The focused
-   local validation and smoke run demonstrate the affected paths, but the
-   canonical workflow must create the complete four-case evidence set.
-4. **Finalize the release identity only after those gates are green.** Update
-   the source version to `2.0.0`, finalize the changelog date and citation
-   metadata, then commit that identity. Build the release candidate from the
-   resulting exact tag rather than reusing the provisional artifacts described
-   above.
-5. **Publish only the verified candidate artifacts.** TestPyPI and then PyPI
-   must receive the unchanged wheel and source distribution attached to the
-   reviewed GitHub release, following {doc}`../dev/releasing`.
+1. **Qualify the `2.0.0` identity commit.** Push it and require both standard CI
+   and the extensive scientific workflow to pass on that exact revision.
+2. **Complete the independent continuity review.** The maintainership policy
+   requires a second person to perform the documented setup/recovery drill and
+   to be represented in ownership routing before a public major release. At
+   this checkpoint, pull request 34 has no independent review and
+   `.github/CODEOWNERS` lists only `@dreuzy`.
+3. **Merge through the protected branch.** After review, merge the candidate
+   into `main` and require the protected-main checks, including the extensive
+   workflow, to pass on the exact merge commit.
+4. **Create the immutable release identity.** Create and push the annotated tag
+   `2.0.0` on that qualified `main` commit, then run the release-candidate
+   workflow from the exact tag.
+5. **Publish only the verified candidate artifacts.** If publication is later
+   authorized, TestPyPI and then PyPI must receive the unchanged wheel and
+   source distribution attached to the reviewed GitHub release, following
+   {doc}`../dev/releasing`.
 
-Items 2 and 3 are the highest-value next checks. Further renaming or removal is
-lower priority unless review or CI identifies a concrete ambiguity, duplicate
-execution path, stale compatibility contract, or defect.
+Further renaming or removal is lower priority unless review or CI identifies a
+concrete ambiguity, duplicate execution path, stale compatibility contract, or
+defect.
 
 ## Decision boundary
 
-This checkpoint is sufficient to stop the broad simplification audit. It is
-not sufficient to tag or publish PyAges 2.0. The next decision should be based
-on the external CI and extensive-test evidence for the committed revision, not
-on the discovery of more cosmetic refactoring opportunities.
+This checkpoint is sufficient to stop the broad simplification audit and to
+prepare the `2.0.0` identity. It is not sufficient to tag or publish PyAges 2.0
+until the identity commit, independent continuity review, and protected-main
+qualification are complete.

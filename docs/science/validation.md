@@ -77,7 +77,7 @@ therefore qualified as a deterministic software-regression baseline only; it
 is not an independently converged scientific posterior reference.
 
 Four separate opt-in tests add scientific evidence for the multi-chain
-examples included in PyAges 1.2:
+examples included in PyAges 2.0:
 
 - `test_synthetic_recovery_multichain_scientific.py` runs four dispersed
   chains, requires the article R-hat/ESS gates, and checks marginal and joint

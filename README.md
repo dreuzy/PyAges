@@ -6,13 +6,13 @@ inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
 It provides reusable scientific components in `pyages/` and site-specific
 workflows in `sites/`, with examples and regression tests to support validation.
 
-Project status: development after the versioned `1.2.0` source now targets `2.0.0`.
-The major version is required because configuration and Python compatibility
-aliases are deliberately removed instead of being carried forward. The
-latest distribution currently published on PyPI is `1.0.1`. Public interfaces,
-scientific workflows, and validation gates are documented and tested. Each
-public release source is identified by its exact annotated Git tag; an untagged
-checkout must also be identified by its exact Git commit.
+Project status: this source tree carries the `2.0.0` release identity. Version
+2.0 is intentionally breaking because obsolete configuration spellings and
+Python compatibility aliases were removed instead of being carried forward.
+The latest distribution currently published on PyPI is still `1.0.1`; until
+the 2.0 tag and distribution are published, identify this checkout by its exact
+Git commit. Public interfaces, scientific workflows, and validation gates are
+documented and tested.
 
 Developing from source? Start with the
 [ten-minute developer setup](docs/dev/getting-started.md) and then follow the
@@ -38,7 +38,7 @@ version-specific DOI
 [`10.5281/zenodo.22150863`](https://doi.org/10.5281/zenodo.22150863). See the
 [citation guidance](docs/reference/citation.md) for the distinction between
 the archived `1.0` campaign, the published `1.0.1` maintenance release, and
-the versioned `1.2.0` source. Unreleased breaking changes are recorded in the
+the prepared `2.0.0` source. Release changes are recorded in the
 [changelog](CHANGELOG.md) and the current
 [configuration reference](docs/user-guide/configuration.md).
 
@@ -84,8 +84,8 @@ The distribution, Python import, and command all use the single identifier
 `pyages`. The wheel contains the reusable library, its CLI,
 and core model data. Repository examples and site studies remain in the Git
 source tree. The `1.0.1` release is available from
-[PyPI](https://pypi.org/project/pyages/1.0.1/). To evaluate the forthcoming
-1.2 behavior, install this checkout with `python -m pip install .`.
+[PyPI](https://pypi.org/project/pyages/1.0.1/). To evaluate the prepared 2.0
+source before publication, install this checkout with `python -m pip install .`.
 
 Use `python -m pip install pyages` when deliberately selecting the newest
 published compatible release. Prerelease artifacts, if any, require an
@@ -95,7 +95,7 @@ explicit prerelease request:
 python -m pip install --pre pyages
 ```
 
-## Quickstart 1.2 (fast, no source examples required)
+## Quickstart 2.0 (fast, no source examples required)
 
 After installing this checkout, generate a complete local example and run it:
 
@@ -104,7 +104,7 @@ pyages new config quickstart
 pyages run quickstart/pyages.yaml
 ```
 
-This creates a schema-2 YAML file and a small synthetic observation table. It
+This creates a schema-3 YAML file and a small synthetic observation table. It
 checks installation, input loading, workflow startup, output writing, and
 provenance. Its scientific steps are disabled so the default run stays fast;
 it is not a calibrated scientific result. Use `--kind temporal` to generate a
@@ -112,7 +112,7 @@ short variant that also exercises the temporal calculation path.
 
 ## Multi-chain MH qualification
 
-PyAges 1.2 includes opt-in multi-chain Metropolis--Hastings with
+PyAges 2.0 includes opt-in multi-chain Metropolis--Hastings with
 dispersed starts, a separate pilot that learns one fixed proposal covariance,
 independent production streams, rank-normalized convergence diagnostics, and
 qualification-gated pooling.

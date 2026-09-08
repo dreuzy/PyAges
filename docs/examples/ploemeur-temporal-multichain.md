@@ -1,7 +1,7 @@
 # Ploemeur temporal multi-chain qualification
 
 ```{note}
-This opt-in temporal multi-chain profile is available in PyAges 1.2. Record the
+This opt-in temporal multi-chain profile is available in PyAges 2.0. Record the
 exact package version and Git commit with qualification results.
 ```
 

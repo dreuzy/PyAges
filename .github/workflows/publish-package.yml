@@ -6,7 +6,7 @@ on:
       tag:
         description: Existing GitHub release tag to publish
         required: true
-        default: "1.2.0"
+        default: "2.0.0"
         type: string
       repository:
         description: Package index destination

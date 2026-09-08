@@ -4,10 +4,10 @@ This tutorial checks an installation, runs the small single-date template, and
 shows how to decide whether a result directory is complete. It is a software
 smoke run, not a calibrated scientific interpretation.
 
-## 1. Install the prepared 1.2 source
+## 1. Install the prepared 2.0 source
 
-From the repository root, install the current checkout. Once 1.2 is published,
-the equivalent user installation will be `python -m pip install pyages==1.2.0`:
+From the repository root, install the current checkout. Once 2.0 is published,
+the equivalent user installation will be `python -m pip install pyages==2.0.0`:
 
 ```bash
 python -m pip install .
