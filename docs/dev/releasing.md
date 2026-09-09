@@ -42,12 +42,17 @@ review is preferred but is not a release prerequisite.
    python -m pytest -q validation/tracerlpm/benchmark/tests
    python -m pytest -q --cov=pyages --cov-branch --cov-report=term-missing --cov-fail-under=75
    python -m sphinx -W --keep-going -b html docs docs/_build/html
-   python -m sphinx -E -a -W --keep-going -b linkcheck docs docs/_build/linkcheck
+   python -m sphinx -E -a --keep-going -b linkcheck docs docs/_build/linkcheck || \
+     python -m sphinx --keep-going -b linkcheck docs docs/_build/linkcheck || \
+     python -m scripts.maintenance.check_linkcheck_results docs/_build/linkcheck/output.json
    ```
 
-   The link checker may encounter publisher bot protection. Any exclusion must
-   target one verified URL exactly; do not ignore an entire DOI or publisher
-   domain.
+   The first link check starts from a fresh Sphinx environment; the second
+   reuses its cache and retries remote failures. If both fail, the final command
+   accepts only a report whose failures are network timeouts. Any link reported
+   as broken still fails the release check. The link checker may also encounter
+   publisher bot protection. Any permanent exclusion must target one verified
+   URL exactly; do not ignore an entire DOI or publisher domain.
 
 5. Run the extensive scientific suite before a public release:
 

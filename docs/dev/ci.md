@@ -187,7 +187,7 @@ python run_tests.py coverage
 python run_tests.py validation
 python -m scripts.maintenance.generate_test_inventory --check
 python -m sphinx -W --keep-going -b html docs docs/_build/html
-python -m sphinx -W --keep-going -b linkcheck docs docs/_build/linkcheck
+python -m sphinx --keep-going -b linkcheck docs docs/_build/linkcheck
 ```
 
 The scheduled audit installs every optional group and adds
@@ -204,10 +204,19 @@ implementation, the extracted Holten/Ploemeur diagnostics, and the maintained HY
 run/product modules.  Historical one-off scripts remain under normal Ruff
 checks until their responsibilities are similarly isolated.
 
-The CI documentation job retries the same cached linkcheck once when the first
-invocation fails. This absorbs a transient remote timeout while preserving a
-failure for a persistent broken link. Publisher endpoints known to reject
-automated clients remain narrowly listed in `docs/conf.py`.
+The HTML build keeps `-W`: every warning produced from our own documentation is
+therefore an error to correct. The external-link build deliberately omits
+`-W`, because an unreachable third-party server is not a documentation syntax
+error.
+
+Sphinx still returns a failure for either a broken link or a network timeout.
+The CI job retries the same cached linkcheck once. If the second attempt also
+fails, `scripts.maintenance.check_linkcheck_results` reads Sphinx's JSON report:
+it accepts a report containing only timeouts, but rejects a broken link, a mix
+of broken links and timeouts, or an unreadable report. Thus a temporary outage
+is visible in the log without making an otherwise valid release depend on a
+remote site's availability. Publisher endpoints known to reject automated
+clients remain narrowly listed in `docs/conf.py`.
 
 Conda, wheel isolation, and .NET exercise different environments and must not
 be inferred solely from a successful editable-install test run.

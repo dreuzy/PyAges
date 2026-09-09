@@ -11,11 +11,11 @@ the complete core node-ID list.
 
 | Scope | Collected cases | Modules |
 |---|---|---|
-| Standard selection | 1671 | 130 |
+| Standard selection | 1678 | 131 |
 | Extensive opt-in | 16 | 9 |
-| Core including extensive | 1687 | 130 |
+| Core including extensive | 1694 | 131 |
 | TracerLPM validation | 65 | 9 |
-| All documented pytest scopes | 1752 | 139 |
+| All documented pytest scopes | 1759 | 140 |
 
 ## Cases by area
 
@@ -31,7 +31,7 @@ the complete core node-ID list.
 | Examples and case studies | `tests/examples/` | Integration / golden | Runnable examples, helper contracts, reproduction modes, and accepted outputs | Standard CI | 16 | 55 |
 | Lumped-parameter models | `tests/lpm/` | Analytical / unit / golden | Distributions, moments, mixtures, registries, parameters, and generated values | Standard CI | 15 | 272 |
 | Ploemeur field case | `tests/ploemeur/` | Field integration / golden | Preparation, configuration, reference convolution, paths, and workflow outputs | Standard CI; selected extensive cases | 8 | 61 |
-| Scientific orchestration | `tests/scripts/` | Integration / reproducibility | Article campaigns, qualification scripts, and reproducible execution support | Standard CI | 20 | 128 |
+| Scientific orchestration | `tests/scripts/` | Integration / reproducibility | Article campaigns, qualification scripts, and reproducible execution support | Standard CI | 21 | 135 |
 | Environmental tracers | `tests/tracer/` | Scientific unit / contract | Decay, distributed inputs, tracer configuration, and public tracer behavior | Standard CI | 5 | 53 |
 | Installed workflows | `tests/workflows/` | Integration / contract | Plotting runtime and single-date workflow behavior | Standard CI and package smoke test | 9 | 59 |
 | TracerLPM cross-software validation | `validation/tracerlpm/` | Cross-software validation | Mappings, reference inputs, observations, pilots, comparisons, and summaries | TracerLPM validation job | 9 | 65 |
@@ -138,6 +138,7 @@ the complete core node-ID list.
 | `tests/scripts/maintenance/test_benchmark_model_space.py` | Integration / reproducibility | Benchmark model space within scientific orchestration. | 6 | 0 |
 | `tests/scripts/maintenance/test_check_architecture.py` | Integration / reproducibility | Check architecture within scientific orchestration. | 4 | 0 |
 | `tests/scripts/maintenance/test_check_dev.py` | Integration / reproducibility | Check dev within scientific orchestration. | 4 | 0 |
+| `tests/scripts/maintenance/test_check_linkcheck_results.py` | Integration / reproducibility | Check linkcheck results within scientific orchestration. | 7 | 0 |
 | `tests/scripts/maintenance/test_generate_test_inventory.py` | Integration / reproducibility | Generate test inventory within scientific orchestration. | 1 | 0 |
 | `tests/scripts/maintenance/test_run_tests.py` | Integration / reproducibility | Run tests within scientific orchestration. | 12 | 0 |
 | `tests/scripts/qualification/test_ci_multichain_archive.py` | Integration / reproducibility | Ci multichain archive within scientific orchestration. | 11 | 0 |
