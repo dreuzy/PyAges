@@ -133,6 +133,7 @@ linkcheck_ignore = [
     r"https://doi\.org/10\.15138/TQ02-ZX42",
     r"https://doi\.org/10\.17632/p32bmw6rgs\.1",
     r"https://doi\.org/10\.3133/tm4F3",
+    r"https://doi\.org/10\.5281/zenodo\.2215086[23]",
     r"https://hplus\.ore\.fr/en/ploemeur/",
     r"https://www\.usgs\.gov/software/tracerlpm",
     r"https://pubs\.usgs\.gov/publication/tm4F3",
