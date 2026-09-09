@@ -13,7 +13,6 @@ and execution of Metropolis-Hastings calibrations for the Ploemeur site.
 
 from __future__ import annotations
 
-import copy
 import multiprocessing as mp
 import tempfile
 from pathlib import Path
@@ -21,18 +20,11 @@ from typing import Any
 
 import yaml
 
-from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
-from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
-from pyages.concentrations.schema import ERROR_COLUMN
 from pyages.config.paths import (
     ROOT_DIRECTORY,
     ROOT_DIRECTORY_RESULTS,
-    result_subdirectory,
 )
-from pyages.config.runtime import DisplayOptions
-from pyages.lpm.plotting.sample_diagnostics import plot_prior_comparison
-from pyages.reporting.chronicles import export_calibrated_chronicles
 from sites.ploemeur.config.models import (
     ObservationMetadataConfig,
     PloemeurWorkflowConfig,
@@ -40,24 +32,14 @@ from sites.ploemeur.config.models import (
     WellDateConfig,
 )
 from sites.ploemeur.observations.ploemeur import observation_path
-from sites.ploemeur.workflows.job_builder import build_jobs
+from sites.ploemeur.workflows import job_builder, single_run
 from sites.ploemeur.workflows.path_helpers import (
-    calibrated_prior_name,
     data_file_path,
     data_selection_filename,
     prior_file_path,
-    results_dir_for_case,
     results_folder,
     workflow_temp_folder,
 )
-
-TIME_SPAN_AND_PRIOR_MODES = {
-    "cumulative",
-    "successive",
-    "span_full",
-    "successive_with_prior",
-    "span_with_prior",
-}
 
 
 def load_yaml_file(path: Path) -> dict[str, Any]:
@@ -86,32 +68,6 @@ def resolve_results_directory(path_str: str | Path) -> Path:
     if not path.is_absolute():
         path = ROOT_DIRECTORY / path
     return path.resolve()
-
-
-def validate_time_span_and_prior_mode(mode: str) -> None:
-    """Validate that a time-span mode is recognized."""
-    if mode not in TIME_SPAN_AND_PRIOR_MODES:
-        allowed = ", ".join(sorted(TIME_SPAN_AND_PRIOR_MODES))
-        raise ValueError(
-            f"Unknown time_span_and_prior mode '{mode}'. Allowed: {allowed}."
-        )
-
-
-def load_concentrations(
-    file_path: str | Path,
-    error_concentrations: float,
-    display,
-    output_dir: str | Path,
-) -> Concentrations:
-    """Load concentrations, apply relative errors, display, and write outputs."""
-    cdata = Concentrations.from_file(file_path)
-    if cdata.frame[ERROR_COLUMN].min() == 0:
-        cdata.set_relative_errors(error_concentrations)
-    cdata.display(display)
-    cdata.frame.to_csv(
-        data_file_path(output_dir, "concentrations.txt"), sep="\t", index=False
-    )
-    return cdata
 
 
 def load_observations_well_dates(
@@ -215,11 +171,11 @@ class SimulationStrategy:
         self.workflow_cfg = config.workflows
         self.execution_cfg = config.execution
         self.results_cfg = config.results
-        lpm_number = config.calibration.lpm_number or max(
-            min(config.calibration.mh_nsteps // 50, 5000), 10
+        posterior_draw_count = config.calibration.posterior_draw_count or max(
+            min(config.calibration.metropolis_hastings.nsteps // 50, 5000), 10
         )
         self.calibration_cfg = config.calibration.model_copy(
-            update={"lpm_number": lpm_number}
+            update={"posterior_draw_count": posterior_draw_count}
         )
         self.lpm_types_default = config.lpm_models.default
         self.lpm_types_by_well = config.lpm_models.by_well
@@ -254,7 +210,7 @@ class SimulationStrategy:
         """
         Execute the workflow across all requested wells, modes, and errors.
         """
-        jobs = build_jobs(
+        jobs = job_builder.build_jobs(
             self.observations_cfg.conc_error_rel,
             self.time_span_and_prior,
             self.prior,
@@ -395,23 +351,18 @@ class SimulationStrategy:
                     )
                 else:
                     prior_file = ""
-                pod = PloemeurSingleRun(
+                pod = single_run.PloemeurSingleRun(
                     dir_out,
                     well_date,
                     conc_error_rel,
                     lpm,
-                    self.calibration_cfg.explo_res,
-                    self.calibration_cfg.mh_nsteps,
+                    self.calibration_cfg,
                     prior,
                     likelihood,
-                    self.calibration_cfg.lpm_number,
-                    self.calibration_cfg.seed_enabled,
-                    self.calibration_cfg.seed,
                     directory_lpm=self.lpm_directory,
                     observation_directory=observation_directory,
                     prior_file=prior_file,
                     time_span_and_prior_mode=time_span_and_prior_mode,
-                    initial_params=self.calibration_cfg.initial_params,
                 )
                 pods.append(pod)
 
@@ -484,7 +435,7 @@ def _periods_years(well, dates, time_span_and_prior_mode, breakups=()):
     time_span_and_prior_mode must be one of:
         cumulative, successive, span_full, successive_with_prior, span_with_prior.
     """
-    validate_time_span_and_prior_mode(time_span_and_prior_mode)
+    job_builder.validate_time_span_and_prior_mode(time_span_and_prior_mode)
     cdata = Concentrations.from_file(observation_path(well, dates))
     sampling_years = sorted({int(value) for value in cdata.frame["date"]})
 
@@ -550,7 +501,7 @@ def _observation_files(
         ['F09_2005_2005', 'F09_2005_2006', 'F09_2005_2007', 'F09_2005_2010', 'F09_2005_2013', 'F09_2005_2014', 'F09_2005_2015', 'F09_2005_2016', 'F09_2005_2017', 'F09_2005_2018', 'F09_2005_2019']
 
     """
-    validate_time_span_and_prior_mode(time_span_and_prior_mode)
+    job_builder.validate_time_span_and_prior_mode(time_span_and_prior_mode)
 
     start, end = _periods_years(well, dates, time_span_and_prior_mode, breakups)[0:2]
     return [
@@ -611,10 +562,14 @@ def _build_prior_correspondence(
     for filename, start, _ in zip(files_suc, start_suc, end_suc, strict=False):
         if time_span_and_prior_mode == "span_with_prior":
             temp = files_prior[0]
-        elif time_span_and_prior_mode == "successive_with_prior":
+        else:
             if len(files_prior) != 3:
                 temp = files_prior[0]
             else:
+                if not breakups:
+                    raise ValueError(
+                        "Three prior periods require one hydrological breakup."
+                    )
                 if start < breakups[0]:
                     temp = files_prior[1]
                 else:
@@ -622,167 +577,6 @@ def _build_prior_correspondence(
         correspondence[filename] = temp
 
     return correspondence
-
-
-class PloemeurSingleRun:
-    """
-    Run a single calibration case for one well and one date range.
-
-    Parameters
-    ----------
-    directory_results: str
-        Base output directory for results.
-    well_date: str
-        Well/date identifier (e.g. "F09_2005_2024").
-    error_concentrations: float
-        Relative concentration error to apply when missing.
-    lpm_type: str
-        LPM model name for the calibration.
-    explo_res: int
-        Number of models used for exploration/forward uncertainty.
-    mh_nsteps: int
-        Number of MH steps for the Metropolis-Hastings run.
-    prior: bool
-        Whether to include a prior in the calibration.
-    likelihood: bool
-        Whether to include likelihood in the calibration.
-    lpm_number: int
-        Number of LPM samples kept for output distributions.
-    prior_file: str
-        Optional prior file path for prior-informed runs.
-    time_span_and_prior_mode: str
-        Mode describing the time span and prior usage for this run.
-
-    """
-
-    def __init__(
-        self,
-        directory_results,
-        well_date,
-        error_concentrations,
-        lpm_type,
-        explo_res,
-        mh_nsteps,
-        prior,
-        likelihood,
-        lpm_number,
-        seed_enabled,
-        seed,
-        directory_lpm,
-        observation_directory=None,
-        prior_file="",
-        time_span_and_prior_mode="",
-        initial_params=None,
-    ):
-        """Initialize the single-case workflow runner."""
-        validate_time_span_and_prior_mode(time_span_and_prior_mode)
-        self.time_span_and_prior_mode = time_span_and_prior_mode
-        # ---------------- CONCENTRATIONS DATA ------------------
-        # Concentration data
-        observation_directory = observation_directory or workflow_temp_folder()
-        self.file_ploemeur = data_file_path(observation_directory, well_date)
-        self.file_stem = Path(self.file_ploemeur).name
-        self.error_concentrations = error_concentrations
-
-        # ---------------- LPM MODEL -----------------------------
-        self.lpm_type = lpm_type
-        self.directory_lpm = directory_lpm
-
-        # ---------------- METROPOLIS HASTINGS --------------------
-        # Method and Parameters
-        mh_kwargs = {}
-        if seed_enabled:
-            mh_kwargs["seed"] = seed
-        mh_config = MHConfig(
-            nstep=mh_nsteps,
-            prior_option=prior,
-            likelihood=likelihood,
-            monitor=True,
-            display_traj=True,
-            prior_type="empirical",
-            prior_file=prior_file,
-            initial_params=initial_params,
-            componentwise_source="model",
-            **mh_kwargs,
-        )
-        self.calibration_strategy = MetropolisHastings(config=mh_config)
-        self.nmodels = explo_res
-        self.lpm_number = lpm_number
-
-        self.display = DisplayOptions()
-        self.display.text = False
-        self.display.figure = True
-        self.display.figure_close = True
-        self.display.figure_save = True
-        self.display.directory = results_dir_for_case(
-            directory_results, self.file_stem, lpm_type
-        )
-
-    def concentration_preparation(self):
-        """
-        Load and prepare concentration data for a single case.
-
-        Applies a relative error when missing, displays data, and writes the
-        normalized file into the results directory.
-        """
-        file_path = self.file_ploemeur
-        return load_concentrations(
-            file_path=file_path,
-            error_concentrations=self.error_concentrations,
-            display=self.display,
-            output_dir=self.display.directory,
-        )
-
-    def calibrate(self, cdata):
-        """Run the configured Metropolis-Hastings calibration."""
-        strategy = self.calibration_strategy
-
-        # Prepare case-specific display options.
-        display_options_case = copy.deepcopy(self.display)
-        display_options_case.directory = result_subdirectory(
-            self.display.directory, strategy.method
-        )
-
-        # Calibration
-        problem = CalibrationProblem(
-            cdata,
-            self.lpm_type,
-            display_options=display_options_case,
-            lpm_directory=self.directory_lpm,
-            sample_count=self.nmodels,
-            explore_reachable=False,
-        ).prepare()
-        lpm_results = strategy.run(problem)
-        strategy.write_calibrated_lpm(
-            lpm_results,
-            file_prior=calibrated_prior_name(
-                self.file_stem, self.error_concentrations, self.lpm_type
-            ),
-            folder_prior=self.time_span_and_prior_mode,
-        )
-        strategy.analysis_calibration(lpm_results)
-
-        # Tracers + distributions
-        export_calibrated_chronicles(
-            cdata,
-            lpm_results,
-            strategy.method,
-            self.display,
-            lpm_number=self.lpm_number,
-        )
-        if strategy.prior.option:
-            plot_prior_comparison(
-                lpm_results,
-                directory=display_options_case.directory,
-                prior=strategy.prior,
-            )
-
-        return lpm_results
-
-    def perform(self):
-        """Run a single Metropolis-Hastings calibration."""
-        cdata = self.concentration_preparation()
-        self.calibrate(cdata)
 
 
 # ----------------------------------------------

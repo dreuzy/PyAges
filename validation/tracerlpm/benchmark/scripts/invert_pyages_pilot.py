@@ -23,7 +23,7 @@ from .generate_inputs import BENCHMARK_ROOT
 from .generate_inversion_pilot import (
     DEFAULT_CONFIG,
     OUTPUT_DIR,
-    REPO_ROOT,
+    SOURCE_REPOSITORY_ROOT,
     expanded_cases,
 )
 
@@ -85,7 +85,7 @@ def _load_tracers(observations: list[dict], observation_dir: Path) -> dict[str, 
         root = (
             observation_dir / "normalized_tracers"
             if row["tracer"] == "cfc12"
-            else REPO_ROOT / "data_core" / "data_tracer"
+            else SOURCE_REPOSITORY_ROOT / "data_core" / "data_tracer"
         )
         tracers[row["tracer"]] = Tracer(root, row["tracer"])
     return tracers
@@ -149,8 +149,16 @@ def _configure_model(model, model_name: str, values: np.ndarray | list[float]) -
         model.p.update({"mu": tau, "sigma": tau * np.sqrt(2.0 * dp)})
 
 
-def _parameter_space(case: dict, names: list[str]):
-    bounds = [tuple(float(value) for value in case["bounds"][name]) for name in names]
+def _parameter_space(
+    case: dict, names: list[str]
+) -> tuple[list[tuple[float, float]], list[list[float]]]:
+    bounds: list[tuple[float, float]] = []
+    for name in names:
+        raw_bounds = case["bounds"][name]
+        if len(raw_bounds) != 2:
+            raise ValueError(f"La borne de {name} doit contenir deux valeurs")
+        lower, upper = raw_bounds
+        bounds.append((float(lower), float(upper)))
     initial_values = (
         [[float(value)] for value in case["initial_values"]["tau"]]
         if case["model"] == "EMM"

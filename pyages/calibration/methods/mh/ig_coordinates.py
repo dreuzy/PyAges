@@ -1,21 +1,25 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file converts inverse-Gaussian parameters between two naming systems.
 
-"""Coordinate transforms for the shifted inverse-Gaussian model.
+"""Convert shifted inverse-Gaussian parameters between PyAges and SciPy.
 
-PyAges calibrates the distribution with its physical mean ``M`` and standard
-deviation ``S``.  Earlier Ploemeur experiments used SciPy's ``shape`` and
-``scale`` parameters.  Keeping the exact, named bijection in one module makes
-the change of measure auditable without exposing compatibility aliases.
+PyAges describes the distribution with its physical mean ``M``, standard
+deviation ``S``, and time shift ``t0``. Earlier Ploemeur experiments described
+the same distribution with SciPy's ``shape``, ``scale``, and ``shift`` values.
+
+This module contains both conversion directions and the associated Jacobian.
+Keeping the formulas together makes it possible to check how a proposal or
+probability density changes when it moves between the two parameter systems.
 """
 
 from __future__ import annotations
 
 import math
-from typing import Sequence
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 
 def physical_moments_to_scipy(mean: float, std: float) -> tuple[float, float]:
@@ -47,7 +51,7 @@ def scipy_to_physical_abs_det_jacobian(shape: float, scale: float) -> float:
     return std / 2.0
 
 
-def physical_to_scipy_coordinates(theta: Sequence[float]) -> np.ndarray:
+def physical_to_scipy_coordinates(theta: ArrayLike) -> np.ndarray:
     """Return ``(shape, scale, shift)`` from physical ``(M, S, t0)``."""
     values = np.asarray(theta, dtype=float)
     if values.shape != (3,):
@@ -56,7 +60,7 @@ def physical_to_scipy_coordinates(theta: Sequence[float]) -> np.ndarray:
     return np.array([shape, scale, values[2]], dtype=float)
 
 
-def scipy_to_physical_coordinates(theta: Sequence[float]) -> np.ndarray:
+def scipy_to_physical_coordinates(theta: ArrayLike) -> np.ndarray:
     """Return physical ``(M, S, t0)`` from ``(shape, scale, shift)``."""
     values = np.asarray(theta, dtype=float)
     if values.shape != (3,):

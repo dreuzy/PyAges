@@ -9,10 +9,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh._sampler_target import MHTarget
 from pyages.calibration.methods.mh.trajectory import MHTrajectory
 from pyages.calibration.methods.simplex import SIMPLEX, Simplex
 from tests.calibration.test_calibration_mh_initial_params import _FakeLpm
@@ -47,9 +47,7 @@ def test_simplex_persists_the_reported_optimum_as_one_joint_sample(
     result = Simplex(SIMPLEX).run(problem)
     row = result.frame.iloc[0]
 
-    assert captured["bounds"] == list(
-        zip(*problem.lpm.get_param_interval(), strict=True)
-    )
+    assert captured["bounds"] == list(problem.lpm.get_calibration_ranges().values())
     assert row["mu"] == pytest.approx(optimum[0])
     assert row["obj_function"] == pytest.approx(0.0, abs=1e-12)
     assert row[problem.observations.observation_keys()[0]] == pytest.approx(
@@ -68,7 +66,7 @@ def test_simplex_rejects_an_optimizer_failure(tmp_path, monkeypatch):
         Simplex(SIMPLEX).run(problem)
 
 
-def test_explicit_initial_state_takes_precedence_over_prior_map(monkeypatch):
+def test_explicit_initial_state_takes_precedence_over_prior_initialization(monkeypatch):
     mh = MetropolisHastings(
         MHConfig(
             prior_option=True,
@@ -77,21 +75,26 @@ def test_explicit_initial_state_takes_precedence_over_prior_map(monkeypatch):
         )
     )
     problem = SimpleNamespace(lpm=_FakeLpm(), ensure_prepared=lambda: None)
-    mh._bind_problem(problem)
+    mh._binding.bind(problem)  # noqa: SLF001
     monkeypatch.setattr(
         mh.prior,
         "param_init",
         lambda *_args, **_kwargs: pytest.fail(
-            "prior MAP must not replace initial_params"
+            "prior initialization must not replace initial_params"
         ),
     )
     monkeypatch.setattr(mh.prior, "log_evaluate", lambda *_args: 0.0)
+    mh._target = MHTarget(  # noqa: SLF001
+        problem,
+        mh.prior,
+        likelihood=False,
+    )
 
-    params, *_ = mh._initialize_state(  # noqa: SLF001
+    state = mh._initialize_state(  # noqa: SLF001
         np.array([]), np.array([])
     )
 
-    assert params == [35.0, 20.0]
+    assert state.params == [35.0, 20.0]
 
 
 def test_trajectory_records_negative_log_posterior_and_acceptance_state():
@@ -105,15 +108,15 @@ def test_trajectory_records_negative_log_posterior_and_acceptance_state():
     summary = trajectory.summary()
     assert summary.loc["mu", "mean"] == pytest.approx(10.5)
     assert summary.loc["mu", "std"] == pytest.approx(0.5)
-    pd.testing.assert_frame_equal(trajectory.check(), summary)
+    assert not hasattr(trajectory, "check")
 
 
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"nstep": 0}, "nstep"),
+        ({"nsteps": 0}, "nsteps"),
         ({"burn_in": 1.0}, "burn_in"),
-        ({"nskip": 0}, "nskip"),
+        ({"thinning": 0}, "thinning"),
         ({"prior_type": "unknown"}, "prior_type"),
         ({"proposal_kind": "unknown"}, "proposal_kind"),
         ({"componentwise_fraction": 0.0}, "componentwise_fraction"),
@@ -131,7 +134,7 @@ def test_trajectory_records_negative_log_posterior_and_acceptance_state():
             "correlated requires proposal_covariance",
         ),
         (
-            {"nstep": 5, "burn_in": 0.9, "nskip": 5},
+            {"nsteps": 5, "burn_in": 0.9, "thinning": 5},
             "retain no samples",
         ),
     ],
@@ -142,12 +145,35 @@ def test_mh_config_rejects_invalid_scientific_controls(kwargs, message):
 
 
 def test_mh_retained_sample_count_matches_the_documented_rule() -> None:
-    config = MHConfig(nstep=17, burn_in=0.2, nskip=3)
+    config = MHConfig(nsteps=17, burn_in=0.2, thinning=3)
     retained = [
         iteration
-        for iteration in range(config.nstep)
+        for iteration in range(config.nsteps)
         if config.should_retain(iteration)
     ]
 
     assert retained == [6, 9, 12, 15]
     assert config.retained_sample_count() == len(retained)
+
+
+def test_mh_config_detaches_and_freezes_mutable_scientific_payloads() -> None:
+    initial = {"mu": 10.0, "shift": 5.0}
+    covariance = np.array([[4.0, 0.5], [0.5, 2.0]])
+    config = MHConfig(
+        initial_params=initial,
+        proposal_kind="correlated",
+        proposal_covariance=covariance,
+    )
+
+    initial["mu"] = 99.0
+    covariance[0, 0] = 99.0
+
+    assert config.initial_params == {"mu": 10.0, "shift": 5.0}
+    assert config.proposal_covariance == ((4.0, 0.5), (0.5, 2.0))
+    with pytest.raises(TypeError):
+        config.initial_params["mu"] = 20.0
+
+    scales = np.array([2.0, 5.0])
+    diagonal = MHConfig(proposal_kind="diagonal", proposal_scales=scales)
+    scales[0] = 99.0
+    assert diagonal.proposal_scales == (2.0, 5.0)

@@ -57,6 +57,50 @@ def test_batch_exposes_explicit_convolution_collection() -> None:
     ]
 
 
+def test_repeated_tracer_name_loads_one_shared_scientific_input() -> None:
+    tracers = ConvolutionTracers(
+        names=["cfc11", "cfc11"],
+        date=[2005.0, 2010.0],
+    )
+
+    assert tracers.convolutions[0].tracer is tracers.convolutions[1].tracer
+
+
+def test_prepared_clone_shares_only_immutable_inputs_and_caches() -> None:
+    source = ConvolutionTracers(
+        names=["cfc11", "cfc11"],
+        date=[2005.0, 2010.0],
+    )
+    lpm = build_lpm("exp", directory_lpm=str(test_paths.lpm_data_dir()))
+    source.prepare(lpm)
+    source_grids = [item.prepared_grid for item in source.convolutions]
+
+    clone = source.clone_prepared()
+
+    assert clone is not source
+    assert all(
+        cloned is not original
+        for original, cloned in zip(
+            source.convolutions, clone.convolutions, strict=True
+        )
+    )
+    assert all(
+        cloned.tracer is original.tracer
+        for original, cloned in zip(
+            source.convolutions, clone.convolutions, strict=True
+        )
+    )
+    assert [item.prepared_grid for item in clone.convolutions] == source_grids
+
+    clone.convolve(lpm)
+
+    assert all(item.diagnostics is None for item in source.convolutions)
+    assert all(item.diagnostics is not None for item in clone.convolutions)
+    clone.convolutions[0].date = 2006.0
+    assert clone.convolutions[0].prepared_grid is None
+    assert source.convolutions[0].prepared_grid is source_grids[0]
+
+
 def test_display_delegates_to_the_underlying_tracers(monkeypatch) -> None:
     tracers = ConvolutionTracers(names=["cfc11"], date=DATE)
     options = DisplayOptions()

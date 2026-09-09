@@ -1,39 +1,62 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file compares calibrated parameter distributions in report figures.
 
-"""Calibrated parameter distribution figures."""
+"""Plot posterior uncertainty for selected LPM parameters.
+
+The summary figure places one density histogram per parameter and can overlay
+several calibration methods, their best sampled values, and optional reference
+parameters. The comparison figure is designed for distributions produced by
+different workflows and marks each distribution's median.
+
+Inputs may be sample tables or result objects accepted by the common reporting
+adapter. Histogram bin counts are chosen from the available finite samples;
+these plots summarize stored results and do not recompute a posterior density.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from math import ceil
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from matplotlib.ticker import MaxNLocator
 
 from pyages.reporting.plots._common import (
     OBSERVED_COLOR,
+    FrameSource,
     _best_row,
     _ensure_frame,
     _method_color,
+    _numeric_series,
     _save_figure,
     apply_example_style,
 )
 
 
 def plot_parameter_summary(
-    results_by_method: dict[str, object],
+    results_by_method: Mapping[str, FrameSource],
     param_names: list[str],
     reference_params: dict[str, float] | None = None,
     reference_label: str = "Reference parameters",
     filename: str | Path | None = None,
     title: str = "Parameter distributions",
 ):
-    """
-    Plot a compact set of parameter histograms.
+    """Compare posterior parameter distributions from calibration methods.
+
+    One subplot is created for each name in ``param_names``. Every compatible
+    result is converted to a sample frame, non-numeric values are discarded,
+    and its finite samples are plotted as a normalized histogram. A dashed line
+    marks that method's lowest-objective sample; optional reference parameters
+    use a distinct dotted line.
+
+    Histogram normalization makes shapes comparable but does not turn samples
+    from different methods into a shared probability calculation. Empty or
+    missing parameter columns are skipped. The completed figure is optionally
+    saved to ``filename`` and is always returned to the caller.
     """
     apply_example_style()
     ncols = min(3, max(len(param_names), 1))
@@ -48,7 +71,7 @@ def plot_parameter_summary(
             if param_name not in frame.columns:
                 continue
             color = _method_color(method_name, method_index)
-            values = pd.to_numeric(frame[param_name], errors="coerce").dropna()
+            values = _numeric_series(frame, param_name).dropna()
             if values.empty:
                 continue
             bins = min(max(int(np.sqrt(len(values))), 12), 30)
@@ -95,15 +118,24 @@ def plot_parameter_summary(
 
 
 def plot_parameter_distribution_comparison(
-    distributions: dict[str, object],
+    distributions: Mapping[str, FrameSource],
     param_names: list[str],
     param_labels: dict[str, str] | None = None,
     param_density_labels: dict[str, str] | None = None,
     filename: str | Path | None = None,
     title: str | None = None,
 ):
-    """
-    Overlay posterior parameter distributions coming from different workflows.
+    """Overlay parameter distributions produced by different workflows.
+
+    Each requested parameter receives one subplot and one density outline per
+    compatible distribution. Dashed vertical lines show medians, which provide
+    a common location summary when the compared workflows do not share an
+    objective function or a directly comparable best sample.
+
+    ``param_labels`` controls the displayed horizontal labels, while
+    ``param_density_labels`` can independently control the symbol inside the
+    density label ``p(...)``. Missing columns and non-numeric samples are ignored.
+    The figure is saved only when ``filename`` is provided and is always returned.
     """
     apply_example_style()
     ncols = min(3, max(len(param_names), 1))
@@ -119,7 +151,7 @@ def plot_parameter_distribution_comparison(
             frame = _ensure_frame(result)
             if param_name not in frame.columns:
                 continue
-            values = pd.to_numeric(frame[param_name], errors="coerce").dropna()
+            values = _numeric_series(frame, param_name).dropna()
             if values.empty:
                 continue
             bins = min(max(int(np.sqrt(len(values))), 12), 32)

@@ -1,20 +1,25 @@
-dataset:
+schema_version: 3
+
+workflow:
+  kind: single_date
+
+data:
   name: SSW_2007.txt
   label: Albuquerque shape-free old-bin example
   year: 2007
-  data_dir: examples/natural/albuquerque/data
+  data_dir: data
   verbose: true
   missing_error_rel: 0.01
 
 lpm:
-  model_name: shapefree_n_oldbin
-  data_directory: examples/natural/albuquerque/data_lpm
+  models: [shapefree_n_oldbin]
+  directory: data_lpm
 
 run:
   reachable_concentrations: false
   objective_function: false
-  calibration_metropolis_hastings: true
-  calibration_simplex: false
+  metropolis_hastings: true
+  simplex: false
 
 reachable_concentrations:
   nmodels: 5000
@@ -22,13 +27,13 @@ reachable_concentrations:
 objective_function:
   nmodels: 10000
 
-calibration_metropolis_hastings:
-  nstep: 4000
-  prior_option: false
-  likelihood: true
-  monitor: false
-  display_traj: false
+calibration:
+  metropolis_hastings:
+    nsteps: 4000
+    prior_option: false
+    likelihood: true
+    display_traj: false
 
-calibration_simplex:
-  init_multiples_n: 3
-  fuq_n: 30
+  simplex:
+    init_multiples_n: 3
+    fuq_n: 30

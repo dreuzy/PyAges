@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file provides the two public workflow entry points: one for a single
+# observation date and one for a time series. Each accepts a YAML configuration
+# path, loads its implementation only when called, and returns the published
+# result directory.
 
 """Typed public entry points for reusable high-level PyAges workflows."""
 

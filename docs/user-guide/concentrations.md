@@ -126,6 +126,12 @@ with zero error cannot define this distribution and is rejected when sampling.
 replicate observations. Reachable-model tables, which contain one value per
 tracer and date, use `tracer@date` without rounding the date.
 
+Reference tables supplied to the single-date model-space plot can include an
+`observation_key` column containing these exact keys. Explicit keys make row
+order irrelevant and are recommended for replicate tracer/date observations.
+Without that column, keys are derived from `element`, `date`, and zero-based row
+position, so the reference rows must follow the observation order.
+
 `observation_tracer_names()` returns one tracer name per observation row and is
 therefore aligned with concentration, error, and date arrays.
 `unique_tracer_names()` returns each tracer once, preserving first-observation

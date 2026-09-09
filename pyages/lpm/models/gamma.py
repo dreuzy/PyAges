@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines a gamma water-age model from shape and scale parameters.
+# Those inputs describe several right-skewed age profiles, from strongly
+# young-weighted to peaked, and produce probability functions, age statistics,
+# and exact cumulative moments for continuous tracer convolution.
 
 """
 LPM Gamma distribution model.

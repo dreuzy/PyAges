@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import shutil
@@ -18,6 +17,8 @@ from pathlib import Path
 
 import yaml
 
+from scripts.common.provenance import sha256_file as _sha256
+
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_BENCHMARK = ROOT / "validation/tracerlpm/benchmark"
 RUNNER_PROJECT = ROOT / "validation/tracerlpm/TracerLpmRunner.sln"
@@ -25,14 +26,6 @@ RUNNER = (
     ROOT
     / "validation/tracerlpm/src/TracerLpmRunner/bin/x64/Release/net8.0-windows/TracerLpmRunner.exe"
 )
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _copy_versioned_inputs(destination: Path) -> None:

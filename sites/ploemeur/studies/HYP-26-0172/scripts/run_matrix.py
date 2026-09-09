@@ -2,7 +2,13 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""List or execute reproducible HYP-26-0172 experiments."""
+"""List or execute reproducible HYP-26-0172 matrix experiments.
+
+The command validates enabled matrix rows, resolves an immutable per-run
+configuration, records source and input fingerprints, and launches the normal
+Ploemeur driver only when ``--execute`` is explicit. Dry-run selection is the
+default so maintainers can inspect a campaign without starting calibration.
+"""
 
 from __future__ import annotations
 
@@ -36,6 +42,7 @@ from .validate_study import validate_row
 def select_rows(
     rows: list[dict[str, str]], args: argparse.Namespace
 ) -> list[dict[str, str]]:
+    """Return enabled matrix rows matching an identifier and column selectors."""
     selected = [row for row in rows if row["enabled"].lower() == "true"]
     if args.experiment_id:
         selected = [
@@ -52,6 +59,7 @@ def select_rows(
 
 
 def git_value(*args: str) -> str:
+    """Return Git output, or ``unavailable`` when provenance cannot be queried."""
     result = subprocess.run(
         ["git", *args], cwd=REPO_ROOT, text=True, capture_output=True, check=False
     )
@@ -59,8 +67,14 @@ def git_value(*args: str) -> str:
 
 
 def prepare_run(
-    row: dict[str, str], resume: bool, profile: str, mh_nsteps: int | None
+    row: dict[str, str], resume: bool, profile: str, nsteps: int | None
 ) -> tuple[Path, list[str], dict]:
+    """Create an isolated run directory, resolved config, and prepared manifest.
+
+    No calibration is started. Existing non-empty output is rejected unless
+    ``resume`` is explicit, and an optional step override is recorded in the
+    resolved configuration and manifest.
+    """
     experiment_id = profiled_experiment_id(row["experiment_id"], profile)
     run_dir = profile_results_root(profile) / "runs" / experiment_id
     workflow_dir = run_dir / "workflow"
@@ -75,8 +89,14 @@ def prepare_run(
     resolved_config = run_dir / "resolved_config.yaml"
     with params_path.open(encoding="utf-8") as handle:
         config = yaml.safe_load(handle) or {}
-    if mh_nsteps is not None:
-        config.setdefault("calibration", {})["mh_nsteps"] = mh_nsteps
+    calibration = config.setdefault("calibration", {})
+    mh = calibration.setdefault("metropolis_hastings", {})
+    if nsteps is not None:
+        mh["nsteps"] = nsteps
+    if profile == "smoke":
+        mh["thinning"] = 1
+        mh.setdefault("pilot", {})["nsteps"] = nsteps or 100
+        mh.setdefault("diagnostics", {})["require_convergence"] = False
     config.setdefault("results", {}).update(
         {
             "use_default": False,
@@ -115,7 +135,9 @@ def prepare_run(
     manifest = {
         "schema_version": 2,
         "profile": profile,
-        "mh_nsteps": config.get("calibration", {}).get("mh_nsteps"),
+        "nsteps": mh.get("nsteps"),
+        "chains": mh.get("chains"),
+        "require_convergence": mh.get("diagnostics", {}).get("require_convergence"),
         "experiment": row,
         "status": "prepared",
         "prepared_at_utc": now,
@@ -148,10 +170,9 @@ def prepare_run(
     return run_dir, command, manifest
 
 
-def execute(
-    row: dict[str, str], resume: bool, profile: str, mh_nsteps: int | None
-) -> int:
-    run_dir, command, manifest = prepare_run(row, resume, profile, mh_nsteps)
+def execute(row: dict[str, str], resume: bool, profile: str, nsteps: int | None) -> int:
+    """Prepare and execute one row while recording terminal manifest status."""
+    run_dir, command, manifest = prepare_run(row, resume, profile, nsteps)
     manifest["status"] = "running"
     manifest["started_at_utc"] = datetime.now(timezone.utc).isoformat()
     write_json(run_dir / "manifest.json", manifest)
@@ -164,6 +185,7 @@ def execute(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse matrix selection, profile, resume, and execution options."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--experiment-id")
     parser.add_argument("--select", action="append", default=[], metavar="COLUMN=VALUE")
@@ -180,20 +202,21 @@ def parse_args() -> argparse.Namespace:
         help="campaign name; non-production profiles use isolated output directories",
     )
     parser.add_argument(
-        "--mh-nsteps",
+        "--nsteps",
         type=int,
-        help="override calibration steps in the resolved config (recommended for smoke runs)",
+        help="override production-chain steps in the resolved configuration",
     )
     return parser.parse_args()
 
 
 def main() -> int:
+    """Validate selected rows, print dry-run commands, or execute them."""
     args = parse_args()
-    if args.profile == "smoke" and args.mh_nsteps is None:
-        args.mh_nsteps = 100
-    if args.mh_nsteps is not None and args.mh_nsteps < 100:
+    if args.profile == "smoke" and args.nsteps is None:
+        args.nsteps = 100
+    if args.nsteps is not None and args.nsteps < 100:
         raise ValueError(
-            "--mh-nsteps must be at least 100; shorter chains produce degenerate posteriors"
+            "--nsteps must be at least 100; shorter chains produce degenerate posteriors"
         )
     rows = load_matrix()
     selected = select_rows(rows, args)
@@ -207,12 +230,12 @@ def main() -> int:
         return 2
     for row in selected:
         params_path = resolve_repo_path(row["params_path"])
-        steps = args.mh_nsteps or "configured"
+        steps = args.nsteps or "configured"
         command = f'{sys.executable} -m sites.ploemeur.scripts.ploemeur_driver --params "{params_path.relative_to(REPO_ROOT)}"'
         if not args.execute:
             print(f"{row['experiment_id']} [{args.profile}, steps={steps}]: {command}")
             continue
-        return_code = execute(row, args.resume, args.profile, args.mh_nsteps)
+        return_code = execute(row, args.resume, args.profile, args.nsteps)
         if return_code:
             return return_code
     return 0

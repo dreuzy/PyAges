@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file re-exports the supported reporting plot functions from one stable
+# namespace. Workflows pass observations, objective grids, or posterior samples
+# to these functions and receive Matplotlib figures that can optionally be saved.
 
 """Figures used by installed PyAges reporting and workflows."""
 

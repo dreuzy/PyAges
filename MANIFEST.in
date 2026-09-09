@@ -8,6 +8,7 @@ include SECURITY.md
 include THIRD_PARTY_NOTICES.md
 include install/README.md
 include install/environment.yml
+include install/bootstrap-constraints.txt
 include install/constraints.txt
 prune data_core/sources
 prune tests

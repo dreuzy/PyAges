@@ -8,10 +8,14 @@ core through the five objects below.
 YAML + observations
         |
         v
-Concentrations -> CalibrationProblem -> CalibrationMethod -> LpmSampleTable
-                         |
-                         v
-              Tracer + LPM -> Convolution
+Concentrations -> CalibrationProblem -> CalibrationAlgorithm -> LpmSampleTable
+       |                 |
+       |                 v
+       |      Tracer + LPM -> Convolution
+       |
+       `-> Prepared template -> fresh problems -> MH run (1..N chains)
+                                                   |
+                                                   `-> diagnostics -> posterior
 ```
 
 ## Core responsibilities
@@ -23,25 +27,41 @@ Concentrations -> CalibrationProblem -> CalibrationMethod -> LpmSampleTable
 | `LpmBase` subclasses | Transit-time distributions and parameters | Tracer histories |
 | `Convolution` | The forward concentration calculation | Optimization |
 | `CalibrationProblem` | Observations, model, convolution, objective | Search algorithm state |
-| `CalibrationMethod` | Simplex or MH execution | Input loading and reporting |
+| `CalibrationTargetSignature` | Versioned identity of a prepared scientific target | Problem preparation, search state, reporting paths |
+| `CalibrationAlgorithm` protocol | Operations shared structurally by independent algorithms | Implementation reuse or workflow reporting |
+| `MetropolisHastingsRunner` | Common 1..N-chain MH orchestration, optional pilot, diagnostics, qualification status | Workflow paths and serialization |
+| `MHRunRecord` | Immutable chain/run configuration, samples, diagnostics, seeds, and target provenance for one run | Workflow paths and file writers |
 | `LpmSampleTable` | Calibrated sample rows | Plotting and file-format logic |
 
-Composition is deliberate. A calibration method receives a prepared problem;
-it does not inherit or copy the problem's internal attributes. A convolution
+Composition is deliberate. Simplex and MH are independent classes implementing
+the same structural protocol; neither inherits behavior from the other or from
+a calibration base class. Each receives a prepared problem. A convolution
 receives a tracer and evaluates an LPM; it is not a tracer subclass.
 
 ## Execution flow
 
-A single-date or temporal workflow performs the same sequence:
+A single-date or temporal workflow performs the same common sequence:
 
-1. Load and validate YAML with the models in `pyages.config`.
-2. Resolve paths relative to the configuration file.
+1. Require schema 3 at the execution boundary, then validate it with strict
+   models. Older layouts and former names are rejected.
+2. Resolve every relative path from the configuration file's directory.
 3. Load observations with `Concentrations.from_file()`.
-4. Prepare a `CalibrationProblem` containing the LPM, tracer convolutions, and
-   objective function.
-5. Run a calibration method such as Simplex or Metropolis-Hastings.
-6. Store samples in `LpmSampleTable.frame`.
-7. Write standard result tables and optional figures.
+4. Prepare one `CalibrationProblem` containing the LPM, tracer convolutions,
+   immutable tracer grids, and objective function.
+5. For MH, clone that prepared template into one fresh mutable problem per
+   stage and chain. Each clone owns its LPM and diagnostic state, while the
+   expensive immutable grids and loaded tracer histories are reused. Build the
+   versioned `CalibrationTargetSignature` and verify that every clone still
+   represents the same scientific target.
+6. Run Simplex or the common MH orchestrator with one or more chains.
+7. Initialize the requested chains, optionally run pilots, freeze a common
+   proposal covariance, and run production. With at least two chains, diagnose
+   them before pooling; with one chain, record that inter-chain diagnostics are
+   not applicable.
+8. Store each chain in its own `LpmSampleTable.frame`; expose the sole chain as
+   the posterior, or create a pooled table only when the multi-chain
+   qualification policy permits it.
+9. Write standard result tables, audit artifacts, and optional figures.
 
 The workflow modules own orchestration only. Their immutable context objects
 make resolved paths and runtime options explicit. Cross-domain exports and plot
@@ -56,12 +76,12 @@ any directory is created.
 
 | Package | Purpose |
 |---|---|
-| `pyages.config` | User-facing configuration schemas and path resolution |
+| `pyages.config` | Strict schema-3 models, loading, and path resolution |
 | `pyages.concentrations` | Observation tables and temporal reshaping |
 | `pyages.tracer` | Typed tracer configuration and recharge histories |
 | `pyages.lpm` | Model registry, transit-time models, and sample analysis |
 | `pyages.convolution` | Forward scientific model |
-| `pyages.calibration` | Problems, methods, priors, parameter grids, and outputs |
+| `pyages.calibration` | Problems, target signatures, methods, priors, parameter grids, and outputs |
 | `pyages.workflows` | Public single-date and temporal orchestration, plus runtime services |
 | `pyages.reporting` | Reusable result tables and figures |
 | `pyages.qualification` | Scientific recovery and benchmark experiments, outside the user API |
@@ -78,8 +98,8 @@ dependency of the installable `pyages` package.
   normally does not change.
 - Add an LPM by implementing the `LpmBase` contract and registering it with
   `@register_lpm`.
-- Add a calibration algorithm by implementing `CalibrationMethod.run(problem)`
-  and returning `LpmSampleTable`.
+- Add a calibration algorithm by implementing the structural
+  `CalibrationAlgorithm` protocol and returning `LpmSampleTable`.
 - Add a workflow by building an explicit context and composing existing core
   objects.
 
@@ -114,6 +134,8 @@ flowchart TB
   TRACER --> CONV[convolution]
   LPM --> CONV
   CONV --> PROBLEM
+  PROBLEM --> SIGNATURE[CalibrationTargetSignature]
+  SIGNATURE --> METHODS
   PROBLEM --> METHODS[calibration methods]
   METHODS --> RESULT[LpmSampleTable]
   RESULT --> IO[data_io]
@@ -127,6 +149,41 @@ flowchart TB
 Arrows represent runtime dependencies or data flow. `examples` and `sites`
 consume the installable core; the core does not import them.
 
+This diagram is intentionally conceptual: an arrow can represent either an
+import or an object passed at runtime. It is not an exhaustive Python import
+graph. The following dependency rules are the ones contributors should enforce:
+
+- `config` validates user intent but does not execute scientific workflows;
+- `data_io` owns file formats and immutable serialization schemas, not domain
+  calculations;
+- scientific packages (`tracer`, `lpm`, `convolution`, and `calibration`) do
+  not import workflow or reporting code;
+- `workflows` may compose every lower layer, while `reporting` consumes result
+  records without controlling execution;
+- a new reverse dependency between two top-level packages requires an explicit
+  architecture review rather than a convenience import.
+
+`python -m scripts.maintenance.check_architecture` enforces the high-risk
+direction automatically: configuration cannot import calibration or the upper
+application layers; data and scientific layers cannot import the CLI,
+reporting, or workflows; reporting cannot import the CLI or workflows. The
+check parses absolute and relative imports, runs in the quick developer profile
+and CI, and deliberately leaves the documented bounded domain/data-I/O edges
+available.
+
+Public package facades must also remain safe in a fresh interpreter regardless
+of import order. The dependency-free sample-count helpers live under
+`pyages.config.sampling_schedule`, so the explicit configuration facade does not
+need to enter the calibration graph while convolution is initializing. A
+subprocess contract test protects a convolution-first import.
+
+Configuration models may validate registered LPM names, while the pure MCMC
+schedule calculations they need remain inside `config`. Domain records may use
+focused readers or writers from `data_io`; conversely, `data_io` may serialize
+those records, but must not acquire scientific behavior. These bounded edges
+avoid duplicate validation while keeping execution in the domain and workflow
+layers.
+
 ## Runtime diagram
 
 ```{mermaid}
@@ -134,13 +191,25 @@ flowchart TB
   YAML[YAML] --> CFG[Validated config]
   OBSFILE[Observation table] --> OBS[Concentrations]
   CFG --> CTX[WorkflowContext]
-  OBS --> PROBLEM[CalibrationProblem]
-  CTX --> PROBLEM
+  OBS --> TEMPLATE[Prepared CalibrationProblem template]
+  CTX --> TEMPLATE
+  TEMPLATE --> FACTORY[Fresh-problem factory]
+  OBS --> FACTORY[Fresh-problem factory]
+  CTX --> FACTORY
   TR[Tracer] --> CONV[Convolution]
   LPM[LPM] --> CONV
-  CONV --> PROBLEM
-  PROBLEM --> METHOD[CalibrationMethod]
+  CONV --> TEMPLATE
+  FACTORY --> PROBLEM[Per-stage CalibrationProblem]
+  PROBLEM --> METHOD[Simplex or one MH chain]
   METHOD --> SAMPLES[LpmSampleTable.frame]
+  FACTORY --> INIT[Dispersed starts]
+  INIT --> PILOT[Pilot chains]
+  PILOT --> COV[Fixed common covariance]
+  COV --> CHAINS[Production chains]
+  CHAINS --> DIAG[Diagnostics]
+  DIAG --> GATE{Qualification policy}
+  GATE -->|qualified or explicit exploratory mode| SAMPLES
+  GATE -->|required gate fails| AUDIT[Separate chains + audit artifacts]
   SAMPLES --> STATS[Analysis]
   SAMPLES --> FILES[TSV + manifest]
   SAMPLES --> FIGS[Optional figures]
@@ -152,6 +221,15 @@ by single-date and temporal workflows. Site code
 prepares configuration and observations but does not replace the scientific
 components shown here.
 
+The runner receives a problem factory rather than one shared problem because
+objective evaluation mutates the LPM state. The workflow prepares the common
+scientific target once, then the factory deep-copies its LPM and creates fresh
+convolution evaluators for each stage. Only immutable prepared grids and loaded
+read-only tracer inputs are shared. Diagnostics remain local to each evaluator,
+so this reuse cannot couple chains. Pilot and production random streams are also
+separate, while the proposal covariance learned from all pilots is deliberately
+common and fixed during production.
+
 ## Workflow source layout
 
 The canonical module paths follow responsibilities rather than historical file
@@ -162,15 +240,18 @@ pyages/
   workflows/
     single_date/   calibration, config, context, paths, reporting glue, runner
     temporal/      calibration, cases, context, runner
-    runtime/       result manifest and Matplotlib session
+    runtime/       result manifest, Matplotlib session, and MH workflow adapter
   reporting/
     chronicles.py
     plots/         figures split by output product
   qualification.py  synthetic recovery experiment
+sites/ploemeur/workflows/
+  ploemeur_workflow.py  study expansion and scheduling
+  single_run.py         one site's preparation and reporting around shared MH
 ```
 
 `runner.py` is deliberately the orchestration entry point in both workflows.
-New code imports public launchers from `pyages.workflows`, reporting helpers
+New code imports public workflow entry points from `pyages.workflows`, reporting helpers
 from `pyages.reporting`, and the synthetic experiment from
 `pyages.qualification`. The former flat workflow utilities and the internal
 `pyages.workflows.plots` and `pyages.workflows.synthetic_recovery` paths are
@@ -179,6 +260,11 @@ intentionally removed.
 Workflow contexts and runners use composition; none inherits from a
 calibration, reporting, or configuration object. The shared Pydantic base
 classes only centralize validation policy. Site schemas, including Holten,
-compose the generic launcher schema instead of subclassing it. The internal
+compose the generic workflow schema instead of subclassing it. The internal
 qualification object is named `SyntheticRecoveryExperiment`; no historical
 `SyntheticRecoveryWorkflow` symbol is retained.
+
+Ploemeur does not own a second MH orchestrator. Its `single_run.py` builds a
+prepared calibration problem and delegates stage paths, managed execution,
+serialization, and convergence failure handling to
+`pyages.workflows.runtime.mh.execute_mh_run`.

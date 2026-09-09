@@ -13,12 +13,13 @@ from __future__ import annotations
 
 import argparse
 import csv
-import hashlib
 import json
 import math
 import re
 import statistics
 from pathlib import Path
+
+from scripts.common.provenance import sha256_file as sha256
 
 EXPECTED_CASES = [
     (1, 1.0, 1.0),
@@ -81,14 +82,6 @@ CHAIN_RE = re.compile(r"case_(\d{2})_chain_([1-5])_n10000\.npz$")
 def read_csv(path: Path) -> list[dict[str, str]]:
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         return list(csv.DictReader(handle))
-
-
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def close(a: float, b: float, *, atol: float = 1e-12) -> bool:

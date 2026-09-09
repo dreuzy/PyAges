@@ -1,20 +1,25 @@
-dataset:
+schema_version: 3
+
+workflow:
+  kind: single_date
+
+data:
   name: holten_2010_selected_wells.txt
   label: Holten 2010 benchmark multi-traceurs
   year: 2010
-  data_dir: examples/natural/holten/data
+  data_dir: data
   verbose: true
   missing_error_rel: 0.01
 
 lpm:
-  model_name: uniform
-  data_directory: examples/natural/holten/data_lpm
+  models: [uniform]
+  directory: data_lpm
 
 run:
   reachable_concentrations: false
   objective_function: false
-  calibration_metropolis_hastings: true
-  calibration_simplex: false
+  metropolis_hastings: true
+  simplex: false
 
 reachable_concentrations:
   nmodels: 200
@@ -22,16 +27,16 @@ reachable_concentrations:
 objective_function:
   nmodels: 200
 
-calibration_metropolis_hastings:
-  nstep: 300
-  prior_option: false
-  likelihood: true
-  monitor: false
-  display_traj: false
+calibration:
+  metropolis_hastings:
+    nsteps: 300
+    prior_option: false
+    likelihood: true
+    display_traj: false
 
-calibration_simplex:
-  init_multiples_n: 2
-  fuq_n: 10
+  simplex:
+    init_multiples_n: 2
+    fuq_n: 10
 
 holten:
   campaign:

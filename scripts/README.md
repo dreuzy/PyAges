@@ -15,12 +15,13 @@ Then run a script from the repository root, for example:
 
 ```bash
 pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 pyages run examples/templates/quickstart_single.yaml
-pyages run --transient examples/templates/quickstart_temporal.yaml
+pyages run examples/templates/quickstart_temporal.yaml
 python -m scripts.qualification.run_system_check
 python -m scripts.qualification.run_system_check --params configs/system_check.yaml
 python -m scripts.qualification.run_calibration_benchmark
+python -m scripts.maintenance.benchmark_model_space
 ```
 
 ### Example parameters
@@ -35,7 +36,7 @@ python -m examples.natural.holten.run_holten
 Temporal workflows (multi-date concentrations):
 
 ```bash
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 ## Output location
@@ -67,14 +68,64 @@ commands and active configuration use the grouped module paths below.
 
 | Family | Maintained modules | Purpose |
 | --- | --- | --- |
-| Diagnostics and qualification | `scripts.qualification` | Fast environment checks, calibration comparison, and MH proposal qualification |
+| Diagnostics and qualification | `scripts.qualification` | Fast environment checks, calibration comparison, MH proposal qualification, and generic qualification archives |
 | Article campaigns, post-processing, and audit | `scripts.article` | Complete or focused campaigns; figures, tables, and audit reports |
 | Publication archives | `scripts.release` | Build and validate publication-facing artifacts |
-| Repository maintenance | `scripts.maintenance` | Check metadata and licensing, clean artifacts, and refresh test documentation |
+| Repository maintenance | `scripts.maintenance` | Run quick/full contributor gates; check architecture, metadata, licensing, and qualified-surface docstrings; benchmark model-space preparation; clean artifacts; and refresh test documentation |
 | Shared helpers | `scripts.common` | Reusable provenance, reporting, plotting, and launcher helpers; not primary CLIs |
 
 Invoke a module as `python -m scripts.<family>.<module> --help` when it exposes a CLI.
 The complete article campaign below is the canonical high-level entry point.
+
+`python -m scripts.maintenance.benchmark_model_space` compares the former
+per-panel posterior preparation with the shared one-time preparation. Its
+deterministic synthetic data and median timings make repeated local comparisons
+straightforward; timings remain specific to the host and are not a scientific
+qualification or a CI pass/fail threshold. Use `--json-output <path>` to retain
+one result with its dimensions.
+
+### Dependency and metadata check
+
+`python -m scripts.maintenance.check_project_metadata` checks that project,
+qualified pip and bootstrap pins, historical Conda runtime declarations,
+documentation installation, naming, and release identity agree. Add
+`--check-installed --extra dev` to inspect the compatible direct packages in
+the running interpreter. After installing all optional groups, the stricter
+CI form is:
+
+```bash
+python -m scripts.maintenance.check_project_metadata \
+  --check-installed --extra dev --extra docs --extra examples \
+  --require-qualified-versions
+```
+
+The final option compares installed direct packages, `pip`, `setuptools`, and
+`wheel` with their exact qualified pins. See `docs/dev/dependencies.md` before
+changing a constraint: a qualified direct baseline is not a complete
+platform-specific lock file.
+
+### Multi-chain qualification archive
+
+`python -m scripts.qualification.build_multichain_archive` builds and verifies
+a generic, reproducible qualification ZIP from one or more qualified result
+trees. It is deliberately separate from `scripts.release` and the historical
+article/tag-1.0 archive. The builder requires the protocol YAML, executable
+tests, reports, and exactly one wheel plus one sdist; it also captures the Git
+source and runtime environment.
+
+`python -m scripts.qualification.build_ci_multichain_archive` is the canonical
+four-profile wrapper used by extensive CI and releases. Draft is its default;
+`--mode publishable --expected-tag <version>` preserves the same exactly-four
+discovery contract, binds every result to that clean tagged HEAD, and requires
+an output path outside the source repository.
+
+Use `build --mode draft` for review evidence from an untagged or dirty checkout.
+The draft manifest and README expose those blockers and are never labelled
+publishable. Use `build --mode publishable --expected-tag <version>` only from a
+clean commit carrying that exact annotated version tag. `verify ARCHIVE.zip`
+checks the ZIP sidecar, `CHECKSUMS.sha256`, complete member inventory, nested
+result-manifest hashes, and qualified multi-chain status. See
+`docs/dev/releasing.md` for the full commands and archive contract.
 
 ### Complete article reproduction
 
@@ -158,32 +209,40 @@ pyages run examples/my_site/my_config.yaml
 
 Minimal YAML:
 ```yaml
-dataset:
+schema_version: 3
+
+workflow:
+  kind: single_date
+
+data:
   name: my_site_2010.txt
   year: 2010
   data_dir: examples/my_site/data
 
 lpm:
-  model_name: exp_shifted
-  data_directory: data_core/data_lpm
+  models: [exp_shifted]
+  directory: data_core/data_lpm
 ```
 
 4) If the data contains multiple dates, use the temporal workflow:
 
 ```bash
-pyages run --transient examples/my_site/my_temporal.yaml
+pyages run examples/my_site/my_temporal.yaml
 ```
 
 ```yaml
-dataset:
+schema_version: 3
+
+data:
   file: examples/my_site/data/ori_my_site_2005_2024.txt
   error_rel: 0.2
 
-lpm_models:
-  list: ["exp_shifted", "ig"]
+lpm:
+  models: ["exp_shifted", "ig"]
   directory: data_core/data_lpm
 
 workflow:
+  kind: temporal
   mode: span
 ```
 
@@ -222,7 +281,7 @@ validate the installation with `pyages check`.
     - `Metropolis_Hastings/concentrations_all_models.txt`
     - equivalent files below `forward_uncertainty_quantification/` when that
       method is enabled
-- `pyages run --transient`
+- Temporal workflow (`pyages run` with `workflow.kind: temporal`)
   - Results under:
     `<results_root>/<study_name>/<dataset_stem>/<mode>/<span_full-or-date>/<lpm_type>/`
     (`study_name` defaults to `temporal`)

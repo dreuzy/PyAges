@@ -1,5 +1,5 @@
 ﻿# Canonical Ploemeur LPM configuration.
-# Defines bounds, initialization, proposal steps, and analytical priors.
+# Defines calibration ranges, initialization, proposal steps, and analytical priors.
 
 model: uniform
 version: 1
@@ -9,7 +9,7 @@ parameters:
     label: min_time
     unit: year
     description: "Minimum time parameter."
-    bounds: [0.0, 100.0]
+    calibration_range: [0.0, 100.0]
     init: 15.0
     step: 1.0
     prior:
@@ -22,7 +22,7 @@ parameters:
     label: width
     unit: year
     description: "Width parameter."
-    bounds: [0.5, 100.0]
+    calibration_range: [0.5, 100.0]
     init: 20.0
     step: 1.0
     prior:

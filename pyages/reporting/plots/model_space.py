@@ -1,48 +1,90 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file locates single-date observations and calibrations in model space.
 
-"""Single-date observation and reachable-model figures."""
+"""Compare observed tracer values with reachable and calibrated concentrations.
+
+Systematic parameter sampling first defines the concentration combinations that
+the LPM can reach within its calibration ranges. The figure projects that
+reachable space into tracer pairs, then overlays the measured concentration,
+posterior samples from each calibration method, and each method's best solution.
+
+An optional independently calculated reference can be added as a separate point.
+For four or more tracers, only a compact subset of pairs is displayed so the
+figure remains a readable overview rather than a complete pair matrix.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from itertools import combinations
 from math import ceil
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.typing import ColorType
 
+from pyages.concentrations import Concentrations
+from pyages.concentrations._labels import pretty_tracer_name
 from pyages.concentrations.schema import tracer_date_key
 from pyages.reporting.plots._common import (
     MEDIAN_COLOR,
     OBSERVED_COLOR,
     REACHABLE_COLOR,
+    FrameSource,
+    ReferenceConcentrationSource,
     _axis_label,
     _best_row,
     _ensure_frame,
     _method_color,
-    _pretty_tracer_name,
     _reference_concentration_lookup,
     _save_figure,
     apply_example_style,
 )
 
+type _PreparedPosterior = tuple[
+    str,
+    pd.DataFrame,
+    pd.Series | None,
+    ColorType,
+]
+
+
+def _prepare_posterior_results(
+    results: Mapping[str, FrameSource],
+) -> list[_PreparedPosterior]:
+    """Copy and inspect each posterior result once for all plot panels."""
+    prepared: list[_PreparedPosterior] = []
+    for method_index, (method_name, result) in enumerate(results.items()):
+        frame = _ensure_frame(result)
+        prepared.append(
+            (
+                method_name,
+                frame,
+                _best_row(frame),
+                _method_color(method_name, method_index),
+            )
+        )
+    return prepared
+
 
 def _plot_posterior_samples(
-    ax,
+    ax: Axes,
     x_column: str,
     y_column: str,
-    results: dict[str, object],
+    results: Sequence[_PreparedPosterior],
     *,
     show_labels: bool,
 ) -> None:
     """Add posterior clouds and best solutions to one concentration panel."""
-    for method_index, (method_name, result) in enumerate(results.items()):
-        frame = _ensure_frame(result)
+    for method_name, frame, best, color in results:
         if x_column not in frame.columns or y_column not in frame.columns:
             continue
-        color = _method_color(method_name, method_index)
         sample = frame[[x_column, y_column]].dropna()
         if len(sample) > 450:
             sample = sample.sample(450, random_state=12345)
@@ -55,7 +97,6 @@ def _plot_posterior_samples(
             linewidths=0,
             label=f"{method_name} posterior samples" if show_labels else None,
         )
-        best = _best_row(frame)
         if best is not None:
             ax.scatter(
                 best[x_column],
@@ -71,10 +112,9 @@ def _plot_posterior_samples(
 
 
 def _plot_reference_point(
-    ax,
-    observed: pd.DataFrame,
-    indices: tuple[int, int],
-    reference_lookup,
+    ax: Axes,
+    keys: tuple[str, str],
+    reference_lookup: pd.Series | None,
     reference_label: str,
     *,
     show_label: bool,
@@ -82,9 +122,7 @@ def _plot_reference_point(
     """Add an optional reference-model point to one panel."""
     if reference_lookup is None:
         return
-    i0, i1 = indices
-    x_key = (observed.loc[i0, "element"], observed.loc[i0, "date"])
-    y_key = (observed.loc[i1, "element"], observed.loc[i1, "date"])
+    x_key, y_key = keys
     if x_key not in reference_lookup.index or y_key not in reference_lookup.index:
         return
     ax.scatter(
@@ -101,28 +139,50 @@ def _plot_reference_point(
 
 
 def plot_single_date_model_space(
-    concentration_sampled,
+    concentration_sampled: Concentrations,
     reachable_frame: pd.DataFrame,
-    posterior_results: dict[str, object],
-    reference_concentrations=None,
+    posterior_results: Mapping[str, FrameSource],
+    reference_concentrations: ReferenceConcentrationSource | None = None,
     reference_label: str = "Reference model",
     filename: str | Path | None = None,
     title: str = "Observed concentrations, reachable space and calibrated models",
-):
-    """
-    Plot pairwise concentration panels for the single-date example.
+) -> Figure:
+    """Locate observations and calibrated results in reachable concentration space.
+
+    Each panel projects two observed tracer/date quantities against each other.
+    The systematic ``reachable_frame`` forms the prior model-space cloud;
+    posterior samples from each calibration method are overlaid with a star at
+    their lowest-objective row. The measured concentrations and an optional
+    independently computed reference model use separate markers.
+
+    Models with four or more observed quantities are limited to four pairwise
+    panels, and posterior clouds larger than 450 rows are reproducibly thinned
+    for display only. The input results and selection of best rows are unchanged.
+    References must be a :class:`~pyages.concentrations.Concentrations` object
+    or a table with an explicit ``observation_key`` column. This prevents row
+    order from silently changing which reference value belongs to a measured
+    quantity.
+    At least two quantities are required. The figure is optionally saved and is
+    returned to the caller.
     """
     apply_example_style()
     observed = concentration_sampled.frame.reset_index(drop=True)
     reference_lookup = _reference_concentration_lookup(reference_concentrations)
+    prepared_posteriors = _prepare_posterior_results(posterior_results)
     concentration_columns = concentration_sampled.observation_keys()
+    observed_elements = observed["element"].to_numpy()
+    observed_dates = observed["date"].to_numpy(dtype=np.float64)
     reachable_columns = [
-        tracer_date_key(row["element"], float(row["date"]))
-        for _, row in observed.iterrows()
+        tracer_date_key(str(element), float(date))
+        for element, date in zip(observed_elements, observed_dates, strict=True)
     ]
     pairs = list(combinations(range(len(concentration_columns)), 2))
     if not pairs:
-        raise ValueError("At least two tracers are required to plot model space.")
+        raise ValueError(
+            "At least two observed quantities are required to plot model space."
+        )
+    # A full pair matrix grows quadratically and quickly obscures the comparison;
+    # four deterministic pairs provide the intended overview for larger cases.
     if len(concentration_columns) >= 4:
         pairs = pairs[:4]
 
@@ -155,7 +215,7 @@ def plot_single_date_model_space(
             ax,
             xcol,
             ycol,
-            posterior_results,
+            prepared_posteriors,
             show_labels=ax_index == 0,
         )
 
@@ -172,14 +232,13 @@ def plot_single_date_model_space(
         )
         _plot_reference_point(
             ax,
-            observed,
-            (i0, i1),
+            (xcol, ycol),
             reference_lookup,
             reference_label,
             show_label=ax_index == 0,
         )
         ax.set_title(
-            f"{_pretty_tracer_name(observed.loc[i0, 'element'])} vs {_pretty_tracer_name(observed.loc[i1, 'element'])}"
+            f"{pretty_tracer_name(observed.loc[i0, 'element'])} vs {pretty_tracer_name(observed.loc[i1, 'element'])}"
         )
         ax.set_xlabel(
             _axis_label(observed.loc[i0, "element"], observed.loc[i0].get("unit"))

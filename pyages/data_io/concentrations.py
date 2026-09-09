@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file writes validated observations and modeled concentration histories to
+# consistently formatted TSV files that can be inspected outside PyAges.
+# It preserves the prepared column order and creates parent directories, but does
+# not recalculate concentrations or alter the caller's dataframes.
 
 """Serialize prepared concentration tables with consistent TSV formatting.
 
@@ -22,12 +26,13 @@ from pyages.concentrations.series import normalize_series
 
 def save_concentrations_table(table: pd.DataFrame, filepath: str | Path) -> None:
     """
-    Save a wide concentration table to disk as TSV.
+    Save a concentration table to disk as UTF-8 TSV.
 
     Parameters
     ----------
     table : DataFrame
-        Table with 'date' column and tracer/model columns.
+        Long observation table or wide modeled-concentration table. Column
+        names and order are preserved.
     filepath : str or Path
         Output file path.
     """
@@ -59,9 +64,8 @@ def save_tracer_series_table(
                 f"Concentration series {tracer!r} contains duplicate dates; "
                 "wide-table export requires one value per tracer and date"
             )
-        temp = df[[DATE_COLUMN, "concentration"]].rename(
-            columns={"concentration": tracer}
-        )
+        temp = df.loc[:, [DATE_COLUMN, "concentration"]].copy()
+        temp.columns = pd.Index([DATE_COLUMN, tracer])
         if merged is None:
             merged = temp
         else:
@@ -74,7 +78,7 @@ def save_tracer_series_table(
                 validate="one_to_one",
             )
     if merged is None:
-        merged = pd.DataFrame(columns=[DATE_COLUMN])
+        merged = pd.DataFrame(columns=pd.Index([DATE_COLUMN]))
     else:
         merged = merged.sort_values(DATE_COLUMN).reset_index(drop=True)
     save_concentrations_table(merged, filepath)

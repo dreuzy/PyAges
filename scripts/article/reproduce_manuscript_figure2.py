@@ -143,11 +143,11 @@ def run_metropolis_hastings(
 
     mh = MetropolisHastings(
         config=MHConfig(
-            nstep=config.mh_steps,
-            nskip=config.mh_skip,
+            nsteps=config.mh_steps,
+            thinning=config.mh_skip,
             prior_option=False,
             likelihood=True,
-            monitor=False,
+            record_trajectory=False,
             display_traj=False,
             display_text=False,
             componentwise_source="model",
@@ -257,17 +257,14 @@ def plot_figure2(
     png_path = output_directory / "figure2_shifted_exponential.png"
     pdf_path = output_directory / "figure2_shifted_exponential.pdf"
     tiff_path = output_directory / "figure2_shifted_exponential.tiff"
-    save_options = {
-        "bbox_inches": "tight",
-        "facecolor": "white",
-    }
-    fig.savefig(png_path, dpi=config.output_dpi, **save_options)
-    fig.savefig(pdf_path, dpi=config.output_dpi, **save_options)
+    fig.savefig(png_path, dpi=config.output_dpi, bbox_inches="tight", facecolor="white")
+    fig.savefig(pdf_path, dpi=config.output_dpi, bbox_inches="tight", facecolor="white")
     fig.savefig(
         tiff_path,
         dpi=config.output_dpi,
         pil_kwargs={"compression": "tiff_lzw"},
-        **save_options,
+        bbox_inches="tight",
+        facecolor="white",
     )
     plt.close(fig)
     return png_path, pdf_path, tiff_path

@@ -1,0 +1,54 @@
+# Reproducible multi-chain qualification profile for the Ploemeur F09
+# multi-date record.  This is intentionally slower than ploemeur_temporal.yaml:
+# it qualifies one exp_shifted calibration over the complete observation span.
+
+schema_version: 3
+
+data:
+  file: data/ori_ploemeur_F09_2005_2024.txt
+  error_rel: 0.20
+  missing_error_rel: 0.01
+
+lpm:
+  models: ["exp_shifted"]
+  directory: ../../../data_core/data_lpm
+
+workflow:
+  kind: temporal
+  mode: span
+
+calibration:
+  exploration_resolution: 20
+  posterior_draw_count: 0
+  metropolis_hastings:
+    nsteps: 5000
+    burn_in: 0.20
+    thinning: 1
+    chains: 4
+    seed: 20260831
+    prior_option: true
+    initialization:
+      strategy: bounds_stratified
+      max_attempts: 100
+    pilot:
+      enabled: true
+      nsteps: 2000
+      burn_in: 0.50
+      relative_ridge: 1.0e-6
+      proposal_multiplier: auto
+      save_samples: false
+    diagnostics:
+      max_rhat: 1.01
+      min_bulk_ess: 300
+      min_tail_ess: 300
+      require_convergence: true
+
+reporting:
+  temporal: false
+  distributions: false
+  concentrations_2d: false
+
+output:
+  study_name: ploemeur_temporal_multichain
+  use_default: true
+  directory: ""

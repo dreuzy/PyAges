@@ -38,7 +38,8 @@ An analysis combines three explicit inputs:
 
 - observation rows with tracer, concentration, uncertainty, unit, and date;
 - tracer YAML plus a recharge chronicle or constant recharge value;
-- LPM YAML defining parameter bounds, initialization, and calibration data.
+- LPM YAML defining mathematical domains, calibration ranges, initialization,
+  and prior metadata.
 
 Tracer decay uses exactly one documented convention: `half_life` or
 `decay_mean_lifetime`. The two fields are mutually exclusive. New tracers are

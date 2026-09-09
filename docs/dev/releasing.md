@@ -7,16 +7,26 @@ published reference artifact.
 The test scopes and GitHub jobs referenced below are defined in
 {doc}`testing` and {doc}`ci`.
 
+The role and handoff expectations are defined in {doc}`maintainership`. Before
+a public minor or major release, confirm that the continuity drill is recorded
+for the exact candidate. A solo maintainer may perform this review from a fresh
+clone and clean environment. If another contributor is available, an external
+review is preferred but is not a release prerequisite.
+
 ## Release gate
 
 1. Stop or finish processes that write inside the checkout.
 2. Confirm that every modified, deleted, and untracked file is intentional.
-   Install the qualified direct dependency set with
+   Install the qualified packaging tools with
+   `python -m pip install --upgrade -r install/bootstrap-constraints.txt`, then
+   install the qualified direct dependency set with
    `python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"`.
-   Run `python -m scripts.maintenance.check_project_metadata` to verify that the qualified
-   pip and Conda pins satisfy the declared compatibility ranges and that the
-   release identity files agree. The article-reproduction environment is
-   stricter: its direct versions must match `install/environment.yml` exactly.
+   Run `python -m scripts.maintenance.check_project_metadata --check-installed
+   --extra dev --extra docs --extra examples --require-qualified-versions` to
+   verify that declarations, pins, documentation installation, release
+   identity, and installed versions agree. The article-reproduction
+   environment is stricter in a different way: its direct versions must match
+   `install/environment.yml` exactly.
 3. Update `pyages/_version.py`, `CITATION.cff`, `CHANGELOG.md`, and the
    development-status classifier together. Confirm that README and Sphinx show
    the same release and follow {doc}`versioning-citation`. The tag must equal
@@ -27,16 +37,22 @@ The test scopes and GitHub jobs referenced below are defined in
    ```bash
    python -m ruff check .
    python -m ruff format --check .
+   python -m scripts.maintenance.check_qualified_docstrings
    python -m pytest -q
    python -m pytest -q validation/tracerlpm/benchmark/tests
    python -m pytest -q --cov=pyages --cov-branch --cov-report=term-missing --cov-fail-under=75
    python -m sphinx -W --keep-going -b html docs docs/_build/html
-   python -m sphinx -E -a -W --keep-going -b linkcheck docs docs/_build/linkcheck
+   python -m sphinx -E -a --keep-going -b linkcheck docs docs/_build/linkcheck || \
+     python -m sphinx --keep-going -b linkcheck docs docs/_build/linkcheck || \
+     python -m scripts.maintenance.check_linkcheck_results docs/_build/linkcheck/output.json
    ```
 
-   The link checker may encounter publisher bot protection. Any exclusion must
-   target one verified URL exactly; do not ignore an entire DOI or publisher
-   domain.
+   The first link check starts from a fresh Sphinx environment; the second
+   reuses its cache and retries remote failures. If both fail, the final command
+   accepts only a report whose failures are network timeouts. Any link reported
+   as broken still fails the release check. The link checker may also encounter
+   publisher bot protection. Any permanent exclusion must target one verified
+   URL exactly; do not ignore an entire DOI or publisher domain.
 
 5. Run the extensive scientific suite before a public release:
 
@@ -73,6 +89,19 @@ The test scopes and GitHub jobs referenced below are defined in
    Confirm that `dist/` contains exactly one wheel and one source archive and
    that both filenames carry the intended release version.
 
+   Install that wheel in a clean environment outside the checkout, then verify
+   the installed-only first-run contract:
+
+   ```bash
+   pyages check
+   pyages new config quickstart
+   pyages run quickstart/pyages.yaml
+   ```
+
+   Require `quickstart/results/quickstart/observations.tsv/result_manifest.json`
+   with `status: complete`. The CI and release-candidate workflow repeat this
+   check on every supported Python version.
+
 8. Install the wheel in a new virtual environment and, from outside the
    checkout, run:
 
@@ -85,7 +114,7 @@ The test scopes and GitHub jobs referenced below are defined in
    ```
 
    Confirm that the smoke result contains `result_manifest.json` with schema
-   version 1.
+   version 2.
 
 9. Create an annotated tag equal to the package version on the exact reviewed
    commit. For the historical `1.0` tag, verify its local and remote commit
@@ -93,9 +122,11 @@ The test scopes and GitHub jobs referenced below are defined in
    only after the protected `main` checks and extensive suite pass, and never
    move it afterward.
 10. Dispatch the read-only GitHub Actions **Release candidate** workflow for
-    that tag. Download its `release-distributions-<tag>` artifact and verify its
-    digest locally. The workflow validates one build on every supported Python
-    version but cannot modify repository contents or publish packages.
+    that tag. Download its `release-distributions-<tag>` and
+    `multichain-qualification-<tag>` artifacts and verify their digests locally.
+    The workflow validates one build on every supported Python version and
+    builds the scientific archive from that same tagged commit; it cannot
+    modify repository contents or publish packages.
 11. Attach the validated wheel and source archive to a GitHub Release. Dispatch
     the **Publish package** workflow for that exact tag and select `testpypi`.
     The workflow downloads those existing release assets, verifies their
@@ -107,6 +138,76 @@ The test scopes and GitHub jobs referenced below are defined in
     tagged artifact. Only after the DOI resolves and its metadata has been
     checked, add it to `CITATION.cff`, validate the CFF, and update the article
     citation and reproducibility manifests. Never publish a placeholder DOI.
+
+## Archive a multi-chain qualification
+
+`scripts.qualification.build_ci_multichain_archive` packages the four canonical
+multi-chain qualifications independently of the historical article/tag-1.0
+archive machinery. It rejects a missing, duplicate, invalid, or additional
+qualified case. The lower-level `build_multichain_archive` command remains
+available for explicitly non-canonical review bundles. Every supplied result
+tree must have a complete
+`result_manifest.json` whose artifact inventory matches byte for byte. Each MH
+directory must record `qualification_status=qualified`, qualified pooling, at
+least two retained chain tables, and multi-chain provenance. A supplied YAML
+must match every configuration digest recorded by the result manifests.
+
+After running the extensive suite with an explicit `--basetemp` and building
+the wheel and sdist, build a review archive. Draft is the wrapper default:
+
+```bash
+python -m scripts.qualification.build_ci_multichain_archive \
+  --basetemp /path/to/external-pytest-basetemp \
+  --dist-dir dist \
+  --mode draft \
+  --output /path/to/pyages-multichain-qualification-draft.zip
+```
+
+A draft is always marked **not publishable** in its README and manifest. It
+records the Git commit, tags, dirty status, tracked binary diff, and untracked
+file inventory. The embedded Git archive contains committed `HEAD`; untracked
+source is listed but cannot be reconstructed unless it was also supplied as an
+explicit YAML, test, report, or environment file.
+
+After the release commit is clean and carries the annotated tag exactly equal
+to the PyAges version, rerun the four extensive qualifications from that tag,
+rebuild the distributions, then build the publishable archive with:
+
+```bash
+python -m scripts.qualification.build_ci_multichain_archive \
+  --basetemp /path/to/external-pytest-basetemp \
+  --dist-dir dist \
+  --mode publishable \
+  --expected-tag <version> \
+  --output /path/to/pyages-<version>-multichain-qualification.zip
+```
+
+The publishable output path must be outside the source repository. Publishable
+mode checks the Git state both before assembly and immediately before sealing.
+It refuses a dirty worktree, missing or lightweight tag, a tag different from
+the runtime version, any result not produced from that exact clean HEAD,
+mismatched result versions, or wheel/sdist metadata for another build. The
+archive contains the four qualified result trees,
+protocol YAML and executable tests, reports, exact wheel and sdist, a Git source
+archive, runtime metadata, normalized `pip freeze`, a complete file inventory,
+and `CHECKSUMS.sha256`. ZIP member order, timestamps, permissions, JSON ordering,
+and compression are fixed so identical inputs on the same qualified environment
+produce identical bytes. The adjacent `.zip.sha256` sidecar checks the complete
+container's integrity; it is not an origin signature.
+
+Verify both the sidecar and every nested evidence layer before transfer or
+deposit:
+
+```bash
+python -m scripts.qualification.build_multichain_archive verify \
+  /path/to/pyages-<version>-multichain-qualification.zip
+```
+
+Verification rejects unsafe POSIX or Windows paths, symlinks, missing or
+additional members, altered hashes, non-qualified result metadata, and result
+artifacts that no longer match their original terminal manifests. Keep the ZIP
+and its sidecar together. This generic qualification archive does not replace the
+article reproduction archive or its DOI-specific bundle.
 
 ## Trusted Publishing setup
 

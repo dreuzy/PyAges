@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file locates packaged tracer and LPM data and chooses the default results
+# root from the environment or user directory. It also resolves configuration
+# roots, creates result subdirectories, and rejects unsafe path components.
 
 """Canonical package-resource, repository, test-data, and result roots.
 
@@ -47,20 +50,9 @@ DIRECTORY_LPM_DATA = _DATA_CORE_DIRECTORY / "data_lpm"
 # -------------------------------------------------------
 
 
-def configuration_root(config_path: str | Path) -> Path:
-    """Resolve checkout-relative configs while supporting standalone projects."""
-    path = Path(config_path).resolve()
-    for candidate in (path.parent, *path.parents):
-        if (candidate / "pyproject.toml").is_file() and (
-            candidate / "data_core"
-        ).is_dir():
-            return candidate
-    current_directory = Path.cwd().resolve()
-    if (current_directory / "pyproject.toml").is_file() and (
-        current_directory / "data_core"
-    ).is_dir():
-        return current_directory
-    return path.parent
+def configuration_directory(config_path: str | Path) -> Path:
+    """Return the directory containing a schema-3 configuration file."""
+    return Path(config_path).resolve().parent
 
 
 def result_subdirectory(directory: str | Path, sub_directory: str) -> Path:
@@ -97,7 +89,7 @@ __all__ = [
     "DIRECTORY_TRACER_DATA",
     "ROOT_DIRECTORY",
     "ROOT_DIRECTORY_RESULTS",
-    "configuration_root",
+    "configuration_directory",
     "result_subdirectory",
     "timestamp_name",
     "validate_path_component",

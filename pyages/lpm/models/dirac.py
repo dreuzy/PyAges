@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines a model in which all sampled water has one exact transit age.
+# Its age parameter produces a step CDF and direct tracer evaluation at that age;
+# only generic PDF sampling and plots replace the mathematical point mass with a
+# narrow finite curve.
 
 """
 LPM Dirac (delta) distribution model.
@@ -53,9 +57,9 @@ class DiracLpm(LpmBase):
     def set_interp(self):
         """Build the finite-width PDF approximation used for visualization."""
         # Visualization width of the exact point mass.
-        width = max(1, self.get_param_range("mu") / 200)
-        # Sampling grid extends beyond the configured parameter bounds.
-        td = 1.2 * self.get_p_max("mu") * np.arange(0, 201) / 200
+        width = max(1, self.get_calibration_range_width("mu") / 200)
+        # Sampling grid extends beyond the configured calibration range.
+        td = 1.2 * self.get_calibration_range("mu")[1] * np.arange(0, 201) / 200
         self.f = build_regularized_dirac_pdf(
             td,
             centers=[self.p["mu"]],

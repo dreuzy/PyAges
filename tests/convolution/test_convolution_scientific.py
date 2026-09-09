@@ -414,6 +414,71 @@ def test_continuous_lpm_without_partial_moment_is_rejected():
         Convolution(tracer, 2010.0).convolve(lpm)
 
 
+class _IncompleteStrategyLpm:
+    name = "incomplete_strategy"
+    p = {"rate": 0.5}
+
+    def __init__(self, strategy):
+        self.convolution_strategy = strategy
+
+
+class _MixedWithoutContinuousComponent(_IncompleteStrategyLpm):
+    def __init__(self):
+        super().__init__(ConvolutionStrategy.MIXED_DIRAC_CONTINUOUS)
+
+    @staticmethod
+    def get_dirac_time():
+        return 1.0
+
+
+@pytest.mark.parametrize(
+    ("lpm", "missing_method"),
+    [
+        (_IncompleteStrategyLpm(ConvolutionStrategy.DIRAC), "get_dirac_time"),
+        (
+            _IncompleteStrategyLpm(ConvolutionStrategy.DIRAC_DOUBLE),
+            "get_dirac_double_time",
+        ),
+        (
+            _MixedWithoutContinuousComponent(),
+            "continuous_cdf_and_partial_first_moment",
+        ),
+    ],
+)
+@pytest.mark.parametrize("operation", ["convolve", "window_mass"])
+def test_declared_strategy_requires_its_structural_contract(
+    lpm,
+    missing_method,
+    operation,
+):
+    convolution = Convolution(
+        ConstantTracer(concentration=1.0, datemin=1900.0),
+        2010.0,
+    )
+
+    with pytest.raises(ConvolutionError, match=missing_method):
+        getattr(convolution, operation)(lpm)
+
+
+class _DoubleDiracWithWrongAgeCount(_IncompleteStrategyLpm):
+    def __init__(self):
+        super().__init__(ConvolutionStrategy.DIRAC_DOUBLE)
+
+    @staticmethod
+    def get_dirac_double_time():
+        return [1.0]
+
+
+def test_double_dirac_contract_requires_exactly_two_ages():
+    convolution = Convolution(
+        ConstantTracer(concentration=1.0, datemin=1900.0),
+        2010.0,
+    )
+
+    with pytest.raises(ConvolutionError, match="must return two ages"):
+        convolution.convolve(_DoubleDiracWithWrongAgeCount())
+
+
 def test_dirac_path_rejects_a_non_finite_tracer_response():
     tracer = SyntheticTracer(
         datemin=1900.0,

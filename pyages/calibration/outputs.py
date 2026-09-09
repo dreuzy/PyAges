@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file converts a completed calibration and its joint parameter samples
+# into standard result files and diagnostic plots. It can also save posterior
+# histograms as explicit prior inputs for a later calibration stage.
 
 """Presentation and serialization boundary for calibration runs.
 
@@ -25,7 +28,7 @@ from pyages.lpm.plotting.sample_diagnostics import plot_parameter_diagnostics
 from pyages.lpm.reporting import print_parameter_comparison
 
 if TYPE_CHECKING:
-    from pyages.calibration.methods.base import CalibrationMethod
+    from pyages.calibration.methods.protocols import CalibrationAlgorithm
     from pyages.calibration.problem import CalibrationProblem
     from pyages.config.runtime import DisplayOptions
     from pyages.lpm.samples.table import LpmSampleTable
@@ -72,7 +75,7 @@ def write_key_values(path: str | Path, values: dict[str, Any]) -> None:
 
 
 def display_calibrated_models(
-    method: CalibrationMethod,
+    method: CalibrationAlgorithm,
     problem: CalibrationProblem,
     results: LpmSampleTable,
     display_options: DisplayOptions,
@@ -107,7 +110,7 @@ def display_calibrated_models(
 
 
 def write_calibrated_result(
-    method: CalibrationMethod,
+    method: CalibrationAlgorithm,
     problem: CalibrationProblem,
     results: LpmSampleTable,
     *,
@@ -121,7 +124,10 @@ def write_calibrated_result(
     marginal histograms, and statistics. Metropolis--Hastings may additionally
     export histograms for an explicitly requested posterior-to-prior pipeline.
     """
-    base_directory = Path(problem.display_options.directory)
+    configured_directory = problem.display_options.directory
+    if configured_directory is None:
+        raise ValueError("Calibration output requires a configured directory")
+    base_directory = Path(configured_directory)
     base_directory.mkdir(parents=True, exist_ok=True)
     method.write_parameters(base_directory / "parameters_calibration.txt")
     method.write_results(base_directory / "results_calibration.txt")
@@ -133,7 +139,7 @@ def write_calibrated_result(
     # Posterior reuse is opt-in and restricted to the Bayesian workflow.
     if method.method == "Metropolis_Hastings" and prior_file is not None:
         destination = posterior_directory(
-            problem.display_options.directory,
+            configured_directory,
             parent_levels=5,
             subdirectory=prior_folder,
         )

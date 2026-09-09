@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file turns a tracer history and observation date into reusable response
+# samples indexed by water age. It refines intervals where the tracer changes
+# rapidly and returns immutable arrays consumed by continuous convolution; the
+# grid is independent of the water-age model and can be reused during calibration.
 
 """Build reusable adaptive samples of a tracer response over water age.
 

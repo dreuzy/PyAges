@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines a model that splits sampled water between two exact ages.
+# A first age, an additional delay, and a mixing rate produce the CDF and age
+# statistics; convolution evaluates both tracer responses directly, while the
+# PDF uses a finite approximation only for plotting.
 
 """
 LPM Double-Dirac distribution model.
@@ -57,12 +61,17 @@ class DiracDoubleLpm(LpmBase):
         """Build the finite-width PDF approximation used for visualization."""
         # Common visualization width of the exact point masses.
         width = max(
-            1, self.get_param_range("mu1") / 200, self.get_param_range("mu2") / 200
+            1,
+            self.get_calibration_range_width("mu1") / 200,
+            self.get_calibration_range_width("mu2") / 200,
         )
         # This grid is unrelated to the direct Dirac convolution algorithm.
         td = (
             1.2
-            * (self.get_p_max("mu1") + self.get_p_max("mu2"))
+            * (
+                self.get_calibration_range("mu1")[1]
+                + self.get_calibration_range("mu2")[1]
+            )
             * np.arange(0, 201)
             / 200
         )

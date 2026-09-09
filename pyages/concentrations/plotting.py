@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file draws observed and modeled concentration histories on axes supplied
+# by the caller; the surrounding workflow owns figure creation and saving.
+# It expects already normalized series and posterior summaries, keeping data
+# validation and scientific calculations outside the rendering layer.
 
 """Render concentration chronicles on caller-owned Matplotlib axes.
 
@@ -17,6 +21,7 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import pandas as pd
 
+from pyages.concentrations._labels import pretty_tracer_name
 from pyages.concentrations.schema import CONCENTRATION_COLUMN
 from pyages.concentrations.series import ConcentrationSeries, normalize_series
 from pyages.concentrations.temporal import TemporalPredictionSummary
@@ -24,15 +29,6 @@ from pyages.concentrations.temporal import TemporalPredictionSummary
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.collections import PathCollection
-
-
-def _pretty_tracer_name(name: str) -> str:
-    lower = name.lower()
-    if lower.startswith("cfc"):
-        return name.upper()
-    if lower == "sf6":
-        return "SF6"
-    return name
 
 
 def _require_axes(axs, count: int, *, context: str) -> np.ndarray:
@@ -234,10 +230,13 @@ def plot_concentration_chronicles_summary(
             label="Median model",
         )
 
-        has_error = "error" in observed.columns and np.any(
-            pd.to_numeric(observed["error"], errors="coerce") > 0
+        error_values = (
+            np.asarray(pd.to_numeric(observed["error"], errors="coerce"), dtype=float)
+            if "error" in observed.columns
+            else np.asarray([], dtype=float)
         )
-        yerr = observed["error"] if has_error else None
+        has_error = bool(np.any(error_values > 0))
+        yerr = error_values if has_error else None
         ax.errorbar(
             observed["date"],
             observed["concentration"],
@@ -251,7 +250,7 @@ def plot_concentration_chronicles_summary(
             label="Observations",
         )
 
-        pretty_name = _pretty_tracer_name(tracer_name)
+        pretty_name = pretty_tracer_name(tracer_name)
         ax.set_title(pretty_name)
         ax.set_xlabel("Year")
         ylabel = f"{pretty_name} [{unit}]" if unit else pretty_name

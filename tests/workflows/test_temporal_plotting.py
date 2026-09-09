@@ -73,7 +73,7 @@ def test_temporal_fit_summary_plots_selected_posterior_quantiles(
     figure = temporal_plots.plot_temporal_fit_summary(
         _observations(),
         results,
-        lpm_number=2,
+        posterior_draw_count=2,
         filename=output,
         title="Audited temporal fit",
     )
@@ -103,4 +103,31 @@ def test_temporal_fit_summary_rejects_an_empty_posterior(monkeypatch) -> None:
     results = _PosteriorResults([])
 
     with pytest.raises(ValueError, match="No calibrated LPMs"):
-        temporal_plots.plot_temporal_fit_summary(_observations(), results, lpm_number=1)
+        temporal_plots.plot_temporal_fit_summary(
+            _observations(), results, posterior_draw_count=1
+        )
+
+
+@pytest.mark.parametrize("posterior_draw_count", [0, -1, True, 1.5, "2"])
+def test_temporal_plot_entry_points_require_a_positive_integer_model_count(
+    posterior_draw_count,
+) -> None:
+    with pytest.raises(
+        ValueError, match="posterior_draw_count must be a positive integer"
+    ):
+        temporal_plots.plot_temporal_fit_summary(
+            _observations(),
+            _PosteriorResults([]),
+            posterior_draw_count=posterior_draw_count,
+        )
+
+    with pytest.raises(
+        ValueError, match="posterior_draw_count must be a positive integer"
+    ):
+        temporal_plots.plot_temporal_fit_comparison(
+            observations=_observations(),
+            posterior_frames={},
+            lpm_name="exp",
+            lpm_directory="data_core/data_lpm",
+            posterior_draw_count=posterior_draw_count,
+        )

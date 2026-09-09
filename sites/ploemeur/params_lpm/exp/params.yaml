@@ -1,5 +1,5 @@
 ﻿# Canonical Ploemeur LPM configuration.
-# Defines bounds, initialization, proposal steps, and analytical priors.
+# Defines calibration ranges, initialization, proposal steps, and analytical priors.
 
 model: exp
 version: 1
@@ -9,7 +9,7 @@ parameters:
     label: mean_age
     unit: year
     description: "Mean of the distribution."
-    bounds: [0.1, 100.0]
+    calibration_range: [0.1, 100.0]
     init: 10.0
     step: 0.2
     prior:

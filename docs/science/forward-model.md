@@ -75,7 +75,7 @@ The exact interval equation and numerical acceptance criterion are only in
 - A fitted LPM is a compact representation of flow and mixing, not a unique
   reconstruction of the underlying aquifer velocity field.
 - Posterior uncertainty is conditional on the selected LPM, tracer histories,
-  kinetic assumptions, observation errors, bounds, and priors.
+  kinetic assumptions, observation errors, calibration ranges, and priors.
 - Repeated sampling dates provide additional observations under the same
   stationary distribution; they do not by themselves define a time-varying
   transit-time distribution.

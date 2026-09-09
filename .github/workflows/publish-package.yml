@@ -6,7 +6,7 @@ on:
       tag:
         description: Existing GitHub release tag to publish
         required: true
-        default: "1.0.1"
+        default: "2.0.0"
         type: string
       repository:
         description: Package index destination
@@ -44,6 +44,13 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            install/bootstrap-constraints.txt
+            install/constraints.txt
+
+      - name: Install qualified packaging tools
+        run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
 
       - name: Install release verification tools
         run: python -m pip install -c install/constraints.txt packaging PyYAML twine

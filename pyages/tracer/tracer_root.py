@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file loads tracer metadata and recharge histories, validates and
+# interpolates concentrations, and exposes the response used by convolution.
+# It combines recharge concentration with optional decay and production, while
+# a scientific signature records the effective values used by a reproducible run.
 
 """Core tracer data model and I/O utilities.
 
@@ -13,7 +17,11 @@ normalization.
 
 from __future__ import annotations
 
+import hashlib
+import json
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,6 +33,66 @@ from pyages._plotting import create_figure, finalize_figure
 from pyages.config.runtime import DisplayOptions
 from pyages.tracer.config import load_tracer_config
 from pyages.tracer.errors import TracerConfigError, TracerDataError
+
+TRACER_SCIENTIFIC_SIGNATURE_VERSION = 1
+
+
+def _finite_float_hex(value: object, *, context: str) -> str:
+    """Return one finite effective tracer value without decimal rounding."""
+    try:
+        numeric = float(cast(Any, value))
+    except (TypeError, ValueError) as exc:
+        raise TracerDataError(f"{context} must be numeric") from exc
+    if not np.isfinite(numeric):
+        raise TracerDataError(f"{context} must be finite")
+    return numeric.hex()
+
+
+def _scientific_array_digest(values: np.ndarray) -> tuple[int, str]:
+    """Hash a finite vector in canonical little-endian float64 form."""
+    array = np.asarray(values, dtype=float)
+    if array.ndim != 1 or not np.all(np.isfinite(array)):
+        raise TracerDataError("effective recharge chronicles must be finite vectors")
+    canonical = np.ascontiguousarray(array, dtype="<f8")
+    digest = hashlib.sha256()
+    digest.update(str(canonical.size).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(canonical.tobytes(order="C"))
+    return canonical.size, digest.hexdigest()
+
+
+@dataclass(frozen=True)
+class TracerScientificSignature:
+    """Versioned identity of the effective tracer response loaded in memory.
+
+    Source paths, comments, and formatting are excluded. Chronicle digests cover
+    the two numeric vectors supplied to interpolation; scalar configuration
+    covers the constant-recharge, decay, and production branches.
+    """
+
+    version: int
+    name: str
+    unit: str
+    recharge_mode: str
+    recharge_constant_hex: str | None
+    production_rate_hex: str | None
+    decay_rate_hex: str | None
+    datemin_hex: str
+    datemax_hex: str
+    chronicle_size: int
+    chronicle_dates_sha256: str | None
+    chronicle_values_sha256: str | None
+
+    @property
+    def sha256(self) -> str:
+        """Return a canonical digest of all effective tracer inputs."""
+        serialized = json.dumps(
+            asdict(self),
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        return hashlib.sha256(serialized).hexdigest()
 
 
 class Tracer:
@@ -93,11 +161,11 @@ class Tracer:
         self.__geoproduction_enabled = config.production_rate is not None
         self.__geoproduction_rate = config.production_rate or 0.0
         self.__decay_enabled = config.decay_rate is not None
-        self.__decay_rate = config.decay_rate
-        self.datemin = config.datemin
-        self.datemax = config.datemax
-        self.__recharge_chronicle_file = None
-        self.__recharge_chronicle_interp = None
+        self.__decay_rate = config.decay_rate or 0.0
+        datemin = config.datemin
+        datemax = config.datemax
+        self.__recharge_chronicle_file: pd.DataFrame | None = None
+        self.__recharge_chronicle_interp: interpolate.interp1d | None = None
 
         # Load recharge chronicle if specified
         if self.__has_chronicle:
@@ -110,7 +178,7 @@ class Tracer:
                     f"Recharge chronicle CSV file not found: {recharge_file}\n"
                     f"Please create a recharge.csv file for tracer '{name}'"
                 ) from exc
-            except Exception as e:
+            except (OSError, UnicodeError, pd.errors.ParserError) as e:
                 raise TracerDataError(
                     f"Error reading recharge chronicle {recharge_file}: {e}"
                 ) from e
@@ -123,22 +191,26 @@ class Tracer:
             )
 
             # Update date range from chronicle
-            self.datemin = float(self.__recharge_chronicle_file.iloc[:, 0].min())
-            self.datemax = float(self.__recharge_chronicle_file.iloc[:, 0].max())
+            datemin = float(self.__recharge_chronicle_file.iloc[:, 0].min())
+            datemax = float(self.__recharge_chronicle_file.iloc[:, 0].max())
 
         # Validate that required data are provided
-        if self.datemin is None:
+        if datemin is None:
             raise TracerConfigError(
                 f"Tracer {name}: datemin not defined in configuration"
             )
-        if self.datemax is None:
+        if datemax is None:
             raise TracerConfigError(
                 f"Tracer {name}: datemax not defined in configuration"
             )
-        if self.datemin >= self.datemax:
+        if datemin >= datemax:
             raise TracerConfigError(
-                f"Tracer {name}: datemin ({self.datemin}) must be less than datemax ({self.datemax})"
+                f"Tracer {name}: datemin ({datemin}) must be less than datemax ({datemax})"
             )
+        # Construction establishes a complete public interval. Keeping these
+        # attributes non-optional documents that lifecycle guarantee.
+        self.datemin = float(datemin)
+        self.datemax = float(datemax)
 
     @property
     def unit(self) -> str:
@@ -149,6 +221,83 @@ class Tracer:
     def name(self) -> str:
         """Tracer name (e.g., 'cfc11', 'kr85', '3H')."""
         return self.__name
+
+    def scientific_signature(self) -> TracerScientificSignature:
+        """Return immutable provenance for the effective response calculation.
+
+        The signature is derived from normalized values already loaded by this
+        instance, never from source paths or a later reread of input files.
+        """
+        chronicle_size = 0
+        chronicle_dates_sha256 = None
+        chronicle_values_sha256 = None
+        if self.__has_chronicle:
+            if self.__recharge_chronicle_file is None:
+                raise TracerDataError("chronicle tracer has no loaded recharge data")
+            chronicle = self.__recharge_chronicle_file
+            if chronicle.shape[1] < 2:
+                raise TracerDataError(
+                    "recharge chronicle must contain date and concentration columns"
+                )
+            date_size, chronicle_dates_sha256 = _scientific_array_digest(
+                chronicle.iloc[:, 0].to_numpy(dtype=float)
+            )
+            value_size, chronicle_values_sha256 = _scientific_array_digest(
+                chronicle.iloc[:, 1].to_numpy(dtype=float)
+            )
+            if date_size != value_size:
+                raise TracerDataError(
+                    "recharge chronicle date and concentration sizes differ"
+                )
+            chronicle_size = date_size
+            recharge_mode = "chronicle"
+            recharge_constant = None
+        elif self.__has_constant_recharge:
+            recharge_mode = "constant"
+            recharge_constant = _finite_float_hex(
+                self.__recharge_constant,
+                context=f"constant recharge for tracer {self.__name}",
+            )
+        else:
+            recharge_mode = "none"
+            recharge_constant = None
+
+        production_rate = (
+            _finite_float_hex(
+                self.__geoproduction_rate,
+                context=f"production rate for tracer {self.__name}",
+            )
+            if self.__geoproduction_enabled
+            else None
+        )
+        decay_rate = (
+            _finite_float_hex(
+                self.__decay_rate,
+                context=f"decay rate for tracer {self.__name}",
+            )
+            if self.__decay_enabled
+            else None
+        )
+        return TracerScientificSignature(
+            version=TRACER_SCIENTIFIC_SIGNATURE_VERSION,
+            name=self.__name,
+            unit=self.__unit,
+            recharge_mode=recharge_mode,
+            recharge_constant_hex=recharge_constant,
+            production_rate_hex=production_rate,
+            decay_rate_hex=decay_rate,
+            datemin_hex=_finite_float_hex(
+                self.datemin,
+                context=f"minimum date for tracer {self.__name}",
+            ),
+            datemax_hex=_finite_float_hex(
+                self.datemax,
+                context=f"maximum date for tracer {self.__name}",
+            ),
+            chronicle_size=chronicle_size,
+            chronicle_dates_sha256=chronicle_dates_sha256,
+            chronicle_values_sha256=chronicle_values_sha256,
+        )
 
     def __check_date_range(self, date: float | npt.NDArray[np.float64]) -> bool:
         """
@@ -168,6 +317,31 @@ class Tracer:
             return not (any(date > self.datemax) or any(date < self.datemin))
         else:
             return (date <= self.datemax) and (date >= self.datemin)
+
+    def __recharge_concentration(
+        self,
+        date: float | npt.NDArray[np.float64],
+        time: float | npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        """Return recharge input, using zero outside a chronicle's date range."""
+        if self.__has_chronicle:
+            chronicle_interp = self.__recharge_chronicle_interp
+            if chronicle_interp is None:
+                raise TracerDataError(
+                    f"Tracer {self.__name} has no recharge interpolator"
+                )
+            if self.__check_date_range(date):
+                return np.asarray(chronicle_interp(date), dtype=float)
+            if isinstance(date, np.ndarray):
+                valid_mask = (date >= self.datemin) & (date <= self.datemax)
+                result = np.zeros_like(date, dtype=float)
+                if valid_mask.any():
+                    result[valid_mask] = chronicle_interp(date[valid_mask])
+                return result
+            return np.asarray(0.0, dtype=float)
+        if self.__has_constant_recharge:
+            return self.__recharge_constant * np.ones_like(time, dtype=float)
+        return np.zeros_like(time, dtype=float)
 
     def get_concentration(
         self,
@@ -192,30 +366,11 @@ class Tracer:
             Concentrations at the given date and time. Returns float if inputs
             are scalars, ndarray if inputs are arrays.
         """
-        c = 0
+        c = np.zeros_like(time, dtype=float)
 
         # Compute recharge component
         if self.__has_chronicle or self.__has_constant_recharge:
-            if self.__has_chronicle:
-                if self.__check_date_range(date):
-                    # Recharge concentrations obtained by interpolation
-                    c1 = self.__recharge_chronicle_interp(date)
-                else:
-                    # Handle dates outside valid range
-                    if isinstance(date, np.ndarray):
-                        # Vectorized approach instead of loop
-                        valid_mask = (date >= self.datemin) & (date <= self.datemax)
-                        c1 = np.zeros_like(date, dtype=float)
-                        if valid_mask.any():
-                            c1[valid_mask] = self.__recharge_chronicle_interp(
-                                date[valid_mask]
-                            )
-                    else:
-                        c1 = 0
-
-            elif self.__has_constant_recharge:
-                # Constant recharge concentrations, creates vector of the required size
-                c1 = self.__recharge_constant * np.ones_like(time)
+            c1 = self.__recharge_concentration(date, time)
 
             # Apply decay to recharge component
             if self.__decay_enabled:
@@ -235,7 +390,8 @@ class Tracer:
                 c2 = self.__geoproduction_rate * time
             c = c + c2
 
-        return c
+        result = np.asarray(c, dtype=float)
+        return float(result) if result.ndim == 0 else result
 
     def mean_value(self, date: float) -> float:
         """
@@ -275,7 +431,10 @@ class Tracer:
                 f"Tracer {self.__name} has no recharge chronicle. "
                 "max_value() only works with chronicle-based tracers."
             )
-        return float(self.__recharge_chronicle_file.iloc[:, 1].max())
+        chronicle = self.__recharge_chronicle_file
+        if chronicle is None:
+            raise TracerDataError(f"Tracer {self.__name} has no loaded recharge data")
+        return float(chronicle.iloc[:, 1].max())
 
     @property
     def convolution_dates(self) -> npt.NDArray[np.float64] | None:
@@ -306,10 +465,15 @@ class Tracer:
 
         # Plotting the input chronicle
         if self.__has_chronicle:
+            chronicle = self.__recharge_chronicle_file
+            if chronicle is None:
+                raise TracerDataError(
+                    f"Tracer {self.__name} has no loaded recharge data"
+                )
             recharge_figure, recharge_axis = plt.subplots(figsize=(6, 4))
-            self.__recharge_chronicle_file.plot(
-                x=self.__recharge_chronicle_file.columns[0],
-                y=self.__recharge_chronicle_file.columns[1],
+            chronicle.plot(
+                x=chronicle.columns[0],
+                y=chronicle.columns[1],
                 title="input chronicle (recharge) for " + self.__name,
                 ax=recharge_axis,
             )
@@ -338,3 +502,10 @@ class Tracer:
             display_options.figure_path(self.__name + "_chronicle"),
             close=display_options.figure_close,
         )
+
+
+__all__ = [
+    "TRACER_SCIENTIFIC_SIGNATURE_VERSION",
+    "Tracer",
+    "TracerScientificSignature",
+]

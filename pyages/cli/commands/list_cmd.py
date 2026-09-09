@@ -1,9 +1,16 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file implements commands that list the scientific resources PyAges can load.
 
-"""
-PyAges list commands - List available LPMs and tracers.
+"""Display valid LPM and tracer identifiers through the ``pyages list`` command.
+
+Model names are read from the live LPM registry rather than a duplicated static
+list. Tracer names are discovered from the installed data resources and pass
+through their normal validation boundary.
+
+The output therefore reflects the capabilities of the current installation and
+can be copied directly into workflow configuration files.
 """
 
 import click

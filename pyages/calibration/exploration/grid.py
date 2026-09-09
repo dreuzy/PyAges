@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file turns parameter names, bounds, and a target resolution into every
+# point of a regular Cartesian grid. It also reshapes one result per point back
+# into the same multidimensional layout for plotting and analysis.
 
 """Regular Cartesian grids used by systematic calibration exploration."""
 

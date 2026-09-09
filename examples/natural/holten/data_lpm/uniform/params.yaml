@@ -6,7 +6,8 @@ parameters:
     label: min_time
     unit: year
     description: "Bootstrap minimum age for the executable Holten workflow."
-    bounds: [0.0, 80.0]
+    domain: {min: 0.0, min_inclusive: true, max: null}
+    calibration_range: [0.0, 80.0]
     init: 10.0
     step: 1.0
     prior:
@@ -19,7 +20,8 @@ parameters:
     label: width
     unit: year
     description: "Bootstrap age-spread parameter for the executable Holten workflow."
-    bounds: [1.0, 120.0]
+    domain: {min: 0.0, min_inclusive: false, max: null}
+    calibration_range: [1.0, 120.0]
     init: 30.0
     step: 1.0
     prior:

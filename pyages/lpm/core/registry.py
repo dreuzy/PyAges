@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file discovers decorated LPM classes and maps each one to a short name.
+# The factory uses names read from configuration or the command line to retrieve
+# classes lazily; duplicate registrations fail instead of changing the selected
+# scientific model silently.
 
 """Associate LPM configuration names with their implementation classes.
 
@@ -58,21 +62,26 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, TypeVar, cast
 
 if TYPE_CHECKING:
-    from pyages.lpm.core.lpm_base import LpmBase as LPM
+    from pyages.lpm.core.lpm_base import LpmBase
+
+
+RegisteredLpm = TypeVar("RegisteredLpm")
 
 
 # Process-local catalogue. Values are classes so the factory can create a
 # fresh, independently parameterized model for every request.
-_LPM_REGISTRY: dict[str, type[LPM]] = {}
+_LPM_REGISTRY: dict[str, type[LpmBase]] = {}
 
 # Package discovery is lazy and needs to run successfully only once.
 _discovered: bool = False
 
 
-def register_lpm(name: str):
+def register_lpm(
+    name: str,
+) -> Callable[[type[RegisteredLpm]], type[RegisteredLpm]]:
     """Return a class decorator that registers one LPM implementation.
 
     Decoration happens while the containing model module is imported.  The
@@ -106,7 +115,7 @@ def register_lpm(name: str):
         object is harmless; replacing it implicitly is not.
     """
 
-    def decorator(cls: type[LPM]) -> type[LPM]:
+    def decorator(cls: type[RegisteredLpm]) -> type[RegisteredLpm]:
         # Never let import order silently decide which implementation wins.
         if name in _LPM_REGISTRY:
             existing = _LPM_REGISTRY[name]
@@ -116,7 +125,7 @@ def register_lpm(name: str):
                     f"Cannot register {cls.__name__} with the same name."
                 )
         # Store the class itself; instances are created later by build_lpm().
-        _LPM_REGISTRY[name] = cls
+        _LPM_REGISTRY[name] = cast("type[LpmBase]", cls)
         return cls
 
     return decorator
@@ -148,7 +157,7 @@ def discover_lpms() -> None:
     _discovered = True
 
 
-def get_lpm_class(name: str) -> type[LPM]:
+def get_lpm_class(name: str) -> type[LpmBase]:
     """Return the LPM implementation class registered under ``name``.
 
     This function does not instantiate the class.  The public
@@ -162,7 +171,7 @@ def get_lpm_class(name: str) -> type[LPM]:
 
     Returns
     -------
-    Type[LPM]
+    type[LpmBase]
         The LPM class registered under that name.
 
     Raises

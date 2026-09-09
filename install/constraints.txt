@@ -1,4 +1,6 @@
 # Direct dependency set qualified as a candidate PyAges 1.0 user environment.
+# Qualification refreshed: 2026-09-06. The authoritative source revision is
+# the Git commit containing this file.
 #
 # This is intentionally a portable constraints file, not a platform-specific
 # freeze of every transitive package. Use it with Python 3.12-3.14 as:
@@ -10,22 +12,23 @@ scipy==1.18.1
 pandas==3.0.5
 matplotlib==3.11.1
 PyYAML==6.0.3
-click==8.4.2
-pydantic==2.13.4
+click==8.5.0
+pydantic==2.13.5
 packaging==26.3
 
-build==1.5.0
+build==1.6.0
 pip-audit==2.10.1
 pytest==9.1.1
 pytest-cov==7.1.0
-ruff==0.16.4
+pyright==1.1.411
+ruff==0.16.6
 twine==7.0.0
 
 sphinx==9.1.0
 myst-parser==5.1.0
-sphinxcontrib-mermaid==2.1.0
+sphinxcontrib-mermaid==2.1.1
 sphinx-rtd-theme==3.1.0
 
 openpyxl==3.1.5
-ipython==9.16.1
+ipython==9.17.1
 jupyterlab==4.6.3

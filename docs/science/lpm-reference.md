@@ -204,13 +204,14 @@ and `support_end_max` supplies its finite effective upper edge. Edges must be
 finite, strictly increasing, and start at zero. The model does not represent
 an infinite old-water tail.
 
-## Packaged parameter bounds
+## Packaged calibration ranges
 
-The following inclusive bounds are shipped in `data_core/data_lpm`. They are
-runtime calibration bounds for the default files, not universal physical
-limits.
+The following inclusive ranges are shipped in `data_core/data_lpm`. They are
+finite runtime calibration ranges for the default files, not mathematical
+domains or universal physical limits. Each YAML now records its mathematical
+domain separately.
 
-| Model | Packaged bounds |
+| Model | Packaged calibration ranges |
 |---|---|
 | `dirac` | `mu`: [0, 100] yr |
 | `dirac_double` | `mu1`: [0, 70] yr; `mu2`: [0, 70] yr; `rate`: [0, 1] |
@@ -254,13 +255,13 @@ article benchmark is a distinct case-specific helper: its open-ended `>60 yr`
 class is represented by a prescribed old-water tracer signature and is not a
 mass located at one physical age.
 
-## Configuration bounds are not universal science bounds
+## Calibration ranges are not universal mathematical domains
 
 Distributed `params.yaml` files provide usable defaults for initialization,
-proposal steps, bounds, and priors. They are not statements that a parameter is
-physically restricted to those values in every aquifer. A study-specific file
-may narrow or extend them when justified, but the resulting inference remains
-conditional on those choices.
+proposal steps, calibration ranges, and priors. The separate `domain` field
+states formula validity. A study-specific file may narrow or extend a
+calibration range inside that domain when justified, but the resulting
+inference remains conditional on that choice.
 
 When adding a model, verify normalization, moments, CDF/quantile consistency,
 partial first moments, and convolution behavior. See

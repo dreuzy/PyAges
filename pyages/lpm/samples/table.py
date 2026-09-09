@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file stores the rows produced while calibrating one water-age model.
+# Given a model template and tracer names, it keeps parameters, fit scores, and
+# predicted concentrations in one validated table and returns combined samples,
+# best-fit model copies, histograms, moments, and descriptive statistics.
 
 """Manage the results produced when calibrating a Lumped Parameter Model (LPM).
 
@@ -84,7 +88,7 @@ class LpmSampleTable:
         """
         self.__lpm_template = lpm
         self.__c_names = list(c_names)
-        self.__dist = pd.DataFrame(columns=self._required_columns())
+        self.__dist = pd.DataFrame(columns=pd.Index(self._required_columns()))
 
     @property
     def lpm_template(self) -> Any:
@@ -161,9 +165,12 @@ class LpmSampleTable:
             return None
         if "obj_function" not in self.__dist:
             return self.__dist.iloc[0].copy()
-        objectives = pd.to_numeric(
-            self.__dist["obj_function"], errors="coerce"
-        ).to_numpy(dtype=float)
+        objective_column = self.__dist.loc[:, "obj_function"]
+        if isinstance(objective_column, pd.DataFrame):
+            objective_column = objective_column.iloc[:, 0]
+        objectives = np.asarray(
+            pd.to_numeric(objective_column, errors="coerce"), dtype=float
+        )
         finite_positions = np.flatnonzero(np.isfinite(objectives))
         if not len(finite_positions):
             return self.__dist.iloc[0].copy()

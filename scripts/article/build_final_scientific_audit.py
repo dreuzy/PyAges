@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from pyages._scalar_conversion import scalar_float
 from pyages.data_io.lpm_distribution import read_distribution
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,6 +28,22 @@ SCENARIO_RE = re.compile(
     r"(?P<mode>span_full|span_with_prior|successive_with_prior|successive)$"
 )
 CASE_RE = re.compile(r"(?P<well>.+)_(?P<start>\d{4})_(?P<end>\d{4})")
+
+
+def _column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one named column and reject duplicate column labels."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Expected exactly one {name!r} column")
+    return column
+
+
+def _numeric_column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Convert one table column to numeric values with a stable Series shape."""
+    converted = pd.to_numeric(_column(frame, name), errors="coerce")
+    if not isinstance(converted, pd.Series):
+        raise TypeError(f"Numeric conversion of {name!r} must produce a Series")
+    return converted
 
 
 def _relative(path: Path) -> str:
@@ -81,12 +98,17 @@ def holten_tables() -> tuple[pd.DataFrame, pd.DataFrame]:
                 convergence.loc[convergence["well"].eq(well), "converged"].all()
             ),
         }
-        for item in group.itertuples(index=False):
-            name = str(item.fraction)
-            row[f"{name}_visser"] = item.visser
-            row[f"{name}_median"] = item.pyages_median
-            row[f"{name}_q10"] = item.pyages_q10
-            row[f"{name}_q90"] = item.pyages_q90
+        fraction_columns = group.loc[
+            :, ["fraction", "visser", "pyages_median", "pyages_q10", "pyages_q90"]
+        ]
+        for fraction, visser, median, q10, q90 in fraction_columns.itertuples(
+            index=False, name=None
+        ):
+            name = str(fraction)
+            row[f"{name}_visser"] = visser
+            row[f"{name}_median"] = median
+            row[f"{name}_q10"] = q10
+            row[f"{name}_q90"] = q90
         records.append(row)
     wells = pd.DataFrame(records)
     residuals = pd.read_csv(directory / "posterior_modeled_concentrations.csv")
@@ -129,10 +151,10 @@ def campaign_inventory() -> pd.DataFrame:
                     "\\", "/"
                 ),
                 "seed": experiment["seeds"],
-                "chains": 1,
-                "mh_nsteps": manifest["mh_nsteps"],
+                "chains": int(manifest["chains"]),
+                "nsteps": int(manifest["nsteps"]),
                 "burn_in_fraction": 0.2,
-                "nskip": 10,
+                "thinning": 10,
                 "status": manifest["status"],
                 "runtime_hours": (finished - started).total_seconds() / 3600.0,
                 "manifest": _relative(manifest_path),
@@ -163,7 +185,7 @@ def _case_acceptance(
     ]
     if len(match) != 1:
         raise RuntimeError(f"Cannot match diagnostics for {experiment}: {case_key}")
-    return float(match.iloc[0]["success_rate"])
+    return float(match.iloc[0]["mean_acceptance_rate"])
 
 
 def publication_cases() -> pd.DataFrame:
@@ -225,10 +247,10 @@ def publication_cases() -> pd.DataFrame:
                     "publication_critical": True,
                     "publication_outputs": matrix.loc[experiment, "article_outputs"],
                     "seed": int(matrix.loc[experiment, "seeds"]),
-                    "chains": 1,
-                    "nsteps": int(manifest["mh_nsteps"]),
+                    "chains": int(manifest["chains"]),
+                    "nsteps": int(manifest["nsteps"]),
                     "burn_in_fraction": 0.2,
-                    "nskip": 10,
+                    "thinning": 10,
                     "stored_samples": len(frame),
                     "acceptance_rate": _case_acceptance(
                         diagnostics, experiment, case_key
@@ -237,7 +259,9 @@ def publication_cases() -> pd.DataFrame:
                         diagnostics, experiment, case_key
                     )
                     < 0.05,
-                    "best_sqrt_J_data_over_m": float(frame["obj_function"].min()),
+                    "best_sqrt_J_data_over_m": scalar_float(
+                        frame["obj_function"].min()
+                    ),
                     "parameter_pairing_in_posterior": "preserved_by_row",
                     "parameter_pairing_in_prediction": (
                         "BROKEN_random_each"
@@ -249,7 +273,7 @@ def publication_cases() -> pd.DataFrame:
                 for parameter in ("mu", "sigma", "shift", "mean"):
                     if parameter not in frame:
                         continue
-                    values = pd.to_numeric(frame[parameter], errors="coerce")
+                    values = _numeric_column(frame, parameter)
                     for stat, value in {
                         "mean": values.mean(),
                         "median": values.median(),
@@ -344,7 +368,7 @@ def f11_prediction_check(cases: pd.DataFrame) -> pd.DataFrame:
                 raise RuntimeError(
                     f"Observation header mismatch in {case.posterior_file}: {column}"
                 )
-            values = pd.to_numeric(frame[column], errors="coerce")
+            values = _numeric_column(frame, column)
             median = float(values.median())
             records.append(
                 {

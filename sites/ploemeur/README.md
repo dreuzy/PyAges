@@ -1,4 +1,12 @@
-Ploemeur workflow - quick run
+# Ploemeur site workflow
+
+This directory contains the site-specific Ploemeur observations, configuration,
+workflow orchestration, and reproducible studies. It is maintained as part of
+the source repository but is not installed with the `pyages` wheel. Use it when
+reproducing the Ploemeur analyses; use `examples/natural/ploemeur` for the
+smaller reusable teaching example.
+
+## Quick run
 
 Run the main workflow with the default parameters:
 
@@ -12,7 +20,7 @@ Run with a specific YAML (example: F09 only):
 python -m sites.ploemeur.scripts.ploemeur_driver --params sites/ploemeur/params/ploemeur_F09.yaml
 ```
 
-Overview
+## Overview
 
 This directory contains the Ploemeur site workflow, inputs, and postprocessing tools.
 The workflow is driven by YAML files and executed via `ploemeur_driver.py`.
@@ -20,7 +28,7 @@ The driver validates its command-line configuration and then calls the Ploemeur
 workflow directly.
 
 
-Directory map
+## Directory map
 
 - `params/`: main workflow configuration files (YAML)
   - `ploemeur_full.yaml`: full workflow configuration
@@ -45,7 +53,7 @@ Directory map
 - `docs/`: site-specific notes (if any)
 
 
-Typical workflow (data)
+## Data workflow
 
 ```
 Excel / raw files -> data/brut
@@ -59,7 +67,7 @@ Article-specific configurations, journal export rules, figure numbers, and
 scientific claims live in the corresponding `studies/` subdirectory.
 
 
-Choosing LPM parameter files
+## Choosing LPM parameter files
 
 In `params/ploemeur_full.yaml`, set:
 
@@ -76,7 +84,7 @@ lpm_models:
 ```
 
 
-Notes
+## Notes
 
 - Results are written under the global results directory configured by
   `PYAGES_RESULTS_DIR` (see the root `README.md`).

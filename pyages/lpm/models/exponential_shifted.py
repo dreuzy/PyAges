@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines an exponential water-age model with a minimum transit time.
+# A shift excludes younger water and a scale controls the decreasing older tail;
+# the model returns probabilities, age statistics, and exact cumulative moments
+# consumed by continuous tracer convolution.
 
 """
 LPM Shifted Exponential distribution model.
@@ -11,6 +15,8 @@ Wrap the SciPy exponential distribution with an added shift parameter,
 providing an LPM-compatible shifted exponential PDF.
 
 """
+
+from pathlib import Path
 
 import numpy.typing as npt
 from scipy.stats import expon
@@ -30,7 +36,12 @@ class ExponentialShiftedLpm(LpmScipy):
     scipy_dist = expon
     convolution_strategy = ConvolutionStrategy.CONTINUOUS
 
-    def __init__(self, mu=10, shift=10, directory_lpm=None):
+    def __init__(
+        self,
+        mu: float = 10.0,
+        shift: float = 10.0,
+        directory_lpm: str | Path | None = None,
+    ) -> None:
         """
         Initialize a shifted-exponential transit-time distribution.
 

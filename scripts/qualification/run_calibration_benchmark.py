@@ -14,19 +14,24 @@ FUQ and MH outputs, and write figures + summary files for inspection.
 """
 
 import os
+from collections.abc import Iterable
 
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.protocols import CalibrationAlgorithm
 from pyages.calibration.methods.simplex import Simplex
+from pyages.concentrations import Concentrations
 from pyages.config.paths import (
     ROOT_DIRECTORY_RESULTS,
     result_subdirectory,
     timestamp_name,
 )
 from pyages.config.runtime import DisplayOptions, SimulationTimer
+from pyages.lpm.core.lpm_base import LpmBase
 from pyages.lpm.plotting.sample_diagnostics import (
     plot_concentration_diagnostics,
     plot_parameter_diagnostics,
 )
+from pyages.lpm.samples.table import LpmSampleTable
 from pyages.qualification import SyntheticRecoveryExperiment
 
 
@@ -59,14 +64,19 @@ class comparison_MH_fuq:
 
     def perform(
         self,
-        stime,
-        ncase=3,
-        error=0.04,
-        tracer_names=None,
-        lpm_random=True,
-        lpm_target=None,
-        resolution=1000,
-    ):
+        stime: SimulationTimer,
+        ncase: int = 3,
+        error: float = 0.04,
+        tracer_names: Iterable[str] | None = None,
+        lpm_random: bool = True,
+        lpm_target: LpmBase | None = None,
+        resolution: int = 1000,
+    ) -> tuple[
+        LpmBase,
+        list[LpmSampleTable],
+        Concentrations,
+        list[CalibrationAlgorithm],
+    ]:
         """
         Checks tracers and lpms
         """
@@ -87,15 +97,23 @@ class comparison_MH_fuq:
         print(
             "\\COMPARISON: FORWARD UNCERTAINTY QUANTIFICATION AND METROPOLIS HASTINGS"
         )
+        last_output: (
+            tuple[
+                LpmBase,
+                list[LpmSampleTable],
+                Concentrations,
+                list[CalibrationAlgorithm],
+            ]
+            | None
+        ) = None
         for lpm in self.models_calib:
-            calstrat = [None] * 2
             # ---------------- FORWARD UNCERTAINTY QUANTIFICATION -----------------------------
             calib_simplex = Simplex(
                 "forward_uncertainty_quantification",
                 init_multiples_n=self.init_multiples_n,
                 fuq_n=self.fuq_n,
             )
-            calstrat[0] = SyntheticRecoveryExperiment(
+            simplex_experiment = SyntheticRecoveryExperiment(
                 calib_strategy=calib_simplex,
                 ncase=ncase,
                 error=error,
@@ -109,15 +127,15 @@ class comparison_MH_fuq:
             # ---------------- METROPOLIS HASTINGS --------------------
             # Method and Parameters
             mh_config = MHConfig(
-                nstep=self.MH_n,
+                nsteps=self.MH_n,
                 prior_option=False,
                 likelihood=True,
-                monitor=True,
+                record_trajectory=True,
                 display_traj=True,
                 componentwise_source="model",
             )
             calib_mh = MetropolisHastings(config=mh_config)
-            calstrat[1] = SyntheticRecoveryExperiment(
+            mh_experiment = SyntheticRecoveryExperiment(
                 calib_strategy=calib_mh,
                 ncase=ncase,
                 error=error,
@@ -128,60 +146,94 @@ class comparison_MH_fuq:
                 display_options=self.display,
             )
 
+            experiments = (simplex_experiment, mh_experiment)
+
             # Loop on the ncases cases
             for i in range(ncase):
-                lpm_calibration = [None] * 2
-                lpm_results = [None] * 2
-                # Performs calibration
-                for j in range(len(calstrat)):
-                    [
-                        lpm_target,
-                        lpm_calibration[j],
-                        concentration_sampled,
-                        lpm_results[j],
-                        _,
-                    ] = calstrat[j].perform_one_case(
-                        i, lpm_random=lpm_random, lpm_target=lpm_target
+                case_outputs: list[
+                    tuple[
+                        LpmBase,
+                        CalibrationAlgorithm,
+                        Concentrations,
+                        LpmSampleTable,
+                        float,
+                    ]
+                ] = []
+                target_for_case = lpm_target
+                for experiment in experiments:
+                    result = experiment.perform_one_case(
+                        i, lpm_random=lpm_random, lpm_target=target_for_case
                     )
+                    target_for_case = result[0]
+                    case_outputs.append(result)
+
+                simplex_target, simplex_calibration, _, simplex_results, _ = (
+                    case_outputs[0]
+                )
+                (
+                    case_target,
+                    mh_calibration,
+                    concentration_sampled,
+                    mh_results,
+                    _,
+                ) = case_outputs[1]
+                if simplex_target.name != case_target.name or (
+                    simplex_target.p != case_target.p
+                ):
+                    raise RuntimeError(
+                        "Simplex and MH must calibrate the same synthetic target"
+                    )
+                calibrations = [simplex_calibration, mh_calibration]
+                results = [simplex_results, mh_results]
                 # Outputs and Displays results
                 directory_common = result_subdirectory(self.display.directory, lpm)
                 directory_common = result_subdirectory(directory_common, str(i))
                 plot_parameter_diagnostics(
-                    lpm_results[0],
-                    self_method=lpm_calibration[0].method,
-                    lpm_reference=lpm_target,
-                    lpm_2nd=lpm_results[1],
-                    lpm_2nd_method=lpm_calibration[1].method,
+                    results[0],
+                    self_method=calibrations[0].method,
+                    lpm_reference=case_target,
+                    lpm_2nd=results[1],
+                    lpm_2nd_method=calibrations[1].method,
                     directory=directory_common,
                 )
                 plot_concentration_diagnostics(
-                    lpm_results[0],
-                    self_method=lpm_calibration[0].method,
+                    results[0],
+                    self_method=calibrations[0].method,
                     concentrations_reference=concentration_sampled,
-                    lpm_2nd=lpm_results[1],
-                    lpm_2nd_method=lpm_calibration[1].method,
+                    lpm_2nd=results[1],
+                    lpm_2nd_method=calibrations[1].method,
                     directory=directory_common,
                 )
                 # Analysis of calibration problem
-                lpm_calibration[1].analysis_calibration()
+                calibrations[1].problem.analyze()
                 # Writes agregated parameters and results
-                for k in range(len(lpm_calibration)):
-                    lpm_calibration[k].write_parameters(
+                for experiment, calibration in zip(
+                    experiments, calibrations, strict=True
+                ):
+                    calibration.write_parameters(
                         os.path.join(
-                            calstrat[k].get_directory(), "parameters_calibration.txt"
+                            experiment.get_directory(), "parameters_calibration.txt"
                         )
                     )
-                    lpm_calibration[k].write_results(
+                    calibration.write_results(
                         os.path.join(
-                            calstrat[k].get_directory(), "results_calibration.txt"
+                            experiment.get_directory(), "results_calibration.txt"
                         )
                     )
-                    calstrat[k].write_parameters_test()
-                    calstrat[k].write_results()
+                    experiment.write_parameters_test()
+                    experiment.write_results()
                 # Actualization of simulation time
                 stime.actualize()
+                last_output = (
+                    case_target,
+                    results,
+                    concentration_sampled,
+                    calibrations,
+                )
 
-        return [lpm_target, lpm_results, concentration_sampled, lpm_calibration]
+        if last_output is None:
+            raise ValueError("At least one LPM and one case are required")
+        return last_output
 
 
 # ----------------------------------------------

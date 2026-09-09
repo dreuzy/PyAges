@@ -1,13 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file turns tabular tracer measurements into validated observations.
 
-"""
-Concentration data container and helpers.
+"""Store and validate the concentration observations used by calibration.
 
-Provides a lightweight wrapper around a pandas DataFrame to load, validate,
-sample, and export tracer concentration data used by calibration workflows.
+``Concentrations`` wraps a pandas table containing tracer names, sampling dates,
+concentrations, units, and optional measurement errors. Construction copies the
+input and checks its schema, numeric values, tracer identifiers, and unit
+consistency before placing rows in a stable order.
 
+The container also supports tracer and date selection, controlled observation
+sampling, error estimation policies, and export. When errors are derived rather
+than supplied, the policy is retained as metadata so later results can explain
+which uncertainties entered the calibration objective.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from pyages.concentrations.schema import (
     ERROR_COLUMN,
     REFERENCE_COLUMNS,
     UNIT_COLUMN,
+    observation_key,
     tracer_date_key,
 )
 
@@ -57,7 +64,8 @@ class Concentrations:
             raise TypeError("frame must be a pandas DataFrame")
         self._error_provenance: list[dict[str, object]] = []
         self.frame = frame.copy().reset_index(drop=True)
-        self.__ensure_column(ERROR_COLUMN, _DEFAULT_ERROR)
+        if ERROR_COLUMN not in self.frame.columns:
+            self.frame[ERROR_COLUMN] = _DEFAULT_ERROR
         self.validate()
 
     @classmethod
@@ -158,13 +166,18 @@ class Concentrations:
     @property
     def error_provenance(self) -> list[dict[str, object]]:
         """Return copies of effective-error transformations in application order."""
-        return [
-            {
-                **event,
-                "row_indices": list(event["row_indices"]),
-            }
-            for event in self._error_provenance
-        ]
+        copied_events: list[dict[str, object]] = []
+        for event in self._error_provenance:
+            row_indices = event["row_indices"]
+            if not isinstance(row_indices, list):
+                raise RuntimeError("invalid internal error-provenance row indices")
+            copied_events.append(
+                {
+                    **event,
+                    "row_indices": list(row_indices),
+                }
+            )
+        return copied_events
 
     @staticmethod
     def _validate_fraction(fraction: float) -> float:
@@ -176,13 +189,24 @@ class Concentrations:
             raise ValueError("fraction must be finite and non-negative")
         return normalized
 
-    def __ensure_column(self, name: str, default_value) -> None:
-        """Ensure a column exists in the frame; insert a default when missing."""
-        if name not in self.frame.columns:
-            self.frame[name] = default_value
-
     def validate(self) -> None:
-        """Validate values and normalize the table to the canonical schema."""
+        """Validate and replace ``frame`` with its canonical observation table.
+
+        The input must contain one non-empty row and exactly one occurrence of
+        every required observation column. Concentration, error, and date values
+        are converted to finite numbers; errors must be non-negative, tracer
+        names must be present and non-blank, and units are normalized through
+        the shared observation-unit contract.
+
+        Validation mutates this container deliberately: extra columns are
+        discarded, canonical columns are ordered consistently, cleaned values
+        replace their inputs, and the row index is reset. Row order itself is
+        preserved. Any invalid condition raises before the normalized frame is
+        assigned, leaving the previous ``frame`` object in place.
+        """
+
+        # Establish the table schema before attempting value conversions. This
+        # avoids ambiguous selection when pandas permits duplicate column names.
         duplicate_columns = self.frame.columns[self.frame.columns.duplicated()].tolist()
         if duplicate_columns:
             raise ValueError(
@@ -197,6 +221,8 @@ class Concentrations:
         if self.frame.empty:
             raise ValueError("Concentrations must contain at least one observation")
 
+        # Work on a detached canonical subset so partial conversions never leak
+        # into the container when a later column fails validation.
         normalized = self.frame.loc[:, list(REFERENCE_COLUMNS)].copy()
         for column in (CONCENTRATION_COLUMN, ERROR_COLUMN, DATE_COLUMN):
             try:
@@ -220,6 +246,8 @@ class Concentrations:
         if normalized[ELEMENT_COLUMN].eq("").any():
             raise ValueError("Concentration elements must not be empty")
 
+        # Unit validation is performed after tracer names are normalized because
+        # its contract groups unit labels by those names.
         normalized_units, _ = normalize_observation_units(
             normalized[ELEMENT_COLUMN],
             normalized[UNIT_COLUMN],
@@ -350,7 +378,7 @@ class Concentrations:
     def observation_keys(self) -> list[str]:
         """Return unique tracer/date/index keys in observation-row order."""
         return [
-            f"{tracer_date_key(element, date)}#{index}"
+            observation_key(element, date, index)
             for index, (element, date) in enumerate(
                 zip(
                     self.frame[ELEMENT_COLUMN],

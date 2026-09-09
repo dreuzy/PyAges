@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 import difflib
-import hashlib
 import json
 import math
 import os
@@ -44,24 +43,28 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from pyages._scalar_conversion import scalar_float, scalar_int
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh.diagnostics import (
+    ess as _ess,
+)
+from pyages.calibration.methods.mh.diagnostics import (
+    mcse_mean_from_ess,
+)
+from pyages.calibration.methods.mh.diagnostics import (
+    rank_normalize as _rank_normalize,
+)
+from pyages.calibration.methods.mh.diagnostics import (
+    split_rhat as _split_rhat,
+)
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
-from scripts.common.mcmc_diagnostics import (
-    ess as _ess,
-)
-from scripts.common.mcmc_diagnostics import mcse_mean
-from scripts.common.mcmc_diagnostics import (
-    rank_normalize as _rank_normalize,
-)
-from scripts.common.mcmc_diagnostics import (
-    split_rhat as _split_rhat,
-)
 from scripts.common.provenance import repository_provenance
+from scripts.common.provenance import sha256_file as _sha256
 from scripts.common.publication_plotting import (
     PUBLICATION_RC,
     mm_to_in,
@@ -139,12 +142,28 @@ EXPECTED_2024 = {
 }
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+def _column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one named column and reject duplicate column labels."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Expected exactly one {name!r} column")
+    return column
+
+
+def _require_frame(value: object, context: str) -> pd.DataFrame:
+    """Require a DataFrame at a Pandas boundary with a broad stub type."""
+    if not isinstance(value, pd.DataFrame):
+        raise TypeError(f"{context} must produce a DataFrame")
+    return value
+
+
+def _concentration_counts(frame: pd.DataFrame, count_name: str) -> pd.DataFrame:
+    """Count repeated tracer concentrations using an ordinary table shape."""
+    counts = _require_frame(
+        frame.groupby(["element", "concentration"], as_index=False).size(),
+        "concentration counts",
+    )
+    return counts.rename(columns={"size": count_name})
 
 
 def _path_label(path: Path, base: Path = ROOT) -> str:
@@ -171,9 +190,12 @@ def _verify_workbook_values() -> pd.DataFrame:
                 parsed = pd.to_datetime(row[column], errors="coerce")
                 if pd.isna(parsed) or parsed.date() != date(2024, 10, 31):
                     continue
-                values = pd.to_numeric(
+                numeric = pd.to_numeric(
                     pd.Series(row[column + 1 : column + 4]), errors="coerce"
-                ).to_numpy(float)
+                )
+                if not isinstance(numeric, pd.Series):
+                    raise TypeError("Workbook numeric conversion must produce a Series")
+                values = numeric.to_numpy(dtype=float)
                 if np.isfinite(values).all():
                     found.append(values)
                     rows.append(
@@ -260,18 +282,19 @@ def prepare_data_and_exports(output: Path) -> None:
             )
         )
         frame = pd.read_table(destination)
-        units = frame["unit"]
-        if units.isna().any() or set(units.map(str)) != {"pptv"}:
+        units = _column(frame, "unit")
+        if bool(units.isna().any()) or set(units.map(str)) != {"pptv"}:
             raise RuntimeError(f"Final unit metadata is not pptv in {normalized}")
-        old_concentrations = (
-            old_frame.groupby(["element", "concentration"]).size().rename("old_count")
+        old_concentrations = _concentration_counts(old_frame, "old_count")
+        new_concentrations = _concentration_counts(frame, "new_count")
+        concentration_check = old_concentrations.merge(
+            new_concentrations,
+            on=["element", "concentration"],
+            how="left",
         )
-        new_concentrations = (
-            frame.groupby(["element", "concentration"]).size().rename("new_count")
-        )
-        concentration_check = (
-            old_concentrations.to_frame().join(new_concentrations, how="left").fillna(0)
-        )
+        concentration_check["new_count"] = _column(
+            concentration_check, "new_count"
+        ).fillna(0)
         if not (
             concentration_check["old_count"] == concentration_check["new_count"]
         ).all():
@@ -377,12 +400,12 @@ def _run_mh(
         }
     mh = MetropolisHastings(
         config=MHConfig(
-            nstep=steps,
+            nsteps=steps,
             burn_in=BURN_IN,
-            nskip=1,
+            thinning=1,
             prior_option=False,
             likelihood=True,
-            monitor=False,
+            record_trajectory=False,
             display_traj=False,
             display_text=False,
             seed=seed,
@@ -393,10 +416,12 @@ def _run_mh(
     started = time.perf_counter()
     posterior = mh.run(_problem(case, output))
     elapsed = time.perf_counter() - started
-    frame = posterior.frame[["mu", "shift", "obj_function"]].copy()
-    frame.rename(columns={"shift": "t0", "obj_function": "sqrt_J_over_m"}, inplace=True)
+    frame = _require_frame(
+        posterior.frame.loc[:, ["mu", "shift", "obj_function"]],
+        "posterior column selection",
+    ).rename(columns={"shift": "t0", "obj_function": "sqrt_J_over_m"})
     frame["t50"] = frame["t0"] + LN2 * frame["mu"]
-    return frame, mh.success_rate, elapsed
+    return frame, mh.acceptance_rate, elapsed
 
 
 def _pilot_seed(index: int) -> int:
@@ -566,7 +591,7 @@ def _diagnostics(
             rhat = _split_rhat(values)
             ess = _ess(_rank_normalize(values))
             flat = values.reshape(-1)
-            mean_mcse = mcse_mean(flat, ess)
+            mean_mcse = mcse_mean_from_ess(flat, ess)
             diagnostic_rows.append(
                 {
                     "case": case.key,
@@ -605,8 +630,8 @@ def _diagnostics(
 
 def _prediction_grid(well: str) -> np.ndarray:
     frame = pd.read_table(_observation_path(well))
-    observed_start = float(frame["date"].min())
-    observed_end = float(frame["date"].max())
+    observed_start = scalar_float(frame["date"].min())
+    observed_end = scalar_float(frame["date"].max())
     smooth = np.linspace(observed_start, observed_end, 180)
     earlier_count = max(
         2,
@@ -634,7 +659,9 @@ def _predict_draws(case: Case, samples: pd.DataFrame) -> pd.DataFrame:
     # One complete samples row is consumed per realization. Never select
     # mu and t0 independently here or in any downstream figure/statistic.
     for draw, row in samples.reset_index(drop=True).iterrows():
-        model.p.update({"mu": float(row["mu"]), "shift": float(row["t0"])})
+        model.p.update(
+            {"mu": scalar_float(row["mu"]), "shift": scalar_float(row["t0"])}
+        )
         predicted = np.asarray(tracers.convolve(model), dtype=float)
         rows.extend(
             {
@@ -642,9 +669,9 @@ def _predict_draws(case: Case, samples: pd.DataFrame) -> pd.DataFrame:
                 "well": case.well,
                 "calibration": case.calibration,
                 "draw": draw,
-                "posterior_row": int(row["posterior_row"]),
-                "mu": float(row["mu"]),
-                "t0": float(row["t0"]),
+                "posterior_row": scalar_int(row["posterior_row"]),
+                "mu": scalar_float(row["mu"]),
+                "t0": scalar_float(row["t0"]),
                 "tracer": tracer,
                 "date": float(year),
                 "predicted_pptv": float(value),

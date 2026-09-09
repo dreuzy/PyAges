@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines the common contract and validation shared by every LPM.
+# Concrete models receive named physical parameters and provide probabilities,
+# quantiles, and age statistics; calibration and convolution rely on this class
+# to keep parameter order, calibration ranges, and numerical inputs consistent.
 
 """Define common contracts and numerical helpers for LPM implementations.
 
@@ -11,7 +15,7 @@ Summary
 3. Subclasses provide vectorized PDF, CDF, mean, and standard-deviation methods.
 4. Continuous models also expose cumulative mass and partial first moments.
 5. Parameter dictionary order is the canonical calibration-vector order.
-6. ``ParameterManager`` supplies initial values, bounds, and parameter ranges.
+6. ``ParameterManager`` supplies initial values, domains, and calibration ranges.
 7. The base inverse CDF validates probabilities and brackets scalar quantiles.
 8. Plot sampling evaluates a PDF or CDF on a compact quantile-based age window.
 9. Data-frame loading validates a complete row before changing model parameters.
@@ -28,9 +32,9 @@ plot/sample loading and the moment helpers at the end of the class.
 from __future__ import annotations
 
 import abc
-import copy
+from collections.abc import Mapping
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 import numpy.typing as npt
@@ -86,9 +90,9 @@ class LpmBase(abc.ABC):
     def __init__(
         self,
         name: str,
-        parameter_values: dict[str, float],
-        parameter_units: dict[str, str],
-        directory_lpm: str | Path,
+        parameter_values: Mapping[str, float],
+        parameter_units: Mapping[str, str],
+        directory_lpm: str | Path | None,
     ) -> None:
         """Initialize shared LPM state and validate parameter metadata."""
         if directory_lpm is None:
@@ -121,6 +125,10 @@ class LpmBase(abc.ABC):
             directory_lpm=self._directory_lpm,
             parameter_names=parameter_names,
         )
+        if not self._param_manager.param_within_domain(self.p):
+            raise ValueError(
+                f"LPM parameters are outside the mathematical domain for {name!r}"
+            )
 
     @abc.abstractmethod
     def pdf(self, t: npt.ArrayLike) -> npt.ArrayLike:
@@ -149,7 +157,7 @@ class LpmBase(abc.ABC):
         raise NotImplementedError
 
     def random_uniform(self, rng: np.random.Generator | None = None) -> None:
-        """Replace all parameters with independent uniform draws within bounds.
+        """Draw parameters independently within their calibration ranges.
 
         Parameters
         ----------
@@ -160,10 +168,10 @@ class LpmBase(abc.ABC):
         -----
         This method mutates :attr:`p`.
         """
-        pmin, pmax = self.get_param_interval()
+        ranges = tuple(self.get_calibration_ranges().values())
         if rng is None:
             rng = np.random.default_rng()
-        param = [pmin[i] + (pmax[i] - pmin[i]) * rng.random() for i in range(len(pmin))]
+        param = [lower + (upper - lower) * rng.random() for lower, upper in ranges]
         self.set_param_from_array(param)
 
     def param_init(self) -> list[float]:
@@ -178,21 +186,29 @@ class LpmBase(abc.ABC):
         -----
         The current model is not modified.
         """
-        lpm_temp = copy.deepcopy(self)
-        lpm_temp.load_initial_parameters()
-        return lpm_temp.get_parameters_to_array()
+        return list(self._param_manager.initial_values().values())
 
     @property
     def lpm_data_directory(self) -> Path:
         """Return the root directory containing LPM parameter folders."""
         return self._directory_lpm
 
+    def fixed_scientific_state(self) -> Mapping[str, Any]:
+        """Return model state affecting science but absent from sampled ``p``.
+
+        Most LPMs have no such state. Models with fixed constructor values or
+        resolved non-parametric geometry override this small provenance hook.
+        Returned mappings must contain only scalar values and nested sequences
+        or mappings suitable for canonical scientific serialization.
+        """
+        return {}
+
     def load_initial_parameters(self) -> None:
         """Replace current parameters with initial values from ``params.yaml``."""
-        self._param_manager.load_initial_values(self.p)
+        self.p.update(self._param_manager.initial_values())
 
-    def param_within_bounds(self, params: dict[str, float]) -> bool:
-        """Return whether a complete parameter mapping is finite and in bounds.
+    def param_within_calibration_range(self, params: dict[str, float]) -> bool:
+        """Return whether values lie in the configured calibration ranges.
 
         Parameters
         ----------
@@ -204,10 +220,32 @@ class LpmBase(abc.ABC):
         bool
             ``True`` only when names and values satisfy the complete contract.
         """
-        return self._param_manager.param_within_bounds(params)
+        return self._param_manager.param_within_calibration_range(params)
 
-    def param_within_bounds_array(self, params: npt.ArrayLike) -> bool:
-        """Return whether an ordered parameter vector is finite and in bounds.
+    def param_within_domain(self, params: dict[str, float]) -> bool:
+        """Return whether values satisfy the model's mathematical domain."""
+        return self._param_manager.param_within_domain(params)
+
+    def _parameter_mapping_from_array(
+        self,
+        params: npt.ArrayLike,
+    ) -> dict[str, float]:
+        """Convert one finite, correctly sized vector to canonical named values."""
+        try:
+            values = np.asarray(params, dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("LPM parameters must be numeric") from exc
+        expected_shape = (len(self.p),)
+        if values.shape != expected_shape:
+            raise ValueError(
+                f"Expected parameter shape {expected_shape}, got {values.shape}"
+            )
+        if not np.all(np.isfinite(values)):
+            raise ValueError("LPM parameters must be finite")
+        return dict(zip(self.p, values.tolist(), strict=True))
+
+    def param_within_calibration_range_array(self, params: npt.ArrayLike) -> bool:
+        """Return whether an ordered vector lies in the calibration ranges.
 
         Parameters
         ----------
@@ -217,17 +255,21 @@ class LpmBase(abc.ABC):
         Returns
         -------
         bool
-            ``True`` only for a correctly sized, finite vector in bounds.
+            ``True`` only for a correctly sized, finite vector in range.
         """
         try:
-            values = np.asarray(params, dtype=float)
-        except (TypeError, ValueError):
+            candidate = self._parameter_mapping_from_array(params)
+        except ValueError:
             return False
-        if values.shape != (len(self.p),) or not np.all(np.isfinite(values)):
+        return self._param_manager.param_within_calibration_range(candidate)
+
+    def param_within_domain_array(self, params: npt.ArrayLike) -> bool:
+        """Return whether an ordered vector satisfies the mathematical domain."""
+        try:
+            candidate = self._parameter_mapping_from_array(params)
+        except ValueError:
             return False
-        return self._param_manager.param_within_bounds_array(
-            values.tolist(), list(self.p)
-        )
+        return self._param_manager.param_within_domain(candidate)
 
     @abc.abstractmethod
     def cdf(self, t: npt.ArrayLike) -> npt.ArrayLike:
@@ -313,7 +355,7 @@ class LpmBase(abc.ABC):
             raise ValueError(f"Probabilities must be finite and in [0, 1], got {p!r}")
         return probabilities
 
-    def cdf_inv(self, p: float) -> float:
+    def cdf_inv(self, p: npt.ArrayLike) -> npt.ArrayLike:
         """Evaluate a scalar quantile by numerically inverting the CDF.
 
         The default implementation brackets the requested quantile on
@@ -364,9 +406,10 @@ class LpmBase(abc.ABC):
                 f"'{self.name}' before t={upper}"
             )
 
-        return float(
-            optimize.brentq(self._cdf_minus_p, lower, upper, args=(probability,))
-        )
+        root = optimize.brentq(self._cdf_minus_p, lower, upper, args=(probability,))
+        if isinstance(root, tuple):
+            root = root[0]
+        return float(root)
 
     def set_param_from_array(self, param: npt.ArrayLike) -> None:
         """Atomically replace all parameters from an ordered one-dimensional array.
@@ -386,19 +429,12 @@ class LpmBase(abc.ABC):
         -----
         Validation completes before :attr:`p` is mutated.
         """
-        try:
-            values = np.asarray(param, dtype=float)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("LPM parameters must be numeric") from exc
-        expected_shape = (len(self.p),)
-        if values.shape != expected_shape:
+        candidate = self._parameter_mapping_from_array(param)
+        if not self._param_manager.param_within_domain(candidate):
             raise ValueError(
-                f"Expected parameter shape {expected_shape}, got {values.shape}"
+                f"LPM parameters are outside the mathematical domain for {self.name!r}"
             )
-        if not np.all(np.isfinite(values)):
-            raise ValueError("LPM parameters must be finite")
-
-        self.p.update(zip(self.p, values.tolist(), strict=True))
+        self.p.update(candidate)
 
     def get_parameters_to_array(self) -> list[float]:
         """Return parameter values in canonical calibration order."""
@@ -408,8 +444,8 @@ class LpmBase(abc.ABC):
         """Return parameter names in canonical calibration order."""
         return list(self.p.keys())
 
-    def get_param_range(self, param_name: str) -> float:
-        """Return the configured range of one parameter.
+    def get_calibration_range_width(self, param_name: str) -> float:
+        """Return the width of one parameter's calibration range.
 
         Parameters
         ----------
@@ -421,30 +457,33 @@ class LpmBase(abc.ABC):
         float
             Upper bound minus lower bound.
         """
-        return self._param_manager.get_param_range(param_name)
+        return self._param_manager.get_calibration_range_width(param_name)
 
-    def get_param_interval(self) -> tuple[list[float], list[float]]:
-        """Return lower and upper bounds in canonical parameter order.
+    def get_calibration_range(self, key: str) -> tuple[float, float]:
+        """Return one parameter's inclusive operational calibration range."""
+        return self._param_manager.get_calibration_range(key)
 
-        Returns
-        -------
-        tuple[list[float], list[float]]
-            Lists of lower and upper bounds, respectively.
-        """
-        return self._param_manager.get_param_interval()
+    def get_calibration_ranges(self) -> dict[str, tuple[float, float]]:
+        """Return calibration ranges in canonical parameter order."""
+        return self._param_manager.get_calibration_ranges()
 
-    def get_p_max(self, key: str) -> float:
-        """Return upper bound for parameter."""
-        return self._param_manager.get_p_max(key)
-
-    def get_p_min(self, key: str) -> float:
-        """Return lower bound for parameter."""
-        return self._param_manager.get_p_min(key)
+    def get_parameter_domain(self, key: str):
+        """Return one parameter's mathematical validity domain."""
+        return self._param_manager.get_domain(key)
 
     def _plot_range(self) -> tuple[float, float]:
         """Return an approximate age window intended only for visualization."""
         # Extending Q(0.98) keeps plots compact while showing most of the tail.
-        return 0.0, 1.2 * float(self.cdf_inv(0.98))
+        return 0.0, 1.2 * self._quantile_scalar(0.98)
+
+    def _quantile_scalar(self, probability: float) -> float:
+        """Return one scalar quantile from a scalar-or-vector implementation."""
+        value = np.asarray(self.cdf_inv(probability), dtype=float)
+        if value.size != 1:
+            raise ValueError(
+                f"Expected one quantile for p={probability}, got shape {value.shape}"
+            )
+        return float(value.reshape(-1)[0])
 
     def sample_curve(self, kind: str, count: int) -> tuple[np.ndarray, npt.ArrayLike]:
         """Sample the PDF or CDF over a model-specific plotting window.
@@ -566,9 +605,9 @@ class LpmBase(abc.ABC):
         return [
             self.mean(),
             self.std(),
-            self.cdf_inv(0.10),
-            self.cdf_inv(0.25),
-            self.cdf_inv(0.5),
-            self.cdf_inv(0.75),
-            self.cdf_inv(0.90),
+            self._quantile_scalar(0.10),
+            self._quantile_scalar(0.25),
+            self._quantile_scalar(0.5),
+            self._quantile_scalar(0.75),
+            self._quantile_scalar(0.90),
         ]

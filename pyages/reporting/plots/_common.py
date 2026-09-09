@@ -1,17 +1,35 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file centralizes conventions shared by scientific report figures.
 
-"""Shared styles and data helpers for scientific result figures."""
+"""Provide consistent colors, labels, data adapters, and figure finalization.
+
+Reporting functions use these helpers to extract pandas frames from supported
+result objects, identify best samples, choose stable method colors, and format
+tracer names with their units. Objective plots also share interpolation and
+reference-location routines so their visual layers have the same meaning.
+
+The save helper writes a figure only when a filename is supplied and otherwise
+returns the live Matplotlib object to the caller. Keeping these conventions here
+prevents individual reports from silently assigning different semantics to the
+same marker or color.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Protocol, cast, runtime_checkable
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.figure import Figure
 from matplotlib.tri import TriAnalyzer, Triangulation
+from matplotlib.typing import ColorType
+
+from pyages.concentrations._labels import pretty_tracer_name
+from pyages.concentrations.schema import OBSERVATION_KEY_COLUMN
 
 DEFAULT_METHOD_COLORS = {
     "Metropolis_Hastings": "#1f77b4",
@@ -24,6 +42,31 @@ SINGLE_DATE_HIGHLIGHT_COLOR = "#d62728"
 INTERVAL_50_COLOR = "#6baed6"
 INTERVAL_90_COLOR = "#c6dbef"
 GRID_CMAP = "cividis_r"
+
+
+@runtime_checkable
+class _FrameProvider(Protocol):
+    """Object exposing the result frame consumed by plotting functions."""
+
+    @property
+    def frame(self) -> pd.DataFrame:
+        """Return the tabular result data."""
+        ...
+
+
+type FrameSource = pd.DataFrame | _FrameProvider
+
+
+@runtime_checkable
+class _ObservationReference(_FrameProvider, Protocol):
+    """Reference concentrations able to identify every observation row."""
+
+    def observation_keys(self) -> list[str]:
+        """Return stable observation identifiers in frame order."""
+        ...
+
+
+type ReferenceConcentrationSource = pd.DataFrame | _ObservationReference
 
 
 def apply_example_style() -> None:
@@ -47,48 +90,64 @@ def apply_example_style() -> None:
     )
 
 
-def _ensure_frame(result) -> pd.DataFrame:
+def _ensure_frame(result: FrameSource) -> pd.DataFrame:
     if isinstance(result, pd.DataFrame):
         return result.copy()
-    if hasattr(result, "frame"):
+    if isinstance(result, _FrameProvider):
         return result.frame.copy()
     raise TypeError("Expected a pandas DataFrame or an object exposing .frame.")
+
+
+def _series_column(frame: pd.DataFrame, column: str) -> pd.Series:
+    """Return one uniquely named DataFrame column as a Series."""
+    selected = frame.loc[:, column]
+    if not isinstance(selected, pd.Series):
+        raise ValueError(f"Expected one column named {column!r}")
+    return selected
+
+
+def _numeric_series(frame: pd.DataFrame, column: str) -> pd.Series:
+    """Return one column converted to numeric values, with failures as NaN."""
+    converted = pd.to_numeric(_series_column(frame, column), errors="coerce")
+    if not isinstance(converted, pd.Series):  # Defensive pandas API boundary.
+        raise TypeError(f"Numeric conversion of column {column!r} was not a Series")
+    return converted
 
 
 def _best_row(frame: pd.DataFrame) -> pd.Series | None:
     if frame.empty:
         return None
     if "obj_function" in frame.columns:
-        values = pd.to_numeric(frame["obj_function"], errors="coerce")
-        if not values.isna().all():
-            return frame.loc[values.idxmin()].copy()
-    return frame.iloc[0].copy()
+        objective = frame["obj_function"]
+        if not isinstance(objective, pd.Series):
+            raise ValueError("Result frame must contain one 'obj_function' column")
+        values = np.asarray(pd.to_numeric(objective, errors="coerce"), dtype=float)
+        finite_positions = np.flatnonzero(np.isfinite(values))
+        if finite_positions.size:
+            best_position = finite_positions[int(np.argmin(values[finite_positions]))]
+            return cast(pd.Series, frame.iloc[best_position].copy())
+    return cast(pd.Series, frame.iloc[0].copy())
 
 
-def _method_color(method_name: str, index: int) -> str:
+def _method_color(method_name: str, index: int) -> ColorType:
     if method_name in DEFAULT_METHOD_COLORS:
         return DEFAULT_METHOD_COLORS[method_name]
     fallback = plt.get_cmap("tab10")
     return fallback(index % 10)
 
 
-def _pretty_tracer_name(name: str) -> str:
-    lower = name.lower()
-    if lower.startswith("cfc"):
-        return name.upper()
-    if lower == "sf6":
-        return "SF6"
-    return name
-
-
 def _axis_label(tracer: str, unit: str | None) -> str:
-    label = _pretty_tracer_name(tracer)
+    label = pretty_tracer_name(tracer)
     if unit:
         return f"{label} [{unit}]"
     return label
 
 
-def _save_figure(fig, filename: str | Path | None, dpi: int = 220):
+def _save_figure(
+    fig: Figure,
+    filename: str | Path | None,
+    dpi: int = 220,
+) -> Figure:
     if filename is not None:
         path = Path(filename)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -133,7 +192,7 @@ def _plot_interpolated_objective_surface(ax, x, y, values, vmin: float, vmax: fl
             alpha=0.92,
             extend="both",
         )
-    except Exception:
+    except (RuntimeError, ValueError):
         return ax.scatter(
             x,
             y,
@@ -148,25 +207,78 @@ def _plot_interpolated_objective_surface(ax, x, y, values, vmin: float, vmax: fl
         )
 
 
-def _reference_concentration_lookup(reference_concentrations):
+def _reference_concentration_lookup(
+    reference_concentrations: ReferenceConcentrationSource | None,
+) -> pd.Series | None:
+    """Index reference rows by explicit, stable observation keys."""
     if reference_concentrations is None:
         return None
     frame = _ensure_frame(reference_concentrations)
-    required = {"element", "date", "concentration"}
-    if not required.issubset(frame.columns):
+    if "concentration" not in frame.columns:
         raise ValueError(
-            "reference_concentrations must contain 'element', 'date' and 'concentration' columns."
+            "reference_concentrations must contain one 'concentration' column"
         )
-    return frame.set_index(["element", "date"])["concentration"]
+    if frame.columns.duplicated().any():
+        raise ValueError("reference_concentrations must contain unique columns")
+    concentrations = frame["concentration"]
+    if not isinstance(concentrations, pd.Series):
+        raise ValueError(
+            "reference_concentrations must contain one concentration column"
+        )
+    if isinstance(reference_concentrations, pd.DataFrame):
+        if OBSERVATION_KEY_COLUMN not in frame.columns:
+            raise ValueError(
+                "reference concentration DataFrames must contain an "
+                "'observation_key' column"
+            )
+        explicit_keys = frame[OBSERVATION_KEY_COLUMN]
+        if (
+            not isinstance(explicit_keys, pd.Series)
+            or not explicit_keys.map(
+                lambda value: isinstance(value, str) and bool(value.strip())
+            ).all()
+        ):
+            raise ValueError(
+                "reference observation_key values must be non-empty strings"
+            )
+        keys = explicit_keys.str.strip().tolist()
+    else:
+        keys = reference_concentrations.observation_keys()
+        if len(keys) != len(frame):
+            raise ValueError(
+                "reference observation keys must match the concentration row count"
+            )
+    if pd.Index(keys).has_duplicates:
+        raise ValueError("reference observation_key values must be unique")
+    return pd.Series(
+        concentrations.to_numpy(copy=True),
+        index=keys,
+        name="concentration",
+    )
 
 
 def _nearest_reference_objective_row(
     objective_frame: pd.DataFrame,
     reference_params: dict[str, float] | None,
     param_names: list[str],
-):
+) -> pd.Series | None:
+    """Return the objective-grid row nearest to available reference parameters.
+
+    Distance is the unscaled squared Euclidean distance in the parameter columns
+    shared by ``param_names``, ``reference_params``, and ``objective_frame``.
+    Rows with non-numeric coordinates are excluded. If no reference coordinate
+    or no valid row remains, ``None`` is returned; equal distances retain the
+    first grid row selected by NumPy.
+
+    The returned objective value is an approximation at the existing grid point,
+    not an interpolation at the exact reference parameters. Parameters with very
+    different numerical scales can therefore dominate this visual marker.
+    """
+
     if not reference_params:
         return None
+    # Partial references are useful for plotting, but the distance must use the
+    # same ordered subset for the grid matrix and reference vector.
     available = [
         name
         for name in param_names
@@ -175,10 +287,12 @@ def _nearest_reference_objective_row(
     if not available:
         return None
     numeric = objective_frame[available].apply(pd.to_numeric, errors="coerce")
-    valid = numeric.notna().all(axis=1)
-    if not valid.any():
+    values = numeric.to_numpy(dtype=float)
+    valid = np.all(np.isfinite(values), axis=1)
+    if not np.any(valid):
         return None
     ref = np.array([float(reference_params[name]) for name in available], dtype=float)
-    distances = ((numeric.loc[valid].to_numpy(dtype=float) - ref) ** 2).sum(axis=1)
-    nearest_index = numeric.loc[valid].index[int(np.argmin(distances))]
-    return objective_frame.loc[nearest_index]
+    valid_positions = np.flatnonzero(valid)
+    distances = ((values[valid] - ref) ** 2).sum(axis=1)
+    nearest_position = valid_positions[int(np.argmin(distances))]
+    return cast(pd.Series, objective_frame.iloc[nearest_position].copy())

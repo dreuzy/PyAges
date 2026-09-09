@@ -1,5 +1,5 @@
 ﻿# Canonical Ploemeur LPM configuration.
-# Defines bounds, initialization, proposal steps, and analytical priors.
+# Defines calibration ranges, initialization, proposal steps, and analytical priors.
 
 model: gamma
 version: 1
@@ -9,7 +9,7 @@ parameters:
     label: shape_k
     unit: "--"
     description: "Shape parameter."
-    bounds: [0.1, 10.0]
+    calibration_range: [0.1, 10.0]
     init: 2.0
     step: 0.5
     prior:
@@ -21,7 +21,7 @@ parameters:
     label: scale
     unit: year
     description: "Scale parameter."
-    bounds: [0.1, 80.0]
+    calibration_range: [0.1, 80.0]
     init: 10.0
     step: 1.0
     prior:

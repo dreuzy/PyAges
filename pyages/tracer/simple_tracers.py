@@ -1,8 +1,20 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file provides tracer implementations that require no external dataset.
 
-"""In-memory tracer implementations for tests and analytical studies."""
+"""Construct lightweight tracers from functions, constants, or exponential decay.
+
+``SyntheticTracer`` evaluates a caller-provided concentration function,
+``ConstantTracer`` returns one value throughout its valid date range, and
+``DecayTracer`` applies a simple exponential response in elapsed time. Each
+class implements the same structural convolution interface as a data-backed
+tracer.
+
+These implementations are useful for tests, numerical benchmarks, and
+analytical examples where loading a recharge chronicle would obscure the
+behavior being examined.
+"""
 
 from __future__ import annotations
 

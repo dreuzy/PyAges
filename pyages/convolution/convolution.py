@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file coordinates the forward model for one tracer, observation date, and
+# water-age distribution. It selects continuous, point-mass, or mixed arithmetic
+# and returns predicted concentrations, treating ages beyond the tracer history
+# as zero contribution instead of redistributing their probability.
 
 """Orchestrate one tracer/LPM convolution across all strategy types.
 
@@ -11,11 +15,21 @@ in focused helper modules; point-mass strategies use direct tracer evaluation.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Protocol, cast, runtime_checkable
+
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 from pyages.config.runtime import subdivide_interval
+from pyages.convolution._piecewise_uniform import (
+    PreparedPiecewiseUniformBasis,
+    piecewise_uniform_state,
+    prepare_piecewise_uniform_basis,
+)
 from pyages.convolution.continuous_integration import (
+    CdfMomentProvider,
     ConvolutionDiagnostics,
     convolve_prepared_grid,
     window_mass_from_provider,
@@ -33,6 +47,36 @@ from pyages.convolution.tracer_grid import (
 from pyages.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyages.lpm.core.lpm_base import LpmBase
 from pyages.tracer.protocols import ConvolutionTracerProtocol
+
+
+@runtime_checkable
+class _DiracTimeProvider(Protocol):
+    """Structural contract for a model containing one exact age."""
+
+    def get_dirac_time(self) -> float:
+        """Return the exact water age in years."""
+        ...
+
+
+@runtime_checkable
+class _DoubleDiracTimeProvider(Protocol):
+    """Structural contract for a model containing two exact ages."""
+
+    def get_dirac_double_time(self) -> Sequence[float]:
+        """Return exactly two water ages in years."""
+        ...
+
+
+@runtime_checkable
+class _ContinuousComponentMomentProvider(Protocol):
+    """Structural contract for the continuous part of a mixed model."""
+
+    def continuous_cdf_and_partial_first_moment(
+        self,
+        ages: npt.NDArray[np.float64],
+    ) -> tuple[npt.ArrayLike, npt.ArrayLike]:
+        """Return cumulative mass and partial first moment at ``ages``."""
+        ...
 
 
 class Convolution:
@@ -57,6 +101,7 @@ class Convolution:
     - DIRAC: Direct chronicle lookup for single spike
     - DIRAC_DOUBLE: Weighted combination of two lookups
     - MIXED_DIRAC_CONTINUOUS: Weighted Dirac + continuous component
+    - PIECEWISE_UNIFORM: Cached linear combination of fixed age-bin responses
 
     The finite window ``[0, t - datemin]`` is a scientific boundary
     convention: LPM mass older than the recharge chronicle contributes zero
@@ -128,6 +173,9 @@ class Convolution:
         self._date = self._validated_observation_date(date)
         self._grid_settings = grid_settings or DEFAULT_CONVOLUTION_SETTINGS
         self._prepared_grid: PreparedTracerGrid | None = None
+        self._prepared_piecewise_uniform_basis: PreparedPiecewiseUniformBasis | None = (
+            None
+        )
         self._last_diagnostics: ConvolutionDiagnostics | None = None
 
     @property
@@ -149,6 +197,7 @@ class Convolution:
             # observation date and must never leak into the next evaluation.
             self._date = validated
             self._prepared_grid = None
+            self._prepared_piecewise_uniform_basis = None
             self._last_diagnostics = None
 
     def _validated_observation_date(self, value: float) -> float:
@@ -156,7 +205,7 @@ class Convolution:
         if isinstance(value, (bool, np.bool_, str, bytes)) or not np.isscalar(value):
             raise ValueError("observation date must be a finite numeric value")
         try:
-            date = float(value)
+            date = float(cast(float, value))
             datemin = float(self._tracer.datemin)
         except (TypeError, ValueError) as exc:
             raise ValueError(
@@ -208,9 +257,9 @@ class Convolution:
     @staticmethod
     def _require_moment_provider(
         lpm: LpmBase,
-        provider,
+        provider: object | None,
         distribution_name: str,
-    ):
+    ) -> CdfMomentProvider:
         """Return a concrete vectorized CDF/partial-moment provider.
 
         Merely inheriting :class:`LpmBase`'s placeholder is not sufficient for
@@ -226,7 +275,47 @@ class Convolution:
                 f"Continuous LPM '{distribution_name}' must implement "
                 "cdf_and_partial_first_moment()"
             )
-        return provider
+        return cast(CdfMomentProvider, provider)
+
+    @staticmethod
+    def _dirac_time(lpm: LpmBase) -> float:
+        """Return one exact age or reject a mismatched strategy contract."""
+        if not isinstance(lpm, _DiracTimeProvider):
+            raise ConvolutionError(
+                f"LPM '{lpm.name}' declares a Dirac strategy but does not "
+                "implement get_dirac_time()"
+            )
+        return lpm.get_dirac_time()
+
+    @staticmethod
+    def _double_dirac_times(lpm: LpmBase) -> tuple[float, float]:
+        """Return two exact ages or reject a mismatched strategy contract."""
+        if not isinstance(lpm, _DoubleDiracTimeProvider):
+            raise ConvolutionError(
+                f"LPM '{lpm.name}' declares a double-Dirac strategy but does not "
+                "implement get_dirac_double_time()"
+            )
+        try:
+            ages = tuple(lpm.get_dirac_double_time())
+        except TypeError as exc:
+            raise ConvolutionError(
+                f"LPM '{lpm.name}' get_dirac_double_time() must return two ages"
+            ) from exc
+        if len(ages) != 2:
+            raise ConvolutionError(
+                f"LPM '{lpm.name}' get_dirac_double_time() must return two ages"
+            )
+        return ages
+
+    @staticmethod
+    def _continuous_component_provider(lpm: LpmBase) -> CdfMomentProvider:
+        """Return the mixed model's continuous provider or reject its contract."""
+        if not isinstance(lpm, _ContinuousComponentMomentProvider):
+            raise ConvolutionError(
+                f"LPM '{lpm.name}' declares a mixed Dirac/continuous strategy "
+                "but does not implement continuous_cdf_and_partial_first_moment()"
+            )
+        return lpm.continuous_cdf_and_partial_first_moment
 
     # -------------------------------------------------------------------------
     # CDF/partial-moment convolution (tracer-driven cached grid)
@@ -245,13 +334,48 @@ class Convolution:
             settings=self._grid_settings,
         )
         self._prepared_grid = grid
+        self._prepared_piecewise_uniform_basis = None
         return grid
+
+    def _prepare_piecewise_uniform_basis(
+        self,
+        lpm: LpmBase,
+    ) -> PreparedPiecewiseUniformBasis:
+        """Build or reuse fixed age-bin responses for one model geometry."""
+        edges, _fractions = piecewise_uniform_state(lpm)
+        grid = self._prepared_grid
+        if grid is None or grid.date != self._date:
+            grid = self._prepare_tracer_grid()
+        basis = self._prepared_piecewise_uniform_basis
+        if basis is None or not basis.matches(edges):
+            basis = prepare_piecewise_uniform_basis(
+                grid,
+                edges,
+                lpm.name,
+                self._grid_settings,
+            )
+            self._prepared_piecewise_uniform_basis = basis
+        return basis
+
+    def _convolve_piecewise_uniform(self, lpm: LpmBase) -> float:
+        """Combine precomputed tracer responses with current age-bin masses."""
+        edges, fractions = piecewise_uniform_state(lpm)
+        basis = self._prepared_piecewise_uniform_basis
+        if basis is None or not basis.matches(edges):
+            basis = self._prepare_piecewise_uniform_basis(lpm)
+        result, diagnostics = basis.convolve(
+            fractions,
+            lpm.name,
+            self._grid_settings,
+        )
+        self._last_diagnostics = diagnostics
+        return result
 
     def _convolve_continuous(
         self,
         lpm: LpmBase,
         *,
-        cdf_moment_provider=None,
+        cdf_moment_provider: CdfMomentProvider | None = None,
         distribution_name: str | None = None,
     ) -> float:
         """Convolve a continuous law using exact bin masses and first moments.
@@ -295,10 +419,10 @@ class Convolution:
         tmax = self._window_upper_age()
         strategy = lpm.convolution_strategy
         if strategy == ConvolutionStrategy.DIRAC:
-            _, represented = self._dirac_age_in_window(lpm.get_dirac_time())
+            _, represented = self._dirac_age_in_window(self._dirac_time(lpm))
             return float(represented)
         if strategy == ConvolutionStrategy.DIRAC_DOUBLE:
-            first, second = lpm.get_dirac_double_time()
+            first, second = self._double_dirac_times(lpm)
             rate = self._mixture_rate(lpm)
             _, first_represented = self._dirac_age_in_window(first)
             _, second_represented = self._dirac_age_in_window(second)
@@ -307,10 +431,10 @@ class Convolution:
             )
         if strategy == ConvolutionStrategy.MIXED_DIRAC_CONTINUOUS:
             rate = self._mixture_rate(lpm)
-            _, represented = self._dirac_age_in_window(lpm.get_dirac_time())
+            _, represented = self._dirac_age_in_window(self._dirac_time(lpm))
             provider = self._require_moment_provider(
                 lpm,
-                getattr(lpm, "continuous_cdf_and_partial_first_moment", None),
+                self._continuous_component_provider(lpm),
                 f"{lpm.name} continuous component",
             )
             continuous_mass = window_mass_from_provider(
@@ -320,6 +444,14 @@ class Convolution:
                 self._grid_settings,
             )
             return rate * float(represented) + (1.0 - rate) * continuous_mass
+        if strategy == ConvolutionStrategy.PIECEWISE_UNIFORM:
+            edges, fractions = piecewise_uniform_state(lpm)
+            represented_by_bin = np.clip(
+                (tmax - edges[:-1]) / np.diff(edges),
+                0.0,
+                1.0,
+            )
+            return float(np.dot(fractions, represented_by_bin))
         if strategy != ConvolutionStrategy.CONTINUOUS:
             raise ConvolutionError(
                 f"Unsupported convolution strategy {strategy!r} for LPM '{lpm.name}'"
@@ -347,6 +479,28 @@ class Convolution:
         """Return the immutable tracer-grid settings used by this instance."""
         return self._grid_settings
 
+    def clone_prepared(self) -> Convolution:
+        """Return a fresh evaluator that reuses immutable prepared artifacts.
+
+        The clone keeps the same read-only tracer input, observation date, grid
+        settings, prepared tracer grid, and optional piecewise-uniform basis.
+        It receives its own mutable diagnostic slot, so evaluating one clone
+        cannot overwrite the diagnostics of another chain. Changing a clone's
+        date still invalidates only that clone's cached artifacts.
+
+        This operation is intended for independent calibration workers that
+        target exactly the same scientific inputs. It avoids rebuilding grids
+        while preserving the per-worker mutable state required by samplers.
+        """
+        clone = Convolution(
+            self._tracer,
+            date=self._date,
+            grid_settings=self._grid_settings,
+        )
+        clone._prepared_grid = self._prepared_grid
+        clone._prepared_piecewise_uniform_basis = self._prepared_piecewise_uniform_basis
+        return clone
+
     # -------------------------------------------------------------------------
     # Dirac convolution (direct lookup)
     # -------------------------------------------------------------------------
@@ -364,7 +518,7 @@ class Convolution:
         float
             Convolution result (tracer concentration).
         """
-        return self._dirac_concentration(lpm.get_dirac_time())
+        return self._dirac_concentration(self._dirac_time(lpm))
 
     def _dirac_concentration(self, time: float) -> float:
         """Return a point-mass contribution only inside the tracer window."""
@@ -393,7 +547,7 @@ class Convolution:
             Weighted sum of two Dirac lookups.
         """
         rate = self._mixture_rate(lpm)
-        [time1, time2] = lpm.get_dirac_double_time()
+        time1, time2 = self._double_dirac_times(lpm)
         convol1 = self._dirac_concentration(time1)
         convol2 = self._dirac_concentration(time2)
         return rate * convol1 + (1.0 - rate) * convol2
@@ -422,13 +576,13 @@ class Convolution:
         # mixture weight exactly once below.
         continuous_part = self._convolve_continuous(
             lpm,
-            cdf_moment_provider=lpm.continuous_cdf_and_partial_first_moment,
+            cdf_moment_provider=self._continuous_component_provider(lpm),
             distribution_name=f"{lpm.name} continuous component",
         )
         continuous_diagnostics = self._last_diagnostics
         if continuous_diagnostics is None:
             raise ConvolutionError("Continuous mixture diagnostics are missing")
-        _, represented = self._dirac_age_in_window(lpm.get_dirac_time())
+        _, represented = self._dirac_age_in_window(self._dirac_time(lpm))
         dirac_mass = float(represented)
         # Diagnostics must describe the full mixture, not just the continuous
         # helper call that populated ``_last_diagnostics`` above.
@@ -446,9 +600,15 @@ class Convolution:
     # Public API
     # -------------------------------------------------------------------------
 
-    def prepare(self) -> PreparedTracerGrid:
-        """Eagerly build and return the tracer-response grid."""
-        return self._prepare_tracer_grid()
+    def prepare(self, lpm: LpmBase | None = None) -> PreparedTracerGrid:
+        """Eagerly build the tracer grid and any model-specific linear basis."""
+        grid = self._prepare_tracer_grid()
+        if (
+            lpm is not None
+            and lpm.convolution_strategy == ConvolutionStrategy.PIECEWISE_UNIFORM
+        ):
+            self._prepare_piecewise_uniform_basis(lpm)
+        return grid
 
     def _convolve_once(self, lpm: LpmBase) -> float:
         """Dispatch exactly one algorithm from the LPM's declared strategy."""
@@ -457,6 +617,8 @@ class Convolution:
 
         if strategy == ConvolutionStrategy.CONTINUOUS:
             return self._convolve_continuous(lpm)
+        if strategy == ConvolutionStrategy.PIECEWISE_UNIFORM:
+            return self._convolve_piecewise_uniform(lpm)
         if strategy == ConvolutionStrategy.DIRAC:
             return self._convolution_dirac(lpm)
         if strategy == ConvolutionStrategy.DIRAC_DOUBLE:
@@ -535,6 +697,7 @@ class Convolution:
             raise ValueError(f"resolution must be an integer >= 1: {exc}") from exc
         original_date = self._date
         original_grid = self._prepared_grid
+        original_piecewise_uniform_basis = self._prepared_piecewise_uniform_basis
         original_diagnostics = self._last_diagnostics
         try:
             concentrations = []
@@ -546,6 +709,7 @@ class Convolution:
             # cache/diagnostic state even if one intermediate date fails.
             self._date = original_date
             self._prepared_grid = original_grid
+            self._prepared_piecewise_uniform_basis = original_piecewise_uniform_basis
             self._last_diagnostics = original_diagnostics
         return pd.DataFrame(
             {

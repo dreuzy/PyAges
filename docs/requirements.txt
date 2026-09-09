@@ -1,4 +1,5 @@
 # Keep Read the Docs aligned with the dependency set qualified for releases.
 # The editable project install is required so autodoc can import ``pyages``.
+-r ../install/bootstrap-constraints.txt
 -c ../install/constraints.txt
 -e .[docs]

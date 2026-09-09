@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import platform
@@ -27,6 +26,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy
+from matplotlib.figure import Figure
 from matplotlib.ticker import FormatStrFormatter
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -45,6 +45,7 @@ from examples.natural.holten.holten_reproduction import (
     build_reproduction_endmembers,
     optimize_well,
 )
+from pyages.calibration.methods.mh.diagnostics import mcse_mean_from_ess
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from scripts.article.run_final_shifted_exponential import (
     _iact_ess,
@@ -52,8 +53,8 @@ from scripts.article.run_final_shifted_exponential import (
     _split_rhat,
     _summary,
 )
-from scripts.common.mcmc_diagnostics import mcse_mean
 from scripts.common.provenance import repository_provenance
+from scripts.common.provenance import sha256_file as _sha256
 from scripts.common.publication_plotting import (
     PUBLICATION_RC,
     mm_to_in,
@@ -341,7 +342,7 @@ def collect_diagnostics(
                     "steps_per_chain": steps,
                     "split_rhat": rhat,
                     "ess_sum_chains": total_ess,
-                    "mcse_mean": mcse_mean(pooled, total_ess),
+                    "mcse_mean": mcse_mean_from_ess(pooled, total_ess),
                     "iact_max_chain": float(max(iact_values)),
                     "converged": bool(rhat < 1.01 and total_ess >= 300.0),
                 }
@@ -359,7 +360,7 @@ def collect_diagnostics(
             )
             if diagnostic is None:
                 objective_ess = float(sum(_iact_ess(chain)[2] for chain in chains))
-                mean_mcse = mcse_mean(values, objective_ess)
+                mean_mcse = mcse_mean_from_ess(values, objective_ess)
             else:
                 objective_ess = diagnostic["ess_sum_chains"]
                 mean_mcse = diagnostic["mcse_mean"]
@@ -422,7 +423,9 @@ def _posterior_predictions(
             continue
         observations = build_observations(prepared, well, True)
         elements = observations["element"]
-        if elements.isna().any():
+        if not isinstance(elements, pd.Series):
+            raise ValueError("Expected exactly one 'element' observation column")
+        if bool(elements.isna().any()):
             raise RuntimeError(f"Missing tracer name in observations for {well}")
         tracer_names = elements.map(str).tolist()
         matrix = _matrix(endmembers, tracer_names)
@@ -514,13 +517,13 @@ def _draw_figure3(
     comparison: pd.DataFrame,
     *,
     layout: tuple[int, int],
-) -> tuple[plt.Figure, np.ndarray]:
+) -> tuple[Figure, np.ndarray]:
     """Draw one publication layout of the canonical Holten comparison."""
 
     wells = comparison["well"].drop_duplicates().tolist()
-    tab10 = plt.get_cmap("tab10").colors
-    pyages_color = tab10[0]
-    visser_color = tab10[1]
+    tab10 = plt.get_cmap("tab10")
+    pyages_color = tab10(0)
+    visser_color = tab10(1)
     rows, columns = layout
     height_mm = 78 if layout == (1, 4) else 118
     fig, axes = plt.subplots(
@@ -622,14 +625,6 @@ def _figure3(comparison: pd.DataFrame, output: Path) -> None:
         alternative, _ = _draw_figure3(comparison, layout=(2, 2))
         save_pdf_png(alternative, output, "figure3_holten_alt_2x2")
         plt.close(alternative)
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _manifest(output: Path, lengths: dict[str, int]) -> None:
@@ -747,6 +742,8 @@ def analyze_and_extend(output: Path) -> dict[str, pd.DataFrame]:
             converged=("converged", "all"),
         )
     )
+    if not isinstance(summary, pd.DataFrame):
+        raise TypeError("Convergence aggregation must produce a DataFrame")
     report = (
         "# Holten H4 final multi-chain\n\n"
         "Observables : ³H, ³He tritiogénique corrigé, ⁸⁵Kr et ³⁹Ar. "

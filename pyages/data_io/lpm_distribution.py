@@ -1,8 +1,18 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file serializes tabular products derived from calibrated LPM samples.
 
-"""Tabular output helpers for LPM sample distributions."""
+"""Read and write LPM samples, histograms, statistics, and probability tables.
+
+The functions preserve the tabular index conventions expected by calibrated
+sample objects and use stable filenames for the related analysis products.
+Writers serialize into temporary files and replace the destination only after
+the complete table succeeds, preventing readers from observing partial output.
+
+This module defines storage mechanics rather than the statistical calculations
+that produce the distributions and summaries.
+"""
 
 from __future__ import annotations
 
@@ -45,7 +55,7 @@ def write_frame(frame: pd.DataFrame, target: str | Path, *, index: bool) -> None
             mode="w",
             encoding="utf-8",
             newline="",
-            prefix=f".{path.name}.",
+            prefix=".pyages-",
             suffix=".tmp",
             dir=path.parent,
             delete=False,

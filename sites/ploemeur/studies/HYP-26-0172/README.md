@@ -13,6 +13,9 @@ a fractured crystalline aquifer*.
 - Heavy outputs are written under `results/HYP-26-0172/runs/<experiment_id>`.
 - Every launched experiment receives a manifest recording its configuration,
   input hashes, Git revision, environment, command, and final status.
+- Every production calibration uses four independent chains. Posterior pooling
+  is allowed only after all configured R-hat, bulk-ESS, tail-ESS, and MCSE
+  checks have been computed and passed.
 - MCMC outputs (`runs`) are kept separate from derived tables (`derived`) and
   publication graphics (`figures`).
 - `figures.yaml` is the authoritative map from scientific claims to
@@ -57,7 +60,75 @@ The `double_prior` workflow performs the full-span, period-specific, and
 successive-window stages. Consequently, one matrix row can supply several
 derived products; the `article_outputs` column records all intended consumers.
 
+## MCMC qualification contract
+
+The active files under `params/` use the current nested PyAges schema. Their
+production settings are equivalent to:
+
+```yaml
+calibration:
+  exploration_resolution: 20
+  posterior_draw_count: 0
+  metropolis_hastings:
+    nsteps: 40000
+    burn_in: 0.2
+    thinning: 10
+    chains: 4
+    seed: 12345
+    initialization: {strategy: bounds_stratified, max_attempts: 100}
+    pilot: {enabled: true, nsteps: 2000, burn_in: 0.5}
+    diagnostics:
+      max_rhat: 1.01
+      min_bulk_ess: 300
+      min_tail_ess: 300
+      require_convergence: true
+```
+
+The complete pilot settings, including covariance regularization and automatic
+proposal scaling, are explicit in every file. The `init_F11_young` and
+`init_F11_old` experiments replace bounds-stratified initialization with four
+explicit copies of the declared young or old state; the derived phase and
+chain seeds still give independent random streams. Files below `archive/` keep
+historical experiment settings for provenance; they are not referenced by the
+matrix and are never inputs to the finalized production chain.
+
 ## Commands
+
+Run all enabled simulations, build the derived tables and figures, and perform
+the final TIFF validation with one command:
+
+```powershell
+python -m sites.ploemeur.studies.HYP-26-0172.scripts.run_all --max-workers 2
+```
+
+Use an isolated 100-step profile to exercise the same complete chain before a
+production campaign:
+
+```powershell
+python -m sites.ploemeur.studies.HYP-26-0172.scripts.run_all `
+  --profile smoke --max-workers 1
+```
+
+The command stops at the first failed stage. Add `--resume` when intentionally
+reusing existing run directories. The `smoke` profile still runs four chains
+and computes convergence diagnostics, but uses 100 pilot and 100 production
+steps per chain, thinning 1, and non-blocking diagnostic gates. Its pooled
+outputs test the software path only and must not be interpreted scientifically.
+
+On another machine, use Python 3.12--3.14, clone the same Git revision, create
+and activate a virtual environment, then install the qualified dependencies:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade -r install/bootstrap-constraints.txt
+python -m pip install -c install/constraints.txt -e ".[dev]"
+python -m pip check
+```
+
+Copy any uncommitted study changes before launching the command. Source and
+input hashes plus `pip freeze` are recorded in each run directory, so the
+campaign can later be matched to the exact checkout and environment.
 
 Validate the matrix and referenced YAML files without running a calibration:
 
@@ -75,14 +146,14 @@ Run one experiment explicitly:
 
 ```powershell
 python -m sites.ploemeur.studies.HYP-26-0172.scripts.run_matrix `
-  --experiment-id regime_F11_exp_3cfc_err20_seed12345 --execute
+  --experiment-id main_F11_exp_ig_3cfc_err20_seed12345 --execute
 ```
 
 Run the same experiment with an isolated 100-step smoke profile:
 
 ```powershell
 python -m sites.ploemeur.studies.HYP-26-0172.scripts.run_matrix `
-  --experiment-id regime_F11_exp_3cfc_err20_seed12345 `
+  --experiment-id main_F11_exp_ig_3cfc_err20_seed12345 `
   --profile smoke --execute
 ```
 
@@ -92,8 +163,9 @@ After the selected runs finish, build derived CSV files and available figures:
 python -m sites.ploemeur.studies.HYP-26-0172.postprocessing.build_products --profile smoke
 ```
 
-Launch all enabled 40,000-step production experiments with two concurrent
-six-process workflows:
+Launch all enabled production experiments with two concurrent six-process
+workflows. Each individual calibration runs four sequential 40,000-transition
+chains after four sequential 2,000-transition pilot chains inside its worker:
 
 ```powershell
 python -m sites.ploemeur.studies.HYP-26-0172.scripts.supervise_runs --max-workers 2
@@ -138,6 +210,29 @@ results/HYP-26-0172/runs/<experiment_id>/
 `-- workflow/                 # native PyAges results
 ```
 
+Each native `Metropolis_Hastings/` case contains the convergence audit and the
+pooled posterior only after qualification:
+
+```text
+Metropolis_Hastings/
+|-- chains/
+|   |-- chain_001/lpm_dist_calibrated.txt
+|   |-- chain_002/lpm_dist_calibrated.txt
+|   |-- chain_003/lpm_dist_calibrated.txt
+|   `-- chain_004/lpm_dist_calibrated.txt
+|-- mcmc_diagnostics.tsv
+|-- proposal_covariance.tsv
+|-- parameters_calibration.txt
+|-- results_calibration.txt
+|-- run_provenance.txt
+`-- lpm_dist_calibrated.txt    # pooled posterior, qualified production only
+```
+
+`mcmc_diagnostics.tsv` records R-hat, bulk ESS, tail ESS, mean MCSE, and the
+qualification decision per parameter. If required convergence fails, the
+individual chains and diagnostics are preserved, the pooled posterior is not
+written, and the launcher exits non-zero before post-processing.
+
 Postprocessing must create durable, tabular intermediates below
 `results/HYP-26-0172/derived`. In particular, Figure 6 should be rendered from
 `figure6_median_transit_times.csv`, not by searching dated result folders.
@@ -146,7 +241,8 @@ The production chain is:
 
 ```text
 experiment_matrix.csv
-  -> matrix-managed workflow runs
+  -> four-chain matrix-managed workflow runs
+  -> convergence qualification and posterior pooling
   -> derived/*.csv
   -> postprocessing figure builders
   -> figures/*.{png,pdf,tif}
@@ -156,6 +252,12 @@ Only the extraction stage may inspect native workflow folders. Figure builders
 must consume a declared derived table, except Figure 3 (posterior prediction
 ensembles) and the observation-only Figures 2/S1. See `figures.yaml` for the
 complete contract.
+
+The code follows the same boundary: `product_extraction.py` discovers and
+validates native run outputs, `summary_figures.py` renders Figures 4, 5, 6 and
+A1 only from derived tables, and `build_products.py` is the short orchestration
+facade. Figure 3 remains in the facade as the documented native-posterior
+exception.
 
 Each generated figure has three outputs: a 300-DPI PNG preview, a vector PDF,
 and the submission artifact (`.tif`). Submission TIFF files are flattened RGB,

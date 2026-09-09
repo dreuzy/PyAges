@@ -1,9 +1,11 @@
 # Citing PyAges
 
-For software functionality, cite the exact PyAges release used. The current
-maintenance release is `1.0.1`; its machine-readable citation is
-`CITATION.cff` at the repository root and is kept synchronized with the
-package version and changelog by automated tests.
+For software functionality, cite the exact PyAges release used. This source
+tree records the current `2.0.0` release identity; its machine-readable citation is
+`CITATION.cff` at the repository root and is kept synchronized with the package
+version and changelog by automated tests. Until the 2.0 tag and distribution
+are published, calculations from this tree must also identify their exact Git
+commit.
 
 The immutable software and reproducibility archive associated with the
 article campaign is version `1.0`:
@@ -19,8 +21,8 @@ the version-specific DOI when citing the archived article calculations. The
 archived source is the reviewed commit identified by tag `1.0`.
 
 The Zenodo DOI is not added to `CITATION.cff` because that file now describes
-maintenance release `1.0.1`, while the published Zenodo record identifies the
-immutable `1.0` archive. A future Zenodo archive of `1.0.1` may be added only
+the prepared `2.0.0` source, while the published Zenodo record identifies the
+immutable `1.0` archive. A future Zenodo archive of `2.0.0` may be added only
 with its own version-specific DOI.
 
 ## Citing calculations from an unreleased commit

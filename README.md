@@ -6,10 +6,17 @@ inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
 It provides reusable scientific components in `pyages/` and site-specific
 workflows in `sites/`, with examples and regression tests to support validation.
 
-Project status: **stable** (`1.0.1`). Public interfaces, scientific workflows,
-and validation gates are documented and tested. Each public release source is
-identified by its exact annotated Git tag; an untagged checkout must also be
-identified by its exact Git commit.
+Project status: this source tree carries the `2.0.0` release identity. Version
+2.0 is intentionally breaking because obsolete configuration spellings and
+Python compatibility aliases were removed instead of being carried forward.
+The latest distribution currently published on PyPI is still `1.0.1`; until
+the 2.0 tag and distribution are published, identify this checkout by its exact
+Git commit. Public interfaces, scientific workflows, and validation gates are
+documented and tested.
+
+Developing from source? Start with the
+[ten-minute developer setup](docs/dev/getting-started.md) and then follow the
+[code tour](docs/dev/code-tour.md).
 
 Release maturity follows this policy:
 
@@ -30,15 +37,34 @@ The complete `1.0` article archive is preserved on Zenodo under the
 version-specific DOI
 [`10.5281/zenodo.22150863`](https://doi.org/10.5281/zenodo.22150863). See the
 [citation guidance](docs/reference/citation.md) for the distinction between
-the archived `1.0` campaign and the current `1.0.1` maintenance release.
+the archived `1.0` campaign, the published `1.0.1` maintenance release, and
+the prepared `2.0.0` source. Release changes are recorded in the
+[changelog](CHANGELOG.md) and the current
+[configuration reference](docs/user-guide/configuration.md).
 
 ## Quick start
 
-Create and activate a virtual environment, then install the stable release
-from PyPI:
+Create a virtual environment:
 
-```
+```bash
 python -m venv .venv
+```
+
+Activate it on PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Or activate it on macOS/Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+Then install the latest published stable release from PyPI:
+
+```bash
 python -m pip install "pyages==1.0.1"
 ```
 
@@ -49,19 +75,17 @@ campaign; it is not a bit-for-bit lock or the PyAges 1.0 user environment. See
 
 Installing PyAges enables the `pyages` CLI:
 
-```
+```bash
 pyages --version
+pyages check
 ```
 
 The distribution, Python import, and command all use the single identifier
 `pyages`. The wheel contains the reusable library, its CLI,
 and core model data. Repository examples and site studies remain in the Git
 source tree. The `1.0.1` release is available from
-[PyPI](https://pypi.org/project/pyages/1.0.1/):
-
-```
-python -m pip install "pyages==1.0.1"
-```
+[PyPI](https://pypi.org/project/pyages/1.0.1/). To evaluate the prepared 2.0
+source before publication, install this checkout with `python -m pip install .`.
 
 Use `python -m pip install pyages` when deliberately selecting the newest
 published compatible release. Prerelease artifacts, if any, require an
@@ -71,36 +95,54 @@ explicit prerelease request:
 python -m pip install --pre pyages
 ```
 
-Run the full test suite:
+## Quickstart 2.0 (fast, no source examples required)
+
+After installing this checkout, generate a complete local example and run it:
 
 ```
-python run_tests.py standard
+pyages new config quickstart
+pyages run quickstart/pyages.yaml
 ```
 
-Update golden values (when intentionally changing outputs):
+This creates a schema-3 YAML file and a small synthetic observation table. It
+checks installation, input loading, workflow startup, output writing, and
+provenance. Its scientific steps are disabled so the default run stays fast;
+it is not a calibrated scientific result. Use `--kind temporal` to generate a
+short variant that also exercises the temporal calculation path.
 
-```
-python run_tests.py standard update
+## Multi-chain MH qualification
+
+PyAges 2.0 includes opt-in multi-chain Metropolis--Hastings with
+dispersed starts, a separate pilot that learns one fixed proposal covariance,
+independent production streams, rank-normalized convergence diagnostics, and
+qualification-gated pooling.
+
+Two canonical source-checkout profiles are available:
+
+```bash
+pyages run examples/synthetic/lpm_recovery_single_date/lpm_recovery_single_date_multichain.yaml
+pyages run examples/natural/ploemeur/exemple_ploemeur_multichain.yaml
 ```
 
-## Quickstart (fast, no interactive plots)
+The first checks recovery of known synthetic parameters. The second qualifies
+convergence and fitted latent concentrations for the F09 2010 observations; it
+does not provide known field parameter truth. Run both executable scientific
+qualifications with:
 
-From a source checkout, use the minimal templates under `examples/templates/`:
+```bash
+python run_tests.py extensive
+```
 
-```
-pyages run examples/templates/quickstart_single.yaml
-pyages run --transient examples/templates/quickstart_temporal.yaml
-```
+See the
+[multi-chain guide](docs/user-guide/multichain-mh.md),
+[configuration reference](docs/user-guide/configuration.md),
+[output contract](docs/reference/outputs.md), and
+[qualification record](docs/reports/multichain-mh-qualification-2026-08-31.md).
 
 ## Installation and execution
 
-Recommended stable package:
-
-```
-python -m pip install "pyages==1.0.1"
-```
-
-This makes `import pyages` work from any directory and enables the CLI:
+The installation in the quick start makes `import pyages` work from any
+directory and enables the CLI:
 
 ```
 pyages check
@@ -121,8 +163,8 @@ The CLI provides quick access to common workflows once the package is installed.
 Main commands:
 - `pyages check` : validate installation, data paths, LPM registry, tracers.
 - `pyages list lpms|tracers` : list available models or tracers.
-- `pyages run <config.yaml>` : run a YAML-driven workflow (single-date by default).
-- `pyages run --transient <config.yaml>` : run the multi-date temporal workflow.
+- `pyages run <config.yaml>` : run the workflow declared by `workflow.kind`.
+- `pyages new config <directory>` : create a self-contained synthetic quickstart.
 - `pyages new lpm|tracer ...` : scaffold a new model or tracer template.
 
 Examples:
@@ -130,9 +172,9 @@ Examples:
 pyages check
 pyages list lpms
 pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 pyages run --lpm exp_shifted --mh-nsteps 5000 --data-name mydata.txt --data-dir examples/my_site/data my_config.yaml
-pyages run --transient --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
+pyages run --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
 ```
 
 ## Results directory
@@ -165,7 +207,7 @@ setx PYAGES_RESULTS_DIR "D:\results\PyAges"
   - `pyages/config/`: validated configuration models, paths, and runtime helpers
   - `pyages/_plotting.py`: private plotting primitives shared across modules
 - `data_core/`: shared model data for LPMs and tracers (not observations)
-  - `data_core/data_lpm/`: LPM parameter files (`params.yaml`, bounds, etc.)
+  - `data_core/data_lpm/`: LPM parameter files (`params.yaml`, domains, calibration ranges, priors, etc.)
   - `data_core/data_tracer/`: tracer chronologies and recharge series
   - `data_core/sources/`: provenance sources excluded from runtime packages
 - `sites/`: site-specific workflows, data, and scripts (e.g., `ploemeur/`)
@@ -220,8 +262,8 @@ site-specific directory such as `sites/ploemeur/params_lpm`.
 
 ## Running examples
 
-Example runners live under `examples/<site>/` and read their own YAML configs.
-For instance, see:
+Examples live under `examples/<site>/` and are normally launched from their
+YAML configuration with `pyages run`. For instance, see:
 
 - `examples/natural/ploemeur/exemple_ploemeur.yaml`
 - `examples/natural/ploemeur_temporal/ploemeur_temporal.yaml`
@@ -229,12 +271,12 @@ For instance, see:
 
 ### Temporal MH launcher (multi-date concentrations)
 
-There is a dedicated launcher that runs Metropolis-Hastings on a multi-date
-concentration file (``ori_*.txt``) and produces temporal plots plus parameter
+The temporal workflow runs Metropolis-Hastings on a multi-date concentration
+file (``ori_*.txt``) and produces temporal plots plus parameter
 and concentration distributions:
 
 ```
-pyages run --transient examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
 ```
 
 Supported modes:
@@ -265,12 +307,20 @@ Run extensive tests (opt-in):
 python run_tests.py extensive
 ```
 
+## Contributing
+
+Start with the
+[ten-minute developer setup](docs/dev/getting-started.md), then use the
+[code tour](docs/dev/code-tour.md) to find the implementation and focused tests
+for a change. The complete contribution policy and scientific-change checklist
+are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Workflows and diagnostics
 
 The supported workflow entrypoints are:
 
-- `pyages run`: single-date workflow driven by YAML.
-- `pyages.workflows.temporal`: canonical multi-date MH workflow, exposed by `pyages run --transient`.
+- `pyages run`: single-date or temporal workflow selected by the YAML.
+- `pyages.workflows.temporal`: canonical multi-date MH workflow.
 - `pyages check`: quick installation and data sanity check.
 
 Repository-only research and benchmark commands are catalogued in

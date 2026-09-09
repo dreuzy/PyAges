@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file adapts SciPy probability distributions to the common LPM contract.
+# It converts a model's physical parameters into SciPy shape, location, and scale
+# inputs and returns PDFs, CDFs, quantiles, means, and standard deviations, while
+# exact partial moments needed by convolution remain model-specific.
 
 """Adapt continuous SciPy distributions to the PyAges LPM interface.
 
@@ -54,6 +58,8 @@ convolution formula. Numerical workarounds that apply to one SciPy family
 belong in that model family rather than in this generic core adapter.
 """
 
+import abc
+
 import numpy as np
 import numpy.typing as npt
 from scipy.stats import rv_continuous
@@ -72,8 +78,9 @@ class LpmScipy(LpmBase):
     This eliminates repetitive pdf/cdf/cdf_inv/mean/std implementations.
     """
 
-    scipy_dist: rv_continuous = None  # Override in subclass
+    scipy_dist: rv_continuous  # Set by every concrete subclass.
 
+    @abc.abstractmethod
     def _scipy_params(self) -> tuple[tuple, float, float]:
         """
         Return scipy distribution parameters.
@@ -86,7 +93,7 @@ class LpmScipy(LpmBase):
             - loc: location parameter
             - scale: scale parameter
         """
-        raise NotImplementedError("Subclasses must implement _scipy_params()")
+        raise NotImplementedError
 
     def pdf(self, t: npt.ArrayLike) -> npt.ArrayLike:
         """Probability Density Function."""
@@ -112,7 +119,10 @@ class LpmScipy(LpmBase):
         non-negative transit-time contract and is rejected explicitly.
         """
         args, loc, scale = self._scipy_params()
-        mean = float(self.scipy_dist.stats(*args, loc=loc, scale=scale, moments="m"))
+        raw_mean = self.scipy_dist.stats(*args, loc=loc, scale=scale, moments="m")
+        if isinstance(raw_mean, tuple):
+            raise TypeError("SciPy returned several statistics for one requested mean")
+        mean = float(np.asarray(raw_mean, dtype=float))
         if not np.isfinite(mean) or mean < 0.0:
             raise ValueError(
                 f"SciPy-backed LPM '{self.name}' must have a finite, "
@@ -123,4 +133,9 @@ class LpmScipy(LpmBase):
     def std(self) -> float:
         """Return standard deviation of distribution."""
         args, loc, scale = self._scipy_params()
-        return np.sqrt(self.scipy_dist.stats(*args, loc=loc, scale=scale, moments="v"))
+        raw_variance = self.scipy_dist.stats(*args, loc=loc, scale=scale, moments="v")
+        if isinstance(raw_variance, tuple):
+            raise TypeError(
+                "SciPy returned several statistics for one requested variance"
+            )
+        return float(np.sqrt(np.asarray(raw_variance, dtype=float)))

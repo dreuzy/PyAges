@@ -1,5 +1,5 @@
 # LPM parameters for model "dirac_double_1_set"
-# Canonical schema for bounds, initialization, proposal steps, and priors.
+# Canonical schema for validity, calibration, initialization, and priors.
 
 model: dirac_double_1_set
 version: 1
@@ -9,7 +9,8 @@ parameters:
     label: free_atom_age
     unit: year
     description: "Age of the free Dirac point mass."
-    bounds: [0.0, 70.0]
+    domain: {min: 0.0, max: null}
+    calibration_range: [0.0, 70.0]
     init: 10.0
     step: 2.0
     prior:
@@ -22,7 +23,8 @@ parameters:
     label: mix_rate
     unit: "-"
     description: "Probability mass assigned to the free Dirac atom."
-    bounds: [0.0, 1.0]
+    domain: {min: 0.0, max: 1.0}
+    calibration_range: [0.0, 1.0]
     init: 0.3
     step: 0.1
     prior:

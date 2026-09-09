@@ -21,7 +21,7 @@ DEFAULT_MANIFEST = BENCHMARK_ROOT / "references" / "observations_manifest.yaml"
 
 
 def _noise_realizations(noise_config: dict) -> list[tuple[str, float, int | None]]:
-    result = [("none", 0.0, None)]
+    result: list[tuple[str, float, int | None]] = [("none", 0.0, None)]
     low = noise_config["low_deterministic"]
     result.append(
         (

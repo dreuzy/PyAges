@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file runs reachability analysis and calibration for a single-date case.
 
-"""Reachability and calibration operations for the single-date workflow."""
+"""Apply enabled calibration methods to an already prepared single-date context.
+
+Reachability sampling evaluates the configured LPM across parameter space before
+fitting, showing which tracer combinations the model can produce. Calibration
+then builds one shared scientific problem and dispatches the enabled Simplex or
+Metropolis--Hastings implementations.
+
+Each method writes only beneath its staged result directory, while the returned
+mapping keeps its calibrated sample table available to later reporting steps.
+This module does not publish the stage or write the terminal run manifest.
+"""
 
 from __future__ import annotations
 
@@ -12,11 +23,12 @@ from pathlib import Path
 import pandas as pd
 
 from pyages.calibration.exploration.systematic import SystematicSampling
-from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.calibration.methods.simplex import FORWARD_UNCERTAINTY, Simplex
+from pyages.calibration.outputs import write_calibrated_result
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.paths import result_subdirectory
 from pyages.lpm.samples import LpmSampleTable
+from pyages.workflows.runtime.mh import run_mh_calibration
 from pyages.workflows.single_date.context import SingleDateContext
 
 
@@ -28,16 +40,16 @@ def _calibration_problem(
     display.directory = output_directory
     return CalibrationProblem(
         context.observations,
-        context.params.lpm_model_name,
+        context.params.lpm.models[0],
         display_options=display,
-        lpm_directory=context.params.directory_lpm,
-        tracer_data_directory=context.params.tracer_data_dir,
+        lpm_directory=context.params.lpm.directory,
+        tracer_data_directory=context.params.tracers.data_directory,
     ).prepare()
 
 
 def reachable_concentrations(context: SingleDateContext) -> pd.DataFrame | None:
     """Compute the reachable model space when enabled."""
-    if not context.params.run_reachable_concentrations:
+    if not context.params.run.reachable_concentrations:
         return None
     display = copy.deepcopy(context.saved_display)
     display.directory = result_subdirectory(
@@ -45,13 +57,13 @@ def reachable_concentrations(context: SingleDateContext) -> pd.DataFrame | None:
         "reachable_concentrations",
     )
     sampling = SystematicSampling(
-        context.params.lpm_model_name,
+        context.params.lpm.models[0],
         context.observations.observation_tracer_names(),
         date=context.observations.frame["date"],
-        sample_count=context.params.reachable_concentration_nmodels,
+        sample_count=context.params.reachable_concentrations.nmodels,
         display_options=display,
-        lpm_directory=context.params.directory_lpm,
-        tracer_data_directory=context.params.tracer_data_dir,
+        lpm_directory=context.params.lpm.directory,
+        tracer_data_directory=context.params.tracers.data_directory,
     )
     sampling.compute_concentrations()
     sampling.output()
@@ -61,47 +73,47 @@ def reachable_concentrations(context: SingleDateContext) -> pd.DataFrame | None:
 def _run_simplex(context: SingleDateContext) -> tuple[str, LpmSampleTable]:
     method = Simplex(
         FORWARD_UNCERTAINTY,
-        init_multiples_n=context.params.simplex_init_multiples_n,
-        fuq_n=context.params.simplex_fuq_n,
+        init_multiples_n=context.params.calibration.simplex.init_multiples_n,
+        fuq_n=context.params.calibration.simplex.fuq_n,
     )
     problem = _calibration_problem(
         context,
         result_subdirectory(context.output_directory, method.method),
     )
     results = method.run(problem)
-    method.write_calibrated_lpm(results)
+    write_calibrated_result(method, problem, results)
     return method.method, results
 
 
 def _run_metropolis_hastings(
     context: SingleDateContext,
 ) -> tuple[str, LpmSampleTable]:
-    method = MetropolisHastings(
-        config=MHConfig(
-            nstep=context.params.mh_nstep,
-            prior_option=context.params.mh_prior_option,
-            likelihood=context.params.mh_likelihood,
-            monitor=context.params.mh_monitor,
-            display_traj=context.params.mh_display_traj,
-            componentwise_source="model",
-        )
+    workflow_config = context.params.calibration.metropolis_hastings
+    output_directory = result_subdirectory(
+        context.output_directory, "Metropolis_Hastings"
     )
-    problem = _calibration_problem(
-        context,
-        result_subdirectory(context.output_directory, method.method),
+    problem_template = _calibration_problem(context, output_directory)
+
+    def problem_builder(directory: Path) -> CalibrationProblem:
+        display = copy.deepcopy(context.saved_display)
+        display.directory = directory
+        return problem_template.clone_prepared(display_options=display)
+
+    results = run_mh_calibration(
+        workflow_config,
+        output_directory,
+        problem_builder,
     )
-    results = method.run(problem)
-    method.write_calibrated_lpm(results)
-    return method.method, results
+    return "Metropolis_Hastings", results
 
 
 def run_calibrations(context: SingleDateContext) -> dict[str, LpmSampleTable]:
     """Run each independently enabled calibration strategy."""
     results: dict[str, LpmSampleTable] = {}
-    if context.params.run_calibration_simplex:
+    if context.params.run.simplex:
         method, distribution = _run_simplex(context)
         results[method] = distribution
-    if context.params.run_calibration_metropolis_hastings:
+    if context.params.run.metropolis_hastings:
         method, distribution = _run_metropolis_hastings(context)
         results[method] = distribution
     return results

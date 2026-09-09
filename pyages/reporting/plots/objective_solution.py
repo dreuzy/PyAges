@@ -1,8 +1,22 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file locates one set of posterior solutions in its objective landscape.
 
-"""Detailed objective-solution figures."""
+"""Inspect posterior solutions within the objective landscape explored beforehand.
+
+The objective grid describes how fit quality varies across the prior parameter
+space, while the posterior frame contains the solutions retained by one
+calibration. For a one-parameter model, both stages are plotted against the
+objective value. For a larger model, the grid is interpolated into colored
+pairwise landscapes and the posterior solutions are placed on top.
+
+Grid and posterior values share one color scale so the same color always means
+the same fit quality; lower values are better. A star identifies the best
+posterior solution and an optional diamond identifies independently known
+parameters. Large frames are thinned reproducibly for display only, without
+changing how the best or reference solutions are selected.
+"""
 
 from __future__ import annotations
 
@@ -13,10 +27,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.lines import Line2D
 
+from pyages._scalar_conversion import scalar_float
 from pyages.reporting.plots._common import (
     OBSERVED_COLOR,
     _best_row,
     _nearest_reference_objective_row,
+    _numeric_series,
     _plot_interpolated_objective_surface,
     _save_figure,
     apply_example_style,
@@ -38,7 +54,12 @@ def _plot_solution_objective_axis(
     vmin: float,
     vmax: float,
 ):
-    """Plot one parameter against objective values."""
+    """Plot one parameter against objective values from two sampling stages.
+
+    The faint points represent the objective evaluated on the prior grid.  The
+    stronger points are posterior solutions on the same color scale, allowing
+    the reader to see both the explored landscape and where calibration ended.
+    """
     scalar = ax.scatter(
         grid[x_name],
         grid_values,
@@ -77,7 +98,7 @@ def _plot_solution_objective_axis(
     if reference_params and x_name in reference_params and reference_row is not None:
         ax.scatter(
             float(reference_params[x_name]),
-            float(reference_row[objective_column]),
+            scalar_float(reference_row[objective_column]),
             marker="D",
             s=90,
             color=OBSERVED_COLOR,
@@ -104,7 +125,12 @@ def _plot_solution_parameter_axis(
     vmin: float,
     vmax: float,
 ):
-    """Plot two parameters over the interpolated objective landscape."""
+    """Plot two parameters over the interpolated prior objective landscape.
+
+    Posterior points retain their individual objective colors.  The star and
+    optional diamond distinguish the best sampled solution from an independent
+    reference rather than asking the reader to infer them from color alone.
+    """
     scalar = _plot_interpolated_objective_surface(
         ax,
         grid[x_name],
@@ -164,7 +190,7 @@ def _plot_solution_parameter_axis(
 
 
 def _solution_legend(reference_params, reference_label: str) -> list[Line2D]:
-    """Build the fixed legend for expert objective figures."""
+    """Describe the visual roles shared by every objective-solution panel."""
     handles = [
         Line2D(
             [],
@@ -214,6 +240,32 @@ def _solution_legend(reference_params, reference_label: str) -> list[Line2D]:
     return handles
 
 
+def _objective_columns(
+    objective_frame: pd.DataFrame,
+    posterior_frame: pd.DataFrame,
+) -> tuple[str, str]:
+    """Resolve and validate objective-column names for both sampling stages."""
+    objective_column = (
+        "half_log_chi_square"
+        if "half_log_chi_square" in objective_frame.columns
+        else "obj_function"
+    )
+    posterior_column = (
+        "obj_function"
+        if "obj_function" in posterior_frame.columns
+        else objective_column
+    )
+    if objective_column not in objective_frame.columns:
+        raise ValueError(
+            "Objective frame must contain 'half_log_chi_square' or 'obj_function'."
+        )
+    if posterior_column not in posterior_frame.columns:
+        raise ValueError(
+            "Posterior frame must contain 'obj_function' or 'half_log_chi_square'."
+        )
+    return objective_column, posterior_column
+
+
 def plot_objective_solution_map(
     objective_frame: pd.DataFrame,
     posterior_frame: pd.DataFrame,
@@ -223,30 +275,28 @@ def plot_objective_solution_map(
     filename: str | Path | None = None,
     title: str = "Expert view: posterior solutions colored by objective value",
 ):
-    """
-    Plot posterior solutions on top of the colored objective landscape.
+    """Show where posterior solutions fall in the prior objective landscape.
+
+    With one parameter, the figure plots that parameter directly against the
+    objective.  With several parameters, it displays up to three pairwise
+    projections.  A shared color range makes prior-grid and posterior objective
+    values comparable across all panels; lower values indicate better fits.
+
+    Large inputs are reproducibly thinned for rendering only.  Best-solution
+    and optional reference markers are still derived from the full frames.
     """
     apply_example_style()
     if not param_names:
         raise ValueError("At least one parameter is required.")
 
-    objective_col = (
-        "half_log_chi_square"
-        if "half_log_chi_square" in objective_frame.columns
-        else "obj_function"
+    # Accept both names used by the objective-grid and calibration pipelines,
+    # then normalize their visual meaning through a shared color scale.
+    objective_col, posterior_objective_col = _objective_columns(
+        objective_frame, posterior_frame
     )
-    posterior_objective_col = (
-        "obj_function" if "obj_function" in posterior_frame.columns else objective_col
-    )
-    if objective_col not in objective_frame.columns:
-        raise ValueError(
-            "Objective frame must contain 'half_log_chi_square' or 'obj_function'."
-        )
-    if posterior_objective_col not in posterior_frame.columns:
-        raise ValueError(
-            "Posterior frame must contain 'obj_function' or 'half_log_chi_square'."
-        )
 
+    # A single parameter needs an objective axis.  Higher-dimensional models
+    # use pairwise projections, capped at three to keep the figure readable.
     if len(param_names) == 1:
         pairs = [(param_names[0], objective_col)]
     else:
@@ -258,6 +308,8 @@ def plot_objective_solution_map(
     fig, axs = plt.subplots(1, ncols, figsize=(fig_width, 4.9), squeeze=False)
     axs = axs.flatten()
 
+    # Downsampling controls plotting cost only and uses a fixed seed so report
+    # images remain reproducible between runs.
     grid_frame = objective_frame.copy()
     if len(grid_frame) > 9000:
         grid_frame = grid_frame.sample(9000, random_state=12345)
@@ -265,10 +317,8 @@ def plot_objective_solution_map(
     if len(post_frame) > 2500:
         post_frame = post_frame.sample(2500, random_state=12345)
 
-    grid_values = pd.to_numeric(grid_frame[objective_col], errors="coerce")
-    posterior_values = pd.to_numeric(
-        post_frame[posterior_objective_col], errors="coerce"
-    )
+    grid_values = _numeric_series(grid_frame, objective_col)
+    posterior_values = _numeric_series(post_frame, posterior_objective_col)
     combined_values = pd.concat(
         [grid_values.dropna(), posterior_values.dropna()], ignore_index=True
     )
@@ -277,6 +327,8 @@ def plot_objective_solution_map(
             "No valid objective values found for the expert objective plot."
         )
 
+    # Both layers must share these limits; otherwise equal colors could imply
+    # different objective values for grid and posterior points.
     vmin = float(combined_values.min())
     vmax = float(combined_values.max())
     best_posterior = _best_row(post_frame)
@@ -286,6 +338,7 @@ def plot_objective_solution_map(
         param_names,
     )
 
+    scalar = None
     for xname, yname in pairs:
         ax = axs[pairs.index((xname, yname))]
         if yname == objective_col:
@@ -319,17 +372,19 @@ def plot_objective_solution_map(
                 vmax,
             )
 
+    if scalar is None:  # Guarded by the non-empty parameter check above.
+        raise RuntimeError("Objective solution plot contains no parameter panel")
     plot_right = 0.80 if ncols == 1 else 0.84
     colorbar_left = 0.88 if ncols == 1 else 0.90
     fig.subplots_adjust(left=0.10, right=plot_right, bottom=0.12, top=0.78, wspace=0.28)
-    cax = fig.add_axes([colorbar_left, 0.18, 0.024, 0.58])
+    cax = fig.add_axes((colorbar_left, 0.18, 0.024, 0.58))
     cbar = fig.colorbar(scalar, cax=cax)
     cbar.set_label("Objective value (lower is better)")
 
     legend_handles = _solution_legend(reference_params, reference_label)
     fig.legend(
         legend_handles,
-        [handle.get_label() for handle in legend_handles],
+        [str(handle.get_label()) for handle in legend_handles],
         loc="upper center",
         bbox_to_anchor=(0.48, 1.0),
         ncol=min(len(legend_handles), 3),

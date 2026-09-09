@@ -5,6 +5,314 @@ All notable changes to PyAges are recorded in this file.
 The project follows semantic versioning for its public API from version 1.0.
 Before 1.0, incompatible public changes are identified explicitly below.
 
+## Unreleased
+
+## 2.0.0 - 2026-09-09
+
+### Added
+
+- Added an explicit `not_applicable` MH qualification status for a run with one
+  chain, where inter-chain R-hat and ESS diagnostics have no statistical
+  meaning.
+- Added configuration schema 3. It uses the same `data`, `lpm`, `calibration`,
+  `reporting`, and `output` section names in YAML and in Python models.
+- Added a field-by-field 1.2-to-2.0 migration guide covering schema changes,
+  paths, seeds, temporal priors, Python API replacements, and expected
+  stochastic differences.
+
+### Changed
+
+- Routed one-chain and multi-chain MH workflows through the same auditable
+  orchestration and result writer. Every MH run now records its production
+  chain under `chains/chain_001` (and following), while a one-chain run still
+  writes the standard posterior files at the calibration root.
+- Derived production seeds uniformly for every chain count, so the first chain
+  remains stable when more chains are added. Trajectory figures are now written
+  independently per chain. The low-level storage control is now the explicit
+  `record_trajectory`, while workflows use `display_traj` only for figures.
+- Made `bounds_stratified` the single default initialization rule for one or
+  several chains. Removed the cardinality-dependent `auto` and `chain_default`
+  strategies; fixed study starts now use the existing `explicit` strategy.
+- Allowed the managed MH chain count to range from one upward. Diagnostic draw
+  and ESS feasibility rules apply only when at least two chains make
+  inter-chain diagnostics meaningful.
+- Replaced the optional schema-2 `multichain` switch with direct `chains`,
+  `seed`, `initialization`, `pilot`, and `diagnostics` fields in the single
+  `calibration.metropolis_hastings` block. Pilot tuning is now explicitly
+  opt-in.
+- Renamed the managed engine to `MetropolisHastingsRunner` / `MHRunConfig` and
+  the temporal top-level model to `TemporalConfig`. The one-chain and
+  many-chain cases now use the same runtime entry point and result writer.
+- Replaced the inherited single-date, temporal, and Ploemeur MH configuration
+  variants with one composed `MetropolisHastingsCfg`. Temporal preparation and
+  plotting use the explicit sibling fields `exploration_resolution` and
+  `posterior_draw_count`; temporal prior use is now an explicit `prior_option`.
+- Replaced the abstract `CalibrationMethod` behavior hierarchy with independent
+  Simplex and MH classes using composition plus the structural
+  `CalibrationAlgorithm` protocol. Inverse-Gaussian models now inherit directly
+  from `LpmScipy` and share only a numerical quantile function.
+- Renamed MH schedule fields to `nsteps` and `thinning` throughout the core,
+  workflow, metadata, examples, and documentation. Run provenance is written
+  to `run_provenance.txt` with one `seed` and an explicit `chain_count`.
+- Extended the Pyright gate from the installed package to all executable
+  examples, maintained site studies, the TracerLPM validation tree, and every
+  shared, article, maintenance, qualification, or release script. Scientific
+  table/scalar boundaries and the LPM registration decorator now retain
+  precise type contracts. The calibration benchmark also verifies that FUQ
+  and MH receive the same synthetic target; release manifests share explicit
+  object, list, string, and integer validation boundaries.
+- Prepared each distinct tracer history once per observation collection and
+  reused immutable tracer grids across fresh per-stage MH problems. Every
+  chain still owns its mutable LPM and convolution diagnostics, while temporal
+  multi-chain workflows no longer repeat identical file loading and adaptive
+  grid construction for initialization, pilot, and production.
+- Made the omitted single-date `lpm.directory` default resolve to the LPM data
+  packaged with PyAges. Self-contained projects created by `pyages new config`
+  now run from an installed wheel instead of accidentally looking for a
+  checkout-local `data_core` directory beside the generated YAML.
+- Aligned posterior rendering on the single name `posterior_draw_count` from
+  configuration through selection and plotting, and made reference-table
+  alignment require explicit `observation_key` values instead of row order.
+- Routed article MCMC diagnostics directly through the maintained core module
+  and named pooled-draw MCSE calculation explicitly as `mcse_mean_from_ess`.
+- Routed Ploemeur through the same `execute_mh_run` integration service as the
+  generic workflows. Its dedicated `single_run` module now owns only site
+  preparation and reporting, while stage paths, serialization, and convergence
+  failure handling have one implementation.
+- Isolated the frozen Figure 4 diagnostic formulas under the explicit
+  `article_reproduction` namespace; current workflows continue to use only the
+  canonical MH diagnostics.
+
+### Removed
+
+- Removed the deprecated flattened `LauncherParams`, single-date
+  `load_params()`/`load_params_payload()`, LPM `load_params()`, and module-level
+  LPM schema accessor aliases. Use `SingleDateConfig`, `load_config()` or
+  `load_config_payload()`, `load_parameter_document()`, and the immutable
+  schema properties instead. These public removals make the next release a
+  `2.0`, not a backward-compatible `1.3`.
+- Removed `LauncherConfig`, `TemporalParams`, `MHEnsembleConfig`,
+  `MultiChainMetropolisHastings`, temporal `lpm_models.list`, and
+  `pyages run --transient`.
+- Removed the configuration migrator and `pyages config migrate`. Schema 3 is
+  the sole executable YAML contract; older names and mixed layouts are rejected.
+- Removed `CalibrationMethod`, `_InverseGaussianLpmBase`, the single-date and
+  temporal MH configuration subclasses, and forwarding methods such as
+  `write_calibrated_lpm()` and `write_results_spec()`.
+- Removed redundant MH output fields (`execution_mode`, `master_seed`,
+  `success_rate`, `time_perform`, and the duplicate proposal-kind field).
+- Removed the repository-only `scripts.common.mcmc_diagnostics` re-export
+  facade, position-derived reference-table matching, archived-manifest
+  `mh_nsteps`/single-chain fallbacks in the final scientific audit, and the
+  HYP-26-0172 matrix launcher's `--mh-nsteps` alias.
+- Removed three disabled HYP-26-0172 experiment aliases and their unreferenced
+  configurations; maintained examples now select an active primary experiment.
+
+## 1.2.0 - 2026-09-06
+
+### Added
+
+- Added explicit `observation_key` alignment for model-space reference tables,
+  including replicate keys such as `#0` and `#1`, plus a deterministic
+  maintenance benchmark for one-time posterior preparation.
+- Added a pedagogical dependency-maintenance guide, separately qualified
+  `pip`/`setuptools`/`wheel` bootstrap baseline, exact installed-environment
+  metadata checks, grouped Dependabot updates, and a weekly dependency and
+  vulnerability audit.
+- Added a ten-minute contributor quickstart, editor guidance, quick/full local
+  check profiles, cross-editor formatting defaults, and a CI-enforced package
+  dependency boundary check; expanded the progressive Pyright surface across
+  data loading, concentrations, reporting, and single-date workflow entry.
+- Added an explicitly exploratory five-chain Albuquerque shape-free profile
+  and extensive scientific characterization, while keeping provisional error
+  and age-support assumptions outside the canonical release qualification
+  archive.
+- Added a progressive Pyright gate for selected stable internal contracts and
+  direct tests for prior-bound validation, LPM parameter-manager failures, and
+  stage-inspection CLI errors.
+- Added opt-in multi-chain Metropolis--Hastings workflows with reproducible
+  dispersed initialization, a separate pilot stage that learns one fixed
+  pooled within-chain proposal covariance, independent production streams,
+  rank-normalized split-R-hat, bulk/tail ESS, MCSE, convergence-gated pooling,
+  and per-chain diagnostic/provenance outputs. Existing one-chain workflows
+  remain the default.
+- Added four fixed-protocol scientific qualification profiles: synthetic
+  shifted-exponential recovery, natural Ploemeur F09 shifted-exponential
+  calibration, prior-active three-parameter `ig_shifted` calibration, and
+  temporal `span` calibration over 58 observations and 20 dates. Each profile
+  has maintained YAML, an executable extensive test, and an interpretation
+  page with an explicit scientific boundary.
+- Added directly runnable, versioned multi-chain profiles with isolated result
+  namespaces, plus a backward-compatible single-date `results` namespace.
+- Added read-only `pyages stages inspect` diagnostics for journals, terminal
+  seals, artifacts, and publication CAS state, together with explicit,
+  exact-UUID `pyages stages quarantine`. Quarantine revalidates under the
+  hierarchy lock, preserves the stage by sibling rename, and never purges it.
+- Added deterministic, self-verifying qualification archives with explicit
+  `draft` and `publishable` modes. The extensive CI assembles a four-profile
+  draft and checksum sidecar; durable publication still requires a clean,
+  annotated version tag and an external deposit.
+- Added versioned configuration schema 2 with common workflow section names,
+  a non-destructive `pyages config migrate` command, and `pyages new config`
+  self-contained synthetic quickstarts that work from an installed wheel.
+
+### Deprecated
+
+- Retained the deprecated module-level LPM parameter helpers
+  `get_calibration_ranges()`, `get_domains()`, and `get_init()` for 1.x
+  compatibility. New code should use the
+  `LPMParameterSchema.calibration_ranges`, `.domains`, and `.initial_values`
+  properties returned by `load_parameter_schema()`.
+- Retained the 1.0.1 `LauncherParams`, single-date `load_params*()`, LPM
+  `load_params()`, temporal `lpm_models.list`, and `pyages run --transient`
+  interfaces as deprecated 1.x compatibility aliases. Their canonical
+  replacements are documented in the 1.2 compatibility guide.
+
+### Removed
+- Removed the ambiguous LPM parameter name `bounds` from parameter YAML,
+  `LPMParameterDefinition`, and the module-level helpers. Use `domain` for
+  mathematical validity and `calibration_range` for the finite calibration
+  search interval.
+- Removed the duplicate-start multi-chain policies `model_default` and
+  `prior_map`, the in-place manifest journal path, and the qualification-script
+  `_contained_path` compatibility alias. Staged-run journals now use the
+  strict schema version 4.
+
+### Changed
+
+- CLI migration and template commands now publish complete text files through
+  one atomic writer with explicit create-only or overwrite semantics. New
+  quickstarts stage their configuration and observation data together and
+  publish the complete directory as one unit.
+- Expanded the Pyright gate to the complete 155-file `pyages` package, so new
+  package modules are checked automatically. The qualification clarified
+  scalar/vector quantiles, tracer construction invariants, pandas column
+  boundaries, workflow paths, and reporting inputs without broad ignores.
+- Refreshed the qualified direct baseline for Build, Click, IPython, Pydantic,
+  Ruff, and sphinxcontrib-mermaid and aligned local setup, CI, documentation,
+  and release workflows on the same packaging-tool baseline.
+- Added explicit runtime contracts for Dirac, double-Dirac, mixed, and
+  piecewise-uniform convolution strategies. A mismatched LPM declaration now
+  reports the missing method before numerical work, and the convolution modules
+  are covered by the progressive Pyright gate.
+- Typed the reusable single-date and temporal plotting entry points, accepted
+  read-only result mappings, centralized temporal tracer preparation and
+  observation-column handling, and added these plotting modules to the
+  progressive Pyright gate without changing their visual semantics.
+- Replaced the dynamic `pyages.config` and `pyages.calibration` export tables
+  with explicit imports so IDE navigation, autocompletion, and static type
+  checking can see their small public APIs directly. The dependency-free MCMC
+  sample-count calculations now live under `pyages.config.sampling_schedule`,
+  avoiding a configuration-to-calibration import cycle.
+- Simplified LPM parameter handling by reading initial values directly from the
+  immutable parameter schema and by validating each ordered parameter vector
+  through one canonical conversion before range or domain checks.
+- Accelerated piecewise-uniform shape-free calibration by precomputing one
+  immutable tracer response per age bin and reducing every later proposal to
+  a linear combination. The previous continuous integrator remains the
+  numerical reference in equivalence tests, and cache invalidation follows the
+  tracer observation date.
+- Simplified workflow entry and calibration plumbing: `pyages run` now selects
+  `single_date` or `temporal` from `workflow.kind`, both workflows share one MH
+  configuration/execution adapter, and the single-date runtime consumes the
+  nested `LauncherConfig` directly.
+- Simplified the MH implementation by keeping one-chain state in the sampler
+  and storing prior behavior directly as typed normal, uniform, and empirical
+  marginals.
+- Removed the trivial Ploemeur, Albuquerque, and temporal Python example
+  wrappers in favor of their direct `pyages run <config.yaml>` commands, and
+  added a contributor code tour.
+- Parent result promotion now refuses any nested reserved stage candidate,
+  including candidates whose journal is missing or corrupt, so an unreadable
+  interrupted run cannot be silently removed.
+- Simplified the unreleased multi-chain interface: the pilot covariance always
+  uses the documented pooled-within-chain estimator, so the single-choice
+  `covariance_mode` input was removed while its resolved method remains in
+  result provenance. The MH package facade now exposes only high-level
+  configurations, samplers, the run record, and the convergence error.
+- Consolidated covariance regularization behind one implementation and folded
+  two single-consumer MH storage/transition micro-modules into the sampler.
+  The calibration base return contract is now included in the progressive
+  Pyright gate.
+- Expanded extensive-test pull-request triggers to every `pyages/**` change
+  and made raw evidence discovery independent of pytest function-directory
+  names. Release-candidate qualification now packages its extensive results
+  with the unchanged wheel and sdist built from the exact same tag.
+- Split LPM parameter-schema validation, MH result consistency checks, and
+  workflow-manifest provenance/artifact/inspection logic into focused private
+  modules while preserving their existing public facades.
+- Clarified package dependency rules, simplified duplicated installation and
+  API-navigation documentation, and corrected remaining mojibake in the
+  non-Ploemeur article runner.
+- Shortened test-owned output paths for the extensive temporal Ploemeur case so
+  the documented extensive test command also runs with legacy Windows paths.
+- Single-date and temporal workflows now leave a new public result leaf absent
+  until atomic promotion, avoiding a false concurrent-mutation failure if an
+  empty leaf is removed during a long run.
+- Separated each LPM parameter's mathematical `domain`, operational
+  `calibration_range`, and probabilistic `prior` throughout runtime code,
+  shipped parameter metadata, examples, and documentation. Internal consumers
+  now use the calibration-range API as the sole source of truth. `LpmScipy` is
+  now explicitly abstract, preventing accidental construction without a SciPy
+  parameter map.
+- Staged-result verification now fails closed on symbolic links, Windows
+  junctions, special files, unreadable subtrees, corrupted journals, and
+  redirected public paths. The user-global hierarchy lock is stored as a
+  private regular file opened without following links, and the inspection API
+  exposes the single point-in-time name `promotable_now` without an alias.
+- Centralized multi-chain execution, serialization, qualification, and failure
+  handling across single-date and temporal workflows.
+- Stratified initialization now spans effective marginal prior mass when a
+  prior is enabled (including truncated normal, bounded uniform, and empirical
+  priors), instead of retrying physically stratified points outside its support.
+- Multi-chain runs now verify a versioned scientific-target signature across
+  every pilot and production problem and carry the realized phase seed plan in
+  their result provenance before any chain pooling.
+- Required convergence-gate failures now write an auditable failed workflow
+  manifest that fingerprints the preserved chains, diagnostics, inputs,
+  environment, and source state without marking the result complete.
+- Atomic result writers now use short temporary names, preserving atomic
+  replacement while avoiding avoidable Windows path-length failures in deeply
+  nested calibration directories.
+- Multi-chain execution now returns one immutable `MHRunRecord` that binds the
+  exact chain and ensemble configurations to samples, diagnostics, seeds, and
+  scientific-target identity. Serialization has one source of truth and
+  rejects post-diagnostic sample mutation.
+- Consolidated prior marginal operations and the strict retention/ESS schedule
+  behind canonical modules, and removed the unreleased `MHEnsembleResult`,
+  factory, workflow-helper, and target-signature compatibility aliases.
+- Public workflows now build results in run-ID staging trees and promote only a
+  terminal `complete` or convergence-rejected `failed` tree. Manifest schema 2
+  also distinguishes tracked-worktree provenance from installed-distribution
+  metadata.
+- Normalized unreleased multi-chain metadata to `burn_in`, `pilot_burn_in`, and
+  `acceptance_rate`; stable root `success_rate` and `time_perform` fields remain
+  available for existing result consumers.
+- Centralized the ordered diagnostic-quantity and qualification-inclusion
+  contract behind one internal implementation shared by live computation and
+  immutable run-record validation, while shortening the ensemble orchestrator.
+- Added a canonical workflow-runtime contributor facade with an opaque staged
+  run handle. Staged promotion now seals the terminal manifest, rejects
+  link/junction targets and active child stages in either tree, inventories
+  nested control-name artifacts, and reports explicit recovery paths if
+  rollback fails. Non-verbose CLI failures display preserved-evidence notes
+  such as the promoted result path.
+- Added a syntax-checked direct-Python ensemble example and a progressive CI
+  docstring quality gate for the qualified calibration and workflow-runtime
+  surface.
+- Expanded installed-wheel smoke coverage outside the source checkout to run
+  one-chain and two-chain workflows, inspect interrupted stages, and verify
+  installed-distribution provenance and multi-chain result artifacts.
+- Moved the extensive pytest base directory to the runner's external temporary
+  root so qualification artifacts cannot alter checkout-root or provenance
+  semantics, and made CI link checking retry transient remote timeouts once.
+- Retained sequential chain execution after a bit-for-bit thread prototype
+  outside runtime fields produced only small, unstable gains: `1.05x` on the
+  smoke workload with two regressions in seven trials, and `1.09x` at five
+  times the load with one approximately 20% regression. The measured benefit
+  does not justify the added executor, shared LPM registry, log, and provenance
+  surface.
+
 ## 1.0.1 - 2026-08-29
 
 ### Changed
@@ -181,8 +489,6 @@ Before 1.0, incompatible public changes are identified explicitly below.
   collaborator. Multi-tracer batches expose `convolutions` and
   `tracer_names()` instead of the ambiguous `elements` and `element_names()`,
   and repository consumers no longer retain module or `LPM` type aliases.
-- The top-level calibration package now loads its public problem class lazily,
-  keeping lightweight utility imports independent from the scientific stack.
 - Systematic exploration now uses the same explicit parameter names as
   `CalibrationProblem` (`observations`, `sample_count`, and data directories).
 - Removed the pre-0.1 calibration, obsolete workflow launcher, plotting, and

@@ -1,153 +1,50 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines the validated configuration schemas used by PyAges workflows.
 
-"""
-Pydantic config models shared by launcher scripts.
+"""Convert workflow YAML mappings into strict, typed Pydantic configuration.
 
-Purpose
--------
-Centralize YAML schema validation so both launchers stay consistent
-and errors are reported early and clearly.
+The models describe datasets, LPMs, tracers, calibration methods, diagnostic
+settings, figures, and result locations for both single-date and temporal runs.
+Nested sections are validated before workflow code accesses them. The Python
+objects deliberately use the same section names as schema-3 YAML files so a
+developer does not have to learn a second, internal configuration vocabulary.
+
+Cross-field validators also reject combinations that are individually valid but
+cannot form a coherent run, such as incomplete multi-chain settings or mutually
+inconsistent method options. This module validates configuration structure; it
+does not load scientific datasets or execute a calibration.
 """
 
 from __future__ import annotations
 
-import builtins
+import math
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import (
-    BaseModel,
-    ConfigDict,
     Field,
     field_validator,
     model_validator,
 )
 
-from pyages.config.paths import validate_path_component
+from pyages.config._models_base import BaseConfigModel
+from pyages.config._models_base import (
+    reject_boolean_number as _reject_boolean_number,
+)
+from pyages.config._models_base import (
+    resolve_path as _resolve_path,
+)
+from pyages.config._models_cli import CliCheckParams, CliRunParams, SystemCheckConfig
+from pyages.config.paths import DIRECTORY_LPM_DATA, validate_path_component
+from pyages.config.sampling_schedule import (
+    maximum_split_ess,
+    strict_retained_sample_count,
+)
 
 TEMPORAL_VALID_MODES = {"span", "successive"}
-
-
-def _resolve_path(value: Path, info):
-    root_dir = info.context.get("root_dir") if info.context else None
-    if root_dir and not value.is_absolute():
-        return Path(root_dir) / value
-    return value
-
-
-class _BaseCfg(BaseModel):
-    """Strict base for all user-facing configuration models."""
-
-    model_config = ConfigDict(extra="forbid", protected_namespaces=())
-
-
-# ---------------------------------------------------------------------------
-# CLI config models
-# ---------------------------------------------------------------------------
-
-
-class CliRunParams(_BaseCfg):
-    """Validated CLI parameters for `pyages run`."""
-
-    config: Path
-    transient: bool = False
-    inline: bool = False
-    verbose: bool = False
-    lpm: str | None = None
-    mh_nsteps: int | None = None
-    data_name: str | None = None
-    data_dir: Path | None = None
-    data_file: Path | None = None
-
-    @field_validator("config")
-    @classmethod
-    def _config_exists(cls, value: Path) -> Path:
-        if not value.exists():
-            raise ValueError(f"Config file not found: {value}")
-        return value
-
-    @field_validator("lpm")
-    @classmethod
-    def _lpm_not_empty(cls, value: str | None) -> str | None:
-        if value is not None and not value.strip():
-            raise ValueError("lpm must be a non-empty string")
-        return value
-
-    @field_validator("mh_nsteps")
-    @classmethod
-    def _mh_nsteps_positive(cls, value: int | None) -> int | None:
-        if value is not None and value <= 0:
-            raise ValueError("mh_nsteps must be > 0")
-        return value
-
-    @field_validator("data_name")
-    @classmethod
-    def _data_name_not_empty(cls, value: str | None) -> str | None:
-        if value is not None and not value.strip():
-            raise ValueError("data_name must be a non-empty string")
-        return value
-
-
-class CliCheckParams(_BaseCfg):
-    """Validated CLI parameters for `pyages check`."""
-
-    verbose: bool = False
-
-
-# ---------------------------------------------------------------------------
-# run_system_check.py (manual integration script) config models
-# ---------------------------------------------------------------------------
-
-
-class SystemCheckConfig(_BaseCfg):
-    """Configuration for the integration test script."""
-
-    date: float = 2010
-    lpm_all: list[str] = Field(
-        default_factory=lambda: [
-            "dirac",
-            "dirac_double",
-            "dirac_double_1_set",
-            "exp_shifted",
-            "dirac",
-            "gamma",
-            "exp",
-            "uniform",
-            "ig",
-            "ig_shifted",
-            "mix_exp_shifted",
-        ]
-    )
-    lpm_calib: list[str] = Field(
-        default_factory=lambda: [
-            "dirac_double",
-            "exp_shifted",
-            "exp",
-            "gamma",
-            "ig",
-            "uniform",
-            "dirac_double",
-            "dirac",
-        ]
-    )
-    tracers_all: list[str] = Field(
-        default_factory=lambda: [
-            "Li",
-            "sf6",
-            "cfc11",
-            "cfc12",
-            "cfc113",
-            "kr85",
-            "3H",
-            "14C",
-            "39Ar",
-        ]
-    )
-    tracers_conv: list[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
-    tracers_calib: list[str] = Field(default_factory=lambda: ["cfc11", "kr85"])
-    reachable_resolution: int = Field(default=1000, ge=1)
+CONFIGURATION_SCHEMA_VERSION = 3
 
 
 # ---------------------------------------------------------------------------
@@ -155,8 +52,8 @@ class SystemCheckConfig(_BaseCfg):
 # ---------------------------------------------------------------------------
 
 
-class LauncherDatasetCfg(_BaseCfg):
-    """Dataset section of the single-date launcher YAML."""
+class SingleDateDataCfg(BaseConfigModel):
+    """Data section of a single-date workflow configuration."""
 
     name: str = Field(default="example_dataset", min_length=1)
     label: str | None = None
@@ -168,7 +65,7 @@ class LauncherDatasetCfg(_BaseCfg):
     @field_validator("name")
     @classmethod
     def _validate_name(cls, value: str) -> str:
-        return validate_path_component(value, label="dataset.name")
+        return validate_path_component(value, label="data.name")
 
     @field_validator("data_dir")
     @classmethod
@@ -176,24 +73,27 @@ class LauncherDatasetCfg(_BaseCfg):
         return _resolve_path(value, info)
 
 
-class LauncherLpmCfg(_BaseCfg):
-    """LPM section of the single-date launcher YAML."""
+class SingleDateLpmCfg(BaseConfigModel):
+    """Single selected LPM and its parameter directory."""
 
-    model_name: str = "dirac_double"
-    data_directory: Path = Path("data_core/data_lpm")
+    models: list[str] = Field(default_factory=lambda: ["dirac_double"])
+    directory: Path = Field(default_factory=lambda: DIRECTORY_LPM_DATA)
 
-    @field_validator("model_name")
+    @field_validator("models")
     @classmethod
-    def _validate_model_name(cls, value: str) -> str:
-        return validate_path_component(value, label="lpm.model_name")
+    def _validate_models(cls, value: list[str]) -> list[str]:
+        if len(value) != 1:
+            raise ValueError("single_date lpm.models must contain exactly one model")
+        model = value[0].strip()
+        return [validate_path_component(model, label="lpm.models item")]
 
-    @field_validator("data_directory")
+    @field_validator("directory")
     @classmethod
     def _resolve_lpm_dir(cls, value: Path, info):
         return _resolve_path(value, info)
 
 
-class LauncherTracerCfg(_BaseCfg):
+class SingleDateTracerCfg(BaseConfigModel):
     """Optional tracer data override for single-date launcher workflows."""
 
     data_directory: Path | None = None
@@ -206,92 +106,285 @@ class LauncherTracerCfg(_BaseCfg):
         return _resolve_path(value, info)
 
 
-class LauncherRunCfg(_BaseCfg):
+class SingleDateRunCfg(BaseConfigModel):
     """Run flags for each step of the workflow."""
 
     reachable_concentrations: bool = True
     objective_function: bool = True
-    calibration_metropolis_hastings: bool = True
-    calibration_simplex: bool = True
+    metropolis_hastings: bool = True
+    simplex: bool = True
 
 
-class LauncherReachableCfg(_BaseCfg):
+class SingleDateReachableCfg(BaseConfigModel):
     """Reachable concentrations sampling options."""
 
     nmodels: int = Field(default=5000, ge=1)
 
 
-class LauncherObjectiveCfg(_BaseCfg):
+class SingleDateObjectiveCfg(BaseConfigModel):
     """Objective function sampling options."""
 
     nmodels: int = Field(default=10000, ge=1)
 
 
-class LauncherMetropolisCfg(_BaseCfg):
-    """Metropolis-Hastings configuration (single-date launcher)."""
+class MHInitializationCfg(BaseConfigModel):
+    """Initial-state policy shared by every MH workflow.
 
-    # The launcher fixes burn_in=0.2 and nskip=10. Eleven transitions are the
-    # smallest configuration that retains a state under the strict rule.
-    nstep: int = Field(default=5000, ge=11)
+    The default ``bounds_stratified`` policy has the same meaning for one or
+    several chains. Use ``explicit`` when a study requires fixed starts.
+    """
+
+    strategy: Literal[
+        "prior_sample",
+        "bounds_stratified",
+        "explicit",
+    ] = "bounds_stratified"
+    explicit_starts: list[dict[str, float]] | None = None
+    max_attempts: int = Field(default=100, ge=1)
+
+    _strict_max_attempts = field_validator("max_attempts", mode="before")(
+        _reject_boolean_number
+    )
+
+    @field_validator("explicit_starts", mode="before")
+    @classmethod
+    def _reject_boolean_explicit_values(cls, value: object) -> object:
+        if value is None:
+            return value
+        if not isinstance(value, list):
+            return value
+        for chain_index, state in enumerate(value, start=1):
+            if not isinstance(state, dict):
+                continue
+            boolean_names = [
+                name for name, item in state.items() if isinstance(item, bool)
+            ]
+            if boolean_names:
+                raise ValueError(
+                    "initialization.explicit_starts contains boolean parameter "
+                    f"values in chain {chain_index}: {boolean_names}"
+                )
+        return value
+
+    @model_validator(mode="after")
+    def _validate_explicit_starts(self) -> Self:
+        if self.strategy == "explicit" and not self.explicit_starts:
+            raise ValueError(
+                "initialization.explicit_starts is required for the explicit strategy"
+            )
+        if self.strategy != "explicit" and self.explicit_starts is not None:
+            raise ValueError(
+                "initialization.explicit_starts is accepted only for the explicit "
+                "strategy"
+            )
+        return self
+
+
+class MHPilotCfg(BaseConfigModel):
+    """Pilot controls used to derive one fixed production proposal.
+
+    Retained, unthinned pilot draws estimate a covariance after separate
+    within-chain centering. ``relative_ridge`` regularizes that covariance and
+    ``proposal_multiplier='auto'`` selects ``2.38 / sqrt(dimension)``. Pilot
+    draws are excluded from the posterior and saved only when requested.
+    """
+
+    enabled: bool = False
+    nsteps: int = Field(default=2000, ge=4)
+    burn_in: float = Field(default=0.5, ge=0.0, lt=1.0)
+    relative_ridge: float = Field(default=1.0e-6, ge=0.0, allow_inf_nan=False)
+    proposal_multiplier: float | Literal["auto"] = "auto"
+    save_samples: bool = False
+
+    _strict_numeric_controls = field_validator(
+        "nsteps",
+        "burn_in",
+        "relative_ridge",
+        mode="before",
+    )(_reject_boolean_number)
+
+    @field_validator("proposal_multiplier", mode="before")
+    @classmethod
+    def _validate_proposal_multiplier(
+        cls, value: float | Literal["auto"]
+    ) -> float | Literal["auto"]:
+        if value == "auto":
+            return value
+        if isinstance(value, bool):
+            raise ValueError("pilot.proposal_multiplier must not be boolean")
+        if not math.isfinite(value) or value <= 0.0:
+            raise ValueError("pilot.proposal_multiplier must be positive or 'auto'")
+        return value
+
+    @model_validator(mode="after")
+    def _require_covariance_draws(self) -> Self:
+        if (
+            self.enabled
+            and strict_retained_sample_count(self.nsteps, self.burn_in, 1) < 2
+        ):
+            raise ValueError(
+                "pilot nsteps and burn_in must retain at least two covariance draws"
+            )
+        return self
+
+
+class MHDiagnosticsCfg(BaseConfigModel):
+    """Qualification gates applied to retained production chains.
+
+    Qualification requires R-hat strictly below ``max_rhat``, both ESS values
+    at or above their minima, and a finite mean MCSE. Disabling
+    ``require_convergence`` permits explicit exploratory pooling but does not
+    skip diagnostic calculation or persistence.
+    """
+
+    max_rhat: float = Field(default=1.01, gt=1.0, allow_inf_nan=False)
+    min_bulk_ess: float = Field(default=300.0, gt=0.0, allow_inf_nan=False)
+    min_tail_ess: float = Field(default=300.0, gt=0.0, allow_inf_nan=False)
+    require_convergence: bool = True
+
+    _strict_numeric_thresholds = field_validator(
+        "max_rhat",
+        "min_bulk_ess",
+        "min_tail_ess",
+        mode="before",
+    )(_reject_boolean_number)
+
+
+class MetropolisHastingsCfg(BaseConfigModel):
+    """Complete, unambiguous controls for a one-to-many-chain MH run.
+
+    The same fields and runner are used for one or several chains. Inter-chain
+    diagnostics apply only when ``chains >= 2``. ``seed=None`` requests a new
+    random master seed, which is recorded with the result for replay.
+    """
+
+    nsteps: int = Field(default=5000, ge=1)
+    burn_in: float = Field(default=0.2, ge=0.0, lt=1.0)
+    thinning: int = Field(default=10, ge=1)
+    seed: int | None = Field(default=12345, ge=0)
+    chains: int = Field(default=1, ge=1)
     prior_option: bool = False
     likelihood: bool = True
-    monitor: bool = False
     display_traj: bool = False
+    initialization: MHInitializationCfg = Field(default_factory=MHInitializationCfg)
+    pilot: MHPilotCfg = Field(default_factory=MHPilotCfg)
+    diagnostics: MHDiagnosticsCfg = Field(default_factory=MHDiagnosticsCfg)
+
+    _strict_numeric_controls = field_validator(
+        "nsteps",
+        "burn_in",
+        "thinning",
+        "seed",
+        "chains",
+        mode="before",
+    )(_reject_boolean_number)
+
+    @model_validator(mode="after")
+    def _validate_run_schedule(self) -> Self:
+        """Reject schedules that cannot provide the requested diagnostics."""
+        starts = self.initialization.explicit_starts
+        if starts is not None and len(starts) != self.chains:
+            raise ValueError(
+                "initialization.explicit_starts must contain one state per chain"
+            )
+        retained_count = strict_retained_sample_count(
+            self.nsteps, self.burn_in, self.thinning
+        )
+        if retained_count == 0:
+            raise ValueError(
+                "nsteps, burn_in, and thinning must retain at least one MH draw"
+            )
+        if self.chains > 1 and retained_count < 8:
+            raise ValueError(
+                "MH with several chains must retain at least eight draws per chain"
+            )
+        if self.chains > 1 and self.diagnostics.require_convergence:
+            maximum_ess = maximum_split_ess(self.chains, retained_count)
+            if (
+                self.diagnostics.min_bulk_ess > maximum_ess
+                or self.diagnostics.min_tail_ess > maximum_ess
+            ):
+                raise ValueError(
+                    "MH ESS thresholds exceed the maximum split-draw ESS of "
+                    f"{maximum_ess:.6g}; increase nsteps, reduce thinning, or "
+                    "disable required convergence for an exploratory run"
+                )
+        if self.initialization.strategy == "prior_sample" and not self.prior_option:
+            raise ValueError("prior_sample initialization requires prior_option=true")
+        return self
 
 
-class LauncherSimplexCfg(_BaseCfg):
+class SingleDateSimplexCfg(BaseConfigModel):
     """Simplex calibration options."""
 
     init_multiples_n: int = Field(default=3, ge=1)
     fuq_n: int = Field(default=30, ge=1)
 
 
-class LauncherConfig(_BaseCfg):
+class SingleDateOutputCfg(BaseConfigModel):
+    """Output location for a single-date workflow."""
+
+    use_default: bool = True
+    directory: Path | None = None
+    study_name: str = Field(
+        default="test_cases", min_length=1, pattern=r"^[A-Za-z0-9_.-]+$"
+    )
+
+    @field_validator("directory", mode="before")
+    @classmethod
+    def _resolve_results_directory(cls, value: object, info):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        if not isinstance(value, (str, Path)):
+            raise ValueError("output.directory must be a path or null")
+        return _resolve_path(Path(value), info)
+
+    @field_validator("study_name")
+    @classmethod
+    def _validate_study_name(cls, value: str) -> str:
+        return validate_path_component(value, label="output.study_name")
+
+    @model_validator(mode="after")
+    def _require_directory_when_not_default(self) -> Self:
+        if not self.use_default and self.directory is None:
+            raise ValueError("output.directory must be set when use_default is false.")
+        return self
+
+
+class SingleDateCalibrationCfg(BaseConfigModel):
+    """Calibration methods available to a single-date workflow."""
+
+    metropolis_hastings: MetropolisHastingsCfg = Field(
+        default_factory=MetropolisHastingsCfg
+    )
+    simplex: SingleDateSimplexCfg = Field(default_factory=SingleDateSimplexCfg)
+
+
+class SingleDateWorkflowCfg(BaseConfigModel):
+    """Workflow discriminator used by the command line."""
+
+    kind: Literal["single_date"]
+
+
+class SingleDateConfig(BaseConfigModel):
     """Full YAML schema for the single-date workflow."""
 
-    dataset: LauncherDatasetCfg = Field(default_factory=LauncherDatasetCfg)
-    lpm: LauncherLpmCfg = Field(default_factory=LauncherLpmCfg)
-    tracers: LauncherTracerCfg = Field(default_factory=LauncherTracerCfg)
-    run: LauncherRunCfg = Field(default_factory=LauncherRunCfg)
-    reachable_concentrations: LauncherReachableCfg = Field(
-        default_factory=LauncherReachableCfg
+    schema_version: Literal[3]
+    workflow: SingleDateWorkflowCfg
+    data: SingleDateDataCfg = Field(default_factory=SingleDateDataCfg)
+    lpm: SingleDateLpmCfg = Field(default_factory=SingleDateLpmCfg)
+    tracers: SingleDateTracerCfg = Field(default_factory=SingleDateTracerCfg)
+    run: SingleDateRunCfg = Field(default_factory=SingleDateRunCfg)
+    reachable_concentrations: SingleDateReachableCfg = Field(
+        default_factory=SingleDateReachableCfg
     )
-    objective_function: LauncherObjectiveCfg = Field(
-        default_factory=LauncherObjectiveCfg
+    objective_function: SingleDateObjectiveCfg = Field(
+        default_factory=SingleDateObjectiveCfg
     )
-    calibration_metropolis_hastings: LauncherMetropolisCfg = Field(
-        default_factory=LauncherMetropolisCfg
+    calibration: SingleDateCalibrationCfg = Field(
+        default_factory=SingleDateCalibrationCfg
     )
-    calibration_simplex: LauncherSimplexCfg = Field(default_factory=LauncherSimplexCfg)
-
-
-class LauncherParams(_BaseCfg):
-    """Flattened parameters consumed by the single-date workflow."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    dataset_name: str
-    dataset_label: str | None
-    dataset_year: int
-    dataset_data_dir: Path
-    verbose: bool
-    missing_error_rel: float
-    lpm_model_name: str
-    directory_lpm: Path
-    tracer_data_dir: Path | None = None
-    run_reachable_concentrations: bool
-    run_objective_function: bool
-    run_calibration_metropolis_hastings: bool
-    run_calibration_simplex: bool
-    reachable_concentration_nmodels: int
-    objective_function_nmodels: int
-    mh_nstep: int
-    mh_prior_option: bool
-    mh_likelihood: bool
-    mh_monitor: bool
-    mh_display_traj: bool
-    simplex_init_multiples_n: int
-    simplex_fuq_n: int
+    output: SingleDateOutputCfg = Field(default_factory=SingleDateOutputCfg)
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +392,7 @@ class LauncherParams(_BaseCfg):
 # ---------------------------------------------------------------------------
 
 
-class TemporalDatasetCfg(_BaseCfg):
+class TemporalDataCfg(BaseConfigModel):
     """Dataset inputs (file path + optional relative error)."""
 
     file: str = Field(..., min_length=1)
@@ -307,25 +400,7 @@ class TemporalDatasetCfg(_BaseCfg):
     missing_error_rel: float = Field(default=0.01, gt=0.0, lt=1.0)
 
 
-class TemporalCalibrationCfg(_BaseCfg):
-    """Metropolis-Hastings configuration with bounds and defaults."""
-
-    mh_nsteps: int = Field(default=1000, gt=100)
-    burn_in: float = Field(default=0.2, ge=0.0, lt=0.5)
-    nskip: int = Field(default=10, ge=1)
-    lpm_number: int = Field(default=10, ge=0)
-    explo_res: int = Field(default=20, ge=1)
-    seed_enabled: bool = False
-    seed: int | None = Field(default=None, ge=0)
-
-    @model_validator(mode="after")
-    def _require_enabled_seed(self) -> Self:
-        if self.seed_enabled and self.seed is None:
-            raise ValueError("calibration.seed is required when seed_enabled is true")
-        return self
-
-
-class TemporalFiguresCfg(_BaseCfg):
+class TemporalReportingCfg(BaseConfigModel):
     """Toggle plot outputs."""
 
     temporal: bool = False
@@ -333,9 +408,10 @@ class TemporalFiguresCfg(_BaseCfg):
     concentrations_2d: bool = False
 
 
-class TemporalWorkflowCfg(_BaseCfg):
+class TemporalWorkflowCfg(BaseConfigModel):
     """Workflow control (span vs successive)."""
 
+    kind: Literal["temporal"]
     mode: str = "span"
 
     @field_validator("mode")
@@ -348,31 +424,29 @@ class TemporalWorkflowCfg(_BaseCfg):
         return value
 
 
-class TemporalLpmModelsCfg(_BaseCfg):
+class TemporalLpmCfg(BaseConfigModel):
     """LPM selection and optional parameter directory override."""
 
-    list: builtins.list[str] | None = None
+    models: list[str] | None = None
     directory: str | None = None
 
-    @field_validator("list")
+    @field_validator("models")
     @classmethod
-    def _validate_model_list(
-        cls, value: builtins.list[str] | None
-    ) -> builtins.list[str] | None:
+    def _validate_model_list(cls, value: list[str] | None) -> list[str] | None:
         if value is None:
             return None
         normalized = [model.strip() for model in value]
         if not normalized or any(not model for model in normalized):
-            raise ValueError("lpm_models.list must contain non-empty model names")
+            raise ValueError("lpm.models must contain non-empty model names")
         if len(normalized) != len(set(normalized)):
-            raise ValueError("lpm_models.list must not contain duplicate models")
+            raise ValueError("lpm.models must not contain duplicate models")
         return [
-            validate_path_component(model, label="lpm_models.list item")
+            validate_path_component(model, label="lpm.models item")
             for model in normalized
         ]
 
 
-class TemporalResultsCfg(_BaseCfg):
+class TemporalOutputCfg(BaseConfigModel):
     """Results location (default root or explicit directory)."""
 
     use_default: bool = True
@@ -384,34 +458,70 @@ class TemporalResultsCfg(_BaseCfg):
     @field_validator("study_name")
     @classmethod
     def _validate_study_name(cls, value: str) -> str:
-        return validate_path_component(value, label="results.study_name")
+        return validate_path_component(value, label="output.study_name")
 
     @model_validator(mode="after")
     def _require_directory_when_not_default(self) -> Self:
         if not self.use_default and (
             self.directory is None or not self.directory.strip()
         ):
-            raise ValueError("results.directory must be set when use_default is false.")
+            raise ValueError("output.directory must be set when use_default is false.")
         return self
 
 
-class TemporalParams(_BaseCfg):
+class TemporalCalibrationCfg(BaseConfigModel):
+    """Inference and temporal sampling controls for a temporal workflow."""
+
+    exploration_resolution: int = Field(default=20, ge=1)
+    posterior_draw_count: int = Field(default=10, ge=0)
+    metropolis_hastings: MetropolisHastingsCfg = Field(
+        default_factory=MetropolisHastingsCfg
+    )
+
+    _strict_numeric_controls = field_validator(
+        "exploration_resolution",
+        "posterior_draw_count",
+        mode="before",
+    )(_reject_boolean_number)
+
+
+class TemporalConfig(BaseConfigModel):
     """Top-level configuration for a temporal calibration workflow."""
 
-    dataset: TemporalDatasetCfg
+    schema_version: Literal[3]
+    data: TemporalDataCfg
     calibration: TemporalCalibrationCfg = Field(default_factory=TemporalCalibrationCfg)
-    figures: TemporalFiguresCfg = Field(default_factory=TemporalFiguresCfg)
-    workflow: TemporalWorkflowCfg = Field(default_factory=TemporalWorkflowCfg)
-    lpm_models: TemporalLpmModelsCfg = Field(default_factory=TemporalLpmModelsCfg)
-    results: TemporalResultsCfg = Field(default_factory=TemporalResultsCfg)
+    reporting: TemporalReportingCfg = Field(default_factory=TemporalReportingCfg)
+    workflow: TemporalWorkflowCfg
+    lpm: TemporalLpmCfg = Field(default_factory=TemporalLpmCfg)
+    output: TemporalOutputCfg = Field(default_factory=TemporalOutputCfg)
 
 
 __all__ = [
     "CliRunParams",
     "CliCheckParams",
+    "CONFIGURATION_SCHEMA_VERSION",
     "SystemCheckConfig",
-    "LauncherConfig",
-    "LauncherParams",
-    "TemporalParams",
+    "MHInitializationCfg",
+    "MHPilotCfg",
+    "MHDiagnosticsCfg",
+    "MetropolisHastingsCfg",
+    "SingleDateConfig",
+    "SingleDateCalibrationCfg",
+    "SingleDateDataCfg",
+    "SingleDateLpmCfg",
+    "SingleDateObjectiveCfg",
+    "SingleDateReachableCfg",
+    "SingleDateOutputCfg",
+    "SingleDateRunCfg",
+    "SingleDateSimplexCfg",
+    "SingleDateTracerCfg",
+    "SingleDateWorkflowCfg",
+    "TemporalConfig",
+    "TemporalDataCfg",
+    "TemporalCalibrationCfg",
+    "TemporalReportingCfg",
+    "TemporalLpmCfg",
+    "TemporalOutputCfg",
     "TEMPORAL_VALID_MODES",
 ]
