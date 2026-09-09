@@ -8,8 +8,10 @@ The test scopes and GitHub jobs referenced below are defined in
 {doc}`testing` and {doc}`ci`.
 
 The role and handoff expectations are defined in {doc}`maintainership`. Before
-a public minor or major release, confirm that a second person has completed the
-continuity drill and is represented in repository ownership routing.
+a public minor or major release, confirm that the continuity drill is recorded
+for the exact candidate. A solo maintainer may perform this review from a fresh
+clone and clean environment. If another contributor is available, an external
+review is preferred but is not a release prerequisite.
 
 ## Release gate
 

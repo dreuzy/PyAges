@@ -1,16 +1,16 @@
 # PyAges 2.0 release-readiness checkpoint — 2026-09-08
 
-**Status:** technically qualified `2.0.0` release-identity candidate;
-independent review, protected-main qualification, and the release tag are still
-required.
+**Status:** technically qualified `2.0.0` release-identity candidate; the
+single-maintainer continuity drill, protected-main qualification, and release
+tag are still required.
 
 **Updated 9 September 2026:** the source and citation metadata now carry the
 `2.0.0` candidate identity. Its release date must be refreshed if the final tag
 is created after 9 September.
 
 This report separates what has been demonstrated locally and on GitHub from the
-human and protected-branch gates that still remain. A green feature branch is
-strong technical evidence, but it is not by itself authorization to tag and
+continuity and protected-branch gates that still remain. A green feature branch
+is strong technical evidence, but it is not by itself authorization to tag and
 publish a public release.
 
 ## What this iteration stabilized
@@ -72,41 +72,39 @@ environment.
 
 ## Evidence obtained on GitHub
 
-The committed revision `6d5d6b4` passed both external qualification layers on
-8 September 2026:
+The portable-typing revision `6d5d6b4` passed both external qualification
+layers on 8 September 2026. The final identity revision `0e0286d` then passed
+the same gates on 9 September 2026:
 
-- [standard CI run 34279473131](https://github.com/dreuzy/PyAges/actions/runs/34279473131):
+- [standard CI run 34284255225](https://github.com/dreuzy/PyAges/actions/runs/34284255225):
   Ruff, portable Pyright, dependency audit, Conda, Python 3.12 through 3.14,
   lower-bound SciPy, pandas 2.2, coverage, TracerLPM, .NET, package, docs, and
   the aggregate CI gate;
-- [extensive scientific run 34279473134](https://github.com/dreuzy/PyAges/actions/runs/34279473134):
+- [extensive scientific run 34284255213](https://github.com/dreuzy/PyAges/actions/runs/34284255213):
   complete extensive tests, distributions, draft multi-chain qualification
   archive, and preserved scientific evidence.
 
-The portable typing correction introduced immediately before those runs is
-therefore exercised on Linux as well as by the local Windows checks. The
-`2.0.0` identity commit must pass the same gates because version metadata and
-release-facing documentation are part of the candidate.
+The portable typing correction is therefore exercised on Linux as well as by
+the local Windows checks, and the real `2.0.0` package metadata is covered by
+the final candidate runs.
 
 ## What remains before release
 
 The remaining work is release governance and final qualification, not another
 general source-code cleanup.
 
-1. **Qualify the `2.0.0` identity commit.** Push it and require both standard CI
-   and the extensive scientific workflow to pass on that exact revision.
-2. **Complete the independent continuity review.** The maintainership policy
-   requires a second person to perform the documented setup/recovery drill and
-   to be represented in ownership routing before a public major release. At
-   this checkpoint, pull request 34 has no independent review and
-   `.github/CODEOWNERS` lists only `@dreuzy`.
-3. **Merge through the protected branch.** After review, merge the candidate
-   into `main` and require the protected-main checks, including the extensive
-   workflow, to pass on the exact merge commit.
-4. **Create the immutable release identity.** Create and push the annotated tag
+1. **Complete the single-maintainer continuity review.** Start from a fresh
+   clone and clean environment, use only repository instructions, and record
+   the exact commands, results, workflow links, and artifacts in pull request
+   34. The one-person `CODEOWNERS` file accurately describes the project and is
+   not a release blocker.
+2. **Merge through the protected branch.** After that recorded drill, merge the
+   candidate into `main` and require the protected-main checks, including the
+   extensive workflow, to pass on the exact merge commit.
+3. **Create the immutable release identity.** Create and push the annotated tag
    `2.0.0` on that qualified `main` commit, then run the release-candidate
    workflow from the exact tag.
-5. **Publish only the verified candidate artifacts.** If publication is later
+4. **Publish only the verified candidate artifacts.** If publication is later
    authorized, TestPyPI and then PyPI must receive the unchanged wheel and
    source distribution attached to the reviewed GitHub release, following
    {doc}`../dev/releasing`.
@@ -119,5 +117,5 @@ defect.
 
 This checkpoint is sufficient to stop the broad simplification audit and to
 prepare the `2.0.0` identity. It is not sufficient to tag or publish PyAges 2.0
-until the identity commit, independent continuity review, and protected-main
-qualification are complete.
+until the single-maintainer continuity drill and protected-main qualification
+are complete.

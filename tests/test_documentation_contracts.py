@@ -268,15 +268,16 @@ def test_developer_onboarding_is_navigable_and_environment_safe() -> None:
     assert "source roots that do not exist" in ide
 
 
-def test_maintainership_exposes_the_remaining_continuity_gate() -> None:
+def test_maintainership_exposes_the_solo_continuity_gate() -> None:
     guide = (ROOT / "docs/dev/maintainership.md").read_text(encoding="utf-8")
     dev_index = (ROOT / "docs/dev/index.md").read_text(encoding="utf-8")
     release = (ROOT / "docs/dev/releasing.md").read_text(encoding="utf-8")
 
     assert "maintainership" in dev_index
-    assert "continuity review" in guide
+    assert "single-maintainer continuity review" in guide
     assert "fresh clone" in guide
-    assert "second person" in release
+    assert "A solo maintainer may perform this review" in release
+    assert "not a release prerequisite" in release
 
 
 def test_multichain_contributor_example_uses_the_canonical_dataclass_api() -> None:
