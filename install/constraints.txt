@@ -16,12 +16,12 @@ click==8.5.0
 pydantic==2.13.5
 packaging==26.3
 
-build==1.6.0
+build==1.6.1
 pip-audit==2.10.1
 pytest==9.1.1
 pytest-cov==7.1.0
-pyright==1.1.411
-ruff==0.16.6
+pyright==1.1.414
+ruff==0.16.7
 twine==7.0.0
 
 sphinx==9.1.0
