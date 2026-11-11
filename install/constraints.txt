@@ -12,8 +12,8 @@ scipy==1.18.1
 pandas==3.0.5
 matplotlib==3.11.1
 PyYAML==6.0.3
-click==8.5.0
-pydantic==2.13.5
+click==8.5.1
+pydantic==2.14.3
 packaging==26.3
 
 build==1.6.0
