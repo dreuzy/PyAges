@@ -5,6 +5,14 @@ All notable changes to PyAges are recorded in this file.
 The project follows semantic versioning for its public API from version 1.0.
 Before 1.0, incompatible public changes are identified explicitly below.
 
+## 1.0.2 - 2026-11-25
+
+### Changed
+
+- Prepared the compatible 1.0.2 maintenance line from the immutable 1.0.1
+  release source, with synchronized package, citation, documentation, and
+  release-validation metadata.
+
 ## 1.0.1 - 2026-08-29
 
 ### Changed
