@@ -13,6 +13,11 @@ Before 1.0, incompatible public changes are identified explicitly below.
   release source, with synchronized package, citation, documentation, and
   release-validation metadata.
 
+### Security
+
+- Raised the optional JupyterLab minimum and qualified constraint from 4.6.3
+  to 4.6.6 to include upstream security fixes while remaining on the 4.x line.
+
 ## 1.0.1 - 2026-08-29
 
 ### Changed
