@@ -18,6 +18,9 @@ Before 1.0, incompatible public changes are identified explicitly below.
   matplotlib after reviewing the corresponding Dependabot update group.
 - Refreshed the qualified developer-tooling constraints for build, pytest,
   and ruff after reviewing the corresponding Dependabot update group.
+- Refreshed the qualified documentation constraints for Sphinx, MyST-Parser,
+  and sphinxcontrib-mermaid after reviewing the corresponding Dependabot
+  update group.
 
 ### Security
 
