@@ -12,6 +12,8 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Prepared the compatible 1.0.2 maintenance line from the immutable 1.0.1
   release source, with synchronized package, citation, documentation, and
   release-validation metadata.
+- Refreshed the qualified runtime constraints for PyYAML, Click, and Pydantic
+  after reviewing the corresponding Dependabot update group.
 
 ### Security
 
