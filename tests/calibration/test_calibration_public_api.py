@@ -8,14 +8,16 @@ import subprocess
 import sys
 
 
-def test_public_api_loads_the_scientific_problem_only_on_access() -> None:
+def test_public_api_exposes_the_scientific_problem_explicitly() -> None:
     script = """
 import sys
 import pyages.calibration as calibration
 
-assert "pyages.calibration.problem" not in sys.modules
+assert calibration.__all__ == ["CalibrationProblem"]
 assert calibration.CalibrationProblem.__name__ == "CalibrationProblem"
 assert "pyages.calibration.problem" in sys.modules
+assert not hasattr(calibration, "_EXPORTS")
+assert "__getattr__" not in calibration.__dict__
 """
 
     completed = subprocess.run(

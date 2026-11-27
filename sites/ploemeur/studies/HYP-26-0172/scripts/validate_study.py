@@ -49,10 +49,19 @@ def validate_row(row: dict[str, str]) -> list[str]:
         )
 
     expected_seeds = [int(value) for value in split_field(row["seeds"])]
-    actual_seed = int(params["calibration"]["seed"])
+    mh = params["calibration"]["metropolis_hastings"]
+    actual_seed = int(mh["seed"])
     if expected_seeds != [actual_seed]:
         errors.append(
             f"{experiment_id}: matrix seeds {expected_seeds} != YAML seed {actual_seed}"
+        )
+
+    expected_chains = int(row["chains"])
+    actual_chains = int(mh["chains"])
+    if expected_chains != actual_chains:
+        errors.append(
+            f"{experiment_id}: matrix chains {expected_chains} "
+            f"!= YAML chains {actual_chains}"
         )
 
     expected_results = f"results/HYP-26-0172/runs/{experiment_id}/workflow"

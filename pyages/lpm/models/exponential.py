@@ -1,14 +1,17 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file defines the one-parameter exponential water-age model.
 
-"""
-LPM Exponential distribution model.
+"""Represent water ages with an exponential distribution controlled by mean age.
 
-Purpose
--------
-Wrap the SciPy exponential distribution as an LPM with model metadata.
+The model assigns its greatest density to young water and decreases continuously
+toward older ages. PyAges exposes the standard probability functions through the
+SciPy-backed LPM interface and registers the model under its configuration name.
 
+This module also evaluates cumulative probability and the partial first moment
+analytically. Continuous convolution can therefore integrate the distribution on
+a prepared tracer grid without approximating its probability density separately.
 """
 
 import numpy as np

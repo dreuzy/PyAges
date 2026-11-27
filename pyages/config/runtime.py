@@ -1,9 +1,18 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file provides display, interval, and timing helpers used during workflows.
 
-"""
-Runtime configuration helpers (display and timing).
+"""Translate runtime options into figure paths, grids, and progress estimates.
+
+``DisplayOptions`` keeps text, figure, save, and close policies together and
+constructs output paths consistently for each calibration method.
+``subdivide_interval`` turns validated bounds into regularly spaced numerical
+values without embedding that mechanics in workflow code.
+
+``SimulationTimer`` measures completed iterations and reports elapsed time plus
+an estimate for the remaining work. These helpers control execution presentation
+and scheduling information; they do not alter scientific calculations.
 """
 
 from __future__ import annotations

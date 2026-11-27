@@ -1,11 +1,17 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file generates configuration and recharge-data templates for a new tracer.
 
-"""
-Tracer template generator.
+"""Create documented starter files for adding an environmental tracer.
 
-Generates boilerplate configuration files for new tracers.
+The generated YAML shows where to declare units, valid dates, recharge history,
+production, and radioactive decay. A companion tabular file demonstrates the
+dated concentration columns accepted by the tracer loader.
+
+These files are intentionally examples rather than fabricated scientific data:
+developers must replace the placeholder metadata and chronicle values before the
+tracer is suitable for convolution or calibration.
 """
 
 from __future__ import annotations
@@ -14,6 +20,8 @@ from datetime import datetime
 from pathlib import Path
 
 import click
+
+from pyages.cli._atomic import atomic_write_text
 
 TRACER_CONFIG_TEMPLATE = """\
 # {name_upper} Tracer Configuration
@@ -155,12 +163,13 @@ def generate_tracer_template(
     # Write config file
     config_file = tracer_dir / f"{name}.yaml"
 
-    if config_file.exists():
+    overwrite_config = config_file.exists()
+    if overwrite_config:
         if not click.confirm(f"File {config_file} already exists. Overwrite?"):
             click.echo("Aborted.")
             return
 
-    config_file.write_text(config_content, encoding="utf-8")
+    atomic_write_text(config_file, config_content, overwrite=overwrite_config)
     click.echo(click.style("Created:", fg="green") + f" {config_file}")
 
     # Generate recharge chronicle if requested
@@ -179,14 +188,15 @@ def generate_tracer_template(
 
         csv_file = tracer_dir / "recharge.csv"
 
-        if csv_file.exists():
+        overwrite_csv = csv_file.exists()
+        if overwrite_csv:
             if not click.confirm(f"File {csv_file} already exists. Overwrite?"):
                 click.echo("Skipping recharge.csv")
             else:
-                csv_file.write_text(csv_content, encoding="utf-8")
+                atomic_write_text(csv_file, csv_content, overwrite=True)
                 click.echo(click.style("Created:", fg="green") + f" {csv_file}")
         else:
-            csv_file.write_text(csv_content, encoding="utf-8")
+            atomic_write_text(csv_file, csv_content)
             click.echo(click.style("Created:", fg="green") + f" {csv_file}")
 
     # Show next steps

@@ -14,13 +14,21 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import subprocess
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from typing import TypedDict
 from zoneinfo import ZoneInfo
 
 from pyages import __version__
+from scripts.common.provenance import git_output
+from scripts.common.provenance import sha256_file as sha256
+from scripts.common.structured_data import (
+    list_field,
+    mapping_field,
+    require_mapping,
+    string_field,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 PROMOTION_NAME = "release_promotion.json"
@@ -43,18 +51,17 @@ SOURCE_MANIFESTS = {
 EXCLUDED_PARTS = {"work", "__pycache__", ".pytest_cache"}
 
 
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+class TreeFingerprint(TypedDict):
+    """Typed inventory of one retained numerical-result tree."""
+
+    file_count: int
+    bytes: int
+    tree_sha256: str
+    _hashes: dict[str, list[str]]
 
 
 def _git(*args: str) -> str:
-    return subprocess.run(
-        ["git", *args], cwd=ROOT, capture_output=True, text=True, check=True
-    ).stdout.strip()
+    return git_output(ROOT, *args).strip()
 
 
 def _files(root: Path):
@@ -64,7 +71,7 @@ def _files(root: Path):
             yield path, relative
 
 
-def tree_fingerprint(root: Path) -> dict[str, object]:
+def tree_fingerprint(root: Path) -> TreeFingerprint:
     if not root.is_dir():
         raise FileNotFoundError(root)
     digest = hashlib.sha256()
@@ -129,7 +136,7 @@ def _source_origins(
 
 
 def _verify_source_manifests(
-    campaign: Path, stage_trees: dict[str, dict[str, object]]
+    campaign: Path, stage_trees: dict[str, TreeFingerprint]
 ) -> dict[str, object]:
     result = {}
     stage_hashes = {stage: tree["_hashes"] for stage, tree in stage_trees.items()}
@@ -179,7 +186,7 @@ def _verify_source_manifests(
     return result
 
 
-def _public_tree(tree: dict[str, object]) -> dict[str, object]:
+def _public_tree(tree: TreeFingerprint) -> dict[str, object]:
     return {key: value for key, value in tree.items() if not key.startswith("_")}
 
 
@@ -297,11 +304,16 @@ def write_promotion(path: Path, payload: dict[str, object]) -> None:
 
 def _validate_evidence(campaign: Path, payload: dict[str, object]) -> list[str]:
     failures = []
-    manifest = campaign / payload["campaign_manifest"]["path"]
-    if sha256(manifest) != payload["campaign_manifest"]["sha256"]:
+    campaign_manifest = mapping_field(payload, "campaign_manifest")
+    manifest = campaign / string_field(campaign_manifest, "path")
+    if sha256(manifest) != campaign_manifest["sha256"]:
         failures.append("campaign_manifest_sha256")
-    for stage, recorded in payload["numerical_evidence"].items():
-        observed = _public_tree(tree_fingerprint(campaign / recorded["path"]))
+    numerical_evidence = mapping_field(payload, "numerical_evidence")
+    for stage, raw_recorded in numerical_evidence.items():
+        recorded = require_mapping(raw_recorded, f"numerical evidence for {stage}")
+        observed = _public_tree(
+            tree_fingerprint(campaign / string_field(recorded, "path"))
+        )
         for field in ("file_count", "bytes", "tree_sha256"):
             if observed[field] != recorded[field]:
                 failures.append(f"{stage}:{field}")
@@ -314,14 +326,15 @@ def _validate_release_identity(
     expected_tag: str | None,
 ) -> list[str]:
     failures = []
-    release = payload["release_identity"]
+    release = mapping_field(payload, "release_identity")
     if expected_head is not None and release.get("git_head") != expected_head:
         failures.append("release_git_head")
     if expected_tag is None:
         return failures
     if release.get("expected_release_tag") != expected_tag:
         failures.append("expected_release_tag")
-    if expected_tag not in release.get("git_tags_at_head", []):
+    recorded_tags = [str(tag) for tag in list_field(release, "git_tags_at_head")]
+    if expected_tag not in recorded_tags:
         failures.append("recorded_release_tag_not_at_head")
     tags = [tag for tag in _git("tag", "--points-at", "HEAD").splitlines() if tag]
     if expected_tag not in tags:
@@ -340,13 +353,15 @@ def validate_promotion(
 ) -> dict[str, object]:
     campaign = campaign.resolve()
     path = promotion_path or campaign / PROMOTION_NAME
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = require_mapping(
+        json.loads(path.read_text(encoding="utf-8")), "campaign promotion"
+    )
     failures = []
     if payload.get("promotion_kind") != "maintainer-functional-equivalence":
         failures.append("promotion_kind")
-    if not payload.get("maintainer_attestation", {}).get("accepted"):
+    if not mapping_field(payload, "maintainer_attestation").get("accepted"):
         failures.append("maintainer_attestation")
-    policy = payload.get("policy", {})
+    policy = mapping_field(payload, "policy")
     if policy.get("numerical_recalculation_performed") is not False:
         failures.append("numerical_recalculation_performed")
     failures.extend(_validate_evidence(campaign, payload))
@@ -388,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(
         "Validated promoted numerical evidence for "
-        f"{len(payload['numerical_evidence'])} stages"
+        f"{len(mapping_field(payload, 'numerical_evidence'))} stages"
     )
     return 0
 

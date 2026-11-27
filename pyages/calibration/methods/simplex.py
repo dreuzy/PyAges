@@ -1,13 +1,16 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file minimizes a prepared calibration objective with the Nelder--Mead
+# search. It can use one start, several starts, or repeated observation draws,
+# and returns each converged parameter set as one joint sample-table row.
 
 """Nelder--Mead calibration and forward uncertainty propagation.
 
 All modes minimize the same chi-square supplied by
 :class:`~pyages.calibration.problem.CalibrationProblem`.  ``Simplex`` performs
 one optimization, ``Simplex_multi_start`` repeats it from reproducible points
-inside the LPM bounds, and ``forward_uncertainty_quantification`` repeats the
+inside the LPM calibration ranges, and ``forward_uncertainty_quantification`` repeats the
 calibration for observation draws.  Each converged optimum is stored as one
 joint row in :class:`~pyages.lpm.samples.table.LpmSampleTable`.
 """
@@ -16,14 +19,15 @@ from __future__ import annotations
 
 from pathlib import Path
 from time import perf_counter
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 from scipy.optimize import minimize
 
-from pyages.calibration.methods.base import CalibrationMethod
+from pyages.calibration.methods._binding import CalibrationBinding
 from pyages.calibration.objective import normalized_residual_norm
 from pyages.calibration.outputs import write_key_values
+from pyages.calibration.problem import CalibrationProblem
 from pyages.lpm.samples.table import LpmSampleTable
 
 if TYPE_CHECKING:
@@ -40,7 +44,7 @@ SimplexMode = Literal[
 ]
 
 
-class Simplex(CalibrationMethod):
+class Simplex:
     """Calibrate an LPM with Nelder--Mead and optional repeated starts.
 
     SciPy's bounded Nelder--Mead implementation supplies candidate vectors,
@@ -57,7 +61,8 @@ class Simplex(CalibrationMethod):
         fuq_n: int = 10,
     ) -> None:
         """Configure one supported Simplex or forward-UQ execution mode."""
-        super().__init__()
+        self._binding = CalibrationBinding()
+        self.runtime_seconds = 0.0
         if calibration_method not in VALID_METHODS:
             raise ValueError(
                 f"Unknown simplex calibration method: {calibration_method}"
@@ -77,6 +82,16 @@ class Simplex(CalibrationMethod):
         self.uncertainty_sample_count = fuq_n
         self._optimization_runs: list[dict[str, Any]] = []
 
+    @property
+    def problem(self) -> CalibrationProblem:
+        """Return the problem bound by :meth:`run`."""
+        return self._binding.problem
+
+    def run(self, problem: CalibrationProblem) -> LpmSampleTable:
+        """Bind a prepared problem and execute the configured optimization."""
+        self._binding.bind(problem)
+        return self.perform()
+
     def perform(self) -> LpmSampleTable:
         """Execute the configured Simplex variant on the bound problem."""
         start = perf_counter()
@@ -87,7 +102,7 @@ class Simplex(CalibrationMethod):
             results = self._run_multiple()
         else:
             results = self._run_forward_uncertainty()
-        self.time_perform = perf_counter() - start
+        self.runtime_seconds = perf_counter() - start
         return results.add_moments()
 
     def _run_single(
@@ -102,15 +117,15 @@ class Simplex(CalibrationMethod):
         used both for the objective arrays and the result concentration names.
         """
         calibration_observations = (
-            self.observations if observations is None else observations
+            self._binding.observations if observations is None else observations
         )
-        initial = self.lpm.param_init() if parameters is None else parameters
-        observed, errors = self.observation_arrays(calibration_observations)
-        bounds = list(zip(*self.lpm.get_param_interval(), strict=True))
+        initial = self._binding.lpm.param_init() if parameters is None else parameters
+        observed, errors = self._binding.observation_arrays(calibration_observations)
+        bounds = list(self._binding.lpm.get_calibration_ranges().values())
         # Nelder--Mead sees only the parameter vector; the objective delegates
         # all scientific calculations to the already prepared problem.
         optimization = minimize(
-            self.objective_function,
+            self._binding.objective_function,
             initial,
             args=(observed, errors),
             method="nelder-mead",
@@ -130,19 +145,22 @@ class Simplex(CalibrationMethod):
         # Treat SciPy's termination flag as necessary but not sufficient:
         # independently enforce finite parameters and the model's support.
         optimum = np.asarray(optimization.x, dtype=float)
-        if not np.all(np.isfinite(optimum)) or not self.lpm.param_within_bounds_array(
-            optimum
-        ):
+        if not np.all(
+            np.isfinite(optimum)
+        ) or not self._binding.lpm.param_within_calibration_range_array(optimum):
             raise RuntimeError(
                 f"Nelder-Mead returned invalid parameters: {optimum.tolist()}"
             )
         # Re-evaluate the optimum so persisted concentrations and diagnostics
         # correspond exactly to the parameter row that will be stored.
-        chi_square, concentrations = self.objective_function(
-            optimum,
-            observed,
-            errors,
-            conc=True,
+        chi_square, concentrations = cast(
+            tuple[float, list[float]],
+            self._binding.objective_function(
+                optimum,
+                observed,
+                errors,
+                conc=True,
+            ),
         )
         if not np.isfinite(chi_square):
             raise RuntimeError("Nelder-Mead returned a non-finite objective value")
@@ -160,11 +178,11 @@ class Simplex(CalibrationMethod):
             }
         )
         results = LpmSampleTable(
-            self.lpm,
+            self._binding.lpm,
             c_names=calibration_observations.observation_keys(),
         )
         results.append_sample(
-            self.lpm.p.copy(),
+            self._binding.lpm.p.copy(),
             obj_function=normalized_residual_norm(
                 chi_square, len(calibration_observations.frame)
             ),
@@ -175,30 +193,40 @@ class Simplex(CalibrationMethod):
 
     def _run_multiple(self) -> LpmSampleTable:
         """Run Nelder-Mead from several reproducible random starts."""
-        results = LpmSampleTable(self.lpm, c_names=self.observations.observation_keys())
+        results = LpmSampleTable(
+            self._binding.lpm,
+            c_names=self._binding.observations.observation_keys(),
+        )
         rng = np.random.default_rng(self.initialization_seed)
         for _ in range(self.initialization_count):
-            # Starts are uniform within native LPM bounds and share one seeded
+            # Starts are uniform within LPM calibration ranges and share one seeded
             # stream, making their order and values reproducible.
-            self.lpm.random_uniform(rng=rng)
-            results.append(self._run_single(self.lpm.get_parameters_to_array()))
+            self._binding.lpm.random_uniform(rng=rng)
+            results.append(
+                self._run_single(self._binding.lpm.get_parameters_to_array())
+            )
         return results
 
     def _run_forward_uncertainty(self) -> LpmSampleTable:
         """Calibrate several observation draws within measurement errors."""
-        results = LpmSampleTable(self.lpm, c_names=self.observations.observation_keys())
+        results = LpmSampleTable(
+            self._binding.lpm,
+            c_names=self._binding.observations.observation_keys(),
+        )
         # Separate streams keep observation perturbations unchanged when the
         # number or strategy of optimizer initializations is modified.
         uncertainty_rng = np.random.default_rng(self.uncertainty_seed)
         initialization_rng = np.random.default_rng(self.initialization_seed)
         for _ in range(self.uncertainty_sample_count):
-            sampled_observations = self.observations.sample_with_errors(uncertainty_rng)
+            sampled_observations = self._binding.observations.sample_with_errors(
+                uncertainty_rng
+            )
             for _ in range(self.initialization_count):
                 if self.initialization_count == 1:
-                    initial = self.lpm.param_init()
+                    initial = self._binding.lpm.param_init()
                 else:
-                    self.lpm.random_uniform(rng=initialization_rng)
-                    initial = self.lpm.get_parameters_to_array()
+                    self._binding.lpm.random_uniform(rng=initialization_rng)
+                    initial = self._binding.lpm.get_parameters_to_array()
                 results.append(
                     self._run_single(initial, observations=sampled_observations)
                 )
@@ -219,14 +247,23 @@ class Simplex(CalibrationMethod):
             values["uncertainty_seed"] = self.uncertainty_seed
         write_key_values(file_name, values)
 
-    def write_results_spec(self, data: dict[str, Any]) -> None:
-        """Record aggregate optimizer termination diagnostics."""
-        data["optimization_run_count"] = len(self._optimization_runs)
-        data["optimization_iterations_total"] = sum(
-            run["iterations"] for run in self._optimization_runs
-        )
-        data["optimization_evaluations_total"] = sum(
-            run["evaluations"] for run in self._optimization_runs
+    def result_metadata(self) -> dict[str, Any]:
+        """Return aggregate optimizer termination diagnostics."""
+        return {
+            "optimization_run_count": len(self._optimization_runs),
+            "optimization_iterations_total": sum(
+                run["iterations"] for run in self._optimization_runs
+            ),
+            "optimization_evaluations_total": sum(
+                run["evaluations"] for run in self._optimization_runs
+            ),
+        }
+
+    def write_results(self, file_name: str | Path) -> None:
+        """Write execution time and optimizer diagnostics."""
+        write_key_values(
+            file_name,
+            {"runtime_seconds": self.runtime_seconds, **self.result_metadata()},
         )
 
 

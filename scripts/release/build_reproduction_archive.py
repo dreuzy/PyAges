@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import shutil
 import subprocess
@@ -18,24 +17,22 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from pyages import __version__
+from scripts.common.provenance import git_output
+from scripts.common.provenance import sha256_file as sha256
+from scripts.common.structured_data import (
+    list_field,
+    mapping_field,
+    require_mapping,
+    string_field,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_TAG = "1.0"
 EXCLUDED_PARTS = {"work", "__pycache__", ".pytest_cache"}
 
 
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def _git(*args: str) -> str:
-    return subprocess.run(
-        ["git", *args], cwd=ROOT, capture_output=True, text=True, check=True
-    ).stdout.strip()
+    return git_output(ROOT, *args).strip()
 
 
 def _campaign_files(campaign: Path):
@@ -63,16 +60,21 @@ def _release_tags(expected_tag: str, allow_untagged: bool) -> list[str]:
 
 def validate_archive(output: Path) -> dict[str, object]:
     manifest_path = output.resolve() / "ARCHIVE_MANIFEST.json"
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    payload = require_mapping(
+        json.loads(manifest_path.read_text(encoding="utf-8")),
+        "reproduction archive manifest",
+    )
     failures = []
-    for item in payload["files"]:
-        path = output / item["path"]
+    for raw_item in list_field(payload, "files"):
+        item = require_mapping(raw_item, "archive file entry")
+        relative_path = string_field(item, "path")
+        path = output / relative_path
         if not path.is_file():
-            failures.append(f"missing: {item['path']}")
+            failures.append(f"missing: {relative_path}")
         elif path.stat().st_size != item["bytes"]:
-            failures.append(f"size: {item['path']}")
+            failures.append(f"size: {relative_path}")
         elif sha256(path) != item["sha256"]:
-            failures.append(f"hash: {item['path']}")
+            failures.append(f"hash: {relative_path}")
     if failures:
         raise RuntimeError("Invalid reproduction archive: " + ", ".join(failures))
     return payload
@@ -230,7 +232,9 @@ def build_archive(
                 {
                     "path": "campaign/release_promotion.json",
                     "sha256": sha256(campaign / "release_promotion.json"),
-                    "historical_commits": promotion["historical_execution"]["commits"],
+                    "historical_commits": mapping_field(
+                        promotion, "historical_execution"
+                    )["commits"],
                 }
                 if promotion is not None
                 else None
@@ -274,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.validate_only is not None:
         payload = validate_archive(args.validate_only)
-        print(f"Validated {len(payload['files'])} archived files")
+        print(f"Validated {len(list_field(payload, 'files'))} archived files")
         return 0
     if args.campaign is None or args.output is None:
         parser.error(
@@ -296,7 +300,10 @@ def main(argv: list[str] | None = None) -> int:
                 "Existing archive PyAges version does not match the source tree: "
                 f"{payload.get('pyages_version')!r} != {__version__!r}"
             )
-        print(f"Reused valid archive with {len(payload['files'])} files: {args.output}")
+        print(
+            f"Reused valid archive with {len(list_field(payload, 'files'))} files: "
+            f"{args.output}"
+        )
         return 0
     built = build_archive(
         args.campaign,

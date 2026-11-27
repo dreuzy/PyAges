@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import inspect
 import math
 
 import numpy as np
@@ -13,8 +14,10 @@ import pandas as pd
 import pytest
 
 from pyages.convolution import Convolution, ConvolutionError
+from pyages.data_io import lpm_params
 from pyages.lpm import build_lpm
 from pyages.lpm.core.lpm_base import LpmBase
+from pyages.lpm.core.lpm_scipy import LpmScipy
 from pyages.lpm.core.parameter_manager import ParameterManager
 from pyages.tracer.simple_tracers import ConstantTracer
 from tests.utils import paths as test_paths
@@ -49,6 +52,27 @@ def _lpm(name: str):
     return build_lpm(name, directory_lpm=test_paths.lpm_data_dir())
 
 
+def test_scipy_adapter_requires_a_concrete_parameter_mapping() -> None:
+    assert inspect.isabstract(LpmScipy)
+    assert LpmScipy.__abstractmethods__ == frozenset({"_scipy_params"})
+
+
+def test_parameter_range_vocabulary_is_canonical() -> None:
+    removed = {
+        "get_param_range",
+        "get_param_interval",
+        "get_p_min",
+        "get_p_max",
+        "param_within_bounds",
+        "param_within_bounds_array",
+    }
+
+    assert not hasattr(lpm_params, "get_bounds")
+    assert not hasattr(lpm_params.LPMParameterDefinition, "bounds")
+    assert all(not hasattr(LpmBase, name) for name in removed)
+    assert all(not hasattr(ParameterManager, name) for name in removed)
+
+
 def test_constructor_copies_parameter_metadata_and_units_property() -> None:
     values = {"mu": 10.0}
     units = {"mu": "year"}
@@ -70,23 +94,34 @@ def test_constructor_rejects_inconsistent_or_nonfinite_metadata() -> None:
         _MinimalContinuousLpm({"mu": math.nan}, {"mu": "year"})
 
 
+def test_initial_parameters_are_read_without_mutating_the_model() -> None:
+    model = _lpm("gamma")
+    model.set_param_from_array([3.0, 12.0])
+
+    assert model.param_init() == [2.0, 10.0]
+    assert model.p == {"k": 3.0, "scale": 12.0}
+
+    model.load_initial_parameters()
+    assert model.p == {"k": 2.0, "scale": 10.0}
+
+
 @pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf, "invalid"])
-def test_bounds_reject_nonfinite_or_nonnumeric_values(value) -> None:
+def test_calibration_ranges_reject_nonfinite_or_nonnumeric_values(value) -> None:
     model = _lpm("exp")
 
-    assert not model.param_within_bounds({"mu": value})
-    assert not model.param_within_bounds_array([value])
+    assert not model.param_within_calibration_range({"mu": value})
+    assert not model.param_within_calibration_range_array([value])
 
 
-def test_bounds_require_complete_names_and_exact_vector_shape() -> None:
+def test_calibration_ranges_require_complete_names_and_vector_shape() -> None:
     model = _lpm("gamma")
 
-    assert not model.param_within_bounds({})
-    assert not model.param_within_bounds({"k": 2.0})
-    assert not model.param_within_bounds({"k": 2.0, "scale": 10.0, "x": 1.0})
-    assert not model.param_within_bounds_array([2.0])
-    assert not model.param_within_bounds_array([2.0, 10.0, 30.0])
-    assert not model.param_within_bounds_array([[2.0, 10.0]])
+    assert not model.param_within_calibration_range({})
+    assert not model.param_within_calibration_range({"k": 2.0})
+    assert not model.param_within_calibration_range({"k": 2.0, "scale": 10.0, "x": 1.0})
+    assert not model.param_within_calibration_range_array([2.0])
+    assert not model.param_within_calibration_range_array([2.0, 10.0, 30.0])
+    assert not model.param_within_calibration_range_array([[2.0, 10.0]])
 
 
 @pytest.mark.parametrize(
@@ -215,7 +250,7 @@ def test_load_sample_returns_the_selected_row_position() -> None:
             """model: other
 parameters:
   - name: mu
-    bounds: [0.1, 100.0]
+    calibration_range: [0.1, 100.0]
     init: 10.0
 """,
             "declares model",
@@ -224,7 +259,7 @@ parameters:
             """model: custom
 parameters:
   - name: other
-    bounds: [0.1, 100.0]
+    calibration_range: [0.1, 100.0]
     init: 10.0
 """,
             "names do not match",
@@ -233,7 +268,7 @@ parameters:
             """model: custom
 parameters:
   - name: mu
-    bounds: [0.1, 100.0]
+    calibration_range: [0.1, 100.0]
     init: .nan
 """,
             "must be finite and within",
@@ -256,11 +291,84 @@ def test_parameter_manager_rejects_duplicate_constructor_names(tmp_path) -> None
         ParameterManager("custom", tmp_path, ["mu", "mu"])
 
 
-def test_loading_initial_values_requires_exact_target_names() -> None:
+@pytest.mark.parametrize("parameter_names", [[], [""], [None]])
+def test_parameter_manager_rejects_empty_or_non_string_names(
+    tmp_path, parameter_names
+) -> None:
+    with pytest.raises(ValueError, match="non-empty strings"):
+        ParameterManager("custom", tmp_path, parameter_names)
+
+
+def test_parameter_manager_requires_parameter_file(tmp_path) -> None:
+    with pytest.raises(FileNotFoundError, match="Missing params.yaml"):
+        ParameterManager("custom", tmp_path, ["mu"])
+
+
+def test_parameter_manager_returns_initial_values_in_constructor_order() -> None:
+    manager = ParameterManager(
+        "gamma",
+        test_paths.lpm_data_dir(),
+        ["scale", "k"],
+    )
+
+    initial = manager.initial_values()
+    assert list(initial) == ["scale", "k"]
+    assert initial == {"scale": 10.0, "k": 2.0}
+
+    initial["scale"] = 99.0
+    assert manager.initial_values() == {"scale": 10.0, "k": 2.0}
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {},
+        {"other": 1.0},
+        {"mu": "invalid"},
+        {"mu": math.nan},
+        {"mu": math.inf},
+        {"mu": -1.0},
+        {"mu": 101.0},
+    ],
+)
+def test_parameter_manager_mapping_checks_reject_invalid_values(params) -> None:
     manager = ParameterManager("exp", test_paths.lpm_data_dir(), ["mu"])
-    target = {"other": 12.0}
 
-    with pytest.raises(ValueError, match="target_params must match"):
-        manager.load_initial_values(target)
+    assert not manager.param_within_calibration_range(params)
 
-    assert target == {"other": 12.0}
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        None,
+        [],
+        ["invalid"],
+        [math.nan],
+        [math.inf],
+        [-1.0],
+        [101.0],
+        [[1.0]],
+    ],
+)
+def test_lpm_calibration_vector_checks_reject_invalid_values(values) -> None:
+    model = _lpm("exp")
+
+    assert not model.param_within_calibration_range_array(values)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        None,
+        [],
+        ["invalid"],
+        [math.nan],
+        [math.inf],
+        [-1.0],
+        [[1.0]],
+    ],
+)
+def test_lpm_domain_vector_checks_reject_invalid_values(values) -> None:
+    model = _lpm("exp")
+
+    assert not model.param_within_domain_array(values)

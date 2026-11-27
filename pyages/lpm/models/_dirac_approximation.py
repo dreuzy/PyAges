@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file builds finite plotting curves for LPMs made of exact age spikes.
+# Given a time grid, spike locations, weights, and a display width, it returns
+# a normalized interpolation that ordinary PDF tools can sample. Scientific
+# convolution still evaluates the original point masses directly.
 
 """Private numerical approximations used by discrete Dirac LPM models.
 

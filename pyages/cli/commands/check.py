@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file implements the command that checks whether PyAges can run correctly.
 
-"""Verify the PyAges installation and its core resources."""
+"""Diagnose the Python environment and scientific resources with ``pyages check``.
+
+The command verifies the interpreter version, installed runtime dependencies,
+registered LPMs, tracer definitions, and required data paths. Optional manual
+integration selections are validated through the same typed configuration used
+by the command-line interface.
+
+Every check produces an explicit success or failure record for display. A failed
+requirement yields a non-zero process status so installation checks can be used
+reliably in automated environments as well as interactively.
+"""
 
 from __future__ import annotations
 

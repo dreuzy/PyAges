@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file receives temporal observations and a case mode, then returns labeled
+# data frames for either the complete span or each date in sorted order.
+# Date labels preserve the decimal year for directory names, and collisions are
+# rejected before any calibration starts.
 
 """Case partitioning and stable directory labels for temporal workflows."""
 
@@ -26,13 +30,13 @@ def build_case_frames(
     """Partition observations into the cases required by a temporal mode."""
     if mode == "span":
         return [("span_full", observations.frame)]
-    cases = [
-        (
-            f"date_{format_date_label(date)}",
-            observations.frame[observations.frame["date"] == date],
-        )
-        for date in sorted(observations.frame["date"].unique())
-    ]
+    frame = observations.frame
+    cases: list[tuple[str, pd.DataFrame]] = []
+    for date in sorted(frame["date"].unique()):
+        selected = frame[frame["date"] == date]
+        if not isinstance(selected, pd.DataFrame):
+            raise TypeError("Date selection did not produce a pandas DataFrame")
+        cases.append((f"date_{format_date_label(date)}", selected.copy()))
     labels = [label for label, _frame in cases]
     if len(labels) != len(set(labels)):
         raise ValueError("Distinct observation dates produce colliding case labels")

@@ -1,8 +1,20 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file exports tracer histories predicted by calibrated LPM samples.
 
-"""Build calibrated concentration chronicle figures and result tables."""
+"""Evaluate calibrated models through time and export their tracer chronicles.
+
+For each available calibration result, a reproducible subset of LPM realizations
+is convolved over a common calendar interval. Their histories can be plotted
+against dated observations and are also combined into tables that retain each
+model realization separately.
+
+Probability-density samples and LPM statistics are written beside the chronicle
+outputs in the method's result directory. Numerical tables remain available when
+figure generation is disabled, keeping scientific export independent of the
+workflow's display policy.
+"""
 
 from __future__ import annotations
 
@@ -107,21 +119,21 @@ def export_concentration_chronicles(
 
             dist = read_distribution(distribution_file)
             array_resolution = 1000
-            lpm_number = 10
+            posterior_draw_count = 10
 
             # The selector supplies a fixed default random seed, keeping
             # repeated exports of the same result table reproducible.
             lpm_list, pdf, lpm_statistics = select_model_realizations(
                 lpm,
                 dist,
-                count=lpm_number,
+                count=posterior_draw_count,
                 resolution=array_resolution,
             )
 
             if plot:
                 fig, axs = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4 * nrows))
                 chronicle = ConcentrationChronicle(observations=observations)
-                effective_stride = plot_stride or max(lpm_number // 10, 1)
+                effective_stride = plot_stride or max(posterior_draw_count // 10, 1)
                 final_year = (
                     end_year
                     if end_year is not None
@@ -157,7 +169,7 @@ def export_calibrated_chronicles(
     lpm_results: LpmSampleTable,
     method: str,
     display: DisplayOptions,
-    lpm_number: int,
+    posterior_draw_count: int,
 ) -> None:
     """
     Display tracer chronologies (data + model realizations) and export tables.
@@ -172,17 +184,22 @@ def export_calibrated_chronicles(
         Label used for output folder/filenames.
     display : DisplayOptions
         Display options (save/close behavior).
-    lpm_number : int
+    posterior_draw_count : int
         Number of LPM realizations to sample.
 
     Figures
     -------
     One figure containing tracer subplots.
     """
-    if isinstance(lpm_number, bool) or not isinstance(lpm_number, int):
-        raise TypeError("lpm_number must be an integer")
-    if lpm_number < 1:
-        raise ValueError("lpm_number must be at least 1")
+    if isinstance(posterior_draw_count, bool) or not isinstance(
+        posterior_draw_count, int
+    ):
+        raise TypeError("posterior_draw_count must be an integer")
+    if posterior_draw_count < 1:
+        raise ValueError("posterior_draw_count must be at least 1")
+    if display.directory is None:
+        raise ValueError("display.directory must be configured for export")
+    output_directory = Path(display.directory) / method
     tracer_names = observations.unique_tracer_names()
 
     # All unique tracers share the latest observation date because this export
@@ -196,7 +213,7 @@ def export_calibrated_chronicles(
     # Selection is reproducible by default and returns independent model copies,
     # so convolution cannot mutate the stored calibration samples.
     lpm_list, pdf, lpm_statistics = lpm_results.select(
-        count=lpm_number,
+        count=posterior_draw_count,
         resolution=1000,
     )
     if not lpm_list:
@@ -214,6 +231,7 @@ def export_calibrated_chronicles(
     # Starting without a date grid lets validated outer merges construct the
     # deterministic union produced by every tracer and realization.
     merged_all_models = None
+    fig = None
     if display.figure:
         n_tracers = len(tracer_names)
         ncols = min(3, max(n_tracers, 1))
@@ -235,7 +253,7 @@ def export_calibrated_chronicles(
             merged_all_models, series_by_tracer, model_id=i
         )
 
-    if display.figure:
+    if fig is not None:
         fig.tight_layout()
         finalize_figure(
             fig,
@@ -243,10 +261,12 @@ def export_calibrated_chronicles(
             close=display.figure_close,
         )
 
-    outfile_data = Path(display.directory) / method / "concentrations_all_models.txt"
+    if merged_all_models is None:
+        raise RuntimeError("Temporal realizations produced no concentration table")
+    outfile_data = output_directory / "concentrations_all_models.txt"
     save_concentrations_table(merged_all_models, outfile_data)
 
-    save_distributions_tables(pdf, lpm_statistics, Path(display.directory) / method)
+    save_distributions_tables(pdf, lpm_statistics, output_directory)
 
 
 __all__ = ["export_calibrated_chronicles", "export_concentration_chronicles"]

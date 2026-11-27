@@ -57,6 +57,21 @@ def test_invalid_convolution_settings_are_rejected(field, value):
         ConvolutionSettings(**{field: value})
 
 
+@pytest.mark.parametrize(
+    "field",
+    [
+        "absolute_tolerance_factor",
+        "relative_tolerance",
+        "linear_curvature_factor",
+        "floating_weight_epsilon_factor",
+    ],
+)
+@pytest.mark.parametrize("value", [True, False, "0.1", None])
+def test_convolution_tolerance_factors_require_real_numbers(field, value):
+    with pytest.raises(TypeError, match=rf"{field} must be a real number"):
+        ConvolutionSettings(**{field: value})
+
+
 def test_default_convolution_settings_have_the_public_type():
     assert isinstance(DEFAULT_CONVOLUTION_SETTINGS, ConvolutionSettings)
 

@@ -14,10 +14,22 @@ PACKAGE = ROOT / "pyages"
 DOCUMENTED_MAGIC_METHODS = {"__call__", "__init__", "__post_init__"}
 
 
+def _is_overload_stub(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    return any(
+        (isinstance(decorator, ast.Name) and decorator.id == "overload")
+        or (isinstance(decorator, ast.Attribute) and decorator.attr == "overload")
+        for decorator in node.decorator_list
+    )
+
+
 def _requires_docstring(node: ast.AST) -> bool:
     if isinstance(node, ast.ClassDef):
         return not node.name.startswith("_")
     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        # Overload stubs describe static signatures but create no runtime object.
+        # Their shared implementation owns the public docstring (Ruff D418).
+        if _is_overload_stub(node):
+            return False
         return not node.name.startswith("_") or node.name in DOCUMENTED_MAGIC_METHODS
     return False
 

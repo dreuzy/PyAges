@@ -51,11 +51,11 @@ def test_lpm_smoke_all(lpm_type):
 
     rng = np.random.default_rng(12345)
     lpm.random_uniform(rng=rng)
-    assert lpm.param_within_bounds(lpm.p)
+    assert lpm.param_within_calibration_range(lpm.p)
 
     params = lpm.get_parameters_to_array()
     lpm.set_param_from_array(params)
-    assert lpm.param_within_bounds(lpm.p)
+    assert lpm.param_within_calibration_range(lpm.p)
 
     mean_val = lpm.mean()
     std_val = lpm.std()
@@ -118,12 +118,29 @@ def test_uniform_constructor_accepts_its_scientific_parameters() -> None:
     assert model.mean() == pytest.approx(6.5)
 
 
-def test_scipy_adapter_rejects_a_negative_transit_time_mean() -> None:
-    model = UniformLpm(
-        tmin=-2.0,
-        delta=1.0,
-        directory_lpm=str(test_paths.lpm_data_dir()),
-    )
+def test_constructor_rejects_a_parameter_outside_the_mathematical_domain() -> None:
+    with pytest.raises(ValueError, match="outside the mathematical domain"):
+        UniformLpm(
+            tmin=-2.0,
+            delta=1.0,
+            directory_lpm=str(test_paths.lpm_data_dir()),
+        )
 
-    with pytest.raises(ValueError, match="non-negative mean"):
-        model.mean()
+
+def test_domain_is_independent_from_the_calibration_range() -> None:
+    model = build_lpm("exp", directory_lpm=str(test_paths.lpm_data_dir()))
+
+    model.set_param_from_array([150.0])
+
+    assert model.param_within_domain(model.p)
+    assert not model.param_within_calibration_range(model.p)
+
+
+def test_parameter_assignment_rejects_the_invalid_formula_domain_atomically() -> None:
+    model = build_lpm("exp", directory_lpm=str(test_paths.lpm_data_dir()))
+    before = dict(model.p)
+
+    with pytest.raises(ValueError, match="outside the mathematical domain"):
+        model.set_param_from_array([0.0])
+
+    assert model.p == before

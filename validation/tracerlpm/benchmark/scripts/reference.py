@@ -121,17 +121,15 @@ def forward(
     nodes, weights = np.polynomial.legendre.leggauss(8)
     ages = ((right - left)[:, None] * nodes + (right + left)[:, None]) / 2
     sample_years = observation_year - ages
-    try:
-        input_values = np.asarray(input_function(sample_years), dtype=float)
-        if input_values.shape != sample_years.shape:
-            raise ValueError
-    except (TypeError, ValueError):
-        input_values = np.asarray(
-            [input_function(float(year)) for year in sample_years.ravel()]
-        ).reshape(sample_years.shape)
+    input_values = np.asarray(
+        [input_function(float(year)) for year in sample_years.ravel()], dtype=float
+    ).reshape(sample_years.shape)
     density = pdf(model, ages, parameters)
     interval_integrals = (
         (right - left) / 2 * np.sum(weights * input_values * density, axis=1)
     )
     value = float(np.sum(interval_integrals))
-    return value, float(cdf(model, maximum_age, parameters))
+    covered_mass = np.asarray(cdf(model, maximum_age, parameters), dtype=float)
+    if covered_mass.ndim != 0:
+        raise ValueError("Scalar maximum_age must produce a scalar covered mass")
+    return value, float(covered_mass.item())

@@ -101,17 +101,18 @@ def _assert_record_close(actual: Dict, expected: Dict, tol: float = 1e-4) -> Non
 
 def test_ploemeur_temporal_golden(update_golden, tmp_path: Path) -> None:
     params = _load_params(PARAMS_PATH)
-    params["results"] = {
+    params["data"]["file"] = str(PARAMS_PATH.parent / params["data"]["file"])
+    params["lpm"]["directory"] = str(PARAMS_PATH.parent / params["lpm"]["directory"])
+    params["output"] = {
         "use_default": False,
         "directory": str(tmp_path),
         "study_name": "ploemeur_temporal",
     }
-    params.setdefault("calibration", {})
-    params["calibration"]["mh_nsteps"] = 200
-    params["calibration"]["seed_enabled"] = True
-    params["calibration"]["seed"] = 12345
-    params["figures"] = {"temporal": False, "distributions": False}
-    params["workflow"] = {"mode": "span"}
+    mh = params["calibration"]["metropolis_hastings"]
+    mh["nsteps"] = 200
+    mh["seed"] = 12345
+    params["reporting"] = {"temporal": False, "distributions": False}
+    params["workflow"] = {"kind": "temporal", "mode": "span"}
 
     params_path = tmp_path / "ploemeur_temporal_test.yaml"
     with params_path.open("w", encoding="utf-8") as handle:
@@ -119,10 +120,10 @@ def test_ploemeur_temporal_golden(update_golden, tmp_path: Path) -> None:
 
     run_temporal(params_path)
 
-    dataset_file = Path(params["dataset"]["file"])
+    dataset_file = Path(params["data"]["file"])
     dataset_stem = dataset_file.stem
     mode = params["workflow"]["mode"]
-    lpm_list: List[str] = params.get("lpm_models", {}).get("list") or []
+    lpm_list: List[str] = params.get("lpm", {}).get("models") or []
 
     results_root = tmp_path / "ploemeur_temporal" / dataset_stem / mode / "span_full"
     record: Dict[str, Dict[str, float]] = {}

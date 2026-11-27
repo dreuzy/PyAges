@@ -121,7 +121,10 @@ def _check_source_headers(errors: list[str]) -> None:
 
 
 def _check_dependency_inventory(errors: list[str]) -> None:
-    constraints = (ROOT / "install" / "constraints.txt").read_text(encoding="utf-8")
+    constraints = "\n".join(
+        (ROOT / "install" / filename).read_text(encoding="utf-8")
+        for filename in ("constraints.txt", "bootstrap-constraints.txt")
+    )
     notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
     for line in constraints.splitlines():
         if "==" not in line or line.lstrip().startswith("#"):

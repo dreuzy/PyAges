@@ -8,9 +8,10 @@ projects can also contain separately licensed components; consult the notices
 shipped with the exact package artifact being redistributed.
 
 This audit records the direct dependency versions qualified in
-`install/constraints.txt` and the NuGet versions declared in project files on
-27 November 2026. The dependency declarations in `pyproject.toml`, .NET project
-files, and the upstream package artifacts remain authoritative.
+`install/constraints.txt`, the packaging tools qualified in
+`install/bootstrap-constraints.txt`, and the NuGet versions declared in project
+files on 27 November 2026. The dependency declarations in `pyproject.toml`,
+.NET project files, and the upstream package artifacts remain authoritative.
 
 | Dependency | Qualified version | Upstream licence metadata |
 | --- | --- | --- |
@@ -26,6 +27,7 @@ files, and the upstream package artifacts remain authoritative.
 | `pip-audit` | `2.10.1` | Apache-2.0 |
 | `pytest` | `9.2.0` | MIT |
 | `pytest-cov` | `7.1.0` | MIT |
+| `pyright` | `1.1.411` | MIT |
 | `ruff` | `0.17.6` | MIT |
 | `twine` | `7.0.0` | Apache-2.0 |
 | `sphinx` | `9.1.1` | BSD-2-Clause |
@@ -33,8 +35,11 @@ files, and the upstream package artifacts remain authoritative.
 | `sphinxcontrib-mermaid` | `2.1.1` | BSD-2-Clause |
 | `sphinx-rtd-theme` | `3.1.0` | MIT |
 | `openpyxl` | `3.1.5` | MIT |
-| `ipython` | `9.16.1` | BSD-3-Clause |
+| `ipython` | `9.17.1` | BSD-3-Clause |
 | `jupyterlab` | `4.6.6` | BSD licence |
+| `pip` | `26.2.1` | MIT |
+| `setuptools` | `84.0.0` | MIT |
+| `wheel` | `0.48.0` | MIT |
 | `YamlDotNet` | `16.3.0` | MIT |
 
 The direct dependencies use permissive terms and are consumed as external

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from math import isfinite
 from pathlib import Path
 
 import pandas as pd
@@ -56,6 +57,17 @@ def _decimal_year(value: str) -> float:
     return date.year + (date - start).days / (following - start).days
 
 
+def _positive_measurement(value: object) -> float | None:
+    """Return one finite positive measurement, or ``None`` for a missing cell."""
+    try:
+        measurement = float(str(value).strip())
+    except ValueError:
+        return None
+    if not isfinite(measurement) or measurement <= 0.0:
+        return None
+    return measurement
+
+
 def prepare_well(
     well: str,
     raw_directory: str | Path,
@@ -76,27 +88,29 @@ def prepare_well(
     }
 
     records: list[dict[str, object]] = []
+    observation_years: list[float] = []
     for row_index in raw.index[2:]:
         date = _decimal_year(str(raw.at[row_index, 0]))
         for column, tracer_name in tracer_names.items():
-            value = pd.to_numeric(raw.at[row_index, column], errors="coerce")
-            if pd.isna(value) or float(value) <= 0.0:
+            value = _positive_measurement(raw.at[row_index, column])
+            if value is None:
                 continue
             records.append(
                 {
                     ELEMENT_COLUMN: tracer_name,
-                    CONCENTRATION_COLUMN: float(value),
+                    CONCENTRATION_COLUMN: value,
                     ERROR_COLUMN: 0.0,
                     UNIT_COLUMN: "pptv",
                     DATE_COLUMN: date,
                 }
             )
+            observation_years.append(date)
     if not records:
         raise ValueError(f"No positive tracer observations found in {source}")
 
     observations = pd.DataFrame.from_records(records)
-    first_year = int(observations[DATE_COLUMN].min())
-    last_year = int(observations[DATE_COLUMN].max())
+    first_year = int(min(observation_years))
+    last_year = int(max(observation_years))
     destination_directory = Path(output_directory)
     destination_directory.mkdir(parents=True, exist_ok=True)
     destination = (

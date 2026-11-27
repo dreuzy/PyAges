@@ -1,5 +1,5 @@
 ﻿# Canonical Ploemeur LPM configuration.
-# Defines bounds, initialization, proposal steps, and analytical priors.
+# Defines calibration ranges, initialization, proposal steps, and analytical priors.
 
 model: dirac_double_1_set
 version: 1
@@ -9,7 +9,7 @@ parameters:
     label: mean_age_free
     unit: year
     description: "Free mean parameter."
-    bounds: [0.0, 70.0]
+    calibration_range: [0.0, 70.0]
     init: 10.0
     step: 2.0
     prior:
@@ -21,7 +21,7 @@ parameters:
   - name: rate
     label: mix_rate
     description: "Mixing rate between components."
-    bounds: [0.0, 1.0]
+    calibration_range: [0.0, 1.0]
     init: 0.3
     step: 0.1
     prior:

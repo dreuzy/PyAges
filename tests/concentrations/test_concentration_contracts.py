@@ -21,11 +21,16 @@ matplotlib.use("Agg", force=True)
 import matplotlib.pyplot as plt
 
 from pyages.concentrations import ConcentrationChronicle, Concentrations
+from pyages.concentrations._labels import pretty_tracer_name
 from pyages.concentrations.plotting import (
     plot_concentration_chronicles_summary,
     plot_tracer_series,
 )
-from pyages.concentrations.schema import REFERENCE_COLUMNS, tracer_date_key
+from pyages.concentrations.schema import (
+    REFERENCE_COLUMNS,
+    observation_key,
+    tracer_date_key,
+)
 from pyages.concentrations.series import merge_model_into_table, normalize_series
 from pyages.concentrations.temporal import (
     TemporalPredictionSummary,
@@ -126,6 +131,21 @@ def test_concentrations_strip_names_and_distinguish_row_and_unique_names() -> No
 
 def test_tracer_date_keys_do_not_collapse_distinct_dates() -> None:
     assert tracer_date_key("cfc11", 2000.04) != tracer_date_key("cfc11", 2000.049)
+
+
+def test_observation_keys_add_a_validated_row_index() -> None:
+    assert observation_key("cfc11", 2000.0, 0) == "cfc11@2000.0#0"
+    assert observation_key("cfc11", 2000.0, 1) == "cfc11@2000.0#1"
+    with pytest.raises(ValueError, match="non-negative integer"):
+        observation_key("cfc11", 2000.0, True)
+    with pytest.raises(ValueError, match="non-negative integer"):
+        observation_key("cfc11", 2000.0, -1)
+
+
+def test_tracer_display_names_follow_one_shared_convention() -> None:
+    assert pretty_tracer_name("cfc11") == "CFC11"
+    assert pretty_tracer_name("sf6") == "SF6"
+    assert pretty_tracer_name("3H") == "3H"
 
 
 @pytest.mark.parametrize(

@@ -28,8 +28,8 @@ def _sample_table(offset: float = 0.0) -> LpmSampleTable:
     table = LpmSampleTable(model, c_names=["cfc11", "cfc12"])
     for index in range(4):
         params = {
-            name: model.get_p_min(name)
-            + (0.25 + 0.1 * index) * model.get_param_range(name)
+            name: model.get_calibration_range(name)[0]
+            + (0.25 + 0.1 * index) * model.get_calibration_range_width(name)
             + offset
             for name in names
         }
@@ -85,19 +85,16 @@ def test_prior_and_concentration_diagnostics_route_overlays(monkeypatch) -> None
     distribution = _sample_table()
     comparison = _sample_table(offset=0.01)
     reference = build_lpm("ig")
-    prior = SimpleNamespace(
-        parameters={
-            name: np.column_stack(
-                (
-                    np.linspace(
-                        reference.get_p_min(name), reference.get_p_max(name), 101
-                    ),
-                    np.ones(101),
-                )
+    prior_grids = {
+        name: np.column_stack(
+            (
+                np.linspace(*reference.get_calibration_range(name), 101),
+                np.ones(101),
             )
-            for name in distribution.get_param_names()
-        }
-    )
+        )
+        for name in distribution.get_param_names()
+    }
+    prior = SimpleNamespace(density_grid=lambda name: prior_grids[name])
     close = Mock(side_effect=lambda *_args, **_kwargs: plt.close())
     pair_plot = Mock()
     monkeypatch.setattr(sample_diagnostics.plotting, "finalize_figure", close)
@@ -167,9 +164,8 @@ def test_parameter_helpers_filter_nonfinite_values_and_invalid_bins() -> None:
     assert sample_diagnostics._finite_parameter_values(distribution, name).size == 2
 
     invalid_model = SimpleNamespace(
-        get_param_range=lambda _name: 0.0,
-        get_p_min=lambda _name: 0.0,
-        get_p_max=lambda _name: 0.0,
+        get_calibration_range_width=lambda _name: 0.0,
+        get_calibration_range=lambda _name: (0.0, 0.0),
     )
     invalid_distribution = SimpleNamespace(lpm_template=invalid_model)
     bins = sample_diagnostics._parameter_bins(

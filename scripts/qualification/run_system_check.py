@@ -164,11 +164,11 @@ class TestIntegration:
         print("\nCALIBRATION ON SYNTETIC CASES: METROPOLIS-HASTINGS")
         for lpm in lpm_list:
             mh_config = MHConfig(
-                nstep=2000,
+                nsteps=2000,
                 prior_option=True,
                 prior_type="parametric",
                 likelihood=True,
-                monitor=False,
+                record_trajectory=False,
             )
             calib_mh = MetropolisHastings(config=mh_config)
             calib = SyntheticRecoveryExperiment(

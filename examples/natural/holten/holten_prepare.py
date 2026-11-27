@@ -3,14 +3,20 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""
-Preparation utilities for the Holten benchmark workflow.
+"""Prepare the source data consumed by the Holten benchmark calculations.
+
+The raw study table uses publication-specific columns and units. This module
+selects the configured wells, validates local tracer metadata, converts the
+three calibration tracers to PyAges tables, records helium-only diagnostics,
+and writes both aggregated and per-well inputs. It performs preparation only;
+model fitting and comparison with the article live in neighboring modules.
 """
 
 from __future__ import annotations
 
+from collections.abc import Hashable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -24,6 +30,7 @@ from examples.natural.holten.holten_case import (
     load_yaml,
     tracer_yaml_path,
 )
+from pyages._scalar_conversion import scalar_float
 from pyages.tracer.decay import rate_from_config
 
 VALID_TRACERS = ("3H", "kr85", "39Ar")
@@ -38,6 +45,7 @@ TRITIUM_MEAN_LIFETIME_YEARS = TRITIUM_HALF_LIFE_YEARS / np.log(2.0)
 
 
 def read_sampling_table(context: HoltenContext) -> pd.DataFrame:
+    """Read the raw sampling table and add exact and rounded decimal dates."""
     frame = pd.read_csv(context.paths.sampling_raw_path, sep="\t")
     frame["Date_decimal_exact"] = frame["Date"].apply(decimal_year_from_sampling_date)
     frame["Date_decimal"] = frame["Date_decimal_exact"].round(
@@ -47,6 +55,7 @@ def read_sampling_table(context: HoltenContext) -> pd.DataFrame:
 
 
 def select_v1_wells(frame: pd.DataFrame, selected_wells: list[str]) -> pd.DataFrame:
+    """Select configured wells and fail when any requested well is absent."""
     filtered = frame.loc[frame["ID"].isin(selected_wells)].copy()
     missing = sorted(set(selected_wells).difference(set(filtered["ID"])))
     if missing:
@@ -207,6 +216,7 @@ def _validate_tracer_specific_rules(
 def validate_local_tracer_yaml(
     tracer_name: str, context: HoltenContext
 ) -> dict[str, Any]:
+    """Validate one Holten tracer file and return its parsed configuration."""
     yaml_path, payload = _load_local_tracer_yaml(tracer_name, context)
     _validate_tracer_payload_shape(payload, yaml_path)
     holten, preparation = _validate_holten_sections(payload, yaml_path, context)
@@ -218,11 +228,22 @@ def _parse_history_file(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, sep="\t")
 
 
+def _column_series(frame: pd.DataFrame, column: Hashable) -> pd.Series:
+    """Return one unambiguous column and reject duplicate column labels."""
+    selected = frame[column]
+    if not isinstance(selected, pd.Series):
+        raise ValueError(f"Expected one column named {column!r}, found duplicates")
+    return selected
+
+
 def _coerce_numeric_series(series: pd.Series, label: str) -> pd.Series:
     cleaned = series.astype(str).str.replace("..", ".", regex=False).str.strip()
-    values = pd.to_numeric(cleaned, errors="coerce")
-    if values.isna().any():
-        bad = cleaned.loc[values.isna()].head(5).tolist()
+    values = pd.Series(
+        pd.to_numeric(cleaned, errors="coerce"), index=series.index, dtype=float
+    )
+    missing = values.isna()
+    if missing.to_numpy().any():
+        bad = cleaned.loc[missing].head(5).tolist()
         raise ValueError(f"Could not parse numeric values in {label}: {bad}")
     return values
 
@@ -253,7 +274,9 @@ def _prepare_kr85_history(
     raw = _parse_history_file(path)
     value_col = next(col for col in raw.columns if "[Bq/cbm air]" in col)
     factor = float(prep["conversion_factor"])
-    values = _coerce_numeric_series(raw[value_col], f"{path}:{value_col}")
+    values = _coerce_numeric_series(
+        _column_series(raw, value_col), f"{path}:{value_col}"
+    )
     history = pd.DataFrame(
         {
             "date": raw["Date"].astype(str).map(decimal_year_from_sampling_date),
@@ -263,7 +286,8 @@ def _prepare_kr85_history(
     )
     if "Kr85_error [Bq/cbm air]" in raw.columns:
         errors = _coerce_numeric_series(
-            raw["Kr85_error [Bq/cbm air]"], f"{path}:Kr85_error [Bq/cbm air]"
+            _column_series(raw, "Kr85_error [Bq/cbm air]"),
+            f"{path}:Kr85_error [Bq/cbm air]",
         )
         history["error"] = errors * factor
     return history.sort_values("date").reset_index(drop=True)
@@ -315,6 +339,7 @@ def _prepare_tracer_history(
 def build_prepared_tracer_directory(
     context: HoltenContext, reference_year: float | None = None
 ) -> dict[str, pd.DataFrame]:
+    """Convert and write all configured recharge histories for model use."""
     histories: dict[str, pd.DataFrame] = {}
     context.paths.prepared_tracer_dir.mkdir(parents=True, exist_ok=True)
     for tracer_name in context.calibration_tracers:
@@ -334,32 +359,35 @@ def build_prepared_tracer_directory(
 
 
 def convert_3h_record(row: pd.Series) -> dict[str, Any]:
+    """Convert one non-missing tritium observation to the PyAges schema."""
     return {
         "element": "3H",
-        "concentration": float(row["3H_TU"]),
-        "error": float(row["3H_err"]),
+        "concentration": scalar_float(row["3H_TU"]),
+        "error": scalar_float(row["3H_err"]),
         "unit": "TU",
-        "date": float(row["Date_decimal"]),
+        "date": scalar_float(row["Date_decimal"]),
     }
 
 
 def convert_kr85_record(row: pd.Series) -> dict[str, Any]:
+    """Convert one non-missing krypton-85 observation without changing units."""
     return {
         "element": "kr85",
-        "concentration": float(row["Kr85_dpm_ccKr"]),
-        "error": float(row["Kr85_err"]),
+        "concentration": scalar_float(row["Kr85_dpm_ccKr"]),
+        "error": scalar_float(row["Kr85_err"]),
         "unit": "dpm/ccKr",
-        "date": float(row["Date_decimal"]),
+        "date": scalar_float(row["Date_decimal"]),
     }
 
 
 def convert_39ar_record(row: pd.Series) -> dict[str, Any]:
+    """Convert one argon-39 observation from percent modern to a fraction."""
     return {
         "element": "39Ar",
-        "concentration": float(row["Ar39_pMC"]) / 100.0,
-        "error": float(row["Ar39_err"]) / 100.0,
+        "concentration": scalar_float(row["Ar39_pMC"]) / 100.0,
+        "error": scalar_float(row["Ar39_err"]) / 100.0,
         "unit": "fraction_modern",
-        "date": float(row["Date_decimal"]),
+        "date": scalar_float(row["Date_decimal"]),
     }
 
 
@@ -371,7 +399,7 @@ OBSERVATION_CONVERSION_SPECS = (
 
 
 def _optional_float(row: pd.Series, field: str) -> float:
-    value = row.get(field, np.nan)
+    value: Any = row.get(field, np.nan)
     if _is_missing(value):
         return np.nan
     return float(value)
@@ -389,14 +417,24 @@ def _delta_ne_screening(delta_ne_pct: float) -> str:
 
 
 def _infer_default_3he_error(frame: pd.DataFrame) -> float:
-    values = pd.to_numeric(frame.get("3He_err"), errors="coerce")
-    values = values.loc[np.isfinite(values) & (values > 0.0)]
+    if "3He_err" not in frame.columns:
+        return np.nan
+    source = _column_series(frame, "3He_err")
+    values = pd.Series(
+        pd.to_numeric(source, errors="coerce"), index=source.index, dtype=float
+    )
+    values = values.loc[np.isfinite(values.to_numpy()) & (values.to_numpy() > 0.0)]
     if values.empty:
         return np.nan
     return float(values.median())
 
 
 def build_helium_diagnostics(frame: pd.DataFrame) -> pd.DataFrame:
+    """Derive audited helium quantities that diagnose the fourth observable.
+
+    These columns support the Holten reproduction but are deliberately kept
+    outside the three-tracer calibration table prepared by this module.
+    """
     default_3he_err = _infer_default_3he_error(frame)
     records: list[dict[str, Any]] = []
     for _, row in frame.iterrows():
@@ -438,7 +476,7 @@ def build_helium_diagnostics(frame: pd.DataFrame) -> pd.DataFrame:
         records.append(
             {
                 "well_id": well_id,
-                "date": float(row["Date_decimal"]),
+                "date": scalar_float(row["Date_decimal"]),
                 "3H_TU": tritium,
                 "3H_err": tritium_err,
                 "3He_trit_TU": helium_trit,
@@ -500,7 +538,7 @@ def _convert_sampling_row(
             {
                 "well_id": well_id,
                 "element": element,
-                "raw_value": float(raw_value),
+                "raw_value": scalar_float(raw_value),
                 "raw_unit": raw_unit,
                 "converted_value": float(converted["concentration"]),
                 "converted_unit": converted["unit"],
@@ -514,6 +552,7 @@ def _convert_sampling_row(
 def convert_sampling_observations(
     frame: pd.DataFrame, context: HoltenContext
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Convert selected raw rows and return observations plus a preparation log."""
     records: list[dict[str, Any]] = []
     prep_log: list[dict[str, Any]] = []
     for _, row in frame.iterrows():
@@ -529,6 +568,7 @@ def convert_sampling_observations(
 def validate_converted_dataset(
     frame: pd.DataFrame, selected_wells: list[str], aggregated_file: bool
 ) -> None:
+    """Reject incomplete, non-finite, or scientifically inconsistent tables."""
     required = ["element", "concentration", "error", "unit", "date"]
     if aggregated_file:
         required = ["well_id", *required]
@@ -547,13 +587,21 @@ def validate_converted_dataset(
 def _validate_converted_values(frame: pd.DataFrame) -> None:
     if set(frame["element"]) != set(VALID_TRACERS):
         raise ValueError(f"Unexpected tracer set: {sorted(set(frame['element']))}")
-    if frame["concentration"].isna().any() or frame["error"].isna().any():
+    if (
+        frame["concentration"].isna().to_numpy().any()
+        or frame["error"].isna().to_numpy().any()
+    ):
         raise ValueError("Converted dataset contains missing numeric values")
-    if (frame["error"].astype(float) <= 0).any():
+    if (frame["error"].astype(float) <= 0).to_numpy().any():
         raise ValueError("Converted dataset contains non-positive errors")
-    if (frame["concentration"].astype(float) < 0).any():
+    if (frame["concentration"].astype(float) < 0).to_numpy().any():
         raise ValueError("Converted dataset contains negative concentrations")
-    if frame.loc[frame["element"] == "39Ar", "concentration"].astype(float).max() > 10:
+    if (
+        float(
+            frame.loc[frame["element"] == "39Ar", "concentration"].astype(float).max()
+        )
+        > 10
+    ):
         raise ValueError(
             "39Ar values appear to still be in pMC, not fraction of modern"
         )
@@ -592,12 +640,16 @@ def _validate_per_well_rows(frame: pd.DataFrame) -> None:
 
 
 def write_aggregated_dataset(frame: pd.DataFrame, context: HoltenContext) -> Path:
+    """Write one deterministic, tracer-ordered table for all selected wells."""
     context.paths.data_dir.mkdir(parents=True, exist_ok=True)
-    ordered = frame[
-        ["well_id", "element", "concentration", "error", "unit", "date"]
-    ].copy()
+    ordered = cast(
+        pd.DataFrame,
+        frame.loc[:, ["well_id", "element", "concentration", "error", "unit", "date"]],
+    ).copy()
     order_map = {"3H": 0, "kr85": 1, "39Ar": 2}
-    ordered["_element_order"] = ordered["element"].map(order_map)
+    ordered["_element_order"] = ordered["element"].map(
+        lambda value: order_map.get(str(value))
+    )
     ordered = ordered.sort_values(["well_id", "date", "_element_order"]).reset_index(
         drop=True
     )
@@ -609,9 +661,14 @@ def write_aggregated_dataset(frame: pd.DataFrame, context: HoltenContext) -> Pat
 def write_per_well_files(
     frame: pd.DataFrame, context: HoltenContext
 ) -> dict[str, Path]:
+    """Write the validated five-column PyAges input table for each well."""
     paths: dict[str, Path] = {}
-    for well_id, group in frame.groupby("well_id"):
-        payload = group[["element", "concentration", "error", "unit", "date"]].copy()
+    for raw_well_id, group in frame.groupby("well_id"):
+        well_id = str(raw_well_id)
+        payload = cast(
+            pd.DataFrame,
+            group.loc[:, ["element", "concentration", "error", "unit", "date"]],
+        ).copy()
         validate_converted_dataset(payload, [well_id], aggregated_file=False)
         out_path = context.paths.data_dir / f"holten_2010_{well_id}.txt"
         payload.to_csv(out_path, sep="\t", index=False)
@@ -620,10 +677,15 @@ def write_per_well_files(
 
 
 def build_observed_by_well(frame: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Return in-memory calibration observations keyed by well identifier."""
     observed_by_well: dict[str, pd.DataFrame] = {}
-    for well_id, group in frame.groupby("well_id"):
+    for raw_well_id, group in frame.groupby("well_id"):
+        well_id = str(raw_well_id)
         observed_by_well[well_id] = (
-            group[["element", "concentration", "error", "unit", "date"]]
+            cast(
+                pd.DataFrame,
+                group.loc[:, ["element", "concentration", "error", "unit", "date"]],
+            )
             .copy()
             .reset_index(drop=True)
         )
@@ -636,12 +698,13 @@ def _prepare_runtime_directories(context: HoltenContext) -> None:
 
 
 def prepare_holten_inputs(config_path: Path | None = None) -> PreparedHoltenCase:
+    """Run the full deterministic preparation and return its shared case record."""
     context = build_context(config_path)
     _prepare_runtime_directories(context)
 
     sampling_raw = read_sampling_table(context)
     selected = select_v1_wells(sampling_raw, context.selected_wells)
-    reference_year = float(selected["Date_decimal_exact"].median())
+    reference_year = scalar_float(selected["Date_decimal_exact"].median())
     tracer_histories = build_prepared_tracer_directory(
         context, reference_year=reference_year
     )

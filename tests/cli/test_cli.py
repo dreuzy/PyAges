@@ -8,6 +8,8 @@
 import importlib
 from pathlib import Path
 
+import click
+import pytest
 import yaml
 from click.testing import CliRunner
 
@@ -18,7 +20,10 @@ from pyages.cli.commands.new import new_group
 
 def _write_minimal_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("dataset: {}\n", encoding="utf-8")
+    config_path.write_text(
+        "schema_version: 3\nworkflow:\n  kind: single_date\ndata: {}\n",
+        encoding="utf-8",
+    )
     return config_path
 
 
@@ -85,13 +90,14 @@ def test_cli_run_dispatch_single_date(tmp_path, monkeypatch):
     config_path = _write_minimal_config(tmp_path)
     called = {}
 
-    def _fake_run_single_date(config, inline, verbose):
+    def _fake_run_workflow(workflow, config, *, inline, verbose):
+        called["workflow"] = workflow
         called["config"] = config
         called["payload"] = yaml.safe_load(Path(config).read_text(encoding="utf-8"))
         called["inline"] = inline
         called["verbose"] = verbose
 
-    monkeypatch.setattr(run_cmd, "_run_single_date", _fake_run_single_date)
+    monkeypatch.setattr(run_cmd, "_run_workflow", _fake_run_workflow)
 
     runner = CliRunner()
     result = runner.invoke(
@@ -112,34 +118,39 @@ def test_cli_run_dispatch_single_date(tmp_path, monkeypatch):
     )
     assert result.exit_code == 0
     assert called["config"] != config_path
+    assert called["workflow"] == "single_date"
     assert Path(called["config"]).parent == tmp_path
     assert not Path(called["config"]).exists()
     assert called["inline"] is True
     assert called["verbose"] is True
     payload = called["payload"]
-    assert payload["dataset"]["name"] == "custom.txt"
-    assert payload["dataset"]["data_dir"] == str(tmp_path)
-    assert payload["lpm"]["model_name"] == "exp_shifted"
-    assert payload["calibration_metropolis_hastings"]["nstep"] == 1234
+    assert payload["data"]["name"] == "custom.txt"
+    assert payload["data"]["data_dir"] == str(tmp_path)
+    assert payload["lpm"]["models"] == ["exp_shifted"]
+    assert payload["calibration"]["metropolis_hastings"]["nsteps"] == 1234
 
 
-def test_cli_run_dispatch_transient(tmp_path, monkeypatch):
-    config_path = _write_minimal_config(tmp_path)
+def test_cli_run_dispatch_temporal(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "schema_version: 3\nworkflow:\n  kind: temporal\ndata:\n  file: data.txt\n",
+        encoding="utf-8",
+    )
     called = {}
 
-    def _fake_run_transient(config, verbose):
+    def _fake_run_workflow(workflow, config, *, inline, verbose):
+        called["workflow"] = workflow
         called["config"] = config
         called["payload"] = yaml.safe_load(Path(config).read_text(encoding="utf-8"))
         called["verbose"] = verbose
 
-    monkeypatch.setattr(run_cmd, "_run_transient", _fake_run_transient)
+    monkeypatch.setattr(run_cmd, "_run_workflow", _fake_run_workflow)
 
     runner = CliRunner()
     result = runner.invoke(
         run_cmd.run,
         [
             str(config_path),
-            "--transient",
             "--lpm",
             "ig",
             "--mh-nsteps",
@@ -150,28 +161,85 @@ def test_cli_run_dispatch_transient(tmp_path, monkeypatch):
     )
     assert result.exit_code == 0
     assert called["config"] != config_path
+    assert called["workflow"] == "temporal"
     assert Path(called["config"]).parent == tmp_path
     assert not Path(called["config"]).exists()
     assert called["verbose"] is False
     payload = called["payload"]
-    assert payload["dataset"]["file"] == str(tmp_path / "data.txt")
-    assert payload["lpm_models"]["list"] == ["ig"]
-    assert payload["calibration"]["mh_nsteps"] == 987
+    assert payload["data"]["file"] == str(tmp_path / "data.txt")
+    assert payload["lpm"]["models"] == ["ig"]
+    assert payload["calibration"]["metropolis_hastings"]["nsteps"] == 987
 
 
-def test_cli_new_lpm_writes_to_current_project() -> None:
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ({"schema_version": 3, "workflow": {"kind": "single_date"}}, "single_date"),
+        ({"schema_version": 3, "workflow": {"kind": "temporal"}}, "temporal"),
+    ],
+)
+def test_cli_detects_declared_workflows(payload, expected) -> None:
+    assert run_cmd._detect_workflow(payload) == expected
+
+
+@pytest.mark.parametrize("payload", [{"schema_version": 3, "workflow": {}}])
+def test_cli_rejects_missing_workflow_kind(payload) -> None:
+    with pytest.raises(click.ClickException, match="workflow.kind is required"):
+        run_cmd._detect_workflow(payload)
+
+
+@pytest.mark.parametrize("payload", [{}, {"schema_version": 2}])
+def test_cli_rejects_non_schema_3_configurations(payload) -> None:
+    with pytest.raises(click.ClickException, match="schema_version"):
+        run_cmd._detect_workflow(payload)
+
+
+def test_cli_transient_option_has_been_removed(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        run_cmd.run, [str(_write_minimal_config(tmp_path)), "--transient"]
+    )
+
+    assert result.exit_code == 2
+    assert "No such option" in result.output
+    assert "--transient" in result.output
+
+
+def test_schema_3_cli_overrides_use_canonical_fields(tmp_path) -> None:
+    payload = {
+        "schema_version": 3,
+        "workflow": {"kind": "temporal"},
+        "data": {"file": "old.tsv"},
+    }
+
+    changed = run_cmd._apply_overrides(
+        payload,
+        workflow="temporal",
+        lpm="ig",
+        mh_nsteps=456,
+        data_name=None,
+        data_dir=None,
+        data_file=tmp_path / "observations.tsv",
+    )
+
+    assert changed is True
+    assert payload["data"]["file"] == str(tmp_path / "observations.tsv")
+    assert payload["lpm"]["models"] == ["ig"]
+    assert payload["calibration"]["metropolis_hastings"]["nsteps"] == 456
+
+
+def test_cli_new_lpm_writes_to_current_project(tmp_path, monkeypatch) -> None:
     runner = CliRunner()
-    with runner.isolated_filesystem():
-        result = runner.invoke(new_group, ["lpm", "audit_model"])
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(new_group, ["lpm", "audit_model"])
 
-        assert result.exit_code == 0, result.output
-        model_path = Path("pyages/lpm/models/audit_model.py")
-        assert model_path.is_file()
-        assert Path("data_core/data_lpm/audit_model/params.yaml").is_file()
-        model_source = model_path.read_text(encoding="utf-8")
-        assert "class AuditModelLpm" in model_source
-        assert "def cdf_and_partial_first_moment" in model_source
-        compile(model_source, str(model_path), "exec")
+    assert result.exit_code == 0, result.output
+    model_path = Path("pyages/lpm/models/audit_model.py")
+    assert model_path.is_file()
+    assert Path("data_core/data_lpm/audit_model/params.yaml").is_file()
+    model_source = model_path.read_text(encoding="utf-8")
+    assert "class AuditModelLpm" in model_source
+    assert "def cdf_and_partial_first_moment" in model_source
+    compile(model_source, str(model_path), "exec")
 
 
 def test_cli_new_lpm_rejects_removed_scipy_safe_base() -> None:
@@ -184,11 +252,11 @@ def test_cli_new_lpm_rejects_removed_scipy_safe_base() -> None:
     assert "Invalid value for '--base'" in result.output
 
 
-def test_cli_new_tracer_writes_to_current_project() -> None:
+def test_cli_new_tracer_writes_to_current_project(tmp_path, monkeypatch) -> None:
     runner = CliRunner()
-    with runner.isolated_filesystem():
-        result = runner.invoke(new_group, ["tracer", "audit_tracer"])
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(new_group, ["tracer", "audit_tracer"])
 
-        assert result.exit_code == 0, result.output
-        assert Path("data_core/data_tracer/audit_tracer/audit_tracer.yaml").is_file()
-        assert Path("data_core/data_tracer/audit_tracer/recharge.csv").is_file()
+    assert result.exit_code == 0, result.output
+    assert Path("data_core/data_tracer/audit_tracer/audit_tracer.yaml").is_file()
+    assert Path("data_core/data_tracer/audit_tracer/recharge.csv").is_file()

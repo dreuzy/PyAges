@@ -20,7 +20,6 @@ import yaml
 from .generate_inputs import BENCHMARK_ROOT, SOURCE_REPOSITORY_ROOT
 from .reference import forward
 
-REPO_ROOT = SOURCE_REPOSITORY_ROOT
 DEFAULT_CONFIG = BENCHMARK_ROOT / "configs" / "inversion-campaign.yaml"
 OUTPUT_DIR = BENCHMARK_ROOT / "observations"
 
@@ -118,7 +117,7 @@ def generate(config_path: Path = DEFAULT_CONFIG, output_dir: Path = OUTPUT_DIR) 
         )
         rows = []
         for tracer in config["tracers"]:
-            source = REPO_ROOT / tracer["recharge"]
+            source = SOURCE_REPOSITORY_ROOT / tracer["recharge"]
             dates, concentrations = _chronicle(source)
 
             def input_function(year, dates=dates, concentrations=concentrations):
@@ -187,7 +186,7 @@ def generate(config_path: Path = DEFAULT_CONFIG, output_dir: Path = OUTPUT_DIR) 
     # The one-parameter pilot aliases CFC-11 to the SF6 slot; only the numeric
     # history matters to the stable-tracer convolution.
     cfc11 = next(item for item in config["tracers"] if item["name"] == "cfc11")
-    dates, concentrations = _chronicle(REPO_ROOT / cfc11["recharge"])
+    dates, concentrations = _chronicle(SOURCE_REPOSITORY_ROOT / cfc11["recharge"])
     tracerlpm_input = output_dir / "tracerlpm-emm-pilot-cfc11-as-sf6.csv"
     with tracerlpm_input.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.writer(stream, lineterminator="\n")
@@ -196,7 +195,9 @@ def generate(config_path: Path = DEFAULT_CONFIG, output_dir: Path = OUTPUT_DIR) 
 
     chronicles = {}
     for tracer in config["tracers"]:
-        chronicles[tracer["name"]] = _chronicle(REPO_ROOT / tracer["recharge"])
+        chronicles[tracer["name"]] = _chronicle(
+            SOURCE_REPOSITORY_ROOT / tracer["recharge"]
+        )
     common_dates = np.unique(np.concatenate([item[0] for item in chronicles.values()]))
     multitracer_input = output_dir / "tracerlpm-emm-pilot-three-cfcs.csv"
     with multitracer_input.open("w", encoding="utf-8", newline="") as stream:
@@ -245,7 +246,7 @@ def generate(config_path: Path = DEFAULT_CONFIG, output_dir: Path = OUTPUT_DIR) 
 
     normalized = []
     for tracer in [item for item in config["tracers"] if item["name"] == "cfc12"]:
-        source = REPO_ROOT / tracer["recharge"]
+        source = SOURCE_REPOSITORY_ROOT / tracer["recharge"]
         normalized_dates, normalized_values = _chronicle(source)
         target = output_dir / f"normalized-{tracer['name']}.csv"
         with target.open("w", encoding="utf-8", newline="") as stream:

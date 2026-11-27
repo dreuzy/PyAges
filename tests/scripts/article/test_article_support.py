@@ -11,11 +11,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from pyages.calibration.methods.mh.diagnostics import (
+    ess,
+    mcse_mean_from_ess,
+    split_rhat,
+)
 from scripts.article import build_article_non_ploemeur_report as non_ploemeur_report
 from scripts.article import postprocess_holten_prior_sensitivity as prior_postprocess
 from scripts.article import run_ploemeur_shifted_exponential_final as ploemeur_runner
 from scripts.article import run_ploemeur_targeted_ig_reproduction as ig_runner
-from scripts.common.mcmc_diagnostics import ess, mcse_mean, split_rhat
+from scripts.common import provenance
 from scripts.common.reporting import markdown_table
 from scripts.release import build_article_package as package
 
@@ -67,10 +72,12 @@ def test_shared_mcmc_diagnostics_distinguish_mixed_and_shifted_chains():
 def test_mcse_mean_uses_ess_and_preserves_constant_limit():
     values = np.asarray([1.0, 2.0, 3.0, 4.0])
 
-    assert mcse_mean(values, 4.0) == pytest.approx(np.std(values, ddof=1) / 2.0)
-    assert mcse_mean(np.ones(10), 3.0) == 0.0
+    assert mcse_mean_from_ess(values, 4.0) == pytest.approx(
+        np.std(values, ddof=1) / 2.0
+    )
+    assert mcse_mean_from_ess(np.ones(10), 3.0) == 0.0
     with pytest.raises(ValueError, match="effective_sample_size"):
-        mcse_mean(values, 0.0)
+        mcse_mean_from_ess(values, 0.0)
 
 
 def test_markdown_table_rounds_and_escapes_without_tabulate():
@@ -80,6 +87,20 @@ def test_markdown_table_rounds_and_escapes_without_tabulate():
 
     assert "a\\|b" in rendered
     assert "1.235" in rendered
+
+
+def test_shared_provenance_hashes_files_and_preserves_git_output_type(tmp_path):
+    """Cover the common helpers used by article, release, and archive scripts."""
+    payload = b"reproducible evidence\n"
+    source = tmp_path / "evidence.bin"
+    source.write_bytes(payload)
+
+    assert provenance.sha256_file(source) == provenance.sha256_bytes(payload)
+    root = Path(__file__).resolve().parents[3]
+    assert isinstance(provenance.git_output(root, "rev-parse", "HEAD"), str)
+    assert isinstance(
+        provenance.git_output(root, "rev-parse", "HEAD", binary=True), bytes
+    )
 
 
 def test_article_boolean_diagnostics_treat_missing_values_as_false():

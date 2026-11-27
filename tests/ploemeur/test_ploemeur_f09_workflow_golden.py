@@ -141,9 +141,9 @@ def test_ploemeur_f09_workflow_golden(update_golden, tmp_path: Path) -> None:
     params = load_workflow_params(PARAMS_PATH)
     params["results"] = {"use_default": False, "directory": str(tmp_path)}
     params.setdefault("calibration", {})
-    params["calibration"]["mh_nsteps"] = 200
-    params["calibration"]["seed_enabled"] = True
-    params["calibration"]["seed"] = 12345
+    mh = params["calibration"]["metropolis_hastings"]
+    mh["nsteps"] = 200
+    mh["seed"] = 12345
     validate_workflow_params(params)
 
     prior_pipeline = params.get("workflows", {}).get("prior_pipeline", [])

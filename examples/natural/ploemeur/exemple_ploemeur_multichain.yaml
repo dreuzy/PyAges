@@ -1,0 +1,56 @@
+# Reproducible multi-chain qualification profile for Ploemeur F09 (2010).
+# This checks MCMC convergence and in-sample predictive coherence; field data do
+# not provide a known true parameter vector or prove that this LPM is unique.
+schema_version: 3
+
+workflow:
+  kind: single_date
+
+data:
+  name: ploemeur_F09_2010.txt
+  label: Ploemeur F09 2010 multi-chain qualification
+  year: 2010
+  data_dir: data
+  verbose: true
+  # Fallback used only if an observation uncertainty is zero. It is a workflow
+  # policy for this maintained example, not a universal uncertainty model.
+  missing_error_rel: 0.01
+
+lpm:
+  models: [exp_shifted]
+  directory: ../../../data_core/data_lpm
+
+output:
+  study_name: ploemeur_f09_multichain
+
+run:
+  reachable_concentrations: false
+  objective_function: false
+  metropolis_hastings: true
+  simplex: false
+
+calibration:
+  metropolis_hastings:
+    nsteps: 5000
+    burn_in: 0.2
+    thinning: 1
+    prior_option: false
+    likelihood: true
+    display_traj: false
+    chains: 5
+    seed: 20260831
+    initialization:
+      strategy: bounds_stratified
+      max_attempts: 100
+    pilot:
+      enabled: true
+      nsteps: 2000
+      burn_in: 0.5
+      relative_ridge: 1.0e-6
+      proposal_multiplier: auto
+      save_samples: false
+    diagnostics:
+      max_rhat: 1.01
+      min_bulk_ess: 300
+      min_tail_ess: 300
+      require_convergence: true

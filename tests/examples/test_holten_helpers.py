@@ -22,7 +22,7 @@ from examples.natural.holten.run_holten import (
     _run_calibration_phase,
     write_prepared_artifacts,
 )
-from pyages.workflows.single_date.config import load_params
+from pyages.workflows.single_date.config import load_config
 from tests.examples.holten_test_support import (
     EXPECTED_PRE_MODEL_FIGURES,
     EXPECTED_SELECTED_WELLS,
@@ -34,11 +34,12 @@ pytest_plugins = ("tests.examples.holten_fixtures",)
 def test_holten_context_smoke(holten_sandbox):
     context = build_context(holten_sandbox["config_path"])
 
+    assert load_yaml(holten_sandbox["config_path"])["schema_version"] == 3
     assert context.paths.example_dir == holten_sandbox["example_dir"]
-    assert context.params.dataset_name == "holten_2010_selected_wells.txt"
-    assert context.params.lpm_model_name == "uniform"
-    assert context.paths.data_dir == context.params.dataset_data_dir
-    assert context.paths.lpm_data_dir == context.params.directory_lpm
+    assert context.params.data.name == "holten_2010_selected_wells.txt"
+    assert context.params.lpm.models == ["uniform"]
+    assert context.paths.data_dir == context.params.data.data_dir
+    assert context.paths.lpm_data_dir == context.params.lpm.directory
     assert (
         context.tracer_source_dirs["3H"]
         == holten_sandbox["example_dir"] / "tracers" / "3H"
@@ -85,10 +86,15 @@ def test_generated_launcher_yaml_uses_prepared_tracer_directory(prepared_holten_
     config_path = write_well_launcher_config(
         prepared.context, prepared.context.selected_wells[0]
     )
-    params = load_params(prepared.context.paths.repo_root, config_path)
+    params = load_config(config_path.parent, config_path)
 
-    assert params.tracer_data_dir == prepared.context.paths.prepared_tracer_dir
-    assert "holten" not in load_yaml(config_path)
+    assert (
+        params.tracers.data_directory.resolve()
+        == prepared.context.paths.prepared_tracer_dir.resolve()
+    )
+    generated_payload = load_yaml(config_path)
+    assert generated_payload["schema_version"] == 3
+    assert "holten" not in generated_payload
 
 
 def test_unknown_holten_configuration_key_is_rejected(holten_sandbox):

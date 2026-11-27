@@ -22,7 +22,7 @@ from examples.natural.holten import holten_case as holten_case_module
 from examples.natural.holten.holten_benchmark import compare_with_reference_results
 from examples.natural.holten.holten_case import HoltenPaths
 from examples.natural.holten.holten_four_bin import (
-    FRACTION_COLUMNS,
+    BIN_ORDER,
     LOCAL_4BIN_TRACER_ORDER,
     run_local_4bin,
     run_local_4bin_mh,
@@ -241,7 +241,7 @@ def build_local_4bin_record(outputs: dict[str, Any]) -> dict[str, Any]:
                 "well_id",
                 "n_observations_local_4bin",
                 "tracers_local_4bin",
-                *FRACTION_COLUMNS,
+                *BIN_ORDER,
                 "chi2_local_4bin",
                 "rmse_local_4bin",
                 "weighted_rmse_local_4bin",
@@ -273,16 +273,16 @@ def build_local_4bin_mh_record(outputs: dict[str, Any]) -> dict[str, Any]:
         "well_id",
         "nsamples",
         "acceptance_rate_mean",
-        *[f"{fraction}_q10" for fraction in FRACTION_COLUMNS],
-        *[f"{fraction}_median" for fraction in FRACTION_COLUMNS],
-        *[f"{fraction}_q90" for fraction in FRACTION_COLUMNS],
+        *[f"{fraction}_q10" for fraction in BIN_ORDER],
+        *[f"{fraction}_median" for fraction in BIN_ORDER],
+        *[f"{fraction}_q90" for fraction in BIN_ORDER],
         "mean_age_local_4bin_median",
         "chi2_local_4bin_median",
     ]
     return {
         "paper_reference": frame_records(
             outputs["paper"],
-            columns=["well_id", *FRACTION_COLUMNS],
+            columns=["well_id", *BIN_ORDER],
             sort_by=["well_id"],
         ),
         "posterior": frame_records(
@@ -294,10 +294,10 @@ def build_local_4bin_mh_record(outputs: dict[str, Any]) -> dict[str, Any]:
             outputs["comparison"],
             columns=[
                 "well_id",
-                *[f"{fraction}_paper" for fraction in FRACTION_COLUMNS],
-                *[f"{fraction}_posterior_q10" for fraction in FRACTION_COLUMNS],
-                *[f"{fraction}_posterior_median" for fraction in FRACTION_COLUMNS],
-                *[f"{fraction}_posterior_q90" for fraction in FRACTION_COLUMNS],
+                *[f"{fraction}_paper" for fraction in BIN_ORDER],
+                *[f"{fraction}_posterior_q10" for fraction in BIN_ORDER],
+                *[f"{fraction}_posterior_median" for fraction in BIN_ORDER],
+                *[f"{fraction}_posterior_q90" for fraction in BIN_ORDER],
             ],
             sort_by=["well_id"],
         ),
@@ -411,7 +411,7 @@ def local_4bin_mh_outputs(prepared_holten_case, holten_sandbox):
     paper, posterior, comparison, paths = run_local_4bin_mh(
         prepared_holten_case,
         output_dir,
-        nstep=600,
+        nsteps=600,
         burn_in=0.2,
         proposal_scale=0.18,
         seed=12345,

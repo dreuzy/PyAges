@@ -5,14 +5,27 @@
 """Contracts for package metadata and the intentionally small root API."""
 
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import yaml
 from click.testing import CliRunner
 
 import pyages
+import pyages.config as config_api
 import pyages.qualification as qualification
+import pyages.workflows.runtime as workflow_runtime
+from pyages.calibration.methods import mh
+from pyages.calibration.methods.mh import config as mh_config
+from pyages.calibration.methods.mh import errors as mh_errors
+from pyages.calibration.methods.mh import results as mh_results
+from pyages.calibration.methods.mh import run_config as mh_run_config
+from pyages.calibration.methods.mh import runner as mh_runner
+from pyages.calibration.methods.mh import sampler as mh_sampler
 from pyages.cli.main import cli
+from pyages.workflows.runtime import manifest as runtime_manifest
+from pyages.workflows.runtime import mh as runtime_mh
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -27,6 +40,27 @@ def test_cli_uses_package_version() -> None:
 
     assert result.exit_code == 0
     assert result.output.strip() == f"pyages, version {pyages.__version__}"
+
+
+def test_convolution_is_importable_first_in_a_fresh_interpreter() -> None:
+    """Keep package facades from creating an order-dependent import cycle."""
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from pyages.convolution import Convolution, ConvolutionTracers; "
+                "print(Convolution.__name__, ConvolutionTracers.__name__)"
+            ),
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "Convolution ConvolutionTracers"
 
 
 def test_citation_uses_package_version() -> None:
@@ -57,11 +91,99 @@ def test_removed_compatibility_facades_are_absent() -> None:
         "pyages/workflows/single_date_config.py",
         "pyages/workflows/single_date_paths.py",
         "pyages/workflows/synthetic_recovery.py",
+        "pyages/calibration/methods/mh/ensemble.py",
+        "pyages/calibration/methods/mh/ensemble_config.py",
+        "pyages/calibration/methods/base.py",
+        "pyages/config/migration.py",
+        "pyages/cli/commands/config.py",
     )
 
     assert all(not (ROOT / path).exists() for path in removed_paths)
+    assert "LauncherParams" not in config_api.__all__
+    assert not hasattr(config_api, "LauncherParams")
+
+
+def test_config_facade_uses_explicit_exports() -> None:
+    assert config_api.__all__ == [
+        "CliCheckParams",
+        "CliRunParams",
+        "CONFIGURATION_SCHEMA_VERSION",
+        "SingleDateConfig",
+        "SystemCheckConfig",
+        "TemporalConfig",
+        "DIRECTORY_LPM_DATA",
+        "DIRECTORY_TRACER_DATA",
+        "ROOT_DIRECTORY",
+        "ROOT_DIRECTORY_RESULTS",
+        "result_subdirectory",
+        "timestamp_name",
+        "DisplayOptions",
+        "SimulationTimer",
+        "subdivide_interval",
+    ]
+    assert not hasattr(config_api, "_EXPORTS")
+    assert "__getattr__" not in config_api.__dict__
 
 
 def test_qualification_exposes_the_experiment_without_a_workflow_alias() -> None:
     assert qualification.__all__ == ["SyntheticRecoveryExperiment"]
     assert not hasattr(qualification, "SyntheticRecoveryWorkflow")
+
+
+def test_mh_facade_exports_only_canonical_objects() -> None:
+    expected = {
+        "MHConfig": mh_config.MHConfig,
+        "MHConvergenceError": mh_errors.MHConvergenceError,
+        "MHDiagnosticsConfig": mh_run_config.MHDiagnosticsConfig,
+        "MHRunConfig": mh_run_config.MHRunConfig,
+        "MHInitializationConfig": mh_run_config.MHInitializationConfig,
+        "MHPilotConfig": mh_run_config.MHPilotConfig,
+        "MHRunRecord": mh_results.MHRunRecord,
+        "MetropolisHastings": mh_sampler.MetropolisHastings,
+        "MetropolisHastingsRunner": mh_runner.MetropolisHastingsRunner,
+    }
+
+    assert mh.__all__ == list(expected)
+    assert all(getattr(mh, name) is value for name, value in expected.items())
+    assert not hasattr(mh, "MHEnsembleResult")
+    assert not hasattr(mh, "MHChainResult")
+    assert not hasattr(mh, "MHSeedPlan")
+    assert not hasattr(mh, "build_seed_plan")
+    assert not hasattr(mh_runner, "ProblemFactory")
+    assert hasattr(runtime_mh, "build_mh_run_config")
+    assert hasattr(runtime_mh, "execute_mh_run")
+    assert not hasattr(runtime_mh, "mh_stage_directory")
+
+
+def test_workflow_runtime_facade_exports_only_canonical_lifecycle_services() -> None:
+    expected = {
+        "ResultRun": runtime_manifest.ResultRun,
+        "begin_staged_result_run": runtime_manifest.begin_staged_result_run,
+        "promote_result_run": runtime_manifest.promote_result_run,
+        "write_failure_manifest": runtime_manifest.write_failure_manifest,
+        "write_result_manifest": runtime_manifest.write_result_manifest,
+    }
+
+    assert workflow_runtime.__all__ == list(expected)
+    assert all(
+        getattr(workflow_runtime, name) is value for name, value in expected.items()
+    )
+    assert not hasattr(workflow_runtime, "RESULT_SCHEMA_VERSION")
+    assert not hasattr(workflow_runtime, "begin_result_run")
+    assert not hasattr(runtime_manifest, "begin_result_run")
+    assert not hasattr(workflow_runtime, "_promotion_lock")
+
+
+def test_manifest_exports_stage_operations_outside_the_contributor_facade() -> None:
+    operational_names = {
+        "StagedRunInspection",
+        "inspect_staged_result_run",
+        "inventory_staged_result_runs",
+        "quarantine_staged_result_run",
+    }
+
+    assert operational_names <= set(runtime_manifest.__all__)
+    assert all(hasattr(runtime_manifest, name) for name in operational_names)
+    assert all(not hasattr(workflow_runtime, name) for name in operational_names)
+    assert "promotable_now" in runtime_manifest.StagedRunInspection.__annotations__
+    assert "promotable" not in runtime_manifest.StagedRunInspection.__annotations__

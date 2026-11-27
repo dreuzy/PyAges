@@ -11,7 +11,6 @@ new artifact is confined to results/robustness/holten_prior_dirichlet1.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import platform
@@ -51,13 +50,19 @@ from examples.natural.holten.holten_reproduction import (  # noqa: E402
     build_reproduction_endmembers,
     optimize_well,
 )
+from pyages._scalar_conversion import scalar_float  # noqa: E402
+from pyages.calibration.methods.mh.diagnostics import mcse_mean_from_ess  # noqa: E402
 from scripts.article.run_final_shifted_exponential import (  # noqa: E402
     _iact_ess,
     _split_rhat,
     _summary,
 )
-from scripts.common.mcmc_diagnostics import mcse_mean  # noqa: E402
-from scripts.common.provenance import repository_provenance  # noqa: E402
+from scripts.common.provenance import (  # noqa: E402
+    repository_provenance,
+)
+from scripts.common.provenance import (  # noqa: E402
+    sha256_file as _sha256,
+)
 from scripts.common.publication_plotting import (  # noqa: E402
     PUBLICATION_RC,
     mm_to_in,
@@ -127,14 +132,6 @@ def _guard_output(path: Path) -> Path:
     return resolved
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def log_abs_stick_breaking_jacobian(z: np.ndarray) -> float | np.ndarray:
     """Log |d(f_0,f_1,f_2)/d(z_0,z_1,z_2)|, stably evaluated."""
     values = np.asarray(z, dtype=float)
@@ -190,7 +187,7 @@ def validate_jacobian(output: Path, n_points: int = 256) -> pd.DataFrame:
         )
     frame = pd.DataFrame(rows)
     frame.to_csv(output / "jacobian_validation.csv", index=False)
-    if float(frame["relative_error"].max()) >= 1.0e-6:
+    if scalar_float(frame["relative_error"].max()) >= 1.0e-6:
         raise RuntimeError("Finite-difference Jacobian validation failed")
     return frame
 
@@ -466,7 +463,7 @@ def collect_diagnostics(
                 "steps_per_chain": FINAL_STEPS[well],
                 "split_rhat": _split_rhat(chains),
                 "ess_sum_chains": total_ess,
-                "mcse_mean": mcse_mean(pooled, total_ess),
+                "mcse_mean": mcse_mean_from_ess(pooled, total_ess),
             }
             row["converged"] = bool(
                 row["split_rhat"] < 1.01 and row["ess_sum_chains"] >= 300.0
@@ -488,7 +485,7 @@ def collect_diagnostics(
             if diagnostic is None:
                 chains = [np.asarray(data[parameter]) for data in loaded]
                 total_ess = float(sum(_iact_ess(chain)[2] for chain in chains))
-                mean_mcse = mcse_mean(values, total_ess)
+                mean_mcse = mcse_mean_from_ess(values, total_ess)
             else:
                 total_ess = diagnostic["ess_sum_chains"]
                 mean_mcse = diagnostic["mcse_mean"]
@@ -529,7 +526,9 @@ def posterior_predictions(output: Path) -> pd.DataFrame:
     for well in prepared.context.selected_wells:
         observations = build_observations(prepared, well, True)
         elements = observations["element"]
-        if elements.isna().any():
+        if not isinstance(elements, pd.Series):
+            raise ValueError("Expected exactly one 'element' observation column")
+        if bool(elements.isna().any()):
             raise RuntimeError(f"Missing tracer name in observations for {well}")
         tracer_names = elements.map(str).tolist()
         matrix = _matrix(endmembers, tracer_names)
@@ -563,6 +562,8 @@ def posterior_predictions(output: Path) -> pd.DataFrame:
     canonical.insert(0, "prior", "uniform_z")
     columns = list(alternative.columns)
     combined = pd.concat([canonical[columns], alternative], ignore_index=True)
+    if not isinstance(combined, pd.DataFrame):
+        raise TypeError("Concatenating posterior predictions must produce a DataFrame")
     combined.to_csv(output / "standardized_residuals.csv", index=False)
     return combined
 
@@ -653,13 +654,17 @@ def global_metrics(
                 "rmse_standardized_residual": float(
                     np.sqrt(np.mean(local_residuals**2))
                 ),
-                "max_split_rhat": float(local_convergence["split_rhat"].max()),
-                "min_ess": float(local_convergence["ess_sum_chains"].min()),
-                "min_acceptance_rate": float(local_chains["acceptance_rate"].min()),
-                "median_acceptance_rate": float(
+                "max_split_rhat": scalar_float(local_convergence["split_rhat"].max()),
+                "min_ess": scalar_float(local_convergence["ess_sum_chains"].min()),
+                "min_acceptance_rate": scalar_float(
+                    local_chains["acceptance_rate"].min()
+                ),
+                "median_acceptance_rate": scalar_float(
                     local_chains["acceptance_rate"].median()
                 ),
-                "max_acceptance_rate": float(local_chains["acceptance_rate"].max()),
+                "max_acceptance_rate": scalar_float(
+                    local_chains["acceptance_rate"].max()
+                ),
             }
         )
         for well, local_group in local_convergence.groupby("well", sort=False):
@@ -674,8 +679,8 @@ def global_metrics(
                 {
                     "prior": prior,
                     "well": well,
-                    "max_split_rhat": float(local_group["split_rhat"].max()),
-                    "min_ess": float(local_group["ess_sum_chains"].min()),
+                    "max_split_rhat": scalar_float(local_group["split_rhat"].max()),
+                    "min_ess": scalar_float(local_group["ess_sum_chains"].min()),
                     "all_parameters_converged": bool(local_group["converged"].all()),
                     "min_acceptance_rate": float(acceptances.min()),
                     "median_acceptance_rate": float(acceptances.median()),
@@ -827,13 +832,13 @@ def make_figure(
     )
 
     with plt.rc_context(PUBLICATION_RC):
-        tab10 = plt.get_cmap("tab10").colors
+        tab10 = plt.get_cmap("tab10")
         styles = (
-            ("reference", -0.09, tab10[0], "o", "Latent-uniform prior"),
+            ("reference", -0.09, tab10(0), "o", "Latent-uniform prior"),
             (
                 "dirichlet",
                 0.09,
-                tab10[1],
+                tab10(1),
                 "D",
                 "Dirichlet(1,1,1,1) prior",
             ),
@@ -1043,7 +1048,9 @@ def write_manifest(
         },
         "validation": {
             "jacobian_points": len(jacobian),
-            "jacobian_max_relative_error": float(jacobian["relative_error"].max()),
+            "jacobian_max_relative_error": scalar_float(
+                jacobian["relative_error"].max()
+            ),
             "dirichlet_prior_sampling_acceptance": float(
                 prior_comparison.loc[
                     prior_comparison["prior"].str.startswith("dirichlet"),

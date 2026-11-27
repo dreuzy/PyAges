@@ -2,8 +2,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file computes the residual measures minimized during calibration.
 
-"""Objective functions and residual diagnostics used by calibration."""
+"""Compare modeled and observed concentrations on their uncertainty scale.
+
+Each residual is divided by its measurement error before it is squared, so a
+difference is judged relative to the observation's stated uncertainty rather
+than its raw concentration unit. The module exposes both the individual squared
+standardized residuals and their normalized aggregate norm.
+
+Optimizers and posterior samplers use these shared calculations to report the
+same goodness-of-fit quantity. They do not define a prior or a complete posterior
+probability density.
+"""
 
 import numpy as np
 

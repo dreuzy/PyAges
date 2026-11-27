@@ -13,7 +13,12 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from .generate_inversion_pilot import DEFAULT_CONFIG, OUTPUT_DIR, REPO_ROOT, _chronicle
+from .generate_inversion_pilot import (
+    DEFAULT_CONFIG,
+    OUTPUT_DIR,
+    SOURCE_REPOSITORY_ROOT,
+    _chronicle,
+)
 from .invert_pyages_pilot import RESULT_DIR
 from .reference import forward
 
@@ -29,7 +34,9 @@ def study(
     if model not in {"EPM", "DM"}:
         raise ValueError("La surface accepte EPM ou DM")
     case = next(item for item in config["cases"] if item["model"] == model)
-    output_dir = output_dir or RESULT_DIR / case["case_id"]
+    resolved_output_dir = (
+        RESULT_DIR / case["case_id"] if output_dir is None else output_dir
+    )
     with (observation_dir / f"{case['case_id']}.csv").open(
         encoding="utf-8", newline=""
     ) as stream:
@@ -37,7 +44,7 @@ def study(
     histories = {}
     maxima = {}
     for tracer in config["tracers"]:
-        dates, values = _chronicle(REPO_ROOT / tracer["recharge"])
+        dates, values = _chronicle(SOURCE_REPOSITORY_ROOT / tracer["recharge"])
         histories[tracer["name"]] = (dates, values)
         maxima[tracer["name"]] = float(np.max(values))
     relative = float(config["objective"]["relative_standard_deviation"])
@@ -87,8 +94,8 @@ def study(
                 row["tracerlpm_r"] = float(secondary - 1)
             rows.append(row)
     best = min(rows, key=lambda row: row["objective_chi_square"])
-    output_dir.mkdir(parents=True, exist_ok=True)
-    with (output_dir / "objective-surface.csv").open(
+    resolved_output_dir.mkdir(parents=True, exist_ok=True)
+    with (resolved_output_dir / "objective-surface.csv").open(
         "w", encoding="utf-8", newline=""
     ) as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]), lineterminator="\n")
@@ -102,7 +109,7 @@ def study(
         "grid_best": best,
         "note": "Coarse independent surface; optimizer results remain the precision estimate.",
     }
-    (output_dir / "surface-summary.json").write_text(
+    (resolved_output_dir / "surface-summary.json").write_text(
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
     return summary

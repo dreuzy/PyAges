@@ -12,7 +12,6 @@ paths containing ``ploemeur``.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import platform
@@ -33,6 +32,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from pyages._scalar_conversion import scalar_float  # noqa: E402
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig  # noqa: E402
 from pyages.calibration.methods.mh.proposals import (  # noqa: E402
     regularize_empirical_covariance,
@@ -42,6 +42,7 @@ from pyages.calibration.problem import CalibrationProblem  # noqa: E402
 from pyages.config.runtime import DisplayOptions  # noqa: E402
 from pyages.convolution import ConvolutionTracers  # noqa: E402
 from pyages.lpm import build_lpm  # noqa: E402
+from scripts.common.provenance import sha256_file as _sha256  # noqa: E402
 
 OUTPUT = ROOT / "results" / "mh_proposal_qualification"
 CASES = (
@@ -141,6 +142,21 @@ CONFIGURATIONS = (
 )
 
 
+def _require_frame(value: object, context: str) -> pd.DataFrame:
+    """Require a DataFrame at a Pandas boundary with a potentially wide type."""
+    if not isinstance(value, pd.DataFrame):
+        raise TypeError(f"{context} must produce a DataFrame")
+    return value
+
+
+def _column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one unambiguous column from a qualification table."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Expected exactly one {name!r} column")
+    return column
+
+
 def _guard_output(path: Path) -> Path:
     resolved = path.resolve()
     if "ploemeur" in str(resolved).lower():
@@ -204,12 +220,12 @@ def _run_chain(
         )
     mh = MetropolisHastings(
         config=MHConfig(
-            nstep=steps,
+            nsteps=steps,
             burn_in=BURN_IN,
-            nskip=1,
+            thinning=1,
             prior_option=False,
             likelihood=True,
-            monitor=False,
+            record_trajectory=False,
             display_traj=False,
             display_text=False,
             seed=seed,
@@ -227,9 +243,8 @@ def _run_chain(
 
 
 def _acceptance(mh: MetropolisHastings) -> float:
-    payload: dict[str, Any] = {}
-    mh.write_results_spec(payload)
-    return float(payload["success_rate"])
+    payload = mh.result_metadata()
+    return float(payload["acceptance_rate"])
 
 
 def _acf(values: np.ndarray, max_lag: int = MAX_ACF_LAG) -> np.ndarray:
@@ -280,14 +295,6 @@ def _summary(values: np.ndarray) -> dict[str, float]:
     }
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def write_preflight(output: Path) -> Path:
     files = (
         ROOT / "scripts" / "qualify_mh_proposals.py",
@@ -327,7 +334,7 @@ def write_preflight(output: Path) -> Path:
             "production_steps": PRODUCTION_STEPS,
             "pilot_steps": PILOT_STEPS,
             "burn_in": BURN_IN,
-            "nskip": 1,
+            "thinning": 1,
             "pilot_seed": PILOT_SEED,
             "covariance_relative_ridge": RIDGE,
             "configurations": CONFIGURATIONS,
@@ -543,12 +550,14 @@ def _split_rhat_table(
     chain_cache: dict[tuple[str, str, int], dict[str, Any]],
 ) -> pd.DataFrame:
     rows = []
-    for (case_name, configuration, parameter), group in summaries.groupby(
-        ["case", "configuration", "parameter"]
-    ):
+    for group_key, group in summaries.groupby(["case", "configuration", "parameter"]):
+        if not isinstance(group_key, tuple) or len(group_key) != 3:
+            raise TypeError("Split-Rhat grouping must return three key values")
+        case_name, configuration, parameter = (str(value) for value in group_key)
+        group_frame = _require_frame(group, "Split-Rhat grouping")
         chains = [
             chain_cache[(case_name, configuration, int(seed))][parameter]
-            for seed in group["seed"]
+            for seed in _column(group_frame, "seed")
         ]
         rows.append(
             {
@@ -565,40 +574,43 @@ def analyze(output: Path, steps: int = PRODUCTION_STEPS) -> dict[str, Path]:
     summaries, runs, acfs, chain_cache = _collect_analysis_tables(output, steps)
     rhats = _split_rhat_table(summaries, chain_cache)
 
-    variability = (
-        summaries.groupby(
-            ["case", "configuration", "strategy", "scale", "parameter"], as_index=False
-        )
-        .agg(
-            seeds=("seed", "nunique"),
-            median_interseed_sd=("median", "std"),
-            median_interseed_range=(
-                "median",
-                lambda values: values.max() - values.min(),
-            ),
-            q10_interseed_sd=("q10", "std"),
-            q90_interseed_sd=("q90", "std"),
-            posterior_sd_interseed_sd=("sd", "std"),
-            ess_median=("ess", "median"),
-            ess_min=("ess", "min"),
-            ess_per_second_median=("ess_per_second", "median"),
-            iact_median=("iact", "median"),
-        )
-        .merge(rhats, on=["case", "configuration", "parameter"], how="left")
-    )
-    ranking = variability.groupby(
-        ["configuration", "strategy", "scale"], as_index=False
+    variability_aggregated = summaries.groupby(
+        ["case", "configuration", "strategy", "scale", "parameter"], as_index=False
     ).agg(
-        max_split_rhat=("split_rhat", "max"),
-        min_ess=("ess_min", "min"),
-        median_ess=("ess_median", "median"),
-        median_ess_per_second=("ess_per_second_median", "median"),
-        max_median_interseed_sd=("median_interseed_sd", "max"),
-        max_quantile_interseed_sd=("q10_interseed_sd", "max"),
+        seeds=("seed", "nunique"),
+        median_interseed_sd=("median", "std"),
+        median_interseed_range=(
+            "median",
+            lambda values: values.max() - values.min(),
+        ),
+        q10_interseed_sd=("q10", "std"),
+        q90_interseed_sd=("q90", "std"),
+        posterior_sd_interseed_sd=("sd", "std"),
+        ess_median=("ess", "median"),
+        ess_min=("ess", "min"),
+        ess_per_second_median=("ess_per_second", "median"),
+        iact_median=("iact", "median"),
     )
-    acceptance = runs.groupby("configuration", as_index=False).agg(
-        acceptance_mean=("acceptance_rate", "mean"),
-        runtime_mean=("runtime_seconds", "mean"),
+    variability = _require_frame(
+        variability_aggregated, "Inter-seed aggregation"
+    ).merge(rhats, on=["case", "configuration", "parameter"], how="left")
+    ranking = _require_frame(
+        variability.groupby(["configuration", "strategy", "scale"], as_index=False).agg(
+            max_split_rhat=("split_rhat", "max"),
+            min_ess=("ess_min", "min"),
+            median_ess=("ess_median", "median"),
+            median_ess_per_second=("ess_per_second_median", "median"),
+            max_median_interseed_sd=("median_interseed_sd", "max"),
+            max_quantile_interseed_sd=("q10_interseed_sd", "max"),
+        ),
+        "Configuration ranking",
+    )
+    acceptance = _require_frame(
+        runs.groupby("configuration", as_index=False).agg(
+            acceptance_mean=("acceptance_rate", "mean"),
+            runtime_mean=("runtime_seconds", "mean"),
+        ),
+        "Acceptance aggregation",
     )
     ranking = ranking.merge(acceptance, on="configuration", how="left")
     ranking["rhat_below_1p01"] = ranking["max_split_rhat"] < 1.01
@@ -736,7 +748,7 @@ def analyze(output: Path, steps: int = PRODUCTION_STEPS) -> dict[str, Path]:
         comparison_manifest = {
             "published_reference_file": str(published_path.relative_to(ROOT)),
             "published_reference_sha256": _sha256(published_path),
-            "published_configuration": "historical (1.5,1.5), 10000 steps, seed 12345, nskip 5",
+            "published_configuration": "historical (1.5,1.5), 10000 steps, seed 12345, thinning 5",
             "qualified_configuration": best_name,
             "qualified_pool": f"{len(SEEDS)} chains x 7999 post-burn-in states",
         }
@@ -908,76 +920,86 @@ def write_report(
         historical_rank["median_ess_per_second"]
     )
     figure2 = pd.read_csv(output / "figure2_proposal_comparison.csv")
-    key_ranking = ranking[
-        [
-            "configuration",
-            "strategy",
-            "scale",
-            "acceptance_mean",
-            "max_split_rhat",
-            "min_ess",
-            "median_ess",
-            "median_ess_per_second",
-            "max_median_interseed_sd",
-        ]
-    ]
-    posterior_delta = comparisons.groupby("parameter", as_index=False).agg(
-        max_abs_median_delta=("delta_median", lambda x: np.max(np.abs(x))),
-        max_abs_mean_delta=("delta_mean", lambda x: np.max(np.abs(x))),
-        max_abs_sd_delta=("delta_sd", lambda x: np.max(np.abs(x))),
-        max_abs_q10_delta=("delta_q10", lambda x: np.max(np.abs(x))),
-        max_abs_q90_delta=("delta_q90", lambda x: np.max(np.abs(x))),
+    key_ranking = _require_frame(
+        ranking[
+            [
+                "configuration",
+                "strategy",
+                "scale",
+                "acceptance_mean",
+                "max_split_rhat",
+                "min_ess",
+                "median_ess",
+                "median_ess_per_second",
+                "max_median_interseed_sd",
+            ]
+        ],
+        "Ranking column selection",
+    )
+    posterior_delta = _require_frame(
+        comparisons.groupby("parameter", as_index=False).agg(
+            max_abs_median_delta=("delta_median", lambda x: np.max(np.abs(x))),
+            max_abs_mean_delta=("delta_mean", lambda x: np.max(np.abs(x))),
+            max_abs_sd_delta=("delta_sd", lambda x: np.max(np.abs(x))),
+            max_abs_q10_delta=("delta_q10", lambda x: np.max(np.abs(x))),
+            max_abs_q90_delta=("delta_q90", lambda x: np.max(np.abs(x))),
+        ),
+        "Posterior-delta aggregation",
     )
     pooled_comparison = pd.read_csv(output / "posterior_pooled_comparison.csv")
-    pooled_delta = pooled_comparison.groupby("parameter", as_index=False).agg(
-        max_abs_median_delta=("delta_median", lambda x: np.max(np.abs(x))),
-        max_abs_sd_delta=("delta_sd", lambda x: np.max(np.abs(x))),
-        max_abs_q10_delta=("delta_q10", lambda x: np.max(np.abs(x))),
-        max_abs_q90_delta=("delta_q90", lambda x: np.max(np.abs(x))),
+    pooled_delta = _require_frame(
+        pooled_comparison.groupby("parameter", as_index=False).agg(
+            max_abs_median_delta=("delta_median", lambda x: np.max(np.abs(x))),
+            max_abs_sd_delta=("delta_sd", lambda x: np.max(np.abs(x))),
+            max_abs_q10_delta=("delta_q10", lambda x: np.max(np.abs(x))),
+            max_abs_q90_delta=("delta_q90", lambda x: np.max(np.abs(x))),
+        ),
+        "Pooled posterior-delta aggregation",
     )
     published_path = output / "published_reference_comparison.csv"
     published = (
         pd.read_csv(published_path) if published_path.exists() else pd.DataFrame()
     )
+    published_max_standardized = math.nan
+    published_max_summary_standardized = math.nan
     if published.empty:
         published_display = "_Référence publiée indisponible dans le workspace._"
-        published_max_standardized = math.nan
     else:
-        published_display_frame = published[
-            [
-                "case",
-                "parameter",
-                "median_published",
-                "median_best",
-                "delta_median",
-                "q10_published",
-                "q10_best",
-                "q90_published",
-                "q90_best",
-                "sd_published",
-                "sd_best",
-                "abs_median_delta_over_published_sd",
-            ]
-        ]
+        published_display_frame = _require_frame(
+            published[
+                [
+                    "case",
+                    "parameter",
+                    "median_published",
+                    "median_best",
+                    "delta_median",
+                    "q10_published",
+                    "q10_best",
+                    "q90_published",
+                    "q90_best",
+                    "sd_published",
+                    "sd_best",
+                    "abs_median_delta_over_published_sd",
+                ]
+            ],
+            "Published-reference column selection",
+        )
         published_display = _markdown(published_display_frame)
-        published_max_standardized = float(
+        published_max_standardized = scalar_float(
             published["abs_median_delta_over_published_sd"].max()
         )
-        published_max_summary_standardized = float(
+        published_max_summary_standardized = scalar_float(
             published["max_abs_summary_delta_over_published_sd"].max()
         )
-    if published.empty:
-        published_max_summary_standardized = math.nan
-    runtime = (
-        runs.groupby(["configuration", "strategy", "scale"], as_index=False)
-        .agg(
+    runtime = _require_frame(
+        runs.groupby(["configuration", "strategy", "scale"], as_index=False).agg(
             runs=("runtime_seconds", "size"),
             runtime_median_seconds=("runtime_seconds", "median"),
             runtime_min_seconds=("runtime_seconds", "min"),
             runtime_max_seconds=("runtime_seconds", "max"),
-        )
-        .sort_values("runtime_median_seconds")
-    )
+        ),
+        "Runtime aggregation",
+    ).sort_values(by="runtime_median_seconds")
     junit_path = output / "targeted-tests.xml"
     if junit_path.exists():
         root = ET.parse(junit_path).getroot()
@@ -1008,13 +1030,14 @@ def write_report(
                         "corr_mu_t0": np.corrcoef(chain["mu"], chain["t0"])[0, 1],
                     }
                 )
-    correlation = (
+    correlation = _require_frame(
         pd.DataFrame(corr_rows)
         .groupby("configuration", as_index=False)
         .agg(
             correlation_mean=("corr_mu_t0", "mean"),
             correlation_sd=("corr_mu_t0", "std"),
-        )
+        ),
+        "Posterior-correlation aggregation",
     )
     report = f"""# Qualification finale des proposals Metropolis–Hastings
 

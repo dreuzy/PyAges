@@ -16,10 +16,11 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import Field, ValidationError
 
-from pyages.config.models import LauncherConfig, LauncherParams
-from pyages.workflows.single_date.config import load_params_payload
+from pyages.config._models_base import BaseConfigModel
+from pyages.config.models import SingleDateConfig
+from pyages.config.paths import configuration_directory
 from scripts.common.example_case_utils import (
     dump_yaml_dict as dump_yaml,
 )
@@ -29,30 +30,24 @@ from scripts.common.example_case_utils import (
 from scripts.common.example_case_utils import (
     repo_root_from,
 )
-from scripts.common.example_launcher_utils import (
-    build_effective_launcher_config,
-    generated_launcher_config_path,
+from scripts.common.example_single_date_utils import (
+    build_effective_single_date_config,
+    generated_single_date_config_path,
 )
 
 
-class _HoltenBaseConfig(BaseModel):
-    """Strict base for the example-local Holten configuration."""
-
-    model_config = ConfigDict(extra="forbid")
-
-
-class HoltenCampaignConfig(_HoltenBaseConfig):
+class HoltenCampaignConfig(BaseConfigModel):
     label: str
     selected_wells: list[str]
 
 
-class HoltenTracerConfig(_HoltenBaseConfig):
+class HoltenTracerConfig(BaseConfigModel):
     calibration: list[str]
     source_directories: dict[str, Path]
     prepared_data_dir: Path
 
 
-class HoltenPreparationConfig(_HoltenBaseConfig):
+class HoltenPreparationConfig(BaseConfigModel):
     source_sampling_file: Path
     source_tritium_file: Path
     source_kr85_file: Path
@@ -61,72 +56,72 @@ class HoltenPreparationConfig(_HoltenBaseConfig):
     date_round_decimals: int = Field(default=5, ge=0)
 
 
-class HoltenPreModelFigureConfig(_HoltenBaseConfig):
+class HoltenPreModelFigureConfig(BaseConfigModel):
     tracer_panels: bool = True
     well_panels: bool = True
 
 
-class HoltenFigureConfig(_HoltenBaseConfig):
+class HoltenFigureConfig(BaseConfigModel):
     pre_model: HoltenPreModelFigureConfig = Field(
         default_factory=HoltenPreModelFigureConfig
     )
 
 
-class HoltenLauncherConfig(_HoltenBaseConfig):
+class HoltenSingleDateConfig(BaseConfigModel):
     enabled: bool = True
     inline: bool = False
 
 
-class HoltenValidationConfig(_HoltenBaseConfig):
+class HoltenValidationConfig(BaseConfigModel):
     reference_results: Path
     qualitative: bool = True
     semi_quantitative: bool = True
 
 
-class HoltenOptionsConfig(_HoltenBaseConfig):
+class HoltenOptionsConfig(BaseConfigModel):
     campaign: HoltenCampaignConfig
     tracers: HoltenTracerConfig
     preparation: HoltenPreparationConfig
     figures: HoltenFigureConfig = Field(default_factory=HoltenFigureConfig)
-    launcher: HoltenLauncherConfig = Field(default_factory=HoltenLauncherConfig)
+    launcher: HoltenSingleDateConfig = Field(default_factory=HoltenSingleDateConfig)
     validation: HoltenValidationConfig
 
 
-class HoltenFileConfig(_HoltenBaseConfig):
+class HoltenFileConfig(BaseConfigModel):
     """Composition of launcher and Holten-specific configuration sections."""
 
-    launcher: LauncherConfig
+    launcher: SingleDateConfig
     holten: HoltenOptionsConfig
 
 
 def _validate_holten_config(payload: dict[str, Any], root: Path) -> None:
-    allowed_fields = {*LauncherConfig.model_fields, "holten"}
-    unknown_fields = sorted(set(payload).difference(allowed_fields))
-    if unknown_fields:
-        raise ValueError(
-            f"Invalid Holten config: unknown top-level fields {unknown_fields}"
-        )
     try:
         HoltenFileConfig.model_validate(
             {
-                "launcher": _launcher_payload(payload),
+                "launcher": _load_launcher_config(root, payload),
                 "holten": payload.get("holten"),
             },
             context={"root_dir": root},
         )
-    except ValidationError as exc:
+    except (ValidationError, ValueError) as exc:
         raise ValueError(f"Invalid Holten config:\n{exc}") from exc
 
 
 def _launcher_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Select only fields belonging to the generic launcher schema."""
-    return {
-        name: payload[name] for name in LauncherConfig.model_fields if name in payload
-    }
+    """Return the schema-3 launcher part without Holten extensions."""
+    return _launcher_source_payload(payload)
 
 
-def _load_launcher_params(root: Path, payload: dict[str, Any]) -> LauncherParams:
-    return load_params_payload(root, _launcher_payload(payload))
+def _launcher_source_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return the user-facing launcher sections without Holten extensions."""
+    return {name: value for name, value in payload.items() if name != "holten"}
+
+
+def _load_launcher_config(root: Path, payload: dict[str, Any]) -> SingleDateConfig:
+    return SingleDateConfig.model_validate(
+        _launcher_payload(payload),
+        context={"root_dir": root},
+    )
 
 
 @dataclass(frozen=True)
@@ -153,7 +148,7 @@ class HoltenPaths:
 class HoltenContext:
     paths: HoltenPaths
     config: dict[str, Any]
-    params: LauncherParams
+    params: SingleDateConfig
     tracer_source_dirs: dict[str, Path]
     selected_wells: list[str]
     calibration_tracers: list[str]
@@ -183,7 +178,10 @@ class PreparedHoltenCase:
 
     def subset(self, selected_wells: list[str]) -> "PreparedHoltenCase":
         context = self.context.with_selected_wells(selected_wells)
-        selected = set(context.selected_wells)
+        # Pandas accepts a sequence for ``isin``.  Keep a set alongside it for
+        # the dictionary membership test, where constant-time lookup matters.
+        selected = context.selected_wells
+        selected_set = set(selected)
         return PreparedHoltenCase(
             context=context,
             sampling_raw=self.sampling_raw.loc[self.sampling_raw["ID"].isin(selected)]
@@ -197,7 +195,7 @@ class PreparedHoltenCase:
             observed_by_well={
                 well_id: frame.copy().reset_index(drop=True)
                 for well_id, frame in self.observed_by_well.items()
-                if well_id in selected
+                if well_id in selected_set
             },
             tracer_histories={
                 tracer_name: frame.copy().reset_index(drop=True)
@@ -240,18 +238,19 @@ def resolve_paths(config_path: Path | None = None) -> HoltenPaths:
         Path(config_path) if config_path is not None else (example_dir / "holten.yaml")
     )
     cfg = load_yaml(yaml_path)
-    _validate_holten_config(cfg, root)
-    params = _load_launcher_params(root, cfg)
+    launcher_root = configuration_directory(yaml_path)
+    _validate_holten_config(cfg, launcher_root)
+    params = _load_launcher_config(launcher_root, cfg)
     holten_cfg = cfg.get("holten", {})
     tracer_cfg = holten_cfg.get("tracers", {})
     prep_cfg = holten_cfg.get("preparation", {})
     validation_cfg = holten_cfg.get("validation", {})
 
-    data_dir = params.dataset_data_dir
-    lpm_data_dir = params.directory_lpm
+    data_dir = params.data.data_dir
+    lpm_data_dir = params.lpm.directory
     prepared_tracer_dir = (
-        params.tracer_data_dir
-        if params.tracer_data_dir is not None
+        params.tracers.data_directory
+        if params.tracers.data_directory is not None
         else _resolve_repo_relative(
             tracer_cfg.get(
                 "prepared_data_dir", example_dir / "prepared_tracers" / "data_tracer"
@@ -314,21 +313,20 @@ def resolve_paths(config_path: Path | None = None) -> HoltenPaths:
 
 
 def load_holten_config(config_path: Path | None = None) -> dict[str, Any]:
-    root = repo_root()
     yaml_path = (
         Path(config_path)
         if config_path is not None
         else Path(__file__).resolve().parent / "holten.yaml"
     )
     payload = load_yaml(yaml_path)
-    _validate_holten_config(payload, root)
+    _validate_holten_config(payload, configuration_directory(yaml_path))
     return payload
 
 
 def build_context(config_path: Path | None = None) -> HoltenContext:
     paths = resolve_paths(config_path)
     cfg = load_holten_config(paths.yaml_path)
-    params = _load_launcher_params(paths.repo_root, cfg)
+    params = _load_launcher_config(configuration_directory(paths.yaml_path), cfg)
     holten_cfg = cfg.get("holten", {})
     campaign_cfg = holten_cfg.get("campaign", {})
     tracer_cfg = holten_cfg.get("tracers", {})
@@ -353,7 +351,7 @@ def build_context(config_path: Path | None = None) -> HoltenContext:
         selected_wells=selected_wells,
         calibration_tracers=calibration_tracers,
         date_round_decimals=int(prep_cfg.get("date_round_decimals", 5)),
-        lpm_name=params.lpm_model_name,
+        lpm_name=params.lpm.models[0],
         launcher_enabled=bool(launcher_cfg.get("enabled", False)),
         launcher_inline=bool(launcher_cfg.get("inline", False)),
         generate_per_well_files=bool(prep_cfg.get("generate_per_well_files", True)),
@@ -372,10 +370,10 @@ def generated_config_path(
     dataset_name: str | None = None,
     lpm_model_name: str | None = None,
 ) -> Path:
-    return generated_launcher_config_path(
+    return generated_single_date_config_path(
         context.paths.launcher_config_dir,
-        dataset_name=dataset_name or context.params.dataset_name,
-        lpm_model_name=lpm_model_name or context.params.lpm_model_name,
+        dataset_name=dataset_name or context.params.data.name,
+        lpm_model_name=lpm_model_name or context.params.lpm.models[0],
     )
 
 
@@ -393,8 +391,8 @@ def build_effective_config(
     mh_nstep: int | None = None,
     overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    payload = _launcher_payload(load_holten_config(config_path))
-    return build_effective_launcher_config(
+    payload = _launcher_source_payload(load_holten_config(config_path))
+    return build_effective_single_date_config(
         payload,
         dataset_name=dataset_name,
         dataset_label=dataset_label,
@@ -460,16 +458,27 @@ def write_well_launcher_config(context: HoltenContext, well_id: str) -> Path:
         / f"holten_{well_id}_launcher.yaml",
         dataset_name=dataset_name,
         dataset_label=f"Holten {well_id}",
-        dataset_year=context.params.dataset_year,
-        dataset_data_dir=context.paths.data_dir.relative_to(context.paths.repo_root),
+        dataset_year=context.params.data.year,
+        dataset_data_dir=Path(
+            os.path.relpath(
+                context.paths.data_dir,
+                context.paths.launcher_config_dir,
+            )
+        ).as_posix(),
         dataset_verbose=True,
-        lpm_model_name=context.params.lpm_model_name,
-        lpm_data_directory=context.paths.lpm_data_dir.relative_to(
-            context.paths.repo_root
-        ),
-        tracer_data_dir=context.paths.prepared_tracer_dir.relative_to(
-            context.paths.repo_root
-        ),
+        lpm_model_name=context.params.lpm.models[0],
+        lpm_data_directory=Path(
+            os.path.relpath(
+                context.paths.lpm_data_dir,
+                context.paths.launcher_config_dir,
+            )
+        ).as_posix(),
+        tracer_data_dir=Path(
+            os.path.relpath(
+                context.paths.prepared_tracer_dir,
+                context.paths.launcher_config_dir,
+            )
+        ).as_posix(),
     )
 
 

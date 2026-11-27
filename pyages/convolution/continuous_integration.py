@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file combines a prepared tracer-response grid with the cumulative mass
+# and first moment of a continuous water-age model. It returns one predicted
+# concentration plus diagnostics, while probability older than the known tracer
+# history remains unnormalized and therefore contributes zero.
 
 """Integrate continuous LPM laws on a prepared tracer-response grid.
 
@@ -17,6 +21,11 @@ import numpy.typing as npt
 from pyages.convolution.errors import ConvolutionError
 from pyages.convolution.settings import ConvolutionSettings
 from pyages.convolution.tracer_grid import PreparedTracerGrid
+
+type CdfMomentProvider = Callable[
+    [npt.NDArray[np.float64]],
+    tuple[npt.ArrayLike, npt.ArrayLike],
+]
 
 
 @dataclass(frozen=True)
@@ -53,10 +62,7 @@ class ConvolutionDiagnostics:
 
 
 def _evaluate_moments(
-    provider: Callable[
-        [npt.NDArray[np.float64]],
-        tuple[npt.ArrayLike, npt.ArrayLike],
-    ],
+    provider: CdfMomentProvider,
     edges: npt.NDArray[np.float64],
     distribution_name: str,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
@@ -142,10 +148,7 @@ def _bin_weights(
 
 
 def window_mass_from_provider(
-    provider: Callable[
-        [npt.NDArray[np.float64]],
-        tuple[npt.ArrayLike, npt.ArrayLike],
-    ],
+    provider: CdfMomentProvider,
     upper_age: float,
     distribution_name: str,
     settings: ConvolutionSettings,
@@ -244,10 +247,7 @@ def _integrate_response(
 
 def convolve_prepared_grid(
     grid: PreparedTracerGrid,
-    provider: Callable[
-        [npt.NDArray[np.float64]],
-        tuple[npt.ArrayLike, npt.ArrayLike],
-    ],
+    provider: CdfMomentProvider,
     distribution_name: str,
     settings: ConvolutionSettings,
 ) -> tuple[float, ConvolutionDiagnostics]:

@@ -7,11 +7,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
-PUBLICATION_RC = {
+PUBLICATION_RC: dict[Any, Any] = {
     "font.family": "sans-serif",
     "font.size": 9.0,
     "axes.labelsize": 9.0,

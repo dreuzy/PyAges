@@ -134,8 +134,15 @@ def validate_and_write_tables() -> list[dict[str, float | str]]:
             integral, mean, variance = numerical_moments(model, parameters.shift)
             if abs(integral - 1.0) >= 1e-3 or abs(mean - expected_mean) >= 0.1:
                 raise ValueError(f"Moment check failed for curve {parameters.number}")
+            quantiles = np.asarray(
+                model.cdf_inv([0.25, 0.5, 0.75]), dtype=float
+            ).reshape(-1)
+            if quantiles.size != 3:
+                raise ValueError("Expected three quartiles from the LPM")
             q1, median, q3 = (
-                float(value) for value in model.cdf_inv([0.25, 0.5, 0.75])
+                float(quantiles[0]),
+                float(quantiles[1]),
+                float(quantiles[2]),
             )
             control_rows.append(
                 {

@@ -8,7 +8,7 @@ Golden tests for Metropolis-Hastings calibration.
 Targets:
 - LPM types: exp, ig
 - Tracers: cfc11, cfc12, cfc113
-- Fixed nstep for reproducibility
+- Fixed nsteps for reproducibility
 """
 
 from pathlib import Path
@@ -32,6 +32,16 @@ PRIOR_MODES = ["full", "prior_only"]
 REACHCONC_TRACERS = ["cfc11", "cfc12", "cfc113"]
 
 
+def test_mh_exposes_only_current_run_metric_names() -> None:
+    method = MetropolisHastings(MHConfig())
+
+    assert method.acceptance_rate == 0.0
+    assert method.runtime_seconds == 0.0
+    assert method.result_metadata() == {"acceptance_rate": 0.0}
+    assert not hasattr(method, "success_rate")
+    assert not hasattr(method, "time_perform")
+
+
 def _golden_path() -> Path:
     # Golden values for MH calibration
     return test_paths.repo_root() / "tests" / "golden" / "calibration_mh_values.json"
@@ -49,15 +59,15 @@ def _run_mh_one_case(
     display.text = False
     display.directory = work_dir
 
-    # Configure MH calibration (fixed nstep for reproducibility)
+    # Configure MH calibration (fixed nsteps for reproducibility)
     mh_config = MHConfig(
-        nstep=NSTEP,
+        nsteps=NSTEP,
         burn_in=0.2,
-        nskip=10,
+        thinning=10,
         prior_option=True,
         prior_type="parametric",
         likelihood=not prior_only,
-        monitor=False,
+        record_trajectory=False,
         display_traj=False,
         display_text=False,
     )
@@ -133,7 +143,7 @@ def test_calibration_mh_golden(
         prior_only=prior_only,
     )
 
-    key = f"mh:{lpm_type}:{tracer_name}:{prior_mode}:nstep={NSTEP}"
+    key = f"mh:{lpm_type}:{tracer_name}:{prior_mode}:nsteps={NSTEP}"
     store = golden_utils.load_golden(_golden_path())
 
     if update_golden:
@@ -190,13 +200,13 @@ def test_calibration_mh_extensive(lpm_type, tmp_path):
     display.directory = tmp_path / "calibration_mh_extensive"
 
     mh_config = MHConfig(
-        nstep=500,
+        nsteps=500,
         burn_in=0.2,
-        nskip=10,
+        thinning=10,
         prior_option=True,
         prior_type="parametric",
         likelihood=True,
-        monitor=False,
+        record_trajectory=False,
         display_traj=False,
         display_text=False,
     )

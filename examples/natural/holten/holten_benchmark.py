@@ -3,8 +3,13 @@
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
 
-"""
-Pre-model figures and benchmark helpers for Holten.
+"""Compare the executable Holten example with its published reference.
+
+This module prepares contextual figures before calibration, reconstructs the
+reference tracer curves used by the local four-bin model, and aligns generated
+well results with the values transcribed from the article. It also exports the
+tables and figures that make differences between the two calculations visible;
+it does not run the calibration itself.
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ from examples.natural.holten.holten_case import (
     load_yaml,
     tracer_yaml_path,
 )
+from pyages._scalar_conversion import scalar_float
 from pyages.data_io.lpm_distribution import read_statistics
 from pyages.tracer.decay import rate_from_config
 
@@ -64,6 +70,7 @@ REFERENCE_MODEL_COLUMNS = [
 
 
 def load_reference_results(context=None) -> pd.DataFrame:
+    """Load the tabulated article results configured for the Holten case."""
     ctx = context or build_context()
     return pd.read_csv(ctx.paths.reference_results_path, sep="\t")
 
@@ -71,6 +78,7 @@ def load_reference_results(context=None) -> pd.DataFrame:
 def build_article_reference_figures(
     context=None, output_dir: Path | None = None
 ) -> dict[str, Path]:
+    """Extract labeled reference figures from the locally configured article PDF."""
     from PIL import Image
 
     ctx = context or build_context()
@@ -123,11 +131,11 @@ def build_article_reference_figures(
 def _history_summary(history: pd.DataFrame) -> dict[str, float]:
     conc = history["concentration"].astype(float)
     return {
-        "min": float(conc.min()),
-        "q05": float(conc.quantile(0.05)),
-        "median": float(conc.median()),
-        "q95": float(conc.quantile(0.95)),
-        "max": float(conc.max()),
+        "min": scalar_float(conc.min()),
+        "q05": scalar_float(conc.quantile(0.05)),
+        "median": scalar_float(conc.median()),
+        "q95": scalar_float(conc.quantile(0.95)),
+        "max": scalar_float(conc.max()),
     }
 
 
@@ -137,8 +145,9 @@ def build_reference_curve(
     history: pd.DataFrame,
     observed: pd.DataFrame,
 ) -> pd.DataFrame:
+    """Build the tracer response curve used to compare data and age end-members."""
     display = history.copy()
-    reference_year = float(observed["date"].median())
+    reference_year = scalar_float(observed["date"].median())
     yaml_path = tracer_yaml_path(prepared.context, tracer_name)
     tracer_cfg = load_yaml(yaml_path)
 
@@ -224,7 +233,7 @@ def _plot_value_range_position(
     y_positions = np.linspace(-0.14, 0.14, max(len(observed), 1))
     for y_pos, (_, row) in zip(y_positions, observed.iterrows(), strict=False):
         ax.scatter(
-            [float(row["concentration"])],
+            [scalar_float(row["concentration"])],
             [y_pos],
             s=70,
             color="#c13b31",
@@ -234,7 +243,7 @@ def _plot_value_range_position(
         )
         ax.annotate(
             f"{row['well_id']} ({row['concentration']:.2f})",
-            (float(row["concentration"]), y_pos),
+            (scalar_float(row["concentration"]), y_pos),
             textcoords="offset points",
             xytext=(6, 0),
             va="center",
@@ -400,6 +409,7 @@ def _build_helium_diagnostic_figures(
 def build_pre_model_figures(
     prepared: PreparedHoltenCase, output_dir: Path
 ) -> list[Path]:
+    """Create input-history and observation figures before any model is fitted."""
     output_dir.mkdir(parents=True, exist_ok=True)
     generated: list[Path] = []
     pre_model_cfg = (
@@ -481,7 +491,7 @@ def build_pre_model_figures(
             if len(frame) == 1:
                 axes = [axes]
             for ax, (_, row) in zip(axes, frame.iterrows(), strict=False):
-                tracer_name = row["element"]
+                tracer_name = str(row["element"])
                 raw_history = prepared.tracer_histories[tracer_name]
                 display_history = build_reference_curve(
                     prepared,
@@ -577,7 +587,7 @@ def _bootstrap_modeled_value(
     if tracer in {"3H", "kr85"}:
         tracer_cfg = _load_tracer_cfg(prepared, tracer)
         history = prepared.tracer_histories[tracer]
-        recharge = _recharge_value_at_age(history, float(row["date"]), mid_age)
+        recharge = _recharge_value_at_age(history, scalar_float(row["date"]), mid_age)
         decay_rate = rate_from_config(tracer_cfg)
         assert decay_rate is not None
         return float(recharge * np.exp(-decay_rate * mid_age))
@@ -608,6 +618,7 @@ def compare_with_reference_results(
     results_by_well: dict[str, Path] | None = None,
     local_4bin_summary: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
+    """Align PyAges results and optional local four-bin fits with paper values."""
     reference = _reference_subset(
         load_reference_results(prepared.context), prepared.context.selected_wells
     )
@@ -667,6 +678,7 @@ def build_reference_comparison_figures(
     comparison: pd.DataFrame,
     output_dir: Path,
 ) -> dict[str, Path]:
+    """Plot quantitative differences between generated and published results."""
     output_dir.mkdir(parents=True, exist_ok=True)
     generated: dict[str, Path] = {}
 
@@ -711,7 +723,7 @@ def build_reference_comparison_figures(
     x_positions = np.arange(len(REFERENCE_MODEL_COLUMNS))
     labels = [label for _, label in REFERENCE_MODEL_COLUMNS]
     for ax, (_, row) in zip(axes, reference.iterrows(), strict=False):
-        values = [float(row[column]) for column, _ in REFERENCE_MODEL_COLUMNS]
+        values = [scalar_float(row[column]) for column, _ in REFERENCE_MODEL_COLUMNS]
         ax.bar(x_positions, values, color="#5a7aa6")
         ax.set_xticks(x_positions, labels, rotation=45, ha="right")
         ax.set_title(f"Well {row['Well']}")
@@ -720,7 +732,7 @@ def build_reference_comparison_figures(
         ax.text(
             0.98,
             0.98,
-            f"Best: {row['reference_best_model'].replace('_chi2', '')}",
+            f"Best: {str(row['reference_best_model']).replace('_chi2', '')}",
             transform=ax.transAxes,
             ha="right",
             va="top",
@@ -745,6 +757,7 @@ def build_reference_comparison_figures(
 def write_benchmark_summary(
     comparison: pd.DataFrame, output_dir: Path
 ) -> tuple[Path, Path]:
+    """Write machine-readable and concise human-readable comparison summaries."""
     output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = output_dir / "comparison_by_well.csv"
     txt_path = output_dir / "benchmark_summary.txt"

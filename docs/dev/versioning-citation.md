@@ -39,6 +39,13 @@ must not be rewritten. The fresh campaign manifest and archive record the new
 
 ## DOI rule
 
+The published article archive has version-specific DOI
+[`10.5281/zenodo.22150863`](https://doi.org/10.5281/zenodo.22150863) and
+concept DOI
+[`10.5281/zenodo.22150862`](https://doi.org/10.5281/zenodo.22150862). Cite the
+version DOI for the immutable `1.0` campaign. These identifiers do not describe
+the later `1.0.1` maintenance release.
+
 No placeholder or anticipated DOI belongs in ``CITATION.cff``. Reserve the
 Zenodo DOI before building the final reader-facing bundle and pass it through
 ``--doi``. Add a DOI to ``CITATION.cff`` only when it identifies the same

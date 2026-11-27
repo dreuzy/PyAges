@@ -15,6 +15,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from pyages._scalar_conversion import scalar_float
+
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RUN = ROOT / "results" / "article_non_ploemeur_final"
 TRACERLPM = ROOT / "validation" / "tracerlpm" / "benchmark"
@@ -54,6 +56,14 @@ def _table(path: Path, limit: int | None = None) -> str:
     return _markdown(frame)
 
 
+def _column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one named column and reject duplicate column labels."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Expected exactly one {name!r} column")
+    return column
+
+
 def _tracerlpm_summary(run: Path) -> tuple[str, str]:
     results_path = run / "robustness_480" / "new" / "results.csv"
     if not results_path.exists():
@@ -61,8 +71,8 @@ def _tracerlpm_summary(run: Path) -> tuple[str, str]:
     if not results_path.exists():
         return "Résultats de robustesse manquants.", "Résultats détaillés manquants."
     frame = pd.read_csv(results_path)
-    model_names = frame["model"]
-    if model_names.isna().any():
+    model_names = _column(frame, "model")
+    if bool(model_names.isna().any()):
         raise RuntimeError("TracerLPM results contain missing model names")
     counts = {
         "cases": int(len(frame)),
@@ -73,9 +83,9 @@ def _tracerlpm_summary(run: Path) -> tuple[str, str]:
     summary = pd.DataFrame(
         {
             "metric": numeric.columns,
-            "median": [float(numeric[column].median()) for column in numeric],
-            "p95": [float(numeric[column].quantile(0.95)) for column in numeric],
-            "maximum": [float(numeric[column].max()) for column in numeric],
+            "median": [scalar_float(numeric[column].median()) for column in numeric],
+            "p95": [scalar_float(numeric[column].quantile(0.95)) for column in numeric],
+            "maximum": [scalar_float(numeric[column].max()) for column in numeric],
         }
     )
     main = f"Campagne appariée: {counts['cases']} cas; modèles {counts['models']}; niveaux de bruit {counts['noise']}.\n\n"

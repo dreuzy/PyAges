@@ -65,19 +65,15 @@ and Methods 4-F3.
 
 - `exemple_albuquerque.yaml`: YAML configuration for the single-date workflow.
 - `exemple_albuquerque_shapefree.yaml`: shape-free single-date variant using a local `data_lpm`.
+- `exemple_albuquerque_shapefree_multichain.yaml`: reproducible exploratory
+  five-chain profile; it audits computation and convergence diagnostics but is
+  not yet a validated site interpretation.
 - `exemple_albuquerque.ipynb`: Notebook version of the workflow.
-- `run_albuquerque.py`: Convenience launcher.
 - `data/SSW_2007.txt`: default single-date dataset used by the example.
 - `data/SSW_*.txt`: additional Albuquerque sample snapshots.
 - `data_lpm/shapefree_n_oldbin/params.yaml`: example-specific 5-bin shape-free configuration with an LPM-defined old-bin maximum age.
 
 ## Run
-
-```bash
-python examples/natural/albuquerque/run_albuquerque.py
-```
-
-Or directly with the launcher:
 
 ```bash
 pyages run examples/natural/albuquerque/exemple_albuquerque.yaml
@@ -88,3 +84,15 @@ Shape-free open-old-bin variant:
 ```bash
 pyages run examples/natural/albuquerque/exemple_albuquerque_shapefree.yaml
 ```
+
+Exploratory shape-free multi-chain characterization:
+
+```bash
+pyages run examples/natural/albuquerque/exemple_albuquerque_shapefree_multichain.yaml
+```
+
+The multi-chain profile deliberately preserves pooled output even when a
+diagnostic misses its gate. Its `missing_error_rel: 0.01` and 120-year maximum
+support are provisional assumptions. See the rendered Albuquerque example
+documentation for the measurements and reference evidence still needed before
+this can become a field qualification.

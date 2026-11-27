@@ -27,6 +27,8 @@ import numpy as np
 import pandas as pd
 from matplotlib.ticker import PercentFormatter
 
+from pyages._scalar_conversion import scalar_float
+
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -36,6 +38,7 @@ from scripts.common.publication_plotting import (  # noqa: E402
     mm_to_in,
     save_pdf_png,
 )
+from scripts.common.reporting import markdown_table  # noqa: E402
 
 DEFAULT_BASELINE = ROOT / "results" / "final_article_simulations" / "holten_h4_final"
 DEFAULT_DIRICHLET = ROOT / "results" / "robustness" / "holten_prior_dirichlet1"
@@ -61,6 +64,29 @@ AGE_CLASS_COLORS = {
 MEDIAN_SUM_ATOL = 5.0e-3
 MAX_SPLIT_RHAT = 1.01
 MIN_ESS = 300.0
+
+
+def _column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one named column and reject duplicate column labels."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Expected exactly one {name!r} column")
+    return column
+
+
+def _require_frame(value: object, context: str) -> pd.DataFrame:
+    """Require a DataFrame at a Pandas boundary with a broad stub type."""
+    if not isinstance(value, pd.DataFrame):
+        raise TypeError(f"{context} must produce a DataFrame")
+    return value
+
+
+def _numeric_column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Convert one complete column to numeric values."""
+    converted = pd.to_numeric(_column(frame, name), errors="raise")
+    if not isinstance(converted, pd.Series):
+        raise TypeError(f"Numeric conversion of {name!r} must produce a Series")
+    return converted
 
 
 def _require_columns(frame: pd.DataFrame, columns: Iterable[str], source: Path) -> None:
@@ -137,29 +163,35 @@ def compare_age_fractions(
     result["signed_change_percentage_points"] = 100.0 * result["signed_change"]
     result["absolute_change_percentage_points"] = 100.0 * result["absolute_change"]
     result = result.reset_index()
-    result.insert(2, "age_class", result["parameter"].map(AGE_CLASS_LABELS))
+    result.insert(2, "age_class", _column(result, "parameter").map(AGE_CLASS_LABELS))
     result = result.drop(columns="parameter")
-    result = result[
-        [
-            "well",
-            "age_class",
-            "baseline_median",
-            "baseline_q10",
-            "baseline_q90",
-            "dirichlet_median",
-            "dirichlet_q10",
-            "dirichlet_q90",
-            "signed_change",
-            "absolute_change",
-            "signed_change_percentage_points",
-            "absolute_change_percentage_points",
-        ]
-    ]
+    result = _require_frame(
+        result.loc[
+            :,
+            [
+                "well",
+                "age_class",
+                "baseline_median",
+                "baseline_q10",
+                "baseline_q90",
+                "dirichlet_median",
+                "dirichlet_q10",
+                "dirichlet_q90",
+                "signed_change",
+                "absolute_change",
+                "signed_change_percentage_points",
+                "absolute_change_percentage_points",
+            ],
+        ],
+        "age-fraction comparison selection",
+    )
 
     for prior in ("baseline", "dirichlet"):
         sums = result.groupby("well", sort=False)[f"{prior}_median"].sum()
+        if not isinstance(sums, pd.Series):
+            raise ValueError("Expected one summed median per well")
         np.testing.assert_allclose(
-            sums.to_numpy(),
+            sums.to_numpy(dtype=float),
             np.ones(len(WELL_ORDER)),
             atol=MEDIAN_SUM_ATOL,
             rtol=0.0,
@@ -268,10 +300,10 @@ def validate_convergence(convergence: pd.DataFrame, source: Path) -> dict[str, f
         raise ValueError(
             "Convergence diagnostics contain a prior other than dirichlet_1"
         )
-    rhat = pd.to_numeric(convergence["split_rhat"], errors="raise")
-    ess = pd.to_numeric(convergence["ess_sum_chains"], errors="raise")
+    rhat = _numeric_column(convergence, "split_rhat")
+    ess = _numeric_column(convergence, "ess_sum_chains")
     converged = (
-        convergence["converged"]
+        _column(convergence, "converged")
         .astype(str)
         .str.lower()
         .map({"true": True, "false": False})
@@ -333,21 +365,25 @@ def validate_existing_change_of_variables_check(
     ].to_numpy(dtype=float)
     if not np.isfinite(values).all() or (values < 0.0).any():
         raise ValueError(f"{source} contains invalid numerical validation values")
-    if float(validation["relative_error"].max()) >= 1.0e-6:
+    if scalar_float(validation["relative_error"].max()) >= 1.0e-6:
         raise RuntimeError("Existing change-of-variables implementation check failed")
 
 
 def _table_c2(frame: pd.DataFrame) -> pd.DataFrame:
-    table = frame[
-        [
-            "well",
-            "largest_age_class_change_percentage_points",
-            "age_class_with_largest_change",
-            "total_redistributed_percentage_points",
-            "baseline_rms_standardized_residual",
-            "dirichlet_rms_standardized_residual",
-        ]
-    ].copy()
+    table = _require_frame(
+        frame.loc[
+            :,
+            [
+                "well",
+                "largest_age_class_change_percentage_points",
+                "age_class_with_largest_change",
+                "total_redistributed_percentage_points",
+                "baseline_rms_standardized_residual",
+                "dirichlet_rms_standardized_residual",
+            ],
+        ],
+        "Table C2 selection",
+    ).copy()
     table.columns = [
         "Well",
         "Largest change in one age class (percentage points)",
@@ -356,21 +392,18 @@ def _table_c2(frame: pd.DataFrame) -> pd.DataFrame:
         "RMS residual, baseline",
         "RMS residual, Dirichlet",
     ]
-    for column in table.columns[[1, 3]]:
-        table[column] = table[column].map(lambda value: f"{value:.1f}")
-    for column in table.columns[[4, 5]]:
-        table[column] = table[column].map(lambda value: f"{value:.2f}")
+    for column in (
+        "Largest change in one age class (percentage points)",
+        "Total fraction redistributed between age classes (percentage points)",
+    ):
+        table[column] = _column(table, column).map(lambda value: f"{value:.1f}")
+    for column in ("RMS residual, baseline", "RMS residual, Dirichlet"):
+        table[column] = _column(table, column).map(lambda value: f"{value:.2f}")
     return table
 
 
 def _markdown_table(frame: pd.DataFrame) -> str:
-    headings = "| " + " | ".join(frame.columns) + " |"
-    rule = "| " + " | ".join("---" for _ in frame.columns) + " |"
-    rows = [
-        "| " + " | ".join(str(value) for value in row) + " |"
-        for row in frame.itertuples(index=False, name=None)
-    ]
-    return "\n".join([headings, rule, *rows]) + "\n"
+    return markdown_table(frame) + "\n"
 
 
 def _summary(
@@ -399,7 +432,7 @@ def _summary(
             "well": str(largest_row["well"]),
             "age_class": str(largest_row["age_class"]),
         },
-        "median_largest_age_class_change_by_well_percentage_points": float(
+        "median_largest_age_class_change_by_well_percentage_points": scalar_float(
             by_well["largest_age_class_change_percentage_points"].median()
         ),
         "largest_total_fraction_redistributed": {
@@ -411,7 +444,7 @@ def _summary(
             ),
             "well": str(redistributed_row["well"]),
         },
-        "median_total_fraction_redistributed_percentage_points": float(
+        "median_total_fraction_redistributed_percentage_points": scalar_float(
             by_well["total_redistributed_percentage_points"].median()
         ),
         "global_rms_standardized_residual": {

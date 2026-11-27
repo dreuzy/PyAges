@@ -1,19 +1,29 @@
 # Citing PyAges
 
-For software functionality, cite the exact PyAges release used. The stable
-software identity is `1.0`:
+For software functionality, cite the exact PyAges release used. This source
+tree records the current `2.0.0` release identity; its machine-readable citation is
+`CITATION.cff` at the repository root and is kept synchronized with the package
+version and changelog by automated tests. Until the 2.0 tag and distribution
+are published, calculations from this tree must also identify their exact Git
+commit.
+
+The immutable software and reproducibility archive associated with the
+article campaign is version `1.0`:
 
 > de Dreuzy, Jean-Raynald (2026). *PyAges: Groundwater Age Dating Toolkit*,
-> version 1.0. CeCILL 2.1. https://github.com/dreuzy/PyAges
+> version 1.0. Zenodo. https://doi.org/10.5281/zenodo.22150863
 
-The machine-readable citation is `CITATION.cff` at the repository root. It is
-kept synchronized with the package version and changelog by automated tests.
+The version-specific DOI is
+[`10.5281/zenodo.22150863`](https://doi.org/10.5281/zenodo.22150863); the
+concept DOI for all versions is
+[`10.5281/zenodo.22150862`](https://doi.org/10.5281/zenodo.22150862). Prefer
+the version-specific DOI when citing the archived article calculations. The
+archived source is the reviewed commit identified by tag `1.0`.
 
-The released source is the reviewed commit identified by tag `1.0`.
-`CITATION.cff` intentionally does not anticipate a software DOI. When the
-Zenodo record is published, use the DOI shown by its verified landing page; a
-later metadata update may add it to the source citation only after the DOI
-identifies this same immutable release.
+The Zenodo DOI is not added to `CITATION.cff` because that file now describes
+the prepared `2.0.0` source, while the published Zenodo record identifies the
+immutable `1.0` archive. A future Zenodo archive of `2.0.0` may be added only
+with its own version-specific DOI.
 
 ## Citing calculations from an unreleased commit
 

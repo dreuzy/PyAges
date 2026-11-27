@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file converts half-life or mean-lifetime inputs into the decay rate used
+# by tracer calculations and rejects conflicting definitions.
+# All accepted forms produce the same first-order rate in inverse years, giving
+# downstream tracer code one unambiguous exponential-decay parameter.
 
 """Explicit conversions for first-order radioactive decay parameters."""
 

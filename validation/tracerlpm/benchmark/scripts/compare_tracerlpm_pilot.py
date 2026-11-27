@@ -47,12 +47,22 @@ def _validate_model_pair(run: dict) -> None:
         )
 
 
-def _set_lpm_parameters(lpm, model: str, age: float, parameter, epm_eta) -> None:
+def _set_lpm_parameters(
+    lpm,
+    model: str,
+    age: float,
+    parameter: float | None,
+    epm_eta: float | None,
+) -> None:
     if model == "EPM":
+        if epm_eta is None:
+            raise ValueError("Le paramètre eta calculé pour EPM est absent")
         mapped = epm_to_shifted_exponential(age, epm_eta)
         lpm.p.update({"mu": mapped.mu, "shift": mapped.shift})
     elif model == "DM":
-        mapped = dm_to_inverse_gaussian(age, float(parameter))
+        if parameter is None:
+            raise ValueError("Le paramètre DP de DM est absent")
+        mapped = dm_to_inverse_gaussian(age, parameter)
         lpm.p.update({"mu": mapped.mu, "sigma": mapped.sigma})
     else:
         lpm.p["mu"] = age
@@ -112,25 +122,36 @@ def _build_comparison_rows(
     effective_year: float,
 ) -> tuple[list[dict], str, float | None]:
     tracer = load_tracer(input_path)
-    model = run["model1"]
+    model = str(run["model1"])
     lpm = build_lpm(
         {"PFM": "dirac", "EMM": "exp", "EPM": "exp_shifted", "DM": "ig"}[model]
     )
-    model_parameter = run.get("modelParameter")
+    raw_model_parameter = run.get("modelParameter")
+    model_parameter = (
+        None if raw_model_parameter is None else float(raw_model_parameter)
+    )
     if model in {"EPM", "DM"} and model_parameter is None:
         raise ValueError(f"Le paramètre secondaire {model} est absent du rapport")
-    epm_eta = 1.0 + float(model_parameter) if model == "EPM" else None
+    epm_eta = (
+        1.0 + model_parameter
+        if model == "EPM" and model_parameter is not None
+        else None
+    )
 
     def input_function(year):
         return np.interp(year, years, values, left=0.0, right=values[-1])
 
     rows = []
     for age, point in zip(run["modelAges"], run["model1Points"], strict=False):
-        parameters = {"tau": float(age)}
+        parameters: dict[str, float] = {"tau": float(age)}
         if model == "EPM":
+            if epm_eta is None:
+                raise ValueError("Le paramètre eta calculé pour EPM est absent")
             parameters["eta"] = epm_eta
         elif model == "DM":
-            parameters["DP"] = float(model_parameter)
+            if model_parameter is None:
+                raise ValueError("Le paramètre DP de DM est absent")
+            parameters["DP"] = model_parameter
         reference = forward(
             model,
             parameters,

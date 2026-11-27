@@ -10,14 +10,14 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import (
-    BaseModel,
-    ConfigDict,
     Field,
     RootModel,
     field_validator,
     model_validator,
 )
 
+from pyages.config._models_base import BaseConfigModel
+from pyages.config.models import MetropolisHastingsCfg
 from pyages.config.paths import ROOT_DIRECTORY
 
 PLOEMEUR_ROOT = Path(__file__).resolve().parents[1]
@@ -30,11 +30,7 @@ TimeSpanMode = Literal[
 ]
 
 
-class _BaseCfg(BaseModel):
-    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
-
-
-class PloemeurDriverConfig(_BaseCfg):
+class PloemeurDriverConfig(BaseConfigModel):
     """Configuration for the Ploemeur driver entrypoint."""
 
     params: Path = Field(
@@ -51,7 +47,7 @@ class PloemeurDriverConfig(_BaseCfg):
         return path
 
 
-class WellDateConfig(_BaseCfg):
+class WellDateConfig(BaseConfigModel):
     start: int
     end: int
 
@@ -62,11 +58,11 @@ class WellDateConfig(_BaseCfg):
         return self
 
 
-class ObservationMetadataConfig(_BaseCfg):
+class ObservationMetadataConfig(BaseConfigModel):
     well_dates: dict[str, WellDateConfig] = Field(min_length=1)
 
 
-class PloemeurObservationsConfig(_BaseCfg):
+class PloemeurObservationsConfig(BaseConfigModel):
     conc_error_rel: list[float] = Field(min_length=1)
     wells: list[str] = Field(min_length=1)
     well_dates: dict[str, WellDateConfig] = Field(default_factory=dict)
@@ -88,7 +84,7 @@ class PloemeurObservationsConfig(_BaseCfg):
         return values
 
 
-class PloemeurWorkflowSettings(_BaseCfg):
+class PloemeurWorkflowSettings(BaseConfigModel):
     breakups: list[int] = Field(default_factory=list, max_length=1)
     prior_pipeline: list[str] = Field(min_length=1)
 
@@ -109,7 +105,7 @@ class PloemeurWorkflowSettings(_BaseCfg):
         return values
 
 
-class PloemeurLpmConfig(_BaseCfg):
+class PloemeurLpmConfig(BaseConfigModel):
     default: list[str] = Field(min_length=1)
     directory: Path
     by_well: dict[str, list[str]] = Field(default_factory=dict)
@@ -132,30 +128,21 @@ class PloemeurLpmConfig(_BaseCfg):
         return values
 
 
-class PloemeurCalibrationConfig(_BaseCfg):
-    explo_res: int = Field(gt=0)
-    mh_nsteps: int = Field(gt=0)
-    seed_enabled: bool
-    seed: int | None = None
-    lpm_number: int = Field(default=0, ge=0)
-    initial_params: dict[str, float] | None = None
+class PloemeurCalibrationConfig(BaseConfigModel):
+    """Ploemeur preparation, output sampling, and MH controls."""
 
-    @model_validator(mode="after")
-    def _validate_seed_and_initial_params(self) -> "PloemeurCalibrationConfig":
-        if self.seed_enabled and self.seed is None:
-            raise ValueError("seed is required when seed_enabled is true")
-        if self.initial_params is not None and not self.initial_params:
-            raise ValueError("initial_params must be a non-empty mapping")
-        return self
+    exploration_resolution: int = Field(gt=0)
+    posterior_draw_count: int = Field(default=0, ge=0)
+    metropolis_hastings: MetropolisHastingsCfg
 
 
-class PloemeurExecutionConfig(_BaseCfg):
+class PloemeurExecutionConfig(BaseConfigModel):
     parallel: bool
     auto_proc_nb: bool
     proc_nb: int = Field(gt=0)
 
 
-class PloemeurResultsConfig(_BaseCfg):
+class PloemeurResultsConfig(BaseConfigModel):
     use_default: bool
     directory: str = ""
 
@@ -166,7 +153,7 @@ class PloemeurResultsConfig(_BaseCfg):
         return self
 
 
-class PloemeurWorkflowConfig(_BaseCfg):
+class PloemeurWorkflowConfig(BaseConfigModel):
     workflows: PloemeurWorkflowSettings
     observations: PloemeurObservationsConfig
     lpm_models: PloemeurLpmConfig
@@ -186,14 +173,14 @@ class PloemeurWorkflowConfig(_BaseCfg):
         return self
 
 
-class PriorPipelineStep(_BaseCfg):
+class PriorPipelineStep(BaseConfigModel):
     time_span_and_prior: TimeSpanMode
     prior: bool
     likelihood: bool
     prior_folder: str
 
 
-class PriorPipelineConfig(_BaseCfg):
+class PriorPipelineConfig(BaseConfigModel):
     steps: list[PriorPipelineStep] = Field(min_length=1)
     folder: str
 

@@ -9,7 +9,7 @@ parameters:
     label: physical_mean
     unit: year
     description: "Physical IG mean M; benchmark envelope only."
-    bounds: [0.01, 3000.0]
+    calibration_range: [0.01, 3000.0]
     init: 2400.0
     step: 100.0
     prior:
@@ -22,7 +22,7 @@ parameters:
     label: physical_standard_deviation
     unit: year
     description: "Physical IG standard deviation S; benchmark envelope only."
-    bounds: [0.00316227766016838, 30000.0]
+    calibration_range: [0.00316227766016838, 30000.0]
     init: 21000.0
     step: 1000.0
     prior:
@@ -35,7 +35,7 @@ parameters:
     label: time_shift
     unit: year
     description: "Shift t0 on the exact article support."
-    bounds: [0.1, 50.0]
+    calibration_range: [0.1, 50.0]
     init: 34.0
     step: 0.5
     prior:

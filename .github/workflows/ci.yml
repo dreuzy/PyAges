@@ -37,13 +37,24 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
+      - name: Verify project and installed dependency metadata
+        run: >-
+          python -m scripts.maintenance.check_project_metadata
+          --check-installed --extra dev --require-qualified-versions
       - run: python -m ruff check .
       - run: python -m ruff format --check .
+      - name: Type-check the progressively qualified core contracts
+        run: python -m pyright
+      - name: Verify docstrings on the qualified calibration/runtime surface
+        run: python -m scripts.maintenance.check_qualified_docstrings
       - name: Verify licensing metadata
         run: python -m scripts.maintenance.check_licensing
+      - name: Verify package dependency boundaries
+        run: python -m scripts.maintenance.check_architecture
       - name: Verify generated test inventory
         run: python -m scripts.maintenance.generate_test_inventory --check
 
@@ -61,9 +72,15 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
+      - name: Verify every qualified direct dependency
+        run: >-
+          python -m scripts.maintenance.check_project_metadata
+          --check-installed --extra dev --extra docs --extra examples
+          --require-qualified-versions
       - run: python -m pip check
       - run: python -m pip_audit --local --skip-editable --progress-spinner off
 
@@ -107,8 +124,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m pytest -q
 
@@ -136,8 +154,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m pip install --force-reinstall "scipy==${{ matrix.scipy-version }}"
       - run: python -m pytest -q tests/convolution tests/lpm tests/tracer tests/test_public_api.py
@@ -156,8 +175,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - name: Install the supported pandas lower bound and string backend
         run: >-
@@ -191,8 +211,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m pytest -q --cov=pyages --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=75
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -215,8 +236,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m pytest -q validation/tracerlpm/benchmark/tests
 
@@ -252,13 +274,18 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[docs]"
       - name: Build strict HTML documentation
         run: python -m sphinx -W --keep-going -b html docs docs/_build/html
-      - name: Check documentation links
-        run: python -m sphinx -W --keep-going -b linkcheck docs docs/_build/linkcheck
+      - name: Check documentation links, retrying transient remote timeouts once
+        run: >-
+          python -m sphinx --keep-going -b linkcheck docs docs/_build/linkcheck ||
+          python -m sphinx --keep-going -b linkcheck docs docs/_build/linkcheck ||
+          python -m scripts.maintenance.check_linkcheck_results
+          docs/_build/linkcheck/output.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: documentation-html
@@ -279,8 +306,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            install/bootstrap-constraints.txt
             install/constraints.txt
-      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
       - run: python -m pip install -c install/constraints.txt -e ".[dev]"
       - run: python -m build
       - run: python -m twine check dist/*
@@ -295,8 +323,44 @@ jobs:
           "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" list lpms
           "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" list tracers
           PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" check
+          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" new config "$smoke_dir/quickstart"
+          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" run "$smoke_dir/quickstart/pyages.yaml"
+          test -f "$smoke_dir/quickstart/results/quickstart/observations.tsv/result_manifest.json"
           PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" run "$GITHUB_WORKSPACE/examples/templates/quickstart_single.yaml"
           test -f "$GITHUB_WORKSPACE/.smoke-results/test_cases/ploemeur_F09_2010.txt/result_manifest.json"
+          PYAGES_RESULTS_DIR="$GITHUB_WORKSPACE/.smoke-results" "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" run "$GITHUB_WORKSPACE/examples/templates/smoke_multichain.yaml"
+          smoke_mh="$GITHUB_WORKSPACE/.smoke-results/smoke_multichain/ploemeur_F09_2010.txt/Metropolis_Hastings"
+          test -f "$smoke_mh/chains/chain_001/lpm_dist_calibrated.txt"
+          test -f "$smoke_mh/chains/chain_002/lpm_dist_calibrated.txt"
+          test -f "$smoke_mh/proposal_covariance.tsv"
+          test -f "$smoke_mh/mcmc_diagnostics.tsv"
+          test -f "$GITHUB_WORKSPACE/.smoke-results/smoke_multichain/ploemeur_F09_2010.txt/result_manifest.json"
+          "$GITHUB_WORKSPACE/.venv-smoke/bin/pyages" stages inspect "$GITHUB_WORKSPACE/.smoke-results"
+      - name: Verify installed-wheel multi-chain provenance
+        run: |
+          .venv-smoke/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path(
+              ".smoke-results/smoke_multichain/ploemeur_F09_2010.txt"
+          )
+          manifest = json.loads(
+              (root / "result_manifest.json").read_text(encoding="utf-8")
+          )
+          assert manifest["status"] == "complete"
+          assert manifest["workflow"] == "single_date"
+          assert manifest["package"]["source"] == "installed_distribution"
+          assert manifest["repository"]["git_head"] is None
+          required = {
+              "Metropolis_Hastings/chains/chain_001/lpm_dist_calibrated.txt",
+              "Metropolis_Hastings/chains/chain_002/lpm_dist_calibrated.txt",
+              "Metropolis_Hastings/lpm_dist_calibrated.txt",
+              "Metropolis_Hastings/mcmc_diagnostics.tsv",
+              "Metropolis_Hastings/proposal_covariance.tsv",
+          }
+          assert required <= manifest["artifacts_sha256"].keys()
+          PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: distributions

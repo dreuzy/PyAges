@@ -1,0 +1,49 @@
+name: Scheduled dependency audit
+
+on:
+  schedule:
+    - cron: "23 4 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-dependency-audit
+  cancel-in-progress: false
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  audit:
+    name: Qualified environment and available updates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            install/bootstrap-constraints.txt
+            install/constraints.txt
+      - name: Install qualified packaging tools
+        run: python -m pip install --upgrade -r install/bootstrap-constraints.txt
+      - name: Install every qualified dependency group
+        run: python -m pip install -c install/constraints.txt -e ".[dev,docs,examples]"
+      - name: Verify declared, pinned, and installed versions
+        run: >-
+          python -m scripts.maintenance.check_project_metadata
+          --check-installed --extra dev --extra docs --extra examples
+          --require-qualified-versions
+      - name: Check the installed dependency graph
+        run: python -m pip check
+      - name: Check published vulnerability advisories
+        run: python -m pip_audit --local --skip-editable --progress-spinner off
+      - name: Report newer releases for maintainer review
+        run: python -m pip list --outdated

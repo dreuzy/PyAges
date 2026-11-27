@@ -16,7 +16,7 @@ from sites.ploemeur.observations.ploemeur import (
 )
 
 
-def results_folder(file_root: str, base_dir: str | None = None):
+def results_folder(file_root: str, base_dir: str | Path | None = None):
     """Return (dir_out, dir_root, date_file) for a results root."""
     if base_dir:
         dir_root = result_subdirectory(base_dir, file_root)
@@ -27,7 +27,7 @@ def results_folder(file_root: str, base_dir: str | None = None):
 
 
 def prior_file_path(
-    dir_out: str,
+    dir_out: str | Path,
     prior_corresp: dict[str, str],
     well_date: str,
     conc_error_rel: float,
@@ -47,7 +47,7 @@ def calibrated_prior_name(well_date: str, conc_error_rel: float, lpm_type: str) 
     return posterior_file_stem(well_date, conc_error_rel, lpm_type)
 
 
-def data_file_path(directory: str, filename: str) -> str:
+def data_file_path(directory: str | Path, filename: str) -> str:
     """Join a directory and filename for data access."""
     return str(Path(directory) / filename)
 
@@ -69,7 +69,9 @@ def data_selection_filename(well: str, start: int, end: int) -> str:
     return f"{well}_{start}_{int(end)}"
 
 
-def results_dir_for_case(directory_results: str, well_date: str, lpm_type: str) -> str:
+def results_dir_for_case(
+    directory_results: str | Path, well_date: str, lpm_type: str
+) -> str:
     """Return the results directory for a specific well/date/LPM case."""
     return str(
         result_subdirectory(result_subdirectory(directory_results, well_date), lpm_type)

@@ -1,8 +1,19 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file loads and validates the YAML definition of one tracer.
 
-"""Typed loading and validation of tracer YAML files."""
+"""Convert tracer YAML metadata into a typed runtime configuration.
+
+The loader resolves recharge-history settings, production, radioactive decay,
+units, and valid dates into ``TracerConfig``. Unknown scalar fields, invalid
+numeric values, and conflicting decay declarations are rejected before the
+tracer opens its chronicle or participates in a convolution.
+
+Configuration errors are kept distinct from missing or unreadable source data,
+allowing callers to explain whether the YAML choices or the underlying files
+need correction.
+"""
 
 from __future__ import annotations
 

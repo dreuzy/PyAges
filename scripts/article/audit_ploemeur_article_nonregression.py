@@ -12,7 +12,6 @@ modify the manuscript, or mutate archived campaign outputs.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import subprocess
@@ -33,16 +32,18 @@ if str(REPO_ROOT) not in sys.path:
 
 from pyages.config.paths import DIRECTORY_TRACER_DATA
 from pyages.convolution import Convolution
+from pyages._scalar_conversion import scalar_float, scalar_int
 from pyages.data_io.lpm_distribution import read_distribution
 from pyages.lpm.models.inverse_gaussian import scipy_params_from_mean_std
 from pyages.lpm.models.inverse_gaussian_shifted import InverseGaussianShiftedLpm
 from pyages.tracer.simple_tracers import SyntheticTracer
 from pyages.tracer.tracer_root import Tracer
+from scripts.common.provenance import sha256_bytes, sha256_file
+from scripts.common.reporting import markdown_table as render_markdown_table
 
 
-ROOT = REPO_ROOT
-RESULTS = ROOT / "results" / "HYP-26-0172"
-AUDIT_OUTPUT = ROOT / "results" / "ploemeur_article_nonregression_audit"
+RESULTS = REPO_ROOT / "results" / "HYP-26-0172"
+AUDIT_OUTPUT = REPO_ROOT / "results" / "ploemeur_article_nonregression_audit"
 ARTICLE = Path(r"C:\Users\dreuzy\Downloads\Article.docx")
 HISTORICAL_COMMIT = "5432034"
 TRACERS = ("cfc11", "cfc12", "cfc113")
@@ -52,22 +53,38 @@ OLD_RESOLUTION = 200
 
 METRIC_CSV = AUDIT_OUTPUT / "ploemeur_transit_time_metric_audit.csv"
 DIST_CSV = AUDIT_OUTPUT / "ig_old_new_distribution_equivalence.csv"
+
+
+def _column(frame: pd.DataFrame, name: str) -> pd.Series:
+    """Return one named column and reject duplicate column labels."""
+    column = frame[name]
+    if not isinstance(column, pd.Series):
+        raise ValueError(f"Expected exactly one {name!r} column")
+    return column
+
+
+def _require_frame(value: object, context: str) -> pd.DataFrame:
+    """Require a DataFrame at a Pandas boundary with a broad stub type."""
+    if not isinstance(value, pd.DataFrame):
+        raise TypeError(f"{context} must produce a DataFrame")
+    return value
+
+
+def _matching_rows(frame: pd.DataFrame, name: str, value: object) -> pd.DataFrame:
+    """Select rows for one scalar column value."""
+    return _require_frame(
+        frame.loc[_column(frame, name).eq(value)], f"selection on {name!r}"
+    )
+
+
 FORWARD_CSV = AUDIT_OUTPUT / "ploemeur_old_new_forward_equivalence.csv"
 COMPARISON_CSV = AUDIT_OUTPUT / "ploemeur_article_current_comparison.csv"
 CAUSES_CSV = AUDIT_OUTPUT / "ploemeur_nonregression_root_causes.csv"
 REPORT_MD = AUDIT_OUTPUT / "PLOEMEUR_ARTICLE_NONREGRESSION_AUDIT.md"
 
 
-def sha256_bytes(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
-
-
-def sha256_file(path: Path) -> str:
-    return sha256_bytes(path.read_bytes())
-
-
 def git_bytes(revision: str, path: str) -> bytes:
-    return subprocess.check_output(["git", "show", f"{revision}:{path}"], cwd=ROOT)
+    return subprocess.check_output(["git", "show", f"{revision}:{path}"], cwd=REPO_ROOT)
 
 
 def full_series_chain(well: str, version: str = "article") -> Path:
@@ -140,14 +157,13 @@ def historical_tracer(name: str) -> tuple[SyntheticTracer, pd.DataFrame, str]:
 def old_forward(
     tracer: SyntheticTracer, date: float, a: float, s: float, shift: float
 ) -> float:
-    distribution = invgauss(a, loc=shift, scale=s)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
-        q10, q50 = distribution.ppf([0.10, 0.50])
+        q10, q50 = invgauss.ppf([0.10, 0.50], a, loc=shift, scale=s)
     if q10 - shift <= 0.75 and q50 - shift <= 2.5:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
-            q90, q99 = distribution.ppf([0.90, 0.99])
+            q90, q99 = invgauss.ppf([0.90, 0.99], a, loc=shift, scale=s)
         tmax = float(date - tracer.datemin)
         clipped = np.maximum.accumulate(np.clip([q10, q50, q90, q99], shift, tmax))
         segments = ((60, 2.8), (60, 1.6), (40, 1.2), (20, 1.0))
@@ -164,14 +180,16 @@ def old_forward(
         parts.append(np.array([tmax]))
         ages = np.unique(np.concatenate(parts))
         values = tracer.get_concentration(date - ages, ages)
-        return float(integrate.simpson(values * distribution.pdf(ages), x=ages))
+        density = invgauss.pdf(ages, a, loc=shift, scale=s)
+        return float(integrate.simpson(values * density, x=ages))
 
     dates = tracer.datemin + (date - tracer.datemin) * np.arange(
         0.0, 1.0, 1.0 / OLD_RESOLUTION
     )
     ages = date - dates
     values = tracer.get_concentration(dates, ages)
-    return float(-integrate.simpson(values * distribution.pdf(ages), x=ages))
+    density = invgauss.pdf(ages, a, loc=shift, scale=s)
+    return float(-integrate.simpson(values * density, x=ages))
 
 
 def physical_parameters(a: float, s: float) -> tuple[float, float]:
@@ -194,27 +212,31 @@ def build_distribution_equivalence() -> tuple[pd.DataFrame, dict[str, float]]:
     for well in WELLS:
         source, selected = selected_historical_samples(well)
         for _, row in selected.iterrows():
-            a, s, shift = (float(row[name]) for name in ("mu", "sigma", "shift"))
+            a, s, shift = (scalar_float(row[name]) for name in ("mu", "sigma", "shift"))
             mean, sd = physical_parameters(a, s)
             new_a, new_s = scipy_params_from_mean_std(mean, sd)
-            old = invgauss(a, loc=shift, scale=s)
-            new = invgauss(new_a, loc=shift, scale=new_s)
             probabilities = np.array([1e-4, 0.01, 0.10, 0.25, 0.50, 0.75, 0.90])
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", RuntimeWarning)
-                times = old.ppf(np.linspace(1e-4, 0.90, 2001))
-                old_q, new_q = old.ppf(probabilities), new.ppf(probabilities)
-                old_t50, new_t50 = float(old.ppf(0.5)), float(new.ppf(0.5))
-            old_pdf, new_pdf = old.pdf(times), new.pdf(times)
-            old_cdf, new_cdf = old.cdf(times), new.cdf(times)
-            cdf_at_t50 = float(new.cdf(new_t50))
+                times = invgauss.ppf(
+                    np.linspace(1e-4, 0.90, 2001), a, loc=shift, scale=s
+                )
+                old_q = invgauss.ppf(probabilities, a, loc=shift, scale=s)
+                new_q = invgauss.ppf(probabilities, new_a, loc=shift, scale=new_s)
+                old_t50 = float(invgauss.ppf(0.5, a, loc=shift, scale=s))
+                new_t50 = float(invgauss.ppf(0.5, new_a, loc=shift, scale=new_s))
+            old_pdf = invgauss.pdf(times, a, loc=shift, scale=s)
+            new_pdf = invgauss.pdf(times, new_a, loc=shift, scale=new_s)
+            old_cdf = invgauss.cdf(times, a, loc=shift, scale=s)
+            new_cdf = invgauss.cdf(times, new_a, loc=shift, scale=new_s)
+            cdf_at_t50 = float(invgauss.cdf(new_t50, new_a, loc=shift, scale=new_s))
             cdf_residuals.append(abs(cdf_at_t50 - 0.5))
             rows.append(
                 {
                     "well": well,
                     "sample_id": row["sample_id"],
-                    "source_file": source.relative_to(ROOT).as_posix(),
-                    "archive_row": int(row["archive_row"]),
+                    "source_file": source.relative_to(REPO_ROOT).as_posix(),
+                    "archive_row": scalar_int(row["archive_row"]),
                     "old_shape": a,
                     "old_scale": s,
                     "old_shift": shift,
@@ -229,18 +251,18 @@ def build_distribution_equivalence() -> tuple[pd.DataFrame, dict[str, float]]:
                     "old_ppf_0_5": old_t50,
                     "new_ppf_0_5": new_t50,
                     "cdf_at_new_ppf_0_5": cdf_at_t50,
-                    "old_mean": float(old.mean()),
-                    "new_mean_check": float(new.mean()),
-                    "old_sd": float(old.std()),
-                    "new_sd_check": float(new.std()),
+                    "old_mean": shift + a * s,
+                    "new_mean_check": shift + new_a * new_s,
+                    "old_sd": s * a**1.5,
+                    "new_sd_check": new_s * new_a**1.5,
                 }
             )
     frame = pd.DataFrame(rows)
     frame.to_csv(DIST_CSV, index=False)
     summary = {
-        "max_pdf_abs_error": float(frame["max_pdf_abs_error"].max()),
-        "max_cdf_abs_error": float(frame["max_cdf_abs_error"].max()),
-        "max_quantile_abs_error": float(frame["max_quantile_abs_error"].max()),
+        "max_pdf_abs_error": scalar_float(frame["max_pdf_abs_error"].max()),
+        "max_cdf_abs_error": scalar_float(frame["max_cdf_abs_error"].max()),
+        "max_quantile_abs_error": scalar_float(frame["max_quantile_abs_error"].max()),
         "max_t50_cdf_residual": max(cdf_residuals),
     }
     return frame, summary
@@ -257,13 +279,13 @@ def build_forward_equivalence() -> tuple[pd.DataFrame, dict[str, float]]:
         source, selected = selected_historical_samples(well)
         columns = concentration_columns(selected)
         for _, row in selected.iterrows():
-            a, s, shift = (float(row[name]) for name in ("mu", "sigma", "shift"))
+            a, s, shift = (scalar_float(row[name]) for name in ("mu", "sigma", "shift"))
             mean, sd = physical_parameters(a, s)
             model = InverseGaussianShiftedLpm(
                 mu=mean,
                 sigma=sd,
                 shift=shift,
-                directory_lpm=ROOT / "sites/ploemeur/params_lpm",
+                directory_lpm=REPO_ROOT / "sites/ploemeur/params_lpm",
             )
             for (tracer_name, date), archive_column in columns.items():
                 key = (tracer_name, date)
@@ -277,7 +299,7 @@ def build_forward_equivalence() -> tuple[pd.DataFrame, dict[str, float]]:
                         current_tracers[tracer_name], date=date
                     )
                 new_current_data = current_convolvers[key].convolve(model)
-                archived = float(row[archive_column])
+                archived = scalar_float(row[archive_column])
                 absolute = abs(new_value - old_value)
                 relative = absolute / max(abs(old_value), np.finfo(float).tiny)
                 rows.append(
@@ -299,18 +321,20 @@ def build_forward_equivalence() -> tuple[pd.DataFrame, dict[str, float]]:
                         "old_shift": shift,
                         "new_mean": mean,
                         "new_sd": sd,
-                        "source_file": source.relative_to(ROOT).as_posix(),
+                        "source_file": source.relative_to(REPO_ROOT).as_posix(),
                     }
                 )
     frame = pd.DataFrame(rows)
     frame.to_csv(FORWARD_CSV, index=False)
     summary = {
         "rows": len(frame),
-        "max_abs_error": float(frame["abs_error"].max()),
-        "max_rel_error": float(frame["rel_error"].max()),
-        "median_rel_error": float(frame["rel_error"].median()),
-        "max_archive_reproduction_error": float(frame["old_archive_abs_error"].max()),
-        "max_current_data_effect": float(frame["current_data_effect_abs"].max()),
+        "max_abs_error": scalar_float(frame["abs_error"].max()),
+        "max_rel_error": scalar_float(frame["rel_error"].max()),
+        "median_rel_error": scalar_float(frame["rel_error"].median()),
+        "max_archive_reproduction_error": scalar_float(
+            frame["old_archive_abs_error"].max()
+        ),
+        "max_current_data_effect": scalar_float(frame["current_data_effect_abs"].max()),
     }
     return frame, summary
 
@@ -352,8 +376,8 @@ def build_metric_audit() -> pd.DataFrame:
             "model": "ig_shifted",
             "quantity_name": "median transit time / median_mean",
             "exact_formula": "E_posterior[t0 + invgauss.ppf(0.5, shape=(S/M)^2, scale=M^3/S^2)]",
-            "code_function": "LpmBase.moments -> _InverseGaussianLpmBase.cdf_inv -> InverseGaussianShiftedLpm._scipy_params",
-            "file": "pyages/lpm/core/lpm_base.py; pyages/lpm/core/lpm_scipy.py; pyages/lpm/models/inverse_gaussian.py; pyages/lpm/models/inverse_gaussian_shifted.py",
+            "code_function": "LpmBase.moments -> inverse_gaussian_quantiles -> InverseGaussianShiftedLpm._scipy_params",
+            "file": "pyages/lpm/core/lpm_base.py; pyages/lpm/models/_inverse_gaussian_numerics.py; pyages/lpm/models/inverse_gaussian.py; pyages/lpm/models/inverse_gaussian_shifted.py",
             "line": "491-501; 82-105; 28-36; 51-53",
             "scientifically_correct": True,
         },
@@ -450,21 +474,21 @@ def data_audit() -> tuple[pd.DataFrame, dict[str, str]]:
     rows = []
     for tracer in TRACERS:
         old_tracer, old_frame, old_hash = historical_tracer(tracer)
-        path = ROOT / f"data_core/data_tracer/{tracer}/recharge.csv"
+        path = REPO_ROOT / f"data_core/data_tracer/{tracer}/recharge.csv"
         current = pd.read_csv(path, comment="#")
         normalized_old = old_frame.iloc[:, :2].copy()
         normalized_old.columns = ["date", "concentration"]
         common = normalized_old.merge(current, on="date", suffixes=("_old", "_current"))
         rows.append(
             {
-                "file": path.relative_to(ROOT).as_posix(),
+                "file": path.relative_to(REPO_ROOT).as_posix(),
                 "historical_sha256": old_hash,
                 "current_sha256": sha256_file(path),
                 "historical_rows_seen_by_loader": len(old_frame),
                 "current_rows": len(current),
                 "historical_datemin": old_tracer.datemin,
-                "current_datemin": float(current["date"].min()),
-                "max_common_numeric_difference": float(
+                "current_datemin": scalar_float(current["date"].min()),
+                "max_common_numeric_difference": scalar_float(
                     (common["concentration_old"] - common["concentration_current"])
                     .abs()
                     .max()
@@ -503,10 +527,13 @@ def data_audit() -> tuple[pd.DataFrame, dict[str, str]]:
 
 
 def trend_table(comparison: pd.DataFrame) -> pd.DataFrame:
-    data = comparison[comparison["figure"].eq("figure5")]
+    data = _matching_rows(comparison, "figure", "figure5")
     rows = []
-    for (well, model), group in data.groupby(["well", "model"]):
-        group = group.sort_values("date")
+    for key, grouped in data.groupby(["well", "model"]):
+        if not isinstance(key, tuple) or len(key) != 2:
+            raise TypeError("The trend grouping key must contain well and model")
+        well, model = (str(value) for value in key)
+        group = _require_frame(grouped, "trend group").sort_values(by="date")
         rows.append(
             {
                 "well": well,
@@ -525,7 +552,7 @@ def trend_table(comparison: pd.DataFrame) -> pd.DataFrame:
 
 def f11_tracer_behavior_audit() -> pd.DataFrame:
     observations = pd.read_csv(
-        ROOT / "sites/ploemeur/data/ori/ori_ploemeur_F11_2004_2024.txt",
+        REPO_ROOT / "sites/ploemeur/data/ori/ori_ploemeur_F11_2004_2024.txt",
         sep="\t",
     )
     rows = []
@@ -559,15 +586,19 @@ def f11_tracer_behavior_audit() -> pd.DataFrame:
                     raise AssertionError(
                         f"Expected one modeled column for observation {index}, got {columns}"
                     )
-                modeled.append(float(posterior[columns[0]].mean()))
+                modeled.append(scalar_float(posterior[columns[0]].mean()))
             comparison = observations.assign(modeled=modeled)
-            for tracer, group in comparison.groupby("element"):
-                annual = group.groupby("date")[["concentration", "modeled"]].mean()
+            for tracer, grouped in comparison.groupby("element"):
+                group = _require_frame(grouped, "tracer comparison group")
+                annual = _require_frame(
+                    group.groupby("date")[["concentration", "modeled"]].mean(),
+                    "annual tracer means",
+                )
                 rows.append(
                     {
                         "workflow": workflow,
                         "model": model,
-                        "tracer": tracer.upper().replace("CFC", "CFC-"),
+                        "tracer": str(tracer).upper().replace("CFC", "CFC-"),
                         "observed_slope_pptv_per_year": np.polyfit(
                             annual.index, annual["concentration"], 1
                         )[0],
@@ -676,18 +707,7 @@ def build_root_causes(
 
 
 def markdown_table(frame: pd.DataFrame, digits: int = 4) -> str:
-    formatted = frame.copy()
-    for column in formatted.select_dtypes(include=[np.number]).columns:
-        formatted[column] = formatted[column].map(lambda value: f"{value:.{digits}g}")
-    headers = [str(column).replace("|", "\\|") for column in formatted.columns]
-    rows = [
-        "| " + " | ".join(headers) + " |",
-        "| " + " | ".join("---" for _ in headers) + " |",
-    ]
-    for values in formatted.itertuples(index=False, name=None):
-        cells = [str(value).replace("|", "\\|").replace("\n", " ") for value in values]
-        rows.append("| " + " | ".join(cells) + " |")
-    return "\n".join(rows)
+    return render_markdown_table(frame, float_format=f".{digits}g")
 
 
 def build_report(
@@ -700,9 +720,15 @@ def build_report(
     f11_behavior: pd.DataFrame,
 ) -> None:
     trends = trend_table(comparison)
-    figure5 = comparison[comparison["figure"].eq("figure5")]
-    exp_delta = figure5[figure5["model"].eq("exp_shifted")]["delta_t50"].abs().max()
-    ig_delta = figure5[figure5["model"].eq("ig_shifted")]["delta_t50"].abs().max()
+    figure5 = _matching_rows(comparison, "figure", "figure5")
+    exp_delta = (
+        _column(_matching_rows(figure5, "model", "exp_shifted"), "delta_t50")
+        .abs()
+        .max()
+    )
+    ig_delta = (
+        _column(_matching_rows(figure5, "model", "ig_shifted"), "delta_t50").abs().max()
+    )
     article_hash = sha256_file(ARTICLE)
     configured_old_prior_density = 1.0 / (100.0 * 30.0 * 30.0)
     active_initial_old_density = 1.0 / (99.9 * 29.9 * 49.9)

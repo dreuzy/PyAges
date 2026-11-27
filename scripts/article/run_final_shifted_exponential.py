@@ -15,7 +15,6 @@ random walk scaled by 2.38/sqrt(2).  This driver refuses Ploemeur paths.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import platform
@@ -40,13 +39,14 @@ if str(ROOT) not in sys.path:
 
 from pyages._plotting import white_low_colormap
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
+from pyages.calibration.methods.mh.diagnostics import mcse_mean_from_ess
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm import build_lpm
-from scripts.common.mcmc_diagnostics import mcse_mean
 from scripts.common.provenance import repository_provenance
+from scripts.common.provenance import sha256_file as _sha256
 from scripts.common.publication_plotting import (
     PUBLICATION_RC,
     mm_to_in,
@@ -153,12 +153,12 @@ def _run_chain(
         }
     mh = MetropolisHastings(
         config=MHConfig(
-            nstep=steps,
+            nsteps=steps,
             burn_in=BURN_IN,
-            nskip=1,
+            thinning=1,
             prior_option=False,
             likelihood=True,
-            monitor=False,
+            record_trajectory=False,
             display_traj=False,
             display_text=False,
             seed=seed,
@@ -172,9 +172,8 @@ def _run_chain(
     frame = posterior.frame.copy()
     frame["t0"] = frame["shift"]
     frame["mtt"] = frame["mu"] + frame["t0"]
-    spec: dict[str, Any] = {}
-    mh.write_results_spec(spec)
-    return frame, float(spec["success_rate"]), runtime
+    spec = mh.result_metadata()
+    return frame, float(spec["acceptance_rate"]), runtime
 
 
 def _pilot_path(output: Path, case_index: int) -> Path:
@@ -396,7 +395,7 @@ def collect_diagnostics(
                 )
             pooled = np.concatenate(chains)
             total_ess = float(sum(ess_values))
-            mean_mcse = mcse_mean(pooled, total_ess)
+            mean_mcse = mcse_mean_from_ess(pooled, total_ess)
             converged = bool(rh < 1.01 and total_ess >= 300.0)
             local.append(
                 {
@@ -652,14 +651,6 @@ def _figure2(output: Path, lengths: dict[int, int]) -> None:
     posterior.to_csv(output / "figure2_final_chain_samples.csv", index=False)
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def _manifest(output: Path, lengths: dict[int, int]) -> None:
     sources = (
         Path(__file__).resolve(),
@@ -764,6 +755,8 @@ def analyze_and_extend(output: Path, workers: int) -> dict[str, pd.DataFrame]:
             converged=("converged", "all"),
         )
     )
+    if not isinstance(report_table, pd.DataFrame):
+        raise TypeError("Convergence aggregation must produce a DataFrame")
     (output / "shifted_exponential_final.md").write_text(
         "# Production finale shifted-exponential\n\n"
         + _markdown(report_table)

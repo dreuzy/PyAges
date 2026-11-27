@@ -10,6 +10,14 @@ contracts. {doc}`Scientific reports <reports/index>` and
 are separated from task-oriented instructions because they are not user
 guides.
 
+Contributors should start with the {doc}`developer quickstart
+<dev/getting-started>` and then use the {doc}`code tour <dev/code-tour>` to
+locate a focused implementation and test surface.
+
+PyAges 2.0 provides a
+{doc}`multi-chain MH qualification workflow <user-guide/multichain-mh>` with
+maintained synthetic, single-date, prior-active, and temporal profiles.
+
 ## Quality and validation
 
 - {doc}`Scientific validation <science/validation>` explains the qualification
@@ -24,6 +32,7 @@ guides.
 For a local build:
 
 ```bash
+python -m pip install --upgrade -r install/bootstrap-constraints.txt
 python -m pip install -c install/constraints.txt -e ".[docs]"
 python -m sphinx -b html docs docs/_build/html
 ```
@@ -51,6 +60,7 @@ architecture
 :caption: Examples and Reference
 
 examples/index
+studies/index
 reference/index
 api/index
 ```

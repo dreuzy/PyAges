@@ -4,6 +4,8 @@
 
 """Cross-check prose contracts that are not exercised by Sphinx."""
 
+import ast
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +54,27 @@ def test_readmes_describe_configurable_temporal_result_layout() -> None:
         assert "<study_name>" in document
         assert "Metropolis_Hastings/" in document
         assert "<results_root>/ploemeur_temporal" not in document
+
+    scripts_readme = (ROOT / "scripts/README.md").read_text(encoding="utf-8")
+    assert scripts_readme.count("schema_version: 3") >= 2
+    assert "\ndataset:" not in scripts_readme
+    assert "\nlpm_models:" not in scripts_readme
+    assert "model_name:" not in scripts_readme
+
+
+def test_site_studies_are_discoverable_without_becoming_packaged_api() -> None:
+    """Keep the online index, local guides, and wheel boundary aligned."""
+    index = (ROOT / "docs/index.md").read_text(encoding="utf-8")
+    running = (ROOT / "docs/user-guide/running-examples.md").read_text(encoding="utf-8")
+    studies = (ROOT / "docs/studies/index.md").read_text(encoding="utf-8")
+    ploemeur = (ROOT / "docs/studies/ploemeur.md").read_text(encoding="utf-8")
+    local = (ROOT / "sites/ploemeur/README.md").read_text(encoding="utf-8")
+
+    assert "studies/index" in index
+    assert "not copied into the installed" in running
+    assert "not installed in the PyAges" in studies
+    assert "sites/ploemeur/studies/HYP-26-0172/README.md" in ploemeur
+    assert "not installed with the `pyages` wheel" in local
 
 
 def test_reproduction_docs_distinguish_historical_and_fresh_evidence() -> None:
@@ -106,17 +129,49 @@ def test_workflow_output_reference_covers_stable_artifacts_and_manifest() -> Non
     assert all(name in document for name in required_artifacts)
     assert "schema 2" in document
     assert "artifacts_sha256" in document
-    assert "written only after success" in document
+    assert "`complete` after success" in document
+    assert "`failed` after rejection" in document
 
 
-def test_configuration_reference_states_exact_temporal_constraints() -> None:
+def test_configuration_reference_states_exact_common_mh_constraints() -> None:
     document = (ROOT / "docs/user-guide/configuration.md").read_text(encoding="utf-8")
 
-    assert "strictly greater than 100" in document
-    assert "`[0, 0.5)`" in document
+    assert "complete schedule required to retain at least one draw" in document
+    assert "Fraction in `[0, 1)`" in document
     assert "Relative error in `(0, 1)`" in document
-    assert "iteration > burn_in * mh_nsteps" in document
+    assert "iteration > burn_in * nsteps" in document
     assert "unknown section or field" in document
+    assert "exact bounded quantile" in document
+    assert "perform rejection sampling or consume `max_attempts`" in document
+    assert "must say `prior_option: true`" in document
+    assert "no longer injected silently" in document
+
+
+def test_2_0_quickstart_and_strict_configuration_are_self_contained() -> None:
+    tutorial = (ROOT / "docs/user-guide/tutorial.md").read_text(encoding="utf-8")
+    configuration = (ROOT / "docs/user-guide/configuration.md").read_text(
+        encoding="utf-8"
+    )
+    cli = (ROOT / "docs/user-guide/cli-flags.md").read_text(encoding="utf-8")
+
+    assert "pyages new config quickstart" in tutorial
+    assert "examples/templates" not in tutorial
+    assert "schema_version: 3" in configuration
+    assert "there is no implicit conversion" in configuration
+    assert "Older layouts and unknown fields are rejected" in " ".join(cli.split())
+    assert "not scientific" in cli
+    assert "qualification evidence" in cli
+
+
+def test_2_0_reference_exposes_only_canonical_apis() -> None:
+    public_api = (ROOT / "docs/reference/public-api.md").read_text(encoding="utf-8")
+    reference_index = (ROOT / "docs/reference/index.md").read_text(encoding="utf-8")
+
+    assert "migration-2-0" not in reference_index
+    assert "Older field spellings are rejected" in public_api
+    assert "SingleDateConfig" in public_api
+    assert "TemporalConfig" in public_api
+    assert "calibration_range" in public_api
 
 
 def test_natural_notebooks_use_only_canonical_public_apis() -> None:
@@ -150,12 +205,24 @@ def test_natural_notebooks_use_only_canonical_public_apis() -> None:
         "objfunc=",
         "reachconc=",
         "display_concentration_times",
+        ".proposal_step",
+        "params.dataset",
+        "params.lpm.model_name",
+        "params.lpm.data_directory",
+        '["calibration_metropolis_hastings"]',
+        '["calibration_simplex"]',
+        "run.calibration_metropolis_hastings",
+        "run.calibration_simplex",
     )
 
     for notebook_path in notebook_paths:
         notebook = notebook_path.read_text(encoding="utf-8")
+        payload = json.loads(notebook)
+        notebook_source = "\n".join(
+            "".join(cell.get("source", ())) for cell in payload.get("cells", ())
+        )
         assert "from pyages.concentrations import Concentrations" in notebook
-        assert all(marker not in notebook for marker in removed_api_markers)
+        assert all(marker not in notebook_source for marker in removed_api_markers)
 
 
 def test_contributor_extension_contract_is_navigable_and_compilable() -> None:
@@ -165,9 +232,117 @@ def test_contributor_extension_contract_is_navigable_and_compilable() -> None:
     dev_index = (ROOT / "docs/dev/index.md").read_text(encoding="utf-8")
 
     assert "extending-calibration-workflows" in dev_index
+    assert "code-tour" in dev_index
+    assert (ROOT / "docs/dev/code-tour.md").is_file()
     assert "write_result_manifest" in document
     assert "**last**" in document
     compile(_first_python_block(document), "extending-calibration-workflows", "exec")
+
+
+def test_developer_onboarding_is_navigable_and_environment_safe() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    dev_index = (ROOT / "docs/dev/index.md").read_text(encoding="utf-8")
+    quickstart = (ROOT / "docs/dev/getting-started.md").read_text(encoding="utf-8")
+    dependencies = (ROOT / "docs/dev/dependencies.md").read_text(encoding="utf-8")
+    ide = (ROOT / "docs/dev/ide.md").read_text(encoding="utf-8")
+
+    assert "docs/dev/getting-started.md" in readme
+    assert "CONTRIBUTING.md" in readme
+    assert "git clone https://github.com/dreuzy/PyAges.git pyages" in contributing
+    assert ".[dev]" in contributing
+    assert "check_dev quick" in contributing
+    assert "check_dev full" in contributing
+    assert "install/bootstrap-constraints.txt" in contributing
+    assert dev_index.index("getting-started") < dev_index.index("code-tour")
+    assert dev_index.index("getting-started") < dev_index.index("dependencies")
+    assert dev_index.index("dependencies") < dev_index.index("code-tour")
+    assert "Activate.ps1" in quickstart
+    assert "source .venv/bin/activate" in quickstart
+    assert "successful `import pyages`" in quickstart
+    assert "install/bootstrap-constraints.txt" in quickstart
+    assert "Compatible is not the same as qualified" in dependencies
+    assert "A constraints file is not a complete lock file" in dependencies
+    assert "--require-qualified-versions" in dependencies
+    assert ".venv/Scripts/python.exe" in ide
+    assert "source roots that do not exist" in ide
+
+
+def test_maintainership_exposes_the_solo_continuity_gate() -> None:
+    guide = (ROOT / "docs/dev/maintainership.md").read_text(encoding="utf-8")
+    dev_index = (ROOT / "docs/dev/index.md").read_text(encoding="utf-8")
+    release = (ROOT / "docs/dev/releasing.md").read_text(encoding="utf-8")
+
+    assert "maintainership" in dev_index
+    assert "single-maintainer continuity review" in guide
+    assert "fresh clone" in guide
+    assert "A solo maintainer may perform this review" in release
+    assert "not a release prerequisite" in release
+
+
+def test_multichain_contributor_example_uses_the_canonical_dataclass_api() -> None:
+    document = (ROOT / "docs/user-guide/multichain-mh.md").read_text(encoding="utf-8")
+    section = document.split("(multichain-mh-python-contributor-interface)=", 1)[
+        1
+    ].split("## Interpret qualification and failure", 1)[0]
+    example = _first_python_block(section)
+
+    assert "from pyages.calibration.methods.mh import" in example
+    assert "proposal_multiplier=None" in example
+    assert 'proposal_multiplier="auto"' not in example
+    assert ").prepare()" in example
+    assert "record: MHRunRecord" in example
+    assert "record.pooled_samples()" in example
+    tree = ast.parse(example, filename="multichain-mh:contributor-interface")
+    guards = [node for node in tree.body if isinstance(node, ast.If)]
+    assert len(guards) == 1
+    guard = guards[0]
+    assert ast.unparse(guard.test) == "record.qualification_status == 'qualified'"
+    assert any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "pooled_samples"
+        for statement in guard.body
+        for node in ast.walk(statement)
+    )
+    assert not any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "pooled_samples"
+        for statement in guard.orelse
+        for node in ast.walk(statement)
+    )
+    assert any(
+        isinstance(node, ast.Attribute) and node.attr == "diagnostics"
+        for statement in guard.orelse
+        for node in ast.walk(statement)
+    )
+
+
+def test_multichain_failure_recovery_drill_preserves_the_evidence_contract() -> None:
+    document = (ROOT / "docs/user-guide/multichain-mh.md").read_text(encoding="utf-8")
+    section = document.split("(multichain-mh-failure-recovery-drill)=", 1)[1].split(
+        "## Inspect chains and traces", 1
+    )[0]
+    python_blocks = [
+        fragment.split("```", 1)[0].strip()
+        for fragment in section.split("```python")[1:]
+    ]
+
+    assert len(python_blocks) == 3
+    for index, block in enumerate(python_blocks, start=1):
+        compile(block, f"multichain-mh:failure-recovery:{index}", "exec")
+
+    assert "lpm_recovery_single_date_multichain.yaml" in python_blocks[0]
+    assert "1.0000000000000002" in python_blocks[0]
+    assert 'reviewed_gate["require_convergence"] is True' in python_blocks[0]
+    assert 'manifest["status"] == "failed"' in python_blocks[1]
+    assert 'manifest["failure"]["type"] == "MHConvergenceError"' in python_blocks[1]
+    assert "copytree(evidence, archive)" in python_blocks[1]
+    assert 'manifest["status"] == "complete"' in python_blocks[2]
+    assert 'assert "failure" not in manifest' in python_blocks[2]
+    assert "require_convergence: false" in section
+    assert "would not repair the failed qualification" in section
 
 
 def test_calibration_guide_covers_operational_and_scientific_gates() -> None:
@@ -179,3 +354,20 @@ def test_calibration_guide_covers_operational_and_scientific_gates() -> None:
     assert "result_manifest.json" in document
     assert "split-$\\hat R$" in document
     assert "Only `CalibrationProblem`" in document
+
+
+def test_generic_multichain_archive_is_documented_outside_article_tooling() -> None:
+    release = (ROOT / "docs/dev/releasing.md").read_text(encoding="utf-8")
+    scripts = (ROOT / "scripts/README.md").read_text(encoding="utf-8")
+
+    for document in (release, scripts):
+        assert "scripts.qualification.build_multichain_archive" in document
+        assert "scripts.qualification.build_ci_multichain_archive" in document
+        assert "--mode draft" in document
+        assert "--mode publishable" in document
+        assert "--expected-tag" in document
+        assert "CHECKSUMS.sha256" in document
+    assert "independently of the historical article/tag-1.0" in release
+    assert "output path must be outside the source repository" in release
+    assert "not an origin signature" in release
+    assert "exactly one wheel plus one sdist" in scripts

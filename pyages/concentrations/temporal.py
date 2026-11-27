@@ -1,6 +1,10 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file aligns predictions from many model realizations on common date grids
+# and calculates posterior quantiles for temporal reports and figures.
+# It first requires every realization to return the same tracers and finite,
+# unique dates, then returns the 10/25/50/75/90 percent summaries per tracer.
 
 """Compute aligned temporal posterior summaries independently of plotting.
 
@@ -171,9 +175,9 @@ def summarize_temporal_realizations(
             values_by_tracer.setdefault(tracer_name, []).append(values)
 
     summaries = {}
-    for tracer_name, realizations in values_by_tracer.items():
+    for tracer_name, realization_values in values_by_tracer.items():
         q10, q25, median, q75, q90 = np.quantile(
-            np.vstack(realizations),
+            np.vstack(realization_values),
             [0.10, 0.25, 0.50, 0.75, 0.90],
             axis=0,
         )

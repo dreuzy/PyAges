@@ -5,9 +5,11 @@
 
 """Reproduce the Holten four-bin benchmark with tritiogenic helium.
 
-This module deliberately stays local to the Holten example.  It adds the
-fourth observable used by Visser et al. (2013), tritiogenic 3He, without
-changing the generic PyAges calibration stack or the Ploemeur example.
+The script prepares coupled tritium/helium responses, selects the documented
+forward convention, fits and samples three- and four-observable scenarios,
+then writes comparison tables, figures, and a provenance manifest. It stays
+local to the Holten example because the audited helium datum and old
+end-members are properties of this study, not generic PyAges behavior.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ import platform
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -43,7 +45,10 @@ from examples.natural.holten.holten_four_bin import (
     load_paper_4bin_fractions,
 )
 from examples.natural.holten.holten_prepare import prepare_holten_inputs
+from pyages._scalar_conversion import scalar_float
 from pyages.tracer.simple_tracers import SyntheticTracer
+from scripts.common.provenance import git_output
+from scripts.common.provenance import sha256_file as _sha256
 
 TRACERS_3 = ("3H", "kr85", "39Ar")
 TRACERS_4 = ("3H", "3He_trit", "kr85", "39Ar")
@@ -69,7 +74,9 @@ class ForwardConvention:
 
 @dataclass(frozen=True)
 class SamplingConfig:
-    nstep: int = 10_000
+    """Control the local MH chains used for the Holten comparison."""
+
+    nsteps: int = 10_000
     burn_in: float = 0.2
     proposal_scale: float = 0.18
     nchains: int = 4
@@ -97,7 +104,7 @@ def parent_daughter_response(
 
 
 def _reference_year(prepared: PreparedHoltenCase) -> float:
-    return float(prepared.observed_aggregated["date"].median())
+    return scalar_float(prepared.observed_aggregated["date"].median())
 
 
 def _tritium_configuration(
@@ -154,7 +161,7 @@ def build_coupled_tritium_tracers(
     knots = history["date"].to_numpy(dtype=float) + convention.vadose_years
     common = {
         "unit": "TU",
-        "datemin": float(history["date"].min()),
+        "datemin": scalar_float(history["date"].min()),
         "datemax": float(history["date"].max() + convention.vadose_years),
         "convolution_dates": knots,
     }
@@ -217,7 +224,7 @@ def build_reproduction_endmembers(
     coupled = pd.DataFrame(rows)
     order = {name: idx for idx, name in enumerate(TRACERS_4)}
     result = pd.concat([coupled, baseline], ignore_index=True)
-    result["_order"] = result["tracer"].map(order)
+    result["_order"] = result["tracer"].map(lambda value: order.get(str(value)))
     return (
         result.sort_values(["_order", "age_min"])
         .drop(columns="_order")
@@ -255,7 +262,7 @@ def build_observations(
         )
     tracer_order = TRACERS_4 if include_helium else TRACERS_3
     order = {name: idx for idx, name in enumerate(tracer_order)}
-    obs["_order"] = obs["element"].map(order)
+    obs["_order"] = obs["element"].map(lambda value: order.get(str(value)))
     return obs.sort_values("_order").drop(columns="_order").reset_index(drop=True)
 
 
@@ -287,6 +294,7 @@ def _objective(
 
 
 def optimize_well(obs: pd.DataFrame, endmembers: pd.DataFrame) -> dict[str, Any]:
+    """Find one well's maximum-likelihood four-bin fractions."""
     tracers = obs["element"].astype(str).tolist()
     values = obs["concentration"].to_numpy(dtype=float)
     errors = obs["error"].to_numpy(dtype=float)
@@ -331,6 +339,7 @@ def fit_scenario(
     include_helium: bool,
     scenario: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Fit every selected well and return fractions and concentration residuals."""
     summaries: list[dict[str, Any]] = []
     concentration_rows: list[dict[str, Any]] = []
     for well_id in prepared.context.selected_wells:
@@ -385,7 +394,7 @@ def sample_scenario(
     """Sample the likelihood with the same local stick-breaking MH scheme."""
 
     records: list[dict[str, Any]] = []
-    burn_count = int(config.nstep * config.burn_in)
+    burn_count = int(config.nsteps * config.burn_in)
     for well_idx, well_id in enumerate(prepared.context.selected_wells):
         obs = build_observations(prepared, well_id, include_helium)
         optimum = optimize_well(obs, endmembers)
@@ -401,7 +410,7 @@ def sample_scenario(
                 optimum["matrix"], optimum["values"], optimum["errors"], current
             )
             accepted = 0
-            for step in range(config.nstep):
+            for step in range(config.nsteps):
                 proposal = current + rng.normal(scale=config.proposal_scale, size=3)
                 proposal_obj = _objective(
                     optimum["matrix"], optimum["values"], optimum["errors"], proposal
@@ -443,11 +452,13 @@ def _split_rhat(values: np.ndarray) -> float:
 
 
 def summarize_samples(samples: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Summarize marginal fractions and chain convergence by scenario and well."""
     summaries: list[dict[str, Any]] = []
     diagnostics: list[dict[str, Any]] = []
-    for (scenario, well_id), group in samples.groupby(
-        ["scenario", "well_id"], sort=False
-    ):
+    for keys, group in samples.groupby(["scenario", "well_id"], sort=False):
+        if not isinstance(keys, tuple) or len(keys) != 2:
+            raise RuntimeError(f"unexpected sample group key: {keys!r}")
+        scenario, well_id = (str(value) for value in keys)
         row: dict[str, Any] = {
             "scenario": scenario,
             "well_id": well_id,
@@ -456,19 +467,19 @@ def summarize_samples(samples: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
         diag: dict[str, Any] = {
             "scenario": scenario,
             "well_id": well_id,
-            "acceptance_rate_min": float(
+            "acceptance_rate_min": scalar_float(
                 group.groupby("chain")["acceptance_rate"].last().min()
             ),
-            "acceptance_rate_max": float(
+            "acceptance_rate_max": scalar_float(
                 group.groupby("chain")["acceptance_rate"].last().max()
             ),
         }
         for name in (*BIN_ORDER, "chi2"):
             series = group[name].astype(float)
-            row[f"{name}_mean"] = float(series.mean())
-            row[f"{name}_q10"] = float(series.quantile(0.10))
-            row[f"{name}_median"] = float(series.quantile(0.50))
-            row[f"{name}_q90"] = float(series.quantile(0.90))
+            row[f"{name}_mean"] = scalar_float(series.mean())
+            row[f"{name}_q10"] = scalar_float(series.quantile(0.10))
+            row[f"{name}_median"] = scalar_float(series.quantile(0.50))
+            row[f"{name}_q90"] = scalar_float(series.quantile(0.90))
             pivot = (
                 group.pivot(index="chain", columns="step", values=name)
                 .sort_index()
@@ -485,6 +496,7 @@ def compare_fractions(
     optimizer: pd.DataFrame,
     posterior: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Compare optimizer and posterior fractions with the Visser reference."""
     rows: list[dict[str, Any]] = []
     for scenario in optimizer["scenario"].unique():
         opt = optimizer.loc[optimizer["scenario"] == scenario].set_index("well_id")
@@ -497,7 +509,7 @@ def compare_fractions(
                         "scenario": scenario,
                         "well_id": well_id,
                         "fraction": fraction,
-                        "visser": float(reference[fraction]),
+                        "visser": scalar_float(reference[fraction]),
                         "optimizer": float(opt.loc[well_id, fraction]),
                         "posterior_q10": float(post.loc[well_id, f"{fraction}_q10"]),
                         "posterior_median": float(
@@ -508,9 +520,12 @@ def compare_fractions(
                 )
     comparison = pd.DataFrame(rows)
     metric_rows: list[dict[str, Any]] = []
-    for (scenario, estimate), values in comparison.assign(
+    for keys, values in comparison.assign(
         estimate="optimizer", difference=comparison["optimizer"] - comparison["visser"]
     ).groupby(["scenario", "estimate"]):
+        if not isinstance(keys, tuple) or len(keys) != 2:
+            raise RuntimeError(f"unexpected comparison group key: {keys!r}")
+        scenario, estimate = (str(value) for value in keys)
         diff = values["difference"].to_numpy(dtype=float)
         metric_rows.append(
             {
@@ -577,7 +592,7 @@ def qualify_forward_conventions(
                 ),
                 "fraction_mae_vs_visser": float(np.mean(np.abs(differences))),
                 "chi2_rmse_vs_visser": float(np.sqrt(np.mean(chi2_diff * chi2_diff))),
-                "mean_fitted_chi2": float(fitted["chi2"].mean()),
+                "mean_fitted_chi2": scalar_float(fitted["chi2"].mean()),
             }
         )
     qualification = (
@@ -743,6 +758,7 @@ def plot_figure10b_reproduction(
 
 
 def plot_modeled_observed(concentrations: pd.DataFrame, output_path: Path) -> None:
+    """Plot measured and modeled concentrations for the corrected scenario."""
     data = concentrations.loc[concentrations["scenario"] == "corrected_4_observables"]
     fig, axes = plt.subplots(2, 2, figsize=(11.5, 8.0))
     for ax, tracer in zip(axes.ravel(), TRACERS_4, strict=False):
@@ -844,21 +860,6 @@ def plot_new_figure3(comparison: pd.DataFrame, output_path: Path) -> None:
     plt.close(fig)
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def _git(root: Path, *args: str) -> str:
-    result = subprocess.run(
-        ["git", *args], cwd=root, check=True, capture_output=True, text=True
-    )
-    return result.stdout.strip()
-
-
 def write_manifest(
     prepared: PreparedHoltenCase,
     output_dir: Path,
@@ -866,6 +867,7 @@ def write_manifest(
     config: SamplingConfig,
     generated: list[Path],
 ) -> Path:
+    """Record inputs, software, Git state, conventions, and generated outputs."""
     root = Path(__file__).resolve().parents[3]
     diff = subprocess.run(
         ["git", "diff", "--binary", "HEAD"], cwd=root, check=True, capture_output=True
@@ -885,8 +887,8 @@ def write_manifest(
     manifest = {
         "description": "Holten reproduction with corrected tritiogenic 3He parent-daughter response",
         "git": {
-            "commit": _git(root, "rev-parse", "HEAD"),
-            "status_porcelain": _git(root, "status", "--short"),
+            "commit": git_output(root, "rev-parse", "HEAD").strip(),
+            "status_porcelain": git_output(root, "status", "--short").strip(),
             "tracked_diff_sha256": hashlib.sha256(diff).hexdigest(),
         },
         "versions": {
@@ -921,6 +923,7 @@ def write_manifest(
 
 
 def run_reproduction(output_dir: Path, sampling: SamplingConfig) -> dict[str, Path]:
+    """Execute the complete Holten reproduction and return its artifact paths."""
     prepared = prepare_holten_inputs()
     output_dir.mkdir(parents=True, exist_ok=True)
     paper = load_paper_4bin_fractions(prepared)
@@ -947,9 +950,13 @@ def run_reproduction(output_dir: Path, sampling: SamplingConfig) -> dict[str, Pa
     concentrations = pd.concat([concentrations3, concentrations4], ignore_index=True)
     comparison, metrics = compare_fractions(paper, optimizers, posterior)
 
-    reference_chi2 = pd.read_csv(
+    reference_chi2_source = pd.read_csv(
         prepared.context.paths.reference_results_path, sep="\t"
-    )[["Well", "4bin_chi2", "4bin_pchi2"]].rename(
+    )
+    reference_chi2 = cast(
+        pd.DataFrame,
+        reference_chi2_source.loc[:, ["Well", "4bin_chi2", "4bin_pchi2"]],
+    ).rename(
         columns={
             "Well": "well_id",
             "4bin_chi2": "visser_chi2",
@@ -998,6 +1005,7 @@ def run_reproduction(output_dir: Path, sampling: SamplingConfig) -> dict[str, Pa
 
 
 def main() -> None:
+    """Parse command-line settings and run the Holten reproduction."""
     root = Path(__file__).resolve().parents[3]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -1009,14 +1017,14 @@ def main() -> None:
         / "holten"
         / "helium_reproduction",
     )
-    parser.add_argument("--nstep", type=int, default=10_000)
+    parser.add_argument("--nsteps", type=int, default=10_000)
     parser.add_argument("--nchains", type=int, default=4)
     parser.add_argument("--burn-in", type=float, default=0.2)
     parser.add_argument("--proposal-scale", type=float, default=0.18)
     parser.add_argument("--seed", type=int, default=12_345)
     args = parser.parse_args()
     config = SamplingConfig(
-        nstep=args.nstep,
+        nsteps=args.nsteps,
         burn_in=args.burn_in,
         proposal_scale=args.proposal_scale,
         nchains=args.nchains,

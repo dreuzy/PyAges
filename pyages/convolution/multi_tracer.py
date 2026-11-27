@@ -1,6 +1,9 @@
 # Copyright (c) 2021-2026 Centre national de la recherche scientifique (CNRS)
 # Contributor: Jean-Raynald de Dreuzy
 # SPDX-License-Identifier: CECILL-2.1
+# This file applies one water-age model to an ordered collection of tracers.
+# It pairs every tracer with its sampling date and returns concentrations for
+# one date or a date range without losing the caller's names, units, or order.
 
 """Coordinate convolution for an ordered collection of groundwater tracers.
 
@@ -13,7 +16,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, TextIO
+from typing import TYPE_CHECKING, Any, Literal, TextIO, overload
 
 import numpy as np
 import pandas as pd
@@ -59,29 +62,57 @@ class ConvolutionTracers:
             if tracer_data_dir is not None
             else DIRECTORY_TRACER_DATA
         )
+        # Temporal datasets commonly repeat one tracer at many observation
+        # dates. Its recharge history is date-independent, so load each named
+        # tracer once and bind that same read-only input to the dated
+        # Convolution evaluators below.
+        tracers_by_name: dict[str, Tracer] = {}
+        self._tracers: list[Tracer] = []
+        for name in names:
+            tracer = tracers_by_name.get(name)
+            if tracer is None:
+                tracer = Tracer(resolved_tracer_dir, name)
+                tracers_by_name[name] = tracer
+            self._tracers.append(tracer)
         self.convolutions: list[Convolution] = [
             Convolution(
-                Tracer(resolved_tracer_dir, name),
+                tracer,
                 date=tracer_date,
                 grid_settings=grid_settings,
             )
-            for name, tracer_date in zip(names, dates, strict=True)
+            for tracer, tracer_date in zip(self._tracers, dates, strict=True)
         ]
 
     @staticmethod
     def _normalize_dates(date: float | Iterable[float], size: int) -> list[float]:
         """Broadcast a scalar date or validate a one-to-one date sequence."""
-        if np.isscalar(date):
-            return [date] * size
-        dates = list(date)
+
+        def validated_date(value: Any) -> float:
+            if isinstance(value, (bool, str, bytes)):
+                raise ValueError("observation date must be a finite numeric value")
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "observation date must be a finite numeric value"
+                ) from exc
+            if not np.isfinite(numeric):
+                raise ValueError("observation date must be a finite numeric value")
+            return numeric
+
+        if not isinstance(date, Iterable):
+            return [validated_date(date)] * size
+        if isinstance(date, (str, bytes)):
+            raise ValueError("observation date must be a finite numeric value")
+        dates = [validated_date(value) for value in date]
         if len(dates) != size:
             raise ValueError(f"Expected {size} tracer dates, received {len(dates)}")
         return dates
 
     def display(self, display_options: DisplayOptions) -> None:
         """Display every underlying tracer."""
-        for convolution in self.convolutions:
-            convolution.tracer.display(display_options)
+        for tracer in self._tracers:
+            tracer.display(display_options)
 
     def write_name(self, file: TextIO) -> None:
         """Write tracer names to file."""
@@ -93,20 +124,24 @@ class ConvolutionTracers:
 
     def tracer_names(self) -> list[str]:
         """Return tracer names in convolution order."""
-        return [convolution.tracer.name for convolution in self.convolutions]
+        return [tracer.name for tracer in self._tracers]
 
     def tracer_date_keys(self) -> list[str]:
         """Return canonical tracer/date keys in convolution order."""
         return [
-            tracer_date_key(convolution.tracer.name, convolution.date)
-            for convolution in self.convolutions
+            tracer_date_key(tracer.name, convolution.date)
+            for tracer, convolution in zip(
+                self._tracers, self.convolutions, strict=True
+            )
         ]
 
     def mean_values_at_sampling_dates(self) -> list[float]:
         """Return one tracer mean evaluated at each bound sampling date."""
         return [
-            convolution.tracer.mean_value(convolution.date)
-            for convolution in self.convolutions
+            tracer.mean_value(convolution.date)
+            for tracer, convolution in zip(
+                self._tracers, self.convolutions, strict=True
+            )
         ]
 
     def prepare(self, lpm: LpmBase | None = None) -> None:
@@ -119,19 +154,57 @@ class ConvolutionTracers:
         if lpm is not None and lpm.convolution_strategy not in {
             ConvolutionStrategy.CONTINUOUS,
             ConvolutionStrategy.MIXED_DIRAC_CONTINUOUS,
+            ConvolutionStrategy.PIECEWISE_UNIFORM,
         }:
             return
         for convolution in self.convolutions:
-            convolution.prepare()
+            convolution.prepare(lpm)
+
+    def clone_prepared(self) -> ConvolutionTracers:
+        """Return fresh convolution evaluators over the same prepared inputs.
+
+        Tracer histories and immutable prepared grids are shared because they
+        define the common scientific target. The collection, every
+        :class:`Convolution`, and their mutable diagnostics are new objects.
+        This is the safe boundary used to give each calibration chain private
+        runtime state without repeating tracer I/O and grid construction.
+        """
+        clone = object.__new__(ConvolutionTracers)
+        clone._tracers = list(self._tracers)
+        clone.convolutions = [
+            convolution.clone_prepared() for convolution in self.convolutions
+        ]
+        return clone
 
     def units(self) -> list[str]:
         """Return tracer units in convolution order."""
-        return [convolution.tracer.unit for convolution in self.convolutions]
+        return [tracer.unit for tracer in self._tracers]
 
     def validate_observation_units(self, observations: Concentrations) -> None:
         """Validate observation/model units once before numerical work."""
         expected_units = dict(zip(self.tracer_names(), self.units(), strict=True))
         observations.require_matching_units(expected_units)
+
+    @overload
+    def convolve(
+        self,
+        lpm: LpmBase,
+        return_type: Literal["array"] = "array",
+    ) -> list[float]: ...
+
+    @overload
+    def convolve(
+        self,
+        lpm: LpmBase,
+        return_type: Literal["concentrations"],
+    ) -> Concentrations: ...
+
+    @overload
+    def convolve(
+        self,
+        lpm: LpmBase,
+        return_type: Literal["dataframe"],
+    ) -> pd.DataFrame: ...
 
     def convolve(
         self,
@@ -179,7 +252,7 @@ class ConvolutionTracers:
                     "unit": self.units(),
                     "date": [convolution.date for convolution in self.convolutions],
                 },
-                columns=["element", "concentration", "unit", "date"],
+                columns=pd.Index(["element", "concentration", "unit", "date"]),
             )
             return Concentrations.from_dataframe(frame)
         return pd.DataFrame(
@@ -187,7 +260,7 @@ class ConvolutionTracers:
                 "element": self.tracer_names(),
                 "concentration": values,
             },
-            columns=["element", "concentration"],
+            columns=pd.Index(["element", "concentration"]),
         )
 
     def convolve_date_range(
@@ -233,13 +306,15 @@ class ConvolutionTracers:
                 + ", ".join(duplicates)
             )
         return {
-            convolution.tracer.name: convolution.convolve_date_range(
+            tracer.name: convolution.convolve_date_range(
                 lpm,
                 date1,
                 date2,
                 resolution=resolution,
             )
-            for convolution in self.convolutions
+            for tracer, convolution in zip(
+                self._tracers, self.convolutions, strict=True
+            )
         }
 
 
