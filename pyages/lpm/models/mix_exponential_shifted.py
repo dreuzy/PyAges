@@ -75,11 +75,6 @@ class MixExponentialShiftedLpm(LpmBase):
             scale=self.p["mu2"],
         )
 
-    def continuous_cdf(self, t):
-        """Return the CDF of the normalized exponential component."""
-        values, _ = self.continuous_cdf_and_partial_first_moment(t)
-        return values
-
     def continuous_cdf_and_partial_first_moment(self, t):
         """Return exact mass and moment of the normalized continuous component."""
         return cdf_and_partial_first_moment_from_scale_shift(

@@ -170,10 +170,10 @@ def generate_lpm_template(name: str, output: str | None, base: str) -> None:
     """
     # Determine base class and module
     base_map = {
-        "scipy": ("lpm_scipy", "LpmScipy", "norm"),
-        "root": ("lpm_base", "LpmBase", "norm"),
+        "scipy": ("lpm_scipy", "LpmScipy"),
+        "root": ("lpm_base", "LpmBase"),
     }
-    base_module, base_class, default_scipy = base_map[base]
+    base_module, base_class = base_map[base]
 
     project_root = Path.cwd()
 

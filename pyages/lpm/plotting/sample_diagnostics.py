@@ -19,16 +19,20 @@ its calibration results are not altered.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 import pyages._plotting as plotting
+from pyages.calibration.schema import OBJECTIVE_COLUMN
+from pyages.lpm.protocols import LpmParameterProtocol
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
+    from pyages.calibration.methods.mh.prior import Prior
+    from pyages.concentrations import Concentrations
     from pyages.lpm.samples.table import LpmSampleTable
 
 
@@ -66,7 +70,7 @@ def plot_parameter_pair(
 def plot_parameter_diagnostics(
     distribution: "LpmSampleTable",
     self_method: str = "",
-    lpm_reference: Any = None,
+    lpm_reference: LpmParameterProtocol | None = None,
     lpm_2nd: "LpmSampleTable | None" = None,
     lpm_2nd_method: str = "",
     directory: str | Path | None = None,
@@ -133,12 +137,12 @@ def plot_parameter_diagnostics(
 
 def plot_prior_comparison(
     distribution: "LpmSampleTable",
-    lpm_reference: Any = None,
+    lpm_reference: LpmParameterProtocol | None = None,
     lpm_2nd: "LpmSampleTable | None" = None,
     lpm_2nd_method: str = "",
     directory: str | Path | None = None,
     display_text: bool = False,
-    prior: Any = None,
+    prior: "Prior | None" = None,
 ) -> None:
     """Compare sampled parameter distributions with their configured priors.
 
@@ -164,7 +168,7 @@ def plot_prior_comparison(
 def plot_concentration_diagnostics(
     distribution: "LpmSampleTable",
     self_method: str = "",
-    concentrations_reference: Any = None,
+    concentrations_reference: "Concentrations | None" = None,
     lpm_2nd: "LpmSampleTable | None" = None,
     lpm_2nd_method: str = "",
     directory: str | Path | None = None,
@@ -221,7 +225,7 @@ def _plot_param_histogram(
     distribution: "LpmSampleTable",
     name: str,
     self_method: str,
-    lpm_reference: Any,
+    lpm_reference: LpmParameterProtocol | None,
     lpm_2nd: "LpmSampleTable | None",
     lpm_2nd_method: str,
     directory: str | Path | None,
@@ -275,7 +279,7 @@ def _plot_obj_vs_param(
     distribution: "LpmSampleTable",
     name: str,
     self_method: str,
-    lpm_reference: Any,
+    lpm_reference: LpmParameterProtocol | None,
     lpm_2nd: "LpmSampleTable | None",
     lpm_2nd_method: str,
     directory: str | Path | None,
@@ -291,12 +295,12 @@ def _plot_obj_vs_param(
     frame = distribution.frame
     figure, axis = plotting.create_figure(
         x_label=name,
-        y_label="obj_function",
+        y_label=OBJECTIVE_COLUMN,
         title=model.name,
     )
     axis.scatter(
         frame[name].tolist(),
-        frame["obj_function"].tolist(),
+        frame[OBJECTIVE_COLUMN].tolist(),
         marker="x",
         c="blue",
         s=10,
@@ -308,7 +312,7 @@ def _plot_obj_vs_param(
         other = lpm_2nd.frame
         axis.scatter(
             other[name],
-            other["obj_function"],
+            other[OBJECTIVE_COLUMN],
             marker="+",
             c="red",
             s=10,
@@ -325,7 +329,7 @@ def _plot_param_pair(
     names: list[str],
     index: int,
     self_method: str,
-    lpm_reference: Any,
+    lpm_reference: LpmParameterProtocol | None,
     lpm_2nd: "LpmSampleTable | None",
     lpm_2nd_method: str,
     directory: str | Path | None,
@@ -366,11 +370,11 @@ def _plot_param_pair(
 def _plot_param_histogram_apriori(
     distribution: "LpmSampleTable",
     name: str,
-    lpm_reference: Any,
+    lpm_reference: LpmParameterProtocol | None,
     lpm_2nd: "LpmSampleTable | None",
     lpm_2nd_method: str,
     directory: str | Path | None,
-    prior: Any,
+    prior: "Prior",
 ) -> None:
     """Overlay a sampled parameter histogram and its configured prior shape."""
 
@@ -422,7 +426,7 @@ def _plot_concentration_pair(
     index: int,
     index_next: int,
     self_method: str,
-    concentrations_reference: Any,
+    concentrations_reference: "Concentrations | None",
     lpm_2nd: "LpmSampleTable | None",
     lpm_2nd_method: str,
     directory: str | Path | None,

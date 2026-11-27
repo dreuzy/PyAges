@@ -19,6 +19,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pyages.calibration.schema import (
+    DISTRIBUTION_PLOT_METHODS,
+    METROPOLIS_HASTINGS_METHOD,
+    SIMPLEX_METHOD,
+    SIMPLEX_METHODS,
+)
 from pyages.data_io.lpm_distribution import (
     write_distribution,
     write_histograms,
@@ -87,19 +93,14 @@ def display_calibrated_models(
     text. Sample-producing methods use distribution diagnostics when figures
     are enabled. Display choices never alter stored calibration results.
     """
-    if method.method in {"Simplex", "Simplex_multi_start"}:
+    if method.method in SIMPLEX_METHODS:
         if display_options.text and reference is not None:
             lpm = results.best_model()
             if lpm is not None:
                 print_parameter_comparison(lpm, reference)
         return
     if (
-        method.method
-        in {
-            "forward_uncertainty_quantification",
-            "Metropolis_Hastings",
-        }
-        and display_options.figure
+        method.method in DISTRIBUTION_PLOT_METHODS and display_options.figure
     ):
         plot_parameter_diagnostics(
             results,
@@ -132,12 +133,12 @@ def write_calibrated_result(
     method.write_parameters(base_directory / "parameters_calibration.txt")
     method.write_results(base_directory / "results_calibration.txt")
     # A single deterministic optimum has no empirical distribution to export.
-    if method.method != "Simplex":
+    if method.method != SIMPLEX_METHOD:
         write_distribution(results, base_directory / "lpm_dist_calibrated.txt")
         write_histograms(results, base_directory / "lpm_histo_calibrated.txt")
         write_statistics(results, base_directory / "lpm_stats_calibrated.txt")
     # Posterior reuse is opt-in and restricted to the Bayesian workflow.
-    if method.method == "Metropolis_Hastings" and prior_file is not None:
+    if method.method == METROPOLIS_HASTINGS_METHOD and prior_file is not None:
         destination = posterior_directory(
             configured_directory,
             parent_levels=5,

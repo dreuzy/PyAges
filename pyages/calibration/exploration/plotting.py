@@ -24,6 +24,7 @@ from matplotlib.figure import Figure
 
 import pyages._plotting as plotting
 from pyages.calibration.exploration.grid import ParameterGrid
+from pyages.calibration.schema import OBJECTIVE_COLUMN
 from pyages.config.runtime import DisplayOptions
 from pyages.lpm.plotting.sample_diagnostics import plot_parameter_pair
 
@@ -49,7 +50,7 @@ def _plot_line(
     plot.plot(axis, values)
     plot.set_yscale("log")
     if results is not None:
-        plot_parameter_pair(results, parameter_name, "obj_function", axis=plot)
+        plot_parameter_pair(results, parameter_name, OBJECTIVE_COLUMN, axis=plot)
     _finish(display, figure, name)
 
 

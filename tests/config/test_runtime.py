@@ -55,7 +55,7 @@ def test_display_options_requires_directory_when_saving() -> None:
 def test_simulation_timer_initializes_once_and_reports_remaining_time(
     monkeypatch, capsys
 ) -> None:
-    clock = iter([100.0, 100.0, 3700.0, 7300.0])
+    clock = iter([100.0, 3700.0, 7300.0])
     monkeypatch.setattr(runtime.time, "time", lambda: next(clock))
     timer = runtime.SimulationTimer(nsim=2)
 

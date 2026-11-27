@@ -361,7 +361,7 @@ def test_disabled_systematic_analysis_performs_no_convolution(tmp_path) -> None:
         "compute_concentrations",
         side_effect=AssertionError("disabled exploration performed convolution"),
     ):
-        sampling.analysis_calibration()
+        sampling.analyze()
 
 
 def test_systematic_output_reports_actual_and_target_grid_sizes(tmp_path) -> None:

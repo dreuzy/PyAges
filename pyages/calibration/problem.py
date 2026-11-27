@@ -354,7 +354,7 @@ class CalibrationProblem:
 
     def analyze(self, results=None) -> None:
         """Run the optional systematic reachable/objective analysis."""
-        self.sampling.analysis_calibration(results)
+        self.sampling.analyze(results)
 
 
 __all__ = [

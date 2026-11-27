@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyages-lpm-bounded-power"
+version = "0.1.0"
+description = "Example external bounded-power LPM for PyAges"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2,<3",
+    "pyages",
+]
+
+[project.entry-points."pyages.lpms"]
+bounded_power = "pyages_lpm_bounded_power.plugin:definition"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pyages_lpm_bounded_power = ["data_lpm/*/params.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

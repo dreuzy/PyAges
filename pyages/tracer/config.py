@@ -23,9 +23,9 @@ from typing import Any, Mapping
 
 import yaml
 
+import pyages.tracer.errors as _tracer_errors
 from pyages._unit_contract import validate_unit_label
 from pyages.tracer.decay import rate_from_config
-from pyages.tracer.errors import TracerConfigError, TracerDataError
 
 _CORE_KEYS = {
     "recharge_constant",
@@ -56,16 +56,18 @@ class TracerConfig:
         """Validate and normalize one decoded YAML mapping."""
         for key, value in values.items():
             if key not in _CORE_KEYS and not isinstance(value, (dict, list)):
-                raise TracerConfigError(f"Unknown parameter in {name}.yaml: '{key}'")
+                raise _tracer_errors.TracerConfigError(
+                    f"Unknown parameter in {name}.yaml: '{key}'"
+                )
 
         try:
             decay_rate = rate_from_config(dict(values))
         except (TypeError, ValueError) as exc:
-            raise TracerConfigError(f"Tracer {name}: {exc}") from exc
+            raise _tracer_errors.TracerConfigError(f"Tracer {name}: {exc}") from exc
 
         production_rate = _optional_float(values, "production_rate", name)
         if production_rate is not None and production_rate < 0:
-            raise TracerConfigError(
+            raise _tracer_errors.TracerConfigError(
                 f"Tracer {name}: Geoproduction rate must be non-negative, "
                 f"got {production_rate}"
             )
@@ -76,7 +78,7 @@ class TracerConfig:
                 context=f"Tracer {name} unit",
             )
         except ValueError as exc:
-            raise TracerConfigError(str(exc)) from exc
+            raise _tracer_errors.TracerConfigError(str(exc)) from exc
 
         return cls(
             unit=unit,
@@ -97,7 +99,7 @@ def _optional_float(
     try:
         return float(values[key])
     except (TypeError, ValueError) as exc:
-        raise TracerConfigError(
+        raise _tracer_errors.TracerConfigError(
             f"Tracer {tracer_name}: {key} must be numeric, got {values[key]!r}"
         ) from exc
 
@@ -109,21 +111,21 @@ def load_tracer_config(path: str | Path, name: str) -> TracerConfig:
         with config_path.open("r", encoding="utf-8") as stream:
             values = yaml.safe_load(stream)
     except FileNotFoundError as exc:
-        raise TracerDataError(
+        raise _tracer_errors.TracerDataError(
             f"YAML configuration file not found: {config_path}\n"
             f"Please create a .yaml configuration file for tracer '{name}'"
         ) from exc
     except yaml.YAMLError as exc:
-        raise TracerDataError(
+        raise _tracer_errors.TracerDataError(
             f"Error parsing YAML configuration {config_path}: {exc}"
         ) from exc
     except OSError as exc:
-        raise TracerDataError(
+        raise _tracer_errors.TracerDataError(
             f"Error reading YAML configuration {config_path}: {exc}"
         ) from exc
 
     if not isinstance(values, dict):
-        raise TracerConfigError(
+        raise _tracer_errors.TracerConfigError(
             f"YAML configuration must be a dictionary, got {type(values).__name__}"
         )
     return TracerConfig.from_mapping(name, values)

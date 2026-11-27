@@ -8,8 +8,16 @@ from __future__ import annotations
 
 import pytest
 
+import pyages.tracer.config as tracer_config
+import pyages.tracer.tracer_root as tracer_root
 from pyages.tracer.config import TracerConfig, load_tracer_config
 from pyages.tracer.errors import TracerConfigError, TracerDataError
+
+
+def test_error_types_are_exposed_only_by_the_canonical_module() -> None:
+    for module in (tracer_config, tracer_root):
+        assert not hasattr(module, "TracerConfigError")
+        assert not hasattr(module, "TracerDataError")
 
 
 def test_mapping_is_normalized_and_metadata_is_ignored() -> None:

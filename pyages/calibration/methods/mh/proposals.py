@@ -31,6 +31,7 @@ from pyages.calibration.methods.mh.ig_coordinates import (
     physical_to_scipy_coordinates,
     scipy_to_physical_coordinates,
 )
+from pyages.lpm.protocols import LpmParameterProtocol
 
 
 class Proposal(Protocol):
@@ -62,7 +63,7 @@ class ComponentwiseRandomWalk:
         self.names: tuple[str, ...] = ()
         self.steps: np.ndarray | None = None
 
-    def prepare(self, lpm: Any) -> None:
+    def prepare(self, lpm: LpmParameterProtocol) -> None:
         """Resolve ordered finite positive steps for a concrete LPM."""
         self.names = tuple(lpm.p)
         if self.source == "bounds":

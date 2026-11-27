@@ -15,12 +15,26 @@ cross-realization contract has been validated.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Protocol
 
 import numpy as np
 import pandas as pd
+
+from pyages.lpm.protocols import LpmModelProtocol
+
+
+class TemporalConvolverProtocol(Protocol):
+    """Convolution capability required by temporal posterior summaries."""
+
+    def convolve_date_range(
+        self,
+        lpm: LpmModelProtocol,
+        start_year: float,
+        end_year: float,
+    ) -> Mapping[str, pd.DataFrame]:
+        """Return one temporal concentration table per tracer."""
 
 
 @dataclass(frozen=True)
@@ -56,7 +70,7 @@ def _validate_tracer_set(
 
 
 def _prediction_arrays(
-    tracer_name: str, tracer_frame: Any
+    tracer_name: str, tracer_frame: object
 ) -> tuple[np.ndarray, np.ndarray]:
     """Validate and normalize one temporal prediction series."""
     if not isinstance(tracer_frame, pd.DataFrame):
@@ -112,8 +126,8 @@ def _validate_date_grid(
 
 
 def evaluate_temporal_predictions(
-    tracers: Any,
-    lpm_list: Sequence[Any],
+    tracers: TemporalConvolverProtocol,
+    lpm_list: Sequence[LpmModelProtocol],
     start_year: float,
     end_year: float,
 ) -> list[dict[str, pd.DataFrame]]:
@@ -193,8 +207,8 @@ def summarize_temporal_realizations(
 
 
 def summarize_temporal_predictions(
-    tracers: Any,
-    lpm_list: Sequence[Any],
+    tracers: TemporalConvolverProtocol,
+    lpm_list: Sequence[LpmModelProtocol],
     start_year: float,
     end_year: float,
 ) -> dict[str, TemporalPredictionSummary]:
@@ -209,6 +223,7 @@ def summarize_temporal_predictions(
 
 
 __all__ = [
+    "TemporalConvolverProtocol",
     "TemporalPredictionSummary",
     "evaluate_temporal_predictions",
     "summarize_temporal_predictions",

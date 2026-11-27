@@ -10,7 +10,8 @@ import numpy as np
 import pytest
 
 from pyages.tracer.decay import rate_from_config, rate_from_half_life
-from pyages.tracer.tracer_root import Tracer, TracerConfigError
+from pyages.tracer.errors import TracerConfigError
+from pyages.tracer.tracer_root import Tracer
 
 
 def _write_tracer(root: Path, name: str, lines: list[str]) -> None:

@@ -74,7 +74,6 @@ class SimulationTimer:
     __slots__ = (
         "simul_total",
         "time_start",
-        "time_inter_start",
         "time_inter_end",
         "simul_current",
         "init_yes",
@@ -84,7 +83,6 @@ class SimulationTimer:
         """Initialize a timer for ``nsim`` top-level simulations."""
         self.simul_total = nsim
         self.time_start = 0
-        self.time_inter_start = 0
         self.time_inter_end = 0
         self.simul_current = 0
         self.init_yes = False
@@ -93,7 +91,6 @@ class SimulationTimer:
         """Start timing once and multiply the total by ``nb`` inner runs."""
         if not self.init_yes:
             self.time_start = time.time()
-            self.time_inter_start = time.time()
             self.simul_total = nb * self.simul_total
             self.init_yes = True
 

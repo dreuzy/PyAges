@@ -10,17 +10,20 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from pyages._plotting import create_figure, finalize_figure
 
 if TYPE_CHECKING:
-    from pyages.lpm.core.lpm_base import LpmBase
+    from pyages.config.runtime import DisplayOptions
+    from pyages.lpm.protocols import LpmModelProtocol
 
 
-def plot_model_curve(lpm: "LpmBase", kind: str, display_options: Any) -> None:
+def plot_model_curve(
+    lpm: "LpmModelProtocol", kind: str, display_options: "DisplayOptions"
+) -> None:
     """Plot a model PDF or CDF using the configured display lifecycle."""
     if not display_options.figure:
         return
@@ -52,7 +55,7 @@ def plot_model_curve(lpm: "LpmBase", kind: str, display_options: Any) -> None:
     )
 
 
-def plot_pdf_cdf(lpm: "LpmBase", display_options: Any) -> None:
+def plot_pdf_cdf(lpm: "LpmModelProtocol", display_options: "DisplayOptions") -> None:
     """Plot a model's PDF and CDF."""
     plot_model_curve(lpm, "pdf", display_options)
     plot_model_curve(lpm, "cdf", display_options)

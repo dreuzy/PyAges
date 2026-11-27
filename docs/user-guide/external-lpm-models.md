@@ -199,6 +199,104 @@ Python conserve l'annonce dans les informations du paquet. PyAges peut ensuite
 lire la liste des annonces sans parcourir au hasard tous les dossiers de
 l'ordinateur.
 
+### Ce qu'un point d'entrée est exactement
+
+Un point d'entrée n'est ni une nouvelle sorte de fonction, ni un programme qui
+tourne en permanence. C'est une **ligne d'information enregistrée lors de
+l'installation d'un paquet**.
+
+Cette ligne contient trois éléments :
+
+```text
+pyages.lpms                          lognormal
+───────────                          ─────────
+groupe                               nom public
+
+groundwater_lpms.lognormal:definition
+────────────────────────────────────────────
+adresse de l'objet Python à charger
+```
+
+Le **groupe** joue le rôle d'un rayon de catalogue. PyAges regarderait seulement
+le rayon `pyages.lpms`. Il ne confondrait donc pas un modèle LPM avec une
+commande de terminal ou avec un plugin destiné à un autre logiciel.
+
+Le **nom public** est ce que l'utilisateur passe à `build_lpm()`.
+
+L'**adresse** se lit comme un import Python :
+
+```python
+from groundwater_lpms.lognormal import definition
+```
+
+La notation avec les deux-points est simplement une forme compacte de cet
+import :
+
+```text
+groundwater_lpms.lognormal : definition
+          module              objet
+```
+
+L'installation ne charge pas le modèle et ne lance pas ses calculs. Elle se
+contente d'enregistrer cette adresse. PyAges déciderait plus tard de charger
+l'objet, seulement lorsqu'il en a besoin.
+
+### À quoi ressemblerait la lecture côté PyAges
+
+Python fournit déjà l'outil de lecture dans sa bibliothèque standard. Le cœur
+du mécanisme tient approximativement dans ces lignes :
+
+```python
+from importlib.metadata import entry_points
+
+annonces = entry_points(group="pyages.lpms")
+for annonce in annonces:
+    print(annonce.name, annonce.value)
+
+definition = annonces[0].load()
+```
+
+Dans cet exemple :
+
+- `annonce.name` vaut par exemple `lognormal` ;
+- `annonce.value` vaut
+  `groundwater_lpms.lognormal:definition` ;
+- `annonce.load()` effectue l'import et renvoie l'objet `definition`.
+
+Le vrai code PyAges devrait naturellement gérer les doublons et les erreurs,
+mais la découverte elle-même n'est pas plus mystérieuse que cela. Elle ne
+nécessite aucune dépendance supplémentaire : `importlib.metadata` fait partie
+de Python.
+
+### Est-ce un mécanisme classique ?
+
+Oui. Les points d'entrée sont une spécification standard de l'empaquetage
+Python. La documentation officielle les décrit comme un moyen pour un paquet
+installé d'annoncer des composants que d'autres programmes peuvent découvrir.
+Voir la [spécification Python Packaging Authority][pypa-entry-points].
+
+Ils sont notamment utilisés par des bibliothèques très répandues :
+
+| Logiciel | Utilisation du point d'entrée |
+| --- | --- |
+| `pytest` | Il découvre les plugins installés dans le groupe `pytest11`. C'est ainsi qu'un paquet de plugin peut être chargé sans modifier pytest. |
+| Pygments | Il découvre de nouveaux analyseurs syntaxiques, styles, filtres et formatters fournis par des paquets externes. |
+| `pip` et de nombreuses commandes Python | Le même mécanisme, avec le groupe spécial `console_scripts`, permet de créer une commande de terminal lors de l'installation. |
+
+Les documentations officielles donnent directement ces exemples :
+
+- [plugins pytest et groupe `pytest11`][pytest-plugins] ;
+- [plugins externes de Pygments][pygments-plugins] ;
+- [points d'entrée et commandes dans setuptools][setuptools-entry-points].
+
+L'usage proposé pour PyAges serait donc conventionnel : seul le nom du groupe,
+`pyages.lpms`, serait propre au projet.
+
+[pypa-entry-points]: https://packaging.python.org/en/latest/specifications/entry-points/
+[pytest-plugins]: https://docs.pytest.org/en/stable/how-to/writing_plugins.html#making-your-plugin-installable-by-others
+[pygments-plugins]: https://pygments.org/docs/plugins/
+[setuptools-entry-points]: https://setuptools.pypa.io/en/latest/userguide/entry_point.html
+
 ## 9. Ce que contiendrait `definition`
 
 Le registre actuel conserve seulement une classe Python. Pour un modèle
@@ -227,6 +325,197 @@ modèle. L'auteur du plugin n'aurait pas à écrire lui-même une véritable
 
 Les noms présentés dans ce bloc sont une proposition d'interface. Ils
 n'existent pas encore dans PyAges.
+
+### Exemple complet du code externe
+
+L'exemple suivant montre les fichiers qu'écrirait l'auteur d'une distribution
+log-normale. Il est volontairement concret, mais l'import
+`pyages.lpm.extensions` est encore **hypothétique** : il représente la petite
+API qu'il faudrait ajouter à PyAges.
+
+#### Fichier `pyproject.toml`
+
+```toml
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyages-lpm-lognormal"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["pyages", "numpy", "scipy"]
+
+[project.entry-points."pyages.lpms"]
+lognormal = "pyages_lpm_lognormal.model:definition"
+
+[tool.setuptools.package-data]
+pyages_lpm_lognormal = ["data_lpm/*/params.yaml"]
+```
+
+Ce fichier dit quatre choses :
+
+1. le paquet s'appelle `pyages-lpm-lognormal` ;
+2. il dépend de PyAges, NumPy et SciPy ;
+3. il annonce un LPM appelé `lognormal` ;
+4. son fichier YAML doit être inclus lors de l'installation.
+
+#### Fichier `src/pyages_lpm_lognormal/model.py`
+
+```python
+from pathlib import Path
+
+import numpy as np
+import numpy.typing as npt
+from scipy.special import ndtr
+from scipy.stats import lognorm
+
+from pyages.lpm.core.lpm_scipy import LpmScipy
+from pyages.lpm.extensions import LpmDefinition  # API proposée
+
+
+class LognormalLpm(LpmScipy):
+    """Distribution log-normale des temps de transit."""
+
+    scipy_dist = lognorm
+
+    def __init__(self, mu=10.0, sigma=5.0, directory_lpm=None):
+        values = {"mu": mu, "sigma": sigma}
+        units = {"mu": "year", "sigma": "year"}
+        super().__init__("lognormal", values, units, directory_lpm)
+
+    def _log_parameters(self):
+        """Convertir moyenne et écart-type vers les paramètres log-normaux."""
+        mean = float(self.p["mu"])
+        std = float(self.p["sigma"])
+        sigma_log = np.sqrt(np.log1p((std / mean) ** 2))
+        mu_log = np.log(mean) - 0.5 * sigma_log**2
+        return mu_log, sigma_log
+
+    def _scipy_params(self):
+        mu_log, sigma_log = self._log_parameters()
+        return (sigma_log,), 0.0, np.exp(mu_log)
+
+    def cdf_and_partial_first_moment(self, t: npt.ArrayLike):
+        """Retourner F(t) et E[T 1(T <= t)] pour la convolution."""
+        values = np.asarray(t, dtype=float)
+        cdf = np.asarray(self.cdf(values), dtype=float)
+        moment = np.zeros_like(values)
+
+        positive = values > 0.0
+        if np.any(positive):
+            mu_log, sigma_log = self._log_parameters()
+            z = (
+                np.log(values[positive]) - mu_log - sigma_log**2
+            ) / sigma_log
+            moment[positive] = self.p["mu"] * ndtr(z)
+
+        if values.ndim == 0:
+            return float(cdf), float(moment)
+        return cdf, moment
+
+
+definition = LpmDefinition(
+    model_class=LognormalLpm,
+    parameter_directory=Path(__file__).parent / "data_lpm",
+    api_version=1,
+)
+```
+
+La plus grande partie de ce fichier ne concerne pas les plugins. Elle décrit
+la distribution elle-même. Par rapport à un modèle intégré directement dans
+PyAges, la partie spécifique au plugin se limite essentiellement à :
+
+```python
+definition = LpmDefinition(
+    model_class=LognormalLpm,
+    parameter_directory=Path(__file__).parent / "data_lpm",
+    api_version=1,
+)
+```
+
+et à la ligne correspondante dans `pyproject.toml`.
+
+#### Fichier `src/pyages_lpm_lognormal/data_lpm/lognormal/params.yaml`
+
+```yaml
+model: lognormal
+version: 1
+
+parameters:
+  - name: mu
+    label: mean_age
+    unit: year
+    description: "Mean transit time."
+    bounds: [0.1, 100.0]
+    init: 10.0
+    step: 1.0
+    prior:
+      type: uniform
+      min: 0.1
+      max: 100.0
+      unit: year
+
+  - name: sigma
+    label: std_age
+    unit: year
+    description: "Standard deviation of transit time."
+    bounds: [0.1, 50.0]
+    init: 5.0
+    step: 1.0
+    prior:
+      type: uniform
+      min: 0.1
+      max: 50.0
+      unit: year
+```
+
+Ce fichier a exactement le même rôle et presque la même forme que les fichiers
+`params.yaml` déjà présents dans `data_core/data_lpm`.
+
+#### Fichier `src/pyages_lpm_lognormal/__init__.py`
+
+Il peut être vide :
+
+```python
+"""Modèle log-normal externe pour PyAges."""
+```
+
+L'utilisateur installerait ensuite ce dossier en mode développement :
+
+```bash
+python -m pip install -e .
+```
+
+Après implémentation du mécanisme dans PyAges, le test d'utilisation serait :
+
+```python
+from pyages.lpm import build_lpm, list_available_lpms
+
+assert "lognormal" in list_available_lpms()
+lpm = build_lpm("lognormal")
+print(lpm.mean())
+```
+
+### Gabarit complet sans distribution SciPy
+
+Un dossier directement copiable est fourni dans
+[`examples/templates/external_lpm_plugin`](../../examples/templates/external_lpm_plugin/README.md).
+
+Il contient un second exemple, `bounded_power`, qui hérite directement de
+`LpmBase` et implémente lui-même toutes les fonctions mathématiques :
+
+- `pdf()` ;
+- `cdf()` ;
+- `cdf_inv()` ;
+- `mean()` ;
+- `std()` ;
+- `cdf_and_partial_first_moment()`.
+
+Ce gabarit comprend également le `pyproject.toml`, le `params.yaml`, la
+déclaration du plugin et les tests scientifiques. Il est conçu pour être copié,
+renommé puis complété. Sa découverte automatique restera hypothétique tant que
+`LpmDefinition` ne sera pas implémentée dans PyAges.
 
 ## 10. Ce que ferait PyAges en arrière-plan
 
@@ -512,6 +801,129 @@ build_random_lpm("nom")
 
 C'est un point important : la complexité nécessaire à l'extension resterait
 derrière ces fonctions simples.
+
+### Quelle quantité de changements dans PyAges ?
+
+Il faut distinguer un prototype minimal d'une solution durable. Les chiffres
+ci-dessous sont des **ordres de grandeur**, pas un devis exact. Ils supposent
+que les modèles existants et le moteur de convolution conservent leurs
+interfaces actuelles.
+
+#### Option 1 — Prototype explicite
+
+Le prototype introduirait seulement une fonction du genre :
+
+```python
+load_lpm_plugin("groundwater_lpms.lognormal")
+```
+
+Estimation :
+
+| Partie | Modification estimée |
+| --- | ---: |
+| Chargement et enregistrement du module | 30 à 50 lignes |
+| Messages d'erreur | 10 à 20 lignes |
+| Tests | 60 à 100 lignes |
+| Total approximatif | 100 à 170 lignes, tests compris |
+
+Ce prototype serait facile à comprendre, mais ne résoudrait pas complètement
+la découverte automatique ni le transport propre des paramètres.
+
+#### Option 2 — Plugins automatiques complets
+
+Pour obtenir réellement :
+
+```python
+pip install pyages-lpm-lognormal
+lpm = build_lpm("lognormal")
+```
+
+il faudrait approximativement :
+
+| Partie de PyAges | Rôle | Code de production estimé |
+| --- | --- | ---: |
+| Nouvelle `LpmDefinition` | Relier classe, paramètres et version | 30 à 50 lignes |
+| Registre | Lire les points d'entrée, détecter les doublons, charger à la demande | 50 à 90 lignes |
+| Fabrique `build_lpm()` | Choisir les paramètres intégrés, externes ou remplacés | 20 à 40 lignes |
+| Paramètres | Attacher le schéma au modèle et adapter ses consommateurs | 50 à 90 lignes |
+| Erreurs et informations de provenance | Expliquer la source du modèle | 20 à 40 lignes |
+| **Total de production estimé** | | **170 à 310 lignes** |
+
+À cela s'ajouteraient vraisemblablement :
+
+- 200 à 350 lignes de tests ;
+- 80 à 150 lignes de documentation et d'exemple ;
+- éventuellement une petite commande de validation, à chiffrer séparément.
+
+Ces plages sont volontairement prudentes. Dans le code actuel, le schéma de
+paramètres est relu directement par seulement quelques consommateurs
+importants, notamment les lois a priori et les pas de proposition
+Metropolis–Hastings. La modification resterait donc concentrée autour du
+registre, de la fabrique et de la gestion des paramètres.
+
+### Quelles parties resteraient inchangées ?
+
+Le mécanisme ne devrait pas nécessiter de modifier :
+
+- les douze modèles LPM existants, en dehors d'une éventuelle adaptation
+  mécanique de leur enregistrement ;
+- les formules de convolution continue ;
+- les stratégies Dirac et mixtes ;
+- l'appel public `build_lpm("nom")` ;
+- les fichiers de configuration des études existantes ;
+- les boucles de calcul et de calibration.
+
+Le code supplémentaire serait donc localisé. Il n'ajouterait pas une couche à
+chaque évaluation de `pdf()`, `cdf()` ou à chaque convolution.
+
+### Quel alourdissement pendant l'exécution ?
+
+Il y aurait trois petits coûts :
+
+1. lire la liste des annonces des paquets installés lors de la première
+   consultation du registre ;
+2. importer le plugin sélectionné lors de sa première utilisation ;
+3. conserver une petite fiche `LpmDefinition` en mémoire.
+
+Une fois le modèle construit, les calculs appelleraient directement ses
+méthodes comme aujourd'hui. Il ne devrait donc y avoir **aucun surcoût dans la
+boucle de convolution ou de calibration**. Le temps de découverte initial
+devrait être mesuré par un test de performance avant de fixer cette affirmation
+comme garantie, mais le travail réalisé est petit comparé à une calibration.
+
+Le mécanisme repose sur `importlib.metadata`, déjà inclus dans Python. Il
+n'ajouterait donc pas de nouvelle bibliothèque aux dépendances de PyAges.
+
+### Quel alourdissement pour l'auteur du modèle externe ?
+
+Pour un modèle log-normal comme celui de l'exemple :
+
+| Élément externe | Taille typique |
+| --- | ---: |
+| Formules du modèle | 50 à 80 lignes Python |
+| Déclaration `LpmDefinition` | 5 à 8 lignes Python |
+| `params.yaml` | 25 à 50 lignes |
+| `pyproject.toml` | 15 à 25 lignes |
+| Tests scientifiques | 50 à 120 lignes |
+
+Les formules et leurs tests seraient nécessaires même si le modèle était
+ajouté directement dans PyAges. Le véritable coût propre au système de plugins
+est donc surtout la courte déclaration `LpmDefinition` et quelques lignes dans
+`pyproject.toml`.
+
+### Le vrai coût n'est pas la quantité de code
+
+Le principal engagement de maintenance serait de stabiliser le contrat entre
+PyAges et les plugins :
+
+- conserver la compatibilité de `LpmDefinition` ;
+- produire de bons messages lorsqu'un plugin est trop ancien ;
+- empêcher les conflits de noms silencieux ;
+- enregistrer la version du plugin dans les résultats scientifiques.
+
+C'est pour cela qu'une version explicite comme `api_version=1` est utile. Le
+volume de code resterait modéré, mais cette petite interface deviendrait une
+promesse publique à maintenir.
 
 ## 20. Proposition finale
 

@@ -10,13 +10,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pyages.lpm.core.lpm_base import LpmBase
+    from pyages.config.runtime import DisplayOptions
+    from pyages.lpm.protocols import LpmModelProtocol
 
 
-def print_model_summary(lpm: "LpmBase", display_options: Any) -> None:
+def print_model_summary(
+    lpm: "LpmModelProtocol", display_options: "DisplayOptions"
+) -> None:
     """Print the model name and parameters when text output is enabled."""
     if not display_options.text:
         return
@@ -27,7 +30,7 @@ def print_model_summary(lpm: "LpmBase", display_options: Any) -> None:
 
 
 def print_parameter_comparison(
-    lpm: "LpmBase", reference: "LpmBase | None" = None
+    lpm: "LpmModelProtocol", reference: "LpmModelProtocol | None" = None
 ) -> None:
     """Print model parameters, optionally compared with a reference model."""
     for name, value in lpm.p.items():
@@ -48,7 +51,7 @@ def print_parameter_comparison(
         )
 
 
-def print_moment_summary(lpm: "LpmBase") -> None:
+def print_moment_summary(lpm: "LpmModelProtocol") -> None:
     """Print the model's named moments."""
     print("\nmoments")
     for name, value in zip(lpm.moments_name(), lpm.moments(), strict=False):
@@ -56,7 +59,7 @@ def print_moment_summary(lpm: "LpmBase") -> None:
     print("\n")
 
 
-def run_model_diagnostic(lpm_type: str, display_options: Any) -> None:
+def run_model_diagnostic(lpm_type: str, display_options: "DisplayOptions") -> None:
     """Build a randomized model and render the requested diagnostic outputs."""
     from pyages.lpm.factory import build_random_lpm
     from pyages.lpm.plotting.model_curves import plot_pdf_cdf
