@@ -45,6 +45,7 @@ from examples.natural.holten.holten_reproduction import (
     build_reproduction_endmembers,
     optimize_well,
 )
+from pyages._scalar_conversion import scalar_float, scalar_int
 from pyages.calibration.methods.mh.diagnostics import mcse_mean_from_ess
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from scripts.article.run_final_shifted_exponential import (
@@ -491,20 +492,20 @@ def _comparison(
                 }
             )
     comparison = pd.DataFrame(rows)
-    errors = np.abs(comparison["pyages_median"] - comparison["visser"])
+    errors = comparison["pyages_median"].sub(comparison["visser"]).abs()
     valid_errors = errors.dropna()
     metrics = pd.DataFrame(
         [
             {
                 "n_fractions": len(errors),
                 "n_valid_fractions": len(valid_errors),
-                "mae": float(valid_errors.mean()),
-                "median_absolute_error": float(valid_errors.median()),
+                "mae": scalar_float(valid_errors.mean()),
+                "median_absolute_error": scalar_float(valid_errors.median()),
                 "rmse": float(np.sqrt(np.mean(valid_errors**2))),
-                "maximum_absolute_error": float(valid_errors.max()),
-                "n_error_le_0p02": int((valid_errors <= 0.02).sum()),
-                "n_error_le_0p05": int((valid_errors <= 0.05).sum()),
-                "n_error_le_0p10": int((valid_errors <= 0.10).sum()),
+                "maximum_absolute_error": scalar_float(valid_errors.max()),
+                "n_error_le_0p02": scalar_int((valid_errors <= 0.02).sum()),
+                "n_error_le_0p05": scalar_int((valid_errors <= 0.05).sum()),
+                "n_error_le_0p10": scalar_int((valid_errors <= 0.10).sum()),
             }
         ]
     )

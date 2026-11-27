@@ -23,11 +23,16 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Refreshed the qualified documentation constraints for Sphinx, MyST-Parser,
   and sphinxcontrib-mermaid after reviewing the corresponding Dependabot
   update group.
+- Made pandas scalar conversions explicit across qualified examples and
+  workflows so Pyright validates the pandas 3.1 environment consistently on
+  Windows and Linux.
 
 ### Security
 
 - Raised the optional JupyterLab minimum and qualified constraint from 4.6.3
   to 4.6.6 to include upstream security fixes while remaining on the 4.x line.
+- Raised the qualified Setuptools bootstrap version from 84.0.0 to 84.1.0 to
+  address `GHSA-xmj3-9gf7-h52w` reported by the dependency audit.
 
 ## 2.0.0 - 2026-09-09
 

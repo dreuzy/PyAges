@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 from pathlib import Path
 
+from pyages._scalar_conversion import scalar_float
 from pyages.calibration.methods.mh.prior import Prior
 from pyages.calibration.outputs import posterior_directory
 from pyages.calibration.problem import CalibrationProblem
@@ -43,7 +44,7 @@ def _load_concentrations(
 ) -> Concentrations:
     """Load, normalize, display, and persist one observation table."""
     observations = Concentrations.from_file(file_path)
-    if observations.frame[ERROR_COLUMN].min() == 0:
+    if scalar_float(observations.frame[ERROR_COLUMN].min()) == 0:
         observations.set_relative_errors(error_concentrations)
     observations.display(display)
     observations.frame.to_csv(

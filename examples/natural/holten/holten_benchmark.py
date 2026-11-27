@@ -30,7 +30,7 @@ from examples.natural.holten.holten_case import (
     load_yaml,
     tracer_yaml_path,
 )
-from pyages._scalar_conversion import scalar_float
+from pyages._scalar_conversion import scalar_bool, scalar_float, scalar_int
 from pyages.data_io.lpm_distribution import read_statistics
 from pyages.tracer.decay import rate_from_config
 
@@ -466,7 +466,10 @@ def build_pre_model_figures(
             ax.set_xlabel(x_label)
             ax.set_ylabel(f"Concentration [{unit}]")
             ax.grid(alpha=0.25)
-            if display_history["concentration"].nunique() == 1 and not observed.empty:
+            if (
+                scalar_int(display_history["concentration"].nunique()) == 1
+                and not observed.empty
+            ):
                 center = float(observed["date"].median())
                 ax.set_xlim(center - 20.0, center + 20.0)
             ax.legend(loc="best")
@@ -634,7 +637,7 @@ def compare_with_reference_results(
         local_row = (
             local_4bin_summary.loc[local_4bin_summary["well_id"] == well_id].iloc[0]
             if not local_4bin_summary.empty
-            and (local_4bin_summary["well_id"] == well_id).any()
+            and scalar_bool((local_4bin_summary["well_id"] == well_id).any())
             else None
         )
         rows.append(

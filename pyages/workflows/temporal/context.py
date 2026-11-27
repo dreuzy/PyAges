@@ -22,6 +22,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from pyages._scalar_conversion import scalar_float
 from pyages.calibration.problem import resolve_observation_errors
 from pyages.concentrations import Concentrations
 from pyages.concentrations.schema import ERROR_COLUMN
@@ -110,7 +111,8 @@ def _load_concentrations(
 ) -> Concentrations:
     """Load observations and fill missing relative errors when requested."""
     concentrations = Concentrations.from_file(dataset_path)
-    if error_rel is not None and concentrations.frame[ERROR_COLUMN].min() == 0:
+    minimum_error = scalar_float(concentrations.frame[ERROR_COLUMN].min())
+    if error_rel is not None and minimum_error == 0:
         concentrations.set_relative_errors(float(error_rel))
     resolve_observation_errors(
         concentrations,

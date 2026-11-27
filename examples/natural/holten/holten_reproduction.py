@@ -162,7 +162,7 @@ def build_coupled_tritium_tracers(
     common = {
         "unit": "TU",
         "datemin": scalar_float(history["date"].min()),
-        "datemax": float(history["date"].max() + convention.vadose_years),
+        "datemax": scalar_float(history["date"].max()) + convention.vadose_years,
         "convolution_dates": knots,
     }
     return (

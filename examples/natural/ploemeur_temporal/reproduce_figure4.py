@@ -46,6 +46,7 @@ from examples.natural.ploemeur_temporal.article_reproduction.diagnostics import 
 from examples.natural.ploemeur_temporal.article_reproduction.diagnostics import (
     summarize_chains as _summaries,
 )
+from pyages._scalar_conversion import scalar_int
 from pyages.convolution import DEFAULT_CONVOLUTION_SETTINGS, Convolution
 from pyages.lpm.models.inverse_gaussian_shifted import (
     InverseGaussianShiftedLpm,
@@ -113,7 +114,7 @@ def load_observations() -> pd.DataFrame:
     required = {"element", "concentration", "error", "unit", "date"}
     if set(data.columns) != required:
         raise ValueError(f"Unexpected observation columns: {list(data.columns)}")
-    if len(data) != 58 or data["date"].nunique() != 20:
+    if len(data) != 58 or scalar_int(data["date"].nunique()) != 20:
         raise ValueError(
             f"Expected 58 observations on 20 dates, got {len(data)} on "
             f"{data['date'].nunique()} dates"

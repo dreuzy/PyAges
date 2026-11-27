@@ -43,7 +43,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pyages._scalar_conversion import scalar_float, scalar_int
+from pyages._scalar_conversion import scalar_bool, scalar_float, scalar_int
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
 from pyages.calibration.methods.mh.diagnostics import (
     ess as _ess,
@@ -295,9 +295,9 @@ def prepare_data_and_exports(output: Path) -> None:
         concentration_check["new_count"] = _column(
             concentration_check, "new_count"
         ).fillna(0)
-        if not (
-            concentration_check["old_count"] == concentration_check["new_count"]
-        ).all():
+        if not scalar_bool(
+            (concentration_check["old_count"] == concentration_check["new_count"]).all()
+        ):
             raise RuntimeError(
                 f"An existing concentration changed while normalizing {well}"
             )

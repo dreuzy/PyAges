@@ -465,8 +465,8 @@ def prior_and_jacobian_audit() -> dict[str, float]:
         result[f"{well}_historical_posterior_in_current_support_fraction"] = float(
             current_support.mean()
         )
-        result[f"{well}_mapped_mean_median"] = float(mean.median())
-        result[f"{well}_mapped_sd_median"] = float(sd.median())
+        result[f"{well}_mapped_mean_median"] = scalar_float(mean.median())
+        result[f"{well}_mapped_sd_median"] = scalar_float(sd.median())
     return result
 
 

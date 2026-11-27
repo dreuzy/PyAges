@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from pyages._scalar_conversion import scalar_float
+from pyages._scalar_conversion import scalar_float, scalar_int
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RUN = ROOT / "results" / "article_non_ploemeur_final"
@@ -147,7 +147,7 @@ def _holten_summary(run: Path) -> str:
             "f_old_median",
         ):
             difference = (old_new[f"{metric}_new"] - old_new[f"{metric}_old"]).abs()
-            index = int(difference.idxmax())
+            index = scalar_int(difference.idxmax())
             changes.append(
                 {
                     "fraction": metric.removesuffix("_median"),

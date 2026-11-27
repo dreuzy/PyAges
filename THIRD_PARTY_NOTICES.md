@@ -38,7 +38,7 @@ files on 27 November 2026. The dependency declarations in `pyproject.toml`,
 | `ipython` | `9.17.1` | BSD-3-Clause |
 | `jupyterlab` | `4.6.6` | BSD licence |
 | `pip` | `26.2.1` | MIT |
-| `setuptools` | `84.0.0` | MIT |
+| `setuptools` | `84.1.0` | MIT |
 | `wheel` | `0.48.0` | MIT |
 | `YamlDotNet` | `16.3.0` | MIT |
 

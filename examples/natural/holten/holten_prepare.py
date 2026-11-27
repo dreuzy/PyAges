@@ -30,7 +30,7 @@ from examples.natural.holten.holten_case import (
     load_yaml,
     tracer_yaml_path,
 )
-from pyages._scalar_conversion import scalar_float
+from pyages._scalar_conversion import scalar_bool, scalar_float
 from pyages.tracer.decay import rate_from_config
 
 VALID_TRACERS = ("3H", "kr85", "39Ar")
@@ -614,7 +614,7 @@ def _validate_converted_units_and_dates(frame: pd.DataFrame) -> None:
             raise ValueError(f"Unexpected unit for {element}: {got} != {expected_unit}")
 
     dates = frame["date"].astype(float)
-    if not ((dates >= 2010.0) & (dates < 2011.0)).all():
+    if not scalar_bool(((dates >= 2010.0) & (dates < 2011.0)).all()):
         raise ValueError("Converted dataset contains dates outside the 2010 campaign")
 
 

@@ -10,6 +10,11 @@ from __future__ import annotations
 from typing import SupportsFloat, SupportsIndex, SupportsInt, cast
 
 
+def scalar_bool(value: object) -> bool:
+    """Return a value that the caller has established is a boolean scalar."""
+    return bool(cast(bool, value))
+
+
 def scalar_float(value: object) -> float:
     """Return a value that the caller has established is a numeric scalar."""
     convertible = cast(str | bytes | bytearray | SupportsFloat | SupportsIndex, value)
