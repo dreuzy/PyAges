@@ -16,6 +16,8 @@ Before 1.0, incompatible public changes are identified explicitly below.
   after reviewing the corresponding Dependabot update group.
 - Refreshed the qualified scientific constraints for NumPy, pandas, and
   matplotlib after reviewing the corresponding Dependabot update group.
+- Refreshed the qualified developer-tooling constraints for build, pytest,
+  and ruff after reviewing the corresponding Dependabot update group.
 
 ### Security
 
