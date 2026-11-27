@@ -14,6 +14,8 @@ Before 1.0, incompatible public changes are identified explicitly below.
   release-validation metadata.
 - Refreshed the qualified runtime constraints for PyYAML, Click, and Pydantic
   after reviewing the corresponding Dependabot update group.
+- Refreshed the qualified scientific constraints for NumPy, pandas, and
+  matplotlib after reviewing the corresponding Dependabot update group.
 
 ### Security
 
