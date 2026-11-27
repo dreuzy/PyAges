@@ -497,26 +497,6 @@ lpm = build_lpm("lognormal")
 print(lpm.mean())
 ```
 
-### Gabarit complet sans distribution SciPy
-
-Un dossier directement copiable est fourni dans
-[`examples/templates/external_lpm_plugin`](../../examples/templates/external_lpm_plugin/README.md).
-
-Il contient un second exemple, `bounded_power`, qui hérite directement de
-`LpmBase` et implémente lui-même toutes les fonctions mathématiques :
-
-- `pdf()` ;
-- `cdf()` ;
-- `cdf_inv()` ;
-- `mean()` ;
-- `std()` ;
-- `cdf_and_partial_first_moment()`.
-
-Ce gabarit comprend également le `pyproject.toml`, le `params.yaml`, la
-déclaration du plugin et les tests scientifiques. Il est conçu pour être copié,
-renommé puis complété. Sa découverte automatique restera hypothétique tant que
-`LpmDefinition` ne sera pas implémentée dans PyAges.
-
 ## 10. Ce que ferait PyAges en arrière-plan
 
 Avec ce mécanisme, l'appel :

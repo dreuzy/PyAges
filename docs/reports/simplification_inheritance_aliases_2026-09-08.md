@@ -11,8 +11,9 @@ n'accepte désormais qu'un vocabulaire de configuration, et une exécution
 Metropolis-Hastings (MH) d'une seule chaîne est exactement le cas `chains: 1`
 du moteur commun.
 
-Ces ruptures justifient une version **2.0**, et non 1.3. Elles retirent des noms,
-des commandes et des classes que du code externe pouvait encore appeler.
+Ces ruptures retirent des noms, des commandes et des classes que du code
+externe pouvait encore appeler. La branche les publie sous l'identité 1.0.2
+retenue pour cette livraison.
 
 ## Ce qui a été supprimé
 

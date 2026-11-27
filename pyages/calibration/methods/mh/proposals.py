@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any, Protocol, Sequence
+from typing import TYPE_CHECKING, Any, Protocol, Sequence
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -31,7 +31,9 @@ from pyages.calibration.methods.mh.ig_coordinates import (
     physical_to_scipy_coordinates,
     scipy_to_physical_coordinates,
 )
-from pyages.lpm.protocols import LpmParameterProtocol
+
+if TYPE_CHECKING:
+    from pyages.lpm.core.lpm_base import LpmBase
 
 
 class Proposal(Protocol):
@@ -63,7 +65,7 @@ class ComponentwiseRandomWalk:
         self.names: tuple[str, ...] = ()
         self.steps: np.ndarray | None = None
 
-    def prepare(self, lpm: LpmParameterProtocol) -> None:
+    def prepare(self, lpm: LpmBase) -> None:
         """Resolve ordered finite positive steps for a concrete LPM."""
         self.names = tuple(lpm.p)
         if self.source == "bounds":

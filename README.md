@@ -6,9 +6,8 @@ inference workflows (e.g., Metropolis-Hastings and simplex-based approaches).
 It provides reusable scientific components in `pyages/` and site-specific
 workflows in `sites/`, with examples and regression tests to support validation.
 
-Project status: **release candidate** (`1.0.2`). This source line integrates the
-complete code developed for 2.0, including intentionally breaking removals of
-obsolete configuration spellings and Python compatibility aliases, while
+Project status: **release candidate** (`1.0.2`). This source line includes the
+latest configuration, calibration, reporting, and code-quality work while
 retaining the `1.0.2` release identity. Public interfaces, scientific workflows,
 and validation gates are documented and tested. Each public release source is
 identified by its exact annotated Git tag; an untagged checkout must also be
@@ -38,7 +37,7 @@ version-specific DOI
 [`10.5281/zenodo.22150863`](https://doi.org/10.5281/zenodo.22150863). See the
 [citation guidance](docs/reference/citation.md) for the distinction between
 the archived `1.0` campaign, the published `1.0.1` maintenance release, and
-the prepared `2.0.0` source. Release changes are recorded in the
+the current `1.0.2` candidate. Release changes are recorded in the
 [changelog](CHANGELOG.md) and the current
 [configuration reference](docs/user-guide/configuration.md).
 
@@ -84,8 +83,8 @@ The distribution, Python import, and command all use the single identifier
 `pyages`. The wheel contains the reusable library, its CLI,
 and core model data. Repository examples and site studies remain in the Git
 source tree. The `1.0.1` release is available from
-[PyPI](https://pypi.org/project/pyages/1.0.1/). To evaluate the prepared 2.0
-source before publication, install this checkout with `python -m pip install .`.
+[PyPI](https://pypi.org/project/pyages/1.0.1/). To evaluate the `1.0.2`
+candidate before publication, install this checkout with `python -m pip install .`.
 
 Use `python -m pip install pyages` when deliberately selecting the newest
 published compatible release. Prerelease artifacts, if any, require an
@@ -95,7 +94,7 @@ explicit prerelease request:
 python -m pip install --pre pyages
 ```
 
-## Quickstart 2.0 (fast, no source examples required)
+## Quickstart (fast, no source examples required)
 
 After installing this checkout, generate a complete local example and run it:
 
@@ -112,7 +111,7 @@ short variant that also exercises the temporal calculation path.
 
 ## Multi-chain MH qualification
 
-PyAges 2.0 includes opt-in multi-chain Metropolis--Hastings with
+PyAges 1.0.2 includes opt-in multi-chain Metropolis--Hastings with
 dispersed starts, a separate pilot that learns one fixed proposal covariance,
 independent production streams, rank-normalized convergence diagnostics, and
 qualification-gated pooling.

@@ -1,6 +1,6 @@
 # Running and qualifying multi-chain MH
 
-PyAges 2.0 has one MH execution model: `chains: 1` is the smallest valid run,
+PyAges 1.0.2 has one MH execution model: `chains: 1` is the smallest valid run,
 and larger values use the same runner, result record, and writer.
 
 This guide covers the complete operational path: dispersed initialization,

@@ -1,6 +1,6 @@
-# Migrating from PyAges 1.2 to 2.0
+# Updating older configurations and API calls
 
-PyAges 2.0 deliberately has one configuration vocabulary and one managed
+PyAges 1.0.2 deliberately has one configuration vocabulary and one managed
 Metropolis--Hastings (MH) execution path. It does not silently translate a
 1.x file: an unknown section or an old field now produces an error before a
 scientific calculation starts.
@@ -14,22 +14,22 @@ choice visible enough to review.
 Keep the original configuration, result directory, PyAges version, and Git
 commit together. Migrate a copy and write new results to a new directory. An
 old posterior is evidence from the old configuration; it must not be relabelled
-as a 2.0 result.
+as a new 1.0.2 result.
 
 You can identify the old syntax from the beginning of the YAML file:
 
 - `schema_version: 2` means the canonical PyAges 1.2 schema;
 - no `schema_version` means the older, workflow-specific 1.x layout;
-- `schema_version: 3` is already the PyAges 2.0 layout.
+- `schema_version: 3` is already the current PyAges layout.
 
-There is no `pyages config migrate` command in 2.0. Automatic conversion was
+There is no `pyages config migrate` command. Automatic conversion was
 removed because path resolution, chain initialization, random streams, and
 temporal prior handling can affect the calculation. Each choice therefore has
 to be reviewed by a person.
 
 ## A safe migration procedure
 
-1. Create a fresh 2.0 example beside the study:
+1. Create a fresh 1.0.2 example beside the study:
 
    ```bash
    pyages new config migration-2-0
@@ -48,14 +48,14 @@ to be reviewed by a person.
    the generated `result_manifest.json`, retained sample count, actual seeds,
    prior choice, parameter ranges, and selected observations.
 5. Only then restore the production `nsteps` and diagnostic thresholds. Treat
-   the resulting 2.0 calculation as a new run.
+   the resulting calculation as a new run.
 
 ## Top-level sections
 
 Schema 2 already introduced most of the common section names. The remaining
 changes are small but strict:
 
-| PyAges 1.2 schema 2 | PyAges 2.0 schema 3 | Action |
+| Older schema 2 | Current schema 3 | Action |
 | --- | --- | --- |
 | `schema_version: 2` | `schema_version: 3` | Change the discriminator after completing the other edits. |
 | `data` | `data` | Keep the section and review paths. |
@@ -95,7 +95,7 @@ name instead of choosing one value arbitrarily.
 ## One or several MH chains
 
 PyAges 1.2 treated one chain as the absence of a `multichain` block and several
-chains as a separate optional engine. PyAges 2.0 uses one block for every
+chains as a separate optional engine. PyAges 1.0.2 uses one block for every
 positive chain count.
 
 For example, this schema-2 fragment:
@@ -161,7 +161,7 @@ Apply these rules:
   production chain; low-level in-memory recording is not a YAML workflow
   option;
 - if an old multi-chain block relied on the 1.2 pilot default, write
-  `pilot.enabled: true` explicitly. The 2.0 default is `false`;
+  `pilot.enabled: true` explicitly. The current default is `false`;
 - an old block with `multichain.enabled: false` was a one-chain run. Migrate it
   as `chains: 1` and discard the inactive nested multi-chain settings.
 
@@ -173,7 +173,7 @@ chain count.
 
 Unversioned single-date files also require these field renames:
 
-| 1.x field | 2.0 field |
+| Older field | Current field |
 | --- | --- |
 | `nstep` | `nsteps` |
 | `nskip` | `thinning` |
@@ -204,7 +204,7 @@ Two defaults need deliberate attention:
   that policy, use `seed: null`. If `seed_enabled: true`, copy the numeric
   `seed`. Remove `seed_enabled` in both cases.
 - The old temporal workflow always enabled the parametric LPM prior. To retain
-  that scientific target, write `prior_option: true`. In 2.0 the choice is
+  that scientific target, write `prior_option: true`. The choice is
   explicit and the common default is `false`.
 
 A representative schema-3 temporal section is:
@@ -263,7 +263,7 @@ path.
 
 Code importing PyAges directly must use the current names:
 
-| Removed 1.x API | PyAges 2.0 API |
+| Removed API | Current PyAges API |
 | --- | --- |
 | `LauncherConfig`, `LauncherParams` | `SingleDateConfig` |
 | `TemporalParams` | `TemporalConfig` |
@@ -288,7 +288,7 @@ recorded `seed`.
 ## What numerical equality to expect
 
 A migrated file is not guaranteed to reproduce the exact 1.2 MH trajectory.
-PyAges 2.0 derives a production seed for chain 1 through the same seed plan as
+PyAges 1.0.2 derives a production seed for chain 1 through the same seed plan as
 all other chains, and `bounds_stratified` is now also the one-chain default.
 
 If an exact initial state matters, declare it explicitly:

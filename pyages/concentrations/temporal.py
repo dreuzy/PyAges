@@ -17,24 +17,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
-from pyages.lpm.protocols import LpmModelProtocol
-
-
-class TemporalConvolverProtocol(Protocol):
-    """Convolution capability required by temporal posterior summaries."""
-
-    def convolve_date_range(
-        self,
-        lpm: LpmModelProtocol,
-        start_year: float,
-        end_year: float,
-    ) -> Mapping[str, pd.DataFrame]:
-        """Return one temporal concentration table per tracer."""
+if TYPE_CHECKING:
+    from pyages.convolution import ConvolutionTracers
+    from pyages.lpm.core.lpm_base import LpmBase
 
 
 @dataclass(frozen=True)
@@ -126,8 +116,8 @@ def _validate_date_grid(
 
 
 def evaluate_temporal_predictions(
-    tracers: TemporalConvolverProtocol,
-    lpm_list: Sequence[LpmModelProtocol],
+    tracers: ConvolutionTracers,
+    lpm_list: Sequence[LpmBase],
     start_year: float,
     end_year: float,
 ) -> list[dict[str, pd.DataFrame]]:
@@ -207,8 +197,8 @@ def summarize_temporal_realizations(
 
 
 def summarize_temporal_predictions(
-    tracers: TemporalConvolverProtocol,
-    lpm_list: Sequence[LpmModelProtocol],
+    tracers: ConvolutionTracers,
+    lpm_list: Sequence[LpmBase],
     start_year: float,
     end_year: float,
 ) -> dict[str, TemporalPredictionSummary]:
@@ -223,7 +213,6 @@ def summarize_temporal_predictions(
 
 
 __all__ = [
-    "TemporalConvolverProtocol",
     "TemporalPredictionSummary",
     "evaluate_temporal_predictions",
     "summarize_temporal_predictions",

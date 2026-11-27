@@ -210,7 +210,7 @@ class SystematicSampling:
         """Return the ordered parameter names of the sampled LPM."""
         return list(self._grid.names)
 
-    def analysis_calibration(self, lpm_results=None) -> None:
+    def analyze(self, lpm_results=None) -> None:
         """Compute the configured reachable and objective analyses."""
         if not self.explore_reachable and not self.explore_objective:
             return

@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pyages.config.runtime import DisplayOptions
-    from pyages.lpm.protocols import LpmModelProtocol
+    from pyages.lpm.core.lpm_base import LpmBase
 
 
 def print_model_summary(
-    lpm: "LpmModelProtocol", display_options: "DisplayOptions"
+    lpm: "LpmBase", display_options: "DisplayOptions"
 ) -> None:
     """Print the model name and parameters when text output is enabled."""
     if not display_options.text:
@@ -30,7 +30,7 @@ def print_model_summary(
 
 
 def print_parameter_comparison(
-    lpm: "LpmModelProtocol", reference: "LpmModelProtocol | None" = None
+    lpm: "LpmBase", reference: "LpmBase | None" = None
 ) -> None:
     """Print model parameters, optionally compared with a reference model."""
     for name, value in lpm.p.items():
@@ -51,7 +51,7 @@ def print_parameter_comparison(
         )
 
 
-def print_moment_summary(lpm: "LpmModelProtocol") -> None:
+def print_moment_summary(lpm: "LpmBase") -> None:
     """Print the model's named moments."""
     print("\nmoments")
     for name, value in zip(lpm.moments_name(), lpm.moments(), strict=False):

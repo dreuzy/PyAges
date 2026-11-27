@@ -11,9 +11,9 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ### Changed
 
-- Integrated the complete 2.0.0 source line into the 1.0.2 release candidate,
-  while retaining synchronized package, citation, documentation, and
-  release-validation metadata for version 1.0.2.
+- Integrated the configuration, calibration, reporting, and code-quality work
+  selected for the 1.0.2 release candidate, with synchronized package,
+  citation, documentation, and release-validation metadata.
 - Refreshed the qualified runtime constraints for PyYAML, Click, and Pydantic
   after reviewing the corresponding Dependabot update group.
 - Refreshed the qualified scientific constraints for NumPy, pandas, and
@@ -34,8 +34,6 @@ Before 1.0, incompatible public changes are identified explicitly below.
 - Raised the qualified Setuptools bootstrap version from 84.0.0 to 84.1.0 to
   address `GHSA-xmj3-9gf7-h52w` reported by the dependency audit.
 
-## 2.0.0 - 2026-09-09
-
 ### Added
 
 - Added an explicit `not_applicable` MH qualification status for a run with one
@@ -43,7 +41,7 @@ Before 1.0, incompatible public changes are identified explicitly below.
   meaning.
 - Added configuration schema 3. It uses the same `data`, `lpm`, `calibration`,
   `reporting`, and `output` section names in YAML and in Python models.
-- Added a field-by-field 1.2-to-2.0 migration guide covering schema changes,
+- Added a field-by-field configuration compatibility guide covering schema changes,
   paths, seeds, temporal priors, Python API replacements, and expected
   stochastic differences.
 
@@ -116,8 +114,8 @@ Before 1.0, incompatible public changes are identified explicitly below.
   `load_params()`/`load_params_payload()`, LPM `load_params()`, and module-level
   LPM schema accessor aliases. Use `SingleDateConfig`, `load_config()` or
   `load_config_payload()`, `load_parameter_document()`, and the immutable
-  schema properties instead. These public removals make the next release a
-  `2.0`, not a backward-compatible `1.3`.
+  schema properties instead. These public removals are documented explicitly
+  in the configuration compatibility guide.
 - Removed `LauncherConfig`, `TemporalParams`, `MHEnsembleConfig`,
   `MultiChainMetropolisHastings`, temporal `lpm_models.list`, and
   `pyages run --transient`.

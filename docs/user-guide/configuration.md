@@ -7,7 +7,7 @@ All user-facing configuration models are strict: an unknown section or field
 is rejected rather than ignored. Type errors and violated numeric bounds are
 reported before the scientific workflow starts.
 
-PyAges 2.0 uses configuration schema 3. It uses common section names in
+PyAges 1.0.2 uses configuration schema 3. It uses common section names in
 both workflows and always resolves relative paths from the YAML file's
 directory. Generate a complete example with:
 
@@ -31,7 +31,7 @@ output: {}
 ```
 
 The configuration schema number is independent of both the PyAges package
-version (`2.0.0`) and the result-manifest schema; it versions only YAML syntax.
+version (`1.0.2`) and the result-manifest schema; it versions only YAML syntax.
 All maintained workflow files under `examples/` use schema 3 and are current
 starting points. Older layouts and former field names are no longer part of
 PyAges: there is no implicit conversion and no compatibility alias. To update
@@ -40,7 +40,7 @@ values field by field. Runtime loading rejects unknown sections instead of
 guessing what they mean.
 
 For the complete section and field mappings, path rules, random-seed changes,
-and Python API replacements, follow {doc}`migrating-to-2.0`.
+and Python API replacements, follow {doc}`configuration-compatibility`.
 
 ## Single-date workflow configuration
 
@@ -601,7 +601,7 @@ The effective MH support is the intersection of the calibration range and the
 prior support. A normal prior is therefore conditioned on the calibration
 range; a uniform prior may narrow it further. Scientific analyses should
 report all three choices. Schema 3 requires `calibration_range`; the former
-`bounds` spelling is rejected. See {doc}`migrating-to-2.0` before updating an
+`bounds` spelling is rejected. See {doc}`configuration-compatibility` before updating an
 old parameter file.
 
 ---

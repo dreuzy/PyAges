@@ -160,10 +160,10 @@ site.
 `calibration`, `reporting` when applicable, and `output`. There is no separate
 runtime vocabulary. The flattened `LauncherParams`, `LauncherConfig`,
 `TemporalParams`, `load_params()`, and `load_params_payload()` views are
-removed in 2.0. Older field spellings are rejected; runtime and tooling expose
+removed from the current API. Older field spellings are rejected; runtime and tooling expose
 only the schema-3 vocabulary.
 
-The user-facing {doc}`../user-guide/migrating-to-2.0` guide maps the removed
+The user-facing {doc}`../user-guide/configuration-compatibility` guide maps the removed
 configuration and Python names to their supported replacements and calls out
 changes that can alter stochastic results.
 

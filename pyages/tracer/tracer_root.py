@@ -29,10 +29,10 @@ import numpy.typing as npt
 import pandas as pd
 from scipy import interpolate
 
+import pyages.tracer.errors as _tracer_errors
 from pyages._plotting import create_figure, finalize_figure
 from pyages.config.runtime import DisplayOptions
 from pyages.tracer.config import load_tracer_config
-from pyages.tracer.errors import TracerConfigError, TracerDataError
 
 TRACER_SCIENTIFIC_SIGNATURE_VERSION = 1
 
@@ -42,9 +42,9 @@ def _finite_float_hex(value: object, *, context: str) -> str:
     try:
         numeric = float(cast(Any, value))
     except (TypeError, ValueError) as exc:
-        raise TracerDataError(f"{context} must be numeric") from exc
+        raise _tracer_errors.TracerDataError(f"{context} must be numeric") from exc
     if not np.isfinite(numeric):
-        raise TracerDataError(f"{context} must be finite")
+        raise _tracer_errors.TracerDataError(f"{context} must be finite")
     return numeric.hex()
 
 
@@ -52,7 +52,9 @@ def _scientific_array_digest(values: np.ndarray) -> tuple[int, str]:
     """Hash a finite vector in canonical little-endian float64 form."""
     array = np.asarray(values, dtype=float)
     if array.ndim != 1 or not np.all(np.isfinite(array)):
-        raise TracerDataError("effective recharge chronicles must be finite vectors")
+        raise _tracer_errors.TracerDataError(
+            "effective recharge chronicles must be finite vectors"
+        )
     canonical = np.ascontiguousarray(array, dtype="<f8")
     digest = hashlib.sha256()
     digest.update(str(canonical.size).encode("ascii"))
@@ -145,9 +147,9 @@ class Tracer:
 
         Raises
         ------
-        TracerDataError
+        _tracer_errors.TracerDataError
             If configuration files cannot be read
-        TracerConfigError
+        _tracer_errors.TracerConfigError
             If configuration is invalid or incomplete
         """
         root = Path(dir_tracer)
@@ -174,12 +176,12 @@ class Tracer:
                 # Read CSV, skipping comment lines starting with #
                 self.__recharge_chronicle_file = pd.read_csv(recharge_file, comment="#")
             except FileNotFoundError as exc:
-                raise TracerDataError(
+                raise _tracer_errors.TracerDataError(
                     f"Recharge chronicle CSV file not found: {recharge_file}\n"
                     f"Please create a recharge.csv file for tracer '{name}'"
                 ) from exc
             except (OSError, UnicodeError, pd.errors.ParserError) as e:
-                raise TracerDataError(
+                raise _tracer_errors.TracerDataError(
                     f"Error reading recharge chronicle {recharge_file}: {e}"
                 ) from e
 
@@ -196,15 +198,15 @@ class Tracer:
 
         # Validate that required data are provided
         if datemin is None:
-            raise TracerConfigError(
+            raise _tracer_errors.TracerConfigError(
                 f"Tracer {name}: datemin not defined in configuration"
             )
         if datemax is None:
-            raise TracerConfigError(
+            raise _tracer_errors.TracerConfigError(
                 f"Tracer {name}: datemax not defined in configuration"
             )
         if datemin >= datemax:
-            raise TracerConfigError(
+            raise _tracer_errors.TracerConfigError(
                 f"Tracer {name}: datemin ({datemin}) must be less than datemax ({datemax})"
             )
         # Construction establishes a complete public interval. Keeping these
@@ -233,10 +235,12 @@ class Tracer:
         chronicle_values_sha256 = None
         if self.__has_chronicle:
             if self.__recharge_chronicle_file is None:
-                raise TracerDataError("chronicle tracer has no loaded recharge data")
+                raise _tracer_errors.TracerDataError(
+                    "chronicle tracer has no loaded recharge data"
+                )
             chronicle = self.__recharge_chronicle_file
             if chronicle.shape[1] < 2:
-                raise TracerDataError(
+                raise _tracer_errors.TracerDataError(
                     "recharge chronicle must contain date and concentration columns"
                 )
             date_size, chronicle_dates_sha256 = _scientific_array_digest(
@@ -246,7 +250,7 @@ class Tracer:
                 chronicle.iloc[:, 1].to_numpy(dtype=float)
             )
             if date_size != value_size:
-                raise TracerDataError(
+                raise _tracer_errors.TracerDataError(
                     "recharge chronicle date and concentration sizes differ"
                 )
             chronicle_size = date_size
@@ -327,7 +331,7 @@ class Tracer:
         if self.__has_chronicle:
             chronicle_interp = self.__recharge_chronicle_interp
             if chronicle_interp is None:
-                raise TracerDataError(
+                raise _tracer_errors.TracerDataError(
                     f"Tracer {self.__name} has no recharge interpolator"
                 )
             if self.__check_date_range(date):
@@ -433,7 +437,9 @@ class Tracer:
             )
         chronicle = self.__recharge_chronicle_file
         if chronicle is None:
-            raise TracerDataError(f"Tracer {self.__name} has no loaded recharge data")
+            raise _tracer_errors.TracerDataError(
+                f"Tracer {self.__name} has no loaded recharge data"
+            )
         return float(chronicle.iloc[:, 1].max())
 
     @property
@@ -467,7 +473,7 @@ class Tracer:
         if self.__has_chronicle:
             chronicle = self.__recharge_chronicle_file
             if chronicle is None:
-                raise TracerDataError(
+                raise _tracer_errors.TracerDataError(
                     f"Tracer {self.__name} has no loaded recharge data"
                 )
             recharge_figure, recharge_axis = plt.subplots(figsize=(6, 4))
