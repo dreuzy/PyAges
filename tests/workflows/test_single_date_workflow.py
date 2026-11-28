@@ -75,6 +75,10 @@ def test_quickstart_writes_a_manifest_and_normalized_observations(
     assert manifest["details"]["dataset_year"] == 2010
     assert manifest["details"]["observation_error_policy"]["missing_error_rel"] == 0.01
     assert manifest["details"]["observation_error_policy"]["transformations"]
+    lpm_provenance = manifest["details"]["lpm_provenance"]
+    assert lpm_provenance["model_name"] == manifest["details"]["lpm"]
+    assert lpm_provenance["provider_distribution"] == "pyages"
+    assert len(lpm_provenance["parameters_sha256"]) == 64
     assert any(item["path"].endswith("params.yaml") for item in manifest["inputs"])
 
 
@@ -119,6 +123,68 @@ def test_objective_only_run_uses_resolved_errors_without_calibration(
     assert (output / "objective_function_grid.txt").is_file()
     observations = pd.read_table(output / "concentrations.txt")
     assert (observations["error"] > 0.0).all()
+
+
+def test_deterministic_result_and_manifest_share_explicit_objective_fields(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    source_config = ROOT / "examples" / "templates" / "quickstart_single.yaml"
+    payload = yaml.safe_load(source_config.read_text(encoding="utf-8"))
+    payload["data"]["data_dir"] = str(
+        ROOT / "examples" / "natural" / "ploemeur" / "data"
+    )
+    payload["lpm"]["directory"] = str(ROOT / "data_core" / "data_lpm")
+    payload["run"]["deterministic_inversion"] = True
+    payload["calibration"]["deterministic_inversion"] = {
+        "loss": "l1",
+        "scale": "relative",
+        "relative_floor": 1.0e-12,
+        "optimizer": "powell",
+    }
+    config = tmp_path / "deterministic.yaml"
+    config.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    output = tmp_path / "deterministic"
+    monkeypatch.setattr(
+        single_context, "dataset_results_directory", lambda _name, **_kwargs: output
+    )
+    monkeypatch.setattr(
+        single_reporting,
+        "export_concentration_chronicles",
+        lambda *_args, **_kwargs: None,
+    )
+
+    result_directory = single_date.run_single_date(config, force_inline=True)
+
+    assert result_directory == output
+    result_path = output / "Deterministic_Inversion" / "inversion_result.json"
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    manifest = json.loads((output / "result_manifest.json").read_text(encoding="utf-8"))
+    summary = manifest["details"]["deterministic_inversion"]
+    scalar_fields = {
+        "objective_name",
+        "objective_value",
+        "loss",
+        "scale",
+        "relative_floor",
+        "chi_square",
+        "normalized_residual_rms",
+        "obj_function",
+        "success",
+    }
+
+    assert {name: result[name] for name in scalar_fields} == summary
+    assert result["objective_name"] == "relative_l1"
+    assert result["objective_value"] == pytest.approx(
+        result["metrics"]["relative_l1"]
+    )
+    assert result["obj_function"] == pytest.approx(
+        result["normalized_residual_rms"]
+    )
+    assert manifest["details"]["calibrations"] == ["Deterministic_Inversion"]
+    assert "Deterministic_Inversion/inversion_result.json" in manifest[
+        "artifacts_sha256"
+    ]
 
 
 def test_multichain_smoke_runs_end_to_end_from_its_versioned_config(

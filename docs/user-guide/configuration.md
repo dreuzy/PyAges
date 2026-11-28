@@ -146,13 +146,16 @@ use `pyages list lpms` to inspect the installed release.
 run:
   reachable_concentrations: true    # Explore feasible concentration domain
   objective_function: true          # Map objective function on parameter grid
+  deterministic_inversion: false    # Run explicit L1/L2 point estimation
   metropolis_hastings: true  # Run MCMC calibration
   simplex: true         # Run simplex/FUQ calibration
 ```
 
-All four fields are boolean and currently default to `true` when the `run`
-section or a field is omitted. Set unwanted analyses explicitly to `false`,
-especially for a quick or non-interactive run.
+All fields are boolean. The four historical fields default to `true` when the
+`run` section or a field is omitted. `deterministic_inversion` defaults to
+`false`, so existing schema-3 YAML files keep exactly their former execution
+path and cost. Set unwanted analyses explicitly to `false`, especially for a
+quick or non-interactive run.
 
 ### Reachable Concentrations Section
 
@@ -179,6 +182,48 @@ objective_function:
 The mapped column ``half_log_chi_square`` is $\tfrac12\log(\chi^2)$, not the likelihood or
 the normalized residual norm stored in calibration result tables. See
 {doc}`../scientific-methods` for the exact objective conventions.
+
+### Deterministic Inversion Section
+
+```yaml
+calibration:
+  deterministic_inversion:
+    loss: l2                         # l1 or squared l2
+    scale: uncertainty              # absolute, relative, or uncertainty
+    relative_floor: 1.0e-300        # Positive floor for relative denominators
+    optimizer: powell               # powell, nelder-mead, or l-bfgs-b
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `loss` | string | `l2` | `l1` minimizes the sum of absolute scaled residuals; `l2` minimizes their sum of squares, not its square root |
+| `scale` | string | `uncertainty` | `absolute` keeps concentration residuals, `relative` divides by `max(abs(observed), relative_floor)`, and `uncertainty` divides by the one-sigma observation error |
+| `relative_floor` | positive finite number | `1.0e-300` | Minimum denominator used only by relative scaling; recorded even for the other scales so the complete specification is reproducible |
+| `optimizer` | string | `powell` | Bounded SciPy optimizer; Powell is the derivative-free default and supports both L1 and L2 comparisons |
+
+This section is consumed only when `run.deterministic_inversion: true`.
+The workflow writes `Deterministic_Inversion/inversion_result.json`. Both that
+file and `result_manifest.json` record `objective_name`, `objective_value`,
+`loss`, `scale`, `relative_floor`, `chi_square`, and
+`normalized_residual_rms`. The result also keeps `obj_function` as a
+compatibility alias for `normalized_residual_rms`.
+
+`objective_value` is the scalar actually minimized. `chi_square` is always the
+uncertainty-standardized sum of squares, and `normalized_residual_rms` is
+$\sqrt{\chi^2/n}$ without a fitted-degrees-of-freedom correction. These fields
+therefore remain comparable even when a relative L1 objective selected the
+solution. This deterministic choice is not passed to Simplex, FUQ, or
+Metropolis--Hastings.
+
+The equivalent one-run CLI override is:
+
+```bash
+pyages run config.yaml --deterministic-inversion \
+  --objective-loss l1 --objective-scale relative
+```
+
+The CLI writes a temporary validated configuration beside the original YAML;
+it does not edit the source file.
 
 ### Metropolis-Hastings Section
 

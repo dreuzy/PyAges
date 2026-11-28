@@ -51,10 +51,8 @@ from examples.natural.holten.holten_reproduction import (  # noqa: E402
     optimize_well,
 )
 from pyages._scalar_conversion import scalar_float  # noqa: E402
-from pyages.calibration.methods.mh.diagnostics import mcse_mean_from_ess  # noqa: E402
+from pyages.calibration.methods.mh import diagnostics as mcmc_diagnostics  # noqa: E402
 from scripts.article.run_final_shifted_exponential import (  # noqa: E402
-    _iact_ess,
-    _split_rhat,
     _summary,
 )
 from scripts.common.provenance import (  # noqa: E402
@@ -89,6 +87,17 @@ FINAL_STEPS = {
     "85-34": 20_000,
     "85-35": 20_000,
 }
+
+
+def _minimum_ess(frame: pd.DataFrame) -> float:
+    """Read current bulk/tail ESS or the immutable historical ESS column."""
+
+    current = [column for column in ("bulk_ess", "tail_ess") if column in frame]
+    if current:
+        return scalar_float(frame[current].min(axis=1).min())
+    return scalar_float(frame["ess_sum_chains"].min())
+
+
 PRIOR_SAMPLE_SIZE = 1_000_000
 PRIOR_SEED = 530_000
 JACOBIAN_SEED = 530_001
@@ -450,9 +459,7 @@ def collect_diagnostics(
         well_diagnostics: list[dict[str, Any]] = []
         for parameter in parameters:
             chains = [_series(data, parameter) for data in loaded]
-            pooled = np.concatenate(chains)
-            ess_values = [_iact_ess(values)[2] for values in chains]
-            total_ess = float(sum(ess_values))
+            chain_matrix = np.asarray(chains, dtype=float)
             row = {
                 "prior": "dirichlet_1",
                 "well": well,
@@ -461,12 +468,15 @@ def collect_diagnostics(
                 if parameter.startswith("z")
                 else "physical_fraction",
                 "steps_per_chain": FINAL_STEPS[well],
-                "split_rhat": _split_rhat(chains),
-                "ess_sum_chains": total_ess,
-                "mcse_mean": mcse_mean_from_ess(pooled, total_ess),
+                "split_rhat": mcmc_diagnostics.split_rhat(chain_matrix),
+                "bulk_ess": mcmc_diagnostics.bulk_ess(chain_matrix),
+                "tail_ess": mcmc_diagnostics.tail_ess(chain_matrix),
+                "mcse_mean": mcmc_diagnostics.mcse_mean(chain_matrix),
             }
             row["converged"] = bool(
-                row["split_rhat"] < 1.01 and row["ess_sum_chains"] >= 300.0
+                row["split_rhat"] < 1.01
+                and row["bulk_ess"] >= 300.0
+                and row["tail_ess"] >= 300.0
             )
             well_diagnostics.append(row)
         convergence_rows.extend(well_diagnostics)
@@ -484,10 +494,13 @@ def collect_diagnostics(
             )
             if diagnostic is None:
                 chains = [np.asarray(data[parameter]) for data in loaded]
-                total_ess = float(sum(_iact_ess(chain)[2] for chain in chains))
-                mean_mcse = mcse_mean_from_ess(values, total_ess)
+                chain_matrix = np.asarray(chains, dtype=float)
+                bulk_ess = mcmc_diagnostics.bulk_ess(chain_matrix)
+                tail_ess = mcmc_diagnostics.tail_ess(chain_matrix)
+                mean_mcse = mcmc_diagnostics.mcse_mean(chain_matrix)
             else:
-                total_ess = diagnostic["ess_sum_chains"]
+                bulk_ess = diagnostic["bulk_ess"]
+                tail_ess = diagnostic["tail_ess"]
                 mean_mcse = diagnostic["mcse_mean"]
             stats = _summary(values)
             summary_rows.append(
@@ -506,7 +519,8 @@ def collect_diagnostics(
                     "chains": NCHAINS,
                     "pooled_samples": len(values),
                     "well_converged": well_converged,
-                    "ess_sum_chains": total_ess,
+                    "bulk_ess": bulk_ess,
+                    "tail_ess": tail_ess,
                     "mcse_mean": mean_mcse,
                     **stats,
                 }
@@ -655,7 +669,7 @@ def global_metrics(
                     np.sqrt(np.mean(local_residuals**2))
                 ),
                 "max_split_rhat": scalar_float(local_convergence["split_rhat"].max()),
-                "min_ess": scalar_float(local_convergence["ess_sum_chains"].min()),
+                "min_ess": _minimum_ess(local_convergence),
                 "min_acceptance_rate": scalar_float(
                     local_chains["acceptance_rate"].min()
                 ),
@@ -680,7 +694,7 @@ def global_metrics(
                     "prior": prior,
                     "well": well,
                     "max_split_rhat": scalar_float(local_group["split_rhat"].max()),
-                    "min_ess": scalar_float(local_group["ess_sum_chains"].min()),
+                    "min_ess": _minimum_ess(local_group),
                     "all_parameters_converged": bool(local_group["converged"].all()),
                     "min_acceptance_rate": float(acceptances.min()),
                     "median_acceptance_rate": float(acceptances.median()),
@@ -986,6 +1000,19 @@ def verify_canonical() -> dict[str, Any]:
     }
 
 
+def _manifest_sources() -> tuple[Path, ...]:
+    """Return every versioned source hashed by a new campaign manifest."""
+
+    return (
+        Path(__file__).resolve(),
+        ROOT / "examples/natural/holten/holten_reproduction.py",
+        ROOT / "examples/natural/holten/holten_prepare.py",
+        ROOT / "examples/natural/holten/holten_four_bin.py",
+        ROOT / "scripts/article/run_final_shifted_exponential.py",
+        ROOT / "pyages/calibration/methods/mh/diagnostics.py",
+    )
+
+
 def write_manifest(
     output: Path,
     jacobian: pd.DataFrame,
@@ -999,6 +1026,7 @@ def write_manifest(
     ]
     payload = {
         "repository": repository_provenance(ROOT),
+        "evidence_layer": "new_campaign_current_code",
         "created_at": pd.Timestamp.now(tz="Europe/Paris").isoformat(),
         "purpose": "Separate Holten H4 sensitivity test; canonical campaign reused read-only",
         "git_head": subprocess.run(
@@ -1045,6 +1073,10 @@ def write_manifest(
             "prior_only_sample_size_each": PRIOR_SAMPLE_SIZE,
             "prior_only_seed": PRIOR_SEED,
             "near_zero_definition": "reference posterior median <= 0.05",
+            "diagnostics": (
+                "central rank-normalized folded split-R-hat with bulk/tail ESS "
+                "from pyages.calibration.methods.mh.diagnostics"
+            ),
         },
         "validation": {
             "jacobian_points": len(jacobian),
@@ -1060,21 +1092,8 @@ def write_manifest(
             "canonical_integrity": canonical_integrity,
         },
         "source_sha256": {
-            str(Path(__file__).resolve().relative_to(ROOT)): _sha256(
-                Path(__file__).resolve()
-            ),
-            "examples/natural/holten/holten_reproduction.py": _sha256(
-                ROOT / "examples" / "natural" / "holten" / "holten_reproduction.py"
-            ),
-            "examples/natural/holten/holten_prepare.py": _sha256(
-                ROOT / "examples" / "natural" / "holten" / "holten_prepare.py"
-            ),
-            "examples/natural/holten/holten_four_bin.py": _sha256(
-                ROOT / "examples" / "natural" / "holten" / "holten_four_bin.py"
-            ),
-            "scripts/article/run_final_shifted_exponential.py": _sha256(
-                ROOT / "scripts" / "article" / "run_final_shifted_exponential.py"
-            ),
+            str(path.resolve().relative_to(ROOT)): _sha256(path)
+            for path in _manifest_sources()
         },
         "canonical_manifest_sha256": _sha256(CANONICAL / "manifest.json"),
         "artifact_sha256": {

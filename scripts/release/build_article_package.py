@@ -482,8 +482,8 @@ ARTIFACTS = (
     _artifact(
         "mcmc_diagnostics",
         "code",
-        "scripts/common/mcmc_diagnostics.py",
-        "provenance/code/common/mcmc_diagnostics.py",
+        "pyages/calibration/methods/mh/diagnostics.py",
+        "provenance/code/pyages/calibration/methods/mh/diagnostics.py",
         "Shared split-Rhat and ESS implementation",
     ),
     _artifact(
@@ -709,12 +709,19 @@ def _column(frame: pd.DataFrame, name: str) -> pd.Series:
     return column
 
 
-def _standard_diagnostic(path: Path, group: str, ess_column: str) -> dict[str, object]:
+def _standard_diagnostic(
+    path: Path, group: str, ess_columns: tuple[str, ...]
+) -> dict[str, object]:
     frame = pd.read_csv(path)
+    available_ess = [column for column in ess_columns if column in frame.columns]
+    if not available_ess:
+        raise ValueError(
+            f"No supported ESS column in {path}: expected one of {ess_columns}"
+        )
     return {
         "groups": scalar_int(frame[group].nunique()),
         "max_split_rhat": scalar_float(frame["split_rhat"].max()),
-        "min_ess": scalar_float(frame[ess_column].min()),
+        "min_ess": scalar_float(frame[available_ess].min(axis=1).min()),
         "all_converged": bool(_true_mask(_column(frame, "converged")).all()),
     }
 
@@ -758,22 +765,22 @@ def scientific_summary() -> dict[str, object]:
         "shifted_exponential": _standard_diagnostic(
             _artifact_source("shifted_convergence"),
             "case",
-            "ess_sum_chains",
+            ("bulk_ess", "tail_ess", "ess_sum_chains"),
         ),
         "holten_h4": _standard_diagnostic(
             _artifact_source("holten_convergence"),
             "well",
-            "ess_sum_chains",
+            ("bulk_ess", "tail_ess", "ess_sum_chains"),
         ),
         "holten_prior_dirichlet1": _standard_diagnostic(
             _artifact_source("holten_prior_convergence"),
             "well",
-            "ess_sum_chains",
+            ("bulk_ess", "tail_ess", "ess_sum_chains"),
         ),
         "ploemeur_shifted_exponential": _standard_diagnostic(
             _artifact_source("ploemeur_shifted_convergence"),
             "case",
-            "ESS",
+            ("bulk_ess", "tail_ess", "ESS"),
         ),
         "ploemeur_physical_ig": {
             "posterior_sets": len(ig_rows),

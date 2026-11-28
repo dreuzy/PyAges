@@ -4,8 +4,16 @@
 
 import json
 
-from scripts.article import reproduce_article
+import pytest
+
+from scripts.article import (
+    reproduce_article,
+    run_final_holten_h4,
+    run_final_shifted_exponential,
+    run_holten_prior_robustness,
+)
 from scripts.article import run_ploemeur_shifted_exponential_final as ploemeur_shifted
+from scripts.article import run_ploemeur_targeted_ig_reproduction as ploemeur_ig
 from scripts.release import build_article_package, build_reproduction_archive
 from validation.tracerlpm.benchmark.scripts import generate_inputs
 
@@ -145,6 +153,57 @@ def test_stage_entrypoint_probe_reports_transitive_import_failures():
     )
 
 
+def test_current_article_stage_entrypoints_show_help_without_running_campaign(tmp_path):
+    stages = reproduce_article._stage_map(
+        tmp_path,
+        workers=1,
+        tracer_config=tmp_path / "tracerlpm.yaml",
+        allow_dirty=False,
+    )
+
+    for name in reproduce_article.ALL_STAGES:
+        command = stages[name].command
+        module = command[command.index("-m") + 1]
+        completed = reproduce_article.subprocess.run(
+            [reproduce_article.sys.executable, "-m", module, "--help"],
+            cwd=reproduce_article.ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert completed.returncode == 0, (
+            f"{name} entry point failed: {completed.stderr or completed.stdout}"
+        )
+
+
+@pytest.mark.parametrize(
+    "runner",
+    (
+        run_final_shifted_exponential,
+        run_final_holten_h4,
+        run_holten_prior_robustness,
+        ploemeur_shifted,
+        ploemeur_ig,
+    ),
+)
+def test_article_manifest_sources_exist_and_use_central_diagnostics(runner):
+    sources = tuple(path.resolve() for path in runner._manifest_sources())
+    central = (
+        reproduce_article.ROOT
+        / "pyages/calibration/methods/mh/diagnostics.py"
+    ).resolve()
+    removed_facade = (
+        reproduce_article.ROOT / "scripts/common/mcmc_diagnostics.py"
+    ).resolve()
+
+    assert sources
+    assert len(sources) == len(set(sources))
+    assert all(path.is_file() for path in sources)
+    assert central in sources
+    assert removed_facade not in sources
+
+
 def test_campaign_resume_requires_status_and_expected_artifacts(monkeypatch, tmp_path):
     expected = tmp_path / "result.json"
     stage = reproduce_article.Stage("short", ("python", "short.py"), (expected,))
@@ -152,6 +211,7 @@ def test_campaign_resume_requires_status_and_expected_artifacts(monkeypatch, tmp
         "schema_version": 1,
         "created_at": "test",
         "git_head": "test",
+        "diagnostic_contract": reproduce_article.DIAGNOSTIC_CONTRACT,
         "campaign_root": str(tmp_path),
         "stages": {"short": {"status": "success"}},
     }
@@ -180,6 +240,7 @@ def test_campaign_manifest_tracks_revision_used_by_each_stage(monkeypatch, tmp_p
     manifest = {
         "schema_version": 1,
         "git_head": "initial-revision",
+        "diagnostic_contract": reproduce_article.DIAGNOSTIC_CONTRACT,
         "stages": {"forward": {"status": "success"}},
     }
     path = tmp_path / "campaign_manifest.json"
@@ -191,6 +252,88 @@ def test_campaign_manifest_tracks_revision_used_by_each_stage(monkeypatch, tmp_p
     assert loaded["initial_git_head"] == "initial-revision"
     assert loaded["git_head"] == "current-revision"
     assert loaded["stages"]["forward"]["git_head"] == "initial-revision"
+
+
+def test_campaign_dry_run_never_launches_a_stage(monkeypatch, tmp_path, capsys):
+    expected = tmp_path / "result.json"
+    stage = reproduce_article.Stage("short", ("python", "short.py"), (expected,))
+    monkeypatch.setattr(reproduce_article, "_git", lambda *unused: "test-revision")
+    monkeypatch.setattr(
+        reproduce_article,
+        "_run_stage",
+        lambda *unused: pytest.fail("dry-run must not launch a stage"),
+    )
+
+    result = reproduce_article.run_campaign(
+        tmp_path, {"short": stage}, ("short",), resume=False, dry_run=True
+    )
+
+    assert result == 0
+    assert "DRY   short:" in capsys.readouterr().out
+    assert not expected.exists()
+    assert not (tmp_path / "campaign_manifest.json").exists()
+
+
+def test_reproduce_entrypoint_routes_dry_run_without_scientific_execution(
+    monkeypatch, tmp_path
+):
+    observed = {}
+    monkeypatch.setattr(
+        reproduce_article,
+        "preflight",
+        lambda *unused, **unused_kwargs: {"passed": True},
+    )
+
+    def fake_run(output, stages, selected, *, resume, dry_run):
+        observed.update(
+            output=output,
+            selected=selected,
+            resume=resume,
+            dry_run=dry_run,
+        )
+        return 0
+
+    monkeypatch.setattr(reproduce_article, "run_campaign", fake_run)
+
+    assert (
+        reproduce_article.main(
+            [
+                "run",
+                "--output",
+                str(tmp_path),
+                "--stages",
+                "shifted_exponential",
+                "--dry-run",
+            ]
+        )
+        == 0
+    )
+    assert observed == {
+        "output": tmp_path.resolve(),
+        "selected": ("shifted_exponential",),
+        "resume": False,
+        "dry_run": True,
+    }
+
+
+def test_resume_refuses_to_rewrite_an_older_diagnostic_contract(
+    monkeypatch, tmp_path
+):
+    manifest = tmp_path / "campaign_manifest.json"
+    manifest.write_text(
+        json.dumps({"schema_version": 1, "stages": {}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(reproduce_article, "_git", lambda *unused: "test-revision")
+
+    with pytest.raises(ValueError, match="different diagnostic contract"):
+        reproduce_article.run_campaign(
+            tmp_path, {}, (), resume=True, dry_run=True
+        )
+
+    assert json.loads(manifest.read_text(encoding="utf-8")) == {
+        "schema_version": 1,
+        "stages": {},
+    }
 
 
 def test_validate_campaign_accepts_successful_fresh_stage(tmp_path):

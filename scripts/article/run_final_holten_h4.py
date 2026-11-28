@@ -46,12 +46,11 @@ from examples.natural.holten.holten_reproduction import (
     optimize_well,
 )
 from pyages._scalar_conversion import scalar_float, scalar_int
-from pyages.calibration.methods.mh.diagnostics import mcse_mean_from_ess
+from pyages.calibration.methods.mh import diagnostics as mcmc_diagnostics
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from scripts.article.run_final_shifted_exponential import (
-    _iact_ess,
+    _acf_iact,
     _markdown,
-    _split_rhat,
     _summary,
 )
 from scripts.common.provenance import repository_provenance
@@ -314,13 +313,13 @@ def collect_diagnostics(
         for parameter in parameters:
             chains = [_series(data, parameter) for data in loaded]
             local_chains[parameter] = chains
-            pooled = np.concatenate(chains)
-            rhat = _split_rhat(chains)
-            ess_values = []
+            chain_matrix = np.asarray(chains, dtype=float)
+            rhat = mcmc_diagnostics.split_rhat(chain_matrix)
+            bulk_ess = mcmc_diagnostics.bulk_ess(chain_matrix)
+            tail_ess = mcmc_diagnostics.tail_ess(chain_matrix)
             iact_values = []
             for chain, values in enumerate(chains):
-                acf, iact, ess = _iact_ess(values)
-                ess_values.append(ess)
+                acf, iact = _acf_iact(values)
                 iact_values.append(iact)
                 acf_rows.extend(
                     {
@@ -332,7 +331,6 @@ def collect_diagnostics(
                     }
                     for lag, value in enumerate(acf[: MAX_ACF_LAG + 1])
                 )
-            total_ess = float(sum(ess_values))
             local_diagnostics.append(
                 {
                     "well": well,
@@ -342,10 +340,13 @@ def collect_diagnostics(
                     else "physical_fraction",
                     "steps_per_chain": steps,
                     "split_rhat": rhat,
-                    "ess_sum_chains": total_ess,
-                    "mcse_mean": mcse_mean_from_ess(pooled, total_ess),
+                    "bulk_ess": bulk_ess,
+                    "tail_ess": tail_ess,
+                    "mcse_mean": mcmc_diagnostics.mcse_mean(chain_matrix),
                     "iact_max_chain": float(max(iact_values)),
-                    "converged": bool(rhat < 1.01 and total_ess >= 300.0),
+                    "converged": bool(
+                        rhat < 1.01 and bulk_ess >= 300.0 and tail_ess >= 300.0
+                    ),
                 }
             )
         well_converged = all(row["converged"] for row in local_diagnostics)
@@ -360,10 +361,13 @@ def collect_diagnostics(
                 None,
             )
             if diagnostic is None:
-                objective_ess = float(sum(_iact_ess(chain)[2] for chain in chains))
-                mean_mcse = mcse_mean_from_ess(values, objective_ess)
+                chain_matrix = np.asarray(chains, dtype=float)
+                objective_bulk_ess = mcmc_diagnostics.bulk_ess(chain_matrix)
+                objective_tail_ess = mcmc_diagnostics.tail_ess(chain_matrix)
+                mean_mcse = mcmc_diagnostics.mcse_mean(chain_matrix)
             else:
-                objective_ess = diagnostic["ess_sum_chains"]
+                objective_bulk_ess = diagnostic["bulk_ess"]
+                objective_tail_ess = diagnostic["tail_ess"]
                 mean_mcse = diagnostic["mcse_mean"]
             stats = (
                 _summary(values)
@@ -396,7 +400,8 @@ def collect_diagnostics(
                     "chains": NCHAINS,
                     "pooled_samples": len(values) if well_converged else 0,
                     "well_converged": well_converged,
-                    "ess_sum_chains": objective_ess,
+                    "bulk_ess": objective_bulk_ess,
+                    "tail_ess": objective_tail_ess,
                     "mcse_mean": mean_mcse if well_converged else np.nan,
                     **stats,
                 }
@@ -628,15 +633,23 @@ def _figure3(comparison: pd.DataFrame, output: Path) -> None:
         plt.close(alternative)
 
 
-def _manifest(output: Path, lengths: dict[str, int]) -> None:
-    prepared, _ = _scientific_inputs()
-    sources = (
+def _manifest_sources() -> tuple[Path, ...]:
+    """Return every versioned source hashed by a new campaign manifest."""
+
+    return (
         Path(__file__).resolve(),
         ROOT / "examples" / "natural" / "holten" / "holten_reproduction.py",
         ROOT / "examples" / "natural" / "holten" / "holten_prepare.py",
         ROOT / "examples" / "natural" / "holten" / "holten_four_bin.py",
+        ROOT / "scripts" / "article" / "run_final_shifted_exponential.py",
+        ROOT / "pyages" / "calibration" / "methods" / "mh" / "diagnostics.py",
         ROOT / "pyages" / "calibration" / "methods" / "mh" / "proposals.py",
     )
+
+
+def _manifest(output: Path, lengths: dict[str, int]) -> None:
+    prepared, _ = _scientific_inputs()
+    sources = _manifest_sources()
     inputs = (
         prepared.context.paths.sampling_raw_path,
         prepared.context.paths.tritium_raw_path,
@@ -651,6 +664,7 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
     ]
     payload = {
         "repository": repository_provenance(ROOT),
+        "evidence_layer": "new_campaign_current_code",
         "created_at": pd.Timestamp.now(tz="Europe/Paris").isoformat(),
         "git_head": subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -698,6 +712,10 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
             "seed_rule": "pilot=510000+one_based_well; production=520000+100*one_based_well+zero_based_chain",
             "final_steps_by_well": lengths,
             "thinning_for_diagnostics": 1,
+            "diagnostics": (
+                "central rank-normalized folded split-R-hat with bulk/tail ESS "
+                "from pyages.calibration.methods.mh.diagnostics"
+            ),
         },
         "source_sha256": {_path_label(path): _sha256(path) for path in sources},
         "input_sha256": {_path_label(path): _sha256(path) for path in inputs},
@@ -735,10 +753,15 @@ def analyze_and_extend(output: Path) -> dict[str, pd.DataFrame]:
         _figure3(comparison, output)
     summary = (
         tables["convergence"]
+        .assign(
+            minimum_ess=tables["convergence"][["bulk_ess", "tail_ess"]].min(
+                axis=1
+            )
+        )
         .groupby("well", as_index=False)
         .agg(
             max_split_rhat=("split_rhat", "max"),
-            min_ess=("ess_sum_chains", "min"),
+            min_ess=("minimum_ess", "min"),
             steps_per_chain=("steps_per_chain", "max"),
             converged=("converged", "all"),
         )

@@ -120,6 +120,8 @@ The complete layout is conditional on the `run` flags:
 |-- reachable_concentrations/                 # if enabled
 |   |-- parameters.txt
 |   `-- c_reach.txt
+|-- Deterministic_Inversion/                  # if enabled
+|   `-- inversion_result.json
 |-- Metropolis_Hastings/                      # if enabled
 |   |-- parameters_calibration.txt
 |   |-- results_calibration.txt
@@ -160,6 +162,24 @@ The `reachable_concentrations` directory contains:
 `half_log_chi_square`. That objective is
 $0.5\log(\chi^2)$; it is not the `obj_function` value stored in calibration
 sample tables. See {doc}`../scientific-methods` for the normative equations.
+
+`Deterministic_Inversion/inversion_result.json` contains the selected parameter
+mapping, residual records, all optimizer attempts, target fingerprint, and the
+complete `ObjectiveSpec`. Its top-level scalar contract is:
+
+| Field | Meaning |
+|---|---|
+| `objective_name` | Stable `<scale>_<loss>` identifier |
+| `objective_value` | L1 sum or squared-L2 sum actually minimized |
+| `loss`, `scale`, `relative_floor` | Complete deterministic residual specification |
+| `chi_square` | Uncertainty-standardized squared residual sum at the selected solution |
+| `normalized_residual_rms` | $\sqrt{\chi^2/n}$ without a degrees-of-freedom correction |
+| `obj_function` | Compatibility alias for `normalized_residual_rms`, not an alias for `objective_value` |
+
+The same scalar mapping is copied to
+`result_manifest.json` under `details.deterministic_inversion`; the JSON result
+itself is also included in the manifest artifact hashes. Objective choice does
+not alter the Metropolis--Hastings target or its output schema.
 
 ## Temporal layout
 

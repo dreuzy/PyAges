@@ -21,6 +21,7 @@ from pathlib import Path
 
 from pyages.calibration.methods.mh import MHConvergenceError
 from pyages.data_io.concentrations import save_concentrations_table
+from pyages.lpm.factory import describe_lpm_provenance
 from pyages.workflows.runtime import (
     promote_result_run,
     write_result_manifest,
@@ -29,6 +30,7 @@ from pyages.workflows.runtime._failure_publication import preserve_failure_resul
 from pyages.workflows.single_date.calibration import (
     reachable_concentrations,
     run_calibrations,
+    run_deterministic_inversion,
 )
 from pyages.workflows.single_date.context import prepare_context, scientific_input_paths
 from pyages.workflows.single_date.reporting import (
@@ -38,18 +40,44 @@ from pyages.workflows.single_date.reporting import (
 )
 
 
-def _manifest_details(context, calibrations: list[str]) -> dict[str, object]:
+def _manifest_details(
+    context,
+    calibrations: list[str],
+    deterministic_result=None,
+) -> dict[str, object]:
     """Return the shared single-date terminal-state metadata."""
-    return {
+    override = getattr(
+        context.params.lpm,
+        "directory_override",
+        context.params.lpm.directory,
+    )
+    model_name = context.params.lpm.models[0]
+    try:
+        provenance: object = describe_lpm_provenance(
+            model_name,
+            override,
+        ).as_dict()
+    except OSError as exc:
+        # Failure-publication tests and early infrastructure failures may not
+        # have reached model construction. Preserve that absence explicitly.
+        provenance = {
+            "model_name": model_name,
+            "unavailable_reason": str(exc),
+        }
+    details: dict[str, object] = {
         "dataset": context.params.data.name,
         "dataset_year": context.params.data.year,
         "lpm": context.params.lpm.models[0],
+        "lpm_provenance": provenance,
         "calibrations": calibrations,
         "observation_error_policy": {
             "missing_error_rel": context.params.data.missing_error_rel,
             "transformations": context.observations.error_provenance,
         },
     }
+    if deterministic_result is not None:
+        details["deterministic_inversion"] = deterministic_result.summary()
+    return details
 
 
 def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path:
@@ -71,12 +99,14 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
     if params_path is None:
         raise ValueError("params_path is required for the single-date workflow")
     context = prepare_context(params_path, force_inline=force_inline)
+    deterministic_result = None
     try:
         save_concentrations_table(
             context.observations.frame,
             context.output_directory / "concentrations.txt",
         )
         reachable = reachable_concentrations(context)
+        deterministic_result = run_deterministic_inversion(context)
         calibrated = run_calibrations(context)
         render_summary(context, reachable, calibrated)
         run_objective_analysis(context, calibrated)
@@ -89,7 +119,20 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
             workflow="single_date",
             config_path=context.config_path,
             input_paths=scientific_input_paths(context),
-            details=_manifest_details(context, sorted(calibrated)),
+            details=_manifest_details(
+                context,
+                sorted(
+                    [
+                        *calibrated,
+                        *(
+                            ["Deterministic_Inversion"]
+                            if deterministic_result is not None
+                            else []
+                        ),
+                    ]
+                ),
+                deterministic_result,
+            ),
             run_id=context.result_run.run_id,
         )
         result_directory = promote_result_run(context.result_run)
@@ -97,7 +140,9 @@ def run_single_date(params_path: str | Path, force_inline: bool = False) -> Path
         # ``run_calibrations`` executes Simplex first. Reaching its MH-specific
         # exception therefore proves that an enabled Simplex run completed.
         completed = ["Simplex"] if context.params.run.simplex else []
-        details = _manifest_details(context, completed)
+        if deterministic_result is not None:
+            completed.insert(0, "Deterministic_Inversion")
+        details = _manifest_details(context, completed, deterministic_result)
         details["calibrations_attempted"] = ["Metropolis_Hastings"]
         # A convergence failure is a terminal scientific result rather than an
         # infrastructure crash, so preserve its completed evidence when possible.

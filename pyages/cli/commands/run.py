@@ -50,6 +50,23 @@ WorkflowKind = Literal["single_date", "temporal"]
     help="Override Metropolis-Hastings iteration count.",
 )
 @click.option(
+    "--deterministic-inversion",
+    is_flag=True,
+    help="Enable deterministic inversion (single-date only).",
+)
+@click.option(
+    "--objective-loss",
+    type=click.Choice(["l1", "l2"], case_sensitive=True),
+    default=None,
+    help="Enable deterministic inversion and override its loss (single-date only).",
+)
+@click.option(
+    "--objective-scale",
+    type=click.Choice(["absolute", "relative", "uncertainty"], case_sensitive=True),
+    default=None,
+    help="Enable deterministic inversion and override its scale (single-date only).",
+)
+@click.option(
     "--data-name",
     default=None,
     help="Override dataset filename (single-date only).",
@@ -72,6 +89,9 @@ def run(
     inline: bool,
     lpm: str | None,
     mh_nsteps: int | None,
+    deterministic_inversion: bool,
+    objective_loss: Literal["l1", "l2"] | None,
+    objective_scale: Literal["absolute", "relative", "uncertainty"] | None,
     data_name: str | None,
     data_dir: Path | None,
     data_file: Path | None,
@@ -95,6 +115,9 @@ def run(
                 "inline": inline,
                 "lpm": lpm,
                 "mh_nsteps": mh_nsteps,
+                "deterministic_inversion": deterministic_inversion,
+                "objective_loss": objective_loss,
+                "objective_scale": objective_scale,
                 "data_name": data_name,
                 "data_dir": data_dir,
                 "data_file": data_file,
@@ -110,6 +133,9 @@ def run(
     verbose = params.verbose
     lpm = params.lpm
     mh_nsteps = params.mh_nsteps
+    deterministic_inversion = params.deterministic_inversion
+    objective_loss = params.objective_loss
+    objective_scale = params.objective_scale
     data_name = params.data_name
     data_dir = params.data_dir
     data_file = params.data_file
@@ -126,6 +152,9 @@ def run(
         workflow=workflow,
         lpm=lpm,
         mh_nsteps=mh_nsteps,
+        deterministic_inversion=deterministic_inversion,
+        objective_loss=objective_loss,
+        objective_scale=objective_scale,
         data_name=data_name,
         data_dir=data_dir,
         data_file=data_file,
@@ -159,17 +188,45 @@ def _apply_overrides(
     data_name: str | None,
     data_dir: Path | None,
     data_file: Path | None,
+    deterministic_inversion: bool = False,
+    objective_loss: Literal["l1", "l2"] | None = None,
+    objective_scale: Literal["absolute", "relative", "uncertainty"] | None = None,
 ) -> bool:
     """Apply command-line overrides and report whether the mapping changed."""
-    if not any([lpm, mh_nsteps, data_name, data_dir, data_file]):
+    if not any(
+        [
+            lpm,
+            mh_nsteps,
+            data_name,
+            data_dir,
+            data_file,
+            deterministic_inversion,
+            objective_loss,
+            objective_scale,
+        ]
+    ):
         return False
 
     if workflow == "temporal":
         _apply_temporal_overrides(data, lpm, mh_nsteps, data_file)
+        if deterministic_inversion or objective_loss or objective_scale:
+            _warn(
+                "Ignoring deterministic objective options "
+                "(single-date only; temporal inference remains MH)."
+            )
         if data_name or data_dir:
             _warn("Ignoring --data-name/--data-dir (single-date only).")
     else:
-        _apply_single_date_overrides(data, lpm, mh_nsteps, data_name, data_dir)
+        _apply_single_date_overrides(
+            data,
+            lpm,
+            mh_nsteps,
+            data_name,
+            data_dir,
+            deterministic_inversion=deterministic_inversion,
+            objective_loss=objective_loss,
+            objective_scale=objective_scale,
+        )
         if data_file:
             _warn("Ignoring --data-file (temporal only).")
     return True
@@ -193,6 +250,10 @@ def _apply_single_date_overrides(
     mh_nsteps: int | None,
     data_name: str | None,
     data_dir: Path | None,
+    *,
+    deterministic_inversion: bool = False,
+    objective_loss: Literal["l1", "l2"] | None = None,
+    objective_scale: Literal["absolute", "relative", "uncertainty"] | None = None,
 ) -> None:
     if data_name:
         data.setdefault("data", {})["name"] = data_name
@@ -203,6 +264,15 @@ def _apply_single_date_overrides(
     if mh_nsteps is not None:
         calibration = data.setdefault("calibration", {})
         calibration.setdefault("metropolis_hastings", {})["nsteps"] = int(mh_nsteps)
+    if deterministic_inversion or objective_loss or objective_scale:
+        data.setdefault("run", {})["deterministic_inversion"] = True
+        deterministic = data.setdefault("calibration", {}).setdefault(
+            "deterministic_inversion", {}
+        )
+        if objective_loss is not None:
+            deterministic["loss"] = objective_loss
+        if objective_scale is not None:
+            deterministic["scale"] = objective_scale
 
 
 def _warn(message: str) -> None:

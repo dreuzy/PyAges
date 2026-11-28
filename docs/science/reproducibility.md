@@ -85,6 +85,32 @@ the locally hash-qualified TracerLPM components. Historical outputs may be
 compared separately, but are not initial states, priors, gates, or required
 files for the new campaign.
 
+### Diagnostic changes require new evidence
+
+Current article runners use
+`pyages.calibration.methods.mh.diagnostics` for rank-normalized folded
+split-R-hat, bulk ESS, tail ESS, and mean MCSE. Per-chain autocorrelation and
+integrated-autocorrelation-time series may still be exported as descriptive
+trace aids, but they are not qualification ESS estimates.
+
+Changing a diagnostic formula, its chain-shape handling, or a qualification
+gate never authorizes editing a historical manifest or checksum. The
+historical layer remains a byte-for-byte control through
+`scripts.article.run_case check`. A result reported with the changed diagnostic
+belongs to a new campaign directory and a new campaign manifest. If the
+diagnostic controls automatic extension, pooling, figure release, or a reported
+convergence value, rerun the affected campaign stage before revising the
+publication value; recomputing only the final CSV is not equivalent to that
+campaign. `reproduce_article resume` therefore refuses a campaign manifest
+whose diagnostic contract differs from the current one and directs the caller
+to a new `--output` directory.
+
+The legacy single-chain `ess_approx` exported by
+`run_remaining_non_ploemeur_simulations.py` is deliberately retained only as a
+historical/descriptive length-comparison statistic. It is not used for
+multi-chain qualification and must not be presented as the central bulk or
+tail ESS.
+
 The dated {doc}`../reports/reproduction_campaign_status_2026-08-27` report
 records the current observed state. The historical inventory is available for
 0/6 cases in this checkout, while the fresh external campaign validates all

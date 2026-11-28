@@ -119,4 +119,5 @@ def test_temporal_workflow_runs_real_pilot_chains_diagnostics_and_pooling(
     )
     assert manifest["status"] == "complete"
     assert manifest["details"]["lpms"] == ["exp_shifted"]
+    assert manifest["details"]["lpm_provenance"][0]["provider_distribution"] == "pyages"
     assert "span_full/exp_shifted/run_provenance.txt" in manifest["artifacts_sha256"]

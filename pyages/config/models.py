@@ -92,6 +92,13 @@ class SingleDateLpmCfg(BaseConfigModel):
     def _resolve_lpm_dir(cls, value: Path, info):
         return _resolve_path(value, info)
 
+    @property
+    def directory_override(self) -> Path | None:
+        """Return the directory only when the YAML explicitly selected it."""
+        if "directory" not in self.model_fields_set:
+            return None
+        return self.directory
+
 
 class SingleDateTracerCfg(BaseConfigModel):
     """Optional tracer data override for single-date launcher workflows."""
@@ -111,6 +118,7 @@ class SingleDateRunCfg(BaseConfigModel):
 
     reachable_concentrations: bool = True
     objective_function: bool = True
+    deterministic_inversion: bool = False
     metropolis_hastings: bool = True
     simplex: bool = True
 
@@ -321,6 +329,25 @@ class SingleDateSimplexCfg(BaseConfigModel):
     fuq_n: int = Field(default=30, ge=1)
 
 
+class DeterministicInversionCfg(BaseConfigModel):
+    """Explicit objective and optimizer for deterministic point estimation.
+
+    This configuration is consumed only when
+    ``run.deterministic_inversion`` is true. It is deliberately separate from
+    Metropolis--Hastings, whose likelihood remains the historical Gaussian
+    chi-square target.
+    """
+
+    loss: Literal["l1", "l2"] = "l2"
+    scale: Literal["absolute", "relative", "uncertainty"] = "uncertainty"
+    relative_floor: float = Field(default=1.0e-300, gt=0.0, allow_inf_nan=False)
+    optimizer: Literal["powell", "nelder-mead", "l-bfgs-b"] = "powell"
+
+    _strict_relative_floor = field_validator("relative_floor", mode="before")(
+        _reject_boolean_number
+    )
+
+
 class SingleDateOutputCfg(BaseConfigModel):
     """Output location for a single-date workflow."""
 
@@ -354,6 +381,9 @@ class SingleDateOutputCfg(BaseConfigModel):
 class SingleDateCalibrationCfg(BaseConfigModel):
     """Calibration methods available to a single-date workflow."""
 
+    deterministic_inversion: DeterministicInversionCfg = Field(
+        default_factory=DeterministicInversionCfg
+    )
     metropolis_hastings: MetropolisHastingsCfg = Field(
         default_factory=MetropolisHastingsCfg
     )
@@ -506,6 +536,7 @@ __all__ = [
     "MHPilotCfg",
     "MHDiagnosticsCfg",
     "MetropolisHastingsCfg",
+    "DeterministicInversionCfg",
     "SingleDateConfig",
     "SingleDateCalibrationCfg",
     "SingleDateDataCfg",

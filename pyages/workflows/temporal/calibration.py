@@ -47,7 +47,7 @@ def run_model_calibration(
     observations: Concentrations,
     lpm_type: str,
     output_directory: Path,
-    lpm_directory: Path,
+    lpm_directory: Path | None,
     calibration_cfg: TemporalCalibrationCfg,
     figures_cfg: TemporalReportingCfg,
 ) -> None:

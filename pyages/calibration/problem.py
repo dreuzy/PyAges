@@ -10,9 +10,9 @@
 ``CalibrationProblem`` is the boundary between input preparation and search
 algorithms.  It constructs one LPM and one ordered collection of tracer
 convolutions, validates observation units, resolves missing uncertainties, and
-then exposes a single chi-square objective.  Optimizers and samplers therefore
-operate on the same prepared forward model instead of rebuilding scientific
-objects independently.
+exposes the prepared forward calculation independently from residual scoring.
+The historical chi-square objective remains the fixed target consumed by the
+existing optimizers and posterior samplers.
 """
 
 from __future__ import annotations
@@ -22,11 +22,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 
 import pyages.calibration.target_signature as target_signatures
 from pyages.calibration.exploration.systematic import SystematicSampling
 from pyages.calibration.objective import squared_normalized_residuals
-from pyages.config.paths import DIRECTORY_LPM_DATA
 from pyages.config.runtime import DisplayOptions
 from pyages.convolution import ConvolutionTracers
 from pyages.lpm.factory import build_lpm
@@ -70,10 +70,13 @@ def resolve_observation_errors(
 class CalibrationProblem:
     """Observations, LPM and tracers required by a calibration.
 
-    A problem is prepared once, then passed to a calibration method such as
-    :class:`Simplex` or :class:`MetropolisHastings`. Systematic exploration is
-    available through :attr:`sampling` but is not a parent class of the
-    problem.
+    A problem is prepared once, then passed to deterministic
+    :func:`~pyages.calibration.inversion.invert_lpm` or a workflow method such
+    as :class:`Simplex` or :class:`MetropolisHastings`. It owns the physical
+    forward calculation and historical chi-square target, but the public
+    deterministic objective choice belongs to :class:`ObjectiveSpec`.
+    Systematic exploration is available through :attr:`sampling` but is not a
+    parent class of the problem.
     """
 
     def __init__(
@@ -82,7 +85,7 @@ class CalibrationProblem:
         lpm_type: str,
         *,
         display_options: DisplayOptions | None = None,
-        lpm_directory: str | Path = DIRECTORY_LPM_DATA,
+        lpm_directory: str | Path | None = None,
         tracer_data_directory: str | Path | None = None,
         missing_error_relative_fraction: float = 0.01,
         sample_count: int = 1000,
@@ -98,7 +101,7 @@ class CalibrationProblem:
         """
         self.observations = observations
         self.lpm_type = lpm_type
-        self.lpm_directory = Path(lpm_directory)
+        self.lpm_directory = Path(lpm_directory) if lpm_directory is not None else None
         self.tracer_data_directory = (
             Path(tracer_data_directory) if tracer_data_directory is not None else None
         )
@@ -238,7 +241,13 @@ class CalibrationProblem:
         return clone
 
     def prepared_observation_arrays(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return detached values and errors from the prepared observation snapshot."""
+        """Return detached concentration and uncertainty vectors.
+
+        Both arrays follow ``observations.observation_keys()`` order and come
+        from the immutable preparation snapshot, not from a subsequently
+        replaced DataFrame. Mutating either returned array cannot change the
+        problem.
+        """
         self.ensure_prepared()
         assert self._prepared_observations_frame is not None
         return (
@@ -323,6 +332,68 @@ class CalibrationProblem:
             return_concentrations=return_concentrations,
         )
 
+    def predict(self, parameters: npt.ArrayLike) -> list[float]:
+        """Evaluate the prepared forward model for one parameter vector.
+
+        This method deliberately performs no residual aggregation. Deterministic
+        inversion can therefore apply several objective definitions to exactly
+        the same physical predictions. The committed problem LPM is updated to
+        the supplied parameters, matching the historical objective behavior.
+
+        Parameters
+        ----------
+        parameters
+            Numeric values in ``lpm.get_param_names()`` order and native units.
+
+        Returns
+        -------
+        list of float
+            One modeled concentration per prepared observation, in
+            ``observations.observation_keys()`` order and declared units.
+
+        Notes
+        -----
+        Use :meth:`predict_for_lpm` with a private LPM copy when evaluating a
+        proposal that must not mutate the problem's committed model.
+        """
+        self.ensure_prepared()
+        assert self.lpm is not None
+        return self.predict_for_lpm(self.lpm, parameters)
+
+    def predict_for_lpm(
+        self,
+        lpm: LpmBase,
+        parameters: npt.ArrayLike,
+    ) -> list[float]:
+        """Evaluate the forward model with an explicitly supplied working LPM.
+
+        Callers that require isolation, including deterministic inversion and
+        posterior proposals, supply a private LPM copy so the problem's
+        committed model is not mutated during candidate evaluation.
+
+        Parameters
+        ----------
+        lpm
+            Working model to configure. This object is mutated in place.
+        parameters
+            Numeric values in ``lpm.get_param_names()`` order and native units.
+
+        Returns
+        -------
+        list of float
+            Modeled concentrations in prepared observation order.
+
+        Notes
+        -----
+        The supplied LPM must represent the same model family as the prepared
+        problem. The method reuses the problem's prepared tracer convolutions;
+        it does not validate or copy an unrelated model on the caller's behalf.
+        """
+        self.ensure_prepared()
+        assert self.tracers is not None
+        lpm.set_param_from_array(parameters)
+        return self.tracers.convolve(lpm)
+
     def objective_function_for_lpm(
         self,
         lpm: LpmBase,
@@ -332,19 +403,22 @@ class CalibrationProblem:
         *,
         return_concentrations: bool = False,
     ):
-        """Evaluate one parameter vector on an explicitly supplied working LPM.
+        r"""Evaluate historical chi-square on an explicitly supplied LPM.
 
         The supplied model is the only mutable object changed by this method.
         Samplers use a private candidate LPM so a proposal cannot alter the
         problem's committed model before the transition is accepted.
+
+        This method always computes
+        :math:`\sum_i[(m_i-y_i)/\sigma_i]^2`; it does not consult
+        :class:`ObjectiveSpec`. Use :meth:`predict_for_lpm` followed by
+        ``ObjectiveSpec.evaluate()`` for a configurable deterministic score.
         """
         self.ensure_prepared()
         errors = np.asarray(observed_errors, dtype=float)
         if np.any(errors <= 0.0) or not np.all(np.isfinite(errors)):
             raise ValueError("Calibration errors must be finite and strictly positive.")
-        assert self.tracers is not None
-        lpm.set_param_from_array(parameters)
-        modeled = self.tracers.convolve(lpm)
+        modeled = self.predict_for_lpm(lpm, parameters)
         objective = float(
             np.sum(squared_normalized_residuals(observed_values, modeled, errors))
         )

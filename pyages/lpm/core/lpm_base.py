@@ -34,7 +34,7 @@ from __future__ import annotations
 import abc
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 import numpy.typing as npt
@@ -43,6 +43,9 @@ from scipy import optimize
 
 from pyages.lpm.core.convolution_strategy import ConvolutionStrategy
 from pyages.lpm.core.parameter_manager import ParameterManager
+
+if TYPE_CHECKING:
+    from pyages.lpm.extensions import LpmProvenance
 
 
 class LpmBase(abc.ABC):
@@ -120,6 +123,7 @@ class LpmBase(abc.ABC):
         self.p = dict(parameter_values)
         self.__u = dict(parameter_units)
         self._directory_lpm = Path(directory_lpm)
+        self._provenance: LpmProvenance | None = None
         self._param_manager = ParameterManager(
             model_name=name,
             directory_lpm=self._directory_lpm,
@@ -192,6 +196,17 @@ class LpmBase(abc.ABC):
     def lpm_data_directory(self) -> Path:
         """Return the root directory containing LPM parameter folders."""
         return self._directory_lpm
+
+    @property
+    def provenance(self) -> LpmProvenance | None:
+        """Return immutable provider provenance when built by the public factory."""
+        return self._provenance
+
+    def _attach_provenance(self, provenance: LpmProvenance) -> None:
+        """Attach factory-resolved provenance exactly once."""
+        if self._provenance is not None and self._provenance != provenance:
+            raise RuntimeError("LPM provenance is already attached")
+        self._provenance = provenance
 
     def fixed_scientific_state(self) -> Mapping[str, Any]:
         """Return model state affecting science but absent from sampled ``p``.

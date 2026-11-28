@@ -18,18 +18,30 @@ This module does not publish the stage or write the terminal run manifest.
 from __future__ import annotations
 
 import copy
+import json
 from pathlib import Path
 
 import pandas as pd
 
 from pyages.calibration.exploration.systematic import SystematicSampling
+from pyages.calibration.inversion import InversionResult, invert_lpm
 from pyages.calibration.methods.simplex import FORWARD_UNCERTAINTY, Simplex
+from pyages.calibration.objective import ObjectiveSpec
 from pyages.calibration.outputs import write_calibrated_result
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.paths import result_subdirectory
 from pyages.lpm.samples import LpmSampleTable
 from pyages.workflows.runtime.mh import run_mh_calibration
 from pyages.workflows.single_date.context import SingleDateContext
+
+
+def _lpm_directory_override(context: SingleDateContext) -> Path | None:
+    """Preserve explicit test/config overrides and omit the schema default."""
+    return getattr(
+        context.params.lpm,
+        "directory_override",
+        context.params.lpm.directory,
+    )
 
 
 def _calibration_problem(
@@ -42,7 +54,7 @@ def _calibration_problem(
         context.observations,
         context.params.lpm.models[0],
         display_options=display,
-        lpm_directory=context.params.lpm.directory,
+        lpm_directory=_lpm_directory_override(context),
         tracer_data_directory=context.params.tracers.data_directory,
     ).prepare()
 
@@ -62,7 +74,7 @@ def reachable_concentrations(context: SingleDateContext) -> pd.DataFrame | None:
         date=context.observations.frame["date"],
         sample_count=context.params.reachable_concentrations.nmodels,
         display_options=display,
-        lpm_directory=context.params.lpm.directory,
+        lpm_directory=_lpm_directory_override(context),
         tracer_data_directory=context.params.tracers.data_directory,
     )
     sampling.compute_concentrations()
@@ -83,6 +95,34 @@ def _run_simplex(context: SingleDateContext) -> tuple[str, LpmSampleTable]:
     results = method.run(problem)
     write_calibrated_result(method, problem, results)
     return method.method, results
+
+
+def run_deterministic_inversion(
+    context: SingleDateContext,
+) -> InversionResult | None:
+    """Run and serialize the configured deterministic point estimate."""
+    if not context.params.run.deterministic_inversion:
+        return None
+    config = context.params.calibration.deterministic_inversion
+    output_directory = result_subdirectory(
+        context.output_directory,
+        "Deterministic_Inversion",
+    )
+    problem = _calibration_problem(context, output_directory)
+    result = invert_lpm(
+        problem,
+        objective=ObjectiveSpec(
+            loss=config.loss,
+            scale=config.scale,
+            relative_floor=config.relative_floor,
+        ),
+        optimizer=config.optimizer,
+    )
+    (output_directory / "inversion_result.json").write_text(
+        json.dumps(result.to_dict(), indent=2, sort_keys=True, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    return result
 
 
 def _run_metropolis_hastings(
@@ -119,4 +159,8 @@ def run_calibrations(context: SingleDateContext) -> dict[str, LpmSampleTable]:
     return results
 
 
-__all__ = ["reachable_concentrations", "run_calibrations"]
+__all__ = [
+    "reachable_concentrations",
+    "run_calibrations",
+    "run_deterministic_inversion",
+]

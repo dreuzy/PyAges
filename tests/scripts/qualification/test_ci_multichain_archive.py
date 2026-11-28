@@ -343,7 +343,7 @@ def test_extensive_workflow_builds_archive_before_always_upload() -> None:
         "examples/**/*.txt",
         "examples/**/*.xlsx",
         "sites/ploemeur/**",
-        "scripts/common/mcmc_diagnostics.py",
+        "pyages/calibration/methods/mh/diagnostics.py",
         "scripts/common/provenance.py",
         "scripts/common/reporting.py",
         "scripts/qualification/_archive_*.py",

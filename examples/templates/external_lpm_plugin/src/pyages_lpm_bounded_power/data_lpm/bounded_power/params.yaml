@@ -1,0 +1,25 @@
+# Packaged parameter schema for the bounded-power reference plugin.
+# Keep names and units synchronized with BoundedPowerLpm.__init__.
+# These ranges are demonstrative and require review for every scientific use.
+
+model: bounded_power
+version: 1
+parameters:
+  - name: alpha
+    label: power_shape
+    unit: "-"
+    description: Shape exponent of the bounded power law.
+    domain: {min: 1.0, min_inclusive: true, max: null}
+    calibration_range: [1.0, 8.0]
+    init: 2.0
+    step: 0.2
+    prior: {type: uniform, min: 1.0, max: 8.0, unit: "-"}
+  - name: maximum_age
+    label: maximum_age
+    unit: year
+    description: Finite upper support of the distribution.
+    domain: {min: 0.0, min_inclusive: false, max: null}
+    calibration_range: [1.0, 200.0]
+    init: 50.0
+    step: 2.0
+    prior: {type: uniform, min: 1.0, max: 200.0, unit: year}

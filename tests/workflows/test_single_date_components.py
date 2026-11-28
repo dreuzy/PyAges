@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -34,6 +35,7 @@ def _context(tmp_path, *, staged=False, **overrides):
         "run_reachable_concentrations": False,
         "reachable_concentration_nmodels": 10,
         "run_simplex": False,
+        "run_deterministic_inversion": False,
         "run_metropolis_hastings": False,
         "run_objective_function": False,
         "objective_function_nmodels": 10,
@@ -64,6 +66,7 @@ def _context(tmp_path, *, staged=False, **overrides):
         run=SimpleNamespace(
             reachable_concentrations=parameters["run_reachable_concentrations"],
             simplex=parameters["run_simplex"],
+            deterministic_inversion=parameters["run_deterministic_inversion"],
             metropolis_hastings=parameters["run_metropolis_hastings"],
             objective_function=parameters["run_objective_function"],
         ),
@@ -74,6 +77,12 @@ def _context(tmp_path, *, staged=False, **overrides):
             nmodels=parameters["objective_function_nmodels"]
         ),
         calibration=SimpleNamespace(
+            deterministic_inversion=SimpleNamespace(
+                loss="l2",
+                scale="uncertainty",
+                relative_floor=1.0e-300,
+                optimizer="powell",
+            ),
             metropolis_hastings=MetropolisHastingsCfg(
                 nsteps=parameters["mh_nsteps"],
                 burn_in=parameters["mh_burn_in"],
@@ -247,6 +256,45 @@ def test_run_calibrations_respects_independent_enable_flags(
     assert single_calibration.run_calibrations(_context(tmp_path)) == {}
 
 
+def test_deterministic_workflow_serializes_the_configured_objective(
+    tmp_path, monkeypatch
+) -> None:
+    context = _context(tmp_path, run_deterministic_inversion=True)
+    problem = object()
+    result = SimpleNamespace(
+        to_dict=lambda: {
+            "objective_name": "relative_l1",
+            "objective_value": 0.25,
+            "loss": "l1",
+            "scale": "relative",
+            "relative_floor": 1.0e-12,
+            "chi_square": 4.0,
+            "normalized_residual_rms": 2.0,
+            "obj_function": 2.0,
+        }
+    )
+    context.params.calibration.deterministic_inversion = SimpleNamespace(
+        loss="l1",
+        scale="relative",
+        relative_floor=1.0e-12,
+        optimizer="powell",
+    )
+    build = Mock(return_value=problem)
+    invert = Mock(return_value=result)
+    monkeypatch.setattr(single_calibration, "_calibration_problem", build)
+    monkeypatch.setattr(single_calibration, "invert_lpm", invert)
+
+    returned = single_calibration.run_deterministic_inversion(context)
+
+    assert returned is result
+    objective = invert.call_args.kwargs["objective"]
+    assert objective.name == "relative_l1"
+    assert objective.relative_floor == pytest.approx(1.0e-12)
+    assert invert.call_args.kwargs["optimizer"] == "powell"
+    artifact = context.output_directory / "Deterministic_Inversion" / "inversion_result.json"
+    assert json.loads(artifact.read_text(encoding="utf-8")) == result.to_dict()
+
+
 def test_case_label_prefers_explicit_label_and_normalizes_filename() -> None:
     assert (
         single_reporting.case_label(
@@ -360,6 +408,7 @@ def test_run_single_date_orchestrates_steps_and_manifest(tmp_path, monkeypatch) 
         single_date, "prepare_context", lambda *_args, **_kwargs: context
     )
     monkeypatch.setattr(single_date, "reachable_concentrations", lambda _ctx: reachable)
+    monkeypatch.setattr(single_date, "run_deterministic_inversion", lambda _ctx: None)
     monkeypatch.setattr(single_date, "run_calibrations", lambda _ctx: calibrated)
     monkeypatch.setattr(single_date, "render_summary", render)
     monkeypatch.setattr(single_date, "run_objective_analysis", objective)
@@ -446,6 +495,7 @@ def test_run_single_date_manifests_a_multichain_convergence_failure(
         single_date, "prepare_context", lambda *_args, **_kwargs: context
     )
     monkeypatch.setattr(single_date, "reachable_concentrations", lambda _ctx: None)
+    monkeypatch.setattr(single_date, "run_deterministic_inversion", lambda _ctx: None)
     monkeypatch.setattr(single_date, "run_calibrations", Mock(side_effect=error))
     monkeypatch.setattr(single_date, "write_result_manifest", success_manifest)
     monkeypatch.setattr(single_date, "preserve_failure_result", preserve)
@@ -532,6 +582,7 @@ def test_failure_manifest_keeps_a_completed_simplex_before_mh_rejection(
         single_date, "prepare_context", lambda *_args, **_kwargs: context
     )
     monkeypatch.setattr(single_date, "reachable_concentrations", lambda _ctx: None)
+    monkeypatch.setattr(single_date, "run_deterministic_inversion", lambda _ctx: None)
     monkeypatch.setattr(single_date, "run_calibrations", Mock(side_effect=error))
     monkeypatch.setattr(single_date, "preserve_failure_result", preserve)
 

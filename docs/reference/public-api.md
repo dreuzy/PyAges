@@ -12,11 +12,17 @@ The following interfaces are intended for users:
 - the symbols exported by `pyages.convolution.__all__`;
 - `pyages.lpm.factory.build_lpm`, `build_random_lpm`, and
   `list_available_lpms`;
+- `pyages.lpm.extensions.LpmDefinition` and `LpmProvenance` for installed LPM
+  plugins and resolved model provenance;
+- `pyages.lpm.checks.check_lpm` for programmatic integration checks;
 - `pyages.lpm.samples.LpmSampleTable`;
 - `pyages.tracer.tracer_root.Tracer`;
 - `pyages.concentrations.Concentrations`, constructed with `from_file()` or
   `from_dataframe()`, and `pyages.concentrations.ConcentrationChronicle`;
 - the validated models exported by `pyages.config`;
+- `pyages.calibration.CalibrationProblem`, `ObjectiveSpec`, `invert_lpm`, and
+  the immutable `InversionResult`, `InversionAttempt`, and `ResidualRecord`
+  result records;
 - `pyages.workflows.run_single_date` and `pyages.workflows.run_temporal`;
 - documented YAML configuration fields and the result files defined in
   {doc}`outputs`.

@@ -1,0 +1,29 @@
+# Packaged parameter schema for the SciPy-backed gamma reference plugin.
+# Keep names and units synchronized with GammaMeanLpm.__init__.
+# These ranges are demonstrative and require review for every scientific use.
+# ``domain`` describes mathematical validity. ``min_inclusive: false`` means
+# the value must be strictly greater than ``min``; ``max: null`` means no
+# finite mathematical upper bound. ``calibration_range`` is the smaller,
+# finite interval explored for this calibration configuration.
+
+model: gamma_mean
+version: 1
+parameters:
+  - name: mu
+    label: mean_age
+    unit: year
+    description: Mean transit time.
+    domain: {min: 0.0, min_inclusive: false, max: null}
+    calibration_range: [0.1, 200.0]
+    init: 10.0
+    step: 1.0
+    prior: {type: uniform, min: 0.1, max: 200.0, unit: year}
+  - name: shape
+    label: gamma_shape
+    unit: "-"
+    description: Dimensionless gamma shape.
+    domain: {min: 0.0, min_inclusive: false, max: null}
+    calibration_range: [0.2, 20.0]
+    init: 2.0
+    step: 0.2
+    prior: {type: uniform, min: 0.2, max: 20.0, unit: "-"}

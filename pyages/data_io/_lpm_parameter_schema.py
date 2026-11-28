@@ -26,7 +26,13 @@ class LPMParamsError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class LPMParameterDomain:
-    """Mathematical validity domain independent of calibration and prior choices."""
+    """Represent the mathematical validity interval of one model parameter.
+
+    ``None`` means unbounded on that side. Inclusivity controls whether an
+    otherwise finite boundary itself is valid: for example, ``minimum=0`` and
+    ``minimum_inclusive=False`` expresses a strictly positive parameter. This
+    domain is distinct from the finite interval selected for calibration.
+    """
 
     minimum: float | None
     maximum: float | None
@@ -34,7 +40,12 @@ class LPMParameterDomain:
     maximum_inclusive: bool = True
 
     def contains(self, value: float) -> bool:
-        """Return whether one finite value belongs to this domain."""
+        """Return whether a finite scalar satisfies both domain boundaries.
+
+        Non-finite values always return ``False``. Open and closed finite
+        boundaries follow ``minimum_inclusive`` and ``maximum_inclusive``;
+        unbounded sides impose no comparison.
+        """
         if not math.isfinite(value):
             return False
         if self.minimum is not None:
@@ -52,7 +63,13 @@ class LPMParameterDomain:
 
 @dataclass(frozen=True, slots=True)
 class LPMParameterDefinition:
-    """Validated runtime metadata for one LPM parameter."""
+    """Store the normalized operational contract for one model parameter.
+
+    The record separates formula validity (``domain``), the finite search
+    interval (``calibration_range``), the initial value, an optional positive
+    proposal step, and an optional immutable prior mapping. Descriptive YAML
+    fields remain documentation and are not required for numerical execution.
+    """
 
     name: str
     domain: LPMParameterDomain
@@ -69,7 +86,12 @@ class LPMParameterDefinition:
 
 @dataclass(frozen=True, slots=True)
 class LPMParameterSchema:
-    """Immutable runtime schema parsed from one LPM parameter file."""
+    """Store an immutable, ordered version-1 ``params.yaml`` contract.
+
+    Parameter order is retained because array-based calibration APIs must agree
+    with constructor dictionary order. Convenience properties return fresh
+    dictionaries so callers cannot mutate the validated records.
+    """
 
     model: str
     parameters: tuple[LPMParameterDefinition, ...]
@@ -155,7 +177,15 @@ def _validated_domain(
     parameter_name: str,
     calibration_range: tuple[float, float],
 ) -> LPMParameterDomain:
-    """Validate a domain or derive it from the calibration range."""
+    """Validate mathematical limits or derive closed limits from calibration.
+
+    An omitted ``domain`` uses both calibration endpoints as inclusive
+    mathematical boundaries. An explicit mapping accepts finite numbers or
+    ``null`` for ``min`` and ``max`` plus boolean ``min_inclusive`` and
+    ``max_inclusive`` flags, which default to ``True``. Empty open intervals
+    are rejected here; containment of the calibration range is checked by the
+    caller once both structures are available.
+    """
     if raw_domain is None:
         return LPMParameterDomain(calibration_range[0], calibration_range[1])
     if not isinstance(raw_domain, Mapping):
@@ -285,7 +315,13 @@ def _validated_calibration_range(
     model_name: str,
     parameter_name: str,
 ) -> tuple[float, float]:
-    """Return the required operational ``calibration_range``."""
+    """Return the required finite, ordered operational search interval.
+
+    Exactly two numeric finite values are required and the lower endpoint may
+    equal the upper endpoint. The legacy key ``bounds`` is rejected with a
+    focused migration message. Mathematical-domain containment is checked by
+    :func:`_parameter_definition`.
+    """
     if "bounds" in raw_parameter:
         raise LPMParamsError(
             f"{model_name}: parameter {parameter_name!r} uses unsupported "
@@ -322,7 +358,11 @@ def _validated_step(
     model_name: str,
     parameter_name: str,
 ) -> float | None:
-    """Return an optional strictly-positive proposal step."""
+    """Normalize an optional finite, strictly positive proposal step.
+
+    Absence returns ``None``. The value configures model-sourced componentwise
+    proposals; it is independent of calibration width and scientific prior.
+    """
     if "step" not in raw_parameter:
         return None
     step = _finite_float(
@@ -343,7 +383,12 @@ def _validated_optional_prior(
     model_name: str,
     parameter_name: str,
 ) -> Mapping[str, Any] | None:
-    """Validate and freeze an optional prior definition."""
+    """Validate an optional prior and recursively freeze its normalized data.
+
+    Absence returns ``None``. A present value must be a mapping accepted by
+    :func:`_validated_prior`; freezing ensures callers cannot mutate cached
+    parameter schemas through nested prior containers.
+    """
     raw_prior = raw_parameter.get("prior")
     if raw_prior is None:
         return None

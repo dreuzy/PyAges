@@ -48,6 +48,48 @@ def test_lpm_extension_examples_include_the_continuous_convolution_contract() ->
     compile(_first_python_block(lognormal_example), "adding-lpm:lognormal", "exec")
 
 
+def test_external_lpm_guides_are_navigable_and_task_oriented() -> None:
+    """Keep the quickstart, reference, example, and user-guide index connected."""
+    index = (ROOT / "docs/user-guide/index.md").read_text(encoding="utf-8")
+    quickstart = (ROOT / "docs/user-guide/external-lpm-quickstart.md").read_text(
+        encoding="utf-8"
+    )
+    reference = (ROOT / "docs/user-guide/external-lpm-models.md").read_text(
+        encoding="utf-8"
+    )
+    parameter_reference = (ROOT / "docs/user-guide/adding-lpm.md").read_text(
+        encoding="utf-8"
+    )
+    example_readmes = tuple(
+        (ROOT / relative_path).read_text(encoding="utf-8")
+        for relative_path in (
+            "examples/templates/external_lpm_plugin/README.md",
+            "examples/templates/external_lpm_plugin_scipy/README.md",
+        )
+    )
+
+    assert index.index("external-lpm-quickstart") < index.index("external-lpm-models")
+    assert "pyages new lpm my_model --layout plugin" in quickstart
+    assert "pyages check lpm my_model" in quickstart
+    assert "scientifically appropriate" in quickstart
+    assert "Mental model: an installed catalogue entry" in reference
+    assert "Parameter-directory precedence" in reference
+    assert "actual temporary installations" in reference
+    assert "Compare the two maintained examples" in quickstart
+    assert "external_lpm_plugin_scipy" in quickstart
+    assert "`min_inclusive: false` means `value > min`" in quickstart
+    assert "external-lpm-integration-checking" in quickstart
+    assert "(lpm-parameter-file-reference)=" in parameter_reference
+    assert "Mathematical domain and calibration range" in parameter_reference
+    for example in example_readmes:
+        assert "## Read the files in this order" in example
+        assert "Ce répertoire" not in example
+    scipy_example = example_readmes[1]
+    assert "## Understand the model step by step" in scipy_example
+    assert "## Read `params.yaml`" in scipy_example
+    assert "## Understand the tests" in scipy_example
+
+
 def test_readmes_describe_configurable_temporal_result_layout() -> None:
     for relative_path in ("README.md", "scripts/README.md"):
         document = (ROOT / relative_path).read_text(encoding="utf-8")
@@ -353,7 +395,21 @@ def test_calibration_guide_covers_operational_and_scientific_gates() -> None:
     assert "retained_sample_count" in document
     assert "result_manifest.json" in document
     assert "split-$\\hat R$" in document
-    assert "Only `CalibrationProblem`" in document
+    assert "`CalibrationProblem`, `ObjectiveSpec`, `invert_lpm()`" in document
+    assert "only residual scoring changes" in document
+
+
+def test_deterministic_inversion_is_navigable_for_contributors() -> None:
+    code_tour = (ROOT / "docs/dev/code-tour.md").read_text(encoding="utf-8")
+    architecture = (ROOT / "docs/architecture.md").read_text(encoding="utf-8")
+    inventory = (ROOT / "docs/dev/test-inventory.md").read_text(encoding="utf-8")
+
+    for document in (code_tour, architecture):
+        assert "ObjectiveSpec" in document
+        assert "invert_lpm" in document
+        assert "deterministic" in document.lower()
+    assert "`tests/calibration/test_inversion.py`" in inventory
+    assert "`tests/calibration/test_objective_metrics.py`" in inventory
 
 
 def test_generic_multichain_archive_is_documented_outside_article_tooling() -> None:

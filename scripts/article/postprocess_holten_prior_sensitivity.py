@@ -291,7 +291,7 @@ def validate_convergence(convergence: pd.DataFrame, source: Path) -> dict[str, f
 
     _require_columns(
         convergence,
-        ("prior", "well", "split_rhat", "ess_sum_chains", "converged"),
+        ("prior", "well", "split_rhat", "converged"),
         source,
     )
     if len(convergence) != 49 or set(convergence["well"]) != set(WELL_ORDER):
@@ -301,7 +301,12 @@ def validate_convergence(convergence: pd.DataFrame, source: Path) -> dict[str, f
             "Convergence diagnostics contain a prior other than dirichlet_1"
         )
     rhat = _numeric_column(convergence, "split_rhat")
-    ess = _numeric_column(convergence, "ess_sum_chains")
+    if {"bulk_ess", "tail_ess"} <= set(convergence.columns):
+        ess = convergence[["bulk_ess", "tail_ess"]].apply(
+            pd.to_numeric, errors="raise"
+        ).min(axis=1)
+    else:
+        ess = _numeric_column(convergence, "ess_sum_chains")
     converged = (
         _column(convergence, "converged")
         .astype(str)
@@ -565,7 +570,7 @@ def postprocess(
     )
     convergence_frame = _read_csv(
         convergence_path,
-        ("prior", "well", "split_rhat", "ess_sum_chains", "converged"),
+        ("prior", "well", "split_rhat", "converged"),
     )
     prior_only = _read_csv(
         prior_only_path, ("prior", "fraction", "mean", "median", "q10", "q90")

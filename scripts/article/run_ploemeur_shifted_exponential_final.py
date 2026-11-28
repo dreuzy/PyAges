@@ -45,18 +45,7 @@ if str(ROOT) not in sys.path:
 
 from pyages._scalar_conversion import scalar_bool, scalar_float, scalar_int
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
-from pyages.calibration.methods.mh.diagnostics import (
-    ess as _ess,
-)
-from pyages.calibration.methods.mh.diagnostics import (
-    mcse_mean_from_ess,
-)
-from pyages.calibration.methods.mh.diagnostics import (
-    rank_normalize as _rank_normalize,
-)
-from pyages.calibration.methods.mh.diagnostics import (
-    split_rhat as _split_rhat,
-)
+from pyages.calibration.methods.mh import diagnostics as mcmc_diagnostics
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
@@ -588,10 +577,11 @@ def _diagnostics(
             )
         for parameter in ("mu", "t0", "t50"):
             values = data[parameter]
-            rhat = _split_rhat(values)
-            ess = _ess(_rank_normalize(values))
+            rhat = mcmc_diagnostics.split_rhat(values)
+            bulk_ess = mcmc_diagnostics.bulk_ess(values)
+            tail_ess = mcmc_diagnostics.tail_ess(values)
             flat = values.reshape(-1)
-            mean_mcse = mcse_mean_from_ess(flat, ess)
+            mean_mcse = mcmc_diagnostics.mcse_mean(values)
             diagnostic_rows.append(
                 {
                     "case": case.key,
@@ -600,9 +590,14 @@ def _diagnostics(
                     "parameter": parameter,
                     "steps_per_chain": steps,
                     "split_rhat": rhat,
-                    "ESS": ess,
+                    "bulk_ess": bulk_ess,
+                    "tail_ess": tail_ess,
                     "mcse_mean": mean_mcse,
-                    "converged": bool(rhat < MAX_RHAT and ess >= MIN_ESS),
+                    "converged": bool(
+                        rhat < MAX_RHAT
+                        and bulk_ess >= MIN_ESS
+                        and tail_ess >= MIN_ESS
+                    ),
                 }
             )
             summary_rows.append(
@@ -965,7 +960,8 @@ def _compact_and_quality(
                     chains["case"] == case.key, "best_sqrt_J_over_m"
                 ].min(),
                 "max_split_rhat": case_diagnostics["split_rhat"].max(),
-                "min_ESS": case_diagnostics["ESS"].min(),
+                "min_bulk_ess": case_diagnostics["bulk_ess"].min(),
+                "min_tail_ess": case_diagnostics["tail_ess"].min(),
             }
         )
         row = {
@@ -975,7 +971,8 @@ def _compact_and_quality(
             "t50_median": new_t50["median"],
             "steps_per_chain": lengths[case.key],
             "max_split_rhat": case_diagnostics["split_rhat"].max(),
-            "min_ESS": case_diagnostics["ESS"].min(),
+            "min_bulk_ess": case_diagnostics["bulk_ess"].min(),
+            "min_tail_ess": case_diagnostics["tail_ess"].min(),
             "converged": bool(case_diagnostics["converged"].all()),
         }
         quality_rows.append(row)
@@ -1024,7 +1021,7 @@ def _report(
 
 ## Réponses finales
 
-- **Les quatre calibrations sont-elles convergées ?** {"Oui" if converged else "Non"}. Les critères imposés sont split-Rhat < {MAX_RHAT} et ESS ≥ {MIN_ESS:.0f} pour `mu`, `t0` et `t50`.
+- **Les quatre calibrations sont-elles convergées ?** {"Oui" if converged else "Non"}. Les critères imposés sont split-Rhat < {MAX_RHAT} et ESS bulk/tail ≥ {MIN_ESS:.0f} pour `mu`, `t0` et `t50`.
 - **Les résultats satisfont-ils les critères scientifiques stabilisés ?** {"Oui" if coherent else "Non, une conclusion robuste au moins doit être réexaminée"} selon les contrôles quantitatifs documentés ci-dessous.
 - **Les sorties historiques interviennent-elles dans le calcul ?** Non. Les données normalisées sont régénérées dans le dossier de campagne et les anciens postérieurs ne sont ni lus ni comparés pendant cette exécution.
 - **Le pairing posterior-predictive est-il correct ?** Oui. Chaque prédiction utilise une ligne posterior complète `(mu,t0)`; les paramètres ne sont jamais recombinés marginalement.
@@ -1059,24 +1056,31 @@ Shifted exponential uniquement; bornes uniformes `mu ∈ [0.1,70] yr`, `t0 ∈ [
     )
 
 
-def _manifest(output: Path, lengths: dict[str, int]) -> None:
-    artifacts = [
-        path
-        for path in output.rglob("*")
-        if path.is_file() and path.name != "manifest.json"
-    ]
-    sources = [
+def _manifest_sources() -> tuple[Path, ...]:
+    """Return every versioned source hashed by a new campaign manifest."""
+
+    return (
         Path(__file__),
-        ROOT / "scripts/common/mcmc_diagnostics.py",
+        ROOT / "pyages/calibration/methods/mh/diagnostics.py",
         ROOT / "scripts/common/reporting.py",
         ROOT / "sites/ploemeur/scripts/prepare_observations.py",
         ROOT / "pyages/lpm/samples/analysis.py",
         ROOT / "pyages/lpm/core/lpm_base.py",
         ROOT / "pyages/convolution/continuous_integration.py",
         ROOT / "pyages/lpm/models/exponential_shifted.py",
+    )
+
+
+def _manifest(output: Path, lengths: dict[str, int]) -> None:
+    artifacts = [
+        path
+        for path in output.rglob("*")
+        if path.is_file() and path.name != "manifest.json"
     ]
+    sources = _manifest_sources()
     payload = {
         "repository": repository_provenance(ROOT),
+        "evidence_layer": "new_campaign_current_code",
         "created_at": pd.Timestamp.now(tz="Europe/Paris").isoformat(),
         "git_head": subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -1112,6 +1116,10 @@ def _manifest(output: Path, lengths: dict[str, int]) -> None:
             "proposal_scale": "2.38/sqrt(2)",
             "chains": NCHAINS,
             "diagnostic_thinning": 1,
+            "diagnostics": (
+                "central rank-normalized folded split-R-hat with bulk/tail ESS "
+                "from pyages.calibration.methods.mh.diagnostics"
+            ),
             "posterior_pairing": "complete row only",
         },
         "source_sha256": {_path_label(path): _sha256(path) for path in sources},

@@ -23,6 +23,7 @@ CLI_REFERENCE = ROOT / "docs" / "user-guide" / "cli-flags.md"
     [
         [],
         ["check"],
+        ["check", "lpm"],
         ["list"],
         ["list", "lpms"],
         ["list", "tracers"],

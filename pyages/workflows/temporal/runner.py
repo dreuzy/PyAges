@@ -17,6 +17,7 @@ or directly to its sole case directory when the workflow produced only one case.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from pyages.calibration.methods.mh import MHConvergenceError
@@ -24,6 +25,7 @@ from pyages.concentrations import Concentrations
 from pyages.config.models import TemporalCalibrationCfg, TemporalReportingCfg
 from pyages.config.paths import result_subdirectory
 from pyages.data_io.concentrations import save_concentrations_table
+from pyages.lpm.factory import describe_lpm_provenance
 from pyages.reporting.plots import plot_observations_overview
 from pyages.workflows.runtime import (
     promote_result_run,
@@ -40,7 +42,7 @@ def _run_temporal_cases(
     mode_root: Path,
     mode: str,
     models: list[str],
-    lpm_directory: Path,
+    lpm_directory: Path | None,
     calibration_cfg: TemporalCalibrationCfg,
     figures_cfg: TemporalReportingCfg,
     *,
@@ -76,10 +78,21 @@ def _run_temporal_cases(
 
 def _manifest_details(context, case_directories: list[Path]) -> dict[str, object]:
     """Return the shared temporal terminal-state metadata."""
+    provenance: list[Mapping[str, object]] = []
+    for model in context.models:
+        try:
+            item: Mapping[str, object] = describe_lpm_provenance(
+                model,
+                context.lpm_directory,
+            ).as_dict()
+        except OSError as exc:
+            item = {"model_name": model, "unavailable_reason": str(exc)}
+        provenance.append(item)
     return {
         "dataset": context.dataset_path.name,
         "mode": context.mode,
         "lpms": context.models,
+        "lpm_provenance": provenance,
         "observation_error_policy": {
             "error_rel": context.params.data.error_rel,
             "missing_error_rel": context.params.data.missing_error_rel,

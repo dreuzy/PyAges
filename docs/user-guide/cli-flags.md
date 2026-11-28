@@ -40,6 +40,23 @@ Example:
 pyages check --verbose
 ```
 
+## `pyages check lpm <name>`
+
+Loads one selected LPM and performs a fast integration check: parameter schema,
+deterministic parameter sets, probability invariants, strategy methods and,
+for continuous laws, constant and affine synthetic-tracer convolutions. This
+detects implementation mistakes but does not replace scientific qualification.
+
+| Flag | Type | Description |
+| --- | --- | --- |
+| `--directory <path>` | option | Override the parameter root containing `<name>/params.yaml`. |
+
+Example:
+
+```console
+pyages check lpm bounded_power
+```
+
 ## `pyages list lpms`
 
 Lists available LPM models.
@@ -78,6 +95,9 @@ layouts and unknown fields are rejected before execution.
 | `--inline` | flag | Force the inline matplotlib backend for the single-date workflow; accepted but unused for temporal workflows. |
 | `--lpm <name>` | option | Override the single-date model or replace a temporal model list with this one model. |
 | `--mh-nsteps <int>` | option | Override Metropolis-Hastings transitions; must be positive and leave at least one retained draw with the configured burn-in and thinning. |
+| `--deterministic-inversion` | flag | Enable the single-date deterministic inversion using its validated YAML objective, or the defaults when that section is omitted. |
+| `--objective-loss <l1\|l2>` | option | Enable deterministic inversion and override its L1 or squared-L2 loss (single-date only). |
+| `--objective-scale <absolute\|relative\|uncertainty>` | option | Enable deterministic inversion and override its residual scale (single-date only). |
 | `--data-name <file>` | option | Override dataset filename (single-date only). |
 | `--data-dir <path>` | option | Override dataset directory (single-date only). |
 | `--data-file <path>` | option | Override dataset path (temporal only). |
@@ -87,6 +107,7 @@ Examples:
 ```
 pyages run examples/natural/ploemeur/exemple_ploemeur.yaml
 pyages run examples/natural/ploemeur_temporal/ploemeur_temporal.yaml
+pyages run --deterministic-inversion --objective-loss l1 --objective-scale relative my_config.yaml
 pyages run --lpm exp_shifted --mh-nsteps 5000 --data-name mydata.txt --data-dir examples/my_site/data my_config.yaml
 pyages run --lpm ig --mh-nsteps 2000 --data-file examples/my_site/data/ori_my_site_2005_2024.txt my_temporal.yaml
 ```
@@ -102,6 +123,7 @@ Mode-specific options behave as follows:
 |---|---|
 | single-date with `--data-file` | Prints a warning and ignores `--data-file` |
 | temporal with `--data-name` or `--data-dir` | Prints a warning and ignores those options |
+| temporal with deterministic objective options | Prints a warning and ignores them; temporal inference remains MH with its Gaussian chi-square likelihood |
 | temporal with `--inline` | Accepts the flag without changing the temporal plotting backend |
 
 When overrides are used, the result manifest fingerprints the temporary
@@ -175,18 +197,29 @@ Generates a template for a new LPM model.
 | Flag | Type | Description |
 | --- | --- | --- |
 | `--base <scipy|root>` | option | Base class to extend (default: `scipy`). |
-| `-o`, `--output <path>` | option | Output directory (default: `./pyages/lpm/models/`). |
+| `--layout <source|plugin>` | option | Generate an in-tree model or a complete installable plugin (default: `source`). |
+| `-o`, `--output <path>` | option | Model directory in `source` mode, complete project directory in `plugin` mode. |
 
-This is a source-development command. Run it from the root of a writable,
-editable checkout. The option changes only the model-module destination; the
+For `--layout source`, run the command from the root of a writable PyAges
+checkout. The output option changes only the model-module destination; the
 parameter YAML is generated under `./data_core/data_lpm/<name>/`. A module
 written outside `pyages/lpm/models/` is not discovered until it is integrated
 into that importable package.
 
+For `--layout plugin`, the destination is an independent project and the
+command may be run from any writable directory.
+
 Example:
 ```
 pyages new lpm weibull --base scipy
+pyages new lpm bounded_power --layout plugin --base root
 ```
+
+The plugin layout contains `pyproject.toml`, the entry-point declaration, the
+Python model, its packaged `params.yaml`, a README, and a test. Install it with
+`python -m pip install -e <project>` and run
+`pyages check lpm <name>` before calibration.
+See {doc}`external-lpm-quickstart` for the guided workflow.
 
 ## `pyages new tracer <name>`
 

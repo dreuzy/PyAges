@@ -278,6 +278,31 @@ def test_candidate_objective_does_not_mutate_committed_lpm(tmp_path):
     assert candidate.get_parameters_to_array() == [20.0]
 
 
+def test_forward_prediction_is_available_without_residual_scoring(tmp_path) -> None:
+    problem = _prepared_problem(tmp_path)
+    committed = problem.lpm.get_parameters_to_array()
+    candidate = deepcopy(problem.lpm)
+    parameters = [20.0]
+
+    modeled = problem.predict_for_lpm(candidate, parameters)
+
+    assert len(modeled) == len(problem.observations.frame)
+    assert np.all(np.isfinite(modeled))
+    assert candidate.get_parameters_to_array() == parameters
+    assert problem.lpm.get_parameters_to_array() == committed
+
+
+def test_public_forward_prediction_commits_parameters_to_problem_lpm(tmp_path) -> None:
+    problem = _prepared_problem(tmp_path)
+    parameters = [20.0]
+
+    modeled = problem.predict(parameters)
+
+    assert len(modeled) == len(problem.observations.frame)
+    assert np.all(np.isfinite(modeled))
+    assert problem.lpm.get_parameters_to_array() == parameters
+
+
 def test_problem_rejects_observation_model_unit_mismatch_before_calibration(
     tmp_path,
 ):

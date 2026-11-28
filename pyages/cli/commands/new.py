@@ -73,37 +73,52 @@ def new_config(destination: Path, kind: str) -> None:
     help="Base class to extend (default: scipy).",
 )
 @click.option(
+    "--layout",
+    type=click.Choice(["source", "plugin"]),
+    default="source",
+    show_default=True,
+    help="Generate an in-tree source model or an installable plugin project.",
+)
+@click.option(
     "--output",
     "-o",
     type=click.Path(),
     default=None,
-    help=(
-        "Model-module output directory; params remain under "
-        "./data_core/data_lpm/ (default: ./pyages/lpm/models/)."
-    ),
+    help="Model directory for source layout; complete project for plugin layout.",
 )
-def new_lpm(name: str, base: str, output: str):
-    """Generate a template for a new LPM model.
+def new_lpm(name: str, base: str, layout: str, output: str):
+    """Generate an executable, documented starter for a new LPM model.
 
     NAME is the identifier for the new model (e.g., 'weibull', 'lognormal').
+    It becomes the Python/YAML registry name and must use canonical snake_case.
 
-    Run this source-development command from an editable checkout. A custom
-    output directory must be integrated into pyages.lpm.models for discovery.
+    The default source layout targets an editable PyAges checkout. The plugin
+    layout creates an atomic standalone project that is discovered through the
+    ``pyages.lpms`` entry point after ``pip install``. ``--base scipy`` delegates
+    ordinary distribution methods to SciPy; ``--base root`` shows every method
+    required for a direct NumPy implementation.
+
+    Generated formulas, parameter ranges, priors, and scientific tests are
+    working examples. They must be reviewed or replaced before research use.
 
     \b
     Creates:
-      - pyages/lpm/models/<name>.py
-      - data_core/data_lpm/<name>/params.yaml
+      source: pyages/lpm/models/<name>.py plus packaged parameters
+      plugin: pyproject.toml, model, packaged parameters, README and test
 
     \b
     Examples:
         pyages new lpm weibull
         pyages new lpm lognormal --base scipy
         pyages new lpm custom --base root
+        pyages new lpm custom --layout plugin --base root
     """
     from pyages.cli.templates.lpm_template import generate_lpm_template
 
-    generate_lpm_template(name, output, base)
+    try:
+        generate_lpm_template(name, output, base, layout)
+    except (FileExistsError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 @new_group.command(name="tracer")

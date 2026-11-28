@@ -33,13 +33,13 @@ from pyages.config.models import (
     TemporalOutputCfg,
 )
 from pyages.config.paths import (
-    DIRECTORY_LPM_DATA,
     DIRECTORY_TRACER_DATA,
     ROOT_DIRECTORY_RESULTS,
     configuration_directory,
     result_subdirectory,
     validate_path_component,
 )
+from pyages.lpm.factory import resolve_lpm_parameter_directory
 from pyages.workflows.runtime import ResultRun, begin_staged_result_run
 
 DEFAULT_LPMS = ["exp_shifted", "ig", "ig_shifted"]
@@ -55,7 +55,7 @@ class TemporalContext:
     dataset_path: Path
     mode: str
     models: list[str]
-    lpm_directory: Path
+    lpm_directory: Path | None
     observations: Concentrations
     result_run: ResultRun
     output_directory: Path
@@ -87,7 +87,7 @@ def _results_root(
 def _resolve_lpms(
     lpm_cfg: TemporalLpmCfg,
     configuration_directory: Path,
-) -> tuple[list[str], Path]:
+) -> tuple[list[str], Path | None]:
     """Resolve the requested models and their parameter directory."""
     models = DEFAULT_LPMS.copy() if lpm_cfg.models is None else list(lpm_cfg.models)
     if not models:
@@ -95,12 +95,11 @@ def _resolve_lpms(
     models = [
         validate_path_component(model, label="lpm.models item") for model in models
     ]
-    directory = resolve_from(
-        configuration_directory,
-        lpm_cfg.directory or DIRECTORY_LPM_DATA,
-    )
-    if not directory.is_dir():
-        raise ValueError(f"lpm.directory is not a directory: {directory}")
+    directory = None
+    if lpm_cfg.directory is not None:
+        directory = resolve_from(configuration_directory, lpm_cfg.directory)
+        if not directory.is_dir():
+            raise ValueError(f"lpm.directory is not a directory: {directory}")
     return models, directory
 
 
@@ -168,7 +167,10 @@ def scientific_input_paths(context: TemporalContext) -> list[Path]:
     """Return every observation, model, and tracer resource used by the run."""
     return [
         context.dataset_path,
-        *(context.lpm_directory / model for model in context.models),
+        *(
+            resolve_lpm_parameter_directory(model, context.lpm_directory) / model
+            for model in context.models
+        ),
         *(
             DIRECTORY_TRACER_DATA / tracer
             for tracer in context.observations.observation_tracer_names()

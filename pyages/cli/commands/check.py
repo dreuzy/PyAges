@@ -44,6 +44,10 @@ def _fail(message: str) -> None:
     click.echo(click.style("[FAIL]", fg="red") + f" {message}")
 
 
+def _warning(message: str) -> None:
+    click.echo(click.style("[WARNING]", fg="yellow") + f" {message}")
+
+
 def _python_version_supported(version_info: tuple[int, int, int]) -> bool:
     return (3, 12) <= version_info < (3, 15)
 
@@ -112,13 +116,26 @@ def _check_dependencies(verbose: bool) -> CheckResult:
 
 
 def _check_lpm_registry(verbose: bool) -> CheckResult:
+    """Verify that every advertised LPM name is canonical and unambiguous.
+
+    External entry-point metadata is catalogued without loading plugin targets.
+    Invalid names and duplicate providers fail the installation check; verbose
+    output lists every conflict-free model visible in the environment.
+    """
     try:
+        from pyages.lpm.core.registry import list_lpm_catalog
         from pyages.lpm.factory import list_available_lpms
 
         models = list_available_lpms()
+        problems = [item for item in list_lpm_catalog() if item.status != "available"]
     except Exception as exc:
         _fail(f"LPM registry: {exc}")
         return CheckResult(failed=1)
+    if problems:
+        for item in problems:
+            providers = ", ".join(item.providers)
+            _fail(f"LPM registry {item.status}: {item.name} ({providers})")
+        return CheckResult(failed=len(problems))
     _ok(f"LPM registry: {len(models)} models")
     if verbose:
         for model in models:
@@ -179,9 +196,10 @@ def _run_checks(verbose: bool) -> CheckResult:
     )
 
 
-@click.command()
+@click.group(invoke_without_command=True)
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed check results")
-def check(verbose: bool) -> None:
+@click.pass_context
+def check(context: click.Context, verbose: bool) -> None:
     """Check PyAges installation and system health.
 
     \b
@@ -191,6 +209,8 @@ def check(verbose: bool) -> None:
       - LPM models can be loaded
       - Tracers can be discovered
     """
+    if context.invoked_subcommand is not None:
+        return
     try:
         params = CliCheckParams.model_validate({"verbose": verbose})
     except ValidationError as exc:
@@ -215,3 +235,50 @@ def check(verbose: bool) -> None:
         )
     )
     raise click.exceptions.Exit(1)
+
+
+@check.command(name="lpm")
+@click.argument("name")
+@click.option(
+    "--directory",
+    type=click.Path(file_okay=False, path_type=str),
+    default=None,
+    help="Override the parameter root containing NAME/params.yaml.",
+)
+def check_lpm_command(name: str, directory: str | None) -> None:
+    """Check one built-in or installed external LPM before using it.
+
+    NAME is resolved through the same lazy registry and factory used by normal
+    workflows. The command checks construction and provenance, parameter
+    domains, required strategy methods, vectorized probability invariants, and,
+    for continuous models, constant and affine production convolutions. Use
+    ``--directory`` to check a study-specific parameter root instead of the
+    provider's packaged defaults.
+
+    This deterministic integration check samples only initial and midpoint
+    parameter vectors. It is not a scientific validation of the model's
+    equations or relevance; run and extend the provider's pytest suite too.
+    """
+    from pyages.lpm.checks import check_lpm
+
+    click.echo(f"PyAges LPM Check: {name}")
+    click.echo("=" * 40)
+    report = check_lpm(name, directory_lpm=directory)
+    for finding in report.findings:
+        message = f"{finding.check}: {finding.message}"
+        if finding.level == "OK":
+            _ok(message)
+        elif finding.level == "WARNING":
+            _warning(message)
+        else:
+            _fail(message)
+    click.echo()
+    if report.failed:
+        _fail("The model does not satisfy the PyAges integration contract.")
+        raise click.exceptions.Exit(1)
+    if report.warnings:
+        _warning(
+            f"The model passed with {report.warnings} non-applicable or advisory check(s)."
+        )
+    else:
+        _ok("The model satisfies the PyAges integration contract.")

@@ -2,20 +2,21 @@
 
 PyAges follows the scientific calculation from inputs to results. Most users
 only need the command line and YAML files; contributors can understand the
-core through the five objects below.
+core through the responsibilities below.
 
 ```text
 YAML + observations
         |
         v
-Concentrations -> CalibrationProblem -> CalibrationAlgorithm -> LpmSampleTable
+Concentrations -> CalibrationProblem -> ObjectiveSpec + invert_lpm -> InversionResult
        |                 |
+       |                 |-> CalibrationAlgorithm -> LpmSampleTable
+       |                 |            |
+       |                 |            `-> MH run (1..N chains) -> diagnostics
        |                 v
        |      Tracer + LPM -> Convolution
        |
-       `-> Prepared template -> fresh problems -> MH run (1..N chains)
-                                                   |
-                                                   `-> diagnostics -> posterior
+       `-> validated observation order and units
 ```
 
 ## Core responsibilities
@@ -26,7 +27,9 @@ Concentrations -> CalibrationProblem -> CalibrationAlgorithm -> LpmSampleTable
 | `Tracer` | Recharge, decay, and production data | Transit-time models |
 | `LpmBase` subclasses | Transit-time distributions and parameters | Tracer histories |
 | `Convolution` | The forward concentration calculation | Optimization |
-| `CalibrationProblem` | Observations, model, convolution, objective | Search algorithm state |
+| `CalibrationProblem` | Prepared observations, model, convolution, forward prediction, and historical chi-square target | Deterministic objective choice and search algorithm state |
+| `ObjectiveSpec` | Explicit L1 or squared-L2 loss and residual scaling for deterministic inversion | Forward prediction, optimizer state, or posterior likelihood |
+| `invert_lpm()` | Bounded deterministic optimization, multi-start selection, and optimizer provenance | Workflow sample tables or MH/FUQ inference |
 | `CalibrationTargetSignature` | Versioned identity of a prepared scientific target | Problem preparation, search state, reporting paths |
 | `CalibrationAlgorithm` protocol | Operations shared structurally by independent algorithms | Implementation reuse or workflow reporting |
 | `MetropolisHastingsRunner` | Common 1..N-chain MH orchestration, optional pilot, diagnostics, qualification status | Workflow paths and serialization |
@@ -37,6 +40,11 @@ Composition is deliberate. Simplex and MH are independent classes implementing
 the same structural protocol; neither inherits behavior from the other or from
 a calibration base class. Each receives a prepared problem. A convolution
 receives a tracer and evaluates an LPM; it is not a tracer subclass.
+
+The public `invert_lpm()` route is deliberately narrower than a workflow
+calibration algorithm. It combines the prepared forward problem with an
+explicit `ObjectiveSpec` and returns one immutable `InversionResult`; it does
+not implement `CalibrationAlgorithm` or produce a posterior sample table.
 
 ## Execution flow
 
@@ -81,7 +89,7 @@ any directory is created.
 | `pyages.tracer` | Typed tracer configuration and recharge histories |
 | `pyages.lpm` | Model registry, transit-time models, and sample analysis |
 | `pyages.convolution` | Forward scientific model |
-| `pyages.calibration` | Problems, target signatures, methods, priors, parameter grids, and outputs |
+| `pyages.calibration` | Prepared forward problems, deterministic L1/L2 inversion, target signatures, inference methods, priors, parameter grids, and outputs |
 | `pyages.workflows` | Public single-date and temporal orchestration, plus runtime services |
 | `pyages.reporting` | Reusable result tables and figures |
 | `pyages.qualification` | Scientific recovery and benchmark experiments, outside the user API |
@@ -98,6 +106,8 @@ dependency of the installable `pyages` package.
   normally does not change.
 - Add an LPM by implementing the `LpmBase` contract and registering it with
   `@register_lpm`.
+- Add deterministic residual scoring by extending `ObjectiveSpec` and its
+  comparison metrics without changing the physical forward model.
 - Add a calibration algorithm by implementing the structural
   `CalibrationAlgorithm` protocol and returning `LpmSampleTable`.
 - Add a workflow by building an explicit context and composing existing core

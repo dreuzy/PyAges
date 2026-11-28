@@ -29,6 +29,15 @@ from pyages.reporting.chronicles import export_concentration_chronicles
 from pyages.workflows.single_date.context import SingleDateContext
 
 
+def _lpm_directory_override(context: SingleDateContext) -> Path | None:
+    """Return only an explicitly selected parameter-directory override."""
+    return getattr(
+        context.params.lpm,
+        "directory_override",
+        context.params.lpm.directory,
+    )
+
+
 def case_label(params: SingleDateConfig) -> str:
     """Return the explicit case label or a readable dataset filename stem."""
     return params.data.label or Path(params.data.name).stem.replace("_", " ")
@@ -87,7 +96,7 @@ def run_objective_analysis(
         display_options=context.live_display,
         explore_objective=True,
         explore_reachable=False,
-        lpm_directory=context.params.lpm.directory,
+        lpm_directory=_lpm_directory_override(context),
         tracer_data_directory=context.params.tracers.data_directory,
     )
     sampling.compute_concentrations()
@@ -113,7 +122,7 @@ def write_concentration_outputs(context: SingleDateContext) -> None:
     """Write posterior distribution tables and concentration chronicles."""
     model = build_lpm(
         context.params.lpm.models[0],
-        directory_lpm=context.params.lpm.directory,
+        directory_lpm=_lpm_directory_override(context),
     )
     export_concentration_chronicles(
         [context.output_directory],

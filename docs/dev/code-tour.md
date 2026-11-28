@@ -215,31 +215,41 @@ reference value with the wrong observation.
 
 ## The scientific calculation
 
-`pyages/calibration/problem.py` brings together four elements:
+Calibration is split into three responsibilities instead of one object that
+silently owns every choice:
 
-1. the measured tracer concentrations;
-2. the selected LPM and its parameter values;
-3. the simulated tracer concentrations produced by the model;
-4. an objective function that measures disagreement between simulation and
-   observation.
+1. `pyages/calibration/problem.py` prepares the observations, LPM, tracer
+   convolutions, and physical forward prediction;
+2. `pyages/calibration/objective.py` defines explicit deterministic residual
+   scaling and L1 or squared-L2 aggregation through `ObjectiveSpec`;
+3. `pyages/calibration/inversion.py` runs a bounded optimizer, keeps every
+   start auditable, and reports the selected solution through `InversionResult`.
 
-One evaluation can be pictured as:
+One public deterministic inversion evaluation can be pictured as:
 
 ```text
 candidate parameter values
-  -> configure the LPM's groundwater-age distribution
+  -> configure a private copy of the LPM's groundwater-age distribution
   -> convolve that distribution with each tracer history
   -> obtain one predicted concentration per observation
-  -> compare predictions with measured concentrations
-  -> return one objective value to the calibration method
+  -> scale modeled - observed residuals according to ObjectiveSpec
+  -> aggregate them with L1 or squared L2
+  -> return one scalar value to the bounded optimizer
 ```
 
-The calibration method repeats this evaluation with different candidate
-parameters. Simplex uses objective values to move towards a better point. MH
-uses them together with the prior to decide which samples to retain. Separating
-the “evaluate one candidate” problem from the “choose the next candidate”
-method allows several calibration algorithms to use the same scientific
-forward calculation.
+`invert_lpm()` repeats that operation from one or more declared starts and
+recomputes each returned candidate before accepting it. Its objective choice is
+local to deterministic point estimation: selecting relative L1 here does not
+change Simplex, FUQ, or Metropolis--Hastings (MH). Those existing workflows use
+`CalibrationProblem.objective_function()` and retain the historical
+uncertainty-weighted chi-square target; MH combines that target with the prior
+to decide which samples to retain.
+
+This separation makes comparisons meaningful. `CalibrationProblem.predict()`
+or `predict_for_lpm()` supplies the same physical concentrations, while
+`ObjectiveSpec` changes only how their disagreement with observations is
+scored. The optimizer chooses subsequent candidates, but it does not own the
+forward model or the residual convention.
 
 LPM construction begins in `pyages/lpm/factory.py`. A **factory** is a function
 that creates the appropriate model object from a short configured name. Model
@@ -409,6 +419,7 @@ while editing usually gives feedback much faster than the complete suite.
 | Change the order of workflow steps | the relevant `runner.py` | `python -m pytest -q tests/workflows` |
 | Change the proposal/accept loop inside one chain | `pyages/calibration/methods/mh/sampler.py` | `python -m pytest -q tests/calibration` |
 | Change 1..N-chain orchestration or convergence policy | `pyages/calibration/methods/mh/runner.py` and `diagnostics.py` | `python -m pytest -q tests/calibration tests/workflows` |
+| Change deterministic L1/L2 objectives, comparison metrics, or optimizer provenance | `pyages/calibration/objective.py` and `pyages/calibration/inversion.py` | `python -m pytest -q tests/calibration/test_objective_metrics.py tests/calibration/test_inversion.py` |
 | Change Ploemeur preparation or site-specific reporting | `sites/ploemeur/workflows/single_run.py` | `python -m pytest -q tests/ploemeur` |
 | Change LPM parameter loading or caching | `pyages/data_io/lpm_params.py` | `python -m pytest -q tests/data_io/test_lpm_params.py` |
 | Change valid LPM parameter fields or relationships | `pyages/data_io/_lpm_parameter_schema.py` | `python -m pytest -q tests/data_io/test_lpm_params.py` |

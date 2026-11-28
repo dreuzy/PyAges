@@ -199,11 +199,57 @@ Three objective quantities must not be interchanged:
 | Context | Stored name | Quantity |
 | --- | --- | --- |
 | optimization and MH target internally | not exported directly | $\chi^2$ |
-| ``LpmSampleTable`` result tables | ``obj_function`` | $\sqrt{\chi^2/n}$, dimensionless; no degrees-of-freedom correction |
+| ``LpmSampleTable`` result tables | ``obj_function`` | Historical compatibility name for $\sqrt{\chi^2/n}$, dimensionless; no degrees-of-freedom correction. It is a fit diagnostic, not the MH log target and not a configurable deterministic objective value. |
+| Deterministic inversion result | ``objective_value`` | Exact scalar selected by `ObjectiveSpec`: an L1 sum or squared-L2 sum on the declared absolute, relative, or uncertainty scale |
+| Deterministic inversion result and manifest | ``chi_square`` | $\sum_i[(m_i-y_i)/\sigma_i]^2$, reported independently of the selected deterministic objective |
+| Deterministic inversion result and manifest | ``normalized_residual_rms`` | $\sqrt{\chi^2/n}$; the explicit name for the value historically stored as `obj_function` |
 | systematic parameter maps | ``half_log_chi_square`` | $\tfrac12\log(\max(\chi^2,\mathrm{tiny}))$ |
 
 The function ``normalized_residual_norm`` computes $\sqrt{\chi^2/n}$ after
 normalization by uncertainty; it is not an RMSE in concentration units.
+
+### Deterministic L1/L2 inversion
+
+The public deterministic inversion API keeps the forward prediction
+$m_i(\theta)$ fixed and varies only residual scoring. Its three residual scales
+are
+
+```{math}
+r_i^{(\mathrm{absolute})}=m_i-y_i,\qquad
+r_i^{(\mathrm{relative})}=
+\frac{m_i-y_i}{\max(|y_i|,\epsilon)},\qquad
+r_i^{(\mathrm{uncertainty})}=\frac{m_i-y_i}{\sigma_i},
+```
+
+with a finite positive relative floor $\epsilon$. For any selected scale $s$,
+the two supported losses are
+
+```{math}
+J_{L1}^{(s)}(\theta)=\sum_i|r_i^{(s)}(\theta)|,
+\qquad
+J_{L2}^{(s)}(\theta)=\sum_i(r_i^{(s)}(\theta))^2.
+```
+
+The L2 value is the sum of squares, not its square root. Consequently,
+uncertainty-scaled L2 is exactly $\chi^2$, while relative L1 and relative L2
+give a controlled comparison with the same prepared observations, tracer
+histories, LPM, convolution, calibration ranges, initial points, and optimizer.
+Absolute L1/L2 aggregation is not dimensionless and is scientifically valid
+only when the participating concentrations have commensurable units and
+scales.
+
+Every deterministic result additionally evaluates common diagnostics at the
+selected optimum: relative L1, relative mean absolute residual, relative
+squared L2, relative RMS, maximum absolute relative residual, standardized L1,
+mean absolute standardized residual, $\chi^2$, normalized-residual RMS, and
+maximum absolute standardized residual. These diagnostics describe one fitted
+state; they do not retroactively change the criterion that selected it. A
+target fingerprint and the full set of named optimizer starts and outcomes are
+retained so paired L1/L2 runs can be audited and serialized.
+
+This deterministic choice is not a likelihood switch. Simplex/FUQ and MH keep
+their existing uncertainty-weighted squared-L2 definitions, and the MH target
+below remains Gaussian.
 
 ## Metropolis-Hastings target and sampling
 
@@ -306,7 +352,7 @@ quantity, and qualification conventions are defined in
 | adaptive tracer-grid semantics | ``pyages/convolution/tracer_grid.py`` and ``settings.py`` | this page | ``tests/convolution/test_convolution_settings.py`` |
 | independent forward acceptance | ``validation/tracerlpm/benchmark/scripts/compare_pyages.py`` | this page | ``validation/tracerlpm/benchmark/tests/test_compare_pyages.py``; {doc}`reports/forward_qualification_2026-08-27` |
 | IG physical moments and shift | ``pyages/lpm/models/inverse_gaussian*.py`` | this page; {doc}`user-guide/adding-lpm` | ``tests/lpm/test_inverse_gaussian_analytics.py``; {doc}`scientific-migration-ig-decay` |
-| normalized-residual objective | ``pyages/calibration/problem.py`` and ``pyages/calibration/objective.py`` | this page | ``tests/calibration/test_calibration_problem.py`` |
+| deterministic L1/L2 objectives and common comparison metrics | ``pyages/calibration/inversion.py``, ``problem.py``, and ``objective.py`` | {doc}`user-guide/calibration`; this page | ``tests/calibration/test_inversion.py``, ``test_objective_metrics.py``, and ``test_calibration_problem.py`` |
 | MH target, priors, proposals, and retention | ``pyages/calibration/methods/mh/sampler.py``, ``prior.py``, ``proposals.py``, and ``config.py`` | {doc}`user-guide/configuration`; this page | ``tests/calibration/test_calibration_scientific_contracts.py`` and ``test_mh_proposals.py``; {doc}`reports/mh_proposal_qualification` |
 | one-to-many-chain initialization, pilot covariance, diagnostics, and pooling gate | ``pyages/calibration/methods/mh/initialization.py``, ``pilot.py``, ``diagnostics.py``, ``runner.py``, and ``pyages/data_io/mh_results.py`` | {doc}`user-guide/multichain-mh`; this page | ``tests/calibration/test_mh_*.py`` and the four extensive example tests; {doc}`reports/multichain-mh-qualification-2026-08-31` |
 

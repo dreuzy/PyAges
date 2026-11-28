@@ -25,28 +25,50 @@ def list_group():
 @list_group.command(name="lpms")
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed information")
 def list_lpms(verbose: bool):
-    """List all available LPM (Lumped Parameter Model) types.
+    """List conflict-free built-in and installed external LPM names.
+
+    Normal output reads external entry-point metadata without importing plugin
+    targets. Verbose output shows provider distribution and target for external
+    models, plus the first class-docstring line for built-ins. Invalid names and
+    duplicate advertisements are reported separately as unavailable.
 
     \b
     Example:
         pyages list lpms
         pyages list lpms --verbose
     """
-    from pyages.lpm.core.registry import get_lpm_class
+    from pyages.lpm.core.registry import get_lpm_class, list_lpm_catalog
     from pyages.lpm.factory import list_available_lpms
 
+    catalog = list_lpm_catalog()
+    by_name = {item.name: item for item in catalog}
     lpms = list_available_lpms()
     click.echo(f"Available LPM models ({len(lpms)}):")
     click.echo()
 
     for name in lpms:
         if verbose:
-            cls = get_lpm_class(name)
-            doc = cls.__doc__ or "No description"
-            first_line = doc.strip().split("\n")[0]
-            click.echo(f"  {name:24s} {first_line}")
+            item = by_name.get(name)
+            if item is not None and not item.built_in:
+                provider = ", ".join(item.providers)
+                click.echo(f"  {name:24s} {provider} ({item.targets[0]})")
+            else:
+                # Built-ins are already imported by discovery. The fallback is
+                # retained for callers that provide a custom in-process registry.
+                cls = get_lpm_class(name)
+                doc = cls.__doc__ or "No description"
+                first_line = doc.strip().split("\n")[0]
+                click.echo(f"  {name:24s} {first_line}")
         else:
             click.echo(f"  - {name}")
+
+    problems = [item for item in catalog if item.status != "available"]
+    if problems:
+        click.echo()
+        click.echo(click.style("Unavailable LPM advertisements:", fg="yellow"))
+        for item in problems:
+            providers = ", ".join(item.providers)
+            click.echo(f"  - {item.name}: {item.status} ({providers})")
 
 
 @list_group.command(name="tracers")

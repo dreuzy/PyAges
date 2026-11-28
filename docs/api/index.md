@@ -12,14 +12,18 @@ promise is {doc}`../reference/public-api`.
 
    pyages.config
    pyages.config.loading
+   pyages.calibration
+   pyages.calibration.inversion
+   pyages.calibration.objective
    pyages.calibration.methods.protocols
    pyages.calibration.outputs
-   pyages.calibration.problem
    pyages.config.sampling_schedule
    pyages.calibration.target_signature
    pyages.calibration.exploration.grid
    pyages.calibration.exploration.systematic
    pyages.convolution
+   pyages.lpm.extensions
+   pyages.lpm.checks
    pyages.lpm.factory
    pyages.lpm.core.lpm_base
    pyages.lpm.samples.table

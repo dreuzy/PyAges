@@ -80,6 +80,33 @@ def test_mcse_mean_uses_ess_and_preserves_constant_limit():
         mcse_mean_from_ess(values, 0.0)
 
 
+@pytest.mark.parametrize(
+    ("ess_columns", "expected"),
+    (
+        ({"bulk_ess": [500.0, 450.0], "tail_ess": [320.0, 350.0]}, 320.0),
+        ({"ess_sum_chains": [500.0, 450.0]}, 450.0),
+    ),
+)
+def test_article_summary_reads_current_and_historical_ess_columns(
+    tmp_path, ess_columns, expected
+):
+    path = tmp_path / "convergence.csv"
+    pd.DataFrame(
+        {
+            "case": [1, 1],
+            "split_rhat": [1.001, 1.002],
+            "converged": [True, True],
+            **ess_columns,
+        }
+    ).to_csv(path, index=False)
+
+    summary = package._standard_diagnostic(
+        path, "case", ("bulk_ess", "tail_ess", "ess_sum_chains")
+    )
+
+    assert summary["min_ess"] == expected
+
+
 def test_markdown_table_rounds_and_escapes_without_tabulate():
     frame = pd.DataFrame({"label": ["a|b"], "value": [1.234567]})
 

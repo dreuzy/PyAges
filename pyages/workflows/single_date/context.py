@@ -26,6 +26,7 @@ from pyages.concentrations import Concentrations
 from pyages.config.models import SingleDateConfig
 from pyages.config.paths import DIRECTORY_TRACER_DATA, configuration_directory
 from pyages.config.runtime import DisplayOptions
+from pyages.lpm.factory import resolve_lpm_parameter_directory
 from pyages.workflows.runtime import ResultRun, begin_staged_result_run
 from pyages.workflows.runtime.plotting import PlotSession
 from pyages.workflows.single_date.config import load_config
@@ -125,9 +126,16 @@ def prepare_context(
 def scientific_input_paths(context: SingleDateContext) -> list[Path]:
     """Return every observation, model, and tracer resource used by the run."""
     tracer_root = context.params.tracers.data_directory or DIRECTORY_TRACER_DATA
+    lpm_name = context.params.lpm.models[0]
+    override = getattr(
+        context.params.lpm,
+        "directory_override",
+        context.params.lpm.directory,
+    )
+    lpm_root = resolve_lpm_parameter_directory(lpm_name, override)
     return [
         context.params.data.data_dir / context.params.data.name,
-        context.params.lpm.directory / context.params.lpm.models[0],
+        lpm_root / lpm_name,
         *(
             Path(tracer_root) / tracer
             for tracer in context.observations.observation_tracer_names()

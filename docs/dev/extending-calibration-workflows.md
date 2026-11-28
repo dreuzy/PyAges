@@ -6,13 +6,37 @@ contributor interface that must be selected explicitly by a workflow. A new
 workflow must likewise be wired explicitly into the Python facade or CLI if it
 is intended to become supported.
 
-This page documents the current contributor contract. Presence in the selected
-API reference does not make these objects part of the public compatibility
-surface defined in {doc}`../reference/public-api`.
+This page primarily documents the current contributor contract. Presence in
+the selected API reference does not by itself make an object part of the public
+compatibility surface defined in {doc}`../reference/public-api`; the
+deterministic inversion entry point described below is an explicit exception.
 
 All calibration algorithms are composition-based. For a complete MH example
 using fresh problem factories, `MHRunRecord`, and guarded pooling, see
 {ref}`multichain-mh-python-contributor-interface`.
+
+## Deterministic inversion is a separate public route
+
+{py:func}`pyages.calibration.invert_lpm` is the supported point-estimation
+interface for comparing explicit L1 and squared-L2 objectives. It consumes a
+prepared {py:class}`~pyages.calibration.problem.CalibrationProblem`, applies an
+{py:class}`~pyages.calibration.objective.ObjectiveSpec`, and returns an
+{py:class}`~pyages.calibration.inversion.InversionResult`. It does not implement
+the contributor `CalibrationAlgorithm` protocol because it returns one selected
+solution rather than an `LpmSampleTable` for workflow reporting.
+
+Keep these extension decisions distinct:
+
+- a new residual scale, loss, or comparison metric belongs in
+  `pyages/calibration/objective.py`;
+- deterministic optimizer orchestration and provenance belong in
+  `pyages/calibration/inversion.py`;
+- a new Simplex-, FUQ-, or sampler-like workflow method implements the protocol
+  below and retains the workflow result-table contract.
+
+Changing an `ObjectiveSpec` affects only deterministic inversion. It does not
+replace the uncertainty-weighted chi-square convention consumed by existing
+Simplex, FUQ, or MH workflows.
 
 ## Calibration method contract
 

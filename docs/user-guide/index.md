@@ -23,8 +23,8 @@ Use this guide by task:
 - {doc}`cli-flags` lists command-line overrides.
 - {doc}`running-examples` describes the maintained examples.
 - {doc}`adding-tracer` and {doc}`adding-lpm` cover scientific extensions.
-- {doc}`external-lpm-models` explains a proposed plugin mechanism for loading
-  LPM models from separately installed packages.
+- {doc}`external-lpm-quickstart` creates and verifies a separately installed
+  LPM package; {doc}`external-lpm-models` is the complete plugin reference.
 
 The installed `pyages` command is the supported entry point. Discover the
 models and tracers present in your installation rather than relying on a static
@@ -52,6 +52,7 @@ calibration
 multichain-mh
 cli-flags
 adding-lpm
+external-lpm-quickstart
 external-lpm-models
 adding-tracer
 ```

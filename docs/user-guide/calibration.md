@@ -11,12 +11,109 @@ outputs, and interpretation limits. The equations are normative in
 | Calculation | Use it for | It does not establish |
 | --- | --- | --- |
 | objective map | inspecting parameter sensitivity and possible minima | an optimum or a posterior |
+| deterministic inversion | point estimation under an explicit L1/L2 loss and residual scale | a posterior or uncertainty distribution |
 | Simplex/FUQ | repeated optimization after drawing observations from their error distributions | a Bayesian posterior or convergence |
 | Metropolis--Hastings (MH) | sampling the configured posterior while preserving joint parameter states | model adequacy or identifiability by itself |
 
-The installed single-date workflow runs the FUQ and MH routes selected in its
-configuration. The temporal workflow runs MH either once over the complete
-span or independently for each observation date.
+The installed single-date workflow runs deterministic inversion, FUQ, and MH
+routes selected independently in its configuration. The temporal workflow runs
+MH either once over the complete span or independently for each observation
+date.
+
+## Run a deterministic inversion
+
+For a configured single-date workflow, enable the route and choose its
+objective explicitly:
+
+```yaml
+run:
+  deterministic_inversion: true
+calibration:
+  deterministic_inversion:
+    loss: l1
+    scale: relative
+    relative_floor: 1.0e-12
+    optimizer: powell
+```
+
+The same one-run selection is available without editing the YAML:
+
+```bash
+pyages run config.yaml --deterministic-inversion \
+  --objective-loss l1 --objective-scale relative
+```
+
+The complete YAML field contract is in {doc}`configuration`. Python callers
+can use the lower-level public interface directly:
+
+The public deterministic interface separates three decisions:
+
+1. `CalibrationProblem` prepares the observations, tracer histories, LPM, and
+   common physical forward operator;
+2. `ObjectiveSpec` defines how residuals are scaled and aggregated;
+3. `invert_lpm()` runs the bounded optimizer and returns the selected solution,
+   every start attempted, residuals, comparison metrics, and target identity.
+
+For example, an uncertainty-weighted L2 inversion uses the historical PyAges
+criterion:
+
+```python
+from pyages.calibration import CalibrationProblem, ObjectiveSpec, invert_lpm
+from pyages.concentrations import Concentrations
+
+observations = Concentrations.from_file("observations.csv")
+problem = CalibrationProblem(
+    observations,
+    "exp",
+    explore_objective=False,
+    explore_reachable=False,
+).prepare()
+
+result = invert_lpm(
+    problem,
+    objective=ObjectiveSpec.pyages_default(),
+    starts=[{"mu": 5.0}, {"mu": 25.0}, {"mu": 100.0}],
+)
+
+print(result.parameters, result.objective_value, result.metrics)
+# Detached JSON-compatible provenance for a review table or archive:
+serializable = result.to_dict()
+```
+
+The objective has two independent components:
+
+| Setting | Definition of the signed residual $r_i$ |
+| --- | --- |
+| `scale="uncertainty"` | $(m_i-y_i)/\sigma_i$ |
+| `scale="relative"` | $(m_i-y_i)/\max(|y_i|,\epsilon)$ |
+| `scale="absolute"` | $m_i-y_i$ in the concentration unit |
+
+`loss="l1"` minimizes $\sum_i |r_i|`; `loss="l2"` minimizes
+$\sum_i r_i^2$. Thus `ObjectiveSpec.relative_l1()` and
+`ObjectiveSpec.relative_l2()` can be run with the same `problem`, optimizer,
+and `starts` for a controlled L1/L2 comparison. They use exactly the same
+forward model; only residual scoring changes. Absolute aggregation should be
+used only when the combined tracers have commensurable units and scales.
+
+The result always reports both relative and uncertainty-standardized L1/L2
+diagnostics, regardless of the criterion optimized. Sums, means, RMS values,
+and maximum absolute residuals are available. In particular, `relative_l1`,
+`mean_absolute_relative_residual`, `relative_l2_squared`, `chi_square`, and
+`normalized_residual_rms` can be compared after either inversion without
+silently redefining the selected objective. `target_sha256` verifies that two
+runs used the same prepared scientific target, and `attempts` preserves every
+declared initial point and optimizer outcome. `to_dict()` returns a detached,
+JSON-compatible representation of the complete result.
+
+The workflow result and its manifest expose `objective_name`,
+`objective_value`, `loss`, `scale`, `relative_floor`, `chi_square`, and
+`normalized_residual_rms`. `obj_function` remains a compatibility alias for
+the last of these, not the selected deterministic criterion.
+
+This entry point is deterministic and does not change the Simplex/FUQ or MH
+targets. In particular, MH retains its independent-Gaussian likelihood based
+on uncertainty-weighted chi-square; selecting L1 here does not define a new
+posterior likelihood.
 
 ## Prepare observations
 
@@ -63,6 +160,7 @@ lpm:
 run:
   reachable_concentrations: false
   objective_function: false
+  deterministic_inversion: false
   metropolis_hastings: true
   simplex: true
 
@@ -203,7 +301,9 @@ not production posterior draws.
 The standard files and exact schemas are listed in {doc}`../reference/outputs`.
 In particular:
 
-- `obj_function` is $\sqrt{\chi^2/n}$, not raw $\chi^2$ or a log posterior;
+- `obj_function` is the historical compatibility field for
+  $\sqrt{\chi^2/n}$, not raw $\chi^2$, a log posterior, or the configurable
+  deterministic `objective_value`;
 - every table row is one joint parameter and modeled-concentration state;
 - `acceptance_rate` is a transition acceptance fraction, not a convergence test;
 - marginal summaries must not be recombined to construct derived quantities.
@@ -225,6 +325,7 @@ complete `result_manifest.json`.
 
 Contributors who call `CalibrationProblem`, `Simplex`, or
 `MetropolisHastings` directly should follow {doc}`../dev/extending-calibration-workflows`.
-Only `CalibrationProblem` is currently exported from the small public
-`pyages.calibration` facade; method modules are contributor interfaces rather
-than a stable top-level compatibility promise.
+`CalibrationProblem`, `ObjectiveSpec`, `invert_lpm()`, and their immutable
+result records are exported from the small public `pyages.calibration` facade.
+Simplex and MH method modules remain contributor interfaces rather than a
+stable top-level compatibility promise.

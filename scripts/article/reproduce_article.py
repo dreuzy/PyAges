@@ -32,6 +32,11 @@ from scripts.common.provenance import sha256_file as _sha256
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_TAG = "1.0"
 RELEASE_VERSION = "1.0"
+CAMPAIGN_SCHEMA_VERSION = 2
+DIAGNOSTIC_CONTRACT = (
+    "pyages.calibration.methods.mh.diagnostics:"
+    "rank_normalized_folded_rhat_bulk_tail_ess:v1"
+)
 REPRODUCTION_ENVIRONMENT = ROOT / "install/environment.yml"
 ALL_STAGES = (
     "forward",
@@ -404,6 +409,26 @@ print(json.dumps(failures))
     return modules, errors
 
 
+def _check_existing_campaign_contract(output: Path) -> list[str]:
+    """Refuse to append current results to an older campaign identity."""
+
+    manifest = output / "campaign_manifest.json"
+    if not manifest.is_file():
+        return []
+    try:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as error:
+        return [f"existing campaign manifest is unreadable: {error}"]
+    recorded = payload.get("diagnostic_contract")
+    if recorded == DIAGNOSTIC_CONTRACT:
+        return []
+    return [
+        "existing campaign uses a different diagnostic contract; choose a new "
+        "--output directory and leave its manifest/checksums unchanged "
+        f"(recorded={recorded!r}, current={DIAGNOSTIC_CONTRACT!r})"
+    ]
+
+
 def preflight(
     output: Path,
     stages: dict[str, Stage],
@@ -421,6 +446,7 @@ def preflight(
     errors.extend(
         f"missing input: {path}" for path in _required_inputs() if not path.is_file()
     )
+    errors.extend(_check_existing_campaign_contract(output))
     dirty = _git("status", "--short")
     if dirty and not allow_dirty:
         errors.append(
@@ -441,6 +467,8 @@ def preflight(
         "git_tags_at_head": tags,
         "expected_release_tag": expected_tag,
         "pyages_version": __version__,
+        "evidence_layer": "new_campaign_current_code",
+        "diagnostic_contract": DIAGNOSTIC_CONTRACT,
         "environment": environment,
         "stage_entrypoints": entrypoints,
         "output": str(output),
@@ -469,6 +497,14 @@ def _load_manifest(path: Path, output: Path) -> dict[str, object]:
     ]
     if path.is_file():
         payload = json.loads(path.read_text(encoding="utf-8"))
+        recorded_contract = payload.get("diagnostic_contract")
+        if recorded_contract != DIAGNOSTIC_CONTRACT:
+            raise ValueError(
+                "refusing to resume or rewrite a campaign created under a "
+                "different diagnostic contract; use a new --output directory "
+                "and keep the existing manifest/checksums unchanged "
+                f"(recorded={recorded_contract!r}, current={DIAGNOSTIC_CONTRACT!r})"
+            )
         previous_head = str(payload.get("git_head", current_head))
         payload.setdefault("initial_git_head", previous_head)
         records = payload.get("stages", {})
@@ -482,8 +518,10 @@ def _load_manifest(path: Path, output: Path) -> dict[str, object]:
         payload["pyages_version"] = __version__
         return payload
     return {
-        "schema_version": 1,
+        "schema_version": CAMPAIGN_SCHEMA_VERSION,
         "created_at": _now(),
+        "evidence_layer": "new_campaign_current_code",
+        "diagnostic_contract": DIAGNOSTIC_CONTRACT,
         "git_head": current_head,
         "git_tags_at_head": current_tags,
         "release_tag": RELEASE_TAG,
@@ -642,6 +680,8 @@ def validate_campaign(
         ),
         "campaign_root": str(output),
         "manifest_git_head": manifest.get("git_head"),
+        "evidence_layer": manifest.get("evidence_layer", "historical_or_unspecified"),
+        "diagnostic_contract": manifest.get("diagnostic_contract"),
         "completed_at": manifest.get("completed_at"),
         "stages": stage_results,
         "package_artifacts": package_artifacts,

@@ -7,11 +7,14 @@
 
 """Lumped-parameter models, construction, and calibrated sample tables."""
 
+from pyages.lpm.extensions import LpmDefinition, LpmProvenance
 from pyages.lpm.factory import build_lpm, build_random_lpm, list_available_lpms
 from pyages.lpm.samples import LpmSampleTable
 
 __all__ = [
     "LpmSampleTable",
+    "LpmDefinition",
+    "LpmProvenance",
     "build_lpm",
     "build_random_lpm",
     "list_available_lpms",

@@ -57,13 +57,9 @@ from pyages.calibration.methods.mh.ig_coordinates import (
     scipy_to_physical_moments,
 )
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
+from pyages.calibration.methods.mh import diagnostics as mcmc_diagnostics
 from pyages.calibration.problem import CalibrationProblem
 from pyages.concentrations import Concentrations
-from pyages.calibration.methods.mh.diagnostics import (
-    ess as _ess,
-    rank_normalize as _rank_normalize,
-    split_rhat as _split_rhat,
-)
 from scripts.common.reporting import markdown_table
 from scripts.common.provenance import repository_provenance, sha256_file as _sha256
 from sites.ploemeur.benchmarks.scipy_ig_prior import (
@@ -464,15 +460,13 @@ def _write_posterior_products(directory: Path, chains: np.ndarray) -> None:
     diagnostic_rows = []
     for index, name in enumerate(PARAMETERS):
         values = augmented[:, :, index]
-        ranked = _rank_normalize(values)
-        low = (values <= np.quantile(values, 0.05)).astype(float)
-        high = (values >= np.quantile(values, 0.95)).astype(float)
         diagnostic_rows.append(
             {
                 "parameter": name,
-                "split_rhat": _split_rhat(values),
-                "bulk_ess": _ess(ranked),
-                "tail_ess": min(_ess(low), _ess(high)),
+                "split_rhat": mcmc_diagnostics.split_rhat(values),
+                "bulk_ess": mcmc_diagnostics.bulk_ess(values),
+                "tail_ess": mcmc_diagnostics.tail_ess(values),
+                "mcse_mean": mcmc_diagnostics.mcse_mean(values),
             }
         )
     pd.DataFrame(diagnostic_rows).to_csv(
@@ -921,20 +915,27 @@ def _path_label(path: Path, base: Path) -> str:
         return path.resolve().as_posix()
 
 
+def _manifest_sources() -> tuple[Path, ...]:
+    """Return every versioned source hashed by a new campaign manifest."""
+
+    return (
+        Path(__file__),
+        ROOT / "sites/ploemeur/benchmarks/scipy_ig_prior.py",
+        ROOT / "pyages/calibration/methods/mh/diagnostics.py",
+        *OBSERVATIONS.values(),
+    )
+
+
 def _manifest(results: pd.DataFrame) -> None:
     artifacts = [
         path
         for path in OUTPUT.rglob("*")
         if path.is_file() and path.name != "manifest.json"
     ]
-    sources = [
-        Path(__file__),
-        ROOT / "sites/ploemeur/benchmarks/scipy_ig_prior.py",
-        ROOT / "scripts/common/mcmc_diagnostics.py",
-        *OBSERVATIONS.values(),
-    ]
+    sources = _manifest_sources()
     payload = {
         "repository": repository_provenance(ROOT),
+        "evidence_layer": "new_campaign_current_code",
         "created_at": pd.Timestamp.now(tz="Europe/Paris").isoformat(),
         "git_head": subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -970,6 +971,10 @@ def _manifest(results: pd.DataFrame) -> None:
             "initialization": "deterministic prior-coordinate grid ranked by objective",
             "legacy_results_used_as_inputs": False,
             "shifted_summary": str(SHIFTED_SUMMARY) if SHIFTED_SUMMARY else None,
+            "diagnostics": (
+                "central rank-normalized folded split-R-hat with bulk/tail ESS "
+                "and mean MCSE from pyages.calibration.methods.mh.diagnostics"
+            ),
         },
         "source_sha256": {_path_label(path, ROOT): _sha256(path) for path in sources},
         "artifact_sha256": {

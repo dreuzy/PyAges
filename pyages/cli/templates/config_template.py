@@ -36,10 +36,16 @@ lpm:
 run:
   reachable_concentrations: false
   objective_function: false
+  deterministic_inversion: false
   metropolis_hastings: false
   simplex: false
 
 calibration:
+  deterministic_inversion:
+    loss: l2
+    scale: uncertainty
+    relative_floor: 1.0e-300
+    optimizer: powell
   metropolis_hastings:
     nsteps: 200
     burn_in: 0.2

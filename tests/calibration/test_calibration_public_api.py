@@ -8,14 +8,24 @@ import subprocess
 import sys
 
 
-def test_public_api_exposes_the_scientific_problem_explicitly() -> None:
+def test_public_api_exposes_problem_objectives_and_deterministic_inversion() -> None:
     script = """
 import sys
 import pyages.calibration as calibration
 
-assert calibration.__all__ == ["CalibrationProblem"]
+assert calibration.__all__ == [
+    "CalibrationProblem",
+    "InversionAttempt",
+    "InversionResult",
+    "ObjectiveSpec",
+    "ResidualRecord",
+    "invert_lpm",
+]
 assert calibration.CalibrationProblem.__name__ == "CalibrationProblem"
+assert calibration.ObjectiveSpec.__name__ == "ObjectiveSpec"
+assert callable(calibration.invert_lpm)
 assert "pyages.calibration.problem" in sys.modules
+assert "pyages.calibration.inversion" in sys.modules
 assert not hasattr(calibration, "_EXPORTS")
 assert "__getattr__" not in calibration.__dict__
 """

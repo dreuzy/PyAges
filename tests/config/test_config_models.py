@@ -12,6 +12,7 @@ import yaml
 from pydantic import ValidationError
 
 from pyages.config.models import (
+    DeterministicInversionCfg,
     MetropolisHastingsCfg,
     MHPilotCfg,
     SingleDateConfig,
@@ -210,6 +211,7 @@ def test_documented_single_date_yaml_sections_form_a_valid_configuration():
         "### Run Section",
         "### Reachable Concentrations Section",
         "### Objective Function Section",
+        "### Deterministic Inversion Section",
         "### Metropolis-Hastings Section",
         "### Simplex Section",
         "### Output Section",
@@ -261,6 +263,7 @@ def test_documented_lpm_table_matches_runtime_registry():
     [
         ("### Reachable Concentrations Section", SingleDateReachableCfg, False),
         ("### Objective Function Section", SingleDateObjectiveCfg, False),
+        ("### Deterministic Inversion Section", DeterministicInversionCfg, False),
         ("### Metropolis-Hastings Section", MetropolisHastingsCfg, False),
         ("### Simplex Section", SingleDateSimplexCfg, False),
         ("### Output Section", SingleDateOutputCfg, False),
@@ -295,11 +298,72 @@ def test_documented_required_fields_match_pydantic_models(
     assert _required_after_heading(document, heading) == _model_required(model)
 
 
-def test_documented_single_date_run_defaults_remain_all_enabled():
+def test_deterministic_inversion_is_opt_in_for_old_single_date_yaml():
     defaults = _model_defaults(SingleDateRunCfg)
 
-    assert defaults
-    assert all(value is True for value in defaults.values())
+    assert defaults["deterministic_inversion"] is False
+    assert all(
+        value is True
+        for name, value in defaults.items()
+        if name != "deterministic_inversion"
+    )
+
+    parsed = SingleDateConfig.model_validate(
+        {"schema_version": 3, "workflow": {"kind": "single_date"}}
+    )
+    assert parsed.run.deterministic_inversion is False
+    assert parsed.calibration.deterministic_inversion == DeterministicInversionCfg()
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"loss": "least_squares"},
+        {"scale": "percent"},
+        {"relative_floor": 0.0},
+        {"relative_floor": float("inf")},
+        {"relative_floor": True},
+        {"optimizer": "simplex"},
+    ],
+)
+def test_deterministic_inversion_configuration_is_strict(payload) -> None:
+    with pytest.raises(ValidationError):
+        DeterministicInversionCfg.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("loss", "scale"),
+    [
+        (loss, scale)
+        for loss in ("l1", "l2")
+        for scale in ("absolute", "relative", "uncertainty")
+    ],
+)
+def test_deterministic_objective_configuration_parses_all_supported_choices(
+    loss, scale
+) -> None:
+    parsed = SingleDateConfig.model_validate(
+        {
+            "schema_version": 3,
+            "workflow": {"kind": "single_date"},
+            "run": {"deterministic_inversion": True},
+            "calibration": {
+                "deterministic_inversion": {
+                    "loss": loss,
+                    "scale": scale,
+                    "relative_floor": 1.0e-12,
+                    "optimizer": "powell",
+                }
+            },
+        }
+    )
+
+    assert parsed.run.deterministic_inversion is True
+    assert parsed.calibration.deterministic_inversion.loss == loss
+    assert parsed.calibration.deterministic_inversion.scale == scale
+    assert parsed.calibration.deterministic_inversion.relative_floor == pytest.approx(
+        1.0e-12
+    )
 
 
 def test_mh_requires_at_least_one_retained_state() -> None:

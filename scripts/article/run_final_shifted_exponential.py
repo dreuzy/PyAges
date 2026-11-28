@@ -39,7 +39,7 @@ if str(ROOT) not in sys.path:
 
 from pyages._plotting import white_low_colormap
 from pyages.calibration.methods.mh import MetropolisHastings, MHConfig
-from pyages.calibration.methods.mh.diagnostics import mcse_mean_from_ess
+from pyages.calibration.methods.mh import diagnostics as mcmc_diagnostics
 from pyages.calibration.methods.mh.proposals import regularize_empirical_covariance
 from pyages.calibration.problem import CalibrationProblem
 from pyages.config.runtime import DisplayOptions
@@ -295,7 +295,13 @@ def _acf(values: np.ndarray, max_lag: int = MAX_ACF_LAG) -> np.ndarray:
     return result[: min(max_lag, n - 1) + 1]
 
 
-def _iact_ess(values: np.ndarray) -> tuple[np.ndarray, float, float]:
+def _acf_iact(values: np.ndarray) -> tuple[np.ndarray, float]:
+    """Return descriptive per-chain ACF and IACT values.
+
+    These series are retained for trace inspection only. Qualification uses
+    the central multi-chain R-hat, bulk/tail ESS, and MCSE implementation.
+    """
+
     acf = _acf(values)
     pairs = []
     for start in range(1, len(acf) - 1, 2):
@@ -306,22 +312,7 @@ def _iact_ess(values: np.ndarray) -> tuple[np.ndarray, float, float]:
     tau = 1.0
     if pairs:
         tau = max(1.0, 1.0 + 2.0 * float(np.minimum.accumulate(pairs).sum()))
-    return acf, tau, min(float(len(values)), float(len(values)) / tau)
-
-
-def _split_rhat(chains: list[np.ndarray]) -> float:
-    length = min(len(chain) for chain in chains)
-    half = length // 2
-    split = np.asarray(
-        [part for chain in chains for part in (chain[:half], chain[length - half :])],
-        dtype=float,
-    )
-    within = float(np.mean(np.var(split, axis=1, ddof=1)))
-    if within == 0.0:
-        return 1.0
-    between = half * float(np.var(np.mean(split, axis=1), ddof=1))
-    variance = (half - 1.0) / half * within + between / half
-    return float(math.sqrt(variance / within))
+    return acf, tau
 
 
 def _summary(values: np.ndarray) -> dict[str, float]:
@@ -376,12 +367,13 @@ def collect_diagnostics(
             ("mtt", target_mu + target_t0),
         ):
             chains = [np.asarray(data[parameter], dtype=float) for data in loaded]
-            rh = _split_rhat(chains)
-            ess_values = []
+            chain_matrix = np.asarray(chains, dtype=float)
+            rh = mcmc_diagnostics.split_rhat(chain_matrix)
+            bulk_ess = mcmc_diagnostics.bulk_ess(chain_matrix)
+            tail_ess = mcmc_diagnostics.tail_ess(chain_matrix)
             iact_values = []
             for chain, values in enumerate(chains):
-                acf, iact, ess = _iact_ess(values)
-                ess_values.append(ess)
+                acf, iact = _acf_iact(values)
                 iact_values.append(iact)
                 acf_rows.extend(
                     {
@@ -394,19 +386,28 @@ def collect_diagnostics(
                     for lag, value in enumerate(acf)
                 )
             pooled = np.concatenate(chains)
-            total_ess = float(sum(ess_values))
-            mean_mcse = mcse_mean_from_ess(pooled, total_ess)
-            converged = bool(rh < 1.01 and total_ess >= 300.0)
+            mean_mcse = mcmc_diagnostics.mcse_mean(chain_matrix)
+            converged = bool(
+                rh < 1.01 and bulk_ess >= 300.0 and tail_ess >= 300.0
+            )
             local.append(
                 {
                     "parameter": parameter,
                     "target": target,
                     "pooled": pooled,
                     "rhat": rh,
-                    "ess": total_ess,
+                    "bulk_ess": bulk_ess,
+                    "tail_ess": tail_ess,
                     "mcse_mean": mean_mcse,
                     "iact": float(max(iact_values)),
-                    "acf1": float(np.median([_acf(values)[1] for values in chains])),
+                    "acf1": float(
+                        np.nanmedian(
+                            [
+                                acf[1] if len(acf := _acf(values)) > 1 else np.nan
+                                for values in chains
+                            ]
+                        )
+                    ),
                     "converged": converged,
                 }
             )
@@ -416,7 +417,8 @@ def collect_diagnostics(
                     "parameter": parameter,
                     "steps_per_chain": steps,
                     "split_rhat": rh,
-                    "ess_sum_chains": total_ess,
+                    "bulk_ess": bulk_ess,
+                    "tail_ess": tail_ess,
                     "mcse_mean": mean_mcse,
                     "iact_max_chain": float(max(iact_values)),
                     "converged": converged,
@@ -458,7 +460,8 @@ def collect_diagnostics(
                     **pooled_summary,
                     "acf1_median_chain": item["acf1"],
                     "iact_max_chain": item["iact"],
-                    "ess_sum_chains": item["ess"],
+                    "bulk_ess": item["bulk_ess"],
+                    "tail_ess": item["tail_ess"],
                     "mcse_mean": item["mcse_mean"] if case_converged else np.nan,
                     "split_rhat": item["rhat"],
                 }
@@ -524,7 +527,15 @@ def _table4(
                 row[f"posterior_{parameter}_{statistic}"] = float(
                     subset.loc[parameter, statistic]
                 )
-            row[f"{parameter}_ess"] = float(subset.loc[parameter, "ess_sum_chains"])
+            row[f"{parameter}_bulk_ess"] = float(
+                subset.loc[parameter, "bulk_ess"]
+            )
+            row[f"{parameter}_tail_ess"] = float(
+                subset.loc[parameter, "tail_ess"]
+            )
+            row[f"{parameter}_ess"] = min(
+                row[f"{parameter}_bulk_ess"], row[f"{parameter}_tail_ess"]
+            )
             row[f"{parameter}_split_rhat"] = float(subset.loc[parameter, "split_rhat"])
         row["best_sqrt_J_data_over_m"] = float(
             runs.loc[runs["case"] == case_index, "best_sqrt_J_data_over_m"].min()
@@ -651,15 +662,22 @@ def _figure2(output: Path, lengths: dict[int, int]) -> None:
     posterior.to_csv(output / "figure2_final_chain_samples.csv", index=False)
 
 
-def _manifest(output: Path, lengths: dict[int, int]) -> None:
-    sources = (
+def _manifest_sources() -> tuple[Path, ...]:
+    """Return every versioned source hashed by a new campaign manifest."""
+
+    return (
         Path(__file__).resolve(),
+        ROOT / "pyages" / "calibration" / "methods" / "mh" / "diagnostics.py",
         ROOT / "pyages" / "calibration" / "methods" / "mh" / "proposals.py",
         ROOT / "pyages" / "calibration" / "methods" / "mh" / "sampler.py",
         ROOT / "pyages" / "convolution" / "convolution.py",
         ROOT / "pyages" / "lpm" / "models" / "exponential_shifted.py",
         ROOT / "data_core" / "data_lpm" / "exp_shifted" / "params.yaml",
     )
+
+
+def _manifest(output: Path, lengths: dict[int, int]) -> None:
+    sources = _manifest_sources()
     artifacts = [
         path
         for path in output.rglob("*")
@@ -667,6 +685,7 @@ def _manifest(output: Path, lengths: dict[int, int]) -> None:
     ]
     payload = {
         "repository": repository_provenance(ROOT),
+        "evidence_layer": "new_campaign_current_code",
         "created_at": pd.Timestamp.now(tz="Europe/Paris").isoformat(),
         "git_head": subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -703,6 +722,10 @@ def _manifest(output: Path, lengths: dict[int, int]) -> None:
             "seed_rule": "pilot=410000+case; production=420000+100*case+zero_based_chain",
             "final_steps_by_case": lengths,
             "thinning_for_diagnostics": 1,
+            "diagnostics": (
+                "central rank-normalized folded split-R-hat with bulk/tail ESS "
+                "from pyages.calibration.methods.mh.diagnostics"
+            ),
         },
         "source_sha256": {_path_label(path): _sha256(path) for path in sources},
         "artifact_sha256": {
@@ -720,7 +743,8 @@ def analyze_and_extend(output: Path, workers: int) -> dict[str, pd.DataFrame]:
     failing = set(
         initial["convergence"]
         .loc[
-            (initial["convergence"]["ess_sum_chains"] < 300.0)
+            (initial["convergence"]["bulk_ess"] < 300.0)
+            | (initial["convergence"]["tail_ess"] < 300.0)
             | (initial["convergence"]["split_rhat"] >= 1.01),
             "case",
         ]
@@ -747,10 +771,15 @@ def analyze_and_extend(output: Path, workers: int) -> dict[str, pd.DataFrame]:
         )
     report_table = (
         tables["convergence"]
+        .assign(
+            minimum_ess=tables["convergence"][["bulk_ess", "tail_ess"]].min(
+                axis=1
+            )
+        )
         .groupby("case", as_index=False)
         .agg(
             max_split_rhat=("split_rhat", "max"),
-            min_ess=("ess_sum_chains", "min"),
+            min_ess=("minimum_ess", "min"),
             steps_per_chain=("steps_per_chain", "max"),
             converged=("converged", "all"),
         )
@@ -760,7 +789,7 @@ def analyze_and_extend(output: Path, workers: int) -> dict[str, pd.DataFrame]:
     (output / "shifted_exponential_final.md").write_text(
         "# Production finale shifted-exponential\n\n"
         + _markdown(report_table)
-        + "\n\nLes chaînes ne sont poolées dans Table 4 que si tous les diagnostics finaux du cas satisfont split-Rhat < 1.01 et ESS ≥ 300.\n",
+        + "\n\nLes chaînes ne sont poolées dans Table 4 que si tous les diagnostics finaux du cas satisfont split-Rhat < 1.01 et ESS bulk/tail ≥ 300.\n",
         encoding="utf-8",
         newline="\n",
     )

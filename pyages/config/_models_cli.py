@@ -17,6 +17,7 @@ an eager scientific-model import during general configuration loading.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, field_validator
 
@@ -38,6 +39,9 @@ class CliRunParams(BaseConfigModel):
     verbose: bool = False
     lpm: str | None = None
     mh_nsteps: int | None = None
+    deterministic_inversion: bool = False
+    objective_loss: Literal["l1", "l2"] | None = None
+    objective_scale: Literal["absolute", "relative", "uncertainty"] | None = None
     data_name: str | None = None
     data_dir: Path | None = None
     data_file: Path | None = None

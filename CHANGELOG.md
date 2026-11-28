@@ -7,6 +7,40 @@ Before 1.0, incompatible public changes are identified explicitly below.
 
 ## Unreleased
 
+### Added
+
+- Added the public deterministic `pyages.calibration.invert_lpm()` interface,
+  explicit absolute, relative, or uncertainty-scaled L1/L2 objectives, bounded
+  multi-start optimization, immutable attempt and residual records, common
+  cross-objective metrics, and prepared-target fingerprints. Existing FUQ and
+  MH targets are unchanged.
+- Added opt-in single-date YAML and CLI integration for deterministic inversion,
+  with explicit objective fields and cross-objective chi-square diagnostics in
+  both `inversion_result.json` and the terminal result manifest. Existing
+  schema-3 configurations remain behaviorally unchanged.
+- Added installable external LPM discovery through the `pyages.lpms` entry-point
+  group, with lazy loading, strict name-conflict handling, packaged parameter
+  data, API-version validation, and provider/YAML provenance.
+- Added `pyages check lpm <name>` for deterministic schema, probability,
+  strategy, partial-moment, and continuous-convolution integration checks.
+- Extended `pyages new lpm` with `--layout plugin` and complete SciPy or direct
+  `LpmBase` project templates, plus runnable SciPy-backed gamma and NumPy-only
+  bounded-power plugin examples.
+- Added offline end-to-end tests that copy, build, install, discover, check,
+  construct, and run the scientific tests of both standalone plugin examples
+  in temporary paths. The same boundary test now installs untouched SciPy and
+  direct-NumPy projects freshly produced by `pyages new lpm`.
+
+### Changed
+
+- Reorganized external-LPM documentation into an English quickstart and a
+  focused reference, and expanded generated module, class, method, test, YAML,
+  and packaging guidance.
+- Expanded external-LPM registry, factory, checker, parameter-schema, generator,
+  example, and generated-code docstrings with lifecycle, precedence, return,
+  error, side-effect, and scientific-scope explanations; added a dated audit
+  report covering the verified extension boundary and remaining limits.
+
 ## 1.0.2 - 2026-11-25
 
 ### Changed

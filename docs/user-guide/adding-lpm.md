@@ -2,12 +2,11 @@
 
 This guide explains how to add a new Lumped Parameter Model (LPM) to PyAges. LPMs describe probability distributions of groundwater transit times.
 
-Adding an LPM is a source-development workflow: the Python model must be part
-of the importable `pyages.lpm.models` package. Work from the root of a writable
-source checkout and install it in editable mode while developing the model.
-An arbitrary directory passed with `--output` is not scanned automatically;
-the generated module must still be integrated into `pyages/lpm/models/` before
-the registry can discover it.
+There are two supported layouts. A model contributed to PyAges itself belongs
+to the importable `pyages.lpm.models` package. A separately maintained model can
+instead be an installable entry-point plugin. Start with
+{doc}`external-lpm-quickstart`, then use {doc}`external-lpm-models` as the
+plugin reference. The generator supports both layouts.
 
 ## Choose the implementation path
 
@@ -82,7 +81,7 @@ implementations.
 The easiest way to create a new LPM is with the template generator (CLI):
 
 ```bash
-pyages new lpm <name> [--base scipy|root] [-o <output_dir>]
+pyages new lpm <name> [--base scipy|root] [--layout source|plugin] [-o <output_dir>]
 ```
 
 Run this command from the root of the source checkout. `--output` changes only
@@ -93,11 +92,18 @@ Example for a Weibull distribution:
 
 ```bash
 pyages new lpm weibull --base scipy
+pyages new lpm bounded_power --base root --layout plugin
 ```
 
-This creates:
-- `pyages/lpm/models/weibull.py` – Python class (template)
-- `data_core/data_lpm/weibull/params.yaml` – Parameter configuration
+The default `source` layout creates:
+
+- `pyages/lpm/models/weibull.py` — Python class;
+- `data_core/data_lpm/weibull/params.yaml` — parameter configuration.
+
+The `plugin` layout instead creates a complete standalone project containing
+`pyproject.toml`, a documented model module, packaged parameters, an English
+README, and a smoke test. Continue with {doc}`external-lpm-quickstart` for that
+layout.
 
 Then follow the "Customize the Generated Code" section below.
 
@@ -431,7 +437,25 @@ pyages check
 
 ---
 
+(lpm-parameter-file-reference)=
 ## Parameter File Reference
+
+This is the user-facing reference for `params.yaml`. The executable source of
+truth is `pyages/data_io/_lpm_parameter_schema.py`, and focused valid/invalid
+examples are tested in `tests/data_io/test_lpm_params.py`.
+
+The top-level document contains:
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `model` | yes | Canonical LPM name; it must agree with the requested model and file location |
+| `version` | recommended | Parameter-schema version; the only supported value is `1`, which is also the default |
+| `parameters` | yes | Non-empty list containing one entry per Python model parameter |
+
+Within each parameter entry, `name`, `calibration_range`, and `init` are
+required. `domain`, `label`, `unit`, `description`, `step`, and `prior` are
+optional. Generated projects include the optional descriptive fields because
+they make scientific review easier.
 
 ### Required Fields
 
@@ -457,6 +481,35 @@ parameters:
       min: 0.0
       max: 200.0
 ```
+
+### Mathematical domain and calibration range
+
+These are deliberately separate concepts. For example:
+
+```yaml
+domain: {min: 0.0, min_inclusive: false, max: null}
+calibration_range: [0.1, 100.0]
+```
+
+means:
+
+- the formula is mathematically valid for values strictly greater than zero;
+- zero is excluded because `min_inclusive` is `false`;
+- there is no finite mathematical maximum because `max` is `null`;
+- this calibration configuration searches only from `0.1` through `100.0`.
+
+With `min_inclusive: true`, the minimum itself is allowed. `max_inclusive`
+provides the same choice for a finite maximum. Both flags default to `true`.
+The two finite endpoints of `calibration_range` must belong to the mathematical
+domain, and `init` must lie inside the calibration range.
+
+Supported priors are:
+
+- `uniform`, with finite `min` and `max` and positive-width overlap with the
+  calibration range;
+- `normal`, with finite `mean` and strictly positive finite `std`.
+
+`step`, when present, must be finite and strictly positive.
 
 ### Tips for Setting Parameters
 
